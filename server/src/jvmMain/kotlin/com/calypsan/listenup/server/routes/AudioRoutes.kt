@@ -10,8 +10,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Streaming audio route. NOT JWT-gated — the URL signature IS the auth.
@@ -33,7 +31,6 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * auth failure and still answers 403.
  */
 internal fun Route.audioRoutes(
-    db: Database,
     locator: AudioFileLocator,
     signer: AudioUrlSigner,
     roleLookup: UserRoleLookup,
@@ -50,15 +47,14 @@ internal fun Route.audioRoutes(
         ) {
             return@get call.respond(HttpStatusCode.Forbidden)
         }
-        // Resolve role → access → file location in ONE transaction. The three checks each open
-        // their own suspendTransaction, which nest-reuse this outer one (Exposed JDBC), so a
-        // hot streaming request takes a single pooled connection instead of three — easing the
-        // pool contention behind the playback stalls (#598). Every failure resolves to null →
-        // 404, so a private/unknown book is indistinguishable (no existence probe).
+        // Resolve role → access → file location in sequence. Each call is already a
+        // self-contained suspend function that manages its own DB access. Every failure
+        // resolves to null → 404, so a private/unknown book is indistinguishable (no
+        // existence probe).
         val location: AudioFileLocation? =
-            suspendTransaction(db) {
-                val role = roleLookup.roleOf(userId) ?: return@suspendTransaction null
-                if (!accessPolicy.canAccess(userId, role, bookId)) return@suspendTransaction null
+            run {
+                val role = roleLookup.roleOf(userId) ?: return@run null
+                if (!accessPolicy.canAccess(userId, role, bookId)) return@run null
                 locator.locate(bookId, fileId)
             }
         if (location == null) return@get call.respond(HttpStatusCode.NotFound)

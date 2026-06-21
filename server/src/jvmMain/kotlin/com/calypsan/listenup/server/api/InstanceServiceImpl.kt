@@ -3,11 +3,10 @@ package com.calypsan.listenup.server.api
 import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Serves the pre-auth [ServerInfo] the client fetches on first connect.
@@ -20,12 +19,13 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * same id advertised over mDNS). The remaining fields are static server identity.
  */
 class InstanceServiceImpl(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val settings: ServerSettingsRepository,
     private val instanceIdentity: InstanceIdentity,
 ) : InstanceService {
     override suspend fun getServerInfo(): AppResult<ServerInfo> {
-        val setupRequired = suspendTransaction(db) { UserEntity.all().limit(1).empty() }
+        // setupRequired is derived: a fresh instance with no users needs root setup.
+        val setupRequired = suspendTransaction(sql) { !sql.usersQueries.hasAnyUser().executeAsOne() }
         return AppResult.Success(
             ServerInfo(
                 name = settings.serverName(),

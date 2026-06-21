@@ -22,10 +22,7 @@ import com.calypsan.listenup.server.absimport.UserMatcher
 import com.calypsan.listenup.server.absimport.buildSyntheticAbsDb
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.db.UserStatusColumn
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -33,8 +30,9 @@ import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
@@ -42,9 +40,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.nio.file.Files
 
 /**
@@ -60,10 +55,9 @@ class ImportServiceTest :
     FunSpec({
 
         test("full flow: analyze → confirmMapping → apply → status APPLIED → delete") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val (service, importId, store) = stageService(db, principal = rootPrincipal())
+                    val (service, importId, store) = stageService(this@withSqlDatabase, principal = rootPrincipal())
 
                     val analysis = service.analyze(importId)
                     analysis.shouldBeInstanceOf<AppResult.Success<*>>()
@@ -104,10 +98,9 @@ class ImportServiceTest :
         }
 
         test("confirmMapping with two ABS users mapped to one ListenUp user fails MappingInvalid") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val (service, importId, _) = stageService(db, principal = rootPrincipal())
+                    val (service, importId, _) = stageService(this@withSqlDatabase, principal = rootPrincipal())
                     service.analyze(importId)
 
                     val confirm =
@@ -126,10 +119,9 @@ class ImportServiceTest :
         }
 
         test("confirmMapping on an unknown import returns ImportNotFound") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val (service, _, _) = stageService(db, principal = rootPrincipal())
+                    val (service, _, _) = stageService(this@withSqlDatabase, principal = rootPrincipal())
                     val confirm =
                         service.confirmMapping(
                             ImportId("does-not-exist"),
@@ -142,10 +134,9 @@ class ImportServiceTest :
         }
 
         test("apply on an unknown import returns ImportNotFound") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val (service, _, _) = stageService(db, principal = rootPrincipal())
+                    val (service, _, _) = stageService(this@withSqlDatabase, principal = rootPrincipal())
                     val applied = service.apply(ImportId("does-not-exist"))
                     (applied as AppResult.Failure).error.shouldBeInstanceOf<ImportError.ImportNotFound>()
                 }
@@ -153,10 +144,9 @@ class ImportServiceTest :
         }
 
         test("every method is denied for a non-admin caller") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val (service, importId, _) = stageService(db, principal = memberPrincipal())
+                    val (service, importId, _) = stageService(this@withSqlDatabase, principal = memberPrincipal())
 
                     service.analyze(importId).denied()
                     service.confirmMapping(importId, emptyMap(), emptyMap()).denied()
@@ -169,10 +159,9 @@ class ImportServiceTest :
         }
 
         test("observeProgress emits nothing for a non-admin caller") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val (service, importId, _) = stageService(db, principal = memberPrincipal())
+                    val (service, importId, _) = stageService(this@withSqlDatabase, principal = memberPrincipal())
                     service.observeProgress(importId).toList() shouldHaveSize 0
                 }
             }
@@ -209,7 +198,7 @@ private data class StagedService(
  * gating can be asserted on a fresh (unanalyzed) import too.
  */
 private suspend fun stageService(
-    db: Database,
+    dbs: SqlTestDatabases,
     principal: PrincipalProvider,
 ): StagedService {
     val home = Files.createTempDirectory("abs-service-")
@@ -218,25 +207,25 @@ private suspend fun stageService(
     Files.createDirectories(paths.dirFor(importId.value))
     buildSyntheticAbsDb(paths.absDbFor(importId.value))
 
-    val libId = seedLibraryUser(db)
-    transaction(db) { seedBooks(libId.value) }
+    val libId = seedLibraryUser(dbs)
+    dbs.sql.seedBooks(libId.value)
 
     val store = ImportStore(paths)
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val repo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val listeningEventRepo = ListeningEventRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val statsBackfill = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
+    val repo = PlaybackPositionRepository(db = dbs.sql, bus = bus, registry = registry)
+    val statsRepo = UserStatsRepository(db = dbs.sql, bus = bus, registry = registry)
+    val listeningEventRepo = ListeningEventRepository(db = dbs.sql, bus = bus, registry = registry)
+    val statsBackfill = UserStatsBackfillService(sql = dbs.sql, userStatsRepo = statsRepo)
     val analyzer =
         ImportAnalyzer(
             reader = AbsBackupReader(),
             store = store,
             paths = paths,
-            bookMatcher = BookMatcher(db),
+            bookMatcher = BookMatcher(dbs.sql),
             userMatcher = UserMatcher(),
-            libraryRegistry = LibraryRegistry(db),
-            db = db,
+            libraryRegistry = LibraryRegistry(dbs.sql),
+            sql = dbs.sql,
         )
     val applier =
         ImportApplier(
@@ -253,54 +242,78 @@ private suspend fun stageService(
             store = store,
             analyzer = analyzer,
             applier = applier,
-            validator = MappingValidator(db),
+            validator = MappingValidator(dbs.sql),
             eventBus = kotlinx.coroutines.flow.MutableSharedFlow(replay = 0, extraBufferCapacity = 64),
             principal = principal,
         )
     return StagedService(service, importId, store)
 }
 
-private suspend fun seedLibraryUser(db: Database): LibraryId {
-    val libId = LibraryRegistry(db).currentLibrary()
-    transaction(db) {
-        UserEntity.new(LU_USER) {
-            email = "simon@x.test"
-            emailNormalized = "simon@x.test"
-            passwordHash = "phc"
-            role = UserRoleColumn.MEMBER
-            displayName = "Simon"
-            status = UserStatusColumn.ACTIVE
-            createdAt = 1L
-            updatedAt = 1L
-        }
-    }
+private suspend fun seedLibraryUser(dbs: SqlTestDatabases): LibraryId {
+    val libId = LibraryRegistry(dbs.sql).currentLibrary()
+    dbs.sql.seedTestUser(LU_USER)
     return libId
 }
 
 /** Seeds two ListenUp books matching the synthetic ABS items (kings by ASIN, mist by title). */
-private fun seedBooks(libraryId: String) {
+private fun ListenUpDatabase.seedBooks(libraryId: String) {
     val now = 1_730_000_000_000L
-    BookTable.insert {
-        it[id] = LU_KINGS
-        it[BookTable.libraryId] = libraryId
-        it[title] = "The Way of Kings"
-        it[asin] = "B00ASIN001"
-        it[rootRelPath] = "Sanderson/Way of Kings"
-        it[totalDuration] = 1L
-        it[scannedAt] = now
-        it[revision] = 1L
-        it[createdAt] = now
-        it[updatedAt] = now
-    }
-    BookTable.insert {
-        it[id] = LU_MIST
-        it[BookTable.libraryId] = libraryId
-        it[title] = "Mistborn"
-        it[rootRelPath] = "Sanderson/Mistborn-listenup"
-        it[totalDuration] = 1L
-        it[scannedAt] = now
-        it[revision] = 1L
-        it[createdAt] = now
-        it[updatedAt] = now
-    }
+    booksQueries.insert(
+        id = LU_KINGS,
+        library_id = libraryId,
+        folder_id = "PENDING-LIB-C",
+        title = "The Way of Kings",
+        sort_title = null,
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = "B00ASIN001",
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = 1L,
+        cover_source = null,
+        cover_path = null,
+        cover_hash = null,
+        root_rel_path = "Sanderson/Way of Kings",
+        inode = null,
+        scanned_at = now,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
+    booksQueries.insert(
+        id = LU_MIST,
+        library_id = libraryId,
+        folder_id = "PENDING-LIB-C",
+        title = "Mistborn",
+        sort_title = null,
+        subtitle = null,
+        description = null,
+        publish_year = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = 0L,
+        explicit = 0L,
+        has_scan_warning = 0L,
+        total_duration = 1L,
+        cover_source = null,
+        cover_path = null,
+        cover_hash = null,
+        root_rel_path = "Sanderson/Mistborn-listenup",
+        inode = null,
+        scanned_at = now,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
 }

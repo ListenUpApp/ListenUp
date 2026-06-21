@@ -13,7 +13,6 @@ import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandle
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -26,7 +25,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Cross-stack parity guard: proves [DigestComputer.compute] produces byte-for-byte
@@ -60,11 +58,11 @@ class DigestParityE2ETest :
                 Files.createTempFile("listenup-digest-parity-", ".db").toFile().apply {
                     deleteOnExit()
                 }
-            val db =
-                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-            // SeriesRepository is SQLDelight-converted: open a SQLDelight view over the same
-            // already-migrated file the Exposed [db] is connected to.
-            val sqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+            // DatabaseFactory.init runs migrations; SeriesRepository reads through a SQLDelight
+            // driver over the same already-migrated file.
+            val serverDriver =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
+            val sqlDb = ServerSqlDatabase(serverDriver)
 
             val repo = SeriesRepository(db = sqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
@@ -97,11 +95,11 @@ class DigestParityE2ETest :
                 Files.createTempFile("listenup-digest-parity-user-stats-", ".db").toFile().apply {
                     deleteOnExit()
                 }
-            val serverDb =
-                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-            // UserStatsRepository is SQLDelight-converted: open a SQLDelight view over the same
-            // already-migrated file the Exposed [serverDb] is connected to.
-            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+            // DatabaseFactory.init runs migrations; UserStatsRepository reads through a SQLDelight
+            // driver over the same already-migrated file.
+            val serverDriver =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
+            val serverSqlDb = ServerSqlDatabase(serverDriver)
             val userStatsRepo =
                 UserStatsRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
@@ -169,11 +167,11 @@ class DigestParityE2ETest :
                 Files.createTempFile("listenup-digest-parity-listening-events-", ".db").toFile().apply {
                     deleteOnExit()
                 }
-            val serverDb =
-                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-            // ListeningEventRepository is SQLDelight-converted: open a SQLDelight view over the same
-            // already-migrated file the Exposed [serverDb] is connected to.
-            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+            // DatabaseFactory.init runs migrations; ListeningEventRepository reads through a SQLDelight
+            // driver over the same already-migrated file.
+            val serverDriver =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
+            val serverSqlDb = ServerSqlDatabase(serverDriver)
             // null userStatsUpdater is safe here — stats accrual is not under test.
             val listeningEventRepo =
                 ListeningEventRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
@@ -259,11 +257,11 @@ class DigestParityE2ETest :
                 Files.createTempFile("listenup-digest-parity-book-tags-", ".db").toFile().apply {
                     deleteOnExit()
                 }
-            val serverDb =
-                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-            // BookTagRepository is SQLDelight-converted: open a SQLDelight view over the same
-            // already-migrated file the Exposed [serverDb] is connected to.
-            val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+            // DatabaseFactory.init runs migrations; BookTagRepository reads through a SQLDelight
+            // driver over the same already-migrated file.
+            val serverDriver =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
+            val serverSqlDb = ServerSqlDatabase(serverDriver)
             val bookTagRepo = BookTagRepository(db = serverSqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             val clientDb = createInMemoryTestDatabase()
@@ -272,26 +270,30 @@ class DigestParityE2ETest :
                     // Seed parent rows required by the book_tags FK constraints (foreign_keys=ON).
                     // books.library_id REFERENCES libraries(id), so we need a library row first.
                     val now = System.currentTimeMillis()
-                    transaction(serverDb) {
-                        exec(
-                            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
-                                "VALUES ('lib', 'Test Library', $now, $now, 0)",
+                    serverDriver.execute(
+                        null,
+                        "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                            "VALUES ('lib', 'Test Library', $now, $now, 0)",
+                        0,
+                    )
+                    // Minimal books rows — include all NOT NULL columns.
+                    for (bid in listOf("book-1", "book-2", "book-3")) {
+                        serverDriver.execute(
+                            null,
+                            "INSERT INTO books(id, library_id, folder_id, title, " +
+                                "total_duration, root_rel_path, scanned_at, revision, created_at, updated_at) " +
+                                "VALUES ('$bid', 'lib', 'folder', 'Book $bid', 0, '$bid', $now, 0, $now, $now)",
+                            0,
                         )
-                        // Minimal books rows — include all NOT NULL columns.
-                        for (bid in listOf("book-1", "book-2", "book-3")) {
-                            exec(
-                                "INSERT INTO books(id, library_id, folder_id, title, " +
-                                    "total_duration, root_rel_path, scanned_at, revision, created_at, updated_at) " +
-                                    "VALUES ('$bid', 'lib', 'folder', 'Book $bid', 0, '$bid', $now, 0, $now, $now)",
-                            )
-                        }
-                        // Minimal tags rows.
-                        for ((tid, slug) in listOf("tag-a" to "ta", "tag-b" to "tb", "tag-c" to "tc")) {
-                            exec(
-                                "INSERT INTO tags(id, name, slug, revision, created_at, updated_at) " +
-                                    "VALUES ('$tid', '$tid', '$slug', 0, $now, $now)",
-                            )
-                        }
+                    }
+                    // Minimal tags rows.
+                    for ((tid, slug) in listOf("tag-a" to "ta", "tag-b" to "tb", "tag-c" to "tc")) {
+                        serverDriver.execute(
+                            null,
+                            "INSERT INTO tags(id, name, slug, revision, created_at, updated_at) " +
+                                "VALUES ('$tid', '$tid', '$slug', 0, $now, $now)",
+                            0,
+                        )
                     }
 
                     // Seed three live book-tag junctions (no tombstones — the parity test targets
@@ -344,9 +346,8 @@ class DigestParityE2ETest :
                 Files.createTempFile("listenup-digest-parity-collection-books-", ".db").toFile().apply {
                     deleteOnExit()
                 }
-            val serverDb =
-                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-            val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
+            val serverDriver =
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).sqlDriver
             val collectionBookRepo =
                 CollectionBookRepository(
                     db = ServerSqlDatabase(serverDriver),
@@ -360,27 +361,31 @@ class DigestParityE2ETest :
                 runTest {
                     // Seed parent rows required by the collection_books FK constraints (foreign_keys=ON).
                     val now = System.currentTimeMillis()
-                    transaction(serverDb) {
-                        // Library row required by CollectionsTable.libraryId FK.
-                        exec(
-                            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
-                                "VALUES ('lib', 'Test Library', $now, $now, 0)",
+                    // Library row required by CollectionsTable.libraryId FK.
+                    serverDriver.execute(
+                        null,
+                        "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                            "VALUES ('lib', 'Test Library', $now, $now, 0)",
+                        0,
+                    )
+                    // Collections rows.
+                    for (cid in listOf("col-1", "col-2")) {
+                        serverDriver.execute(
+                            null,
+                            "INSERT INTO collections(id, library_id, owner_id, name, revision, created_at, updated_at) " +
+                                "VALUES ('$cid', 'lib', 'u1', 'Collection $cid', 0, $now, $now)",
+                            0,
                         )
-                        // Collections rows.
-                        for (cid in listOf("col-1", "col-2")) {
-                            exec(
-                                "INSERT INTO collections(id, library_id, owner_id, name, revision, created_at, updated_at) " +
-                                    "VALUES ('$cid', 'lib', 'u1', 'Collection $cid', 0, $now, $now)",
-                            )
-                        }
-                        // Books rows — include all NOT NULL columns.
-                        for (bid in listOf("book-1", "book-2", "book-3")) {
-                            exec(
-                                "INSERT INTO books(id, library_id, folder_id, title, " +
-                                    "total_duration, root_rel_path, scanned_at, revision, created_at, updated_at) " +
-                                    "VALUES ('$bid', 'lib', 'folder', 'Book $bid', 0, '$bid', $now, 0, $now, $now)",
-                            )
-                        }
+                    }
+                    // Books rows — include all NOT NULL columns.
+                    for (bid in listOf("book-1", "book-2", "book-3")) {
+                        serverDriver.execute(
+                            null,
+                            "INSERT INTO books(id, library_id, folder_id, title, " +
+                                "total_duration, root_rel_path, scanned_at, revision, created_at, updated_at) " +
+                                "VALUES ('$bid', 'lib', 'folder', 'Book $bid', 0, '$bid', $now, 0, $now, $now)",
+                            0,
+                        )
                     }
 
                     // Seed three live collection-book junctions (no tombstones — the parity test

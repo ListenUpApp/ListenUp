@@ -20,14 +20,13 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -37,7 +36,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Verifies the per-user [SyncControl.AccessChanged] control signal is published — and to
@@ -65,29 +63,29 @@ class AccessChangedEmissionTest :
             val bus: ChangeBus,
         )
 
-        fun makeHarness(db: Database): Harness {
+        fun makeHarness(db: SqlTestDatabases): Harness {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             val service =
@@ -96,9 +94,9 @@ class AccessChangedEmissionTest :
                     collectionBookRepo = collectionBookRepo,
                     grantRepo = grantRepo,
                     accessPolicy = accessPolicy,
-                    permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                    permissionPolicy = UserPermissionPolicy(db.sql),
                     bus = bus,
-                    db = db,
+                    sql = db.sql,
                     clock = fixedClock,
                     bookRevisionTouch = FakeBookRevisionTouch(),
                     principal = principalFor("u1"),
@@ -112,13 +110,12 @@ class AccessChangedEmissionTest :
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
         test("shareCollection emits AccessChanged to the share target only") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val frames = mutableListOf<ControlFrame>()
                     bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
                     drainControlFrames() // ensure the unconfined collector is subscribed before the action publishes
@@ -138,13 +135,12 @@ class AccessChangedEmissionTest :
         }
 
         test("updateShare emits AccessChanged to the recipient") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
@@ -168,13 +164,12 @@ class AccessChangedEmissionTest :
         }
 
         test("revokeShare emits AccessChanged to the ex-target") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
@@ -195,13 +190,12 @@ class AccessChangedEmissionTest :
         }
 
         test("revokeShare on a non-existent share emits nothing") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val owner = service.actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
                     require(created is AppResult.Success)
@@ -219,15 +213,14 @@ class AccessChangedEmissionTest :
         }
 
         test("releaseBooks emits AccessChanged to users gaining access (target owner + share recipients)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val admin = service.actAs("admin", UserRole.ADMIN)
 
                     // u1 owns the target collection; u2 holds a read-share on it.
@@ -257,14 +250,13 @@ class AccessChangedEmissionTest :
         }
 
         test("addBookToCollection emits AccessChanged to the collection's owner + share recipients") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val u1 = service.actAs("u1")
                     val created = u1.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
@@ -287,14 +279,13 @@ class AccessChangedEmissionTest :
         }
 
         test("removeBookFromCollection emits AccessChanged to the collection's owner + share recipients") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book1")
                 runTest(UnconfinedTestDispatcher()) {
-                    val (service, bus) = makeHarness(db)
+                    val (service, bus) = makeHarness(this@withSqlDatabase)
                     val u1 = service.actAs("u1")
                     val created = u1.createCollection("test-library", "Shelf")
                     require(created is AppResult.Success)
@@ -318,13 +309,12 @@ class AccessChangedEmissionTest :
         }
 
         test("releaseBooks rejects a target collection in a different library") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
                 runTest {
-                    val (service, _) = makeHarness(db)
+                    val (service, _) = makeHarness(this@withSqlDatabase)
                     val admin = service.actAs("admin", UserRole.ADMIN)
                     service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
 

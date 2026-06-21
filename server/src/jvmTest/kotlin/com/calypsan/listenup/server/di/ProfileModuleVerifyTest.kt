@@ -2,9 +2,10 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.server.auth.PasswordHasher
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import java.nio.file.Files
@@ -17,15 +18,14 @@ class ProfileModuleVerifyTest :
         test("profileModule resolves ProfileService and ImageStore") {
             val avatarsDir = Files.createTempDirectory("listenup-profile-verify-")
             try {
-                withInMemoryDatabase {
-                    val db = this
+                withSqlDatabase {
                     val app =
                         koinApplication {
                             modules(
                                 module {
-                                    single { db }
+                                    single<ListenUpDatabase> { sql }
                                     single { PasswordHasher() }
-                                    single { db.noOpPublicProfileMaintainer() }
+                                    single { sql.noOpPublicProfileMaintainer() }
                                     single<Clock> { Clock.System }
                                 },
                                 profileModule(avatarsDir),

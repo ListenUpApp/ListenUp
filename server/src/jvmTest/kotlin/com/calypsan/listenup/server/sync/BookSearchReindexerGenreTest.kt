@@ -1,23 +1,16 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
+import app.cash.sqldelight.db.QueryResult
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
+import kotlinx.coroutines.withContext
 
 /**
  * Integration tests for [BookSearchReindexer]'s genre population.
@@ -34,84 +27,41 @@ import org.jetbrains.exposed.v1.jdbc.update
  *
  * Modelled on [BookSearchReindexerSeriesTest] — uses a real in-memory
  * Flyway-migrated SQLite database; books, genres and junction rows are seeded
- * directly via Exposed DSL.
+ * directly via SQLDelight queries.
  */
 class BookSearchReindexerGenreTest :
     FunSpec({
 
         fun makeReindexer(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
 
         /** Seeds a minimal book_search_map + book_search FTS row for [bookId]. */
         suspend fun seedFtsRow(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             bookId: String,
             rowid: Int,
         ) {
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                tx.exec(
-                    stmt = "INSERT INTO book_search_map(book_id, rowid) VALUES (?, ?)",
-                    args =
-                        listOf(
-                            TextColumnType() to bookId,
-                            IntegerColumnType() to rowid,
-                        ),
+            withContext(Dispatchers.IO) {
+                dbs.driver.execute(
+                    identifier = null,
+                    sql = "INSERT INTO book_search_map(book_id, rowid) VALUES (?, ?)",
+                    parameters = 2,
+                    binders = {
+                        bindString(0, bookId)
+                        bindLong(1, rowid.toLong())
+                    },
                 )
-                tx.exec(
-                    stmt =
+                dbs.driver.execute(
+                    identifier = null,
+                    sql =
                         "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags, genres) " +
                             "VALUES ($rowid, ?, '', '', '', '', '', '')",
-                    args = listOf(TextColumnType() to "Test Book $bookId"),
+                    parameters = 1,
+                    binders = { bindString(0, "Test Book $bookId") },
                 )
-            }
-        }
-
-        /** Seeds a live genre row at the given materialized [path]. */
-        fun seedGenre(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
-            genreId: String,
-            name: String,
-            slug: String,
-            path: String,
-            parentId: String? = null,
-            depth: Int = 0,
-        ) {
-            val now = System.currentTimeMillis()
-            transaction(db) {
-                GenreTable.insert {
-                    it[GenreTable.id] = genreId
-                    it[GenreTable.name] = name
-                    it[GenreTable.slug] = slug
-                    it[GenreTable.path] = path
-                    it[GenreTable.parentId] = parentId
-                    it[GenreTable.depth] = depth
-                    it[GenreTable.sortOrder] = 0
-                    it[GenreTable.color] = null
-                    it[GenreTable.description] = null
-                    it[GenreTable.revision] = 1L
-                    it[GenreTable.createdAt] = now
-                    it[GenreTable.updatedAt] = now
-                    it[GenreTable.deletedAt] = null
-                    it[GenreTable.clientOpId] = null
-                }
-            }
-        }
-
-        /** Seeds a book_genres junction row linking [bookId] to [genreId]. */
-        fun seedBookGenre(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
-            bookId: String,
-            genreId: String,
-        ) {
-            transaction(db) {
-                BookGenreTable.insert {
-                    it[BookGenreTable.bookId] = bookId
-                    it[BookGenreTable.genreId] = genreId
-                }
             }
         }
 
@@ -121,223 +71,229 @@ class BookSearchReindexerGenreTest :
          * not a cross-column hit on title/tags/etc.
          */
         suspend fun ftsGenresMatch(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             rowid: Int,
             searchTerm: String,
         ): Boolean {
             val dq = '"'
             val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-            var found = false
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                tx.exec(
-                    stmt = "SELECT rowid FROM book_search WHERE genres MATCH ? AND rowid = ?",
-                    args =
-                        listOf(
-                            TextColumnType() to quotedTerm,
-                            IntegerColumnType() to rowid,
-                        ),
-                ) { rs ->
-                    found = rs.next()
-                }
+            return withContext(Dispatchers.IO) {
+                dbs.driver
+                    .executeQuery(
+                        identifier = null,
+                        sql = "SELECT rowid FROM book_search WHERE genres MATCH ? AND rowid = ?",
+                        mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                        parameters = 2,
+                        binders = {
+                            bindString(0, quotedTerm)
+                            bindLong(1, rowid.toLong())
+                        },
+                    ).value
             }
-            return found
         }
 
         test("reindexBook writes a single genre name into book_search.genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
-                    seedGenre(db, "g1", "Fantasy", "fantasy", "/fantasy")
-                    seedBookGenre(db, "book1", "g1")
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    sql.seedGenre("g1", "Fantasy", "fantasy", "/fantasy")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexBook("book1")
 
-                    ftsGenresMatch(db, 1, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe true
                 }
             }
         }
 
         test("reindexBook writes multiple genre names into book_search.genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
-                    seedGenre(db, "g1", "Fantasy", "fantasy", "/fantasy")
-                    seedGenre(db, "g2", "Adventure", "adventure", "/adventure")
-                    seedBookGenre(db, "book1", "g1")
-                    seedBookGenre(db, "book1", "g2")
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    sql.seedGenre("g1", "Fantasy", "fantasy", "/fantasy")
+                    sql.seedGenre("g2", "Adventure", "adventure", "/adventure")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g2")
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexBook("book1")
 
-                    ftsGenresMatch(db, 1, "Fantasy") shouldBe true
-                    ftsGenresMatch(db, 1, "Adventure") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Adventure") shouldBe true
                 }
             }
         }
 
         test("reindexBook excludes tombstoned genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
-                    seedGenre(db, "g1", "Fantasy", "fantasy", "/fantasy")
-                    seedBookGenre(db, "book1", "g1")
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    sql.seedGenre("g1", "Fantasy", "fantasy", "/fantasy")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
 
                     // Tombstone the genre — the JOIN's deleted_at IS NULL clause excludes it.
                     val now = System.currentTimeMillis()
-                    transaction(db) {
-                        GenreTable.update({ GenreTable.id eq "g1" }) {
-                            it[GenreTable.deletedAt] = now
-                        }
-                    }
+                    sql.genresQueries.softDeleteById(
+                        id = "g1",
+                        revision = 2L,
+                        updated_at = now,
+                        deleted_at = now,
+                        client_op_id = null,
+                    )
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexBook("book1")
 
-                    ftsGenresMatch(db, 1, "Fantasy") shouldBe false
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe false
                 }
             }
         }
 
         test("reindexAllBooksForGenre reindexes every book linked to the genre") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
-                    seedFtsRow(db, "book2", 2)
-                    seedGenre(db, "g1", "Fantasy", "fantasy", "/fantasy")
-                    seedBookGenre(db, "book1", "g1")
-                    seedBookGenre(db, "book2", "g1")
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book2", 2)
+                    sql.seedGenre("g1", "Fantasy", "fantasy", "/fantasy")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book2", genre_id = "g1")
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexAllBooksForGenre("g1")
 
-                    ftsGenresMatch(db, 1, "Fantasy") shouldBe true
-                    ftsGenresMatch(db, 2, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 2, "Fantasy") shouldBe true
                 }
             }
         }
 
         test("reindexAllBooksForSubtree covers descendants via path-prefix join") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
-                seedTestBook("book3")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
-                    seedFtsRow(db, "book2", 2)
-                    seedFtsRow(db, "book3", 3)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book2", 2)
+                    seedFtsRow(this@withSqlDatabase, "book3", 3)
 
                     // Subtree:
                     //   /fiction          ← book1
                     //   /fiction/fantasy  ← book2
                     //   /fiction/sci-fi   ← book3
-                    seedGenre(db, "g1", "Fiction", "fiction", "/fiction", depth = 1)
-                    seedGenre(
-                        db,
-                        "g2",
-                        "Fantasy",
-                        "fantasy",
-                        "/fiction/fantasy",
-                        parentId = "g1",
-                        depth = 2,
-                    )
-                    seedGenre(
-                        db,
-                        "g3",
-                        "Sci-Fi",
-                        "sci-fi",
-                        "/fiction/sci-fi",
-                        parentId = "g1",
-                        depth = 2,
-                    )
-                    seedBookGenre(db, "book1", "g1")
-                    seedBookGenre(db, "book2", "g2")
-                    seedBookGenre(db, "book3", "g3")
+                    sql.seedGenre("g1", "Fiction", "fiction", "/fiction", depth = 1)
+                    sql.seedGenre("g2", "Fantasy", "fantasy", "/fiction/fantasy", parentId = "g1", depth = 2)
+                    sql.seedGenre("g3", "Sci-Fi", "sci-fi", "/fiction/sci-fi", parentId = "g1", depth = 2)
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book2", genre_id = "g2")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book3", genre_id = "g3")
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexAllBooksForSubtree("/fiction")
 
-                    ftsGenresMatch(db, 1, "Fiction") shouldBe true
-                    ftsGenresMatch(db, 2, "Fantasy") shouldBe true
-                    ftsGenresMatch(db, 3, "Sci-Fi") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fiction") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 2, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 3, "Sci-Fi") shouldBe true
                 }
             }
         }
 
         test("reindexAllBooksForSubtree does not touch /fic when prefix is /fiction") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("bookFic")
-                seedTestBook("bookFiction")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("bookFic")
+                sql.seedTestBook("bookFiction")
                 runTest {
-                    seedFtsRow(db, "bookFic", 1)
-                    seedFtsRow(db, "bookFiction", 2)
+                    seedFtsRow(this@withSqlDatabase, "bookFic", 1)
+                    seedFtsRow(this@withSqlDatabase, "bookFiction", 2)
 
                     // Two sibling roots whose paths share a leading prefix only —
                     // the collision case `/fic` vs `/fiction`. The reindex must
                     // touch only the `/fiction` book, never the `/fic` book.
-                    seedGenre(db, "g-fic", "Fic Genre", "fic", "/fic", depth = 1)
-                    seedGenre(db, "g-fiction", "Fiction", "fiction", "/fiction", depth = 1)
-                    seedBookGenre(db, "bookFic", "g-fic")
-                    seedBookGenre(db, "bookFiction", "g-fiction")
+                    sql.seedGenre("g-fic", "Fic Genre", "fic", "/fic", depth = 1)
+                    sql.seedGenre("g-fiction", "Fiction", "fiction", "/fiction", depth = 1)
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "bookFic", genre_id = "g-fic")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "bookFiction", genre_id = "g-fiction")
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexAllBooksForSubtree("/fiction")
 
                     // The /fiction book was reindexed — its genres column now has "Fiction".
-                    ftsGenresMatch(db, 2, "Fiction") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 2, "Fiction") shouldBe true
                     // The /fic book was NOT reindexed — its genres column stays empty;
                     // "Fic Genre" never made it into the index.
-                    ftsGenresMatch(db, 1, "Fic") shouldBe false
-                    ftsGenresMatch(db, 1, "Fic Genre") shouldBe false
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fic") shouldBe false
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fic Genre") shouldBe false
                 }
             }
         }
     })
+
+/** Seeds a `genres` row into [this] database. */
+private fun ListenUpDatabase.seedGenre(
+    genreId: String,
+    name: String,
+    slug: String,
+    path: String,
+    parentId: String? = null,
+    depth: Int = 0,
+) {
+    val now = System.currentTimeMillis()
+    genresQueries.insert(
+        id = genreId,
+        name = name,
+        slug = slug,
+        path = path,
+        parent_id = parentId,
+        depth = depth.toLong(),
+        sort_order = 0L,
+        color = null,
+        description = null,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
+}

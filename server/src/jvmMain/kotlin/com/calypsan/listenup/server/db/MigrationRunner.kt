@@ -17,6 +17,10 @@ internal class MigrationRunner(
     /** Applies pending migrations (optionally only those `version <= upTo`). Returns the new version. */
     fun migrate(upTo: Int? = null): String? {
         dataSource.connection.use { conn ->
+            // Own the transaction boundary: ensureHistoryTable/applyOne call conn.commit()/rollback(),
+            // which require manual-commit. (Previously supplied by Hikari's isAutoCommit=false; a plain
+            // non-pooled DataSource hands out autoCommit=true connections.)
+            conn.autoCommit = false
             ensureHistoryTable(conn)
             val applied = appliedVersions(conn)
             verifyChecksums(applied)
@@ -35,6 +39,7 @@ internal class MigrationRunner(
     /** The highest applied version as a string, or null when none are applied. */
     fun currentSchemaVersion(): String? =
         dataSource.connection.use { conn ->
+            conn.autoCommit = false // ensureHistoryTable commits — needs manual-commit on a plain DataSource
             ensureHistoryTable(conn)
             maxAppliedVersion(conn)
         }

@@ -111,12 +111,10 @@ kotlin {
                 implementation(libs.ktor.server.swagger)
 
                 // Persistence
-                implementation(libs.exposed.core)
-                implementation(libs.exposed.dao)
-                implementation(libs.exposed.jdbc)
-                implementation(libs.exposed.kotlin.datetime)
                 implementation(libs.sqlite.jdbc)
-                implementation(libs.hikari)
+
+                // Date/time (was previously pulled in transitively via exposed-kotlin-datetime)
+                implementation(libs.kotlinx.datetime)
 
                 // SQLDelight JVM JDBC driver
                 implementation(libs.sqldelight.driver.jvm)

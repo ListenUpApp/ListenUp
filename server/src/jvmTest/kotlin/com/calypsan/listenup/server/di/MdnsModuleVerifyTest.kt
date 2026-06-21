@@ -1,17 +1,17 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.core.parameter.parametersOf
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
@@ -19,15 +19,14 @@ import org.koin.dsl.module
 class MdnsModuleVerifyTest :
     FunSpec({
         test("mdnsModule resolves InstanceIdentity and the advertiser factory") {
-            withInMemoryDatabase {
-                val db: Database = this
+            withSqlDatabase {
                 val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
                 val app =
                     koinApplication {
                         modules(
                             module {
-                                single<Database> { db }
-                                single { ServerSettingsRepository(get<Database>(), RegistrationPolicy.CLOSED) }
+                                single<ListenUpDatabase> { sql }
+                                single { ServerSettingsRepository(get<ListenUpDatabase>(), RegistrationPolicy.CLOSED) }
                             },
                             mdnsModule(scope, port = 8080),
                         )

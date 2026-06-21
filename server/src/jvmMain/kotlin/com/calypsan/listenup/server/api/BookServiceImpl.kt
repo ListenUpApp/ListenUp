@@ -21,14 +21,13 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
-import com.calypsan.listenup.server.db.BookGenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookWriteExtras
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_SEARCH_LIMIT = 200
 private const val MAX_CONTRIBUTORS_PER_BOOK = 200
@@ -80,7 +79,7 @@ internal class BookServiceImpl(
     private val contributorRepo: ContributorRepository,
     private val seriesRepo: SeriesRepository,
     private val coverStorage: CoverStorage,
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val genreRepo: com.calypsan.listenup.server.services.GenreRepository,
     private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy,
@@ -115,7 +114,7 @@ internal class BookServiceImpl(
             contributorRepo = contributorRepo,
             seriesRepo = seriesRepo,
             coverStorage = coverStorage,
-            db = db,
+            sql = sql,
             genreRepo = genreRepo,
             accessPolicy = accessPolicy,
             permissionPolicy = permissionPolicy,
@@ -152,23 +151,21 @@ internal class BookServiceImpl(
         patch: BookUpdate,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        return suspendTransaction(db) {
-            val current =
-                repo.findById(id)
-                    ?: return@suspendTransaction bookNotFound(id)
-            val patched = current.applyPatch(patch)
-            // An added-date edit must re-stamp createdAt, which writePayload only writes when this
-            // override is present — keeping rescans (which carry a placeholder createdAt) from clobbering it.
-            val upsertResult =
-                if (patch.addedAt != null) {
-                    withContext(BookWriteExtras(createdAtOverride = patch.addedAt)) { repo.upsert(patched) }
-                } else {
-                    repo.upsert(patched)
-                }
-            when (upsertResult) {
-                is AppResult.Success -> AppResult.Success(Unit)
-                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+        val current =
+            repo.findById(id)
+                ?: return bookNotFound(id)
+        val patched = current.applyPatch(patch)
+        // An added-date edit must re-stamp createdAt, which writePayload only writes when this
+        // override is present — keeping rescans (which carry a placeholder createdAt) from clobbering it.
+        val upsertResult =
+            if (patch.addedAt != null) {
+                withContext(BookWriteExtras(createdAtOverride = patch.addedAt)) { repo.upsert(patched) }
+            } else {
+                repo.upsert(patched)
             }
+        return when (upsertResult) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
     }
 
@@ -184,29 +181,27 @@ internal class BookServiceImpl(
                 ),
             )
         }
-        return suspendTransaction(db) {
-            val current =
-                repo.findById(id)
-                    ?: return@suspendTransaction bookNotFound(id)
-            val resolved =
-                contributors
-                    .sortedBy { it.position }
-                    .map { input ->
-                        val resolvedId =
-                            input.id?.value
-                                ?: contributorRepo.resolveOrCreate(input.name, sortName = null).value
-                        BookContributorPayload(
-                            id = resolvedId,
-                            name = input.name,
-                            sortName = null,
-                            role = input.role,
-                            creditedAs = input.creditedAs,
-                        )
-                    }
-            when (val upsertResult = repo.upsert(current.copy(contributors = resolved))) {
-                is AppResult.Success -> AppResult.Success(Unit)
-                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
-            }
+        val current =
+            repo.findById(id)
+                ?: return bookNotFound(id)
+        val resolved =
+            contributors
+                .sortedBy { it.position }
+                .map { input ->
+                    val resolvedId =
+                        input.id?.value
+                            ?: contributorRepo.resolveOrCreate(input.name, sortName = null).value
+                    BookContributorPayload(
+                        id = resolvedId,
+                        name = input.name,
+                        sortName = null,
+                        role = input.role,
+                        creditedAs = input.creditedAs,
+                    )
+                }
+        return when (val upsertResult = repo.upsert(current.copy(contributors = resolved))) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
     }
 
@@ -222,27 +217,25 @@ internal class BookServiceImpl(
                 ),
             )
         }
-        return suspendTransaction(db) {
-            val current =
-                repo.findById(id)
-                    ?: return@suspendTransaction bookNotFound(id)
-            val resolved =
-                series
-                    .sortedWith(compareBy(nullsLast()) { it.position })
-                    .map { input ->
-                        val resolvedId =
-                            input.id?.value
-                                ?: seriesRepo.resolveOrCreate(input.name).value
-                        BookSeriesPayload(
-                            id = resolvedId,
-                            name = input.name,
-                            sequence = input.position?.toString(),
-                        )
-                    }
-            when (val upsertResult = repo.upsert(current.copy(series = resolved))) {
-                is AppResult.Success -> AppResult.Success(Unit)
-                is AppResult.Failure -> AppResult.Failure(upsertResult.error)
-            }
+        val current =
+            repo.findById(id)
+                ?: return bookNotFound(id)
+        val resolved =
+            series
+                .sortedWith(compareBy(nullsLast()) { it.position })
+                .map { input ->
+                    val resolvedId =
+                        input.id?.value
+                            ?: seriesRepo.resolveOrCreate(input.name).value
+                    BookSeriesPayload(
+                        id = resolvedId,
+                        name = input.name,
+                        sequence = input.position?.toString(),
+                    )
+                }
+        return when (val upsertResult = repo.upsert(current.copy(series = resolved))) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
     }
 
@@ -258,31 +251,30 @@ internal class BookServiceImpl(
                 ),
             )
         }
-        // The genre relink writes `book_genres` (Exposed); the book re-upsert writes the book row
-        // (SQLDelight). During the cutover these are two engines that cannot share one transaction,
-        // so they run SEQUENTIALLY — the Exposed relink commits, then the SQLDelight upsert runs.
-        // Nesting the SQLDelight write inside the Exposed write transaction deadlocks on the single
-        // SQLite write lock (SQLITE_BUSY). The genre junction re-derives on the next book read, so
-        // the re-upsert (which only bumps the revision + publishes) sees the relinked genres.
+        // The genre relink and the book re-upsert are independent SQLDelight writes. They run
+        // SEQUENTIALLY — the relink commits, then the re-upsert runs. The genre junction re-derives
+        // on the next book read, so the re-upsert (which only bumps the revision + publishes) sees
+        // the relinked genres.
         val current = repo.findById(id) ?: return bookNotFound(id)
 
         // Validate every input genre exists and is live BEFORE the relink. Unknown ids surface as
-        // BookError.InvalidInput per spec (no auto-create). The validate + relink share one Exposed
-        // transaction so a partial relink never lands on a bad input.
-        val relinkResult =
-            suspendTransaction(db) {
-                for (input in genres) {
-                    val genre = genreRepo.findById(input.genreId.value)
-                    if (genre == null || genre.deletedAt != null) {
-                        return@suspendTransaction AppResult.Failure(
-                            BookError.InvalidInput(debugInfo = "unknownGenre=${input.genreId.value}"),
-                        )
-                    }
-                }
-                BookGenreTable.relinkBookGenres(id.value, genres.map { it.genreId.value })
-                AppResult.Success(Unit)
+        // BookError.InvalidInput per spec (no auto-create). genreRepo.findById is a suspend read,
+        // so the validation runs before opening the (non-suspend) SQLDelight relink transaction.
+        for (input in genres) {
+            val genre = genreRepo.findById(input.genreId.value)
+            if (genre == null || genre.deletedAt != null) {
+                return AppResult.Failure(BookError.InvalidInput(debugInfo = "unknownGenre=${input.genreId.value}"))
             }
-        if (relinkResult is AppResult.Failure) return relinkResult
+        }
+
+        // Relink the junction wholesale (delete-by-book then insert-if-absent per distinct id) in a
+        // single SQLDelight transaction, mirroring the prior BookGenreTable.relinkBookGenres.
+        suspendTransaction(sql) {
+            sql.bookGenresQueries.deleteByBookId(id.value)
+            for (genreId in genres.map { it.genreId.value }.distinct()) {
+                sql.bookGenresQueries.insertIfAbsent(book_id = id.value, genre_id = genreId)
+            }
+        }
 
         // Re-upsert the book so the substrate bumps revision + publishes `book.Updated`. The book
         // payload's `genres` field re-derives from the live junction on read.
@@ -355,10 +347,10 @@ internal class BookServiceImpl(
                 // Filesystem / Embedded covers: upsert with cover = null to clear the source
                 // column. writePayload skips coverPath/coverHash for non-managed payloads, so
                 // the null propagates cleanly.
-                suspendTransaction(db) {
-                    val fresh =
-                        repo.findById(id)
-                            ?: return@suspendTransaction bookNotFound(id)
+                val fresh = repo.findById(id)
+                if (fresh == null) {
+                    bookNotFound(id)
+                } else {
                     when (val upsertResult = repo.upsert(fresh.copy(cover = null))) {
                         is AppResult.Success -> AppResult.Success(Unit)
                         is AppResult.Failure -> AppResult.Failure(upsertResult.error)
@@ -393,7 +385,6 @@ fun createBookService(
     contributorRepo: ContributorRepository,
     seriesRepo: SeriesRepository,
     coverStorage: CoverStorage,
-    db: org.jetbrains.exposed.v1.jdbc.Database,
     sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
     genreRepo: com.calypsan.listenup.server.services.GenreRepository,
@@ -405,7 +396,7 @@ fun createBookService(
         contributorRepo,
         seriesRepo,
         coverStorage,
-        db,
+        sql,
         genreRepo,
         BookAccessPolicy(db = sql, driver = driver),
         UserPermissionPolicy(sql),

@@ -5,47 +5,43 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryIdAsStringTest :
     FunSpec({
         test("idAsString returns the raw value, not the value-class toString") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = this.asSqlDatabase(),
-                        driver = this.asSqlDriver(),
-                        exposedDb = this,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
-                        seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
-                        genreRepository = GenreRepository(this.asSqlDatabase(), bus, registry),
+                        contributorRepository = ContributorRepository(sql, bus, registry),
+                        seriesRepository = SeriesRepository(sql, bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 repo.idAsStringForTest(BookId("abc-123")) shouldBe "abc-123"
             }
         }
 
         test("BookRepository.domainName is 'books'") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val repo =
                     BookRepository(
-                        db = this.asSqlDatabase(),
-                        driver = this.asSqlDriver(),
-                        exposedDb = this,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
-                        contributorRepository = ContributorRepository(this.asSqlDatabase(), bus, registry),
-                        seriesRepository = SeriesRepository(this.asSqlDatabase(), bus, registry),
-                        genreRepository = GenreRepository(this.asSqlDatabase(), bus, registry),
+                        contributorRepository = ContributorRepository(sql, bus, registry),
+                        seriesRepository = SeriesRepository(sql, bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 repo.domainName shouldBe "books"
             }

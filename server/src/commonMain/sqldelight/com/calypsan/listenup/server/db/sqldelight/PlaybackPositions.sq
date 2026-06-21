@@ -121,3 +121,8 @@ SET position_ms = :position_ms, last_played_at = :last_played_at, finished = :fi
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
+
+-- True iff the user has at least one live (non-deleted) playback-position row —
+-- drives PlaybackPositionDomainSeeder.isAlreadySeeded.
+hasAnyLiveForUser:
+SELECT EXISTS(SELECT 1 FROM playback_positions WHERE user_id = :userId AND deleted_at IS NULL);

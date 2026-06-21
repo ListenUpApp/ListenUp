@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.server.api.UserPreferencesServiceImpl
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -9,6 +10,6 @@ import org.koin.dsl.module
 fun userPreferencesModule(): Module =
     module {
         single<UserPreferencesService> {
-            UserPreferencesServiceImpl(db = get(), clock = get())
+            UserPreferencesServiceImpl(sql = get<ListenUpDatabase>(), clock = get())
         }
     }

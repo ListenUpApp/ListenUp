@@ -2,12 +2,8 @@ package com.calypsan.listenup.server.settings
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.api.ServerIdentity
-import org.jetbrains.exposed.v1.core.Table
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
-import org.jetbrains.exposed.v1.jdbc.upsert
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
 /**
  * Read/write access to the server-wide key/value `server_settings` table.
@@ -19,39 +15,32 @@ import org.jetbrains.exposed.v1.jdbc.upsert
  * older server reading a value a newer server wrote).
  */
 class ServerSettingsRepository(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val default: RegistrationPolicy,
 ) {
     /** The current instance-wide registration policy, or [default] when unset/unknown. */
     suspend fun registrationPolicy(): RegistrationPolicy =
-        suspendTransaction(db) {
-            ServerSettingsTable
-                .selectAll()
-                .where { ServerSettingsTable.key eq KEY_REGISTRATION_POLICY }
-                .firstOrNull()
-                ?.get(ServerSettingsTable.value)
+        suspendTransaction(sql) {
+            sql.serverSettingsQueries
+                .selectValueByKey(KEY_REGISTRATION_POLICY)
+                .executeAsOneOrNull()
                 ?.let { raw -> runCatching { RegistrationPolicy.valueOf(raw) }.getOrNull() }
                 ?: default
         }
 
     /** Replaces the instance-wide registration policy with [policy]. */
     suspend fun setRegistrationPolicy(policy: RegistrationPolicy) {
-        suspendTransaction(db) {
-            ServerSettingsTable.upsert {
-                it[key] = KEY_REGISTRATION_POLICY
-                it[value] = policy.name
-            }
+        suspendTransaction(sql) {
+            sql.serverSettingsQueries.upsert(KEY_REGISTRATION_POLICY, policy.name)
         }
     }
 
     /** Raw value for [key], or null if unset. Generic KV access for non-policy settings. */
     suspend fun getValue(key: String): String? =
-        suspendTransaction(db) {
-            ServerSettingsTable
-                .selectAll()
-                .where { ServerSettingsTable.key eq key }
-                .firstOrNull()
-                ?.get(ServerSettingsTable.value)
+        suspendTransaction(sql) {
+            sql.serverSettingsQueries
+                .selectValueByKey(key)
+                .executeAsOneOrNull()
         }
 
     /** Upserts [key] → [value]. */
@@ -59,11 +48,8 @@ class ServerSettingsRepository(
         key: String,
         value: String,
     ) {
-        suspendTransaction(db) {
-            ServerSettingsTable.upsert {
-                it[ServerSettingsTable.key] = key
-                it[ServerSettingsTable.value] = value
-            }
+        suspendTransaction(sql) {
+            sql.serverSettingsQueries.upsert(key, value)
         }
     }
 
@@ -84,12 +70,4 @@ class ServerSettingsRepository(
         const val KEY_SERVER_NAME = "server_name"
         const val KEY_REMOTE_URL = "remote_url"
     }
-}
-
-/** Persistence schema for the `server_settings` table created by V26. */
-object ServerSettingsTable : Table("server_settings") {
-    val key = text("key")
-    val value = text("value")
-
-    override val primaryKey = PrimaryKey(key)
 }

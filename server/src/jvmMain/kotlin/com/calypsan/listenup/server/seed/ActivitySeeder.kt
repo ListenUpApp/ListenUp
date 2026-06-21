@@ -1,16 +1,10 @@
 package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
-import com.calypsan.listenup.server.db.ActivitiesTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActivityRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -32,7 +26,7 @@ private val logger = KotlinLogging.logger {}
  * be complete and both activities will be seeded then.
  */
 internal class ActivitySeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val activityRepository: ActivityRepository,
 ) : DomainSeeder {
     override val domainName: String = "activities"
@@ -42,12 +36,8 @@ internal class ActivitySeeder(
 
     override suspend fun isAlreadySeeded(): Boolean {
         val userId = demoUserId() ?: return false
-        return suspendTransaction(db) {
-            ActivitiesTable
-                .selectAll()
-                .where { ActivitiesTable.userId eq userId }
-                .limit(1)
-                .any()
+        return suspendTransaction(sql) {
+            sql.activitiesQueries.hasAnyForUser(user_id = userId).executeAsOne()
         }
     }
 
@@ -75,24 +65,16 @@ internal class ActivitySeeder(
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 
     /** Returns the id of the first non-deleted book (ordered by sort title), or null if none. */
     private suspend fun firstAvailableBookId(): String? =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where { BookTable.deletedAt.isNull() }
-                .orderBy(BookTable.sortTitle)
-                .limit(1)
-                .firstOrNull()
-                ?.get(BookTable.id)
+        suspendTransaction(sql) {
+            sql.booksQueries.selectLiveIdsBySortTitle(limit = 1L).executeAsOneOrNull()
         }
 }

@@ -1,12 +1,11 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.UserStatsBackfillService
@@ -16,7 +15,7 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.ktor.client.request.bearerAuth
@@ -48,13 +47,12 @@ class AdminRoutesTest :
     FunSpec({
 
         test("POST /api/v1/admin/stats/backfill returns 200 for admin principal") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
-                val reindexService = makeReindexService(db, bus, registry)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo)
+                val reindexService = makeReindexService(sql, driver, bus, registry)
 
                 testApplication {
                     application {
@@ -79,13 +77,12 @@ class AdminRoutesTest :
         }
 
         test("POST /api/v1/admin/stats/backfill returns 403 for non-admin principal") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
-                val reindexService = makeReindexService(db, bus, registry)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo)
+                val reindexService = makeReindexService(sql, driver, bus, registry)
 
                 testApplication {
                     application {
@@ -110,13 +107,12 @@ class AdminRoutesTest :
         }
 
         test("POST /api/v1/admin/search/reindex returns 200 for admin principal") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
-                val reindexService = makeReindexService(db, bus, registry)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo)
+                val reindexService = makeReindexService(sql, driver, bus, registry)
 
                 testApplication {
                     application {
@@ -141,13 +137,12 @@ class AdminRoutesTest :
         }
 
         test("POST /api/v1/admin/search/reindex returns 403 for non-admin principal") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val statsRepo = UserStatsRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val backfillService = UserStatsBackfillService(sql = db.asSqlDatabase(), userStatsRepo = statsRepo)
-                val reindexService = makeReindexService(db, bus, registry)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val backfillService = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo)
+                val reindexService = makeReindexService(sql, driver, bus, registry)
 
                 testApplication {
                     application {
@@ -174,13 +169,18 @@ class AdminRoutesTest :
 
 /** Builds a [SearchReindexService] over the test database for the route harness. */
 private fun makeReindexService(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    sql: ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
 ): SearchReindexService {
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    return SearchReindexService(db, BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db))
+    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+    return SearchReindexService(
+        db = sql,
+        driver = driver,
+        reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver),
+    )
 }
 
 /**

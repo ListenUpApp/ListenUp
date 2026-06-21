@@ -14,7 +14,8 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.cover.CoverImageStore
-import com.calypsan.listenup.server.db.BookGenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.metadata.provider.MetadataProvider
 import com.calypsan.listenup.server.services.BookRepository
@@ -23,8 +24,6 @@ import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.SeriesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val log = KotlinLogging.logger {}
 
@@ -66,7 +65,7 @@ internal class BookMetadataApplier(
     private val coverImageStore: CoverImageStore,
     private val metadataProvider: MetadataProvider,
     private val genreHierarchy: GenreHierarchyFromLadder,
-    private val db: Database,
+    private val sqlDb: ListenUpDatabase,
     private val ladderSource: suspend (region: AudibleRegion, asin: String) -> List<List<String>>,
     private val enrichmentDeps: MetadataEnrichmentDeps,
 ) {
@@ -234,9 +233,9 @@ internal class BookMetadataApplier(
             for (ladder in ladders) {
                 val rungIds = genreHierarchy.ensureLadder(ladder)
                 if (rungIds.isEmpty()) continue
-                suspendTransaction(db) {
+                suspendTransaction(sqlDb) {
                     for (rungId in rungIds) {
-                        BookGenreTable.insertIfAbsent(bookId.value, rungId)
+                        sqlDb.bookGenresQueries.insertIfAbsent(book_id = bookId.value, genre_id = rungId)
                     }
                 }
             }

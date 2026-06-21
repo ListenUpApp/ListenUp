@@ -1,11 +1,8 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Pins that constructing the three collection [SyncableRepository]s registers their sync
@@ -20,14 +17,13 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class CollectionRegistryTest :
     FunSpec({
         test("constructing the collection repositories registers all three sync domains") {
-            withInMemoryDatabase {
-                val db: Database = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
 
-                CollectionRepository(db.asSqlDatabase(), bus, registry, driver = db.asSqlDriver())
-                CollectionBookRepository(db.asSqlDatabase(), bus, registry, driver = db.asSqlDriver())
-                CollectionGrantRepository(db.asSqlDatabase(), bus, registry, driver = db.asSqlDriver())
+                CollectionRepository(sql, bus, registry, driver = driver)
+                CollectionBookRepository(sql, bus, registry, driver = driver)
+                CollectionGrantRepository(sql, bus, registry, driver = driver)
 
                 registry.knownDomains() shouldContainAll
                     listOf("collections", "collection_books", "collection_shares")

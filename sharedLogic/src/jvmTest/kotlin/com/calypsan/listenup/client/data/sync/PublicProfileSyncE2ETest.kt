@@ -10,7 +10,6 @@ import io.kotest.matchers.shouldNotBe
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
 
@@ -36,14 +35,14 @@ class PublicProfileSyncE2ETest :
                 // Raw SQL matches the pattern established in ProfileE2ETest — the UserEntity DAO
                 // lives in :server's test source set and is not available from :sharedLogic:jvmTest.
                 val seedNow = System.currentTimeMillis()
-                transaction(serverDb) {
-                    exec(
-                        "INSERT INTO users(id, email, email_normalized, password_hash, role, " +
-                            "display_name, status, created_at, updated_at) VALUES " +
-                            "('u1', 'u1@example.com', 'u1@example.com', 'phc', " +
-                            "'MEMBER', 'Test User', 'ACTIVE', $seedNow, $seedNow)",
-                    )
-                }
+                serverDriver.execute(
+                    null,
+                    "INSERT INTO users(id, email, email_normalized, password_hash, role, " +
+                        "display_name, status, created_at, updated_at) VALUES " +
+                        "('u1', 'u1@example.com', 'u1@example.com', 'phc', " +
+                        "'MEMBER', 'Test User', 'ACTIVE', $seedNow, $seedNow)",
+                    0,
+                )
 
                 engine.start(currentUserId = "u1")
 

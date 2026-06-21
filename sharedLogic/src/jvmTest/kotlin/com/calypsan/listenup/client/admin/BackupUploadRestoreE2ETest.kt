@@ -47,7 +47,6 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.withService
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Cross-module E2E: the client's [BackupRepositoryImpl.uploadBackup] streams a `.listenup.zip`
@@ -249,13 +248,11 @@ private suspend fun buildForeignBackupZipBytes(): ByteArray {
         val dbFile = foreignHomeDir.resolve("listenup.db")
         val handle =
             DatabaseFactory.init(
-                DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile", maxPoolSize = 2),
+                DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile"),
             )
         try {
-            transaction(handle.database) {
-                exec("CREATE TABLE IF NOT EXISTS seed(v TEXT)")
-                exec("INSERT INTO seed(v) VALUES ('foreign')")
-            }
+            handle.sqlDriver.execute(null, "CREATE TABLE IF NOT EXISTS seed(v TEXT)", 0)
+            handle.sqlDriver.execute(null, "INSERT INTO seed(v) VALUES ('foreign')", 0)
 
             val paths = BackupPaths(foreignHomeDir)
             val archive =

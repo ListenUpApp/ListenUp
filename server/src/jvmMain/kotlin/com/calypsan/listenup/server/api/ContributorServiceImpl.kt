@@ -18,8 +18,6 @@ import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -95,19 +93,12 @@ internal class ContributorServiceImpl(
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
-    db: Database,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
-    /**
-     * The Exposed handle is retained only so the default [permissionPolicy] can be built from it;
-     * every merge/delete/unmerge flow now runs over the SQLDelight [sqlDb] connection.
-     */
-    private val db: Database = db
-
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
-        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, db, permissionPolicy, principal)
+        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -131,17 +122,15 @@ internal class ContributorServiceImpl(
         patch: ContributorUpdate,
     ): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
+        val current =
+            contributorRepo.findById(id.value)
+                ?: return contributorNotFound(id)
+        val patched = current.applyPatch(patch)
+        val nameChanged = patched.name != current.name || patched.sortName != current.sortName
         val outcome: UpdateOutcome =
-            suspendTransaction(db) {
-                val current =
-                    contributorRepo.findById(id.value)
-                        ?: return@suspendTransaction UpdateOutcome(false, contributorNotFound(id))
-                val patched = current.applyPatch(patch)
-                val nameChanged = patched.name != current.name || patched.sortName != current.sortName
-                when (val upsertResult = contributorRepo.upsert(patched)) {
-                    is AppResult.Success -> UpdateOutcome(nameChanged, AppResult.Success(Unit))
-                    is AppResult.Failure -> UpdateOutcome(false, AppResult.Failure(upsertResult.error))
-                }
+            when (val upsertResult = contributorRepo.upsert(patched)) {
+                is AppResult.Success -> UpdateOutcome(nameChanged, AppResult.Success(Unit))
+                is AppResult.Failure -> UpdateOutcome(false, AppResult.Failure(upsertResult.error))
             }
         if (outcome.result is AppResult.Success && outcome.reindexNeeded) {
             try {
@@ -163,74 +152,7 @@ internal class ContributorServiceImpl(
         if (source.value == target.value) {
             return AppResult.Failure(ContributorError.MergeSelfTarget())
         }
-        val result: AppResult<Unit> =
-            suspendTransaction(db) {
-                val sourcePayload =
-                    contributorRepo.findById(source.value)
-                        ?: return@suspendTransaction AppResult.Failure(
-                            ContributorError.NotFound(debugInfo = "source=${source.value}"),
-                        )
-                val targetPayload =
-                    contributorRepo.findById(target.value)
-                        ?: return@suspendTransaction AppResult.Failure(
-                            ContributorError.NotFound(debugInfo = "target=${target.value}"),
-                        )
-                if (sourcePayload.deletedAt != null) {
-                    return@suspendTransaction AppResult.Failure(
-                        ContributorError.NotFound(
-                            debugInfo = "source=${source.value} already tombstoned",
-                        ),
-                    )
-                }
-
-                // Snapshot the affected books, then re-link junction rows source → target —
-                // both over the single SQLDelight connection, atomically in one mini-transaction.
-                // Capturing source.name into credited_as where it was NULL; books with an explicit
-                // override keep it (COALESCE). Keeping the junction writes off the Exposed
-                // connection is what closes the SQLITE_BUSY window: the outer Exposed transaction
-                // never takes the write lock, so the SQLDelight writes never contend with it.
-                val affectedBookIds =
-                    sqlTransaction(sqlDb) {
-                        val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(source.value).executeAsList()
-                        sqlDb.bookContributorsQueries.relinkContributorPreservingCredit(
-                            source_name = sourcePayload.name,
-                            to_id = target.value,
-                            from_id = source.value,
-                        )
-                        ids
-                    }
-
-                // Re-upsert every affected book — bumps revision, publishes book.Updated.
-                // One batched read replaces the per-book N+1 lookup.
-                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
-                    when (val upsertResult = bookRepo.upsert(payload)) {
-                        is AppResult.Success -> Unit
-                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                    }
-                }
-
-                // Build target's new alias set — source.name + source.aliases merged into
-                // target.aliases, case-insensitive dedup, target's own name excluded.
-                val mergedAliases =
-                    mergeAliasesFor(
-                        targetAliases = targetPayload.aliases,
-                        sourceName = sourcePayload.name,
-                        sourceAliases = sourcePayload.aliases,
-                        targetName = targetPayload.name,
-                    )
-
-                // Re-upsert target with the new aliases — publishes contributor.Updated(target).
-                when (val upsertResult = contributorRepo.upsert(targetPayload.copy(aliases = mergedAliases))) {
-                    is AppResult.Success -> Unit
-                    is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                }
-
-                // Soft-delete source — publishes contributor.Deleted(source).
-                when (val softDeleteResult = contributorRepo.softDelete(source)) {
-                    is AppResult.Success -> AppResult.Success(Unit)
-                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
-                }
-            }
+        val result = mergeCore(source, target)
         if (result is AppResult.Success) {
             try {
                 reindexer.reindexAllBooksForContributor(target.value)
@@ -244,77 +166,82 @@ internal class ContributorServiceImpl(
         return result
     }
 
+    /**
+     * The merge write sequence (no FTS reindex). Read-consistency checks and the aggregate
+     * writes run sequentially over the single SQLDelight connection; the snapshot + junction
+     * relink are the one pair that must commit together, kept in a single SQLDelight
+     * [sqlTransaction]. Whole-flow atomicity is not guaranteed across the independent
+     * aggregate writes — matching the established cutover shape.
+     */
+    private suspend fun mergeCore(
+        source: ContributorId,
+        target: ContributorId,
+    ): AppResult<Unit> {
+        val sourcePayload =
+            contributorRepo.findById(source.value)
+                ?: return AppResult.Failure(ContributorError.NotFound(debugInfo = "source=${source.value}"))
+        val targetPayload =
+            contributorRepo.findById(target.value)
+                ?: return AppResult.Failure(ContributorError.NotFound(debugInfo = "target=${target.value}"))
+        if (sourcePayload.deletedAt != null) {
+            return AppResult.Failure(
+                ContributorError.NotFound(debugInfo = "source=${source.value} already tombstoned"),
+            )
+        }
+
+        // Snapshot the affected books, then re-link junction rows source → target — both over
+        // the single SQLDelight connection, atomically in one mini-transaction. Capturing
+        // source.name into credited_as where it was NULL; books with an explicit override keep
+        // it (COALESCE).
+        val affectedBookIds =
+            sqlTransaction(sqlDb) {
+                val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(source.value).executeAsList()
+                sqlDb.bookContributorsQueries.relinkContributorPreservingCredit(
+                    source_name = sourcePayload.name,
+                    to_id = target.value,
+                    from_id = source.value,
+                )
+                ids
+            }
+
+        // Re-upsert every affected book — bumps revision, publishes book.Updated.
+        // One batched read replaces the per-book N+1 lookup.
+        for (payload in bookRepo.findAllByIds(affectedBookIds)) {
+            when (val upsertResult = bookRepo.upsert(payload)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+
+        // Build target's new alias set — source.name + source.aliases merged into
+        // target.aliases, case-insensitive dedup, target's own name excluded.
+        val mergedAliases =
+            mergeAliasesFor(
+                targetAliases = targetPayload.aliases,
+                sourceName = sourcePayload.name,
+                sourceAliases = sourcePayload.aliases,
+                targetName = targetPayload.name,
+            )
+
+        // Re-upsert target with the new aliases — publishes contributor.Updated(target).
+        when (val upsertResult = contributorRepo.upsert(targetPayload.copy(aliases = mergedAliases))) {
+            is AppResult.Success -> Unit
+            is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+        }
+
+        // Soft-delete source — publishes contributor.Deleted(source).
+        return when (val softDeleteResult = contributorRepo.softDelete(source)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+        }
+    }
+
     override suspend fun unmergeContributor(
         contributorId: ContributorId,
         aliasName: String,
     ): AppResult<ContributorId> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val result: AppResult<ContributorId> =
-            suspendTransaction(db) {
-                val targetPayload =
-                    contributorRepo.findById(contributorId.value)
-                        ?: return@suspendTransaction AppResult.Failure(
-                            ContributorError.NotFound(debugInfo = "target=${contributorId.value}"),
-                        )
-                if (aliasName !in targetPayload.aliases) {
-                    return@suspendTransaction AppResult.Failure(
-                        ContributorError.AliasNotFound(
-                            debugInfo = "alias=$aliasName target=${contributorId.value}",
-                        ),
-                    )
-                }
-
-                // 1. Resolve-or-create the contributor whose canonical name IS the alias.
-                //    Dedup-aware: a pre-existing live row with the same normalized name is
-                //    reused rather than blind-inserted, which would violate the
-                //    `normalized_name` unique index. The prior code blind-`upsert`ed a fresh
-                //    UUID, and because the new-contributor write ran on the SQLDelight
-                //    connection while the Exposed-outer transaction held the write lock, a
-                //    busy-snapshot retry of the outer block re-ran the insert and failed UNIQUE.
-                //    Routing the write through resolveOrCreate (single SQLDelight connection,
-                //    dedup-aware) removes both halves. Passing aliasName as both name and
-                //    sortName keeps the canonical name free of `Last, First` reordering,
-                //    matching the prior blind-insert shape.
-                val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName)
-
-                // 2. Snapshot affected books, then re-link the matching junction rows to newId
-                //    and clear credited_as — both over the single SQLDelight connection in one
-                //    mini-transaction. Snapshotting BEFORE the relink because afterwards the
-                //    matching rows no longer carry credited_as = aliasName.
-                val affectedBookIds =
-                    sqlTransaction(sqlDb) {
-                        val ids =
-                            sqlDb.bookContributorsQueries
-                                .bookIdsForContributorWithCreditedAs(
-                                    contributor_id = contributorId.value,
-                                    credited_as = aliasName,
-                                ).executeAsList()
-                        sqlDb.bookContributorsQueries.relinkByCreditedAs(
-                            to_id = newId.value,
-                            from_id = contributorId.value,
-                            alias_name = aliasName,
-                        )
-                        ids
-                    }
-
-                // 3. Re-upsert each affected book — bumps revision, publishes book.Updated.
-                // One batched read replaces the per-book N+1 lookup.
-                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
-                    when (val upsertResult = bookRepo.upsert(payload)) {
-                        is AppResult.Success -> Unit
-                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                    }
-                }
-
-                // 4. Remove the alias from target, re-upsert — publishes contributor.Updated(target).
-                when (
-                    val upsertResult =
-                        contributorRepo.upsert(targetPayload.copy(aliases = targetPayload.aliases - aliasName))
-                ) {
-                    is AppResult.Success -> AppResult.Success(newId)
-                    is AppResult.Failure -> AppResult.Failure(upsertResult.error)
-                }
-            }
+        val result = unmergeCore(contributorId, aliasName)
         if (result is AppResult.Success) {
             try {
                 reindexer.reindexAllBooksForContributor(contributorId.value)
@@ -331,32 +258,73 @@ internal class ContributorServiceImpl(
         return result
     }
 
+    /**
+     * The unmerge write sequence (no FTS reindex). The snapshot + junction relink are the one
+     * pair kept in a single SQLDelight [sqlTransaction]; the rest are sequential aggregate
+     * writes over the single SQLDelight connection — matching the established cutover shape.
+     */
+    private suspend fun unmergeCore(
+        contributorId: ContributorId,
+        aliasName: String,
+    ): AppResult<ContributorId> {
+        val targetPayload =
+            contributorRepo.findById(contributorId.value)
+                ?: return AppResult.Failure(ContributorError.NotFound(debugInfo = "target=${contributorId.value}"))
+        if (aliasName !in targetPayload.aliases) {
+            return AppResult.Failure(
+                ContributorError.AliasNotFound(debugInfo = "alias=$aliasName target=${contributorId.value}"),
+            )
+        }
+
+        // 1. Resolve-or-create the contributor whose canonical name IS the alias. Dedup-aware:
+        //    a pre-existing live row with the same normalized name is reused rather than
+        //    blind-inserted, which would violate the `normalized_name` unique index. Passing
+        //    aliasName as both name and sortName keeps the canonical name free of `Last, First`
+        //    reordering, matching the prior blind-insert shape.
+        val newId = contributorRepo.resolveOrCreate(name = aliasName, sortName = aliasName)
+
+        // 2. Snapshot affected books, then re-link the matching junction rows to newId and clear
+        //    credited_as — both over the single SQLDelight connection in one mini-transaction.
+        //    Snapshotting BEFORE the relink because afterwards the matching rows no longer carry
+        //    credited_as = aliasName.
+        val affectedBookIds =
+            sqlTransaction(sqlDb) {
+                val ids =
+                    sqlDb.bookContributorsQueries
+                        .bookIdsForContributorWithCreditedAs(
+                            contributor_id = contributorId.value,
+                            credited_as = aliasName,
+                        ).executeAsList()
+                sqlDb.bookContributorsQueries.relinkByCreditedAs(
+                    to_id = newId.value,
+                    from_id = contributorId.value,
+                    alias_name = aliasName,
+                )
+                ids
+            }
+
+        // 3. Re-upsert each affected book — bumps revision, publishes book.Updated.
+        // One batched read replaces the per-book N+1 lookup.
+        for (payload in bookRepo.findAllByIds(affectedBookIds)) {
+            when (val upsertResult = bookRepo.upsert(payload)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+
+        // 4. Remove the alias from target, re-upsert — publishes contributor.Updated(target).
+        return when (
+            val upsertResult =
+                contributorRepo.upsert(targetPayload.copy(aliases = targetPayload.aliases - aliasName))
+        ) {
+            is AppResult.Success -> AppResult.Success(newId)
+            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+        }
+    }
+
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
         requireCanEdit()?.let { return AppResult.Failure(it) }
-        val result: AppResult<Unit> =
-            suspendTransaction(db) {
-                contributorRepo.findById(id.value)
-                    ?: return@suspendTransaction contributorNotFound(id)
-                // Snapshot the affected books, then hard-delete every junction row for the
-                // contributor — both over the single SQLDelight connection in one mini-transaction.
-                val affectedBookIds =
-                    sqlTransaction(sqlDb) {
-                        val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(id.value).executeAsList()
-                        sqlDb.bookContributorsQueries.deleteAllForContributor(id.value)
-                        ids
-                    }
-                for (payload in bookRepo.findAllByIds(affectedBookIds)) {
-                    val stripped = payload.copy(contributors = payload.contributors.filter { it.id != id.value })
-                    when (val upsertResult = bookRepo.upsert(stripped)) {
-                        is AppResult.Success -> Unit
-                        is AppResult.Failure -> return@suspendTransaction AppResult.Failure(upsertResult.error)
-                    }
-                }
-                when (val softDeleteResult = contributorRepo.softDelete(id)) {
-                    is AppResult.Success -> AppResult.Success(Unit)
-                    is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
-                }
-            }
+        val result = deleteCore(id)
         if (result is AppResult.Success) {
             try {
                 reindexer.reindexAllBooksForContributor(id.value)
@@ -367,6 +335,36 @@ internal class ContributorServiceImpl(
             }
         }
         return result
+    }
+
+    /**
+     * The delete write sequence (no FTS reindex). The snapshot + junction hard-delete are the
+     * one pair kept in a single SQLDelight [sqlTransaction]; the per-book re-upserts and the
+     * contributor soft-delete are sequential aggregate writes over the single SQLDelight
+     * connection — matching the established cutover shape.
+     */
+    private suspend fun deleteCore(id: ContributorId): AppResult<Unit> {
+        contributorRepo.findById(id.value)
+            ?: return contributorNotFound(id)
+        // Snapshot the affected books, then hard-delete every junction row for the contributor —
+        // both over the single SQLDelight connection in one mini-transaction.
+        val affectedBookIds =
+            sqlTransaction(sqlDb) {
+                val ids = sqlDb.bookContributorsQueries.bookIdsForContributor(id.value).executeAsList()
+                sqlDb.bookContributorsQueries.deleteAllForContributor(id.value)
+                ids
+            }
+        for (payload in bookRepo.findAllByIds(affectedBookIds)) {
+            val stripped = payload.copy(contributors = payload.contributors.filter { it.id != id.value })
+            when (val upsertResult = bookRepo.upsert(stripped)) {
+                is AppResult.Success -> Unit
+                is AppResult.Failure -> return AppResult.Failure(upsertResult.error)
+            }
+        }
+        return when (val softDeleteResult = contributorRepo.softDelete(id)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(softDeleteResult.error)
+        }
     }
 }
 
@@ -383,8 +381,7 @@ fun createContributorService(
     bookRepo: BookRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
-    db: Database,
-): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, db)
+): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb)
 
 /**
  * Scopes a [ContributorService] built by [createContributorService] to [principal] for one

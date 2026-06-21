@@ -4,8 +4,7 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import org.koin.dsl.koinApplication
@@ -14,14 +13,12 @@ import org.koin.dsl.module
 class PublicProfileModuleTest :
     FunSpec({
         test("publicProfileModule resolves PublicProfileRepository and PublicProfileMaintainer") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val app =
                     koinApplication {
                         modules(
                             module {
-                                single { db }
-                                single { db.asSqlDatabase() }
+                                single { sql }
                                 single { SyncRegistry() }
                                 single { ChangeBus() }
                             },

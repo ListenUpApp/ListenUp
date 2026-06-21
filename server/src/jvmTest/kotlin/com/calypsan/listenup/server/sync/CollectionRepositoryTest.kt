@@ -8,12 +8,10 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -43,16 +41,16 @@ class CollectionRepositoryTest :
         // ── CollectionRepository: upsert + findById ───────────────────────────────
 
         test("collection upsert publishes Created with bumped revision and correct timestamps") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val fixedTime = Instant.fromEpochMilliseconds(1_730_000_000_000L)
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                         clock =
                             object : Clock {
                                 override fun now() = fixedTime
@@ -95,14 +93,14 @@ class CollectionRepositoryTest :
         }
 
         test("findById returns the collection after upsert") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -127,14 +125,14 @@ class CollectionRepositoryTest :
         }
 
         test("findById returns null for a soft-deleted collection") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -158,14 +156,14 @@ class CollectionRepositoryTest :
         // ── CollectionRepository: findInboxForLibrary ─────────────────────────────
 
         test("findInboxForLibrary returns only the inbox collection") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -203,14 +201,14 @@ class CollectionRepositoryTest :
         }
 
         test("findInboxForLibrary returns null when no inbox exists") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -222,14 +220,14 @@ class CollectionRepositoryTest :
         // ── CollectionRepository: listOwnedBy / listAll ───────────────────────────
 
         test("listOwnedBy returns only collections owned by the given user") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -262,14 +260,14 @@ class CollectionRepositoryTest :
         }
 
         test("listAll returns all non-deleted collections") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val repo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -305,25 +303,25 @@ class CollectionRepositoryTest :
         // ── CollectionBookRepository: upsert + findBookIdsForCollection ───────────
 
         test("junction upsert and findBookIdsForCollection returns the book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val junctionRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -354,25 +352,25 @@ class CollectionRepositoryTest :
         }
 
         test("junction softDelete excludes the row from findBookIdsForCollection") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val junctionRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -402,26 +400,26 @@ class CollectionRepositoryTest :
         }
 
         test("countLiveForCollection returns correct count") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val junctionRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -451,26 +449,26 @@ class CollectionRepositoryTest :
         }
 
         test("softDeleteAllForCollection tombstones all junction rows") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val junctionRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -498,25 +496,25 @@ class CollectionRepositoryTest :
         // ── CollectionGrantRepository: upsert + findActiveGrant ───────────────────
 
         test("share upsert and findActiveGrant returns the share") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("user2")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -552,25 +550,25 @@ class CollectionRepositoryTest :
         }
 
         test("softDeleteGrant makes findActiveGrant return null") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("user2")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -605,25 +603,25 @@ class CollectionRepositoryTest :
         }
 
         test("permission round-trips — Write share reads back as Write") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("user2")
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {
@@ -657,23 +655,23 @@ class CollectionRepositoryTest :
         }
 
         test("softDeleteGrant returns Failure when no active share exists") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
 
                 runTest {

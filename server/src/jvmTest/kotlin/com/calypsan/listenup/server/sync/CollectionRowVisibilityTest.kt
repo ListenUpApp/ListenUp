@@ -14,13 +14,12 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.module
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -40,7 +39,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 
@@ -59,26 +57,25 @@ private const val PULL_LIMIT = 100
 class CollectionRowVisibilityTest :
     FunSpec({
 
-        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionGrantRepository, CollectionBookRepository> {
+        fun makeRepos(dbs: SqlTestDatabases): Triple<CollectionRepository, CollectionGrantRepository, CollectionBookRepository> {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
-                CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
-                CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+                CollectionRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver),
+                CollectionGrantRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver),
+                CollectionBookRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver),
             )
         }
 
         // ---- Catch-up / digest seam ----
 
         test("collections catch-up returns only owned + shared for a member; inbox excluded") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestUser("stranger")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestUser("stranger")
                 runTest {
-                    val (collections, shares, _) = makeRepos(db)
+                    val (collections, shares, _) = makeRepos(this@withSqlDatabase)
 
                     collections.upsert(collectionFixture("owned", owner = "member"))
                     collections.upsert(collectionFixture("shared", owner = "stranger"))
@@ -86,7 +83,7 @@ class CollectionRowVisibilityTest :
                     collections.upsert(collectionFixture("inbox", owner = "admin", isInbox = true))
                     shares.upsert(shareFixture("share1", "shared", sharedWith = "member"))
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.accessibleCollectionIdsSql("member", UserRole.MEMBER)
 
                     val page = collections.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -97,14 +94,13 @@ class CollectionRowVisibilityTest :
         }
 
         test("collection_shares catch-up returns only the member's own shares") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestUser("stranger")
-                seedTestUser("other")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestUser("stranger")
+                sql.seedTestUser("other")
                 runTest {
-                    val (collections, shares, _) = makeRepos(db)
+                    val (collections, shares, _) = makeRepos(this@withSqlDatabase)
 
                     // member owns "owned"; a share on it (naming "other") is visible to member as owner.
                     collections.upsert(collectionFixture("owned", owner = "member"))
@@ -113,7 +109,7 @@ class CollectionRowVisibilityTest :
                     shares.upsert(shareFixture("s-on-owned", "owned", sharedWith = "other"))
                     shares.upsert(shareFixture("s-irrelevant", "strangers", sharedWith = "other"))
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.visibleCollectionGrantIdsSql("member", UserRole.MEMBER)
 
                     val page = shares.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -124,22 +120,21 @@ class CollectionRowVisibilityTest :
         }
 
         test("collection_books catch-up returns only memberships in accessible collections") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestUser("stranger")
-                seedTestBook("b1")
-                seedTestBook("b2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestUser("stranger")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
                 runTest {
-                    val (collections, shares, memberships) = makeRepos(db)
+                    val (collections, shares, memberships) = makeRepos(this@withSqlDatabase)
 
                     collections.upsert(collectionFixture("owned", owner = "member"))
                     collections.upsert(collectionFixture("private", owner = "stranger"))
                     memberships.upsert(membershipFixture("owned", "b1"))
                     memberships.upsert(membershipFixture("private", "b2"))
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.accessibleCollectionBookIdsSql("member", UserRole.MEMBER)
 
                     val page = memberships.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -151,18 +146,17 @@ class CollectionRowVisibilityTest :
         }
 
         test("admin collections catch-up returns all (incl. inbox)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin")
-                seedTestUser("stranger")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin")
+                sql.seedTestUser("stranger")
                 runTest {
-                    val (collections, _, _) = makeRepos(db)
+                    val (collections, _, _) = makeRepos(this@withSqlDatabase)
 
                     collections.upsert(collectionFixture("private", owner = "stranger"))
                     collections.upsert(collectionFixture("inbox", owner = "admin", isInbox = true))
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.accessibleCollectionIdsSql("admin", UserRole.ADMIN)
 
                     // Admin → null fragment → no filter → every row.

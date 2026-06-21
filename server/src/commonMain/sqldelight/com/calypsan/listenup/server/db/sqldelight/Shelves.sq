@@ -87,3 +87,8 @@ SET name = :name, description = :description, is_private = :is_private,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
+
+-- True iff the user has at least one live (non-deleted) shelf — drives
+-- ShelfDomainSeeder.isAlreadySeeded.
+hasAnyLiveForUser:
+SELECT EXISTS(SELECT 1 FROM shelves WHERE user_id = :userId AND deleted_at IS NULL);

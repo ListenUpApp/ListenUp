@@ -1,0 +1,22 @@
+-- server_settings: instance-wide key/value store for operator-configurable toggles.
+-- Schema matches V26__user_permissions_and_settings.sql exactly.
+--
+-- The table starts empty; an absent row means "use the startup default". Today the
+-- sole consumer is ServerSettingsRepository (registration_policy, server_name,
+-- remote_url, instance_id), but the table is deliberately generic so future
+-- server-level toggles land here without a new migration.
+CREATE TABLE server_settings (
+    key   TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (key)
+);
+
+-- Single-value lookup by key — the read side of every setting.
+selectValueByKey:
+SELECT value FROM server_settings WHERE key = :key;
+
+-- Upsert a key/value pair — the write side of every setting. INSERT OR REPLACE
+-- atomically replaces an existing row on PK conflict, matching the Exposed upsert
+-- semantics. The table has only two columns so no partial-update concern applies.
+upsert:
+INSERT OR REPLACE INTO server_settings (key, value) VALUES (:key, :value);

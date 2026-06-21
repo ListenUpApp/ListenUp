@@ -39,7 +39,7 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
-import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 
@@ -164,9 +164,9 @@ class ActivityAclE2ETest :
 
                     // ── Seed library + two books: one public (joins ALL_BOOKS), one gated private ──
                     seedTestLibraryAndFolder()
-                    val db by application.inject<Database>()
-                    db.seedTestBook("public-book")
-                    db.seedTestBook("private-book")
+                    val sql by application.inject<ListenUpDatabase>()
+                    sql.seedTestBook("public-book")
+                    sql.seedTestBook("private-book")
 
                     val collections by application.inject<CollectionRepository>()
                     val collectionBooks by application.inject<CollectionBookRepository>()

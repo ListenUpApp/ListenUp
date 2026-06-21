@@ -6,9 +6,8 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -31,16 +30,16 @@ class UserStatsWindowAnchorTest :
         val clock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
 
         test("a backfilled event 10 days old is excluded from the now-anchored 7-day window") {
-            withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 // No internal updater — we drive onListeningEvent explicitly.
-                val eventRepo = ListeningEventRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+                val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        sql = this.asSqlDatabase(),
+                        sql = sql,
                         userStatsRepo = statsRepo,
                         clock = clock,
-                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
 
                 runTest {

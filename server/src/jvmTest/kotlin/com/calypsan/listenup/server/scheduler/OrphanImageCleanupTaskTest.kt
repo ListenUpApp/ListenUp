@@ -1,17 +1,17 @@
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import com.calypsan.listenup.server.testing.asSqlDatabase
 
 /**
  * Unit tests for [OrphanImageCleanupTask].
@@ -22,13 +22,9 @@ import com.calypsan.listenup.server.testing.asSqlDatabase
 class OrphanImageCleanupTaskTest :
     FunSpec({
 
-        fun makeContributorRepo(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
-        ): ContributorRepository = ContributorRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+        fun makeContributorRepo(sql: ListenUpDatabase): ContributorRepository = ContributorRepository(sql, ChangeBus(), SyncRegistry())
 
-        fun makeSeriesRepo(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
-        ): SeriesRepository = SeriesRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+        fun makeSeriesRepo(sql: ListenUpDatabase): SeriesRepository = SeriesRepository(sql, ChangeBus(), SyncRegistry())
 
         /** Creates a tiny empty file at [path] (no bytes needed — just existence). */
         fun touch(path: Path) {
@@ -40,11 +36,10 @@ class OrphanImageCleanupTaskTest :
         }
 
         test("runOnce deletes orphan and tombstoned files; live contributor image survives") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("orphan-contributor-test-").toString()
-                val db = this
-                val contributorRepo = makeContributorRepo(db)
-                val seriesRepo = makeSeriesRepo(db)
+                val contributorRepo = makeContributorRepo(sql)
+                val seriesRepo = makeSeriesRepo(sql)
 
                 runTest {
                     // Seed a live contributor and a tombstoned contributor via the substrate
@@ -83,11 +78,10 @@ class OrphanImageCleanupTaskTest :
         }
 
         test("runOnce deletes orphan series cover; live series cover survives") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("orphan-series-test-").toString()
-                val db = this
-                val contributorRepo = makeContributorRepo(db)
-                val seriesRepo = makeSeriesRepo(db)
+                val contributorRepo = makeContributorRepo(sql)
+                val seriesRepo = makeSeriesRepo(sql)
 
                 runTest {
                     val liveSeriesId = seriesRepo.resolveOrCreate("The Stormlight Archive").value
@@ -112,13 +106,12 @@ class OrphanImageCleanupTaskTest :
         }
 
         test("runOnce is a no-op when the image directories do not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("orphan-nodir-test-").toString()
-                val db = this
                 val task =
                     OrphanImageCleanupTask(
-                        contributorRepository = makeContributorRepo(db),
-                        seriesRepository = makeSeriesRepo(db),
+                        contributorRepository = makeContributorRepo(sql),
+                        seriesRepository = makeSeriesRepo(sql),
                         imageHome = Path(tempDir),
                     )
                 runTest {
@@ -129,13 +122,12 @@ class OrphanImageCleanupTaskTest :
         }
 
         test("runOnce on empty directories returns without error") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("orphan-emptydir-test-").toString()
-                val db = this
                 val task =
                     OrphanImageCleanupTask(
-                        contributorRepository = makeContributorRepo(db),
-                        seriesRepository = makeSeriesRepo(db),
+                        contributorRepository = makeContributorRepo(sql),
+                        seriesRepository = makeSeriesRepo(sql),
                         imageHome = Path(tempDir),
                     )
                 runTest {

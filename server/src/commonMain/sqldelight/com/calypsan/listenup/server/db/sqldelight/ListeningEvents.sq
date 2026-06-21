@@ -65,6 +65,10 @@ SELECT * FROM listening_events WHERE id = :id;
 selectByIds:
 SELECT * FROM listening_events WHERE id IN :ids;
 
+-- Test helper: all event ids for a user (tombstone-inclusive, insertion order not guaranteed).
+selectIdsByUserId:
+SELECT id FROM listening_events WHERE user_id = :user_id;
+
 insert:
 INSERT INTO listening_events (
     id, user_id, book_id, start_position_ms, end_position_ms, started_at, ended_at,
@@ -101,3 +105,8 @@ sumWallSecondsSince:
 SELECT COALESCE(SUM((ended_at - started_at) / 1000), 0)
 FROM listening_events
 WHERE user_id = :userId AND ended_at >= :cutoffMs;
+
+-- True iff the user has at least one live (non-deleted) listening event — drives
+-- ListeningEventDomainSeeder.isAlreadySeeded.
+hasAnyLiveForUser:
+SELECT EXISTS(SELECT 1 FROM listening_events WHERE user_id = :userId AND deleted_at IS NULL);

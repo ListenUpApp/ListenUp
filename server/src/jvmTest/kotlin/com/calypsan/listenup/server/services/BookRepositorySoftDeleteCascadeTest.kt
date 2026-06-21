@@ -1,8 +1,5 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.core.BookId
@@ -12,7 +9,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import kotlinx.coroutines.test.runTest
@@ -26,26 +23,24 @@ class BookRepositorySoftDeleteCascadeTest :
     FunSpec({
 
         test("softDelete of a book tombstones all its book_tags junction rows") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
                     val bus = ChangeBus()
                     val syncRegistry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = syncRegistry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = syncRegistry)
 
                     val bookRepo =
                         BookRepository(
-                            db = db.asSqlDatabase(),
-                            driver = db.asSqlDriver(),
-                            exposedDb = db,
+                            db = sql,
+                            driver = driver,
                             bus = bus,
                             registry = syncRegistry,
-                            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                            contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                            seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                            genreRepository = GenreRepository(sql, bus, syncRegistry),
                             bookTagRepository = bookTagRepo,
                         )
 
@@ -70,24 +65,22 @@ class BookRepositorySoftDeleteCascadeTest :
         }
 
         test("softDelete without bookTagRepository wired does not throw") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
                     val bus = ChangeBus()
                     val syncRegistry = SyncRegistry()
 
                     val bookRepo =
                         BookRepository(
-                            db = db.asSqlDatabase(),
-                            driver = db.asSqlDriver(),
-                            exposedDb = db,
+                            db = sql,
+                            driver = driver,
                             bus = bus,
                             registry = syncRegistry,
-                            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                            contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                            seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                            genreRepository = GenreRepository(sql, bus, syncRegistry),
                             // bookTagRepository = null (default) — cascade is a no-op
                         )
 

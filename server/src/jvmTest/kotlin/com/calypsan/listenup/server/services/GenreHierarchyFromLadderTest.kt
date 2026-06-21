@@ -2,8 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -13,9 +12,9 @@ class GenreHierarchyFromLadderTest :
     FunSpec({
 
         test("nests each rung under the previous one, leaf is most specific") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-                val hierarchy = GenreHierarchyFromLadder(this, repo, GenreAutoCreator(repo))
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val hierarchy = GenreHierarchyFromLadder(sql, repo, GenreAutoCreator(repo))
                 runTest {
                     val ids = hierarchy.ensureLadder(listOf("Fiction", "Fantasy", "LitRPG"))
 
@@ -34,10 +33,10 @@ class GenreHierarchyFromLadderTest :
         }
 
         test("does not move a genre the user already arranged under a parent") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val autoCreator = GenreAutoCreator(repo)
-                val hierarchy = GenreHierarchyFromLadder(this, repo, autoCreator)
+                val hierarchy = GenreHierarchyFromLadder(sql, repo, autoCreator)
                 runTest {
                     // The user has arranged "Fantasy" under "Reference" (a deliberate, non-flat placement).
                     val referenceId = autoCreator.findOrCreateFlatGenreId("Reference")
@@ -70,10 +69,10 @@ class GenreHierarchyFromLadderTest :
         }
 
         test("nests a pre-existing FLAT genre when a ladder arrives (scanner-flat becomes nested)") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val autoCreator = GenreAutoCreator(repo)
-                val hierarchy = GenreHierarchyFromLadder(this, repo, autoCreator)
+                val hierarchy = GenreHierarchyFromLadder(sql, repo, autoCreator)
                 runTest {
                     // "Fantasy" was created flat by an earlier scan (no parent).
                     val fantasyId = autoCreator.findOrCreateFlatGenreId("Fantasy")

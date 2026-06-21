@@ -1,8 +1,5 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -32,7 +29,7 @@ import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -49,7 +46,6 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Route-level access-gate tests for [contributorRoutes]'s reverse-lookup
@@ -66,48 +62,46 @@ class ContributorRoutesTest :
     FunSpec({
 
         fun withContributorTestApp(block: suspend ContributorTestScope.() -> Unit) {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val contributorRepo = ContributorRepository(db = sql, bus = bus, registry = registry)
+                val seriesRepo = SeriesRepository(db = sql, bus = bus, registry = registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        exposedDb = db,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
-                        genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                        genreRepository = GenreRepository(db = sql, bus = bus, registry = registry),
                     )
-                val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
-                val service = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
+                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
+                val service = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sql)
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
+                        install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
                                 contributorRoutes(service, accessPolicy)
@@ -122,7 +116,7 @@ class ContributorRoutesTest :
 
                     ContributorTestScope(
                         jsonClient,
-                        db,
+                        sql,
                         contributorRepo,
                         bookRepo,
                         collectionRepo,
@@ -134,8 +128,8 @@ class ContributorRoutesTest :
 
         test("GET /contributors/{id}/books drops a book a member can't reach but keeps the accessible one") {
             withContributorTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member", UserRoleColumn.MEMBER)
                 val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                 bookRepo.upsert(bookWithContributor("accessible", contributorId))
                 bookRepo.upsert(bookWithContributor("private", contributorId))
@@ -154,8 +148,8 @@ class ContributorRoutesTest :
 
         test("GET /contributors/{id}/books returns both books for an admin") {
             withContributorTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 val contributorId = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
                 bookRepo.upsert(bookWithContributor("accessible", contributorId))
                 bookRepo.upsert(bookWithContributor("private", contributorId))
@@ -172,7 +166,7 @@ class ContributorRoutesTest :
 
 private data class ContributorTestScope(
     val client: io.ktor.client.HttpClient,
-    val db: Database,
+    val sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     val contributorRepo: ContributorRepository,
     val bookRepo: BookRepository,
     val collectionRepo: CollectionRepository,

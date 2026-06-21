@@ -14,7 +14,7 @@ import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.PublicProfilesTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -22,12 +22,11 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -35,9 +34,6 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Contract and ACL tests for [ActivityServiceImpl] — the activity-feed read surface.
@@ -68,7 +64,7 @@ class ActivityServiceTest :
         fun noPrincipal(): PrincipalProvider = PrincipalProvider { null }
 
         fun makeService(
-            db: Database,
+            db: SqlTestDatabases,
             activities: ActivityRepository,
             principal: PrincipalProvider,
         ): ActivityServiceImpl {
@@ -76,8 +72,8 @@ class ActivityServiceTest :
             val registry = SyncRegistry()
             return ActivityServiceImpl(
                 activities = activities,
-                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                publicProfiles = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(db.sql, db.driver),
+                publicProfiles = PublicProfileRepository(db = db.sql, bus = bus, registry = registry),
                 principal = principal,
             )
         }
@@ -88,21 +84,30 @@ class ActivityServiceTest :
         }
 
         /** Inserts a `public_profiles` identity row directly (clients normally maintain it). */
-        fun Database.seedPublicProfile(
+        fun ListenUpDatabase.seedPublicProfile(
             userId: String,
             displayName: String = "Display $userId",
             avatarType: String = "auto",
         ) {
-            transaction(this) {
-                PublicProfilesTable.insert {
-                    it[id] = userId
-                    it[PublicProfilesTable.displayName] = displayName
-                    it[PublicProfilesTable.avatarType] = avatarType
-                    it[revision] = 0L
-                    it[createdAt] = 1L
-                    it[updatedAt] = 1L
-                    it[deletedAt] = null
-                }
+            transaction {
+                publicProfilesQueries.insert(
+                    id = userId,
+                    display_name = displayName,
+                    avatar_type = avatarType,
+                    tagline = null,
+                    total_seconds_all_time = 0L,
+                    total_seconds_last_7_days = 0L,
+                    total_seconds_last_30_days = 0L,
+                    total_seconds_last_365_days = 0L,
+                    books_finished = 0L,
+                    current_streak_days = 0L,
+                    longest_streak_days = 0L,
+                    revision = 0L,
+                    created_at = 1L,
+                    updated_at = 1L,
+                    deleted_at = null,
+                    client_op_id = null,
+                )
             }
         }
 
@@ -111,7 +116,7 @@ class ActivityServiceTest :
          * inaccessible to any non-admin user without an explicit share.
          */
         suspend fun makeBookInaccessible(
-            db: Database,
+            db: SqlTestDatabases,
             bookId: String,
             collectionId: String,
             collectionOwner: String = "stranger",
@@ -120,17 +125,17 @@ class ActivityServiceTest :
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             collectionRepo.upsert(
                 CollectionSyncPayload(
@@ -161,7 +166,7 @@ class ActivityServiceTest :
          * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
          */
         suspend fun makeBookAccessible(
-            db: Database,
+            db: SqlTestDatabases,
             bookId: String,
             viewer: String,
             // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
@@ -173,24 +178,24 @@ class ActivityServiceTest :
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             collectionRepo.upsert(
                 CollectionSyncPayload(
@@ -227,26 +232,25 @@ class ActivityServiceTest :
         // ── 1: feed returns most-recent-first, identity from public_profiles ──────────
 
         test("feed returns activities most-recent-first with identity from public_profiles") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestBook("book-a")
-                seedTestBook("book-b")
-                seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestBook("book-a")
+                sql.seedTestBook("book-b")
+                sql.seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
                 runTest {
                     // Both books reachable to alice the pure-union way (ALL_BOOKS membership + alice's grant).
-                    makeBookAccessible(db, bookId = "book-a", viewer = "alice")
-                    makeBookAccessible(db, bookId = "book-b", viewer = "alice")
+                    makeBookAccessible(this@withSqlDatabase, bookId = "book-a", viewer = "alice")
+                    makeBookAccessible(this@withSqlDatabase, bookId = "book-b", viewer = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
+                    val activities = ActivityRepository(db = sql, clock = clock)
                     activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-b")
 
                     val result =
-                        makeService(db, activities, principalFor("alice"))
+                        makeService(this@withSqlDatabase, activities, principalFor("alice"))
                             .feed(before = null, limit = 20)
                             .value()
 
@@ -266,28 +270,32 @@ class ActivityServiceTest :
         // ── 2 (CROWN JEWEL ACL): inaccessible-book activity is never returned ─────────
 
         test("feed returns the globally-accessible book activity, never the private one") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("public-book")
-                seedTestBook("private-book")
-                seedPublicProfile("alice", displayName = "Alice")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
+                sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
                     // "private-book" is gated into alice's private collection; viewer can't see it.
-                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    makeBookInaccessible(
+                        this@withSqlDatabase,
+                        bookId = "private-book",
+                        collectionId = "priv-col",
+                        collectionOwner = "alice",
+                    )
                     // "public-book" is reachable to viewer the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(db, bookId = "public-book", viewer = "viewer")
+                    makeBookAccessible(this@withSqlDatabase, bookId = "public-book", viewer = "viewer")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
+                    val activities = ActivityRepository(db = sql, clock = clock)
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "public-book")
 
                     val result =
-                        makeService(db, activities, principalFor("viewer"))
+                        makeService(this@withSqlDatabase, activities, principalFor("viewer"))
                             .feed(before = null, limit = 20)
                             .value()
 
@@ -302,18 +310,22 @@ class ActivityServiceTest :
         // ── 3: non-book activity always passes the ACL filter ────────────────────────
 
         test("feed always returns non-book activity regardless of book access") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("private-book")
-                seedPublicProfile("alice", displayName = "Alice")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("private-book")
+                sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
-                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    makeBookInaccessible(
+                        this@withSqlDatabase,
+                        bookId = "private-book",
+                        collectionId = "priv-col",
+                        collectionOwner = "alice",
+                    )
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
+                    val activities = ActivityRepository(db = sql, clock = clock)
                     // A book activity the viewer can't see, plus two non-book activities.
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
@@ -327,7 +339,7 @@ class ActivityServiceTest :
                     activities.record(userId = "alice", type = ActivityType.USER_JOINED)
 
                     val result =
-                        makeService(db, activities, principalFor("viewer"))
+                        makeService(this@withSqlDatabase, activities, principalFor("viewer"))
                             .feed(before = null, limit = 20)
                             .value()
 
@@ -343,18 +355,17 @@ class ActivityServiceTest :
         // ── 4: before cursor returns only older rows, DESC ───────────────────────────
 
         test("feed before cursor returns only rows older than the cursor, DESC") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestBook("book-a")
-                seedPublicProfile("alice", displayName = "Alice")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
                     // "book-a" reachable to alice the pure-union way (ALL_BOOKS membership + alice's grant).
-                    makeBookAccessible(db, bookId = "book-a", viewer = "alice")
+                    makeBookAccessible(this@withSqlDatabase, bookId = "book-a", viewer = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
+                    val activities = ActivityRepository(db = sql, clock = clock)
                     activities.record(userId = "alice", type = ActivityType.USER_JOINED) // 1_000
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
                     activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a") // 2_000
@@ -362,7 +373,7 @@ class ActivityServiceTest :
                     activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-a") // 3_000
 
                     val result =
-                        makeService(db, activities, principalFor("alice"))
+                        makeService(this@withSqlDatabase, activities, principalFor("alice"))
                             .feed(before = 3_000L, limit = 20)
                             .value()
 
@@ -376,18 +387,22 @@ class ActivityServiceTest :
         // ── 5: overfetch fills a full page despite interleaved inaccessible rows ──────
 
         test("feed returns a full page of visible rows when inaccessible rows are interleaved") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("private-book")
-                seedPublicProfile("alice", displayName = "Alice")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("private-book")
+                sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
-                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    makeBookInaccessible(
+                        this@withSqlDatabase,
+                        bookId = "private-book",
+                        collectionId = "priv-col",
+                        collectionOwner = "alice",
+                    )
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(0L))
-                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
+                    val activities = ActivityRepository(db = sql, clock = clock)
                     // 20 accessible (non-book) rows interleaved with 20 inaccessible book rows.
                     var t = 1L
                     repeat(20) {
@@ -398,7 +413,7 @@ class ActivityServiceTest :
                     }
 
                     val result =
-                        makeService(db, activities, principalFor("viewer"))
+                        makeService(this@withSqlDatabase, activities, principalFor("viewer"))
                             .feed(before = null, limit = 5)
                             .value()
 
@@ -414,11 +429,10 @@ class ActivityServiceTest :
         // ── 7: feed orders by occurred_at, not insert order ──────────────────────────
 
         test("page orders by occurred_at, not insert order") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = db.asSqlDatabase(), clock = clock)
+                    val activities = ActivityRepository(db = sql, clock = clock)
                     // Insert at clock=1_000 but with occurredAt=1_000 (older real event)
                     activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 1_000L)
                     // Insert at clock=2_000 but with occurredAt=9_000 (newer real event)
@@ -432,12 +446,11 @@ class ActivityServiceTest :
         }
 
         test("page breaks occurred_at ties deterministically by id DESC") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val activities =
                         ActivityRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             clock = MutableClock(Instant.fromEpochMilliseconds(1_000L)),
                         )
                     // Two activities sharing the same occurredAt — the secondary `id DESC` sort must order them.
@@ -451,12 +464,11 @@ class ActivityServiceTest :
         }
 
         test("feed returns Failure(SocialError.NotFound) when caller is unauthenticated") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 runTest {
-                    val activities = ActivityRepository(db = db.asSqlDatabase())
-                    val result = makeService(db, activities, noPrincipal()).feed(before = null, limit = 20)
+                    val activities = ActivityRepository(db = sql)
+                    val result = makeService(this@withSqlDatabase, activities, noPrincipal()).feed(before = null, limit = 20)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()
                 }

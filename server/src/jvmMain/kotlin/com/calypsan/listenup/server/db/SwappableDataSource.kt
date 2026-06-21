@@ -1,46 +1,43 @@
 package com.calypsan.listenup.server.db
 
-import com.zaxxer.hikari.HikariDataSource
 import java.io.PrintWriter
 import java.sql.Connection
 import java.util.logging.Logger
 import javax.sql.DataSource
 
 /**
- * A [DataSource] facade over a swappable [HikariDataSource]. Lets the Exposed `Database`
- * bind once to a stable object while the live pool underneath is torn down and rebuilt —
- * the mechanism the restore orchestrator uses to free every SQLite file handle before
- * swapping the db file in place.
+ * A [DataSource] facade over a swappable delegate. Lets a long-lived consumer (the migration runner /
+ * VACUUM) bind once while the live delegate underneath is replaced — used by restore to rebuild the
+ * connection source on the swapped-in db file. Backed by a non-pooled [org.sqlite.SQLiteDataSource]
+ * (each [getConnection] opens a fresh connection the caller closes), so there is no pool to leak; the
+ * `close`/`closeCurrent` hooks close the delegate only if it is [AutoCloseable].
  *
- * No lock: between [closeCurrent] and [install] the delegate is a closed pool, so a
- * concurrent [getConnection] fails fast (a closed pool can never serve stale data). A
- * restore is a rare admin operation; failing a request during the brief swap window is
- * the honest, simple choice.
+ * No lock: between [closeCurrent] and [install] the delegate may be a stale source, but restore is a
+ * rare, single-flight, drained admin operation — there is no concurrent caller during the swap window.
  */
 class SwappableDataSource(
-    initial: HikariDataSource,
+    initial: DataSource,
 ) : DataSource {
     @Volatile
-    private var delegate: HikariDataSource = initial
+    private var delegate: DataSource = initial
 
-    /** Returns the currently active pool. */
-    fun current(): HikariDataSource = delegate
+    /** The currently active delegate. */
+    fun current(): DataSource = delegate
 
-    /**
-     * Hard-closes the live pool ahead of an [install] — the recoverable pre-swap close.
-     * Releases every fd. Expect a new pool to be installed immediately after.
-     */
-    fun closeCurrent() = delegate.close()
+    /** Closes the live delegate (if closeable) ahead of an [install] — the recoverable pre-swap close. */
+    fun closeCurrent() {
+        (delegate as? AutoCloseable)?.close()
+    }
 
-    /** Installs a freshly-built pool as the live delegate. */
-    fun install(new: HikariDataSource) {
+    /** Installs a freshly-built delegate as the live source. */
+    fun install(new: DataSource) {
         delegate = new
     }
 
-    /**
-     * Terminal shutdown of the data source (no [install] follows) — e.g. app/test teardown.
-     */
-    fun close() = delegate.close()
+    /** Terminal shutdown of the data source (no [install] follows) — e.g. app/test teardown. */
+    fun close() {
+        (delegate as? AutoCloseable)?.close()
+    }
 
     override fun getConnection(): Connection = delegate.connection
 

@@ -1,26 +1,27 @@
 package com.calypsan.listenup.server.db
 
-import com.zaxxer.hikari.HikariDataSource
-import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.db.sqldelight.DriverFactory
 import java.nio.file.Path
+import javax.sql.DataSource
 
 /**
- * Owns the live [Database] plus the underlying [SwappableDataSource] and the on-disk db file,
- * so the restore orchestrator can close the pool, swap the file in place, reopen the pool,
- * and migrate forward while keeping the [Database] object identity stable (repositories
- * captured it at construction).
+ * Owns the repos' restore-swappable [SwappableSqlDriver], the non-pooled migration/VACUUM
+ * [SwappableDataSource], and the on-disk db file, so the restore orchestrator can close every handle,
+ * swap the file in place, reopen, and migrate forward while keeping the [SwappableSqlDriver] (and thus
+ * every repository bound to it) identity-stable.
  */
 class DatabaseHandle(
-    val database: Database,
+    val sqlDriver: SwappableSqlDriver,
     private val dataSource: SwappableDataSource,
-    private val poolFactory: () -> HikariDataSource,
+    private val dataSourceFactory: () -> DataSource,
     val dbFilePath: Path,
 ) {
+    @Volatile
+    private var closed = false
+
     /**
-     * Asks SQLite for a transactionally-consistent standalone copy at [target] (WAL-safe).
-     *
-     * SQLite requires `VACUUM INTO` to run outside of a transaction, so we use a raw JDBC
-     * connection with auto-commit enabled rather than Exposed's `transaction { }` wrapper.
+     * Asks SQLite for a transactionally-consistent standalone copy at [target] (WAL-safe). SQLite
+     * requires `VACUUM INTO` run outside a transaction, so we use a raw auto-commit JDBC connection.
      */
     fun vacuumInto(target: Path) {
         val escapedPath = target.toAbsolutePath().toString().replace("'", "''")
@@ -28,9 +29,7 @@ class DatabaseHandle(
             val wasAutoCommit = conn.autoCommit
             conn.autoCommit = true
             try {
-                conn.createStatement().use { stmt ->
-                    stmt.execute("VACUUM INTO '$escapedPath'")
-                }
+                conn.createStatement().use { stmt -> stmt.execute("VACUUM INTO '$escapedPath'") }
             } finally {
                 conn.autoCommit = wasAutoCommit
             }
@@ -38,23 +37,24 @@ class DatabaseHandle(
     }
 
     /**
-     * Hard-closes the live Hikari pool, deterministically releasing every SQLite file
-     * handle before the db file is swapped. MUST be paired with [reopenPool] on every
-     * control-flow path or the app is left with a closed pool.
-     *
-     * Conversely, [reopenPool] must only be called after [closePool] — installing a new
-     * pool over a still-open one orphans the old pool's connections (file-handle leak).
+     * Hard-closes the repos' SQLDelight driver and the migration data source, releasing every SQLite
+     * file handle before the db file is swapped. MUST be paired with [reopenPool] on every control-flow
+     * path or the app is left with closed connections.
      */
-    fun closePool() = dataSource.closeCurrent()
+    fun closePool() {
+        sqlDriver.closeUnderlying()
+        dataSource.closeCurrent()
+    }
 
     /**
-     * Builds a fresh pool on the (possibly just-swapped) db file and makes it live.
-     *
-     * The fresh pool is built from the original [poolFactory] (i.e. the original
-     * jdbcUrl/path); this is correct only because restore swaps the replacement db file
-     * into that same path in place.
+     * Rebuilds the SQLDelight driver and the migration data source on the (possibly just-swapped) db
+     * file, making both live again. The [SwappableSqlDriver] identity is preserved so repositories that
+     * captured it keep working after the restore.
      */
-    fun reopenPool() = dataSource.install(poolFactory())
+    fun reopenPool() {
+        dataSource.install(dataSourceFactory())
+        sqlDriver.installUnderlying(DriverFactory().createDriver(dbFilePath.toAbsolutePath().toString()))
+    }
 
     /** Runs migrations forward against the current (possibly just-swapped) db file. Returns the post-migration version. */
     fun migrate(): String? = MigrationRunner(dataSource).migrate()
@@ -63,15 +63,18 @@ class DatabaseHandle(
     fun currentSchemaVersion(): String? = MigrationRunner(dataSource).currentSchemaVersion()
 
     /**
-     * Terminal shutdown of the connection pool — releases every Hikari thread and SQLite
-     * file handle. Unlike [closePool] (the restore-flow close that expects a [reopenPool]),
-     * nothing reopens after this. Idempotent: HikariCP's close tolerates repeat calls.
+     * Terminal shutdown — closes the SQLDelight driver and the migration data source; nothing reopens.
+     * Idempotent: repeat calls are tolerated.
      */
-    fun close() = dataSource.close()
+    fun close() {
+        closed = true
+        sqlDriver.close()
+        dataSource.close()
+    }
 
-    /** True once the live pool is closed. Test-observability for graceful shutdown. */
-    fun isPoolClosed(): Boolean = dataSource.current().isClosed
+    /** True once [close] has run. Test-observability for graceful shutdown. */
+    fun isPoolClosed(): Boolean = closed
 
-    /** Test-only: the live DataSource, for schema-dump assertions. */
-    internal fun dataSourceForTest(): javax.sql.DataSource = dataSource
+    /** Test-only: the live DataSource, for schema-dump / raw-seed assertions. */
+    internal fun dataSourceForTest(): DataSource = dataSource
 }

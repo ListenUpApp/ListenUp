@@ -29,7 +29,8 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -41,18 +42,16 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookServiceImplDeleteCoverTest :
     FunSpec({
 
         test("deleteBookCover nulls cover state and removes the file when a filesystem cover exists") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val libraryRoot = Files.createTempDirectory("listenup-test-library-").toAbsolutePath()
                 libraryRoot.toFile().deleteOnExit()
-                seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                 val (service, repo) = newService(db)
                 runTest {
                     val rootRelPath = "Sanderson/b1"
@@ -78,11 +77,11 @@ class BookServiceImplDeleteCoverTest :
         }
 
         test("deleteBookCover nulls cover state and leaves the audio file alone for embedded covers") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val libraryRoot = Files.createTempDirectory("listenup-test-library-").toAbsolutePath()
                 libraryRoot.toFile().deleteOnExit()
-                seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                 val (service, repo) = newService(db)
                 runTest {
                     val rootRelPath = "Sanderson/b1"
@@ -108,9 +107,9 @@ class BookServiceImplDeleteCoverTest :
         }
 
         test("deleteBookCover returns CoverError.NotPresent when the book has no cover") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val (service, repo) = newService(db)
                 runTest {
                     repo.upsert(bookFixture(id = "b1", title = "Coverless Book", cover = null))
@@ -125,9 +124,9 @@ class BookServiceImplDeleteCoverTest :
         }
 
         test("deleteBookCover returns BookError.NotFound when the book does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val (service, _) = newService(db)
                 runTest {
                     val result = service.deleteBookCover(BookId("does-not-exist"))
@@ -140,11 +139,11 @@ class BookServiceImplDeleteCoverTest :
         }
 
         test("deleteBookCover still succeeds when the cover file is already missing") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val libraryRoot = Files.createTempDirectory("listenup-test-library-").toAbsolutePath()
                 libraryRoot.toFile().deleteOnExit()
-                seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
                 val (service, repo) = newService(db)
                 runTest {
                     // Seed the book with a FILESYSTEM cover in the DB, but no file on disk.
@@ -168,14 +167,14 @@ class BookServiceImplDeleteCoverTest :
         }
 
         test("deleteBookCover removes the managed file and nulls cover columns for an ENRICHED cover") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val home = Files.createTempDirectory("listenup-test-home-").toAbsolutePath()
                 home.toFile().deleteOnExit()
                 val coversDir = home.resolve("covers").apply { createDirectories() }
                 // Write a fake managed cover file at covers/<bookId>.jpg
                 val managedFile = coversDir.resolve("b1.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val coverImageStore = CoverImageStore(ImageStore(coversDir, MAX_COVER_BYTES))
                 val (service, repo) = newService(db, coverImageStore, homeDir = home)
                 runTest {
@@ -197,13 +196,13 @@ class BookServiceImplDeleteCoverTest :
         }
 
         test("deleteBookCover removes the managed file and nulls cover columns for an UPLOADED cover") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val home = Files.createTempDirectory("listenup-test-home-uploaded-").toAbsolutePath()
                 home.toFile().deleteOnExit()
                 val coversDir = home.resolve("covers").apply { createDirectories() }
                 val managedFile = coversDir.resolve("b2.png").apply { writeBytes(byteArrayOf(4, 5, 6)) }
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val coverImageStore = CoverImageStore(ImageStore(coversDir, MAX_COVER_BYTES))
                 val (service, repo) = newService(db, coverImageStore, homeDir = home)
                 runTest {
@@ -224,20 +223,19 @@ class BookServiceImplDeleteCoverTest :
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 
 private fun newService(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    db: SqlTestDatabases,
     coverImageStore: CoverImageStore? = null,
     homeDir: java.nio.file.Path? = null,
 ): Pair<BookServiceImpl, BookRepository> {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+    val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+    val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
     val repo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = db.sql,
+            driver = db.driver,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
@@ -252,10 +250,10 @@ private fun newService(
             contributorRepo = contributorRepo,
             seriesRepo = seriesRepo,
             coverStorage = CoverStorage(),
-            db = db,
+            sql = db.sql,
             genreRepo = genreRepo,
-            accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+            accessPolicy = BookAccessPolicy(db.sql, db.driver),
+            permissionPolicy = UserPermissionPolicy(db.sql),
             principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
             coverImageStore = coverImageStore,
         )

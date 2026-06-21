@@ -2,15 +2,11 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.GenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -24,7 +20,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -35,11 +31,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
 
 /**
  * Integration tests for the read + create surface of [GenreServiceImpl]:
@@ -54,20 +45,22 @@ class GenreServiceImplReadCreateTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
 
-        fun makeService(db: Database): GenreServiceImpl {
+        fun makeService(
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
+        ): GenreServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry, fixedClock)
-            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-            val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+            val genreRepo = GenreRepository(sql, bus, registry, fixedClock)
+            val contributorRepo = ContributorRepository(sql, bus, registry)
+            val seriesRepo = SeriesRepository(sql, bus, registry)
+            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+            val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
             val bookRepo =
                 BookRepository(
-                    db = db.asSqlDatabase(),
-                    driver = db.asSqlDriver(),
-                    exposedDb = db,
+                    db = sql,
+                    driver = driver,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -76,15 +69,15 @@ class GenreServiceImplReadCreateTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db, principal = rootPrincipal())
+            return GenreServiceImpl(genreRepo, bookRepo, reindexer, sql, principal = rootPrincipal())
         }
 
         // ── listGenres ────────────────────────────────────────────────────────
 
         test("listGenres returns empty list when no genres exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result = service.listGenres()
                     require(result is AppResult.Success)
                     result.data.shouldBeEmpty()
@@ -93,22 +86,19 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("listGenres returns live genres sorted by path") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
-                    seedGenre("g-nf", name = "Non-Fiction", slug = "non-fiction", path = "/non-fiction")
-                    seedGenre(
-                        "g-fant",
-                        name = "Fantasy",
-                        slug = "fantasy",
-                        path = "/fiction/fantasy",
-                        parentId = "g-fic",
-                        depth = 1,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                sql.seedGenre("g-nf", name = "Non-Fiction", slug = "non-fiction", path = "/non-fiction")
+                sql.seedGenre(
+                    "g-fant",
+                    name = "Fantasy",
+                    slug = "fantasy",
+                    path = "/fiction/fantasy",
+                    parentId = "g-fic",
+                    depth = 1,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.listGenres()
                     require(result is AppResult.Success)
                     result.data.map { it.path } shouldContainExactly
@@ -118,20 +108,17 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("listGenres excludes tombstoned genres") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-live", name = "Live", slug = "live", path = "/live")
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-live", name = "Live", slug = "live", path = "/live")
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.listGenres()
                     require(result is AppResult.Success)
                     result.data.map { it.id.value } shouldContainExactly listOf("g-live")
@@ -140,22 +127,19 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("listGenres computes bookCount via JOIN on book_genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
-                seedTestBook("book3")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
-                    BookGenreTable.insertIfAbsent("book1", "g-fant")
-                    BookGenreTable.insertIfAbsent("book2", "g-fant")
-                    BookGenreTable.insertIfAbsent("book3", "g-fant")
-                    BookGenreTable.insertIfAbsent("book1", "g-scifi")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                sql.seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-fant")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book2", genre_id = "g-fant")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book3", genre_id = "g-fant")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-scifi")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.listGenres()
                     require(result is AppResult.Success)
                     val byId = result.data.associateBy { it.id.value }
@@ -166,20 +150,23 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("listGenres counts only live books and includes zero-book genres") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("live1")
-                seedTestBook("gone1")
-                transaction(db) {
-                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
-                    seedGenre("g-empty", name = "Empty", slug = "empty", path = "/empty")
-                    BookGenreTable.insertIfAbsent("live1", "g-fic")
-                    BookGenreTable.insertIfAbsent("gone1", "g-fic")
-                    BookTable.update({ BookTable.id eq "gone1" }) { it[BookTable.deletedAt] = 123L }
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("live1")
+                sql.seedTestBook("gone1")
+                sql.seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                sql.seedGenre("g-empty", name = "Empty", slug = "empty", path = "/empty")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "live1", genre_id = "g-fic")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "gone1", genre_id = "g-fic")
+                sql.booksQueries.softDeleteById(
+                    id = "gone1",
+                    revision = 0L,
+                    updated_at = 0L,
+                    deleted_at = 123L,
+                    client_op_id = null,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.listGenres()
                     require(result is AppResult.Success)
                     val byId = result.data.associateBy { it.id.value }
@@ -192,9 +179,9 @@ class GenreServiceImplReadCreateTest :
         // ── getGenre ──────────────────────────────────────────────────────────
 
         test("getGenre returns null when id is unknown") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result = service.getGenre(GenreId("missing"))
                     require(result is AppResult.Success)
                     result.data.shouldBeNull()
@@ -203,19 +190,16 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("getGenre returns null when id is tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.getGenre(GenreId("g-dead"))
                     require(result is AppResult.Success)
                     result.data.shouldBeNull()
@@ -224,13 +208,10 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("getGenre returns full payload when id is live") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy", depth = 0)
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy", depth = 0)
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.getGenre(GenreId("g-fant"))
                     require(result is AppResult.Success)
                     val payload = result.data
@@ -246,37 +227,34 @@ class GenreServiceImplReadCreateTest :
         // ── getGenreChildren ──────────────────────────────────────────────────
 
         test("getGenreChildren returns direct children only, not descendants") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
-                    seedGenre(
-                        "g-fant",
-                        name = "Fantasy",
-                        slug = "fantasy",
-                        path = "/fiction/fantasy",
-                        parentId = "g-fic",
-                        depth = 1,
-                    )
-                    seedGenre(
-                        "g-scifi",
-                        name = "Sci-Fi",
-                        slug = "sci-fi",
-                        path = "/fiction/sci-fi",
-                        parentId = "g-fic",
-                        depth = 1,
-                    )
-                    seedGenre(
-                        "g-epic",
-                        name = "Epic Fantasy",
-                        slug = "epic-fantasy",
-                        path = "/fiction/fantasy/epic",
-                        parentId = "g-fant",
-                        depth = 2,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                sql.seedGenre(
+                    "g-fant",
+                    name = "Fantasy",
+                    slug = "fantasy",
+                    path = "/fiction/fantasy",
+                    parentId = "g-fic",
+                    depth = 1,
+                )
+                sql.seedGenre(
+                    "g-scifi",
+                    name = "Sci-Fi",
+                    slug = "sci-fi",
+                    path = "/fiction/sci-fi",
+                    parentId = "g-fic",
+                    depth = 1,
+                )
+                sql.seedGenre(
+                    "g-epic",
+                    name = "Epic Fantasy",
+                    slug = "epic-fantasy",
+                    path = "/fiction/fantasy/epic",
+                    parentId = "g-fant",
+                    depth = 2,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.getGenreChildren(GenreId("g-fic"))
                     require(result is AppResult.Success)
                     result.data.map { it.id } shouldContainExactlyInAnyOrder listOf("g-fant", "g-scifi")
@@ -285,30 +263,27 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("getGenreChildren excludes tombstoned children") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
-                    seedGenre(
-                        "g-live",
-                        name = "Live",
-                        slug = "live-child",
-                        path = "/fiction/live-child",
-                        parentId = "g-fic",
-                        depth = 1,
-                    )
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead-child",
-                        path = "/fiction/dead-child",
-                        parentId = "g-fic",
-                        depth = 1,
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                sql.seedGenre(
+                    "g-live",
+                    name = "Live",
+                    slug = "live-child",
+                    path = "/fiction/live-child",
+                    parentId = "g-fic",
+                    depth = 1,
+                )
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead-child",
+                    path = "/fiction/dead-child",
+                    parentId = "g-fic",
+                    depth = 1,
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.getGenreChildren(GenreId("g-fic"))
                     require(result is AppResult.Success)
                     result.data.map { it.id } shouldContainExactly listOf("g-live")
@@ -317,9 +292,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("getGenreChildren returns NotFound when parent is missing") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result = service.getGenreChildren(GenreId("missing"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.NotFound>()
@@ -328,19 +303,16 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("getGenreChildren returns NotFound when parent is tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.getGenreChildren(GenreId("g-dead"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.NotFound>()
@@ -351,10 +323,9 @@ class GenreServiceImplReadCreateTest :
         // ── createGenre ───────────────────────────────────────────────────────
 
         test("createGenre with null parent creates root genre with path /slug and depth 0") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.createGenre(parentId = null, name = "Fantasy", sortOrder = 0)
                     require(result is AppResult.Success)
                     val created = service.getGenre(result.data)
@@ -370,10 +341,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre under live parent computes path = parent.path + /slug and depth = parent.depth + 1") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val rootResult = service.createGenre(parentId = null, name = "Fiction", sortOrder = 0)
                     require(rootResult is AppResult.Success)
                     val childResult = service.createGenre(parentId = rootResult.data, name = "Fantasy", sortOrder = 0)
@@ -395,9 +365,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre returns InvalidInput when name is blank") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result = service.createGenre(parentId = null, name = "", sortOrder = 0)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.InvalidInput>()
@@ -406,9 +376,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre returns InvalidInput when name normalizes to empty") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result = service.createGenre(parentId = null, name = "!!!", sortOrder = 0)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.InvalidInput>()
@@ -417,10 +387,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre returns SlugConflict when slug already in use by a live genre") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val first = service.createGenre(parentId = null, name = "Fantasy", sortOrder = 0)
                     require(first is AppResult.Success)
                     val second = service.createGenre(parentId = null, name = "fantasy", sortOrder = 0)
@@ -431,9 +400,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre returns NotFound when parentId is unknown") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result =
                         service.createGenre(parentId = GenreId("missing"), name = "Fantasy", sortOrder = 0)
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -443,19 +412,16 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre returns NotFound when parentId is tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result =
                         service.createGenre(parentId = GenreId("g-dead"), name = "Fantasy", sortOrder = 0)
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -465,10 +431,9 @@ class GenreServiceImplReadCreateTest :
         }
 
         test("createGenre persists sortOrder correctly") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.createGenre(parentId = null, name = "Fantasy", sortOrder = 42)
                     require(result is AppResult.Success)
                     val payload = (service.getGenre(result.data) as AppResult.Success).data
@@ -479,10 +444,9 @@ class GenreServiceImplReadCreateTest :
 
         // listGenres includes newly created genres as a smoke check on substrate write paths.
         test("createGenre output is visible via listGenres") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     service.createGenre(parentId = null, name = "Fantasy", sortOrder = 0)
                     val all = (service.listGenres() as AppResult.Success).data
                     all shouldHaveSize 1
@@ -495,7 +459,7 @@ class GenreServiceImplReadCreateTest :
 // --- Fixtures ---------------------------------------------------------------
 
 @Suppress("LongParameterList")
-private fun seedGenre(
+private fun ListenUpDatabase.seedGenre(
     id: String,
     name: String,
     slug: String,
@@ -505,20 +469,22 @@ private fun seedGenre(
     sortOrder: Int = 0,
     deletedAt: Long? = null,
 ) {
-    GenreTable.insert {
-        it[GenreTable.id] = id
-        it[GenreTable.name] = name
-        it[GenreTable.slug] = slug
-        it[GenreTable.path] = path
-        it[GenreTable.parentId] = parentId
-        it[GenreTable.depth] = depth
-        it[GenreTable.sortOrder] = sortOrder
-        it[GenreTable.color] = null
-        it[GenreTable.description] = null
-        it[GenreTable.revision] = 0L
-        it[GenreTable.createdAt] = 0L
-        it[GenreTable.updatedAt] = 0L
-        it[GenreTable.deletedAt] = deletedAt
-        it[GenreTable.clientOpId] = null
+    transaction {
+        genresQueries.insert(
+            id = id,
+            name = name,
+            slug = slug,
+            path = path,
+            parent_id = parentId,
+            depth = depth.toLong(),
+            sort_order = sortOrder.toLong(),
+            color = null,
+            description = null,
+            revision = 0L,
+            created_at = 0L,
+            updated_at = 0L,
+            deleted_at = deletedAt,
+            client_op_id = null,
+        )
     }
 }

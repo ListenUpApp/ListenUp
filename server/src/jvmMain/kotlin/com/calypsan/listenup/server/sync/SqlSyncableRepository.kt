@@ -39,11 +39,9 @@ import kotlinx.serialization.json.putJsonArray
  *  - the `T.id`, `T.revisionOf()`, and (for value-class ids) [idAsString] projections
  *
  * Self-registers with [SyncRegistry] and publishes to [ChangeBus] through the
- * shared [SyncableRepo] interface — the same plumbing the Exposed base uses.
- * Live-tail emits are deferred to the SQLDelight transaction's
- * [TransactionCallbacks.afterCommit] (see [deferEmit]) so they fire after commit,
- * in publish order — the engine-native equivalent of the Exposed base's
- * [CommitPublishingInterceptor].
+ * shared [SyncableRepo] interface. Live-tail emits are deferred to the SQLDelight
+ * transaction's [TransactionCallbacks.afterCommit] (see [deferEmit]) so they fire
+ * after commit, in publish order — the engine-native commit-deferral mechanism.
  */
 abstract class SqlSyncableRepository<T : Any, ID : Any>(
     protected val db: ListenUpDatabase,
@@ -238,24 +236,20 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
     /**
      * Registers the live-tail emit for [event] to fire **after** this SQLDelight
-     * transaction commits, in publish order. Mirrors the Exposed base's behaviour:
-     * the Exposed base defers via the [TransactionManager]-keyed outbox flushed by
-     * [CommitPublishingInterceptor.afterCommit]; here we defer via SQLDelight's own
-     * [TransactionCallbacks.afterCommit], the engine-native equivalent.
+     * transaction commits, in publish order, via SQLDelight's own
+     * [TransactionCallbacks.afterCommit].
      *
-     * `afterCommit` semantics that make this exactly equivalent to the Exposed path:
+     * `afterCommit` semantics that make this the firehose's commit-deferral mechanism:
      *  - the hook runs only on the **commit** path (a rolled-back / failed
      *    transaction runs `afterRollback` and discards the commit hooks — no phantom
      *    emit), and only after SQLDelight has issued the JDBC `COMMIT`, so the
      *    firehose's delivery-time `BookAccessPolicy.canAccess` read never races an
      *    uncommitted row;
      *  - hooks run in **insertion (FIFO) order**, which is publish order, which is
-     *    revision order — so multiple writes in one transaction emit in the same
-     *    order the Exposed outbox flushes them;
+     *    revision order — so multiple writes in one transaction emit in revision order;
      *  - in a **nested** transaction, SQLDelight transfers a child's commit hooks to
      *    the enclosing transaction, so they flush once at the outermost commit, still
-     *    in insertion order — matching the Exposed interceptor's "one outbox per
-     *    outermost transaction" behaviour.
+     *    in insertion order — one flush per outermost transaction.
      *
      * The emit itself goes through [ChangeBus.emit] (immediate, no further deferral),
      * because by the time the hook fires we are already past commit. The

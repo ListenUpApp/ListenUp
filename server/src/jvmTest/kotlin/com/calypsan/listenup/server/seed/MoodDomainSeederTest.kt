@@ -1,15 +1,14 @@
 package com.calypsan.listenup.server.seed
 
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Smoke tests for [MoodDomainSeeder].
@@ -24,12 +23,12 @@ class MoodDomainSeederTest :
         // The canonical Audible mood vocabulary count seeded by MoodDomainSeeder.
         val expectedMoodCount = 24
 
-        fun makeMoodRepo(db: Database): MoodRepository = MoodRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+        fun makeMoodRepo(sql: ListenUpDatabase): MoodRepository = MoodRepository(sql, ChangeBus(), SyncRegistry())
 
         test("isAlreadySeeded returns false when no moods exist") {
-            withInMemoryDatabase {
-                val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+            withSqlDatabase {
+                val repo = makeMoodRepo(sql)
+                val seeder = MoodDomainSeeder(sql = sql, moodRepository = repo)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -37,9 +36,9 @@ class MoodDomainSeederTest :
         }
 
         test("seed() persists the full Audible mood vocabulary and they are queryable") {
-            withInMemoryDatabase {
-                val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+            withSqlDatabase {
+                val repo = makeMoodRepo(sql)
+                val seeder = MoodDomainSeeder(sql = sql, moodRepository = repo)
                 runTest {
                     seeder.seed()
                     val moods = repo.listAll()
@@ -52,9 +51,9 @@ class MoodDomainSeederTest :
         }
 
         test("isAlreadySeeded returns true after seed()") {
-            withInMemoryDatabase {
-                val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+            withSqlDatabase {
+                val repo = makeMoodRepo(sql)
+                val seeder = MoodDomainSeeder(sql = sql, moodRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.isAlreadySeeded() shouldBe true
@@ -63,9 +62,9 @@ class MoodDomainSeederTest :
         }
 
         test("seed() is idempotent — calling twice does not throw and does not duplicate") {
-            withInMemoryDatabase {
-                val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+            withSqlDatabase {
+                val repo = makeMoodRepo(sql)
+                val seeder = MoodDomainSeeder(sql = sql, moodRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.seed()
@@ -75,9 +74,9 @@ class MoodDomainSeederTest :
         }
 
         test("domainName and order are correct") {
-            withInMemoryDatabase {
-                val repo = makeMoodRepo(this)
-                val seeder = MoodDomainSeeder(db = this, moodRepository = repo)
+            withSqlDatabase {
+                val repo = makeMoodRepo(sql)
+                val seeder = MoodDomainSeeder(sql = sql, moodRepository = repo)
                 seeder.domainName shouldBe "moods"
                 seeder.order shouldBe 50
             }

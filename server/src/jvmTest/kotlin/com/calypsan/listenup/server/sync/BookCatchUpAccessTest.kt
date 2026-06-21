@@ -12,10 +12,11 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -23,9 +24,6 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Tests the `accessFiltered` seam on [SyncableRepository.pullSince] / [digest]
@@ -41,54 +39,53 @@ class BookCatchUpAccessTest :
     FunSpec({
 
         /** Wires a [BookRepository] plus the 1a collection repos and the policy. */
-        fun Database.fixture(): Fixture {
+        fun SqlTestDatabases.fixture(): Fixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(db = this.asSqlDatabase(), bus = bus, registry = registry)
-            val seriesRepo = SeriesRepository(db = this.asSqlDatabase(), bus = bus, registry = registry)
+            val contributorRepo = ContributorRepository(db = sql, bus = bus, registry = registry)
+            val seriesRepo = SeriesRepository(db = sql, bus = bus, registry = registry)
             return Fixture(
                 bookRepo =
                     BookRepository(
-                        db = this.asSqlDatabase(),
-                        driver = this.asSqlDriver(),
-                        exposedDb = this,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
-                        genreRepository = GenreRepository(db = this.asSqlDatabase(), bus = bus, registry = registry),
+                        genreRepository = GenreRepository(db = sql, bus = bus, registry = registry),
                     ),
                 collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
                 collectionBookRepo =
                     CollectionBookRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
                 grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
-                policy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
+                policy = BookAccessPolicy(sql, driver),
             )
         }
 
         test("books pullSince excludes a private book for a member") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestBook("public-book")
-                seedTestBook("private-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
                 val f = fixture()
                 runTest {
                     // public-book is visible the pure-union way: it lives in ALL_BOOKS and the
@@ -111,11 +108,11 @@ class BookCatchUpAccessTest :
         }
 
         test("books pullSince includes public + accessible books") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestBook("public-book")
-                seedTestBook("owned-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("owned-book")
                 val f = fixture()
                 runTest {
                     // public-book is visible the pure-union way: ALL_BOOKS membership + member grant.
@@ -134,11 +131,11 @@ class BookCatchUpAccessTest :
         }
 
         test("books digest is access-scoped per user (member vs admin differ)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("member")
-                seedTestBook("public-book")
-                seedTestBook("private-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
                 val f = fixture()
                 runTest {
                     // public-book is visible to the member the pure-union way: ALL_BOOKS + grant.

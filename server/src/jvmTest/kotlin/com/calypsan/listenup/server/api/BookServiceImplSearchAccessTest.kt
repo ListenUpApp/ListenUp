@@ -21,16 +21,14 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.bookPayloadFixture
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.bookPayloadFixture
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Access-gate tests for [BookServiceImpl.searchBooks] — the FTS5 id seam that feeds
@@ -42,17 +40,16 @@ import com.calypsan.listenup.server.testing.asSqlDriver
 class BookServiceImplSearchAccessTest :
     FunSpec({
 
-        fun Database.fixture(): SearchAccessFixture {
+        fun SqlTestDatabases.fixture(): SearchAccessFixture {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val contributorRepo = ContributorRepository(this.asSqlDatabase(), bus, registry)
-            val seriesRepo = SeriesRepository(this.asSqlDatabase(), bus, registry)
-            val genreRepo = GenreRepository(this.asSqlDatabase(), bus, registry)
+            val contributorRepo = ContributorRepository(sql, bus, registry)
+            val seriesRepo = SeriesRepository(sql, bus, registry)
+            val genreRepo = GenreRepository(sql, bus, registry)
             val bookRepo =
                 BookRepository(
-                    db = this.asSqlDatabase(),
-                    driver = this.asSqlDriver(),
-                    exposedDb = this,
+                    db = sql,
+                    driver = driver,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -65,10 +62,10 @@ class BookServiceImplSearchAccessTest :
                     contributorRepo = contributorRepo,
                     seriesRepo = seriesRepo,
                     coverStorage = CoverStorage(),
-                    db = this,
+                    sql = sql,
                     genreRepo = genreRepo,
-                    accessPolicy = BookAccessPolicy(this.asSqlDatabase(), this.asSqlDriver()),
-                    permissionPolicy = UserPermissionPolicy(this.asSqlDatabase()),
+                    accessPolicy = BookAccessPolicy(sql, driver),
+                    permissionPolicy = UserPermissionPolicy(sql),
                     principal = PrincipalProvider { error("Unscoped — call copyWith") },
                 )
             return SearchAccessFixture(
@@ -76,24 +73,24 @@ class BookServiceImplSearchAccessTest :
                 bookRepo = bookRepo,
                 collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
                 collectionBookRepo =
                     CollectionBookRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     ),
             )
         }
 
         test("member searchBooks omits a private book matching the query") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val f = fixture()
                 runTest {
                     f.bookRepo.upsert(bookPayloadFixture(id = "hidden", title = "Dragon Hidden"))
@@ -117,8 +114,8 @@ class BookServiceImplSearchAccessTest :
         }
 
         test("admin searchBooks returns both books matching the query (control)") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val f = fixture()
                 runTest {
                     f.bookRepo.upsert(bookPayloadFixture(id = "hidden", title = "Dragon Hidden"))

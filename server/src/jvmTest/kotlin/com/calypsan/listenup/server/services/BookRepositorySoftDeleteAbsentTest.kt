@@ -13,8 +13,9 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.BusEvent
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -22,17 +23,13 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositorySoftDeleteAbsentTest :
     FunSpec({
 
         test("softDeleteAbsent soft-deletes books not in seenIds, leaves seen books alone") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db, ChangeBus())
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver, ChangeBus())
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
@@ -49,10 +46,9 @@ class BookRepositorySoftDeleteAbsentTest :
         }
 
         test("softDeleteAbsent emits SyncEvent.Deleted on ChangeBus per swept book") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val (repo, registry) = repository(db, bus)
+                val (repo, registry) = repository(sql, driver, bus)
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
@@ -74,10 +70,9 @@ class BookRepositorySoftDeleteAbsentTest :
         }
 
         test("softDeleteAbsent does not re-sweep already-deleted books") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val (repo, registry) = repository(db, bus)
+                val (repo, registry) = repository(sql, driver, bus)
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
@@ -104,9 +99,8 @@ class BookRepositorySoftDeleteAbsentTest :
         }
 
         test("softDeleteAbsentByPaths soft-deletes books not in seenPaths, leaves seen books alone") {
-            withInMemoryDatabase {
-                val db = this
-                val (repo, registry) = repository(db, ChangeBus())
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver, ChangeBus())
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
@@ -124,10 +118,9 @@ class BookRepositorySoftDeleteAbsentTest :
         }
 
         test("softDeleteAbsentByPaths emits SyncEvent.Deleted on ChangeBus per swept book") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val (repo, registry) = repository(db, bus)
+                val (repo, registry) = repository(sql, driver, bus)
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
@@ -150,10 +143,9 @@ class BookRepositorySoftDeleteAbsentTest :
         }
 
         test("softDeleteAbsentByPaths does not re-sweep already-deleted books") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val (repo, registry) = repository(db, bus)
+                val (repo, registry) = repository(sql, driver, bus)
                 runTest {
                     val libId = registry.currentLibrary()
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
@@ -208,21 +200,21 @@ private data class SoftDeleteRepoFixture(
 )
 
 private fun repository(
-    db: Database,
+    sql: ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
     bus: ChangeBus,
 ): SoftDeleteRepoFixture {
-    val registry = LibraryRegistry(db)
+    val registry = LibraryRegistry(sql)
     val syncRegistry = SyncRegistry()
     val repo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = sql,
+            driver = driver,
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+            contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+            seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+            genreRepository = GenreRepository(sql, bus, syncRegistry),
         )
     return SoftDeleteRepoFixture(repo, registry)
 }

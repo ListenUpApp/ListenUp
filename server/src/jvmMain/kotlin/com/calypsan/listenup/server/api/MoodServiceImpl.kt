@@ -13,20 +13,13 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
-import com.calypsan.listenup.server.db.BookMoodsTable
-import com.calypsan.listenup.server.db.BookTable
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.MoodSlug
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -53,7 +46,6 @@ private const val MIN_LIMIT = 1
 internal class MoodServiceImpl(
     private val moodRepository: MoodRepository,
     private val bookMoodRepository: BookMoodRepository,
-    private val db: Database,
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sql),
@@ -61,7 +53,7 @@ internal class MoodServiceImpl(
 ) : MoodService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): MoodServiceImpl =
-        MoodServiceImpl(moodRepository, bookMoodRepository, db, sql, clock, permissionPolicy, principal)
+        MoodServiceImpl(moodRepository, bookMoodRepository, sql, clock, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -214,11 +206,13 @@ internal class MoodServiceImpl(
             return AppResult.Failure(MoodError.NotFound())
         }
 
-        // Atomic cascade: tombstone all junctions + the mood itself in one transaction.
-        suspendTransaction(db) {
-            bookMoodRepository.softDeleteAllForMood(moodId.value)
-            moodRepository.softDelete(moodId.value)
-        }
+        // Cascade: tombstone all junctions, then the mood itself. Both are suspend repo
+        // calls that each open their own SQLDelight transaction, so they run sequentially
+        // (they cannot nest inside one another's non-suspend transaction body). Sequential
+        // single-engine writes never contend for the lone SQLite write lock — matching the
+        // GenreServiceImpl / ContributorServiceImpl cutover shape.
+        bookMoodRepository.softDeleteAllForMood(moodId.value)
+        moodRepository.softDelete(moodId.value)
 
         return AppResult.Success(Unit)
     }
@@ -226,20 +220,10 @@ internal class MoodServiceImpl(
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private suspend fun bookExists(bookId: String): Boolean =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where { (BookTable.id eq bookId) and BookTable.deletedAt.isNull() }
-                .count() > 0
-        }
+        suspendTransaction(sql) { sql.booksQueries.existsLiveById(bookId).executeAsOne() }
 
     private suspend fun countLiveJunctionsForMood(moodId: String): Long =
-        suspendTransaction(db) {
-            BookMoodsTable
-                .selectAll()
-                .where { (BookMoodsTable.moodId eq moodId) and BookMoodsTable.deletedAt.isNull() }
-                .count()
-        }
+        suspendTransaction(sql) { sql.bookMoodsQueries.countLiveForMood(moodId).executeAsOne() }
 
     private suspend fun MoodRepository.softDelete(moodId: String): AppResult<Unit> =
         softDelete(moodId, clientOpId = null)

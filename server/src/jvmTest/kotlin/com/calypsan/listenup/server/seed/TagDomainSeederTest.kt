@@ -1,16 +1,14 @@
 package com.calypsan.listenup.server.seed
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Smoke tests for [TagDomainSeeder].
@@ -22,12 +20,12 @@ import org.jetbrains.exposed.v1.jdbc.Database
 class TagDomainSeederTest :
     FunSpec({
 
-        fun makeTagRepo(db: Database): TagRepository = TagRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())
+        fun makeTagRepo(sql: ListenUpDatabase): TagRepository = TagRepository(sql, ChangeBus(), SyncRegistry())
 
         test("isAlreadySeeded returns false when no tags exist") {
-            withInMemoryDatabase {
-                val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+            withSqlDatabase {
+                val repo = makeTagRepo(sql)
+                val seeder = TagDomainSeeder(sql = sql, tagRepository = repo)
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
                 }
@@ -35,9 +33,9 @@ class TagDomainSeederTest :
         }
 
         test("seedDefault() persists 4 tags and they are queryable via TagRepository") {
-            withInMemoryDatabase {
-                val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+            withSqlDatabase {
+                val repo = makeTagRepo(sql)
+                val seeder = TagDomainSeeder(sql = sql, tagRepository = repo)
                 runTest {
                     seeder.seed()
                     val tags = repo.listAll()
@@ -49,9 +47,9 @@ class TagDomainSeederTest :
         }
 
         test("isAlreadySeeded returns true after seed()") {
-            withInMemoryDatabase {
-                val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+            withSqlDatabase {
+                val repo = makeTagRepo(sql)
+                val seeder = TagDomainSeeder(sql = sql, tagRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.isAlreadySeeded() shouldBe true
@@ -60,9 +58,9 @@ class TagDomainSeederTest :
         }
 
         test("seed() is idempotent — calling twice does not throw") {
-            withInMemoryDatabase {
-                val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+            withSqlDatabase {
+                val repo = makeTagRepo(sql)
+                val seeder = TagDomainSeeder(sql = sql, tagRepository = repo)
                 runTest {
                     seeder.seed()
                     seeder.seed() // must not throw regardless of duplicate slug behaviour
@@ -71,18 +69,18 @@ class TagDomainSeederTest :
         }
 
         test("domainName and order are correct") {
-            withInMemoryDatabase {
-                val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+            withSqlDatabase {
+                val repo = makeTagRepo(sql)
+                val seeder = TagDomainSeeder(sql = sql, tagRepository = repo)
                 seeder.domainName shouldBe "tags"
                 seeder.order shouldBe 30
             }
         }
 
         test("seeded tags have non-null slugs matching the expected canonical values") {
-            withInMemoryDatabase {
-                val repo = makeTagRepo(this)
-                val seeder = TagDomainSeeder(db = this, tagRepository = repo)
+            withSqlDatabase {
+                val repo = makeTagRepo(sql)
+                val seeder = TagDomainSeeder(sql = sql, tagRepository = repo)
                 runTest {
                     seeder.seed()
 

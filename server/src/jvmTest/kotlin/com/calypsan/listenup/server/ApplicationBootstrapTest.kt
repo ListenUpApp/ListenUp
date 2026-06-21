@@ -22,7 +22,8 @@ import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -33,18 +34,14 @@ import java.nio.file.Path
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class ApplicationBootstrapTest :
     FunSpec({
 
         test("bootstrap ensures exactly one path-less library when no env paths") {
-            withInMemoryDatabase {
-                val db = this
-                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
-                val registry = LibraryRegistry(db = db)
+            withSqlDatabase {
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(this)
+                val registry = LibraryRegistry(sql = sql)
                 runTest {
                     bootstrapLibraries(
                         libraryAdminService = service,
@@ -62,12 +59,11 @@ class ApplicationBootstrapTest :
         }
 
         test("bootstrap seeds each env path as a folder of the singleton") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val dir1 = Files.createTempDirectory("bootstrap-seed1-")
                 val dir2 = Files.createTempDirectory("bootstrap-seed2-")
-                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
-                val registry = LibraryRegistry(db = db)
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(this)
+                val registry = LibraryRegistry(sql = sql)
                 runTest {
                     bootstrapLibraries(
                         libraryAdminService = service,
@@ -87,12 +83,11 @@ class ApplicationBootstrapTest :
         }
 
         test("bootstrap skips a non-directory path") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val realDir = Files.createTempDirectory("bootstrap-realdir-")
                 val nonDir = Files.createTempFile("bootstrap-notadir-", ".tmp")
-                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
-                val registry = LibraryRegistry(db = db)
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(this)
+                val registry = LibraryRegistry(sql = sql)
                 runTest {
                     // addFolder rejects non-directories via LibraryError.InvalidPath
                     bootstrapLibraries(
@@ -113,11 +108,10 @@ class ApplicationBootstrapTest :
         }
 
         test("bootstrap does not re-seed folders on second boot (idempotent)") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val dir = Files.createTempDirectory("bootstrap-idempotent-")
-                val registry = LibraryRegistry(db = db)
-                val (service, orchestrator, _) = makeServiceAndOrchestrator(db)
+                val registry = LibraryRegistry(sql = sql)
+                val (service, orchestrator, _) = makeServiceAndOrchestrator(this)
                 runTest {
                     // First boot: seeds the folder
                     bootstrapLibraries(
@@ -128,8 +122,8 @@ class ApplicationBootstrapTest :
                         rescanOnStartup = false,
                     )
                     // Second boot with same path — DuplicateFolder is skipped, not crash
-                    val (service2, orchestrator2, _) = makeServiceAndOrchestrator(db)
-                    val registry2 = LibraryRegistry(db = db)
+                    val (service2, orchestrator2, _) = makeServiceAndOrchestrator(this@withSqlDatabase)
+                    val registry2 = LibraryRegistry(sql = sql)
                     bootstrapLibraries(
                         libraryAdminService = service2,
                         scanOrchestrator = orchestrator2,
@@ -159,7 +153,7 @@ private data class ServiceFixture(
     val scanLibraryCalls: MutableList<LibraryId>,
 )
 
-private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
+private fun makeServiceAndOrchestrator(dbs: SqlTestDatabases): ServiceFixture {
     val onLibraryAddedCalls = mutableListOf<Library>()
     val scanLibraryCalls = mutableListOf<LibraryId>()
 
@@ -174,26 +168,25 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
 
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val libraryRepo = LibraryRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val libraryRepo = LibraryRepository(db = dbs.sql, bus = bus, registry = registry)
     val folderRepo =
         LibraryFolderRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = ChangeBus(),
             registry = SyncRegistry(),
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
-    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+    val contributorRepo = ContributorRepository(db = dbs.sql, bus = ChangeBus(), registry = SyncRegistry())
+    val seriesRepo = SeriesRepository(db = dbs.sql, bus = ChangeBus(), registry = SyncRegistry())
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = ChangeBus(),
             registry = SyncRegistry(),
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry()),
+            genreRepository = GenreRepository(db = dbs.sql, bus = ChangeBus(), registry = SyncRegistry()),
         )
     val service =
         LibraryAdminServiceImpl(
@@ -203,7 +196,7 @@ private fun makeServiceAndOrchestrator(db: Database): ServiceFixture {
             scanOrchestrator = orchestrator,
             libraryRegistry =
                 com.calypsan.listenup.server.services
-                    .LibraryRegistry(db = db),
+                    .LibraryRegistry(sql = dbs.sql),
         )
 
     return ServiceFixture(service, orchestrator, onLibraryAddedCalls, scanLibraryCalls)

@@ -26,9 +26,8 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -39,17 +38,15 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 class BookPersisterTest :
     FunSpec({
 
         test("persists changed books from ScanResult.changes") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     persister.persist(
                         scanResult(
@@ -69,11 +66,10 @@ class BookPersisterTest :
         }
 
         test("unchanged books in ScanResult.books but absent from changes are not persisted") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     // "a" is unchanged (in books but not in changes); "b" is new (Added).
                     persister.persist(
@@ -94,12 +90,11 @@ class BookPersisterTest :
         }
 
         test("one failing book doesn't kill the rest") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest(failForRootRelPath = setOf("b"))
-                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -122,11 +117,10 @@ class BookPersisterTest :
         }
 
         test("full scan sweeps absent books via seen paths") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     persister.persist(
                         scanResult(
@@ -148,12 +142,11 @@ class BookPersisterTest :
         }
 
         test("emits ScanEvent.Completed only after every changed book is persisted") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -177,8 +170,7 @@ class BookPersisterTest :
         }
 
         test("Completed carries real persisted + failed counts when some books fail") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     // "b" fails via typed AppResult.Failure; "c" fails via thrown exception
@@ -187,7 +179,7 @@ class BookPersisterTest :
                             failForRootRelPath = setOf("b"),
                             throwForRootRelPath = setOf("c"),
                         )
-                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -212,12 +204,11 @@ class BookPersisterTest :
         }
 
         test("Completed reports all persisted and zero failed when every book succeeds") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -239,12 +230,11 @@ class BookPersisterTest :
         }
 
         test("OutOfMemoryError stops the loop, emits Completed with partial counts, then rethrows") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest(oomForRootRelPath = setOf("b"))
-                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     // OOM rethrows — expect it to propagate
                     val thrown =
@@ -276,11 +266,10 @@ class BookPersisterTest :
         }
 
         test("full scan suppresses the firehose while persisting books") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     persister.persist(
                         scanResult(
@@ -303,11 +292,10 @@ class BookPersisterTest :
         }
 
         test("incremental scan persists with the firehose live (no suppression)") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     persister.persist(
                         scanResult(
@@ -324,11 +312,10 @@ class BookPersisterTest :
         }
 
         test("incremental scan does NOT sweep absent books") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     persister.persist(
                         scanResult(
@@ -345,11 +332,10 @@ class BookPersisterTest :
         }
 
         test("incremental Removed change tombstones the book immediately (no full-scan sweep needed)") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     // Incremental scan: bookRoot subtree had "deleted-book" previously,
                     // now it is gone — the Differ emits Removed. The full-scan sweep does NOT run.
@@ -370,11 +356,10 @@ class BookPersisterTest :
         }
 
         test("full-scan Removed change also tombstones explicitly (harmless overlap with sweep)") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest()
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     // Full scan where one book was removed: the Differ emits Removed and the sweep runs.
                     persister.persist(
@@ -399,12 +384,11 @@ class BookPersisterTest :
         }
 
         test("an escaped exception is contained; the rest still process") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val eventBus = MutableSharedFlow<ScanEvent>(replay = 16)
                     val fake = FakeBookIngest(throwForRootRelPath = setOf("b"))
-                    val persister = persister(db, fake, scope = this, eventBus = eventBus)
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
 
                     persister.persist(
                         scanResult(
@@ -427,11 +411,10 @@ class BookPersisterTest :
         }
 
         test("full scan with a failed book still sweeps using seenPaths so the present-but-failed book is protected") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val fake = FakeBookIngest(failForRootRelPath = setOf("b"))
-                    val persister = persister(db, fake, scope = this)
+                    val persister = persister(fake, scope = this)
 
                     persister.persist(
                         scanResult(
@@ -526,40 +509,39 @@ private class FakeBookIngest(
 
 // --- Fixtures ---------------------------------------------------------------
 
-private fun persister(
-    db: Database,
+private fun SqlTestDatabases.persister(
     ingest: BookIngestPort,
     scope: CoroutineScope,
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
 ): BookPersister =
     BookPersister(
         ingest = ingest,
-        libraryRegistry = LibraryRegistry(db),
-        libraryRepository = LibraryRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()),
-        collectionService = inertCollectionService(db),
-        db = db,
+        libraryRegistry = LibraryRegistry(sql),
+        libraryRepository = LibraryRepository(sql, ChangeBus(), SyncRegistry()),
+        collectionService = inertCollectionService(),
+        sql = sql,
         scanResultBus = MutableSharedFlow(),
         eventBus = eventBus,
         scope = scope,
     )
 
 /**
- * A real [CollectionServiceImpl] over [db]. These orchestration tests never enable a
+ * A real [CollectionServiceImpl] over [sql]. These orchestration tests never enable a
  * library's inbox, so the persister never calls it — it satisfies the constructor only.
  */
-private fun inertCollectionService(db: Database): CollectionServiceImpl {
+private fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val collectionRepo = CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver())
-    val grantRepo = CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver())
+    val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
+    val grantRepo = CollectionGrantRepository(db = sql, bus = bus, registry = registry, driver = driver)
     return CollectionServiceImpl(
         collectionRepo = collectionRepo,
-        collectionBookRepo = CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+        collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver),
         grantRepo = grantRepo,
         accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+        permissionPolicy = UserPermissionPolicy(sql),
         bus = bus,
-        db = db,
+        sql = sql,
         bookRevisionTouch = FakeBookRevisionTouch(),
         principal = PrincipalProvider { null },
     )

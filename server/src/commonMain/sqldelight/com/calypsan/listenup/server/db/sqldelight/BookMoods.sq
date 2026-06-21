@@ -73,3 +73,9 @@ SELECT id FROM book_moods WHERE book_id = :book_id AND deleted_at IS NULL;
 
 selectLiveIdsForMood:
 SELECT id FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
+
+-- Count of LIVE (non-tombstoned) junctions for a mood — drives the `bookCount`
+-- column on MoodSummary (listMoods / getMoodBySlug). Replaces the Exposed
+-- `BookMoodsTable.selectAll().where { moodId eq … and deletedAt.isNull() }.count()`.
+countLiveForMood:
+SELECT COUNT(*) FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;

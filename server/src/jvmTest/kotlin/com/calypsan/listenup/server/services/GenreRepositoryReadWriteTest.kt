@@ -4,8 +4,7 @@ import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -16,8 +15,8 @@ class GenreRepositoryReadWriteTest :
     FunSpec({
 
         test("should round-trip a root genre through upsert + findById") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(genrePayloadFixture(id = "g-fiction", name = "Fiction", slug = "fiction", path = "/fiction"))
 
@@ -34,8 +33,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("should round-trip a nested genre with parentId, depth, and 2-segment path") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(genrePayloadFixture(id = "g-fiction", name = "Fiction", slug = "fiction", path = "/fiction"))
                     repo.upsert(
@@ -60,8 +59,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("findBySlug returns null for an unknown slug") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.findBySlug("ghost-slug").shouldBeNull()
                 }
@@ -69,8 +68,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("findBySlug returns the genre for an existing slug") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(genrePayloadFixture(id = "g-fiction", name = "Fiction", slug = "fiction", path = "/fiction"))
 
@@ -84,8 +83,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("findByPath returns the genre for an existing path") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(genrePayloadFixture(id = "g-fiction", name = "Fiction", slug = "fiction", path = "/fiction"))
                     repo.upsert(
@@ -108,8 +107,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("count returns 0 on an empty database") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.count() shouldBe 0L
                 }
@@ -117,8 +116,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("count returns N after N upserts") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(genrePayloadFixture(id = "g-a", name = "A", slug = "a", path = "/a"))
                     repo.upsert(genrePayloadFixture(id = "g-b", name = "B", slug = "b", path = "/b"))
@@ -130,8 +129,8 @@ class GenreRepositoryReadWriteTest :
         }
 
         test("tombstoned genre: readPayload returns payload with deletedAt set; findBySlug excludes it") {
-            withInMemoryDatabase {
-                val repo = GenreRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = GenreRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.upsert(genrePayloadFixture(id = "g-fiction", name = "Fiction", slug = "fiction", path = "/fiction"))
                     repo.softDelete(GenreId("g-fiction"))

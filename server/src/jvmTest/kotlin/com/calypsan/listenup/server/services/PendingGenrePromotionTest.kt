@@ -1,150 +1,166 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlin.time.Clock
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 class PendingGenrePromotionTest :
     FunSpec({
         test("promotes a legacy pending string to a live genre and drains the queue") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val writer =
                     BookGenreWriter(
-                        db.asSqlDatabase(),
+                        sql,
                         Clock.System,
-                        GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())),
+                        GenreAutoCreator(GenreRepository(sql, ChangeBus(), SyncRegistry())),
                     )
-                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
+                val promotion = PendingGenrePromotion(sql, writer)
 
                 runTest {
-                    suspendTransaction(db) { PendingBookGenreTable.addPending("book-1", "Cyberpunk", 0L) }
+                    sql.transaction {
+                        sql.pendingBookGenresQueries.addPending(
+                            book_id = "book-1",
+                            raw_string = "Cyberpunk",
+                            first_seen_at = 0L,
+                        )
+                    }
 
                     promotion.run()
 
-                    suspendTransaction(db) {
-                        val genreIds = BookGenreTable.genresForBook("book-1")
-                        genreIds.size shouldBe 1
+                    val genreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("book-1")
+                            .executeAsList()
+                            .map { it.id }
+                    genreIds.size shouldBe 1
 
-                        val genreName =
-                            GenreTable
-                                .selectAll()
-                                .where { GenreTable.id eq genreIds.single() }
-                                .single()[GenreTable.name]
-                        genreName shouldBe "Cyberpunk"
+                    val genreName =
+                        sql.genresQueries
+                            .selectById(genreIds.single())
+                            .executeAsOneOrNull()
+                            ?.name
+                    genreName shouldBe "Cyberpunk"
 
-                        PendingBookGenreTable
-                            .selectAll()
-                            .where { PendingBookGenreTable.bookId eq "book-1" }
-                            .empty() shouldBe true
-                    }
+                    sql.pendingBookGenresQueries
+                        .allRows()
+                        .executeAsList()
+                        .filter { it.book_id == "book-1" }
+                        .isEmpty() shouldBe true
                 }
             }
         }
 
         test("does NOT remove a book's already-live genre while promoting a pending string") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
-                val autoCreator = GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry()))
-                val writer = BookGenreWriter(db.asSqlDatabase(), Clock.System, autoCreator)
-                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
+                val autoCreator = GenreAutoCreator(GenreRepository(sql, ChangeBus(), SyncRegistry()))
+                val writer = BookGenreWriter(sql, Clock.System, autoCreator)
+                val promotion = PendingGenrePromotion(sql, writer)
 
                 runTest {
-                    val existingGenreId =
-                        suspendTransaction(db) {
-                            val id = autoCreator.findOrCreateFlatGenreId("Fantasy")
-                            BookGenreTable.insertIfAbsent("book-1", id)
-                            PendingBookGenreTable.addPending("book-1", "Cyberpunk", 0L)
-                            id
-                        }
+                    val existingGenreId = autoCreator.findOrCreateFlatGenreId("Fantasy")
+                    sql.transaction {
+                        sql.bookGenresQueries.insertIfAbsent(book_id = "book-1", genre_id = existingGenreId)
+                        sql.pendingBookGenresQueries.addPending(
+                            book_id = "book-1",
+                            raw_string = "Cyberpunk",
+                            first_seen_at = 0L,
+                        )
+                    }
 
                     promotion.run()
 
-                    suspendTransaction(db) {
-                        val names =
-                            BookGenreTable
-                                .genresForBook("book-1")
-                                .map { gid ->
-                                    GenreTable.selectAll().where { GenreTable.id eq gid }.single()[GenreTable.name]
-                                }
-                        names.shouldContainExactlyInAnyOrder("Fantasy", "Cyberpunk")
+                    val names =
+                        sql.bookGenresQueries
+                            .genresForBook("book-1")
+                            .executeAsList()
+                            .map { it.name }
+                    names.shouldContainExactlyInAnyOrder("Fantasy", "Cyberpunk")
 
-                        // The pre-existing genre id survived; promotion only added.
-                        BookGenreTable.genresForBook("book-1").contains(existingGenreId) shouldBe true
-                    }
+                    // The pre-existing genre id survived; promotion only added.
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("book-1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds.contains(existingGenreId) shouldBe true
                 }
             }
         }
 
         test("running twice is idempotent — no duplicate links, no error") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val writer =
                     BookGenreWriter(
-                        db.asSqlDatabase(),
+                        sql,
                         Clock.System,
-                        GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())),
+                        GenreAutoCreator(GenreRepository(sql, ChangeBus(), SyncRegistry())),
                     )
-                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
+                val promotion = PendingGenrePromotion(sql, writer)
 
                 runTest {
-                    suspendTransaction(db) { PendingBookGenreTable.addPending("book-1", "Cyberpunk", 0L) }
-
-                    promotion.run()
-                    promotion.run()
-
-                    suspendTransaction(db) {
-                        BookGenreTable.genresForBook("book-1").size shouldBe 1
-                        PendingBookGenreTable.selectAll().empty() shouldBe true
+                    sql.transaction {
+                        sql.pendingBookGenresQueries.addPending(
+                            book_id = "book-1",
+                            raw_string = "Cyberpunk",
+                            first_seen_at = 0L,
+                        )
                     }
+
+                    promotion.run()
+                    promotion.run()
+
+                    sql.bookGenresQueries
+                        .genresForBook("book-1")
+                        .executeAsList()
+                        .size shouldBe 1
+                    sql.pendingBookGenresQueries
+                        .allRows()
+                        .executeAsList()
+                        .isEmpty() shouldBe true
                 }
             }
         }
 
         test("an empty pending queue is a graceful no-op") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val writer =
                     BookGenreWriter(
-                        db.asSqlDatabase(),
+                        sql,
                         Clock.System,
-                        GenreAutoCreator(GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry())),
+                        GenreAutoCreator(GenreRepository(sql, ChangeBus(), SyncRegistry())),
                     )
-                val promotion = PendingGenrePromotion(db.asSqlDatabase(), writer)
+                val promotion = PendingGenrePromotion(sql, writer)
 
                 runTest {
                     promotion.run()
 
-                    suspendTransaction(db) {
-                        BookGenreTable.genresForBook("book-1").isEmpty() shouldBe true
-                        PendingBookGenreTable.selectAll().empty() shouldBe true
-                    }
+                    sql.bookGenresQueries
+                        .genresForBook("book-1")
+                        .executeAsList()
+                        .isEmpty() shouldBe true
+                    sql.pendingBookGenresQueries
+                        .allRows()
+                        .executeAsList()
+                        .isEmpty() shouldBe true
                 }
             }
         }

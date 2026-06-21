@@ -14,10 +14,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.BookReadsTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.PlaybackPositionTable
-import com.calypsan.listenup.server.db.PublicProfilesTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
@@ -31,22 +28,17 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
+import app.cash.sqldelight.db.SqlDriver
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import org.jetbrains.exposed.v1.jdbc.update
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Contract and ACL tests for [SocialServiceImpl] — the crown-jewel ACL surface.
@@ -74,7 +66,8 @@ class SocialServiceTest :
         fun noPrincipal(): PrincipalProvider = PrincipalProvider { null }
 
         fun makeService(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             principal: PrincipalProvider,
         ): SocialServiceImpl {
             val bus = ChangeBus()
@@ -84,81 +77,78 @@ class SocialServiceTest :
             val bookRegistry = SyncRegistry()
             val books =
                 BookRepository(
-                    db = db.asSqlDatabase(),
-                    driver = db.asSqlDriver(),
-                    exposedDb = db,
+                    db = sql,
+                    driver = driver,
                     bus = bus,
                     registry = bookRegistry,
                     contributorRepository =
                         ContributorRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             bus = bus,
                             registry = bookRegistry,
                         ),
-                    seriesRepository = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
-                    genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = bookRegistry),
+                    seriesRepository = SeriesRepository(db = sql, bus = bus, registry = bookRegistry),
+                    genreRepository = GenreRepository(db = sql, bus = bus, registry = bookRegistry),
                 )
             return SocialServiceImpl(
-                activeSessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = bus),
-                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                publicProfiles = PublicProfileRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                playbackPositions = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                bookReads = BookReadsRepository(db = db.asSqlDatabase()),
+                activeSessions = ActiveSessionRepository(db = sql, bus = ChangeBus()),
+                bookAccessPolicy = BookAccessPolicy(sql, driver),
+                publicProfiles = PublicProfileRepository(db = sql, bus = bus, registry = registry),
+                playbackPositions = PlaybackPositionRepository(db = sql, bus = bus, registry = registry),
+                bookReads = BookReadsRepository(db = sql),
                 books = books,
                 principal = principal,
             )
         }
 
-        /** Sets a book's `total_duration` (ms); [seedTestBook] inserts 0L by default. */
-        fun Database.setBookDuration(
+        /** Sets a book's `total_duration` (ms); [seedTestBook] inserts 0L by default.
+         *  A single-column SQLDelight update — no full upsert needed. */
+        fun SqlTestDatabases.setBookDuration(
             bookId: String,
             totalDuration: Long,
         ) {
-            transaction(this) {
-                BookTable.update({ BookTable.id eq bookId }) { it[BookTable.totalDuration] = totalDuration }
-            }
+            sql.booksQueries.updateTotalDuration(total_duration = totalDuration, id = bookId)
         }
 
         /** Inserts an in-progress (unfinished) playback position row directly. */
-        fun Database.seedInProgressPosition(
+        fun ListenUpDatabase.seedInProgressPosition(
             userId: String,
             bookId: String,
             positionMs: Long,
         ) {
-            transaction(this) {
-                PlaybackPositionTable.insert {
-                    it[id] = "$userId-$bookId"
-                    it[PlaybackPositionTable.userId] = userId
-                    it[PlaybackPositionTable.bookId] = bookId
-                    it[PlaybackPositionTable.positionMs] = positionMs
-                    it[lastPlayedAt] = 1L
-                    it[finished] = false
-                    it[revision] = 0L
-                    it[createdAt] = 1L
-                    it[updatedAt] = 1L
-                    it[deletedAt] = null
-                }
-            }
+            playbackPositionsQueries.insert(
+                id = "$userId-$bookId",
+                user_id = userId,
+                book_id = bookId,
+                position_ms = positionMs,
+                last_played_at = 1L,
+                finished = 0L,
+                playback_speed = 1.0,
+                current_chapter_id = null,
+                revision = 0L,
+                created_at = 1L,
+                updated_at = 1L,
+                deleted_at = null,
+                client_op_id = null,
+            )
         }
 
         /** Appends a `book_reads` completion row directly (newest-first ordering is by [finishedAt]). */
-        fun Database.seedFinish(
+        fun ListenUpDatabase.seedFinish(
             id: String,
             userId: String,
             bookId: String,
             finishedAt: Long,
             source: String = "playback",
         ) {
-            transaction(this) {
-                BookReadsTable.insert {
-                    it[BookReadsTable.id] = id
-                    it[BookReadsTable.userId] = userId
-                    it[BookReadsTable.bookId] = bookId
-                    it[BookReadsTable.finishedAt] = finishedAt
-                    it[BookReadsTable.readSource] = source
-                    it[BookReadsTable.createdAt] = finishedAt
-                }
-            }
+            bookReadsQueries.insert(
+                id = id,
+                user_id = userId,
+                book_id = bookId,
+                finished_at = finishedAt,
+                source = source,
+                created_at = finishedAt,
+            )
         }
 
         fun <T> AppResult<T>.value(): T {
@@ -167,22 +157,29 @@ class SocialServiceTest :
         }
 
         /** Inserts a `public_profiles` identity row directly (clients normally maintain it). */
-        fun Database.seedPublicProfile(
+        fun ListenUpDatabase.seedPublicProfile(
             userId: String,
             displayName: String = "Display $userId",
             avatarType: String = "auto",
         ) {
-            transaction(this) {
-                PublicProfilesTable.insert {
-                    it[id] = userId
-                    it[PublicProfilesTable.displayName] = displayName
-                    it[PublicProfilesTable.avatarType] = avatarType
-                    it[revision] = 0L
-                    it[createdAt] = 1L
-                    it[updatedAt] = 1L
-                    it[deletedAt] = null
-                }
-            }
+            publicProfilesQueries.insert(
+                id = userId,
+                display_name = displayName,
+                avatar_type = avatarType,
+                tagline = null,
+                total_seconds_all_time = 0L,
+                total_seconds_last_7_days = 0L,
+                total_seconds_last_30_days = 0L,
+                total_seconds_last_365_days = 0L,
+                books_finished = 0L,
+                current_streak_days = 0L,
+                longest_streak_days = 0L,
+                revision = 0L,
+                created_at = 1L,
+                updated_at = 1L,
+                deleted_at = null,
+                client_op_id = null,
+            )
         }
 
         /**
@@ -190,7 +187,8 @@ class SocialServiceTest :
          * inaccessible to any non-admin user without an explicit share.
          */
         suspend fun makeBookInaccessible(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             bookId: String,
             collectionId: String,
             collectionOwner: String = "stranger",
@@ -199,17 +197,17 @@ class SocialServiceTest :
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             collectionRepo.upsert(
                 CollectionSyncPayload(
@@ -240,7 +238,8 @@ class SocialServiceTest :
          * reused across calls (idempotent upsert), so multiple books / viewers stack cleanly.
          */
         suspend fun makeBookAccessible(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             bookId: String,
             viewer: String,
             // Grant id is keyed on (collection, viewer), NOT the book: the per-(collection,principal)
@@ -252,24 +251,24 @@ class SocialServiceTest :
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = driver,
                 )
             collectionRepo.upsert(
                 CollectionSyncPayload(
@@ -306,24 +305,23 @@ class SocialServiceTest :
         // ── 1: currentlyListening excludes the caller; identity from public_profiles ──
 
         test("currentlyListening excludes the caller's own session and joins identity from public_profiles") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("book-a")
-                seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
-                seedPublicProfile("viewer", displayName = "Viewer")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice", avatarType = "image")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
                     // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(db, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
 
-                    val sessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus())
+                    val sessions = ActiveSessionRepository(db = sql, bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "book-a")
                     sessions.startOrRefresh(userId = "viewer", bookId = "book-a")
 
                     val result =
-                        makeService(db, principalFor("viewer"))
+                        makeService(sql, driver, principalFor("viewer"))
                             .currentlyListening()
                             .value()
 
@@ -339,26 +337,25 @@ class SocialServiceTest :
         // ── 2 (CROWN JEWEL ACL): inaccessible-book session is never returned ──────────
 
         test("currentlyListening returns only the accessible-book session, never the private one") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("public-book")
-                seedTestBook("private-book")
-                seedPublicProfile("alice", displayName = "Alice")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
+                sql.seedPublicProfile("alice", displayName = "Alice")
                 runTest {
                     // "private-book" is gated into alice's private collection; viewer can't see it.
-                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
                     // "public-book" is reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(db, bookId = "public-book", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "public-book", viewer = "viewer")
 
-                    val sessions = ActiveSessionRepository(db = db.asSqlDatabase(), bus = ChangeBus())
+                    val sessions = ActiveSessionRepository(db = sql, bus = ChangeBus())
                     sessions.startOrRefresh(userId = "alice", bookId = "public-book")
                     sessions.startOrRefresh(userId = "alice", bookId = "private-book")
 
                     val result =
-                        makeService(db, principalFor("viewer"))
+                        makeService(sql, driver, principalFor("viewer"))
                             .currentlyListening()
                             .value()
 
@@ -373,24 +370,23 @@ class SocialServiceTest :
         // ── 3: bookReadership on accessible / inaccessible books ─────────────────────
 
         test("bookReadership lists every reader of an accessible book, including the caller") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("book-a")
-                seedPublicProfile("alice", displayName = "Alice")
-                seedPublicProfile("viewer", displayName = "Viewer")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("book-a")
+                sql.seedPublicProfile("alice", displayName = "Alice")
+                sql.seedPublicProfile("viewer", displayName = "Viewer")
                 runTest {
                     // "book-a" reachable to the caller (viewer) the pure-union way (ALL_BOOKS membership + viewer's grant).
-                    makeBookAccessible(db, bookId = "book-a", viewer = "viewer")
+                    makeBookAccessible(sql, driver, bookId = "book-a", viewer = "viewer")
 
-                    db.setBookDuration("book-a", totalDuration = 10_000L)
-                    db.seedFinish("alice-1", userId = "alice", bookId = "book-a", finishedAt = 500L)
-                    db.seedInProgressPosition(userId = "viewer", bookId = "book-a", positionMs = 2_000L)
+                    setBookDuration("book-a", totalDuration = 10_000L)
+                    sql.seedFinish("alice-1", userId = "alice", bookId = "book-a", finishedAt = 500L)
+                    sql.seedInProgressPosition(userId = "viewer", bookId = "book-a", positionMs = 2_000L)
 
                     val readers =
-                        makeService(db, principalFor("viewer"))
+                        makeService(sql, driver, principalFor("viewer"))
                             .bookReadership(BookId("book-a"))
                             .value()
                             .readers
@@ -405,18 +401,17 @@ class SocialServiceTest :
         }
 
         test("bookReadership returns Failure(SocialError.NotFound) for an inaccessible book") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("alice")
-                seedTestUser("viewer")
-                seedTestBook("private-book")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("alice")
+                sql.seedTestUser("viewer")
+                sql.seedTestBook("private-book")
                 runTest {
-                    makeBookInaccessible(db, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
-                    db.seedFinish("alice-1", userId = "alice", bookId = "private-book", finishedAt = 500L)
+                    makeBookInaccessible(sql, driver, bookId = "private-book", collectionId = "priv-col", collectionOwner = "alice")
+                    sql.seedFinish("alice-1", userId = "alice", bookId = "private-book", finishedAt = 500L)
 
                     val result =
-                        makeService(db, principalFor("viewer"))
+                        makeService(sql, driver, principalFor("viewer"))
                             .bookReadership(BookId("private-book"))
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -426,26 +421,25 @@ class SocialServiceTest :
         }
 
         test("bookReadership returns current progress + finish history, including the caller") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("b1")
-                seedPublicProfile("u1", displayName = "User One")
-                seedPublicProfile("u2", displayName = "User Two")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("b1")
+                sql.seedPublicProfile("u1", displayName = "User One")
+                sql.seedPublicProfile("u2", displayName = "User Two")
                 runTest {
                     // "b1" reachable to the caller (u1) the pure-union way (ALL_BOOKS membership + u1's grant).
-                    makeBookAccessible(db, bookId = "b1", viewer = "u1")
+                    makeBookAccessible(sql, driver, bookId = "b1", viewer = "u1")
 
-                    db.setBookDuration("b1", totalDuration = 10_000L)
+                    setBookDuration("b1", totalDuration = 10_000L)
                     // Caller u1 finished b1 twice (100L, 300L); u2 is in progress at 4_300/10_000.
-                    db.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 100L)
-                    db.seedFinish("u1-b", userId = "u1", bookId = "b1", finishedAt = 300L)
-                    db.seedInProgressPosition(userId = "u2", bookId = "b1", positionMs = 4_300L)
+                    sql.seedFinish("u1-a", userId = "u1", bookId = "b1", finishedAt = 100L)
+                    sql.seedFinish("u1-b", userId = "u1", bookId = "b1", finishedAt = 300L)
+                    sql.seedInProgressPosition(userId = "u2", bookId = "b1", positionMs = 4_300L)
 
                     val readers =
-                        makeService(db, principalFor("u1"))
+                        makeService(sql, driver, principalFor("u1"))
                             .bookReadership(BookId("b1"))
                             .value()
                             .readers
@@ -459,11 +453,10 @@ class SocialServiceTest :
         // ── 4: Unauthenticated caller → NotFound ─────────────────────────────────────
 
         test("currentlyListening returns Failure(SocialError.NotFound) when caller is unauthenticated") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 runTest {
-                    val result = makeService(db, noPrincipal()).currentlyListening()
+                    val result = makeService(sql, driver, noPrincipal()).currentlyListening()
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()
                 }
@@ -471,12 +464,11 @@ class SocialServiceTest :
         }
 
         test("bookReadership returns Failure(SocialError.NotFound) when caller is unauthenticated") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-a")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-a")
                 runTest {
-                    val result = makeService(db, noPrincipal()).bookReadership(BookId("book-a"))
+                    val result = makeService(sql, driver, noPrincipal()).bookReadership(BookId("book-a"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<SocialError.NotFound>()
                 }

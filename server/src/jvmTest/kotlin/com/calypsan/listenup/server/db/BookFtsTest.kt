@@ -1,9 +1,12 @@
 package com.calypsan.listenup.server.db
 
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import app.cash.sqldelight.db.QueryResult
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 /**
  * FTS5 round-trip coverage for the `book_search` virtual table.
@@ -21,67 +24,130 @@ class BookFtsTest :
     FunSpec({
 
         test("FTS index returns matching book rowids in rank order") {
-            withInMemoryDatabase {
-                transaction(this) {
-                    exec("INSERT INTO libraries(id, name, created_at, updated_at, revision) VALUES ('lib1', 'Default', 0, 0, 0)")
-                    exec(
-                        """
-                        INSERT INTO books(
-                            id, library_id, title, total_duration, root_rel_path, scanned_at,
-                            revision, created_at, updated_at
-                        ) VALUES
-                            ('b1', 'lib1', 'Way of Kings',   0, 'a', 0, 1, 0, 0),
-                            ('b2', 'lib1', 'Words of Radiance', 0, 'b', 0, 2, 0, 0)
-                        """.trimIndent(),
-                    )
-                    exec(
-                        """
-                        INSERT INTO book_search(rowid, title) VALUES
-                            (1, 'Way of Kings'),
-                            (2, 'Words of Radiance')
-                        """.trimIndent(),
-                    )
+            withSqlDatabase {
+                runBlocking {
+                    withContext(Dispatchers.IO) {
+                        driver.execute(
+                            identifier = null,
+                            sql = "INSERT INTO libraries(id, name, created_at, updated_at, revision) VALUES ('lib1', 'Default', 0, 0, 0)",
+                            parameters = 0,
+                            binders = null,
+                        )
+                        driver.execute(
+                            identifier = null,
+                            sql =
+                                """
+                                INSERT INTO books(
+                                    id, library_id, title, total_duration, root_rel_path, scanned_at,
+                                    revision, created_at, updated_at
+                                ) VALUES
+                                    ('b1', 'lib1', 'Way of Kings',   0, 'a', 0, 1, 0, 0),
+                                    ('b2', 'lib1', 'Words of Radiance', 0, 'b', 0, 2, 0, 0)
+                                """.trimIndent(),
+                            parameters = 0,
+                            binders = null,
+                        )
+                        driver.execute(
+                            identifier = null,
+                            sql =
+                                """
+                                INSERT INTO book_search(rowid, title) VALUES
+                                    (1, 'Way of Kings'),
+                                    (2, 'Words of Radiance')
+                                """.trimIndent(),
+                            parameters = 0,
+                            binders = null,
+                        )
 
-                    val results = mutableListOf<Long>()
-                    exec("SELECT rowid FROM book_search WHERE book_search MATCH 'Kings' ORDER BY rank") { rs ->
-                        while (rs.next()) results += rs.getLong(1)
+                        val results =
+                            driver
+                                .executeQuery(
+                                    identifier = null,
+                                    sql = "SELECT rowid FROM book_search WHERE book_search MATCH 'Kings' ORDER BY rank",
+                                    mapper = { cursor ->
+                                        val list = mutableListOf<Long>()
+                                        while (cursor.next().value) {
+                                            list += cursor.getLong(0)!!
+                                        }
+                                        QueryResult.Value(list)
+                                    },
+                                    parameters = 0,
+                                    binders = null,
+                                ).value
+                        results shouldBe listOf(1L)
                     }
-                    results shouldBe listOf(1L)
                 }
             }
         }
 
         test("FTS index searches multiple columns and ranks results") {
-            withInMemoryDatabase {
-                transaction(this) {
-                    exec("INSERT INTO libraries(id, name, created_at, updated_at, revision) VALUES ('lib1', 'Default', 0, 0, 0)")
-                    exec(
-                        """
-                        INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at,
-                                          revision, created_at, updated_at)
-                        VALUES ('b1', 'lib1', 'The Stormlight Archive', 0, 'a', 0, 1, 0, 0),
-                               ('b2', 'lib1', 'Way of Kings', 0, 'b', 0, 2, 0, 0)
-                        """.trimIndent(),
-                    )
-                    exec(
-                        """
-                        INSERT INTO book_search(rowid, title, contributor_names, series_names)
-                        VALUES (1, 'The Stormlight Archive', 'Brandon Sanderson', 'Stormlight'),
-                               (2, 'Way of Kings', 'Brandon Sanderson, Michael Kramer', 'Stormlight')
-                        """.trimIndent(),
-                    )
+            withSqlDatabase {
+                runBlocking {
+                    withContext(Dispatchers.IO) {
+                        driver.execute(
+                            identifier = null,
+                            sql = "INSERT INTO libraries(id, name, created_at, updated_at, revision) VALUES ('lib1', 'Default', 0, 0, 0)",
+                            parameters = 0,
+                            binders = null,
+                        )
+                        driver.execute(
+                            identifier = null,
+                            sql =
+                                """
+                                INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at,
+                                                  revision, created_at, updated_at)
+                                VALUES ('b1', 'lib1', 'The Stormlight Archive', 0, 'a', 0, 1, 0, 0),
+                                       ('b2', 'lib1', 'Way of Kings', 0, 'b', 0, 2, 0, 0)
+                                """.trimIndent(),
+                            parameters = 0,
+                            binders = null,
+                        )
+                        driver.execute(
+                            identifier = null,
+                            sql =
+                                """
+                                INSERT INTO book_search(rowid, title, contributor_names, series_names)
+                                VALUES (1, 'The Stormlight Archive', 'Brandon Sanderson', 'Stormlight'),
+                                       (2, 'Way of Kings', 'Brandon Sanderson, Michael Kramer', 'Stormlight')
+                                """.trimIndent(),
+                            parameters = 0,
+                            binders = null,
+                        )
 
-                    val byAuthor = mutableListOf<Long>()
-                    exec("SELECT rowid FROM book_search WHERE book_search MATCH 'Sanderson' ORDER BY rank") { rs ->
-                        while (rs.next()) byAuthor += rs.getLong(1)
-                    }
-                    byAuthor.toSet() shouldBe setOf(1L, 2L)
+                        val byAuthor =
+                            driver
+                                .executeQuery(
+                                    identifier = null,
+                                    sql = "SELECT rowid FROM book_search WHERE book_search MATCH 'Sanderson' ORDER BY rank",
+                                    mapper = { cursor ->
+                                        val list = mutableListOf<Long>()
+                                        while (cursor.next().value) {
+                                            list += cursor.getLong(0)!!
+                                        }
+                                        QueryResult.Value(list)
+                                    },
+                                    parameters = 0,
+                                    binders = null,
+                                ).value
+                        byAuthor.toSet() shouldBe setOf(1L, 2L)
 
-                    val bySeries = mutableListOf<Long>()
-                    exec("SELECT rowid FROM book_search WHERE book_search MATCH 'Stormlight' ORDER BY rank") { rs ->
-                        while (rs.next()) bySeries += rs.getLong(1)
+                        val bySeries =
+                            driver
+                                .executeQuery(
+                                    identifier = null,
+                                    sql = "SELECT rowid FROM book_search WHERE book_search MATCH 'Stormlight' ORDER BY rank",
+                                    mapper = { cursor ->
+                                        val list = mutableListOf<Long>()
+                                        while (cursor.next().value) {
+                                            list += cursor.getLong(0)!!
+                                        }
+                                        QueryResult.Value(list)
+                                    },
+                                    parameters = 0,
+                                    binders = null,
+                                ).value
+                        bySeries.toSet() shouldBe setOf(1L, 2L)
                     }
-                    bySeries.toSet() shouldBe setOf(1L, 2L)
                 }
             }
         }

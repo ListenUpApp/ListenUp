@@ -16,21 +16,19 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 private const val SYNC_PULL_LIMIT = 100
 
@@ -67,29 +65,29 @@ class CollectionSyncCatchUpE2ETest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun makeService(db: Database): CollectionServiceImpl {
+        fun makeService(db: SqlTestDatabases): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo =
                 CollectionRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val collectionBookRepo =
                 CollectionBookRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val grantRepo =
                 CollectionGrantRepository(
-                    db = db.asSqlDatabase(),
+                    db = db.sql,
                     bus = bus,
                     registry = registry,
-                    driver = db.asSqlDriver(),
+                    driver = db.driver,
                 )
             val accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo)
             return CollectionServiceImpl(
@@ -97,9 +95,9 @@ class CollectionSyncCatchUpE2ETest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
-                db = db,
+                sql = db.sql,
                 clock = fixedClock,
                 bookRevisionTouch = FakeBookRevisionTouch(),
                 principal = principalFor("u1"),
@@ -112,12 +110,12 @@ class CollectionSyncCatchUpE2ETest :
         ): CollectionServiceImpl = copyWith(principalFor(userId, role))
 
         test("create + add-book + share → listCollections distinguishes owner vs shared, and all three domains replay via catch-up") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book1")
                 runTest {
                     // ---- Drive the real service end-to-end as u1 ----
                     val service = makeService(db)
@@ -158,24 +156,24 @@ class CollectionSyncCatchUpE2ETest :
                     val registry = SyncRegistry()
                     val collectionRepo =
                         CollectionRepository(
-                            db = db.asSqlDatabase(),
+                            db = db.sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = db.driver,
                         )
                     val collectionBookRepo =
                         CollectionBookRepository(
-                            db = db.asSqlDatabase(),
+                            db = db.sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = db.driver,
                         )
                     val grantRepo =
                         CollectionGrantRepository(
-                            db = db.asSqlDatabase(),
+                            db = db.sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = db.driver,
                         )
 
                     val collectionsPage = collectionRepo.pullSince(userId = null, cursor = 0, limit = SYNC_PULL_LIMIT)

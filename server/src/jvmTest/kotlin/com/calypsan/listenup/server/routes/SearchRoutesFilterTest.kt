@@ -3,18 +3,11 @@ package com.calypsan.listenup.server.routes
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.server.api.SearchServiceImpl
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.BookSearchMapTable
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ContributorTable
-import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.LibraryFolderTable
-import com.calypsan.listenup.server.db.LibraryTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testAuth
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -31,10 +24,6 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 
 /**
@@ -51,43 +40,22 @@ class SearchRoutesFilterTest :
     FunSpec({
 
         test("GET /api/v1/search with genreSlugs filters to books only and returns facets") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 // Seed: library + folder (required for books FK constraints).
-                val now = System.currentTimeMillis()
                 val libId = "lib1"
                 val folderId = "folder1"
-                transaction(db) {
-                    LibraryTable.insert {
-                        it[LibraryTable.id] = libId
-                        it[LibraryTable.name] = "Test Library"
-                        it[LibraryTable.metadataPrecedence] = "embedded"
-                        it[LibraryTable.createdAt] = now
-                        it[LibraryTable.updatedAt] = now
-                        it[LibraryTable.revision] = 0L
-                        it[LibraryTable.deletedAt] = null
-                    }
-                    LibraryFolderTable.insert {
-                        it[LibraryFolderTable.id] = folderId
-                        it[LibraryFolderTable.libraryId] = libId
-                        it[LibraryFolderTable.rootPath] = "/tmp/search-route-test"
-                        it[LibraryFolderTable.createdAt] = now
-                        it[LibraryFolderTable.updatedAt] = now
-                        it[LibraryFolderTable.revision] = 0L
-                        it[LibraryFolderTable.deletedAt] = null
-                    }
-                }
+                sql.seedTestLibraryAndFolder(libraryId = libId, folderId = folderId, folderPath = "/tmp/search-route-test")
 
                 // Seed book b1 "Dragon Quest" in the Fantasy genre.
-                seedBook(db, bookId = "b1", title = "Dragon Quest", libraryId = libId, folderId = folderId)
+                seedBook(sql, bookId = "b1", title = "Dragon Quest", libraryId = libId, folderId = folderId)
                 // Seed a contributor whose name also contains "Dragon" — proves
                 // contributors are suppressed (not merely absent) when the filter collapses results.
-                seedContributor(db, contributorId = "c1", name = "Dragon Author")
+                seedContributor(sql, contributorId = "c1", name = "Dragon Author")
                 // Seed a genre and link it to b1.
-                seedGenre(db, id = "g-fan", slug = "fantasy", path = "/fiction/fantasy", name = "Fantasy")
-                linkBookGenre(db, bookId = "b1", genreId = "g-fan")
+                seedGenre(sql, id = "g-fan", slug = "fantasy", path = "/fiction/fantasy", name = "Fantasy")
+                linkBookGenre(sql, bookId = "b1", genreId = "g-fan")
 
-                val service = SearchServiceImpl(db = db.asSqlDatabase(), driver = db.asSqlDriver())
+                val service = SearchServiceImpl(db = sql, driver = driver)
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
@@ -131,7 +99,7 @@ class SearchRoutesFilterTest :
 // ── seed helpers (mirrors SearchServiceImplTest private helpers) ───────────────
 
 private fun seedBook(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    sql: ListenUpDatabase,
     bookId: String,
     title: String,
     libraryId: String,
@@ -139,84 +107,107 @@ private fun seedBook(
 ) {
     val now = System.currentTimeMillis()
     val rowid = (bookId.hashCode().toLong().let { if (it < 0) -it else it } % 999_999L) + 1L
-    transaction(db) {
-        BookTable.insert {
-            it[BookTable.id] = bookId
-            it[BookTable.libraryId] = libraryId
-            it[BookTable.folderId] = folderId
-            it[BookTable.title] = title
-            it[BookTable.sortTitle] = title
-            it[BookTable.totalDuration] = 3_600_000L
-            it[BookTable.rootRelPath] = "$bookId/book.mp3"
-            it[BookTable.scannedAt] = now
-            it[BookTable.revision] = 1L
-            it[BookTable.createdAt] = now
-            it[BookTable.updatedAt] = now
-            it[BookTable.deletedAt] = null
-        }
-        BookSearchMapTable.insert {
-            it[BookSearchMapTable.bookId] = bookId
-            it[BookSearchMapTable.rowid] = rowid.toInt()
-        }
-        val tx = TransactionManager.current()
-        tx.exec("DELETE FROM book_search WHERE rowid = $rowid")
-        val cols = "rowid, title, subtitle, description, contributor_names, series_names"
-        tx.exec(
-            stmt = "INSERT INTO book_search($cols) VALUES($rowid, ?, '', '', '', '')",
-            args = listOf(TextColumnType() to title),
+    sql.transaction {
+        sql.booksQueries.insert(
+            id = bookId,
+            library_id = libraryId,
+            folder_id = folderId,
+            title = title,
+            sort_title = title,
+            subtitle = null,
+            description = null,
+            publish_year = null,
+            publisher = null,
+            language = null,
+            isbn = null,
+            asin = null,
+            abridged = 0L,
+            explicit = 0L,
+            has_scan_warning = 0L,
+            total_duration = 3_600_000L,
+            cover_source = null,
+            cover_path = null,
+            cover_hash = null,
+            root_rel_path = "$bookId/book.mp3",
+            inode = null,
+            scanned_at = now,
+            revision = 1L,
+            created_at = now,
+            updated_at = now,
+            deleted_at = null,
+            client_op_id = null,
+        )
+        sql.bookSearchQueries.insertMap(book_id = bookId, rowid = rowid)
+        sql.bookSearchQueries.deleteFtsRow(rowid = rowid)
+        sql.bookSearchQueries.insertFtsRow(
+            rowid = rowid,
+            title = title,
+            subtitle = "",
+            description = "",
+            contributor_names = "",
+            series_names = "",
+            tags = "",
+            genres = "",
         )
     }
 }
 
 private fun seedContributor(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    sql: ListenUpDatabase,
     contributorId: String,
     name: String,
 ) {
     val now = System.currentTimeMillis()
-    transaction(db) {
-        ContributorTable.insert {
-            it[ContributorTable.id] = contributorId
-            it[ContributorTable.normalizedName] = name.lowercase()
-            it[ContributorTable.name] = name
-            it[ContributorTable.sortName] = null
-            it[ContributorTable.revision] = 1L
-            it[ContributorTable.createdAt] = now
-            it[ContributorTable.updatedAt] = now
-        }
-    }
+    sql.contributorsQueries.insert(
+        id = contributorId,
+        normalized_name = name.lowercase(),
+        name = name,
+        sort_name = null,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+        asin = null,
+        description = null,
+        image_path = null,
+        image_blur_hash = null,
+        birth_date = null,
+        death_date = null,
+        website = null,
+    )
 }
 
 private fun seedGenre(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    sql: ListenUpDatabase,
     id: String,
     slug: String,
     path: String,
     name: String = slug,
 ) {
     val now = System.currentTimeMillis()
-    transaction(db) {
-        GenreTable.insert {
-            it[GenreTable.id] = id
-            it[GenreTable.name] = name
-            it[GenreTable.slug] = slug
-            it[GenreTable.path] = path
-            it[GenreTable.revision] = 1L
-            it[GenreTable.createdAt] = now
-            it[GenreTable.updatedAt] = now
-        }
-    }
+    sql.genresQueries.insert(
+        id = id,
+        name = name,
+        slug = slug,
+        path = path,
+        parent_id = null,
+        depth = 0L,
+        sort_order = 0L,
+        color = null,
+        description = null,
+        revision = 1L,
+        created_at = now,
+        updated_at = now,
+        deleted_at = null,
+        client_op_id = null,
+    )
 }
 
 private fun linkBookGenre(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    sql: ListenUpDatabase,
     bookId: String,
     genreId: String,
 ) {
-    transaction(db) {
-        BookGenreTable.insert {
-            it[BookGenreTable.bookId] = bookId
-            it[BookGenreTable.genreId] = genreId
-        }
-    }
+    sql.bookGenresQueries.insertIfAbsent(book_id = bookId, genre_id = genreId)
 }

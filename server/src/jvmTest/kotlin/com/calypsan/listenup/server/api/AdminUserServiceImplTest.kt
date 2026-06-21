@@ -26,17 +26,16 @@ import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -49,8 +48,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import kotlin.time.Instant
 
 /**
@@ -76,22 +73,22 @@ class AdminUserServiceImplTest :
             }
 
         fun makeAdminUserService(
-            db: Database,
+            db: SqlTestDatabases,
             broadcaster: RegistrationBroadcaster = RegistrationBroadcaster(),
             bus: ChangeBus = ChangeBus(),
             activityRecorder: ActivityRecorder? = null,
         ): AdminUserServiceImpl {
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
-            val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                SessionService(db.sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+            val settings = ServerSettingsRepository(db.sql, default = RegistrationPolicy.OPEN)
             return AdminUserServiceImpl(
-                db = db,
+                sql = db.sql,
                 sessions = sessions,
                 settings = settings,
                 clock = fixedClock,
                 registrationBroadcaster = broadcaster,
                 bus = bus,
-                publicProfileMaintainer = db.noOpPublicProfileMaintainer(),
+                publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
                 activityRecorder = activityRecorder,
             )
         }
@@ -102,32 +99,43 @@ class AdminUserServiceImplTest :
         ): AdminUserServiceImpl = copyWith(principalFor(userId, role))
 
         /** Seeds a user with an explicit status (the shared fixture only seeds ACTIVE). */
-        fun Database.seedUserWithStatus(
+        fun SqlTestDatabases.seedUserWithStatus(
             userId: String,
             role: UserRoleColumn = UserRoleColumn.MEMBER,
             userStatus: UserStatusColumn = UserStatusColumn.ACTIVE,
         ) {
-            transaction(this) {
-                UserEntity.new(userId) {
-                    email = "$userId@example.com"
-                    emailNormalized = "$userId@example.com"
-                    passwordHash = "phc"
-                    this.role = role
-                    displayName = userId
-                    status = userStatus
-                    createdAt = 1L
-                    updatedAt = 1L
-                }
+            sql.transaction {
+                sql.usersQueries.insert(
+                    id = userId,
+                    email = "$userId@example.com",
+                    email_normalized = "$userId@example.com",
+                    password_hash = "phc",
+                    role = role.name,
+                    display_name = userId,
+                    status = userStatus.name,
+                    created_at = 1L,
+                    updated_at = 1L,
+                    last_login_at = null,
+                    can_edit = 1L,
+                    can_share = 1L,
+                    approved_by = null,
+                    approved_at = null,
+                    deleted_at = null,
+                    invited_by = null,
+                    tagline = null,
+                    avatar_type = "auto",
+                    timezone = "UTC",
+                )
             }
         }
 
         // ── updateUser ──────────────────────────────────────────────────────────
 
         test("updateUser changes role + permissions for an admin caller") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     val res =
@@ -146,10 +154,10 @@ class AdminUserServiceImplTest :
         }
 
         test("updateUser patches only the supplied fields, leaving the rest unchanged") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     val user = svc.updateUser(UserId("m1"), AdminUserPatch(displayName = "Renamed")).shouldSucceed()
@@ -161,9 +169,9 @@ class AdminUserServiceImplTest :
         }
 
         test("updateUser cannot change the root account's role") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc
@@ -174,12 +182,12 @@ class AdminUserServiceImplTest :
         }
 
         test("updateUser cannot demote the last admin") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 // Only one admin exists (a1); root is also an admin, so demoting a1 while
                 // root remains is allowed — instead delete root scenario is separate.
                 // Seed a single ADMIN with no ROOT so a1 is genuinely the last admin.
-                seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("a1", UserRole.ADMIN)
                     svc
@@ -190,10 +198,10 @@ class AdminUserServiceImplTest :
         }
 
         test("updateUser by a non-admin is rejected with PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("m1", UserRole.MEMBER)
                     svc
@@ -206,24 +214,24 @@ class AdminUserServiceImplTest :
         // ── deleteUser ──────────────────────────────────────────────────────────
 
         test("deleteUser soft-deletes, revokes sessions, and rejects self/root/last-admin") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("a1", UserRoleColumn.ADMIN)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val sessions =
-                        SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
-                    val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
+                        SessionService(db.sql, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = fixedClock)
+                    val settings = ServerSettingsRepository(db.sql, default = RegistrationPolicy.OPEN)
                     val svc =
                         AdminUserServiceImpl(
-                            db = db,
+                            sql = db.sql,
                             sessions = sessions,
                             settings = settings,
                             clock = fixedClock,
                             registrationBroadcaster = RegistrationBroadcaster(),
                             bus = ChangeBus(),
-                            publicProfileMaintainer = db.noOpPublicProfileMaintainer(),
+                            publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
                         ).copyWith(principalFor("a1", UserRole.ADMIN))
 
                     // m1 has an active session that must be revoked on delete.
@@ -246,10 +254,10 @@ class AdminUserServiceImplTest :
         }
 
         test("deleteUser allows removing a non-last admin (root still counts)") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
                 runTest {
                     // root deletes the only non-root admin → root still counts, so allowed.
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
@@ -260,11 +268,11 @@ class AdminUserServiceImplTest :
         }
 
         test("deleteUser publishes UserDeleted on the control channel, targeted to the deleted user, before revoking") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val bus = ChangeBus()
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val frames = mutableListOf<ControlFrame>()
                     val job = launch { bus.subscribeControl().collect { frames += it } }
@@ -279,11 +287,11 @@ class AdminUserServiceImplTest :
         }
 
         test("deleteUser failure does NOT publish UserDeleted") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val bus = ChangeBus()
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("a1", UserRoleColumn.ADMIN)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("a1", UserRoleColumn.ADMIN)
                 runTest {
                     val frames = mutableListOf<ControlFrame>()
                     val job = launch { bus.subscribeControl().collect { frames += it } }
@@ -301,10 +309,10 @@ class AdminUserServiceImplTest :
         // ── getUser / searchUsers ─────────────────────────────────────────────────
 
         test("getUser returns the user; missing user fails UserNotFound") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.getUser(UserId("m1")).shouldSucceed().id shouldBe UserId("m1")
@@ -314,11 +322,11 @@ class AdminUserServiceImplTest :
         }
 
         test("searchUsers matches display name and email case-insensitively, excluding deleted") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("alice", UserRoleColumn.MEMBER)
-                seedTestUser("bob", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("alice", UserRoleColumn.MEMBER)
+                sql.seedTestUser("bob", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     val byName = svc.searchUsers("ALI").shouldSucceed().map { it.id.value }
@@ -332,9 +340,9 @@ class AdminUserServiceImplTest :
         }
 
         test("searchUsers returns only ACTIVE members, excluding pending and denied registrations") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("activeAlice", userStatus = UserStatusColumn.ACTIVE)
                 seedUserWithStatus("pendingAlice", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 seedUserWithStatus("deniedAlice", userStatus = UserStatusColumn.DENIED)
@@ -351,10 +359,10 @@ class AdminUserServiceImplTest :
         }
 
         test("listUsers returns only ACTIVE members, excluding pending and denied registrations") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 seedUserWithStatus("d1", userStatus = UserStatusColumn.DENIED)
                 runTest {
@@ -371,9 +379,9 @@ class AdminUserServiceImplTest :
         // ── listPendingUsers ──────────────────────────────────────────────────────
 
         test("listPendingUsers returns only PENDING_APPROVAL users") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
@@ -387,9 +395,9 @@ class AdminUserServiceImplTest :
         // ── registration policy ─────────────────────────────────────────────────
 
         test("setRegistrationPolicy persists and getRegistrationPolicy reads it back") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.setRegistrationPolicy(RegistrationPolicy.CLOSED).shouldSucceed()
@@ -399,9 +407,9 @@ class AdminUserServiceImplTest :
         }
 
         test("getRegistrationPolicy by a non-admin is rejected") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("m1", UserRole.MEMBER)
                     svc.getRegistrationPolicy().shouldFail<AuthError.PermissionDenied>()
@@ -412,9 +420,9 @@ class AdminUserServiceImplTest :
         // ── decidePendingRegistration (relocated from AuthServiceImpl) ─────────────
 
         test("decidePendingRegistration approves, activates, and stamps approvedBy/approvedAt") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
@@ -431,10 +439,10 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration(approve) records one user_joined for the approved user") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                val activities = ActivityRepository(db = db.asSqlDatabase())
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                val activities = ActivityRepository(db = db.sql)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc =
@@ -450,10 +458,10 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration(deny) records no user_joined") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                val activities = ActivityRepository(db = db.asSqlDatabase())
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                val activities = ActivityRepository(db = db.sql)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc =
@@ -470,9 +478,9 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration denies and blocks the applicant") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
@@ -485,10 +493,10 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration without admin role errors PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
-                seedTestUser("m1", UserRoleColumn.MEMBER)
+                sql.seedTestUser("m1", UserRoleColumn.MEMBER)
                 runTest {
                     val svc = makeAdminUserService(db).actAs("m1", UserRole.MEMBER)
                     svc
@@ -499,7 +507,7 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration without a principal errors SessionExpired") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 runTest {
                     val svc = makeAdminUserService(db) // unscoped: no principal
@@ -511,10 +519,10 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration on a non-pending target errors PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("active1", UserRoleColumn.MEMBER) // ACTIVE, not pending
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("active1", UserRoleColumn.MEMBER) // ACTIVE, not pending
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc
@@ -528,10 +536,10 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration(approve) notifies the broadcaster Approved for that user") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val broadcaster = RegistrationBroadcaster()
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val received = async { broadcaster.subscribe("p1").first() }
@@ -544,10 +552,10 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration(deny) notifies Denied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val broadcaster = RegistrationBroadcaster()
-                seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val received = async { broadcaster.subscribe("p1").first() }
@@ -560,11 +568,11 @@ class AdminUserServiceImplTest :
         }
 
         test("decidePendingRegistration failure does NOT notify") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
                 val broadcaster = RegistrationBroadcaster()
-                seedTestUser("root1", UserRoleColumn.ROOT)
-                seedTestUser("active1", UserRoleColumn.MEMBER) // ACTIVE, not pending → Failure
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                sql.seedTestUser("active1", UserRoleColumn.MEMBER) // ACTIVE, not pending → Failure
                 runTest {
                     broadcaster.subscribe("active1").test {
                         val svc = makeAdminUserService(db, broadcaster = broadcaster).actAs("root1", UserRole.ROOT)

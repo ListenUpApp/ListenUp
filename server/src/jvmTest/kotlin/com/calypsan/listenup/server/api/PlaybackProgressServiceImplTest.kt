@@ -12,8 +12,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -71,8 +70,8 @@ class PlaybackProgressServiceImplTest :
         // ── principal resolution ──────────────────────────────────────────────
 
         test("listProgress returns Failure(SyncError.NotFound) when principal is absent") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.listProgress(100)
@@ -83,8 +82,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getProgressBatch returns Failure(SyncError.NotFound) when principal is absent") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.getProgressBatch(listOf(BookId("book-1")))
@@ -97,8 +96,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getRecentlyListened returns Failure(SyncError.NotFound) when principal is absent") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.getRecentlyListened(20)
@@ -111,8 +110,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getCompletedBooks returns Failure(SyncError.NotFound) when principal is absent") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 runTest {
                     val result = service.getCompletedBooks(50)
@@ -127,8 +126,8 @@ class PlaybackProgressServiceImplTest :
         // ── happy-path delegation ─────────────────────────────────────────────
 
         test("listProgress resolves current user and returns Success with their positions") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repo.recordPosition(
@@ -149,8 +148,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getProgressBatch returns Success with sparse matches for the current user") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repo.recordPosition(
@@ -172,8 +171,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getProgressBatch with empty input returns empty Success") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     val result = service.getProgressBatch(emptyList())
@@ -186,8 +185,8 @@ class PlaybackProgressServiceImplTest :
         // ── limit clamping ────────────────────────────────────────────────────
 
         test("listProgress clamps limit to 500 max (repo called with 500, not 9999)") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     // Seed 3 positions — if limit > 3 the result is still all 3, confirming no error.
@@ -211,8 +210,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("listProgress clamps limit to 1 min (repo called with 1, not 0 or negative)") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repeat(3) { i ->
@@ -235,8 +234,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getRecentlyListened clamps limit to 100 max") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repeat(3) { i ->
@@ -258,8 +257,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getRecentlyListened clamps limit to 1 min") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repeat(3) { i ->
@@ -281,8 +280,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getCompletedBooks clamps limit to 500 max") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repeat(3) { i ->
@@ -304,8 +303,8 @@ class PlaybackProgressServiceImplTest :
         }
 
         test("getCompletedBooks clamps limit to 1 min") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, principal("u1"))
                 runTest {
                     repeat(3) { i ->
@@ -329,8 +328,8 @@ class PlaybackProgressServiceImplTest :
         // ── copyWith ──────────────────────────────────────────────────────────
 
         test("copyWith returns a new instance scoped to the given principal") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val service = PlaybackProgressServiceImpl(repo, noopPrincipal)
                 val scoped = service.copyWith(principal("u1"))
                 runTest {

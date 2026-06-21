@@ -11,7 +11,7 @@ import kotlin.time.Instant
 
 /**
  * Reads an extracted Audiobookshelf `absdatabase.sqlite` on a throwaway **read-only** JDBC
- * connection — never the app's Hikari pool. The connection is opened with `?mode=ro` so the file
+ * connection — never the app's own database. The connection is opened with `?mode=ro` so the file
  * cannot be mutated, and every query is a static `SELECT` built from [AbsSchema] constants (no
  * user-supplied SQL), reading users, audiobook items, and listening progress.
  *

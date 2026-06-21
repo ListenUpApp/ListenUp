@@ -2,15 +2,12 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Tag
-import com.calypsan.listenup.server.db.TagTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -47,7 +44,7 @@ private val DEMO_TAGS =
  * scan-derived, but they reference no other domain and can safely run last).
  */
 internal class TagDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val tagRepository: TagRepository,
     private val clock: Clock = Clock.System,
 ) : DomainSeeder {
@@ -57,12 +54,8 @@ internal class TagDomainSeeder(
 
     /** Returns true when at least one non-deleted tag row already exists. */
     override suspend fun isAlreadySeeded(): Boolean =
-        suspendTransaction(db) {
-            TagTable
-                .selectAll()
-                .where { TagTable.deletedAt.isNull() }
-                .limit(1)
-                .any()
+        suspendTransaction(sql) {
+            sql.tagsQueries.hasAnyLive().executeAsOne()
         }
 
     override suspend fun seed() {

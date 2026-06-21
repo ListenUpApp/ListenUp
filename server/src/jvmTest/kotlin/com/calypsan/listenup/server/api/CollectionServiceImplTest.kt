@@ -22,14 +22,13 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldHaveSize
@@ -37,7 +36,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Integration tests for [CollectionServiceImpl].
@@ -60,7 +58,7 @@ class CollectionServiceImplTest :
                 UserPrincipal(UserId(userId), SessionId("session-$userId"), role)
             }
 
-        fun makeService(db: Database): CollectionServiceImpl {
+        fun makeService(db: SqlTestDatabases): CollectionServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             val collectionRepo = db.newCollectionRepo(bus, registry)
@@ -72,9 +70,9 @@ class CollectionServiceImplTest :
                 collectionBookRepo = collectionBookRepo,
                 grantRepo = grantRepo,
                 accessPolicy = accessPolicy,
-                permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+                permissionPolicy = UserPermissionPolicy(db.sql),
                 bus = bus,
-                db = db,
+                sql = db.sql,
                 clock = fixedClock,
                 bookRevisionTouch = FakeBookRevisionTouch(),
                 principal = principalFor("u1"),
@@ -90,10 +88,10 @@ class CollectionServiceImplTest :
         // ── createCollection ──────────────────────────────────────────────────
 
         test("createCollection makes the caller the owner") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
                     val service = makeService(db).actAs("u1")
                     val created = service.createCollection("test-library", "Favourites")
@@ -114,10 +112,10 @@ class CollectionServiceImplTest :
         }
 
         test("createCollection rejects blank or too-long name") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
                     val service = makeService(db).actAs("u1")
 
@@ -135,12 +133,12 @@ class CollectionServiceImplTest :
         // ── addBookToCollection / removeBookFromCollection ──────────────────────
 
         test("addBookToCollection requires write; owner can; read-share cannot") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -178,11 +176,11 @@ class CollectionServiceImplTest :
         }
 
         test("removeBookFromCollection soft-deletes the junction") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("book1")
                 runTest {
                     val service = makeService(db).actAs("u1")
                     val created = service.createCollection("test-library", "Favourites")
@@ -207,11 +205,11 @@ class CollectionServiceImplTest :
         // ── renameCollection ────────────────────────────────────────────────────
 
         test("renameCollection: owner ok, non-member NotFound") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u3")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -235,10 +233,10 @@ class CollectionServiceImplTest :
         // ── deleteCollection ─────────────────────────────────────────────────────
 
         test("deleteCollection: owner ok; inbox not deletable") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
                     val service = makeService(db).actAs("u1")
                     val created = service.createCollection("test-library", "Disposable")
@@ -273,12 +271,12 @@ class CollectionServiceImplTest :
         }
 
         test("deleteCollection cascades to junction rows and active shares") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("book1")
                 runTest {
                     val service = makeService(db).actAs("u1")
                     val created = service.createCollection("test-library", "Disposable")
@@ -325,11 +323,11 @@ class CollectionServiceImplTest :
         // ── listCollections ──────────────────────────────────────────────────────
 
         test("listCollections returns owned + shared, admin sees all") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
 
@@ -379,12 +377,12 @@ class CollectionServiceImplTest :
         // ── listCollectionBooks ──────────────────────────────────────────────────
 
         test("listCollectionBooks returns live junction book ids for an accessible collection") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook("book1")
-                seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 runTest {
                     val service = makeService(db).actAs("u1")
                     val created = service.createCollection("test-library", "Reading List")
@@ -404,11 +402,11 @@ class CollectionServiceImplTest :
         // ── shareCollection / updateShare / revokeShare / listShares ──────────────
 
         test("shareCollection: owner shares read with u2; u2 now sees it in listCollections (Read, not owner)") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -433,12 +431,12 @@ class CollectionServiceImplTest :
         }
 
         test("shareCollection by an owner-member without canShare is denied with PermissionDenied") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 // u1 owns the collection but is a member whose canShare is revoked.
-                seedTestUser("u1", UserRoleColumn.MEMBER, canShare = false)
-                seedTestUser("u2")
+                sql.seedTestUser("u1", UserRoleColumn.MEMBER, canShare = false)
+                sql.seedTestUser("u2")
                 runTest {
                     val owner = makeService(db).actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
@@ -454,10 +452,10 @@ class CollectionServiceImplTest :
         }
 
         test("shareCollection rejects self-share and non-existent user") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
                     val owner = makeService(db).actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
@@ -478,11 +476,11 @@ class CollectionServiceImplTest :
         }
 
         test("shareCollection twice (active) is rejected or updates — AlreadyShared") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
                     val owner = makeService(db).actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
@@ -501,11 +499,11 @@ class CollectionServiceImplTest :
         }
 
         test("updateShare read→write upgrades u2's permission") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -530,11 +528,11 @@ class CollectionServiceImplTest :
         }
 
         test("updateShare requires an active share — NotFound otherwise") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
                     val owner = makeService(db).actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
@@ -548,11 +546,11 @@ class CollectionServiceImplTest :
         }
 
         test("revokeShare soft-deletes the active share; u2 no longer sees the collection") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -580,12 +578,12 @@ class CollectionServiceImplTest :
         }
 
         test("only owner/admin can share/revoke; a write-share member cannot share") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestUser("u3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestUser("u3")
                 runTest {
                     val service = makeService(db)
                     val owner = service.actAs("u1")
@@ -613,12 +611,12 @@ class CollectionServiceImplTest :
         }
 
         test("listShares returns active shares for an owner-visible collection") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestUser("u3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestUser("u3")
                 runTest {
                     val owner = makeService(db).actAs("u1")
                     val created = owner.createCollection("test-library", "Shared")
@@ -639,9 +637,9 @@ class CollectionServiceImplTest :
         // ── Inbox (system collection + release flow) ──────────────────────────────
 
         test("getOrCreateInbox lazily creates one inbox per library, idempotent") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 // No admin required: inbox is owned by the "system" sentinel, not a real user.
                 runTest {
                     val service = makeService(db)
@@ -661,10 +659,10 @@ class CollectionServiceImplTest :
         }
 
         test("inbox is owned by an admin and not deletable via deleteCollection") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
                     val service = makeService(db)
                     val inbox = service.getOrCreateInbox("test-library")
@@ -679,11 +677,11 @@ class CollectionServiceImplTest :
         }
 
         test("addToInbox adds a book to the library's inbox") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
 
@@ -702,12 +700,12 @@ class CollectionServiceImplTest :
         }
 
         test("releaseBooks moves books out of inbox into staged collections (or none → ALL_BOOKS)") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestBook("book1")
-                seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 runTest {
                     val service = makeService(db)
                     val admin = service.actAs("admin", UserRole.ADMIN)
@@ -752,12 +750,12 @@ class CollectionServiceImplTest :
         }
 
         test("listInbox / releaseBooks require admin") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("admin", UserRoleColumn.ADMIN)
-                seedTestUser("u1")
-                seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("u1")
+                sql.seedTestBook("book1")
                 runTest {
                     val service = makeService(db)
                     service.addToInbox("book1", "test-library") shouldBe AppResult.Success(Unit)
@@ -779,17 +777,17 @@ class CollectionServiceImplTest :
 // Test-only factory helpers — kept top-level (outside the spec class) so the verbose
 // dual-engine wiring (SQLDelight view + Exposed access-filter handle over one file) lives
 // in one place and does not inflate the spec class past the detekt LargeClass threshold.
-private fun Database.newCollectionRepo(
+private fun SqlTestDatabases.newCollectionRepo(
     bus: ChangeBus,
     registry: SyncRegistry,
-): CollectionRepository = CollectionRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
+): CollectionRepository = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
-private fun Database.newCollectionBookRepo(
+private fun SqlTestDatabases.newCollectionBookRepo(
     bus: ChangeBus,
     registry: SyncRegistry,
-): CollectionBookRepository = CollectionBookRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
+): CollectionBookRepository = CollectionBookRepository(db = sql, bus = bus, registry = registry, driver = driver)
 
-private fun Database.newCollectionGrantRepo(
+private fun SqlTestDatabases.newCollectionGrantRepo(
     bus: ChangeBus,
     registry: SyncRegistry,
-): CollectionGrantRepository = CollectionGrantRepository(db = asSqlDatabase(), bus = bus, registry = registry, driver = this.asSqlDriver())
+): CollectionGrantRepository = CollectionGrantRepository(db = sql, bus = bus, registry = registry, driver = driver)

@@ -43,9 +43,10 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -58,8 +59,6 @@ import java.nio.file.Files
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val TEST_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val TEST_ASIN = "B017V4IM1G"
@@ -110,19 +109,18 @@ class B2aMetadataApplyE2ETest :
     FunSpec({
 
         test("applyBookMetadata enriches the server book row and returns Success") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("b2a-e2e-").also { it.toFile().deleteOnExit() }
-                val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
                 // ── Repositories ────────────────────────────────────────────────
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(sql, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(sql, bus, syncRegistry, driver, contributorRepo, seriesRepo, genreRepo)
 
                 // ── Stub: AudibleApi returns a canned book ──────────────────────
                 val audibleBook = canned_WayOfKings()
@@ -140,7 +138,7 @@ class B2aMetadataApplyE2ETest :
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
                 // ── Wire MetadataService + MetadataLookupServiceImpl ────────────
-                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(sql, clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = audibleApi,
@@ -149,7 +147,7 @@ class B2aMetadataApplyE2ETest :
                     )
                 val service =
                     buildService(
-                        db,
+                        this,
                         bookRepo,
                         contributorRepo,
                         seriesRepo,
@@ -199,24 +197,23 @@ class B2aMetadataApplyE2ETest :
         }
 
         test("applyBookMetadata overwrites any existing cover — wizard pick is an explicit UPLOADED overwrite") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("b2a-e2e-overwrite-").also { it.toFile().deleteOnExit() }
-                val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(sql, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(sql, bus, syncRegistry, driver, contributorRepo, seriesRepo, genreRepo)
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
 
-                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(sql, clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = SingleBookFakeAudibleApi(canned_WayOfKings()),
@@ -225,7 +222,7 @@ class B2aMetadataApplyE2ETest :
                     )
                 val service =
                     buildService(
-                        db,
+                        this,
                         bookRepo,
                         contributorRepo,
                         seriesRepo,
@@ -261,20 +258,19 @@ class B2aMetadataApplyE2ETest :
         }
 
         test("applyBookMetadata returns MetadataError.NotFound when book is absent") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val tempDir = Files.createTempDirectory("b2a-e2e-notfound-").also { it.toFile().deleteOnExit() }
-                val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val syncRegistry = SyncRegistry()
 
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, syncRegistry)
+                val contributorRepo = ContributorRepository(sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(sql, bus, syncRegistry)
                 val bookRepo =
-                    BookRepository(db.asSqlDatabase(), bus, syncRegistry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+                    BookRepository(sql, bus, syncRegistry, driver, contributorRepo, seriesRepo, genreRepo)
 
-                val cacheRepo = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW))
+                val cacheRepo = MetadataCacheRepository(sql, clock = FixedClock(TEST_NOW))
                 val metadataService =
                     MetadataService(
                         audible = SingleBookFakeAudibleApi(null),
@@ -286,7 +282,7 @@ class B2aMetadataApplyE2ETest :
                 val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
                 val service =
                     buildService(
-                        db,
+                        this,
                         bookRepo,
                         contributorRepo,
                         seriesRepo,
@@ -327,7 +323,7 @@ private val APPLY_SELECTION =
     )
 
 private fun buildService(
-    db: org.jetbrains.exposed.v1.jdbc.Database,
+    dbs: SqlTestDatabases,
     bookRepo: BookRepository,
     contributorRepo: ContributorRepository,
     seriesRepo: SeriesRepository,
@@ -355,9 +351,9 @@ private fun buildService(
                 coverImageStore = coverImageStore,
                 imageHome = Path(tempDir),
             ),
-        enrichmentDeps = testEnrichmentDeps(db, ChangeBus(), SyncRegistry()),
-        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-        db = db,
+        enrichmentDeps = testEnrichmentDeps(dbs.sql, ChangeBus(), SyncRegistry()),
+        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        sqlDb = dbs.sql,
         genreRepository = genreRepo,
         principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
     )

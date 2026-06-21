@@ -38,7 +38,7 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.koin.ktor.ext.inject
 
 /**
@@ -66,7 +66,7 @@ class BooksDigestRouteAccessTest :
                     val member = client.registerMember()
                     seedTestLibraryAndFolder()
 
-                    val db by application.inject<Database>()
+                    val sql by application.inject<ListenUpDatabase>()
                     val books by application.inject<BookRepository>()
                     val collections by application.inject<CollectionRepository>()
                     val memberships by application.inject<CollectionBookRepository>()
@@ -80,7 +80,7 @@ class BooksDigestRouteAccessTest :
                     // private-book lives only in a stranger-owned private collection → denied
                     // to the member, visible to the admin. Seed the parent row first to satisfy
                     // the collection_books FK before the membership upsert.
-                    db.seedTestBook("private-book")
+                    sql.seedTestBook("private-book")
                     books.upsert(bookSyncFixture(id = "public-book", title = "Open"))
                     books.upsert(bookSyncFixture(id = "private-book", title = "Secret"))
                     collections.upsert(collectionFixture("private-col", owner = "stranger"))

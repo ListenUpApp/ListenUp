@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
@@ -43,7 +44,6 @@ import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
-import org.jetbrains.exposed.v1.jdbc.Database
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
 
@@ -169,10 +169,10 @@ class SocialAclE2ETest :
                     val bob = restClient.registerMember()
 
                     // ── Seed library + two books: one public (joins ALL_BOOKS), one gated private ──
-                    seedTestLibraryAndFolder()
-                    val db by application.inject<Database>()
-                    db.seedTestBook("public-book")
-                    db.seedTestBook("private-book")
+                    val sqlDb by application.inject<ListenUpDatabase>()
+                    sqlDb.seedTestLibraryAndFolder()
+                    sqlDb.seedTestBook("public-book")
+                    sqlDb.seedTestBook("private-book")
 
                     val collections by application.inject<CollectionRepository>()
                     val collectionBooks by application.inject<CollectionBookRepository>()

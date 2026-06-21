@@ -10,16 +10,13 @@ import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreAliasTable
-import com.calypsan.listenup.server.db.GenreTable
-import com.calypsan.listenup.server.db.PendingBookGenreTable
 import com.calypsan.listenup.server.seed.GenreDomainSeeder
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -27,14 +24,10 @@ import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldNotBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * DB-backed coverage for the scanner's 3-step genre-resolution cascade in
- * [BookGenreWriter.processGenreStrings]: curator alias ([GenreAliasTable]) →
+ * [BookGenreWriter.processGenreStrings]: curator alias ([genre_aliases]) →
  * built-in normalization ([GenreNormalizer] against the live taxonomy) →
  * auto-create a flat live genre ([GenreAutoCreator]).
  *
@@ -47,12 +40,11 @@ class GenreResolutionScanTest :
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
 
         test("built-in normalizer resolves a known raw string; unknown auto-creates a live genre") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val repo = newRepo(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
-                    seedTaxonomy(db, fixedClock)
+                    seedTaxonomy(fixedClock)
 
                     repo.upsertFromAnalyzed(
                         BookId("b1"),
@@ -64,37 +56,43 @@ class GenreResolutionScanTest :
                         ),
                     )
 
-                    transaction(db) {
-                        val sciFiId = GenreTable.findBySlug("science-fiction")
-                        sciFiId shouldNotBe null
-                        // Known string normalizes to the seeded genre; unknown string is
-                        // auto-created as a flat live genre, so both land in book_genres.
-                        val newGenreId = GenreTable.findBySlug("totally-unknown-genre-xyz")
-                        newGenreId shouldNotBe null
-                        BookGenreTable.genresForBook("b1") shouldContainExactlyInAnyOrder
-                            listOf(sciFiId, newGenreId)
-                        PendingBookGenreTable.bookIdsByRawString("Totally Unknown Genre Xyz").shouldBeEmpty()
-                        // No alias row was created — built-in resolution doesn't touch genre_aliases.
-                        GenreAliasTable.aliasesForGenre(sciFiId!!).shouldBeEmpty()
-                    }
+                    val sciFiId = sql.genresQueries.findBySlug("science-fiction").executeAsOneOrNull()
+                    sciFiId shouldNotBe null
+                    // Known string normalizes to the seeded genre; unknown string is
+                    // auto-created as a flat live genre, so both land in book_genres.
+                    val newGenreId = sql.genresQueries.findBySlug("totally-unknown-genre-xyz").executeAsOneOrNull()
+                    newGenreId shouldNotBe null
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds shouldContainExactlyInAnyOrder listOf(sciFiId, newGenreId)
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Totally Unknown Genre Xyz")
+                        .executeAsList()
+                        .shouldBeEmpty()
+                    // No alias row was created — built-in resolution doesn't touch genre_aliases.
+                    sql.genreAliasesQueries
+                        .aliasesForGenre(sciFiId!!)
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("curator alias wins over built-in normalization") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val repo = newRepo(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
-                    seedTaxonomy(db, fixedClock)
-                    val fantasyId =
-                        transaction(db) {
-                            val id = GenreTable.findBySlug("fantasy")!!
-                            // "Sci-Fi" would normalize to science-fiction, but the curator alias overrides.
-                            GenreAliasTable.addAlias("Sci-Fi", id)
-                            id
-                        }
+                    seedTaxonomy(fixedClock)
+                    val fantasyId = sql.genresQueries.findBySlug("fantasy").executeAsOneOrNull()!!
+                    // "Sci-Fi" would normalize to science-fiction, but the curator alias overrides.
+                    sql.transaction {
+                        sql.genreAliasesQueries.deleteByRawString("Sci-Fi")
+                        sql.genreAliasesQueries.insert(raw_string = "Sci-Fi", genre_id = fantasyId)
+                    }
 
                     repo.upsertFromAnalyzed(
                         BookId("b1"),
@@ -103,35 +101,37 @@ class GenreResolutionScanTest :
                         analyzedFixture(rootRelPath = "books/b1", genres = listOf("Sci-Fi")),
                     )
 
-                    transaction(db) {
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(fantasyId)
-                        PendingBookGenreTable.bookIdsByRawString("Sci-Fi").shouldBeEmpty()
-                    }
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds shouldContainExactly listOf(fantasyId)
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Sci-Fi")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
 
         test("every canonical slug the normalizer can emit exists in the seeded taxonomy") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
-                    seedTaxonomy(db, fixedClock)
-                    transaction(db) {
-                        GenreNormalizer.canonicalSlugs().forEach { slug ->
-                            GenreTable.findBySlug(slug) shouldNotBe null
-                        }
+                    seedTaxonomy(fixedClock)
+                    GenreNormalizer.canonicalSlugs().forEach { slug ->
+                        sql.genresQueries.findBySlug(slug).executeAsOneOrNull() shouldNotBe null
                     }
                 }
             }
         }
 
         test("rescanning the same string is idempotent — one book_genres row, no pending") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val repo = newRepo(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = newRepo()
                 runTest {
-                    seedTaxonomy(db, fixedClock)
+                    seedTaxonomy(fixedClock)
 
                     repeat(2) {
                         repo.upsertFromAnalyzed(
@@ -142,11 +142,17 @@ class GenreResolutionScanTest :
                         )
                     }
 
-                    transaction(db) {
-                        val sciFiId = GenreTable.findBySlug("science-fiction")
-                        BookGenreTable.genresForBook("b1") shouldContainExactly listOf(sciFiId)
-                        PendingBookGenreTable.bookIdsByRawString("Sci-Fi").shouldBeEmpty()
-                    }
+                    val sciFiId = sql.genresQueries.findBySlug("science-fiction").executeAsOneOrNull()
+                    val bookGenreIds =
+                        sql.bookGenresQueries
+                            .genresForBook("b1")
+                            .executeAsList()
+                            .map { it.id }
+                    bookGenreIds shouldContainExactly listOf(sciFiId)
+                    sql.pendingBookGenresQueries
+                        .bookIdsByRawString("Sci-Fi")
+                        .executeAsList()
+                        .shouldBeEmpty()
                 }
             }
         }
@@ -154,28 +160,24 @@ class GenreResolutionScanTest :
 
 // --- Fixtures ---------------------------------------------------------------
 
-private suspend fun seedTaxonomy(
-    db: Database,
-    clock: FixedClock,
-) {
+private suspend fun SqlTestDatabases.seedTaxonomy(clock: FixedClock) {
     GenreDomainSeeder(
-        genreRepository = GenreRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock),
+        genreRepository = GenreRepository(sql, ChangeBus(), SyncRegistry(), clock),
         clock = clock,
     ).seed()
 }
 
-private fun newRepo(db: Database): BookRepository {
+private fun SqlTestDatabases.newRepo(): BookRepository {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     return BookRepository(
-        db = db.asSqlDatabase(),
-        driver = db.asSqlDriver(),
-        exposedDb = db,
+        db = sql,
+        driver = driver,
         bus = bus,
         registry = syncRegistry,
-        contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-        seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-        genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+        contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+        seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+        genreRepository = GenreRepository(sql, bus, syncRegistry),
     )
 }
 

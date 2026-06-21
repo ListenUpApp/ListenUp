@@ -54,6 +54,18 @@ SELECT * FROM users WHERE email_normalized = :email_normalized;
 existsByEmailNormalized:
 SELECT EXISTS(SELECT 1 FROM users WHERE email_normalized = :email_normalized);
 
+-- True iff ANY user row exists for :id (live OR tombstoned). The collection-share
+-- target check (`userExists`) only needs presence — a tombstoned sharee is still a
+-- real account — so it does not filter deleted_at. Replaces the Exposed
+-- `UserTable.selectAll().where { id eq … }.count() > 0`.
+existsById:
+SELECT EXISTS(SELECT 1 FROM users WHERE id = :id);
+
+-- Display name for a user row (live OR tombstoned), or no row when absent. Drives the
+-- ShelfReadAssembler shelf-owner label; the caller defaults an absent row to "".
+selectDisplayNameById:
+SELECT display_name FROM users WHERE id = :id;
+
 -- Single-row lookup by primary key.
 selectById:
 SELECT * FROM users WHERE id = :id;
@@ -91,6 +103,16 @@ SELECT display_name, avatar_type, tagline FROM users WHERE id = :id AND deleted_
 selectLiveUserIds:
 SELECT id FROM users WHERE deleted_at IS NULL;
 
+-- ABS-import user matching: (id, email, display_name) for every live user — the matchable
+-- roster ImportAnalyzer compares ABS users against (UserMatcher email/name tiers).
+selectMatchableLiveUsers:
+SELECT id, email, display_name FROM users WHERE deleted_at IS NULL;
+
+-- ABS-import mapping validation: which of the requested ids are LIVE (non-tombstoned) —
+-- MappingValidator rejects a user mapping pointing at a missing/soft-deleted user.
+selectLiveIdsByIds:
+SELECT id FROM users WHERE id IN :ids AND deleted_at IS NULL;
+
 -- Insert a new user row. Every column is written explicitly so the row shape is identical to
 -- the Exposed `UserEntity.new { … }` path (defaults are supplied by the caller, not the DDL).
 insert:
@@ -110,7 +132,70 @@ VALUES (
 updateLastLoginAndTimezone:
 UPDATE users SET last_login_at = :last_login_at, timezone = :timezone WHERE id = :id;
 
+-- Best-effort timezone refresh on a live listening event (PlaybackServiceImpl) — keeps the
+-- user's home tz current as they travel. A no-op when the user row is absent.
+updateTimezone:
+UPDATE users SET timezone = :timezone WHERE id = :id;
+
 -- Soft-delete a user by stamping deleted_at. Mirrors AdminUserServiceImpl.deleteUser's tombstone
 -- write; the login path treats a stamped row as nonexistent (InvalidCredentials).
 markDeletedAt:
 UPDATE users SET deleted_at = :deleted_at WHERE id = :id;
+
+-- ── self-service profile writes (ProfileServiceImpl) ─────────────────────────
+
+-- Writes the self-editable profile fields + a fresh updated_at in one statement. The
+-- service reads the row, merges only the request's non-null fields in Kotlin, then writes
+-- the merged values back here — matching the prior field-by-field UserEntity mutation.
+updateProfileFields:
+UPDATE users
+SET display_name = :display_name, tagline = :tagline, avatar_type = :avatar_type,
+    password_hash = :password_hash, updated_at = :updated_at
+WHERE id = :id;
+
+-- Replace only the password_hash (test fixture: swap the placeholder hash for a real Argon2
+-- PHC string so verify() can succeed). The service path writes the hash via updateProfileFields.
+updatePasswordHash:
+UPDATE users SET password_hash = :password_hash WHERE id = :id;
+
+-- ── admin user-lifecycle writes / reads (AdminUserServiceImpl) ────────────────
+
+-- Live (non-tombstoned) ACTIVE users, for the admin roster (listUsers / searchUsers).
+selectActiveLive:
+SELECT * FROM users WHERE deleted_at IS NULL AND status = 'ACTIVE';
+
+-- Live (non-tombstoned) PENDING_APPROVAL users, for the pending-registrations surface.
+selectPendingLive:
+SELECT * FROM users WHERE deleted_at IS NULL AND status = 'PENDING_APPROVAL';
+
+-- Count of LIVE (non-tombstoned) ROOT+ADMIN users — the last-admin safety rail.
+countActiveAdmins:
+SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND role IN ('ROOT', 'ADMIN');
+
+-- Admin edit of a user's display name / role / permission flags + a fresh updated_at.
+-- The service reads the row, validates the safety rails, then writes the merged values.
+updateAdminFields:
+UPDATE users
+SET display_name = :display_name, role = :role, can_edit = :can_edit, can_share = :can_share,
+    updated_at = :updated_at
+WHERE id = :id;
+
+-- Admin decision on a pending registration: flips status, stamps approver + decision time.
+updateRegistrationDecision:
+UPDATE users
+SET status = :status, updated_at = :updated_at, approved_by = :approved_by, approved_at = :approved_at
+WHERE id = :id;
+
+-- Minimal permission revocation: flips only can_edit and can_share without touching other fields.
+-- Used by UserDomainSeeder to establish the restricted-member demo account.
+updatePermissions:
+UPDATE users SET can_edit = :can_edit, can_share = :can_share WHERE id = :id;
+
+-- Flip avatar_type to 'image' and stamp updated_at after a successful avatar upload (ProfileRoutes).
+updateAvatarType:
+UPDATE users SET avatar_type = :avatar_type, updated_at = :updated_at WHERE id = :id;
+
+-- Count of LIVE (non-tombstoned) users — used by BackupArchive to embed a snapshot
+-- count in the backup manifest (replaces the Exposed `UserTable.selectAll().where { deletedAt.isNull() }.count()`).
+countLive:
+SELECT COUNT(*) FROM users WHERE deleted_at IS NULL;

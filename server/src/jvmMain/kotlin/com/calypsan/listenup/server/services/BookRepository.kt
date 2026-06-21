@@ -37,7 +37,6 @@ import java.util.UUID
 import kotlin.time.Clock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
-import org.jetbrains.exposed.v1.jdbc.Database
 
 private val log = KotlinLogging.logger {}
 
@@ -54,16 +53,11 @@ private val log = KotlinLogging.logger {}
  * corrupt every column the id is written to.
  *
  * **Database handles.** [db] (the SQLDelight [ListenUpDatabase]) backs every book read/write,
- * the genre junction writes, and the FTS index. [driver] (the shared SQLDelight [SqlDriver]
- * behind [db]) runs the access-filtered [pullSince] / [digest] id reads engine-neutrally — the
- * runtime-built [SqlFragment] access subquery now carries plain raw args, so it splices over the
- * driver inside the same `suspendTransaction(db)`. The access-filtered FTS read ([searchFts]) is
- * likewise engine-neutral inside [BookFinder].
- *
- * [exposedDb] (the Exposed [Database] over the same migrated file) remains ONLY for the cover
- * collaborator [ManagedCoverFiles] / [coverInfo], which reads `library_folders` (out of this
- * unit's `.sq` set). That is a read over the shared WAL file, so it coexists with the SQLDelight
- * writer safely.
+ * the genre junction writes, the FTS index, and the cover collaborator [ManagedCoverFiles].
+ * [driver] (the shared SQLDelight [SqlDriver] behind [db]) runs the access-filtered [pullSince]
+ * / [digest] id reads engine-neutrally — the runtime-built [SqlFragment] access subquery now
+ * carries plain raw args, so it splices over the driver inside the same `suspendTransaction(db)`.
+ * The access-filtered FTS read ([searchFts]) is likewise engine-neutral inside [BookFinder].
  *
  * Genre writes ([bookGenreWriter]) now run over SQLDelight too, as a **separate, sequential**
  * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
@@ -98,7 +92,6 @@ class BookRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     private val driver: SqlDriver,
-    private val exposedDb: Database,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val genreRepository: GenreRepository,
@@ -118,8 +111,8 @@ class BookRepository(
     ),
     BookIngestPort,
     BookRevisionTouch {
-    /** Cover file and path helpers — file I/O and path resolution outside the sync seam (Exposed reads). */
-    private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, exposedDb)
+    /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
+    private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
 
     /** Book-row child-table write mechanics (transaction-scoped, no revision/bus calls). */
     private val bookAggregateWriter = BookAggregateWriter(db)

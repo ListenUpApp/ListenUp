@@ -6,9 +6,8 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -34,20 +33,20 @@ class ListeningEventStatsIdempotencyTest :
         val clock = FixedClock(Instant.fromEpochMilliseconds(day0Ms))
 
         test("re-firing the same listening event does not double-count totalSecondsAllTime") {
-            withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        sql = this.asSqlDatabase(),
+                        sql = sql,
                         userStatsRepo = statsRepo,
                         clock = clock,
-                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
                 // The repository fires the stats hook internally on a successful upsert —
                 // wire the real updater so the idempotency guard is exercised end-to-end.
                 val eventRepo =
                     ListeningEventRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         userStatsUpdater = updater,

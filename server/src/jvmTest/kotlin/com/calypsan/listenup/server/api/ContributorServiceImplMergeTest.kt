@@ -2,9 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
+import app.cash.sqldelight.db.QueryResult
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
@@ -15,7 +13,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.BookContributorTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -25,9 +22,10 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
-import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.rootPrincipal
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -36,14 +34,9 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import kotlinx.coroutines.withContext
 
 /**
  * Integration tests for [ContributorServiceImpl.mergeContributors] (Books-C2 Task 14).
@@ -61,9 +54,9 @@ class ContributorServiceImplMergeTest :
         // ── Validation failures ────────────────────────────────────────────────
 
         test("mergeContributors returns MergeSelfTarget when source equals target") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -79,9 +72,9 @@ class ContributorServiceImplMergeTest :
         }
 
         test("mergeContributors returns NotFound when source does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -97,9 +90,9 @@ class ContributorServiceImplMergeTest :
         }
 
         test("mergeContributors returns NotFound when target does not exist") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -115,9 +108,9 @@ class ContributorServiceImplMergeTest :
         }
 
         test("mergeContributors returns NotFound when source is already tombstoned") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -137,9 +130,9 @@ class ContributorServiceImplMergeTest :
         // ── Happy-path cascade ─────────────────────────────────────────────────
 
         test("mergeContributors relinks junctions, captures creditedAs, soft-deletes source") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -199,9 +192,9 @@ class ContributorServiceImplMergeTest :
         // ── Alias merge semantics ──────────────────────────────────────────────
 
         test("mergeContributors dedups aliases case-insensitively, preserving original case") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -226,9 +219,9 @@ class ContributorServiceImplMergeTest :
         }
 
         test("mergeContributors excludes target's own name from the alias set") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -254,9 +247,9 @@ class ContributorServiceImplMergeTest :
         }
 
         test("mergeContributors carries source's pre-existing aliases into target's alias set") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -281,9 +274,9 @@ class ContributorServiceImplMergeTest :
         // ── FTS reindex ────────────────────────────────────────────────────────
 
         test("mergeContributors reindexes book_search.contributor_names for affected books") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -304,9 +297,9 @@ class ContributorServiceImplMergeTest :
         }
 
         test("mergeContributors reindexes contributor_search.aliases for the target") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val db = this
-                seedTestLibraryAndFolder()
+                sql.seedTestLibraryAndFolder()
                 val deps = makeServiceAndDeps(db)
                 val service = deps.service
                 val contributorRepo = deps.contributorRepo
@@ -334,32 +327,30 @@ private data class MergeServiceDeps(
     val reindexer: BookSearchReindexer,
 )
 
-private fun makeServiceAndDeps(db: Database): MergeServiceDeps {
+private fun makeServiceAndDeps(db: SqlTestDatabases): MergeServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry)
+    val contributorRepo = ContributorRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = db.sql,
+            driver = db.driver,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+            genreRepository = GenreRepository(db.sql, bus, syncRegistry),
         )
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+    val tagRepo = TagRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = db.sql, bus = bus, registry = syncRegistry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.sql, db.driver)
     val service =
         ContributorServiceImpl(
             contributorRepo = contributorRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
-            sqlDb = db.asSqlDatabase(),
-            db = db,
+            sqlDb = db.sql,
             principal = rootPrincipal(),
         )
     return MergeServiceDeps(service, contributorRepo, bookRepo, reindexer)
@@ -434,26 +425,29 @@ private fun bookFixtureForMerge(
 
 /** Distinct book IDs currently linked to [contributorId] via any junction row. */
 private suspend fun readBookIdsForContributor(
-    db: Database,
+    db: SqlTestDatabases,
     contributorId: String,
-): List<String> = suspendTransaction(db) { BookContributorTable.bookIdsForContributor(contributorId) }
+): List<String> =
+    withContext(Dispatchers.IO) {
+        db.sql.bookContributorsQueries
+            .bookIdsForContributor(contributor_id = contributorId)
+            .executeAsList()
+    }
 
 /**
  * Reads the `credited_as` column for the junction row joining [bookId] and [contributorId].
  * Returns null when the column is NULL or the row does not exist.
  */
 private suspend fun creditedAsFor(
-    db: Database,
+    db: SqlTestDatabases,
     bookId: String,
     contributorId: String,
 ): String? =
-    suspendTransaction(db) {
-        BookContributorTable
-            .selectAll()
-            .where {
-                (BookContributorTable.bookId eq bookId) and (BookContributorTable.contributorId eq contributorId)
-            }.firstOrNull()
-            ?.get(BookContributorTable.creditedAs)
+    withContext(Dispatchers.IO) {
+        db.sql.bookContributorsQueries
+            .selectCreditedAs(book_id = bookId, contributor_id = contributorId)
+            .executeAsOneOrNull()
+            ?.credited_as
     }
 
 /**
@@ -462,30 +456,28 @@ private suspend fun creditedAsFor(
  * doesn't false-positive on cross-column hits (title, series, etc.).
  */
 private suspend fun ftsBookContributorMatch(
-    db: Database,
+    db: SqlTestDatabases,
     bookId: String,
     searchTerm: String,
 ): Boolean {
     val dq = '"'
     val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    var found = false
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt =
-                "SELECT bs.rowid FROM book_search bs " +
-                    "JOIN book_search_map m ON m.rowid = bs.rowid " +
-                    "WHERE bs.contributor_names MATCH ? AND m.book_id = ?",
-            args =
-                listOf(
-                    TextColumnType() to quotedTerm,
-                    TextColumnType() to bookId,
-                ),
-        ) { rs ->
-            found = rs.next()
-        }
+    return withContext(Dispatchers.IO) {
+        db.driver
+            .executeQuery(
+                identifier = null,
+                sql =
+                    "SELECT bs.rowid FROM book_search bs " +
+                        "JOIN book_search_map m ON m.rowid = bs.rowid " +
+                        "WHERE bs.contributor_names MATCH ? AND m.book_id = ?",
+                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                parameters = 2,
+                binders = {
+                    bindString(0, quotedTerm)
+                    bindString(1, bookId)
+                },
+            ).value
     }
-    return found
 }
 
 /**
@@ -494,28 +486,26 @@ private suspend fun ftsBookContributorMatch(
  * never matches on name/sort_name/description.
  */
 private suspend fun ftsAliasesMatch(
-    db: Database,
+    db: SqlTestDatabases,
     contributorId: String,
     searchTerm: String,
 ): Boolean {
     val dq = '"'
     val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    var found = false
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt =
-                "SELECT c.id FROM contributor_search cs " +
-                    "JOIN contributors c ON c.rowid = cs.rowid " +
-                    "WHERE cs.aliases MATCH ? AND c.id = ?",
-            args =
-                listOf(
-                    TextColumnType() to quotedTerm,
-                    TextColumnType() to contributorId,
-                ),
-        ) { rs ->
-            found = rs.next()
-        }
+    return withContext(Dispatchers.IO) {
+        db.driver
+            .executeQuery(
+                identifier = null,
+                sql =
+                    "SELECT c.id FROM contributor_search cs " +
+                        "JOIN contributors c ON c.rowid = cs.rowid " +
+                        "WHERE cs.aliases MATCH ? AND c.id = ?",
+                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                parameters = 2,
+                binders = {
+                    bindString(0, quotedTerm)
+                    bindString(1, contributorId)
+                },
+            ).value
     }
-    return found
 }

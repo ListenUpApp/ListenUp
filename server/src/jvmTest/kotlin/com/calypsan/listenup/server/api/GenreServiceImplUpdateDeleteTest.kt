@@ -2,16 +2,12 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.GenreId
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreAliasTable
-import com.calypsan.listenup.server.db.GenreTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -25,7 +21,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -35,11 +31,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Integration tests for [GenreServiceImpl.updateGenre] and
@@ -54,20 +45,22 @@ class GenreServiceImplUpdateDeleteTest :
 
         val fixedClock = FixedClock(Instant.fromEpochMilliseconds(1_730_000_000_000L))
 
-        fun makeService(db: Database): GenreServiceImpl {
+        fun makeService(
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
+        ): GenreServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
-            val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry, fixedClock)
-            val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-            val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-            val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-            val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+            val genreRepo = GenreRepository(sql, bus, registry, fixedClock)
+            val contributorRepo = ContributorRepository(sql, bus, registry)
+            val seriesRepo = SeriesRepository(sql, bus, registry)
+            val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+            val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+            val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
             val bookRepo =
                 BookRepository(
-                    db = db.asSqlDatabase(),
-                    driver = db.asSqlDriver(),
-                    exposedDb = db,
+                    db = sql,
+                    driver = driver,
                     bus = bus,
                     registry = registry,
                     contributorRepository = contributorRepo,
@@ -76,15 +69,15 @@ class GenreServiceImplUpdateDeleteTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase(), db, principal = rootPrincipal())
+            return GenreServiceImpl(genreRepo, bookRepo, reindexer, sql, principal = rootPrincipal())
         }
 
         // ── updateGenre ───────────────────────────────────────────────────────
 
         test("updateGenre returns NotFound when id is unknown") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result =
                         service.updateGenre(
                             GenreId("missing"),
@@ -97,19 +90,16 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("updateGenre returns NotFound when id is tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result =
                         service.updateGenre(GenreId("g-dead"), GenreUpdate(name = "Reborn"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -119,13 +109,10 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("updateGenre changes name and preserves slug") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.updateGenre(GenreId("g-fant"), GenreUpdate(name = "High Fantasy"))
                     require(result is AppResult.Success)
                     val payload = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
@@ -136,13 +123,10 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("updateGenre changes description, color, sortOrder independently") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result =
                         service.updateGenre(
                             GenreId("g-fant"),
@@ -164,19 +148,16 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("updateGenre with all-null patch leaves payload unchanged") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre(
-                        "g-fant",
-                        name = "Fantasy",
-                        slug = "fantasy",
-                        path = "/fantasy",
-                        sortOrder = 7,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre(
+                    "g-fant",
+                    name = "Fantasy",
+                    slug = "fantasy",
+                    path = "/fantasy",
+                    sortOrder = 7,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.updateGenre(GenreId("g-fant"), GenreUpdate())
                     require(result is AppResult.Success)
                     val payload = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data
@@ -187,13 +168,10 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("updateGenre bumps the genre revision (substrate write)") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val before = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data!!.revision
                     service.updateGenre(GenreId("g-fant"), GenreUpdate(name = "High Fantasy"))
                     val after = (service.getGenre(GenreId("g-fant")) as AppResult.Success).data!!.revision
@@ -205,9 +183,9 @@ class GenreServiceImplUpdateDeleteTest :
         // ── deleteGenre ───────────────────────────────────────────────────────
 
         test("deleteGenre returns NotFound when id is unknown") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 runTest {
-                    val service = makeService(this@withInMemoryDatabase)
+                    val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("missing"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.NotFound>()
@@ -216,19 +194,16 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("deleteGenre returns NotFound when id is already tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre(
-                        "g-dead",
-                        name = "Dead",
-                        slug = "dead",
-                        path = "/dead",
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre(
+                    "g-dead",
+                    name = "Dead",
+                    slug = "dead",
+                    path = "/dead",
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("g-dead"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.NotFound>()
@@ -237,21 +212,18 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("deleteGenre returns HasDescendants when the genre has live children") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
-                    seedGenre(
-                        "g-fant",
-                        name = "Fantasy",
-                        slug = "fantasy",
-                        path = "/fiction/fantasy",
-                        parentId = "g-fic",
-                        depth = 1,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                sql.seedGenre(
+                    "g-fant",
+                    name = "Fantasy",
+                    slug = "fantasy",
+                    path = "/fiction/fantasy",
+                    parentId = "g-fic",
+                    depth = 1,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("g-fic"))
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<GenreError.HasDescendants>()
@@ -260,22 +232,19 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("deleteGenre proceeds when all children are tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
-                    seedGenre(
-                        "g-dead-child",
-                        name = "Dead Child",
-                        slug = "dead-child",
-                        path = "/fiction/dead-child",
-                        parentId = "g-fic",
-                        depth = 1,
-                        deletedAt = 1_700_000_000_000L,
-                    )
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-fic", name = "Fiction", slug = "fiction", path = "/fiction")
+                sql.seedGenre(
+                    "g-dead-child",
+                    name = "Dead Child",
+                    slug = "dead-child",
+                    path = "/fiction/dead-child",
+                    parentId = "g-fic",
+                    depth = 1,
+                    deletedAt = 1_700_000_000_000L,
+                )
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("g-fic"))
                     result.shouldBeInstanceOf<AppResult.Success<*>>()
                 }
@@ -283,75 +252,67 @@ class GenreServiceImplUpdateDeleteTest :
         }
 
         test("deleteGenre cascades book_genres + genre_aliases + tombstones the row") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    BookGenreTable.insertIfAbsent("book1", "g-fant")
-                    BookGenreTable.insertIfAbsent("book2", "g-fant")
-                    GenreAliasTable.addAlias("Fantasy", "g-fant")
-                    GenreAliasTable.addAlias("Magic", "g-fant")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-fant")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book2", genre_id = "g-fant")
+                sql.genreAliasesQueries.insert(raw_string = "Fantasy", genre_id = "g-fant")
+                sql.genreAliasesQueries.insert(raw_string = "Magic", genre_id = "g-fant")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("g-fant"))
                     require(result is AppResult.Success)
 
-                    transaction(db) {
-                        BookGenreTable.bookIdsForGenre("g-fant").shouldBeEmpty()
-                        GenreAliasTable.aliasesForGenre("g-fant").shouldBeEmpty()
-                    }
+                    sql.bookGenresQueries
+                        .bookIdsForGenre("g-fant")
+                        .executeAsList()
+                        .shouldBeEmpty()
+                    sql.genreAliasesQueries
+                        .aliasesForGenre("g-fant")
+                        .executeAsList()
+                        .shouldBeEmpty()
+
                     val payload = service.getGenre(GenreId("g-fant"))
                     (payload as AppResult.Success).data shouldBe null
 
-                    transaction(db) {
-                        val row =
-                            GenreTable
-                                .selectAll()
-                                .where { GenreTable.id eq "g-fant" }
-                                .firstOrNull()
-                        row.shouldNotBeNull()
-                        (row[GenreTable.deletedAt] != null) shouldBe true
-                    }
+                    val row = sql.genresQueries.selectById("g-fant").executeAsOneOrNull()
+                    row.shouldNotBeNull()
+                    (row.deleted_at != null) shouldBe true
                 }
             }
         }
 
         test("deleteGenre re-upserts affected books so BookSyncPayload.genres reflects the loss") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
-                    BookGenreTable.insertIfAbsent("book1", "g-fant")
-                    BookGenreTable.insertIfAbsent("book1", "g-scifi")
-                }
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                sql.seedGenre("g-scifi", name = "Sci-Fi", slug = "sci-fi", path = "/sci-fi")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-fant")
+                sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g-scifi")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     service.deleteGenre(GenreId("g-fant"))
 
-                    transaction(db) {
-                        val remaining = BookGenreTable.genresForBook("book1")
-                        remaining shouldContainExactly listOf("g-scifi")
-                        remaining shouldNotContain "g-fant"
-                    }
+                    val remaining =
+                        sql.bookGenresQueries
+                            .genresForBook("book1")
+                            .executeAsList()
+                            .map { it.id }
+                    remaining shouldContainExactly listOf("g-scifi")
+                    remaining shouldNotContain "g-fant"
                 }
             }
         }
 
         test("deleteGenre on genre with no books, no aliases still tombstones the row") {
-            withInMemoryDatabase {
-                val db = this
-                transaction(db) {
-                    seedGenre("g-orphan", name = "Orphan", slug = "orphan", path = "/orphan")
-                }
+            withSqlDatabase {
+                sql.seedGenre("g-orphan", name = "Orphan", slug = "orphan", path = "/orphan")
                 runTest {
-                    val service = makeService(db)
+                    val service = makeService(sql, driver)
                     val result = service.deleteGenre(GenreId("g-orphan"))
                     require(result is AppResult.Success)
                     val payload = service.getGenre(GenreId("g-orphan"))
@@ -364,7 +325,7 @@ class GenreServiceImplUpdateDeleteTest :
 // --- Fixtures ---------------------------------------------------------------
 
 @Suppress("LongParameterList")
-private fun seedGenre(
+private fun ListenUpDatabase.seedGenre(
     id: String,
     name: String,
     slug: String,
@@ -374,20 +335,22 @@ private fun seedGenre(
     sortOrder: Int = 0,
     deletedAt: Long? = null,
 ) {
-    GenreTable.insert {
-        it[GenreTable.id] = id
-        it[GenreTable.name] = name
-        it[GenreTable.slug] = slug
-        it[GenreTable.path] = path
-        it[GenreTable.parentId] = parentId
-        it[GenreTable.depth] = depth
-        it[GenreTable.sortOrder] = sortOrder
-        it[GenreTable.color] = null
-        it[GenreTable.description] = null
-        it[GenreTable.revision] = 0L
-        it[GenreTable.createdAt] = 0L
-        it[GenreTable.updatedAt] = 0L
-        it[GenreTable.deletedAt] = deletedAt
-        it[GenreTable.clientOpId] = null
+    transaction {
+        genresQueries.insert(
+            id = id,
+            name = name,
+            slug = slug,
+            path = path,
+            parent_id = parentId,
+            depth = depth.toLong(),
+            sort_order = sortOrder.toLong(),
+            color = null,
+            description = null,
+            revision = 0L,
+            created_at = 0L,
+            updated_at = 0L,
+            deleted_at = deletedAt,
+            client_op_id = null,
+        )
     }
 }

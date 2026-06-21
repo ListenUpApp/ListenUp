@@ -6,20 +6,17 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.db.DatabaseConfig
-import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.migratedTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Files
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -36,18 +33,17 @@ class StarterShelfTest :
         val pepper = "x".repeat(32).toByteArray()
         val clock = FixedClock(Instant.parse("2026-06-04T12:00:00Z"))
 
-        fun newComponents(): Triple<AuthServiceImpl, ShelfRepository, String> {
-            val tmp = Files.createTempFile("listenup-starter-shelf-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+        fun newComponents(): Pair<AuthServiceImpl, ShelfRepository> {
+            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
-            val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
+            val shelfRepo = ShelfRepository(db, ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db,
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -56,7 +52,7 @@ class StarterShelfTest :
                     settings = settings,
                     shelfRepository = shelfRepo,
                 )
-            return Triple(authSvc, shelfRepo, tmp.absolutePath)
+            return Pair(authSvc, shelfRepo)
         }
 
         test("register creates a To Read shelf for the new member") {
@@ -95,17 +91,16 @@ class StarterShelfTest :
         }
 
         test("register with APPROVAL_QUEUE policy creates a To Read shelf for the pending member") {
-            val tmp = Files.createTempFile("listenup-starter-shelf-pend-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.APPROVAL_QUEUE)
-            val shelfRepo = ShelfRepository(db.asSqlDatabase(), ChangeBus(), SyncRegistry(), clock)
+            val shelfRepo = ShelfRepository(db, ChangeBus(), SyncRegistry(), clock)
             val authSvc =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db,
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,
@@ -127,16 +122,15 @@ class StarterShelfTest :
 
         test("starter shelf failure does NOT fail registration") {
             // Construct AuthServiceImpl WITHOUT a shelfRepository — shelf creation is null-safe.
-            val tmp = Files.createTempFile("listenup-starter-shelf-null-", ".db").toFile().apply { deleteOnExit() }
-            val db = DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
+            val db = migratedTestDatabase().db
             val hasher = PasswordHasher()
             val sessions =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
             val jwt = JwtConfiguration("x".repeat(32), "listenup", "listenup-client", 15.minutes, clock)
             val settings = ServerSettingsRepository(db, default = RegistrationPolicy.OPEN)
             val authSvcNoShelf =
                 AuthServiceImpl(
-                    db = db.asSqlDatabase(),
+                    db = db,
                     sessions = sessions,
                     hasher = hasher,
                     jwt = jwt,

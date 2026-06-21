@@ -31,12 +31,13 @@ import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -47,9 +48,6 @@ import io.ktor.http.HttpStatusCode
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * canEdit-gate tests for [MetadataLookupServiceImpl] (closes MA holistic-review finding I1).
@@ -65,11 +63,10 @@ class MetadataLookupServiceImplPermissionTest :
     FunSpec({
 
         test("applyBookMetadata is denied for a MEMBER without canEdit") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                db.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
-                val service = makeMetadataPermService(db).copyWith(memberPrincipal("member"))
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
+                val service = makeMetadataPermService(this).copyWith(memberPrincipal("member"))
                 runTest {
                     val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US, ALL_SELECTED)
 
@@ -80,10 +77,9 @@ class MetadataLookupServiceImplPermissionTest :
         }
 
         test("applyBookMetadata passes the gate for an ADMIN (no PermissionDenied)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val service = makeMetadataPermService(db).copyWith(rootPrincipal())
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val service = makeMetadataPermService(this).copyWith(rootPrincipal())
                 runTest {
                     val result = service.applyBookMetadata(BookId("no-such-book"), "ASIN1", AudibleRegion.US, ALL_SELECTED)
 
@@ -110,19 +106,19 @@ private val ALL_SELECTED =
         seriesAsins = emptySet(),
     )
 
-private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
+private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServiceImpl {
     val tempDir = Files.createTempDirectory("metadata-perm-").toAbsolutePath()
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+    val contributorRepo = ContributorRepository(dbs.sql, bus, registry)
+    val seriesRepo = SeriesRepository(dbs.sql, bus, registry)
+    val genreRepo = GenreRepository(dbs.sql, bus, registry)
+    val bookRepo = BookRepository(dbs.sql, bus, registry, dbs.driver, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = EmptyAudibleApi(),
             itunes = NoOpITunesApiForPerm(),
-            cache = MetadataCacheRepository(db.asSqlDatabase()),
+            cache = MetadataCacheRepository(dbs.sql),
         )
     return MetadataLookupServiceImpl(
         metadataService = metadataService,
@@ -142,9 +138,9 @@ private fun makeMetadataPermService(db: Database): MetadataLookupServiceImpl {
                 coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
-        enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-        permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-        db = db,
+        enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, registry),
+        permissionPolicy = UserPermissionPolicy(dbs.sql),
+        sqlDb = dbs.sql,
         genreRepository = genreRepo,
     )
 }

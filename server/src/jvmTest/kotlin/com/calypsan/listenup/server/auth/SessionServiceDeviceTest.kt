@@ -4,18 +4,11 @@ package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.server.db.DatabaseConfig
-import com.calypsan.listenup.server.db.DatabaseFactory
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserRoleColumn
-import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.testing.asSqlDatabase
+import com.calypsan.listenup.server.testing.migratedTestDatabase
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.FixedClock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
-import java.nio.file.Files
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -24,34 +17,13 @@ class SessionServiceDeviceTest :
         val pepper = "x".repeat(32).toByteArray()
         val clock = FixedClock(Instant.parse("2026-05-02T12:00:00Z"))
 
-        fun freshDb(): Database {
-            val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
-            return DatabaseFactory.init(DatabaseConfig("jdbc:sqlite:${tmp.absolutePath}")).database
-        }
-
-        fun seedUser(
-            db: Database,
-            id: String,
-        ) {
-            transaction(db) {
-                UserEntity.new(id) {
-                    email = "$id@example.com"
-                    emailNormalized = "$id@example.com"
-                    passwordHash = "phc"
-                    role = UserRoleColumn.MEMBER
-                    displayName = id
-                    status = UserStatusColumn.ACTIVE
-                    createdAt = 1L
-                    updatedAt = 1L
-                }
-            }
-        }
+        fun freshDb() = migratedTestDatabase().db
 
         test("createSession persists DeviceInfo fields and userAgent") {
             val db = freshDb()
-            seedUser(db, "u-1")
+            db.seedTestUser("u-1")
             val service =
-                SessionService(db.asSqlDatabase(), RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
+                SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
 
             val issued =
                 service.createSession(

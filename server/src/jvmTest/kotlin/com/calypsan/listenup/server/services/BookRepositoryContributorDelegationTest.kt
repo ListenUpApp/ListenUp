@@ -16,36 +16,32 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 class BookRepositoryContributorDelegationTest :
     FunSpec({
 
         test("upsertFromAnalyzed resolves the author through ContributorRepository") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        exposedDb = db,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     val analyzed = analyzedFor("Sanderson/Way of Kings", author = "Brandon Sanderson")
@@ -67,23 +63,21 @@ class BookRepositoryContributorDelegationTest :
         }
 
         test("upsertFromAnalyzed resolves the series through SeriesRepository") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributors = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val series = SeriesRepository(db.asSqlDatabase(), bus, registry)
+                val contributors = ContributorRepository(sql, bus, registry)
+                val series = SeriesRepository(sql, bus, registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        exposedDb = db,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributors,
                         seriesRepository = series,
-                        genreRepository = GenreRepository(db.asSqlDatabase(), bus, registry),
+                        genreRepository = GenreRepository(sql, bus, registry),
                     )
                 runTest {
                     val analyzed =

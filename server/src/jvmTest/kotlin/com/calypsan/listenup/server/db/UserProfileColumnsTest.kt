@@ -1,38 +1,53 @@
 package com.calypsan.listenup.server.db
 
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class UserProfileColumnsTest :
     FunSpec({
         test("users row round-trips tagline + avatarType with defaults") {
-            withInMemoryDatabase {
-                transaction(this) {
-                    UserEntity.new("u-prof-1") {
-                        email = "p@x"
-                        emailNormalized = "p@x"
-                        passwordHash = "h"
-                        role = UserRoleColumn.MEMBER
-                        displayName = "Pat"
-                        status = UserStatusColumn.ACTIVE
-                        createdAt = 0
-                        updatedAt = 0
-                    }
+            withSqlDatabase {
+                sql.transaction {
+                    sql.usersQueries.insert(
+                        id = "u-prof-1",
+                        email = "p@x",
+                        email_normalized = "p@x",
+                        password_hash = "h",
+                        role = UserRoleColumn.MEMBER.name,
+                        display_name = "Pat",
+                        status = UserStatusColumn.ACTIVE.name,
+                        created_at = 0L,
+                        updated_at = 0L,
+                        last_login_at = null,
+                        can_edit = 1L,
+                        can_share = 1L,
+                        approved_by = null,
+                        approved_at = null,
+                        deleted_at = null,
+                        invited_by = null,
+                        tagline = null,
+                        avatar_type = "auto",
+                        timezone = "UTC",
+                    )
                 }
-                transaction(this) {
-                    val u = UserEntity.findById("u-prof-1")!!
-                    u.avatarType shouldBe "auto"
-                    u.tagline shouldBe null
-                    u.tagline = "Reader of books"
-                    u.avatarType = "image"
+                val inserted = sql.usersQueries.selectById("u-prof-1").executeAsOne()
+                inserted.avatar_type shouldBe "auto"
+                inserted.tagline shouldBe null
+
+                sql.transaction {
+                    sql.usersQueries.updateProfileFields(
+                        display_name = "Pat",
+                        tagline = "Reader of books",
+                        avatar_type = "image",
+                        password_hash = "h",
+                        updated_at = 1L,
+                        id = "u-prof-1",
+                    )
                 }
-                transaction(this) {
-                    val u = UserEntity.findById("u-prof-1")!!
-                    u.tagline shouldBe "Reader of books"
-                    u.avatarType shouldBe "image"
-                }
+                val updated = sql.usersQueries.selectById("u-prof-1").executeAsOne()
+                updated.tagline shouldBe "Reader of books"
+                updated.avatar_type shouldBe "image"
             }
         }
     })

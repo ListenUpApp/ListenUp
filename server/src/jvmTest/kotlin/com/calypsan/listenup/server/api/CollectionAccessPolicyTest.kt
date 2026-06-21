@@ -10,11 +10,9 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -30,23 +28,23 @@ class CollectionAccessPolicyTest :
     FunSpec({
 
         test("owner gets WRITE + isOwner") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
@@ -72,23 +70,23 @@ class CollectionAccessPolicyTest :
         }
 
         test("admin bypasses to WRITE") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
@@ -114,24 +112,24 @@ class CollectionAccessPolicyTest :
         }
 
         test("active read-share gets READ") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("user2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
@@ -168,24 +166,24 @@ class CollectionAccessPolicyTest :
         }
 
         test("active write-share gets WRITE") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("user2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
@@ -222,24 +220,24 @@ class CollectionAccessPolicyTest :
         }
 
         test("revoked (soft-deleted) share denies") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
-                seedTestUser("user2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("user2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
@@ -277,23 +275,23 @@ class CollectionAccessPolicyTest :
         }
 
         test("no relationship denies") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 
@@ -319,23 +317,23 @@ class CollectionAccessPolicyTest :
         }
 
         test("missing collection denies") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val collectionRepo =
                     CollectionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val grantRepo =
                     CollectionGrantRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = this.asSqlDriver(),
+                        driver = driver,
                     )
                 val policy = CollectionAccessPolicy(collectionRepo, grantRepo)
 

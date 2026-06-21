@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import io.ktor.http.ContentType
@@ -18,8 +19,6 @@ import io.ktor.server.routing.post
 import io.ktor.utils.io.toByteArray
 import java.nio.file.Files
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private const val AVATAR_CACHE_SECONDS = 86_400 // 24h, mirrors Go
 private const val AVATAR_TYPE_IMAGE = "image"
@@ -35,7 +34,7 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
  * Mount inside `authenticate(JWT_PROVIDER)`.
  */
 fun Route.profileRoutes(
-    db: Database,
+    sql: ListenUpDatabase,
     imageStore: ImageStore,
     clock: Clock = Clock.System,
 ) {
@@ -67,11 +66,12 @@ fun Route.profileRoutes(
         } catch (e: ImageStore.InvalidImageException) {
             return@post call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
         }
-        suspendTransaction(db) {
-            UserEntity.findById(userId)?.apply {
-                avatarType = AVATAR_TYPE_IMAGE
-                updatedAt = clock.now().toEpochMilliseconds()
-            }
+        suspendTransaction(sql) {
+            sql.usersQueries.updateAvatarType(
+                avatar_type = AVATAR_TYPE_IMAGE,
+                updated_at = clock.now().toEpochMilliseconds(),
+                id = userId,
+            )
         }
         call.respond(HttpStatusCode.NoContent)
     }

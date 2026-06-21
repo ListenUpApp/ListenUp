@@ -14,7 +14,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
-import com.calypsan.listenup.server.db.UserEntity
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
@@ -23,8 +24,6 @@ import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.encodeURLParameter
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -50,7 +49,7 @@ internal class PlaybackServiceImpl(
     private val userStatsRepository: UserStatsRepository,
     private val accessPolicy: BookAccessPolicy,
     private val principal: PrincipalProvider,
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
 ) : PlaybackService {
 
@@ -154,8 +153,8 @@ internal class PlaybackServiceImpl(
         // path (here) updates it — imports carry tz="UTC" and must never overwrite the real tz.
         if (result is AppResult.Success && request.tz.isNotBlank()) {
             runCatchingCancellable {
-                suspendTransaction(db) {
-                    UserEntity.findById(userId)?.timezone = request.tz
+                suspendTransaction(sql) {
+                    sql.usersQueries.updateTimezone(timezone = request.tz, id = userId)
                 }
             }.onFailure { logger.warn(it) { "Failed to refresh timezone for user $userId — ignoring" } }
         }
@@ -173,7 +172,7 @@ internal class PlaybackServiceImpl(
             userStatsRepository = userStatsRepository,
             accessPolicy = accessPolicy,
             principal = principal,
-            db = db,
+            sql = sql,
             clock = clock,
         )
 }

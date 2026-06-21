@@ -1,12 +1,9 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.db.BookTable
+import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.BookSearchReindexer
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 /**
  * Admin-triggered full rebuild of all FTS5 indexes. Recovery path for index drift after a
@@ -25,7 +22,8 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  *    `tag_search` support the native `INSERT INTO <t>(<t>) VALUES('rebuild')` command.
  */
 class SearchReindexService(
-    private val db: Database,
+    private val db: ListenUpDatabase,
+    private val driver: SqlDriver,
     private val reindexer: BookSearchReindexer,
 ) {
     /**
@@ -40,29 +38,40 @@ class SearchReindexService(
     suspend fun reindexAll(): Int {
         val bookIds =
             suspendTransaction(db) {
-                BookTable
-                    .selectAll()
-                    .where { BookTable.deletedAt.isNull() }
-                    .map { it[BookTable.id] }
+                db.booksQueries.selectAllLiveIds().executeAsList()
             }
         for (id in bookIds) reindexer.reindexBook(id)
-        suspendTransaction(db) {
-            val tx = TransactionManager.current()
+        suspendTransaction<Unit>(db) {
             // contributor_search is contentless (V22): rebuild from source, mirroring the
             // contributors_au trigger (server/src/jvmMain/resources/db/migration/V22__contributor_aliases.sql)
             // so name/sort_name/description AND aliases are restored. If the trigger's
             // alias-sourcing changes in that migration, this rebuild SQL must change too.
-            tx.exec("DELETE FROM contributor_search")
-            tx.exec(
-                "INSERT INTO contributor_search(rowid, name, sort_name, description, aliases) " +
-                    "SELECT c.rowid, c.name, c.sort_name, c.description, " +
-                    "COALESCE((SELECT GROUP_CONCAT(a.alias, ' ') FROM contributor_aliases a " +
-                    "WHERE a.contributor_id = c.id), '') " +
-                    "FROM contributors c",
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM contributor_search",
+                parameters = 0,
+            )
+            driver.execute(
+                identifier = null,
+                sql =
+                    "INSERT INTO contributor_search(rowid, name, sort_name, description, aliases) " +
+                        "SELECT c.rowid, c.name, c.sort_name, c.description, " +
+                        "COALESCE((SELECT GROUP_CONCAT(a.alias, ' ') FROM contributor_aliases a " +
+                        "WHERE a.contributor_id = c.id), '') " +
+                        "FROM contributors c",
+                parameters = 0,
             )
             // series_search and tag_search are external-content: the native 'rebuild' applies.
-            tx.exec("INSERT INTO series_search(series_search) VALUES('rebuild')")
-            tx.exec("INSERT INTO tag_search(tag_search) VALUES('rebuild')")
+            driver.execute(
+                identifier = null,
+                sql = "INSERT INTO series_search(series_search) VALUES('rebuild')",
+                parameters = 0,
+            )
+            driver.execute(
+                identifier = null,
+                sql = "INSERT INTO tag_search(tag_search) VALUES('rebuild')",
+                parameters = 0,
+            )
         }
         return bookIds.size
     }

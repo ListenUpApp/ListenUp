@@ -3,12 +3,9 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.AuthServiceImpl
-import com.calypsan.listenup.server.db.UserEntity
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -21,20 +18,23 @@ private val logger = KotlinLogging.logger {}
  *    surfaces (book edits, collection sharing) have an obvious deny case to demo.
  *
  * Members register under the OPEN policy the demo profile runs with, so they land
- * ACTIVE. The restricted member's flags are revoked with a direct [UserEntity]
- * update after registration since [RegisterRequest] carries no permission fields.
+ * ACTIVE. The restricted member's flags are revoked with a direct [updatePermissions]
+ * query after registration since [RegisterRequest] carries no permission fields.
  *
  * Demo credentials are intentionally well-known and documented; the demo profile is
  * never for production use.
  */
 class UserDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val authService: AuthServiceImpl,
 ) : DomainSeeder {
     override val domainName: String = "user"
     override val order: Int = 0
 
-    override suspend fun isAlreadySeeded(): Boolean = suspendTransaction(db) { !UserEntity.all().limit(1).empty() }
+    override suspend fun isAlreadySeeded(): Boolean =
+        suspendTransaction(sql) {
+            sql.usersQueries.hasAnyUser().executeAsOne()
+        }
 
     override suspend fun seed() {
         when (
@@ -72,11 +72,16 @@ class UserDomainSeeder(
     }
 
     private suspend fun revokePermissions(email: String) {
-        suspendTransaction(db) {
-            UserEntity.find { UserTable.emailNormalized eq email }.firstOrNull()?.apply {
-                canEdit = false
-                canShare = false
+        val idOrNull =
+            suspendTransaction(sql) {
+                sql.usersQueries
+                    .selectByEmailNormalized(email_normalized = email)
+                    .executeAsOneOrNull()
+                    ?.id
             }
+        val id = idOrNull ?: return
+        suspendTransaction(sql) {
+            sql.usersQueries.updatePermissions(can_edit = 0L, can_share = 0L, id = id)
         }
     }
 

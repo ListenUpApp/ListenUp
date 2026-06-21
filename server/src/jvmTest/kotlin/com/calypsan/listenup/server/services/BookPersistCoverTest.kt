@@ -24,7 +24,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -50,8 +50,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 /**
  * Integration tests for Task 5: persist-at-scan and sticky-upload-merge.
@@ -78,8 +76,7 @@ class BookPersistCoverTest :
         // ── 1. resolveOrInsert stores the managed file ──────────────────────
 
         test("resolveOrInsert with EMBEDDED pendingCover stores a managed file and records the cover hash") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val homeDir = Files.createTempDirectory("listenup-cover-persist-")
                     try {
@@ -89,18 +86,17 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db.asSqlDatabase(),
-                                driver = db.asSqlDriver(),
-                                exposedDb = db,
+                                db = sql,
+                                driver = driver,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                                genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db)
+                        val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
 
                         val artworkBytes = fakeJpeg()
@@ -202,8 +198,7 @@ class BookPersistCoverTest :
         // ── 3. Sticky-upload merge: UPLOADED cover survives re-scan ─────────
 
         test("re-scan with EMBEDDED pendingCover does NOT overwrite an existing UPLOADED cover") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val homeDir = Files.createTempDirectory("listenup-sticky-upload-")
                     try {
@@ -213,18 +208,17 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db.asSqlDatabase(),
-                                driver = db.asSqlDriver(),
-                                exposedDb = db,
+                                db = sql,
+                                driver = driver,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                                genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db)
+                        val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
                         val analyzed = minimalBook("Author/Sticky")
@@ -273,8 +267,7 @@ class BookPersistCoverTest :
         test(
             "re-scan with EMBEDDED pendingCover DOES update a non-UPLOADED (EMBEDDED) existing cover",
         ) {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val homeDir = Files.createTempDirectory("listenup-sticky-control-")
                     try {
@@ -284,18 +277,17 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db.asSqlDatabase(),
-                                driver = db.asSqlDriver(),
-                                exposedDb = db,
+                                db = sql,
+                                driver = driver,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                                genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db)
+                        val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
                         val analyzed = minimalBook("Author/Control")
@@ -336,8 +328,7 @@ class BookPersistCoverTest :
         // ── 5. FIX 1: single SyncEvent — no blank-then-cover flicker ─────────
 
         test("resolveOrInsert with a pendingCover publishes exactly ONE SyncEvent that already carries the cover") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val homeDir = Files.createTempDirectory("listenup-single-event-")
                     try {
@@ -347,18 +338,17 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db.asSqlDatabase(),
-                                driver = db.asSqlDriver(),
-                                exposedDb = db,
+                                db = sql,
+                                driver = driver,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                                genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db)
+                        val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
                         // LibraryRegistry.currentLibrary() publishes an event — capture the
                         // pre-test baseline so we only count events AFTER resolveOrInsert.
@@ -408,8 +398,7 @@ class BookPersistCoverTest :
         // the @Volatile mechanism if an adversary set the field between the two upserts.
 
         test("concurrent resolveOrInsert for two different books stores distinct cover bytes without cross-contamination") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val homeDir = Files.createTempDirectory("listenup-cover-concurrent-")
                     try {
@@ -419,18 +408,17 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db.asSqlDatabase(),
-                                driver = db.asSqlDriver(),
-                                exposedDb = db,
+                                db = sql,
+                                driver = driver,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                                genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db)
+                        val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
 
@@ -499,8 +487,7 @@ class BookPersistCoverTest :
         // ── 6. FIX 2: no orphan file when re-scanning an UPLOADED-locked book ─
 
         test("re-scan of an UPLOADED-locked book does NOT write an orphan file to the covers dir") {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 runTest {
                     val homeDir = Files.createTempDirectory("listenup-no-orphan-")
                     try {
@@ -510,18 +497,17 @@ class BookPersistCoverTest :
                         val syncRegistry = SyncRegistry()
                         val repo =
                             BookRepository(
-                                db = db.asSqlDatabase(),
-                                driver = db.asSqlDriver(),
-                                exposedDb = db,
+                                db = sql,
+                                driver = driver,
                                 bus = bus,
                                 registry = syncRegistry,
-                                contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-                                genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+                                contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+                                seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+                                genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
                                 homeDir = homeDir,
                             )
-                        val registry = LibraryRegistry(db)
+                        val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
                         val folderId = FolderId("test-folder")
                         val analyzed = minimalBook("Author/NoOrphan")

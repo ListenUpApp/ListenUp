@@ -1,8 +1,5 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
@@ -32,7 +29,7 @@ import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -49,7 +46,6 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Route-level access-gate tests for [seriesRoutes]'s reverse-lookup
@@ -64,48 +60,46 @@ class SeriesRoutesTest :
     FunSpec({
 
         fun withSeriesTestApp(block: suspend SeriesTestScope.() -> Unit) {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val contributorRepo = ContributorRepository(db = sql, bus = bus, registry = registry)
+                val seriesRepo = SeriesRepository(db = sql, bus = bus, registry = registry)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
-                        exposedDb = db,
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
-                        genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+                        genreRepository = GenreRepository(db = sql, bus = bus, registry = registry),
                     )
-                val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
-                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, db.asSqlDatabase(), db)
+                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
+                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sql)
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
+                        install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
                                 seriesRoutes(service, accessPolicy)
@@ -118,15 +112,15 @@ class SeriesRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    SeriesTestScope(jsonClient, db, seriesRepo, bookRepo, collectionRepo, collectionBookRepo).block()
+                    SeriesTestScope(jsonClient, sql, seriesRepo, bookRepo, collectionRepo, collectionBookRepo).block()
                 }
             }
         }
 
         test("GET /series/{id}/books drops a book a member can't reach but keeps the accessible one") {
             withSeriesTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member", UserRoleColumn.MEMBER)
                 val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
                 bookRepo.upsert(bookWithSeries("accessible", seriesId, "1"))
                 bookRepo.upsert(bookWithSeries("private", seriesId, "2"))
@@ -144,8 +138,8 @@ class SeriesRoutesTest :
 
         test("GET /series/{id}/books returns both books for an admin") {
             withSeriesTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 val seriesId = seriesRepo.resolveOrCreate("The Stormlight Archive")
                 bookRepo.upsert(bookWithSeries("accessible", seriesId, "1"))
                 bookRepo.upsert(bookWithSeries("private", seriesId, "2"))
@@ -162,7 +156,7 @@ class SeriesRoutesTest :
 
 private data class SeriesTestScope(
     val client: io.ktor.client.HttpClient,
-    val db: Database,
+    val sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     val seriesRepo: SeriesRepository,
     val bookRepo: BookRepository,
     val collectionRepo: CollectionRepository,

@@ -2,8 +2,7 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import app.cash.sqldelight.db.QueryResult
 
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.result.AppResult
@@ -15,7 +14,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.server.db.BookSeriesMembershipTable
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -25,18 +23,17 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import com.calypsan.listenup.server.testing.rootPrincipal
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import kotlinx.coroutines.withContext
 
 /**
  * Integration tests for [SeriesServiceImpl.mergeSeries] (Books-C2 Task 16).
@@ -46,7 +43,7 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * source, and the post-commit FTS reindex for `book_search.series_names`.
  *
  * Modelled on [ContributorServiceImplMergeTest] and [SeriesServiceImplTest] —
- * real in-memory Flyway-migrated SQLite, repositories wired to the same [Database].
+ * real in-memory Flyway-migrated SQLite, repositories wired to the same database.
  * Helpers are file-local per the established precedent.
  */
 class SeriesServiceImplMergeTest :
@@ -55,10 +52,9 @@ class SeriesServiceImplMergeTest :
         // ── Validation failures ────────────────────────────────────────────────
 
         test("mergeSeries returns MergeSelfTarget when source equals target") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
                 runTest {
                     val id = deps.seriesRepo.resolveOrCreate("The Stormlight Archive")
 
@@ -71,10 +67,9 @@ class SeriesServiceImplMergeTest :
         }
 
         test("mergeSeries returns NotFound when source does not exist") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
                 runTest {
                     val targetId = deps.seriesRepo.resolveOrCreate("Mistborn")
 
@@ -87,10 +82,9 @@ class SeriesServiceImplMergeTest :
         }
 
         test("mergeSeries returns NotFound when target does not exist") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
                 runTest {
                     val sourceId = deps.seriesRepo.resolveOrCreate("The Stormlight Archive")
 
@@ -103,10 +97,9 @@ class SeriesServiceImplMergeTest :
         }
 
         test("mergeSeries returns NotFound when source is already tombstoned") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
                 runTest {
                     val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
                     val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
@@ -123,10 +116,10 @@ class SeriesServiceImplMergeTest :
         // ── Happy-path cascade ─────────────────────────────────────────────────
 
         test("mergeSeries relinks memberships, bumps book revisions, and soft-deletes source") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(dbs)
                 runTest {
                     val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
                     val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
@@ -141,8 +134,8 @@ class SeriesServiceImplMergeTest :
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // Memberships re-linked to target.
-                    bookIdsForSeriesInTest(db, targetId.value) shouldBe listOf("b1", "b2").sorted()
-                    bookIdsForSeriesInTest(db, sourceId.value) shouldBe emptyList()
+                    bookIdsForSeriesInTest(dbs, targetId.value) shouldBe listOf("b1", "b2").sorted()
+                    bookIdsForSeriesInTest(dbs, sourceId.value) shouldBe emptyList()
 
                     // Each affected book was re-upserted → revision bumped → SSE emission.
                     deps.bookRepo.findById(BookId("b1"))!!.revision shouldNotBe initialB1Rev
@@ -157,10 +150,9 @@ class SeriesServiceImplMergeTest :
         }
 
         test("mergeSeries succeeds when source has no books") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(this)
                 runTest {
                     val sourceId = deps.seriesRepo.resolveOrCreate("Empty Source")
                     val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
@@ -179,10 +171,10 @@ class SeriesServiceImplMergeTest :
         // ── FTS reindex ────────────────────────────────────────────────────────
 
         test("mergeSeries reindexes book_search.series_names for affected books") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeMergeSeriesServiceAndDeps(db)
+            withSqlDatabase {
+                val dbs = this
+                sql.seedTestLibraryAndFolder()
+                val deps = makeMergeSeriesServiceAndDeps(dbs)
                 runTest {
                     val sourceId = deps.seriesRepo.resolveOrCreate("Source Series")
                     val targetId = deps.seriesRepo.resolveOrCreate("Target Series")
@@ -191,9 +183,9 @@ class SeriesServiceImplMergeTest :
                     deps.service.mergeSeries(sourceId, targetId).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     // After merge, FTS should find book via target's name.
-                    ftsSeriesNamesMatchForBook(db, bookId = "b1", searchTerm = "Target") shouldBe true
+                    ftsSeriesNamesMatchForBook(dbs, bookId = "b1", searchTerm = "Target") shouldBe true
                     // And should NOT find it via source's name any more.
-                    ftsSeriesNamesMatchForBook(db, bookId = "b1", searchTerm = "Source") shouldBe false
+                    ftsSeriesNamesMatchForBook(dbs, bookId = "b1", searchTerm = "Source") shouldBe false
                 }
             }
         }
@@ -207,32 +199,30 @@ private data class MergeSeriesServiceDeps(
     val bookRepo: BookRepository,
 )
 
-private fun makeMergeSeriesServiceAndDeps(db: Database): MergeSeriesServiceDeps {
+private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesServiceDeps {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
+    val contributorRepo = ContributorRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val seriesRepo = SeriesRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = bus,
             registry = syncRegistry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry),
+            genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = syncRegistry),
         )
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = syncRegistry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+    val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = syncRegistry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
-            sqlDb = db.asSqlDatabase(),
-            db = db,
+            sqlDb = dbs.sql,
             principal = rootPrincipal(),
         )
     return MergeSeriesServiceDeps(service, seriesRepo, bookRepo)
@@ -300,37 +290,40 @@ private fun bookFixtureForSeriesMerge(
 
 /** Distinct book IDs currently linked to [seriesId], sorted for stable assertion. */
 private suspend fun bookIdsForSeriesInTest(
-    db: Database,
+    dbs: SqlTestDatabases,
     seriesId: String,
-): List<String> = suspendTransaction(db) { BookSeriesMembershipTable.bookIdsForSeries(seriesId) }.sorted()
+): List<String> =
+    withContext(Dispatchers.IO) {
+        dbs.sql.bookSeriesMembershipsQueries
+            .bookIdsForSeries(seriesId)
+            .executeAsList()
+    }.sorted()
 
 /**
  * Returns true if a column-scoped MATCH on `book_search.series_names` for [searchTerm]
  * finds the FTS row mapped to [bookId] via `book_search_map`.
  */
 private suspend fun ftsSeriesNamesMatchForBook(
-    db: Database,
+    dbs: SqlTestDatabases,
     bookId: String,
     searchTerm: String,
 ): Boolean {
     val dq = '"'
     val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-    var found = false
-    suspendTransaction(db) {
-        val tx = TransactionManager.current()
-        tx.exec(
-            stmt =
-                "SELECT bs.rowid FROM book_search bs " +
-                    "JOIN book_search_map m ON m.rowid = bs.rowid " +
-                    "WHERE bs.series_names MATCH ? AND m.book_id = ?",
-            args =
-                listOf(
-                    TextColumnType() to quotedTerm,
-                    TextColumnType() to bookId,
-                ),
-        ) { rs ->
-            found = rs.next()
-        }
+    return withContext(Dispatchers.IO) {
+        dbs.driver
+            .executeQuery(
+                identifier = null,
+                sql =
+                    "SELECT bs.rowid FROM book_search bs " +
+                        "JOIN book_search_map m ON m.rowid = bs.rowid " +
+                        "WHERE bs.series_names MATCH ? AND m.book_id = ?",
+                mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                parameters = 2,
+                binders = {
+                    bindString(0, quotedTerm)
+                    bindString(1, bookId)
+                },
+            ).value
     }
-    return found
 }

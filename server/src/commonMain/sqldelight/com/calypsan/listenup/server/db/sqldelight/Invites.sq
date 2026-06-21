@@ -53,3 +53,7 @@ UPDATE invites SET claimed_at = :claimed_at, claimed_by = :claimed_by WHERE id =
 -- Hard-delete an invite (revoke). The caller refuses this once claimed_at is set.
 deleteById:
 DELETE FROM invites WHERE id = :id;
+
+-- Backdate the expiry (test fixture: force an invite into the expired state).
+updateExpiresAt:
+UPDATE invites SET expires_at = :expires_at WHERE id = :id;

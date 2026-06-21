@@ -37,8 +37,8 @@ class BookTagRepositoryTest :
 
         test("upsert adds junction row and emits SyncEvent.Created") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -75,8 +75,8 @@ class BookTagRepositoryTest :
 
         test("upsert of soft-deleted junction clears deletedAt and emits Updated") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -99,8 +99,8 @@ class BookTagRepositoryTest :
 
         test("findAllForBook returns non-tombstoned rows for the book") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -125,10 +125,10 @@ class BookTagRepositoryTest :
 
         test("findAllForTag returns non-tombstoned rows for the tag") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
-                exposed.seedTestBook("book3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -151,9 +151,9 @@ class BookTagRepositoryTest :
 
         test("findAllForBook excludes rows for other books") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -175,8 +175,8 @@ class BookTagRepositoryTest :
 
         test("softDelete marks tombstone and emits SyncEvent.Deleted") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -220,9 +220,9 @@ class BookTagRepositoryTest :
 
         test("softDeleteAllForBook tombstones all junction rows for the book") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -247,8 +247,8 @@ class BookTagRepositoryTest :
 
         test("softDeleteAllForBook emits Deleted bus events for each row") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -279,9 +279,9 @@ class BookTagRepositoryTest :
 
         test("softDeleteAllForTag tombstones all junction rows for the tag") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -304,10 +304,10 @@ class BookTagRepositoryTest :
 
         test("findBookIdsForTag returns book IDs for non-tombstoned rows") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
-                exposed.seedTestBook("book3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -330,8 +330,8 @@ class BookTagRepositoryTest :
 
         test("pullSince returns junction rows ordered by revision") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
@@ -355,8 +355,8 @@ class BookTagRepositoryTest :
 
         test("pullSince includes tombstoned rows") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)

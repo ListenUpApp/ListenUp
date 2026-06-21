@@ -4,24 +4,17 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
-import com.calypsan.listenup.server.db.BookTable
-import com.calypsan.listenup.server.db.ListeningEventTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
 /** How many demo books to seed listening events for (at most). */
-private const val DEMO_BOOK_COUNT = 3
+private const val DEMO_BOOK_COUNT = 3L
 
 /** Milliseconds in one minute. */
 private const val ONE_MINUTE_MS = 60_000L
@@ -46,7 +39,7 @@ private const val ONE_DAY_MS = 86_400_000L
  * populated automatically.
  */
 internal class ListeningEventDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val listeningEventRepository: ListeningEventRepository,
     private val clock: Clock = Clock.System,
 ) : DomainSeeder {
@@ -61,12 +54,8 @@ internal class ListeningEventDomainSeeder(
 
     override suspend fun isAlreadySeeded(): Boolean {
         val userId = demoUserId() ?: return false
-        return suspendTransaction(db) {
-            ListeningEventTable
-                .selectAll()
-                .where { (ListeningEventTable.userId eq userId) and ListeningEventTable.deletedAt.isNull() }
-                .limit(1)
-                .any()
+        return suspendTransaction(sql) {
+            sql.listeningEventsQueries.hasAnyLiveForUser(userId = userId).executeAsOne()
         }
     }
 
@@ -137,24 +126,17 @@ internal class ListeningEventDomainSeeder(
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 
     /** Returns the ids of up to [DEMO_BOOK_COUNT] non-deleted books, ordered by sort title. */
     private suspend fun availableBookIds(): List<String> =
-        suspendTransaction(db) {
-            BookTable
-                .selectAll()
-                .where { BookTable.deletedAt.isNull() }
-                .orderBy(BookTable.sortTitle)
-                .limit(DEMO_BOOK_COUNT)
-                .map { it[BookTable.id] }
+        suspendTransaction(sql) {
+            sql.booksQueries.selectLiveIdsBySortTitle(limit = DEMO_BOOK_COUNT).executeAsList()
         }
 }
 

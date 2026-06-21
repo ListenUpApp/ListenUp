@@ -1,12 +1,9 @@
 package com.calypsan.listenup.server.sync
 
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import org.jetbrains.exposed.v1.core.IntegerColumnType
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedSuspendTransaction
 
 /**
  * Service-layer reindexer for the `book_search` FTS5 table.
@@ -25,25 +22,12 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction as exposedS
  * reindexing for testability and decoupling — a trigger cannot join across
  * `book_tags → tags → book_search_map` cleanly, whereas this class does it in
  * readable, testable Kotlin.
- *
- * **Two database handles during the cutover.** [db] (the SQLDelight [ListenUpDatabase])
- * backs the `book_search` FTS write path — [reindexBook] reads its source columns,
- * tag names and genre names through generated SQLDelight queries and writes the FTS row
- * with `deleteFtsRow` + `insertFtsRow`. [exposedDb] (the Exposed [Database] over the same
- * WAL file) still backs the two surfaces this unit (U3b) deliberately left on Exposed:
- *   - the `contributor_search` FTS write in [reindexContributorAliases] — a *different*
- *     FTS table, out of U3b's `book_search` scope; it ports with the contributor FTS work;
- *   - the affected-book enumeration in the `reindexAllBooksFor*` sweeps, which reads the
- *     Exposed table objects ([com.calypsan.listenup.server.db.BookContributorTable] etc.,
- *     KEPT per the cutover plan). Each sweep still funnels the per-book FTS write through
- *     [reindexBook], so the `book_search` write itself is always SQLDelight.
- * Both handles read/write the one underlying file; in WAL mode cross-engine reads are safe.
  */
 class BookSearchReindexer(
     private val bookTagRepository: BookTagRepository,
     private val tagRepository: TagRepository,
     private val db: ListenUpDatabase,
-    private val exposedDb: Database,
+    private val driver: SqlDriver,
 ) {
     /**
      * Recomputes the `book_search` FTS5 row for [bookId] from the live source tables.
@@ -116,15 +100,13 @@ class BookSearchReindexer(
      * [contributorId]. Called by
      * [com.calypsan.listenup.server.api.ContributorServiceImpl.updateContributor]
      * (on name / sortName change) and `deleteContributor` (after junction hard-delete).
-     *
-     * Reads affected book IDs from [com.calypsan.listenup.server.db.BookContributorTable].
-     * Each per-book reindex re-pulls `contributor_names` from source via [reindexBook].
      */
     suspend fun reindexAllBooksForContributor(contributorId: String) {
         val bookIds =
-            exposedSuspendTransaction(exposedDb) {
-                com.calypsan.listenup.server.db.BookContributorTable
+            suspendTransaction(db) {
+                db.bookContributorsQueries
                     .bookIdsForContributor(contributorId)
+                    .executeAsList()
             }
         for (bookId in bookIds) {
             reindexBook(bookId)
@@ -137,9 +119,10 @@ class BookSearchReindexer(
      */
     suspend fun reindexAllBooksForSeries(seriesId: String) {
         val bookIds =
-            exposedSuspendTransaction(exposedDb) {
-                com.calypsan.listenup.server.db.BookSeriesMembershipTable
+            suspendTransaction(db) {
+                db.bookSeriesMembershipsQueries
                     .bookIdsForSeries(seriesId)
+                    .executeAsList()
             }
         for (bookId in bookIds) {
             reindexBook(bookId)
@@ -152,15 +135,13 @@ class BookSearchReindexer(
      * after `updateGenre` (on name change), `deleteGenre`, `mergeGenres`, and
      * `mapUnmappedToGenre` — operations that change either the genre's display
      * name or the set of books linked to it.
-     *
-     * Reads affected book IDs from [com.calypsan.listenup.server.db.BookGenreTable].
-     * Each per-book reindex re-pulls `genres` from source via [reindexBook].
      */
     suspend fun reindexAllBooksForGenre(genreId: String) {
         val bookIds =
-            exposedSuspendTransaction(exposedDb) {
-                com.calypsan.listenup.server.db.BookGenreTable
+            suspendTransaction(db) {
+                db.bookGenresQueries
                     .bookIdsForGenre(genreId)
+                    .executeAsList()
             }
         for (bookId in bookIds) {
             reindexBook(bookId)
@@ -179,9 +160,10 @@ class BookSearchReindexer(
      */
     suspend fun reindexAllBooksForSubtree(pathPrefix: String) {
         val bookIds =
-            exposedSuspendTransaction(exposedDb) {
-                com.calypsan.listenup.server.db.BookGenreTable
-                    .booksForGenrePrefix(pathPrefix, Int.MAX_VALUE)
+            suspendTransaction(db) {
+                db.bookGenresQueries
+                    .booksForGenrePrefix(pathPrefix, Int.MAX_VALUE.toLong())
+                    .executeAsList()
             }
         for (bookId in bookIds) {
             reindexBook(bookId)
@@ -197,16 +179,11 @@ class BookSearchReindexer(
      * space-separated denormalisation of `contributor_aliases.alias` for the
      * contributor — and is therefore the application's responsibility to write.
      *
-     * This method reads the live alias rows via
-     * [com.calypsan.listenup.server.db.ContributorAliasTable.aliasesFor] together
-     * with the contributor's current `name`/`sort_name`/`description`, then
+     * This method reads the live alias rows via [db.contributorsQueries.aliasesFor]
+     * together with the contributor's current `name`/`sort_name`/`description`, then
      * DELETE + re-INSERTs the FTS row to refresh `aliases`. The other columns are
      * re-read from the source so the FTS row stays internally consistent even if a
      * trigger update has not yet been observed.
-     *
-     * **Stays on Exposed (U3b):** `contributor_search` is a *different* FTS table from
-     * `book_search` — outside this unit's scope. It ports alongside the contributor FTS
-     * work; until then it reads/writes [exposedDb] over the shared WAL.
      *
      * Called by
      * [com.calypsan.listenup.server.api.ContributorServiceImpl.mergeContributors]
@@ -215,32 +192,38 @@ class BookSearchReindexer(
      * silently no-ops.
      */
     suspend fun reindexContributorAliases(contributorId: String) {
-        exposedSuspendTransaction(exposedDb) {
-            val tx = TransactionManager.current()
-
+        suspendTransaction<Unit>(db) {
             // contributor_search is contentless and shares rowids with contributors
             // via the V22 triggers (which use new.rowid / old.rowid). Resolve the
-            // contributor's SQLite rowid; absent → no FTS row to refresh.
-            val source = readContributorSource(tx, contributorId) ?: return@exposedSuspendTransaction
+            // contributor's SQLite rowid + FTS columns from the source table.
+            val source = readContributorSource(contributorId) ?: return@suspendTransaction
+
             val aliasesValue =
-                com.calypsan.listenup.server.db.ContributorAliasTable
+                db.contributorsQueries
                     .aliasesFor(contributorId)
+                    .executeAsList()
                     .joinToString(" ")
 
             // FTS5 contentless_delete=1: DELETE drops old tokens, then re-INSERT replaces the row.
-            tx.exec("DELETE FROM contributor_search WHERE rowid = ${source.rowid}")
-            tx.exec(
-                stmt =
+            driver.execute(
+                identifier = null,
+                sql = "DELETE FROM contributor_search WHERE rowid = ?",
+                parameters = 1,
+                binders = { bindLong(0, source.rowid) },
+            )
+            driver.execute(
+                identifier = null,
+                sql =
                     "INSERT INTO contributor_search(rowid, name, sort_name, description, aliases) " +
                         "VALUES (?, ?, ?, ?, ?)",
-                args =
-                    listOf(
-                        IntegerColumnType() to source.rowid,
-                        TextColumnType() to source.name,
-                        TextColumnType() to source.sortName,
-                        TextColumnType() to source.description,
-                        TextColumnType() to aliasesValue,
-                    ),
+                parameters = 5,
+                binders = {
+                    bindLong(0, source.rowid)
+                    bindString(1, source.name)
+                    bindString(2, source.sortName)
+                    bindString(3, source.description)
+                    bindString(4, aliasesValue)
+                },
             )
         }
     }
@@ -248,7 +231,7 @@ class BookSearchReindexer(
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private data class ContributorFtsSource(
-        val rowid: Int,
+        val rowid: Long,
         val name: String,
         val sortName: String,
         val description: String,
@@ -258,29 +241,33 @@ class BookSearchReindexer(
      * Reads the contributor's SQLite rowid + the trigger-managed FTS columns
      * (`name`, `sort_name`, `description`) from the source `contributors` table.
      * Returns null when the contributor row does not exist.
+     *
+     * Must be called inside an active [suspendTransaction] — runs on the same
+     * connection as the surrounding transaction.
      */
-    private fun readContributorSource(
-        tx: org.jetbrains.exposed.v1.jdbc.JdbcTransaction,
-        contributorId: String,
-    ): ContributorFtsSource? {
-        var result: ContributorFtsSource? = null
-        tx.exec(
-            stmt =
-                "SELECT rowid, name, COALESCE(sort_name, '') AS sort_name, " +
-                    "COALESCE(description, '') AS description " +
-                    "FROM contributors WHERE id = ?",
-            args = listOf(TextColumnType() to contributorId),
-        ) { rs ->
-            if (rs.next()) {
-                result =
-                    ContributorFtsSource(
-                        rowid = rs.getInt("rowid"),
-                        name = rs.getString("name") ?: "",
-                        sortName = rs.getString("sort_name") ?: "",
-                        description = rs.getString("description") ?: "",
+    private fun readContributorSource(contributorId: String): ContributorFtsSource? =
+        driver
+            .executeQuery(
+                identifier = null,
+                sql =
+                    "SELECT rowid, name, COALESCE(sort_name, '') AS sort_name, " +
+                        "COALESCE(description, '') AS description " +
+                        "FROM contributors WHERE id = ?",
+                mapper = { cursor ->
+                    QueryResult.Value(
+                        if (cursor.next().value) {
+                            ContributorFtsSource(
+                                rowid = cursor.getLong(0)!!,
+                                name = cursor.getString(1) ?: "",
+                                sortName = cursor.getString(2) ?: "",
+                                description = cursor.getString(3) ?: "",
+                            )
+                        } else {
+                            null
+                        },
                     )
-            }
-        }
-        return result
-    }
+                },
+                parameters = 1,
+                binders = { bindString(0, contributorId) },
+            ).value
 }

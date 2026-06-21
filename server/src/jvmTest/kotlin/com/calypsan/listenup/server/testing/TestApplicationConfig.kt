@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.testing
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.ApplicationTestBuilder
 import java.nio.file.Files
-import org.jetbrains.exposed.v1.jdbc.Database
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import org.koin.ktor.ext.inject
 
 /**
@@ -89,6 +89,6 @@ fun ApplicationTestBuilder.seedTestLibraryAndFolder(
     folderId: String = "test-folder",
     folderPath: String = "/tmp/test-library",
 ) {
-    val db by application.inject<Database>()
-    db.seedTestLibraryAndFolder(libraryId = libraryId, folderId = folderId, folderPath = folderPath)
+    val sql by application.inject<ListenUpDatabase>()
+    sql.seedTestLibraryAndFolder(libraryId = libraryId, folderId = folderId, folderPath = folderPath)
 }

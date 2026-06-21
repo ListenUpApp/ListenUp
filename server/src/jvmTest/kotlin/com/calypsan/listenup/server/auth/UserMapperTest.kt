@@ -1,36 +1,45 @@
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.api.dto.auth.UserPermissions
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 class UserMapperTest :
     FunSpec({
         test("toContract carries permissions + approval audit") {
-            withInMemoryDatabase {
+            withSqlDatabase {
+                sql.transaction {
+                    sql.usersQueries.insert(
+                        id = "u1",
+                        email = "a@b.c",
+                        email_normalized = "a@b.c",
+                        password_hash = "h",
+                        role = UserRoleColumn.MEMBER.name,
+                        display_name = "A",
+                        status = UserStatusColumn.ACTIVE.name,
+                        created_at = 0L,
+                        updated_at = 0L,
+                        last_login_at = null,
+                        can_edit = 0L,
+                        can_share = 1L,
+                        approved_by = "admin1",
+                        approved_at = 123L,
+                        deleted_at = null,
+                        invited_by = null,
+                        tagline = null,
+                        avatar_type = "auto",
+                        timezone = "UTC",
+                    )
+                }
                 val user =
-                    transaction(this) {
-                        UserEntity
-                            .new("u1") {
-                                email = "a@b.c"
-                                emailNormalized = "a@b.c"
-                                passwordHash = "h"
-                                role = UserRoleColumn.MEMBER
-                                displayName = "A"
-                                status = UserStatusColumn.ACTIVE
-                                createdAt = 0
-                                updatedAt = 0
-                                canEdit = false
-                                canShare = true
-                                approvedBy = "admin1"
-                                approvedAt = 123L
-                            }.toContract()
-                    }
+                    sql.usersQueries
+                        .selectById("u1")
+                        .executeAsOne()
+                        .toAuthUser()
+                        .toContract()
                 user.permissions shouldBe UserPermissions(canEdit = false, canShare = true)
                 user.approvedBy shouldBe "admin1"
                 user.approvedAt shouldBe 123L

@@ -1,12 +1,12 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.db.MigrationRunner
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
+import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import java.sql.Connection
+import javax.sql.DataSource
 
 /**
  * Golden migration tests for the `collections.type` column lifecycle.
@@ -21,34 +21,27 @@ import java.sql.Connection
 class CollectionTypeMigrationTest :
     FunSpec({
 
-        /** A Hikari datasource over a temp-file SQLite database, deleted on JVM exit. */
-        fun freshDataSource(): HikariDataSource {
+        /** A non-pooled SQLite datasource over a temp-file database, deleted on JVM exit. */
+        fun freshDataSource(): DataSource {
             val tmp = Files.createTempFile("listenup-coll-type-test-", ".db").toFile().apply { deleteOnExit() }
-            return HikariDataSource(
-                HikariConfig().apply {
-                    jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
-                    maximumPoolSize = 1
-                    isAutoCommit = false
-                    addDataSourceProperty("foreign_keys", "true")
-                    validate()
-                },
-            )
+            return fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
         }
 
         // Migrates [dataSource] up to [target] (inclusive); null migrates to latest.
         fun migrateTo(
-            dataSource: HikariDataSource,
+            dataSource: DataSource,
             target: Int?,
         ) = MigrationRunner(dataSource).migrate(upTo = target)
 
         fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 
         test("V40 backfills collections.type to INBOX for inboxes and NORMAL otherwise") {
-            freshDataSource().use { ds ->
+            freshDataSource().let { ds ->
                 // Schema state BEFORE V40.
                 migrateTo(ds, target = 39)
 
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     // A library + owner user to satisfy the foreign keys on collections.
                     conn.exec(
                         "INSERT INTO libraries (id, name, created_at) VALUES ('lib-1', 'Library', 0)",
@@ -75,6 +68,7 @@ class CollectionTypeMigrationTest :
                 migrateTo(ds, target = 41)
 
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     conn.createStatement().use { stmt ->
                         stmt
                             .executeQuery("SELECT is_inbox, type FROM collections WHERE id = 'inbox-1'")
@@ -98,11 +92,12 @@ class CollectionTypeMigrationTest :
         }
 
         test("V42 drops is_inbox column and type column remains the sole inbox discriminator") {
-            freshDataSource().use { ds ->
+            freshDataSource().let { ds ->
                 // Schema state BEFORE V40.
                 migrateTo(ds, target = 39)
 
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     conn.exec(
                         "INSERT INTO libraries (id, name, created_at) VALUES ('lib-1', 'Library', 0)",
                     )
@@ -128,6 +123,7 @@ class CollectionTypeMigrationTest :
                 migrateTo(ds, target = null)
 
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     // type column correctly reflects the backfilled + preserved values.
                     conn.createStatement().use { stmt ->
                         stmt

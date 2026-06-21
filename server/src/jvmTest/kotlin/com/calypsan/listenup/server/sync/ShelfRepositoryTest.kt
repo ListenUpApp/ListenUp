@@ -4,8 +4,6 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
-import com.calypsan.listenup.server.db.ShelfBooksTable
-import com.calypsan.listenup.server.db.ShelvesTable
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -19,16 +17,12 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Tests for [ShelfRepository] and [ShelfBookRepository] — the **first user-scoped**
- * SQLDelight aggregate. Every test runs against a real migrated database exposed as
- * both a SQLDelight [com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase]
- * (`sql`, the repo's view) and an Exposed `Database` (`exposed`, the seed-helper view),
- * over one file (see [withSqlDatabase]).
+ * SQLDelight aggregate. Every test runs against a real migrated database as a SQLDelight
+ * [com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase] (`sql`, the repo's view),
+ * with rows seeded through the SQLDelight seed helpers (see [withSqlDatabase]).
  *
  * Coverage:
  *  - shelf + junction upsert / soft-delete, and the owner `user_id` stamping;
@@ -58,8 +52,8 @@ class ShelfRepositoryTest :
 
         test("listOwnedBy returns only the owner's shelves") {
             withSqlDatabase {
-                exposed.seedTestUser("userA")
-                exposed.seedTestUser("userB")
+                sql.seedTestUser("userA")
+                sql.seedTestUser("userB")
                 val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
@@ -74,19 +68,17 @@ class ShelfRepositoryTest :
 
         test("a shelf row carries the owner's user_id") {
             withSqlDatabase {
-                exposed.seedTestUser("userA")
+                sql.seedTestUser("userA")
                 val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
                     repo.upsert(shelfPayload("shelfA"), userId = "userA")
 
                     val storedUserId =
-                        transaction(exposed) {
-                            ShelvesTable
-                                .selectAll()
-                                .where { ShelvesTable.id eq "shelfA" }
-                                .first()[ShelvesTable.userId]
-                        }
+                        sql.shelvesQueries
+                            .selectById("shelfA")
+                            .executeAsOne()
+                            .user_id
                     storedUserId shouldBe "userA"
                 }
             }
@@ -94,7 +86,7 @@ class ShelfRepositoryTest :
 
         test("isPrivate round-trips through the 0/1 INTEGER boundary") {
             withSqlDatabase {
-                exposed.seedTestUser("userA")
+                sql.seedTestUser("userA")
                 val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
@@ -111,10 +103,10 @@ class ShelfRepositoryTest :
 
         test("addBook appends in sort order and is idempotent") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestUser("userA")
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("userA")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)
@@ -141,9 +133,9 @@ class ShelfRepositoryTest :
 
         test("a junction row carries the owner's user_id") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestUser("userA")
-                exposed.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("userA")
+                sql.seedTestBook("book1")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)
@@ -154,12 +146,10 @@ class ShelfRepositoryTest :
                     junctionRepo.addBook("shelfA", "book1", "userA")
 
                     val storedUserId =
-                        transaction(exposed) {
-                            ShelfBooksTable
-                                .selectAll()
-                                .where { ShelfBooksTable.id eq "shelfA:book1" }
-                                .first()[ShelfBooksTable.userId]
-                        }
+                        sql.shelfBooksQueries
+                            .selectById("shelfA:book1")
+                            .executeAsOne()
+                            .user_id
                     storedUserId shouldBe "userA"
                 }
             }
@@ -167,11 +157,11 @@ class ShelfRepositoryTest :
 
         test("reorder rewrites sort order to match the given ordering") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestUser("userA")
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
-                exposed.seedTestBook("book3")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("userA")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                sql.seedTestBook("book3")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)
@@ -195,10 +185,10 @@ class ShelfRepositoryTest :
 
         test("removeBook soft-deletes the junction row") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestUser("userA")
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("userA")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)
@@ -227,10 +217,10 @@ class ShelfRepositoryTest :
 
         test("softDeleteByShelf soft-deletes every junction row of the shelf") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestUser("userA")
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("userA")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)
@@ -253,8 +243,8 @@ class ShelfRepositoryTest :
 
         test("pullSince for user A never returns user B's shelves") {
             withSqlDatabase {
-                exposed.seedTestUser("userA")
-                exposed.seedTestUser("userB")
+                sql.seedTestUser("userA")
+                sql.seedTestUser("userB")
                 val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
@@ -273,8 +263,8 @@ class ShelfRepositoryTest :
 
         test("pullSince includes the caller's tombstoned shelves only") {
             withSqlDatabase {
-                exposed.seedTestUser("userA")
-                exposed.seedTestUser("userB")
+                sql.seedTestUser("userA")
+                sql.seedTestUser("userB")
                 val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
@@ -299,8 +289,8 @@ class ShelfRepositoryTest :
 
         test("digest for user A covers only user A's rows") {
             withSqlDatabase {
-                exposed.seedTestUser("userA")
-                exposed.seedTestUser("userB")
+                sql.seedTestUser("userA")
+                sql.seedTestUser("userB")
                 val repo = ShelfRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
@@ -323,11 +313,11 @@ class ShelfRepositoryTest :
 
         test("shelf_books pullSince/digest are user-scoped too") {
             withSqlDatabase {
-                exposed.seedTestLibraryAndFolder()
-                exposed.seedTestUser("userA")
-                exposed.seedTestUser("userB")
-                exposed.seedTestBook("book1")
-                exposed.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("userA")
+                sql.seedTestUser("userB")
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
                 val shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry)

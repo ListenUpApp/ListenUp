@@ -12,15 +12,12 @@ import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.LibraryRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.select
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlin.io.path.exists
 
 /**
@@ -40,7 +37,7 @@ class ImportAnalyzer internal constructor(
     private val bookMatcher: BookMatcher,
     private val userMatcher: UserMatcher,
     private val libraryRegistry: LibraryRegistry,
-    private val db: Database,
+    private val sql: ListenUpDatabase,
 ) {
     /**
      * Analyzes the staged import [importId], emitting [ImportEvent]s through [onEvent] as it goes.
@@ -100,17 +97,14 @@ class ImportAnalyzer internal constructor(
 
     /** Loads the non-deleted ListenUp users once, reduced to the matcher's fields. */
     private suspend fun loadMatchableUsers(): List<MatchableUser> =
-        suspendTransaction(db) {
-            UserTable
-                .select(UserTable.id, UserTable.email, UserTable.displayName)
-                .where { UserTable.deletedAt.isNull() }
-                .map {
-                    MatchableUser(
-                        id = UserId(it[UserTable.id].value),
-                        email = it[UserTable.email],
-                        displayName = it[UserTable.displayName],
-                    )
-                }
+        suspendTransaction(sql) {
+            sql.usersQueries.selectMatchableLiveUsers().executeAsList().map {
+                MatchableUser(
+                    id = UserId(it.id),
+                    email = it.email,
+                    displayName = it.display_name,
+                )
+            }
         }
 
     /** The subset of [items] that have at least one progress row (only these need matching). */

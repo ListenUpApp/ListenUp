@@ -1,19 +1,17 @@
 package com.calypsan.listenup.server.sync
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-
+import app.cash.sqldelight.db.QueryResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.api.sync.Tag
-// same package — no explicit imports needed for BookSearchReindexer, BookTagRepository, etc.
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.core.TextColumnType
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import kotlinx.coroutines.withContext
 
 /**
  * Integration tests for [BookSearchReindexer].
@@ -27,33 +25,34 @@ class BookSearchReindexerTest :
     FunSpec({
 
         fun makeReindexer(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             bookTagRepo: BookTagRepository,
             tagRepo: TagRepository,
-        ) = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+        ) = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
 
         /** Seeds a minimal book_search_map + book_search FTS row for [bookId]. */
         suspend fun seedFtsRow(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             bookId: String,
             rowid: Int,
         ) {
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                tx.exec(
-                    stmt = "INSERT INTO book_search_map(book_id, rowid) VALUES (?, ?)",
-                    args =
-                        listOf(
-                            TextColumnType() to bookId,
-                            org.jetbrains.exposed.v1.core
-                                .IntegerColumnType() to rowid,
-                        ),
+            withContext(Dispatchers.IO) {
+                dbs.driver.execute(
+                    identifier = null,
+                    sql = "INSERT INTO book_search_map(book_id, rowid) VALUES (?, ?)",
+                    parameters = 2,
+                    binders = {
+                        bindString(0, bookId)
+                        bindLong(1, rowid.toLong())
+                    },
                 )
-                tx.exec(
-                    stmt =
+                dbs.driver.execute(
+                    identifier = null,
+                    sql =
                         "INSERT INTO book_search(rowid, title, subtitle, description, contributor_names, series_names, tags) " +
                             "VALUES ($rowid, ?, '', '', '', '', '')",
-                    args = listOf(TextColumnType() to "Test Book $bookId"),
+                    parameters = 1,
+                    binders = { bindString(0, "Test Book $bookId") },
                 )
             }
         }
@@ -67,7 +66,7 @@ class BookSearchReindexerTest :
          * MATCH query and checking that [rowid] is in the results.
          */
         suspend fun ftsTagsMatch(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             rowid: Int,
             searchTerm: String,
         ): Boolean {
@@ -75,22 +74,19 @@ class BookSearchReindexerTest :
             // e.g. "Sci-Fi" → '"Sci-Fi"' so the dash isn't parsed as an FTS5 operator.
             val dq = '"'
             val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-            var found = false
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                tx.exec(
-                    stmt = "SELECT rowid FROM book_search WHERE tags MATCH ? AND rowid = ?",
-                    args =
-                        listOf(
-                            TextColumnType() to quotedTerm,
-                            org.jetbrains.exposed.v1.core
-                                .IntegerColumnType() to rowid,
-                        ),
-                ) { rs ->
-                    found = rs.next()
-                }
+            return withContext(Dispatchers.IO) {
+                dbs.driver
+                    .executeQuery(
+                        identifier = null,
+                        sql = "SELECT rowid FROM book_search WHERE tags MATCH ? AND rowid = ?",
+                        mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                        parameters = 2,
+                        binders = {
+                            bindString(0, quotedTerm)
+                            bindLong(1, rowid.toLong())
+                        },
+                    ).value
             }
-            return found
         }
 
         /**
@@ -98,47 +94,41 @@ class BookSearchReindexerTest :
          * the given terms — used to verify a reindex produced an empty `tags` column.
          */
         suspend fun ftsTagsEmpty(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             rowid: Int,
         ): Boolean {
             // A contentless FTS5 row with empty tags won't match any non-empty term.
             // We verify by checking a MATCH on a sentinel term never returns this rowid.
-            var hasAnyRow = false
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                // book_search_map still exists, so the rowid mapping is valid.
-                // If the tags column is empty, MATCH on any term won't find the row.
-                // We check the rowid is still in book_search_map (row still indexed),
-                // but MATCH on a common term ("a") doesn't return it via tags column.
-                tx.exec(
-                    stmt = "SELECT COUNT(*) as cnt FROM book_search_map WHERE rowid = ?",
-                    args =
-                        listOf(
-                            org.jetbrains.exposed.v1.core
-                                .IntegerColumnType() to rowid,
-                        ),
-                ) { rs ->
-                    hasAnyRow = rs.next() && rs.getInt("cnt") > 0
-                }
+            // book_search_map still exists, so the rowid mapping is valid.
+            // If the tags column is empty, MATCH on any term won't find the row.
+            // We check the rowid is still in book_search_map (row still indexed),
+            // but MATCH on a common term ("a") doesn't return it via tags column.
+            return withContext(Dispatchers.IO) {
+                dbs.driver
+                    .executeQuery(
+                        identifier = null,
+                        sql = "SELECT COUNT(*) FROM book_search_map WHERE rowid = ?",
+                        mapper = { cursor ->
+                            QueryResult.Value(cursor.next().value && (cursor.getLong(0) ?: 0L) > 0L)
+                        },
+                        parameters = 1,
+                        binders = { bindLong(0, rowid.toLong()) },
+                    ).value
             }
-            // If the row exists in the map but tags MATCH returns nothing, tags is empty.
-            // We return true (tags are effectively empty) when the row is mapped.
-            return hasAnyRow
         }
 
         test("reindexBook writes concatenated tag names into book_search.tags") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     tagRepo.upsert(Tag(id = "t2", name = "Fantasy", slug = "fantasy", revision = 0, updatedAt = 0))
@@ -152,49 +142,47 @@ class BookSearchReindexerTest :
                     reindexer.reindexBook("book1")
 
                     // FTS5 contentless: verify via MATCH queries — direct content SELECT is not possible.
-                    ftsTagsMatch(db, 1, "Sci-Fi") shouldBe true
-                    ftsTagsMatch(db, 1, "Fantasy") shouldBe true
+                    ftsTagsMatch(this@withSqlDatabase, 1, "Sci-Fi") shouldBe true
+                    ftsTagsMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe true
                 }
             }
         }
 
         test("reindexBook with no tags produces empty tags FTS index entry") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexBook("book1")
 
                     // No tags → "Sci-Fi" does not match this book's tags column.
-                    ftsTagsMatch(db, 1, "Sci-Fi") shouldBe false
+                    ftsTagsMatch(this@withSqlDatabase, 1, "Sci-Fi") shouldBe false
                     // Row still exists in book_search_map.
-                    ftsTagsEmpty(db, 1) shouldBe true
+                    ftsTagsEmpty(this@withSqlDatabase, 1) shouldBe true
                 }
             }
         }
 
         test("reindexBook excludes tombstoned junction rows") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
@@ -206,24 +194,23 @@ class BookSearchReindexerTest :
                     reindexer.reindexBook("book1")
 
                     // Tombstoned junction → "Sci-Fi" should not match the tags column.
-                    ftsTagsMatch(db, 1, "Sci-Fi") shouldBe false
+                    ftsTagsMatch(this@withSqlDatabase, 1, "Sci-Fi") shouldBe false
                 }
             }
         }
 
         test("reindexBook excludes tombstoned tags (live junction, deleted tag)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     tagRepo.upsert(Tag(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
@@ -235,26 +222,25 @@ class BookSearchReindexerTest :
                     reindexer.reindexBook("book1")
 
                     // Tag is tombstoned → findById returns null → "Sci-Fi" excluded from index.
-                    ftsTagsMatch(db, 1, "Sci-Fi") shouldBe false
+                    ftsTagsMatch(this@withSqlDatabase, 1, "Sci-Fi") shouldBe false
                 }
             }
         }
 
         test("reindexAllBooksForTag reindexes every book linked to the tag") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
-                seedTestBook("book2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
-                    seedFtsRow(db, "book2", 2)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book2", 2)
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     tagRepo.upsert(Tag(id = "t1", name = "SciFi", slug = "scifi", revision = 0, updatedAt = 0))
                     bookTagRepo.upsert(
@@ -266,8 +252,8 @@ class BookSearchReindexerTest :
 
                     reindexer.reindexAllBooksForTag("t1")
 
-                    ftsTagsMatch(db, 1, "SciFi") shouldBe true
-                    ftsTagsMatch(db, 2, "SciFi") shouldBe true
+                    ftsTagsMatch(this@withSqlDatabase, 1, "SciFi") shouldBe true
+                    ftsTagsMatch(this@withSqlDatabase, 2, "SciFi") shouldBe true
                 }
             }
         }
@@ -279,65 +265,62 @@ class BookSearchReindexerTest :
          * read path — the title is re-read from the `books` table on every reindex.
          */
         suspend fun ftsTitleMatch(
-            db: org.jetbrains.exposed.v1.jdbc.Database,
+            dbs: SqlTestDatabases,
             rowid: Int,
             searchTerm: String,
         ): Boolean {
             val dq = '"'
             val quotedTerm = "$dq${searchTerm.replace("$dq", "$dq$dq")}$dq"
-            var found = false
-            suspendTransaction(db) {
-                val tx = TransactionManager.current()
-                tx.exec(
-                    stmt = "SELECT rowid FROM book_search WHERE title MATCH ? AND rowid = ?",
-                    args =
-                        listOf(
-                            TextColumnType() to quotedTerm,
-                            org.jetbrains.exposed.v1.core
-                                .IntegerColumnType() to rowid,
-                        ),
-                ) { rs -> found = rs.next() }
+            return withContext(Dispatchers.IO) {
+                dbs.driver
+                    .executeQuery(
+                        identifier = null,
+                        sql = "SELECT rowid FROM book_search WHERE title MATCH ? AND rowid = ?",
+                        mapper = { cursor -> QueryResult.Value(cursor.next().value) },
+                        parameters = 2,
+                        binders = {
+                            bindString(0, quotedTerm)
+                            bindLong(1, rowid.toLong())
+                        },
+                    ).value
             }
-            return found
         }
 
         test("reindexBook re-reads the title from the books table into book_search.title") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 // seedTestBook sets books.title = "Test Book <id>". reindexBook re-reads
                 // the live source columns via the SQLDelight selectFtsSourceByRowid query
                 // and writes them back, so the title must survive the contentless rebuild.
-                seedTestBook("book1")
+                sql.seedTestBook("book1")
                 runTest {
-                    seedFtsRow(db, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
 
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     reindexer.reindexBook("book1")
 
                     // "Test" comes from the books-table title, proving the source read landed.
-                    ftsTitleMatch(db, 1, "Test") shouldBe true
+                    ftsTitleMatch(this@withSqlDatabase, 1, "Test") shouldBe true
                 }
             }
         }
 
         test("reindexBook is safe when book has no book_search_map row") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
                     // No FTS row seeded — reindex should not throw.
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
-                    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                    val reindexer = makeReindexer(db, bookTagRepo, tagRepo)
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
 
                     // Should complete without error.
                     reindexer.reindexBook("book1")

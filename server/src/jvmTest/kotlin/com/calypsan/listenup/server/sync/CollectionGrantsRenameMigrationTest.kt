@@ -1,14 +1,14 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.server.db.MigrationRunner
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
+import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import java.sql.Connection
 import java.sql.SQLException
+import javax.sql.DataSource
 
 /**
  * Golden migration test for V39 — the in-place rename of `collection_shares` to
@@ -23,23 +23,15 @@ import java.sql.SQLException
 class CollectionGrantsRenameMigrationTest :
     FunSpec({
 
-        /** A Hikari datasource over a temp-file SQLite database, deleted on JVM exit. */
-        fun freshDataSource(): HikariDataSource {
+        /** A non-pooled SQLite datasource over a temp-file database, deleted on JVM exit. */
+        fun freshDataSource(): DataSource {
             val tmp = Files.createTempFile("listenup-grants-test-", ".db").toFile().apply { deleteOnExit() }
-            return HikariDataSource(
-                HikariConfig().apply {
-                    jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
-                    maximumPoolSize = 1
-                    isAutoCommit = false
-                    addDataSourceProperty("foreign_keys", "true")
-                    validate()
-                },
-            )
+            return fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
         }
 
         // Migrates [dataSource] up to [target] (inclusive); null migrates to latest.
         fun migrateTo(
-            dataSource: HikariDataSource,
+            dataSource: DataSource,
             target: Int?,
         ) = MigrationRunner(dataSource).migrate(upTo = target)
 
@@ -49,11 +41,12 @@ class CollectionGrantsRenameMigrationTest :
             "V39 renames collection_shares to collection_grants, preserving rows/revisions " +
                 "and mapping shares to USER principals",
         ) {
-            freshDataSource().use { ds ->
+            freshDataSource().let { ds ->
                 // Schema state BEFORE V39.
                 migrateTo(ds, target = 38)
 
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     // A library + users to satisfy the foreign keys on collections/collection_shares.
                     conn.exec(
                         "INSERT INTO libraries (id, name, created_at) VALUES ('lib-1', 'Library', 0)",
@@ -86,6 +79,7 @@ class CollectionGrantsRenameMigrationTest :
                 migrateTo(ds, target = null)
 
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     conn.createStatement().use { stmt ->
                         stmt
                             .executeQuery(
@@ -113,9 +107,10 @@ class CollectionGrantsRenameMigrationTest :
         }
 
         test("collection_grants rejects a second active grant for the same (collection, USER principal)") {
-            freshDataSource().use { ds ->
+            freshDataSource().let { ds ->
                 migrateTo(ds, target = null)
                 ds.connection.use { conn ->
+                    conn.autoCommit = false
                     conn.exec("INSERT INTO libraries (id, name, created_at) VALUES ('lib-1', 'Library', 0)")
                     conn.exec(
                         "INSERT INTO users (id, email, email_normalized, password_hash, role, display_name, " +

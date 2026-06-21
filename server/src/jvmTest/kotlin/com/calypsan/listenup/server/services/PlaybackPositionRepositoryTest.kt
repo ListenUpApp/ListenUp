@@ -9,9 +9,8 @@ import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -29,9 +28,9 @@ class PlaybackPositionRepositoryTest :
     FunSpec({
 
         test("recordPosition inserts a new row and publishes a Created BusEvent for that userId") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val bus = ChangeBus()
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = bus, registry = SyncRegistry())
+                val repo = PlaybackPositionRepository(db = sql, bus = bus, registry = SyncRegistry())
                 runTest {
                     val deferred = async { bus.subscribe().first() }
                     advanceUntilIdle()
@@ -58,8 +57,8 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition with a greater lastPlayedAt updates the existing row") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition(
                         userId = "u1",
@@ -92,8 +91,8 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition with a stale (lesser) lastPlayedAt is a no-op — stored position unchanged") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition(
                         userId = "u1",
@@ -126,8 +125,8 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("pullSince(userId = u1) returns only u1's positions") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition(
                         userId = "u1",
@@ -157,8 +156,8 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("getPosition returns the stored payload") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.recordPosition(
                         userId = "u1",
@@ -181,8 +180,8 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("getPosition returns null for an absent (userId, bookId) pair") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     repo.getPosition("u1", "nonexistent-book").shouldBeNull()
                 }
@@ -190,24 +189,24 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("idAsString unwraps the value class to its raw string") {
-            withInMemoryDatabase {
-                val repo = PlaybackPositionRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val repo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 repo.idAsStringForTest(PlaybackPositionId("pos-42")) shouldBe "pos-42"
             }
         }
 
         test("recordPosition false→true flip increments booksFinished via UserStatsUpdater") {
-            withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        sql = this.asSqlDatabase(),
+                        sql = sql,
                         userStatsRepo = statsRepo,
-                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         userStatsUpdater = updater,
@@ -241,17 +240,17 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition finished=true on a new row (no prior) also counts as a flip") {
-            withInMemoryDatabase {
-                val statsRepo = UserStatsRepository(db = this.asSqlDatabase(), bus = ChangeBus(), registry = SyncRegistry())
+            withSqlDatabase {
+                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val updater =
                     UserStatsUpdater(
-                        sql = this.asSqlDatabase(),
+                        sql = sql,
                         userStatsRepo = statsRepo,
-                        publicProfileMaintainerProvider = { noOpPublicProfileMaintainer() },
+                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         userStatsUpdater = updater,
@@ -272,11 +271,11 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition: finished=false → finished=true flip hard-deletes the active_sessions row") {
-            withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
+            withSqlDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = sql, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -313,11 +312,11 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition: finished=true on new (no prior position) also deletes the active_sessions row") {
-            withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
+            withSqlDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = sql, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -340,11 +339,11 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition: finished=true when priorFinished=true is a no-op for active_sessions") {
-            withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
+            withSqlDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = sql, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -380,11 +379,11 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition: finished=false does not touch active_sessions") {
-            withInMemoryDatabase {
-                val activeSessionRepo = ActiveSessionRepository(db = this.asSqlDatabase(), bus = ChangeBus())
+            withSqlDatabase {
+                val activeSessionRepo = ActiveSessionRepository(db = sql, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = activeSessionRepo,
@@ -407,12 +406,12 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition finish-flip records exactly one finished_book for (user, book)") {
-            withInMemoryDatabase {
-                val activities = ActivityRepository(db = this.asSqlDatabase())
+            withSqlDatabase {
+                val activities = ActivityRepository(db = sql)
                 val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activityRecorder = recorder,
@@ -448,12 +447,12 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition first-ever in-progress position records one started_book (isReread=false)") {
-            withInMemoryDatabase {
-                val activities = ActivityRepository(db = this.asSqlDatabase())
+            withSqlDatabase {
+                val activities = ActivityRepository(db = sql)
                 val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activityRecorder = recorder,
@@ -478,12 +477,12 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition re-read (prior finished, new in-progress) records one started_book with isReread=true") {
-            withInMemoryDatabase {
-                val activities = ActivityRepository(db = this.asSqlDatabase())
+            withSqlDatabase {
+                val activities = ActivityRepository(db = sql)
                 val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activityRecorder = recorder,
@@ -519,10 +518,10 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("recordPosition with activeSessionRepo=null does not throw on flip") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         activeSessionRepo = null,
@@ -545,15 +544,15 @@ class PlaybackPositionRepositoryTest :
         }
 
         test("finishing a book appends a book_reads row dated lastPlayedAt") {
-            withInMemoryDatabase {
+            withSqlDatabase {
                 val reads =
                     BookReadsRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         clock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L)),
                     )
                 val repo =
                     PlaybackPositionRepository(
-                        db = this.asSqlDatabase(),
+                        db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         bookReadsRepository = reads,

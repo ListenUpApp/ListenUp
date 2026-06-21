@@ -55,7 +55,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import org.koin.core.context.GlobalContext
 import org.koin.dsl.module
 import org.koin.ktor.plugin.Koin
@@ -93,35 +92,42 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
     testApplication {
         // ---- Server side: temp-file SQLite + tag domains ----
         val tmp = Files.createTempFile("listenup-tags-e2e-", ".db").toFile().apply { deleteOnExit() }
-        val serverDb = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}")).database
-        // SQLDelight view over the SAME migrated file — TagRepository and BookTagRepository are
-        // SQLDelight-converted and take this; still-Exposed surfaces keep taking [serverDb].
-        val serverSqlDb = ServerSqlDatabase(DriverFactory().createDriver(tmp.absolutePath))
+        // DatabaseFactory.init runs the migrations; the repos read/write through a SQLDelight driver
+        // opened over that same already-migrated file.
+        DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"))
+        val serverDriver = DriverFactory().createDriver(tmp.absolutePath)
+        val serverSqlDb = ServerSqlDatabase(serverDriver)
         val bus = ChangeBus()
         val syncRegistry = SyncRegistry()
 
         val now = System.currentTimeMillis()
-        transaction(serverDb) {
-            exec(
-                "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
-                    "VALUES ('test-library', 'Test Library', $now, $now, 0)",
-            )
-            exec(
-                "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
-                    "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
-            )
-            // Seed book rows so book_tags FK constraints are satisfied.
-            exec(
-                "INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at, " +
-                    "revision, created_at, updated_at) VALUES " +
-                    "('book-a', 'test-library', 'Test Book A', 0, 'book-a', $now, 0, $now, $now)",
-            )
-            exec(
-                "INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at, " +
-                    "revision, created_at, updated_at) VALUES " +
-                    "('book-b', 'test-library', 'Test Book B', 0, 'book-b', $now, 0, $now, $now)",
-            )
-        }
+        serverDriver.execute(
+            null,
+            "INSERT INTO libraries(id, name, created_at, updated_at, revision) " +
+                "VALUES ('test-library', 'Test Library', $now, $now, 0)",
+            0,
+        )
+        serverDriver.execute(
+            null,
+            "INSERT INTO library_folders(id, library_id, root_path, created_at, updated_at, revision) " +
+                "VALUES ('test-folder', 'test-library', '/tmp/test-library', $now, $now, 0)",
+            0,
+        )
+        // Seed book rows so book_tags FK constraints are satisfied.
+        serverDriver.execute(
+            null,
+            "INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at, " +
+                "revision, created_at, updated_at) VALUES " +
+                "('book-a', 'test-library', 'Test Book A', 0, 'book-a', $now, 0, $now, $now)",
+            0,
+        )
+        serverDriver.execute(
+            null,
+            "INSERT INTO books(id, library_id, title, total_duration, root_rel_path, scanned_at, " +
+                "revision, created_at, updated_at) VALUES " +
+                "('book-b', 'test-library', 'Test Book B', 0, 'book-b', $now, 0, $now, $now)",
+            0,
+        )
 
         val tagRepo = TagRepository(serverSqlDb, bus, syncRegistry)
         val bookTagRepo = BookTagRepository(serverSqlDb, bus, syncRegistry)
@@ -133,7 +139,6 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
             install(Koin) {
                 modules(
                     module {
-                        single { serverDb }
                         single { bus }
                         single { syncRegistry }
                         single(createdAtStart = true) { tagRepo }

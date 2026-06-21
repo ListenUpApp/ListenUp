@@ -14,6 +14,8 @@ import com.calypsan.listenup.server.backup.BackupTestFixture
 import com.calypsan.listenup.server.backup.MaintenanceState
 import com.calypsan.listenup.server.backup.RestoreOrchestrator
 import com.calypsan.listenup.server.backup.backupTestFixture
+import com.calypsan.listenup.server.backup.execSql
+import com.calypsan.listenup.server.backup.queryScalarInt
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -23,7 +25,6 @@ import app.cash.turbine.test
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Happy-path tests for [BackupServiceImpl].
@@ -230,10 +231,10 @@ class BackupServiceTest :
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     // Seed a marker row before creating the backup
-                    transaction(fixture.handle.database) {
-                        exec("CREATE TABLE IF NOT EXISTS restore_marker(v TEXT)")
-                        exec("INSERT INTO restore_marker(v) VALUES ('before-restore')")
-                    }
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS restore_marker(v TEXT)",
+                        "INSERT INTO restore_marker(v) VALUES ('before-restore')",
+                    )
 
                     val svc = buildService(fixture, rootPrincipalProvider())
                     val created =
@@ -243,10 +244,10 @@ class BackupServiceTest :
                             .data
 
                     // Mutate db after backup — restore should bring it back
-                    transaction(fixture.handle.database) {
-                        exec("DELETE FROM restore_marker")
-                        exec("INSERT INTO restore_marker(v) VALUES ('after-backup-mutation')")
-                    }
+                    fixture.handle.execSql(
+                        "DELETE FROM restore_marker",
+                        "INSERT INTO restore_marker(v) VALUES ('after-backup-mutation')",
+                    )
 
                     val restoreResult = svc.restoreBackup(created.id)
 
@@ -255,15 +256,9 @@ class BackupServiceTest :
                     result.restoredFrom shouldBe created.id
                     result.includedImages shouldBe false
 
-                    // Verify db is functional after restore (marker was restored back or Flyway re-ran)
-                    transaction(fixture.handle.database) {
-                        val count =
-                            exec("SELECT count(*) FROM restore_marker") { rs ->
-                                if (rs.next()) rs.getInt(1) else 0
-                            }
-                        // 'before-restore' row is back (restore worked) OR table still exists (DB is intact)
-                        count shouldBe 1
-                    }
+                    // Verify db is functional after restore (marker was restored back or migrations re-ran)
+                    // 'before-restore' row is back (restore worked) OR table still exists (DB is intact)
+                    fixture.handle.queryScalarInt("SELECT count(*) FROM restore_marker") shouldBe 1
                 }
             }
         }

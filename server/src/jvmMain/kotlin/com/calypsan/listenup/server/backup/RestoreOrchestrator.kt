@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
  * window, rolls back to the safety copy and reopens the pool on the original db.
  *
  * The [maintenance] gate is single-flight: only one restore can run at a time.
- * The [DatabaseHandle.database] object identity is preserved across the swap so repositories
+ * The [DatabaseHandle.sqlDriver] object identity is preserved across the swap so repositories
  * that captured it at construction keep working after the restore.
  */
 class RestoreOrchestrator(

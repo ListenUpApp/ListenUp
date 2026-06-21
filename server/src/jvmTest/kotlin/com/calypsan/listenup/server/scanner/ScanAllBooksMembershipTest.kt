@@ -21,16 +21,14 @@ import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * Verifies that a scanned book joins exactly ONE system collection, determined by the
@@ -51,13 +49,12 @@ class ScanAllBooksMembershipTest :
     FunSpec({
 
         test("inbox gate OFF: new book joins ALL_BOOKS and NOT INBOX") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                setInboxEnabled(db, "test-library", enabled = false)
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.setInboxEnabled("test-library", enabled = false)
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = allBooksFixture(db)
+                    val fx = allBooksFixture(this@withSqlDatabase)
                     val allBooksId = fx.resolveAllBooksId()
                     val inboxId = fx.resolveInboxId()
 
@@ -80,13 +77,12 @@ class ScanAllBooksMembershipTest :
         }
 
         test("inbox gate ON: new book joins INBOX and NOT ALL_BOOKS") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                setInboxEnabled(db, "test-library", enabled = true)
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.setInboxEnabled("test-library", enabled = true)
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = allBooksFixture(db)
+                    val fx = allBooksFixture(this@withSqlDatabase)
                     val allBooksId = fx.resolveAllBooksId()
                     val inboxId = fx.resolveInboxId()
 
@@ -109,13 +105,12 @@ class ScanAllBooksMembershipTest :
         }
 
         test("re-scan of an existing book does not add a new membership") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                setInboxEnabled(db, "test-library", enabled = false)
-                seedTestUser("admin", UserRoleColumn.ADMIN)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.setInboxEnabled("test-library", enabled = false)
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 runTest {
-                    val fx = allBooksFixture(db)
+                    val fx = allBooksFixture(this@withSqlDatabase)
                     val allBooksId = fx.resolveAllBooksId()
                     val analyzed = buildAnalyzedBook("Brandon/WayOfKings", inode = 12L)
 
@@ -168,41 +163,40 @@ private class AllBooksFixture(
     }
 }
 
-private fun allBooksFixture(db: Database): AllBooksFixture {
+private fun allBooksFixture(dbs: SqlTestDatabases): AllBooksFixture {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     val collectionBookRepo =
         CollectionBookRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = bus,
             registry = syncRegistry,
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = bus,
             registry = syncRegistry,
-            contributorRepository = ContributorRepository(db.asSqlDatabase(), bus, syncRegistry),
-            seriesRepository = SeriesRepository(db.asSqlDatabase(), bus, syncRegistry),
-            genreRepository = GenreRepository(db.asSqlDatabase(), bus, syncRegistry),
+            contributorRepository = ContributorRepository(dbs.sql, bus, syncRegistry),
+            seriesRepository = SeriesRepository(dbs.sql, bus, syncRegistry),
+            genreRepository = GenreRepository(dbs.sql, bus, syncRegistry),
             collectionBookRepository = collectionBookRepo,
         )
     val collectionRepo =
         CollectionRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = bus,
             registry = syncRegistry,
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
     val grantRepo =
         CollectionGrantRepository(
-            db = db.asSqlDatabase(),
+            db = dbs.sql,
             bus = bus,
             registry = syncRegistry,
-            driver = db.asSqlDriver(),
+            driver = dbs.driver,
         )
     val collections =
         CollectionServiceImpl(
@@ -210,9 +204,9 @@ private fun allBooksFixture(db: Database): AllBooksFixture {
             collectionBookRepo = collectionBookRepo,
             grantRepo = grantRepo,
             accessPolicy = CollectionAccessPolicy(collectionRepo, grantRepo),
-            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+            permissionPolicy = UserPermissionPolicy(dbs.sql),
             bus = bus,
-            db = db,
+            sql = dbs.sql,
             bookRevisionTouch = FakeBookRevisionTouch(),
             principal = PrincipalProvider { null },
         )

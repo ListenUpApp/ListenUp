@@ -23,6 +23,16 @@ CREATE TABLE book_audio_files (
 selectByBookIds:
 SELECT * FROM book_audio_files WHERE book_id IN :ids ORDER BY ordinal;
 
+-- Single audio file by (book_id, id) → its on-disk filename, container format, and byte
+-- size. AudioFileLocator joins this with the book's folder root to resolve an absolute path.
+selectFileForBook:
+SELECT filename, format, size FROM book_audio_files WHERE book_id = :book_id AND id = :id LIMIT 1;
+
+-- Primary audio file filename (lowest ordinal) for a book — ManagedCoverFiles uses this
+-- to resolve the embedded-cover audio file path for serve-time artwork extraction.
+selectPrimaryFilenameForBook:
+SELECT filename FROM book_audio_files WHERE book_id = :book_id ORDER BY ordinal LIMIT 1;
+
 insert:
 INSERT INTO book_audio_files (book_id, ordinal, id, filename, format, codec, duration, size)
 VALUES (:book_id, :ordinal, :id, :filename, :format, :codec, :duration, :size);

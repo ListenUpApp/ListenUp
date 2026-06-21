@@ -6,7 +6,6 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager
 
 private const val LIVE_TAIL_BUFFER = 256
 
@@ -94,16 +93,14 @@ class ChangeBus {
     /**
      * Emits [event] (paired with [repo]) onto the live tail **immediately**, with no
      * commit deferral. Use this only from a caller that is already past its storage
-     * commit — specifically the SQLDelight base's `afterCommit { }` hook, which fires
+     * commit — specifically [SqlSyncableRepository]'s `afterCommit { }` hook, which fires
      * after the SQLDelight transaction's JDBC commit, in publish order.
      *
-     * The Exposed base must keep using [publish]: it defers via the Exposed
-     * [TransactionManager]-keyed outbox so the firehose's delivery-time access checks
-     * never race an uncommitted write. SQLDelight has no Exposed transaction in scope,
-     * so the SQLDelight base does the deferral itself (registering this call as an
-     * `afterCommit` hook) and the bus must emit straight away when reached. `tryEmit`
-     * (not `emit`) matches [publish]: with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST`
-     * it always succeeds and never suspends the post-commit callback.
+     * The SQLDelight base does its own deferral (registering this call as an `afterCommit`
+     * hook) so the firehose's delivery-time access checks never race an uncommitted write,
+     * and the bus emits straight away once reached. `tryEmit` (not `emit`) matches [publish]:
+     * with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST` it always succeeds and never suspends
+     * the post-commit callback.
      */
     fun <T : Any> emit(
         repo: SyncableRepo<T>,
@@ -136,20 +133,18 @@ class ChangeBus {
     fun subscribeControl(): SharedFlow<ControlFrame> = controlFlow.asSharedFlow()
 
     /**
-     * Runs [emit] immediately when called outside a transaction; when inside one, defers it to the
-     * transaction's outbox so [CommitPublishingInterceptor] emits it only after the commit. This
-     * keeps the firehose's delivery-time access checks from racing an uncommitted write. `tryEmit`
-     * (not `emit`) is used because the deferred call runs in the non-suspend interceptor callback;
-     * with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST` it always succeeds.
+     * Runs [emit] immediately. The only callers ([publish], [publishControl],
+     * [broadcastControl]) fire outside any storage transaction, so there is nothing to defer
+     * against — the data write the event refers to is already durable by the time the emit runs.
+     * `tryEmit` (not `emit`) is used because, with `replay = LIVE_TAIL_BUFFER` + `DROP_OLDEST`,
+     * it always succeeds and never suspends the caller.
+     *
+     * Writes that DO need post-commit deferral (the SQLDelight aggregate repositories) never
+     * route through here: [SqlSyncableRepository] registers its live-tail emit as a SQLDelight
+     * `afterCommit` hook and calls [emit] directly once the JDBC commit has happened. That is the
+     * live deferral mechanism; this bus method is purely the immediate path.
      */
-    private fun emitOrDefer(emit: () -> Unit) {
-        val tx = TransactionManager.currentOrNull()
-        if (tx == null) {
-            emit()
-        } else {
-            tx.getOrCreate(FIREHOSE_OUTBOX_KEY) { mutableListOf() }.add(emit)
-        }
-    }
+    private fun emitOrDefer(emit: () -> Unit) = emit()
 
     companion object {
         /** Sentinel [ControlFrame.userId] marking a frame destined for every subscriber. */

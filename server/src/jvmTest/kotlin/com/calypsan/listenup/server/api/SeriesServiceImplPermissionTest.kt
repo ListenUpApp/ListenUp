@@ -2,9 +2,6 @@
 
 package com.calypsan.listenup.server.api
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -18,15 +15,15 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.memberPrincipal
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 /**
  * canEdit-gate tests for [SeriesServiceImpl] (closes MA holistic-review finding I1).
@@ -40,11 +37,10 @@ class SeriesServiceImplPermissionTest :
     FunSpec({
 
         test("updateSeries is denied for a MEMBER without canEdit") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                db.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
-                val deps = makeService(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member", UserRoleColumn.MEMBER, canEdit = false)
+                val deps = makeService(this)
                 runTest {
                     val seriesId = deps.seriesRepo.resolveOrCreate("Mistborn")
                     val service = deps.service.copyWith(memberPrincipal("member"))
@@ -58,11 +54,10 @@ class SeriesServiceImplPermissionTest :
         }
 
         test("updateSeries succeeds for a granted MEMBER (canEdit=true)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                db.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
-                val deps = makeService(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("editor", UserRoleColumn.MEMBER, canEdit = true)
+                val deps = makeService(this)
                 runTest {
                     val seriesId = deps.seriesRepo.resolveOrCreate("Mistborn")
                     val service = deps.service.copyWith(memberPrincipal("editor"))
@@ -75,10 +70,9 @@ class SeriesServiceImplPermissionTest :
         }
 
         test("updateSeries succeeds for an ADMIN (implicitly passes)") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                val deps = makeService(db)
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val deps = makeService(this)
                 runTest {
                     val seriesId = deps.seriesRepo.resolveOrCreate("Mistborn")
                     val service = deps.service.copyWith(rootPrincipal())
@@ -96,33 +90,31 @@ private data class PermServiceDeps(
     val seriesRepo: SeriesRepository,
 )
 
-private fun makeService(db: Database): PermServiceDeps {
+private fun makeService(dbs: SqlTestDatabases): PermServiceDeps {
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val seriesRepo = SeriesRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+    val contributorRepo = ContributorRepository(db = dbs.sql, bus = bus, registry = registry)
+    val seriesRepo = SeriesRepository(db = dbs.sql, bus = bus, registry = registry)
     val bookRepo =
         BookRepository(
-            db = db.asSqlDatabase(),
-            driver = db.asSqlDriver(),
-            exposedDb = db,
+            db = dbs.sql,
+            driver = dbs.driver,
             bus = bus,
             registry = registry,
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
-            genreRepository = GenreRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
+            genreRepository = GenreRepository(db = dbs.sql, bus = bus, registry = registry),
         )
-    val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db)
+    val tagRepo = TagRepository(db = dbs.sql, bus = bus, registry = registry)
+    val bookTagRepo = BookTagRepository(db = dbs.sql, bus = bus, registry = registry)
+    val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, dbs.sql, dbs.driver)
     val service =
         SeriesServiceImpl(
             seriesRepo = seriesRepo,
             bookRepo = bookRepo,
             reindexer = reindexer,
-            sqlDb = db.asSqlDatabase(),
-            db = db,
-            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
+            sqlDb = dbs.sql,
+            permissionPolicy = UserPermissionPolicy(dbs.sql),
         )
     return PermServiceDeps(service, seriesRepo)
 }

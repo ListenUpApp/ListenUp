@@ -2,15 +2,12 @@ package com.calypsan.listenup.server.seed
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
-import com.calypsan.listenup.server.db.MoodTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.MoodRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -68,7 +65,7 @@ private val DEFAULT_MOODS: List<SeedMood> =
  * Moods reference no other domain, so order is structural rather than functional.
  */
 internal class MoodDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val moodRepository: MoodRepository,
     private val clock: Clock = Clock.System,
 ) : DomainSeeder {
@@ -78,12 +75,8 @@ internal class MoodDomainSeeder(
 
     /** Returns true when at least one non-deleted mood row already exists. */
     override suspend fun isAlreadySeeded(): Boolean =
-        suspendTransaction(db) {
-            MoodTable
-                .selectAll()
-                .where { MoodTable.deletedAt.isNull() }
-                .limit(1)
-                .any()
+        suspendTransaction(sql) {
+            sql.moodsQueries.hasAnyLive().executeAsOne()
         }
 
     override suspend fun seed() {

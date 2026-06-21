@@ -1,8 +1,7 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.db.GenreTable
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 
 /**
  * Materializes an Audible category ladder (root → leaf) into a nested genre
@@ -23,13 +22,13 @@ import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
  * flattened ladder rungs as flat genres, then runs this to nest them.)
  *
  * Reuses [GenreAutoCreator] for find-or-create and the same materialized-path
- * primitives ([GenreTable.rewritePathPrefix], [GenreTable.updateParentId]) that
- * `GenreServiceImpl.moveGenre` uses to reparent. Each reparented rung is
+ * primitives (the SQLDelight `genresQueries.rewritePathPrefix` / `updateParentId`)
+ * that `GenreServiceImpl.moveGenre` uses to reparent. Each reparented rung is
  * re-upserted through [GenreRepository] so the substrate bumps the revision and
  * publishes a `genre.Updated` event — clients see the new nesting immediately.
  */
 internal class GenreHierarchyFromLadder(
-    private val db: Database,
+    private val sqlDb: ListenUpDatabase,
     private val genreRepository: GenreRepository,
     private val genreAutoCreator: GenreAutoCreator,
 ) {
@@ -72,8 +71,9 @@ internal class GenreHierarchyFromLadder(
      * Reparents the freshly-created flat genre [childId] under [parentId],
      * rewriting its materialized path and depth, then re-upserts it so the
      * substrate emits the change. The child is always a just-created leaf with no
-     * descendants, so the single-row [GenreTable.rewritePathPrefix] suffices.
-     * Mirrors `GenreServiceImpl.executeMove`.
+     * descendants, so the single-row path rewrite suffices. Mirrors
+     * `GenreServiceImpl.executeMove` (same SQLDelight queries, same `substr_from`
+     * = `oldPrefix.length + 1` convention).
      */
     private suspend fun reparentUnder(
         childId: String,
@@ -86,9 +86,15 @@ internal class GenreHierarchyFromLadder(
         if (newPath == child.path) return
         val depthDelta = parent.depth + 1 - child.depth
 
-        suspendTransaction(db) {
-            GenreTable.rewritePathPrefix(child.path, newPath, depthDelta)
-            GenreTable.updateParentId(childId, parentId)
+        suspendTransaction(sqlDb) {
+            sqlDb.genresQueries.rewritePathPrefix(
+                new_prefix = newPath,
+                // substr_from = oldPrefix.length + 1; CAST to INTEGER at eval time (see Genres.sq).
+                substr_from = (child.path.length + 1).toString(),
+                depth_delta = depthDelta.toLong(),
+                old_prefix = child.path,
+            )
+            sqlDb.genresQueries.updateParentId(parent_id = parentId, id = childId)
         }
 
         genreRepository.findById(childId)?.let { genreRepository.upsert(it) }

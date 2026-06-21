@@ -50,7 +50,6 @@ import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Cross-module E2E: the client's [BackupRepositoryImpl] drives the real `:server`
@@ -88,13 +87,11 @@ class BackupRpcE2ETest :
             val dbFile = homeDir.resolve("listenup.db")
             val handle =
                 DatabaseFactory.init(
-                    DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile", maxPoolSize = 4),
+                    DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile"),
                 )
             // Seed a marker row so the db isn't empty and restore has something to bring back.
-            transaction(handle.database) {
-                exec("CREATE TABLE IF NOT EXISTS restore_marker(v TEXT)")
-                exec("INSERT INTO restore_marker(v) VALUES ('before-restore')")
-            }
+            handle.sqlDriver.execute(null, "CREATE TABLE IF NOT EXISTS restore_marker(v TEXT)", 0)
+            handle.sqlDriver.execute(null, "INSERT INTO restore_marker(v) VALUES ('before-restore')", 0)
 
             val paths = BackupPaths(homeDir)
             val archive =

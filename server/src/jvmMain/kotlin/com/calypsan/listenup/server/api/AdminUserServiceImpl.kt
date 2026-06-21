@@ -21,19 +21,16 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
+import com.calypsan.listenup.server.auth.AuthUser
+import com.calypsan.listenup.server.auth.toAuthUser
 import com.calypsan.listenup.server.auth.toColumn
 import com.calypsan.listenup.server.auth.toContract
-import com.calypsan.listenup.server.db.UserEntity
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
-import org.jetbrains.exposed.v1.core.and
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.inList
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
@@ -58,7 +55,7 @@ import kotlin.time.ExperimentalTime
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  */
 class AdminUserServiceImpl(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val sessions: SessionService,
     private val settings: ServerSettingsRepository,
     private val registrationBroadcaster: RegistrationBroadcaster,
@@ -77,7 +74,7 @@ class AdminUserServiceImpl(
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
         AdminUserServiceImpl(
-            db,
+            sql,
             sessions,
             settings,
             registrationBroadcaster,
@@ -91,33 +88,33 @@ class AdminUserServiceImpl(
 
     override suspend fun listUsers(): AppResult<List<User>> {
         requireAdmin()?.let { return it }
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             AppResult.Success(
                 // ACTIVE only: pending/denied registrations have their own surfaces and must not
                 // appear in the active roster (#624). Soft-deleted users are excluded as always.
-                UserEntity
-                    .find { (UserTable.deletedAt eq null) and (UserTable.status eq UserStatusColumn.ACTIVE) }
-                    .map { it.toContract() },
+                sql.usersQueries
+                    .selectActiveLive()
+                    .executeAsList()
+                    .map { it.toAuthUser().toContract() },
             )
         }
     }
 
     override suspend fun listPendingUsers(): AppResult<List<User>> {
         requireAdmin()?.let { return it }
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             AppResult.Success(
-                UserEntity
-                    .find {
-                        (UserTable.deletedAt eq null) and
-                            (UserTable.status eq UserStatusColumn.PENDING_APPROVAL)
-                    }.map { it.toContract() },
+                sql.usersQueries
+                    .selectPendingLive()
+                    .executeAsList()
+                    .map { it.toAuthUser().toContract() },
             )
         }
     }
 
     override suspend fun getUser(id: UserId): AppResult<User> {
         requireAdmin()?.let { return it }
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             val user =
                 activeUser(id)
                     ?: return@suspendTransaction AppResult.Failure(AdminError.UserNotFound())
@@ -128,12 +125,14 @@ class AdminUserServiceImpl(
     override suspend fun searchUsers(query: String): AppResult<List<User>> {
         requireAdmin()?.let { return it }
         val needle = query.trim()
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             AppResult.Success(
                 // ACTIVE only: search is an active-roster operation; pending/denied registrations
                 // have their own surfaces and must not leak in (#624, sibling of listUsers).
-                UserEntity
-                    .find { (UserTable.deletedAt eq null) and (UserTable.status eq UserStatusColumn.ACTIVE) }
+                sql.usersQueries
+                    .selectActiveLive()
+                    .executeAsList()
+                    .map { it.toAuthUser() }
                     .filter {
                         it.displayName.contains(needle, ignoreCase = true) ||
                             it.email.contains(needle, ignoreCase = true)
@@ -147,7 +146,7 @@ class AdminUserServiceImpl(
         patch: AdminUserPatch,
     ): AppResult<User> {
         requireAdmin()?.let { return it }
-        return suspendTransaction(db) {
+        return suspendTransaction(sql) {
             val user =
                 activeUser(id)
                     ?: return@suspendTransaction AppResult.Failure(AdminError.UserNotFound())
@@ -155,14 +154,29 @@ class AdminUserServiceImpl(
             val roleChange = roleChangeFor(user, patch.role)
             roleChange?.let { return@suspendTransaction it }
 
-            patch.displayName?.let { user.displayName = it }
-            patch.role?.let { user.role = it.toColumn() }
-            patch.permissions?.let {
-                user.canEdit = it.canEdit
-                user.canShare = it.canShare
-            }
-            user.updatedAt = clock.now().toEpochMilliseconds()
-            AppResult.Success(user.toContract())
+            // Merge only the non-null patch fields, then write the merged row back.
+            val mergedDisplayName = patch.displayName ?: user.displayName
+            val mergedRole = patch.role?.toColumn() ?: user.role
+            val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
+            val mergedCanShare = patch.permissions?.canShare ?: user.canShare
+            val now = clock.now().toEpochMilliseconds()
+            sql.usersQueries.updateAdminFields(
+                display_name = mergedDisplayName,
+                role = mergedRole.name,
+                can_edit = mergedCanEdit.toDbLong(),
+                can_share = mergedCanShare.toDbLong(),
+                updated_at = now,
+                id = id.value,
+            )
+            AppResult.Success(
+                user
+                    .copy(
+                        displayName = mergedDisplayName,
+                        role = mergedRole,
+                        canEdit = mergedCanEdit,
+                        canShare = mergedCanShare,
+                    ).toContract(),
+            )
         }
     }
 
@@ -172,7 +186,7 @@ class AdminUserServiceImpl(
         if (caller.userId == id) return AppResult.Failure(AdminError.CannotDeleteSelf())
 
         val outcome: AppResult<Unit> =
-            suspendTransaction(db) {
+            suspendTransaction(sql) {
                 val user =
                     activeUser(id)
                         ?: return@suspendTransaction AppResult.Failure(AdminError.UserNotFound())
@@ -182,7 +196,7 @@ class AdminUserServiceImpl(
                 if (user.role == UserRoleColumn.ADMIN && countActiveAdmins() <= 1) {
                     return@suspendTransaction AppResult.Failure(AdminError.CannotDeleteLastAdmin())
                 }
-                user.deletedAt = clock.now().toEpochMilliseconds()
+                sql.usersQueries.markDeletedAt(deleted_at = clock.now().toEpochMilliseconds(), id = id.value)
                 AppResult.Success(Unit)
             }
 
@@ -214,18 +228,25 @@ class AdminUserServiceImpl(
         // transaction commits — mirrors InviteServiceImpl.claimInvite's pattern.
         var approvedUserRole: UserRoleColumn? = null
         val outcome: AppResult<PendingRegistrationOutcome> =
-            suspendTransaction(db) {
+            suspendTransaction(sql) {
                 val target =
-                    UserEntity.findById(request.userId.value)
+                    sql.usersQueries
+                        .selectById(request.userId.value)
+                        .executeAsOneOrNull()
+                        ?.toAuthUser()
                         ?: return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
                 if (target.status != UserStatusColumn.PENDING_APPROVAL) {
                     return@suspendTransaction AppResult.Failure(AuthError.PermissionDenied())
                 }
 
-                target.status = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
-                target.updatedAt = now
-                target.approvedBy = caller.userId.value
-                target.approvedAt = now
+                val newStatus = if (request.approved) UserStatusColumn.ACTIVE else UserStatusColumn.DENIED
+                sql.usersQueries.updateRegistrationDecision(
+                    status = newStatus.name,
+                    updated_at = now,
+                    approved_by = caller.userId.value,
+                    approved_at = now,
+                    id = request.userId.value,
+                )
 
                 if (request.approved) approvedUserRole = target.role
 
@@ -272,8 +293,13 @@ class AdminUserServiceImpl(
         return if (caller.role.isAdmin()) null else AppResult.Failure(AuthError.PermissionDenied())
     }
 
-    /** The live (non-deleted) user with [id], or null. Must run inside a transaction. */
-    private fun activeUser(id: UserId): UserEntity? = UserEntity.findById(id.value)?.takeIf { it.deletedAt == null }
+    /** The live (non-deleted) user with [id], or null. Must run inside a SQLDelight transaction. */
+    private fun activeUser(id: UserId): AuthUser? =
+        sql.usersQueries
+            .selectById(id.value)
+            .executeAsOneOrNull()
+            ?.toAuthUser()
+            ?.takeIf { it.deletedAt == null }
 
     /**
      * Validates a role change against the safety rails. Returns null when the
@@ -281,7 +307,7 @@ class AdminUserServiceImpl(
      * Must run inside a transaction (reads [countActiveAdmins]).
      */
     private fun roleChangeFor(
-        user: UserEntity,
+        user: AuthUser,
         newRole: UserRole?,
     ): AppResult.Failure? {
         if (newRole == null || newRole.toColumn() == user.role) return null
@@ -293,13 +319,11 @@ class AdminUserServiceImpl(
         return null
     }
 
-    /** Count of non-deleted ROOT+ADMIN users. Must run inside a transaction. */
-    private fun countActiveAdmins(): Long =
-        UserEntity
-            .find {
-                (UserTable.deletedAt eq null) and
-                    (UserTable.role inList listOf(UserRoleColumn.ROOT, UserRoleColumn.ADMIN))
-            }.count()
+    /** Count of non-deleted ROOT+ADMIN users. Must run inside a SQLDelight transaction. */
+    private fun countActiveAdmins(): Long = sql.usersQueries.countActiveAdmins().executeAsOne()
 
     private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 }
+
+/** Boolean → SQLite INTEGER (0/1) at the persistence boundary. */
+private fun Boolean.toDbLong(): Long = if (this) 1L else 0L

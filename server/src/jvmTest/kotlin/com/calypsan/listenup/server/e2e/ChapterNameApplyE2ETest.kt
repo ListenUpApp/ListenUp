@@ -41,9 +41,10 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.testEnrichmentDeps
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -56,9 +57,6 @@ import java.nio.file.Files
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.files.Path
-import org.jetbrains.exposed.v1.jdbc.Database
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 
 private val TEST_NOW = Instant.parse("2026-06-05T12:00:00Z")
 private const val ASIN = "B0CHAPTERS"
@@ -84,8 +82,8 @@ class ChapterNameApplyE2ETest :
     FunSpec({
 
         test("subset rename: only selected names change, all timestamps preserved") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val ctx = wire(this, audible("Prologue", "Chapter One", "Chapter Two"))
                 runTest {
                     ctx.bookRepo.upsert(
@@ -111,8 +109,8 @@ class ChapterNameApplyE2ETest :
         }
 
         test("mismatched edition: ChapterCountMismatch, book unchanged") {
-            withInMemoryDatabase {
-                seedTestLibraryAndFolder()
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
                 val ctx = wire(this, audible("A", "B", "C", "D", "E"))
                 runTest {
                     ctx.bookRepo.upsert(bookWith("e2e-book", local("Track 1", "Track 2", "Track 3")), clientOpId = null)
@@ -143,21 +141,21 @@ private data class Ctx(
 )
 
 private fun wire(
-    db: Database,
+    dbs: SqlTestDatabases,
     chapters: List<AudibleChapter>,
 ): Ctx {
     val tempDir = Files.createTempDirectory("chapter-e2e-").also { it.toFile().deleteOnExit() }
     val bus = ChangeBus()
     val registry = SyncRegistry()
-    val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-    val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-    val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-    val bookRepo = BookRepository(db.asSqlDatabase(), bus, registry, db.asSqlDriver(), db, contributorRepo, seriesRepo, genreRepo)
+    val contributorRepo = ContributorRepository(dbs.sql, bus, registry)
+    val seriesRepo = SeriesRepository(dbs.sql, bus, registry)
+    val genreRepo = GenreRepository(dbs.sql, bus, registry)
+    val bookRepo = BookRepository(dbs.sql, bus, registry, dbs.driver, contributorRepo, seriesRepo, genreRepo)
     val metadataService =
         MetadataService(
             audible = ChapterFakeAudibleApi(chapters),
             itunes = NoOpITunes(),
-            cache = MetadataCacheRepository(db.asSqlDatabase(), clock = FixedClock(TEST_NOW)),
+            cache = MetadataCacheRepository(dbs.sql, clock = FixedClock(TEST_NOW)),
         )
     val service =
         MetadataLookupServiceImpl(
@@ -178,9 +176,9 @@ private fun wire(
                     coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), 10L * 1024 * 1024)),
                     imageHome = Path(tempDir.toString()),
                 ),
-            enrichmentDeps = testEnrichmentDeps(db, bus, registry),
-            permissionPolicy = UserPermissionPolicy(db.asSqlDatabase()),
-            db = db,
+            enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, registry),
+            permissionPolicy = UserPermissionPolicy(dbs.sql),
+            sqlDb = dbs.sql,
             genreRepository = genreRepo,
             principal = PrincipalProvider { UserPrincipal(UserId("root"), SessionId("s"), UserRole.ROOT) },
         )

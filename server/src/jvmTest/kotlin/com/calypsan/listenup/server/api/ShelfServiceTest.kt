@@ -14,8 +14,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
-import com.calypsan.listenup.server.db.BookContributorTable
-import com.calypsan.listenup.server.db.ContributorTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -25,12 +24,11 @@ import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
+import app.cash.sqldelight.db.SqlDriver
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
@@ -38,9 +36,6 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Gating and happy-path tests for [ShelfServiceImpl].
@@ -63,30 +58,34 @@ class ShelfServiceTest :
             role: UserRole = UserRole.MEMBER,
         ): PrincipalProvider = PrincipalProvider { UserPrincipal(UserId(userId), SessionId("session-$userId"), role) }
 
-        fun makeService(db: Database): ShelfServiceImpl {
+        fun makeService(
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
+        ): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                readAssembler = ShelfReadAssembler(db),
+                shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(sql, driver),
+                readAssembler = ShelfReadAssembler(sql),
                 clock = fixedClock,
                 principal = principalFor("u1"),
             )
         }
 
         fun makeServiceWithRecorder(
-            db: Database,
+            sql: ListenUpDatabase,
+            driver: SqlDriver,
             activities: ActivityRepository,
         ): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return ShelfServiceImpl(
-                shelfRepo = ShelfRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                shelfBookRepo = ShelfBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry),
-                bookAccessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver()),
-                readAssembler = ShelfReadAssembler(db),
+                shelfRepo = ShelfRepository(db = sql, bus = bus, registry = registry),
+                shelfBookRepo = ShelfBookRepository(db = sql, bus = bus, registry = registry),
+                bookAccessPolicy = BookAccessPolicy(sql, driver),
+                readAssembler = ShelfReadAssembler(sql),
                 clock = fixedClock,
                 principal = principalFor("u1"),
                 activityRecorder = ActivityRecorder(repo = activities, bus = bus),
@@ -106,12 +105,11 @@ class ShelfServiceTest :
         // ── create / list / update / delete ────────────────────────────────────
 
         test("createShelf then listMyShelves shows it") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(sql, driver).actAs("u1")
                     val created = service.createShelf(name = "To Read", description = "later", isPrivate = false).value()
                     created.name shouldBe "To Read"
                     created.description shouldBe "later"
@@ -125,14 +123,13 @@ class ShelfServiceTest :
         }
 
         test("createShelf of a public shelf records one shelf_created with shelfId and shelfName") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val activities = ActivityRepository(db = db.asSqlDatabase())
+                    val activities = ActivityRepository(db = sql)
                     val created =
-                        makeServiceWithRecorder(db, activities)
+                        makeServiceWithRecorder(sql, driver, activities)
                             .actAs("u1")
                             .createShelf(name = "Winter Reads", isPrivate = false)
                             .value()
@@ -148,13 +145,12 @@ class ShelfServiceTest :
         }
 
         test("createShelf of a private shelf records no activity") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val activities = ActivityRepository(db = db.asSqlDatabase())
-                    makeServiceWithRecorder(db, activities)
+                    val activities = ActivityRepository(db = sql)
+                    makeServiceWithRecorder(sql, driver, activities)
                         .actAs("u1")
                         .createShelf(name = "Secret", isPrivate = true)
                         .value()
@@ -168,12 +164,11 @@ class ShelfServiceTest :
         }
 
         test("updateShelf changes name, description, and privacy") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(sql, driver).actAs("u1")
                     val created = service.createShelf(name = "Old", isPrivate = false).value()
 
                     val updated =
@@ -186,12 +181,11 @@ class ShelfServiceTest :
         }
 
         test("deleteShelf removes it from listMyShelves") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(sql, driver).actAs("u1")
                     val created = service.createShelf(name = "Temp").value()
 
                     service.deleteShelf(created.id).value()
@@ -201,12 +195,11 @@ class ShelfServiceTest :
         }
 
         test("createShelf with a blank name fails with InvalidName") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val result = makeService(db).actAs("u1").createShelf(name = "   ")
+                    val result = makeService(sql, driver).actAs("u1").createShelf(name = "   ")
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ShelfError.InvalidName>()
                 }
@@ -216,13 +209,12 @@ class ShelfServiceTest :
         // ── book membership + ordering (owner) ─────────────────────────────────
 
         test("addBook, reorder, and getShelf reflect the owner's ordering with titles and authors") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestBook("b1")
-                seedTestBook("b2")
-                seedAuthor(db, bookId = "b1", contributorId = "c1", name = "Ada Lovelace")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
+                seedAuthor(sql, bookId = "b1", contributorId = "c1", name = "Ada Lovelace")
                 runTest {
                     // Under pure union, u1 must see b1/b2 to shelve them. The simplest reach
                     // is a u1-owned collection (owner branch — no grant, no system user needed).
@@ -230,17 +222,17 @@ class ShelfServiceTest :
                     val registry = SyncRegistry()
                     val collectionRepo =
                         CollectionRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = driver,
                         )
                     val collectionBookRepo =
                         CollectionBookRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = driver,
                         )
                     collectionRepo.upsert(
                         CollectionSyncPayload(
@@ -260,7 +252,7 @@ class ShelfServiceTest :
                         CollectionBookSyncPayload(collectionId = "u1-col", bookId = "b2", createdAt = 0L, revision = 0L),
                     )
 
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(sql, driver).actAs("u1")
                     val shelf = service.createShelf(name = "Reading").value()
 
                     service.addBookToShelf(shelf.id, BookId("b1")).value()
@@ -287,29 +279,28 @@ class ShelfServiceTest :
         }
 
         test("addBookToShelf with a book the owner cannot access fails with NotFound") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("hidden")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("hidden")
                 runTest {
                     // "hidden" is in u2's PRIVATE collection — invisible to MEMBER u1.
                     val bus = ChangeBus()
                     val registry = SyncRegistry()
                     val collectionRepo =
                         CollectionRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = driver,
                         )
                     val collectionBookRepo =
                         CollectionBookRepository(
-                            db = db.asSqlDatabase(),
+                            db = sql,
                             bus = bus,
                             registry = registry,
-                            driver = db.asSqlDriver(),
+                            driver = driver,
                         )
                     collectionRepo.upsert(
                         CollectionSyncPayload(
@@ -326,7 +317,7 @@ class ShelfServiceTest :
                         CollectionBookSyncPayload(collectionId = "priv", bookId = "hidden", createdAt = 0L, revision = 0L),
                     )
 
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(sql, driver).actAs("u1")
                     val shelf = service.createShelf(name = "Reading").value()
 
                     val result = service.addBookToShelf(shelf.id, BookId("hidden"))
@@ -339,17 +330,16 @@ class ShelfServiceTest :
         // ── ownership gating (Forbidden vs NotFound) ───────────────────────────
 
         test("a non-owner MEMBER is Forbidden from mutating another user's shelf") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
-                seedTestBook("b1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                sql.seedTestBook("b1")
                 runTest {
-                    val owner = makeService(db).actAs("u1")
+                    val owner = makeService(sql, driver).actAs("u1")
                     val shelf = owner.createShelf(name = "Mine").value()
 
-                    val intruder = makeService(db).actAs("u2")
+                    val intruder = makeService(sql, driver).actAs("u2")
                     intruder.updateShelf(shelf.id, "Hijacked", "", false).expectForbidden()
                     intruder.deleteShelf(shelf.id).expectForbidden()
                     intruder.addBookToShelf(shelf.id, BookId("b1")).expectForbidden()
@@ -360,12 +350,11 @@ class ShelfServiceTest :
         }
 
         test("mutating a non-existent shelf fails with NotFound") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
                 runTest {
-                    val service = makeService(db).actAs("u1")
+                    val service = makeService(sql, driver).actAs("u1")
                     val result = service.updateShelf(ShelfId("ghost"), "x", "", false)
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<ShelfError.NotFound>()
@@ -374,13 +363,12 @@ class ShelfServiceTest :
         }
 
         test("listMyShelves returns only the caller's own shelves") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
-                    val base = makeService(db)
+                    val base = makeService(sql, driver)
                     base.actAs("u1").createShelf(name = "u1 shelf").value()
                     base.actAs("u2").createShelf(name = "u2 shelf").value()
 
@@ -394,13 +382,12 @@ class ShelfServiceTest :
         // ── getShelf access basics (full matrix is ShelfAccessTest) ─────────────
 
         test("getShelf returns NotFound to a non-owner on a private shelf") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestUser("u1")
-                seedTestUser("u2")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
                 runTest {
-                    val base = makeService(db)
+                    val base = makeService(sql, driver)
                     val shelf = base.actAs("u1").createShelf(name = "Secret", isPrivate = true).value()
 
                     val result = base.actAs("u2").getShelf(shelf.id)
@@ -419,26 +406,36 @@ private fun AppResult<*>.expectForbidden() {
 
 /** Seeds an `author`-role contributor credit linking [contributorId] ([name]) to [bookId]. */
 private fun seedAuthor(
-    db: Database,
+    sql: ListenUpDatabase,
     bookId: String,
     contributorId: String,
     name: String,
 ) {
-    transaction(db) {
-        ContributorTable.insert {
-            it[ContributorTable.id] = contributorId
-            it[ContributorTable.normalizedName] = name.lowercase()
-            it[ContributorTable.name] = name
-            it[ContributorTable.sortName] = name
-            it[ContributorTable.revision] = 0L
-            it[ContributorTable.createdAt] = 0L
-            it[ContributorTable.updatedAt] = 0L
-        }
-        BookContributorTable.insert {
-            it[BookContributorTable.bookId] = bookId
-            it[BookContributorTable.contributorId] = contributorId
-            it[BookContributorTable.role] = "author"
-            it[BookContributorTable.ordinal] = 0
-        }
+    sql.transaction {
+        sql.contributorsQueries.insert(
+            id = contributorId,
+            normalized_name = name.lowercase(),
+            name = name,
+            sort_name = name,
+            revision = 0L,
+            created_at = 0L,
+            updated_at = 0L,
+            deleted_at = null,
+            client_op_id = null,
+            asin = null,
+            description = null,
+            image_path = null,
+            image_blur_hash = null,
+            birth_date = null,
+            death_date = null,
+            website = null,
+        )
+        sql.bookContributorsQueries.insert(
+            book_id = bookId,
+            contributor_id = contributorId,
+            role = "author",
+            credited_as = null,
+            ordinal = 0,
+        )
     }
 }

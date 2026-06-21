@@ -32,7 +32,6 @@ import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.cover.CoverImageStore
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import org.jetbrains.exposed.v1.jdbc.Database
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
@@ -108,7 +107,7 @@ fun booksModule(
     module {
         single {
             LibraryRegistry(
-                db = get(),
+                sql = get(),
                 metadataPrecedence = metadataPrecedence,
             )
         }
@@ -128,7 +127,6 @@ fun booksModule(
                 bus = get(),
                 registry = get(),
                 driver = get<SqlDriver>(),
-                exposedDb = get(),
                 contributorRepository = get(),
                 seriesRepository = get(),
                 genreRepository = get<GenreRepository>(),
@@ -150,7 +148,7 @@ fun booksModule(
                 contributorRepo = get<ContributorRepository>(),
                 seriesRepo = get<SeriesRepository>(),
                 coverStorage = get<CoverStorage>(),
-                db = get(),
+                sql = get<ListenUpDatabase>(),
                 genreRepo = get<GenreRepository>(),
                 accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
@@ -164,7 +162,6 @@ fun booksModule(
                 bookRepo = get(),
                 reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
-                db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("ContributorService"),
             )
@@ -175,7 +172,6 @@ fun booksModule(
                 bookRepo = get(),
                 reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
-                db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("SeriesService"),
             )
@@ -186,7 +182,6 @@ fun booksModule(
                 tagRepository = get<TagRepository>(),
                 bookTagRepository = get<BookTagRepository>(),
                 reindexer = get<BookSearchReindexer>(),
-                db = get(),
                 sql = get<ListenUpDatabase>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("TagService"),
@@ -199,7 +194,6 @@ fun booksModule(
                 bookRepository = get<BookRepository>(),
                 reindexer = get<BookSearchReindexer>(),
                 sqlDb = get<ListenUpDatabase>(),
-                db = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("GenreService"),
             )
@@ -213,7 +207,7 @@ fun booksModule(
                 accessPolicy = get(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 bus = get(),
-                db = get(),
+                sql = get<ListenUpDatabase>(),
                 clock = get(),
                 bookRevisionTouch = get<BookRepository>(),
                 principal = unscopedPlaceholder("CollectionService"),
@@ -239,8 +233,14 @@ private fun Module.searchBindings() {
             principal = unscopedPlaceholder("SearchService"),
         )
     }
-    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<Database>()) }
-    single { SearchReindexService(db = get(), reindexer = get<BookSearchReindexer>()) }
+    single { BookSearchReindexer(get(), get(), get<ListenUpDatabase>(), get<SqlDriver>()) }
+    single {
+        SearchReindexService(
+            db = get<ListenUpDatabase>(),
+            driver = get<SqlDriver>(),
+            reindexer = get<BookSearchReindexer>(),
+        )
+    }
 }
 
 /**
@@ -266,13 +266,12 @@ private fun Module.moodBindings() {
         MoodServiceImpl(
             moodRepository = get<MoodRepository>(),
             bookMoodRepository = get<BookMoodRepository>(),
-            db = get(),
             sql = get<ListenUpDatabase>(),
             permissionPolicy = get<UserPermissionPolicy>(),
             principal = unscopedPlaceholder("MoodService"),
         )
     }
-    single { MoodDomainSeeder(db = get(), moodRepository = get<MoodRepository>()) }
+    single { MoodDomainSeeder(sql = get(), moodRepository = get<MoodRepository>()) }
 }
 
 /**
@@ -326,7 +325,7 @@ private fun Module.coverAndPersisterBindings(
             libraryRegistry = get(),
             libraryRepository = get(),
             collectionService = get<CollectionServiceImpl>(),
-            db = get(),
+            sql = get<ListenUpDatabase>(),
             scanResultBus = get<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults),
             eventBus = get<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents),
             scope = get(),

@@ -10,17 +10,15 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
+import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import kotlinx.coroutines.test.runTest
-import org.jetbrains.exposed.v1.jdbc.Database
 
 private const val PULL_LIMIT = 100
 
@@ -40,13 +38,13 @@ private const val PULL_LIMIT = 100
 class SystemCollectionSyncExclusionTest :
     FunSpec({
 
-        fun makeRepos(db: Database): Triple<CollectionRepository, CollectionGrantRepository, CollectionBookRepository> {
+        fun makeRepos(dbs: SqlTestDatabases): Triple<CollectionRepository, CollectionGrantRepository, CollectionBookRepository> {
             val bus = ChangeBus()
             val registry = SyncRegistry()
             return Triple(
-                CollectionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
-                CollectionGrantRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
-                CollectionBookRepository(db = db.asSqlDatabase(), bus = bus, registry = registry, driver = db.asSqlDriver()),
+                CollectionRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver),
+                CollectionGrantRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver),
+                CollectionBookRepository(db = dbs.sql, bus = bus, registry = registry, driver = dbs.driver),
             )
         }
 
@@ -65,16 +63,16 @@ class SystemCollectionSyncExclusionTest :
          *          normalGrantId, defaultAllBooksGrantId, bookInAllBooks, bookInNormal)
          */
         suspend fun seedFixture(
-            db: Database,
+            dbs: SqlTestDatabases,
             collections: CollectionRepository,
             grants: CollectionGrantRepository,
             memberships: CollectionBookRepository,
         ): FixtureIds {
-            db.seedTestLibraryAndFolder()
-            db.seedTestUser("member")
-            db.seedTestUser("stranger")
-            db.seedTestBook("book-in-all-books")
-            db.seedTestBook("book-in-normal")
+            dbs.sql.seedTestLibraryAndFolder()
+            dbs.sql.seedTestUser("member")
+            dbs.sql.seedTestUser("stranger")
+            dbs.sql.seedTestBook("book-in-all-books")
+            dbs.sql.seedTestBook("book-in-normal")
 
             // System ALL_BOOKS collection — type is stamped server-side via setType
             collections.upsert(systemCollectionFixture("all-books-col", isInbox = false))
@@ -113,13 +111,12 @@ class SystemCollectionSyncExclusionTest :
         // ---- accessibleCollectionIdsSql ----
 
         test("accessibleCollectionIdsSql excludes ALL_BOOKS and INBOX for member") {
-            withInMemoryDatabase {
-                val db = this
-                val (collections, grants, memberships) = makeRepos(db)
+            withSqlDatabase {
+                val (collections, grants, memberships) = makeRepos(this)
                 runTest {
-                    val ids = seedFixture(db, collections, grants, memberships)
+                    val ids = seedFixture(this@withSqlDatabase, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.accessibleCollectionIdsSql("member", UserRole.MEMBER)
 
                     val page = collections.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -136,13 +133,12 @@ class SystemCollectionSyncExclusionTest :
         // ---- accessibleCollectionBookIdsSql ----
 
         test("accessibleCollectionBookIdsSql excludes ALL_BOOKS and INBOX membership rows for member") {
-            withInMemoryDatabase {
-                val db = this
-                val (collections, grants, memberships) = makeRepos(db)
+            withSqlDatabase {
+                val (collections, grants, memberships) = makeRepos(this)
                 runTest {
-                    val ids = seedFixture(db, collections, grants, memberships)
+                    val ids = seedFixture(this@withSqlDatabase, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.accessibleCollectionBookIdsSql("member", UserRole.MEMBER)
 
                     val page = memberships.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -158,13 +154,12 @@ class SystemCollectionSyncExclusionTest :
         // ---- visibleCollectionGrantIdsSql ----
 
         test("visibleCollectionGrantIdsSql excludes the member's default ALL_BOOKS grant") {
-            withInMemoryDatabase {
-                val db = this
-                val (collections, grants, memberships) = makeRepos(db)
+            withSqlDatabase {
+                val (collections, grants, memberships) = makeRepos(this)
                 runTest {
-                    val ids = seedFixture(db, collections, grants, memberships)
+                    val ids = seedFixture(this@withSqlDatabase, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
                     val frag = policy.visibleCollectionGrantIdsSql("member", UserRole.MEMBER)
 
                     val page = grants.pullSince(userId = null, cursor = 0, limit = PULL_LIMIT, extraWhere = frag)
@@ -179,13 +174,12 @@ class SystemCollectionSyncExclusionTest :
         // ---- accessibleBookIdsSql — non-regression ----
 
         test("accessibleBookIdsSql STILL returns book in ALL_BOOKS (book-level visibility unchanged)") {
-            withInMemoryDatabase {
-                val db = this
-                val (collections, grants, memberships) = makeRepos(db)
+            withSqlDatabase {
+                val (collections, grants, memberships) = makeRepos(this)
                 runTest {
-                    val ids = seedFixture(db, collections, grants, memberships)
+                    val ids = seedFixture(this@withSqlDatabase, collections, grants, memberships)
 
-                    val policy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                    val policy = BookAccessPolicy(sql, driver)
 
                     // The book in ALL_BOOKS is reachable via the grant branch even though
                     // ALL_BOOKS itself is excluded from the collection-domain sync fragments.

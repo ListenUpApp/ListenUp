@@ -3,17 +3,12 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.CollectionServiceImpl
-import com.calypsan.listenup.server.db.LibraryTable
-import com.calypsan.listenup.server.db.UserTable
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.CollectionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.util.UUID
 import kotlin.time.Clock
-import org.jetbrains.exposed.v1.core.eq
-import org.jetbrains.exposed.v1.core.isNull
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.selectAll
-import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
 
 private val logger = KotlinLogging.logger {}
 
@@ -39,7 +34,7 @@ private const val DEMO_COLLECTION_NAME = "Favourites"
  * already exist, both of which run earlier.
  */
 internal class CollectionDomainSeeder(
-    private val db: Database,
+    private val sql: ListenUpDatabase,
     private val collectionRepo: CollectionRepository,
     private val collectionService: CollectionServiceImpl,
     private val clock: Clock = Clock.System,
@@ -104,22 +99,16 @@ internal class CollectionDomainSeeder(
 
     /** Returns the first non-deleted library's id, or null when none exists yet. */
     private suspend fun demoLibraryId(): String? =
-        suspendTransaction(db) {
-            LibraryTable
-                .selectAll()
-                .where { LibraryTable.deletedAt.isNull() }
-                .firstOrNull()
-                ?.get(LibraryTable.id)
+        suspendTransaction(sql) {
+            sql.librariesQueries.selectFirstLiveId().executeAsOneOrNull()
         }
 
     /** Returns the demo user's id string, or null if not yet in the database. */
     private suspend fun demoUserId(): String? =
-        suspendTransaction(db) {
-            UserTable
-                .selectAll()
-                .where { UserTable.email eq UserDomainSeeder.DEMO_EMAIL }
-                .firstOrNull()
-                ?.get(UserTable.id)
-                ?.value
+        suspendTransaction(sql) {
+            sql.usersQueries
+                .selectByEmailNormalized(email_normalized = UserDomainSeeder.DEMO_EMAIL)
+                .executeAsOneOrNull()
+                ?.id
         }
 }
