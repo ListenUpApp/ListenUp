@@ -45,6 +45,7 @@ CREATE TABLE books (
     cover_source     TEXT,
     cover_path       TEXT,
     cover_hash       TEXT,
+    chapter_source   TEXT    NOT NULL DEFAULT 'embedded',
     root_rel_path    TEXT    NOT NULL,
     inode            INTEGER,
     scanned_at       INTEGER NOT NULL,
