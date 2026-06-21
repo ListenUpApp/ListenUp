@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asSharedFlow
  * `ActivityChanged` nudge or on firehose reconnect. The activity-feed repository re-fetches
  * the feed head on each ping.
  */
-class ActivityRefreshSignal {
+internal class ActivityRefreshSignal {
     private val flow = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
 
     /** Hot stream of activity-changed pings. */

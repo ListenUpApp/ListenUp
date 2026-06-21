@@ -17,17 +17,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
  */
 class DataSyncIsInternalRule :
     FunSpec({
-        // Symbols that must stay public despite living in data.sync (cross-module
-        // consumers documented in the spec's "Flip exceptions"). Empty if the flip was clean.
-        val allowList =
-            setOf(
-                // Exposed by the cross-module-public `data.connection.ConnectionCoordinator`
-                // constructor and `presentation.discover.ActivityFeedViewModel`.
-                "SyncEngineState",
-                "EngineSnapshot",
-                "ConnectionState",
-                "ActivityRefreshSignal",
-            )
+        // Empty — the entire data.sync package is internal, no exceptions. The former 4
+        // (SyncEngineState/EngineSnapshot/ConnectionState/ActivityRefreshSignal) were reclaimed by
+        // narrowing the ConnectionCoordinator + ActivityFeedViewModel constructors to internal.
+        val allowList = emptySet<String>()
 
         test("no top-level declaration in data/sync is public") {
             val scope = Konsist.scopeFromProduction()

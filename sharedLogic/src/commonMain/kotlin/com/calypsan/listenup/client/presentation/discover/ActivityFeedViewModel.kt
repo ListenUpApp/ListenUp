@@ -41,7 +41,7 @@ private const val MAX_ACTIVITIES = 100
  * @property fetchActivitiesUseCase Use case for fetching activities from the feed RPC
  * @property refreshSignal Pings when the feed may have changed (nudge or reconnect)
  */
-class ActivityFeedViewModel(
+class ActivityFeedViewModel internal constructor(
     private val activityRepository: ActivityRepository,
     private val fetchActivitiesUseCase: FetchActivitiesUseCase,
     private val refreshSignal: ActivityRefreshSignal,
