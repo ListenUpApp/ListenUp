@@ -5,8 +5,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
+import com.calypsan.listenup.client.data.repository.toDomain
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import kotlinx.coroutines.flow.Flow
@@ -35,17 +38,20 @@ open class FakeDownloadRepository(
 
     // --- Reads ---
 
-    override fun observeForBook(bookId: BookId): Flow<List<DownloadEntity>> =
-        state.asStateFlow().map { it.values.filter { e -> e.bookId == bookId.value } }
+    override fun observeForBook(bookId: BookId): Flow<List<Download>> =
+        state.asStateFlow().map { it.values.filter { e -> e.bookId == bookId.value }.map { it.toDomain() } }
 
-    override fun observeAll(): Flow<List<DownloadEntity>> = state.asStateFlow().map { it.values.toList() }
+    override fun observeAll(): Flow<List<Download>> =
+        state.asStateFlow().map { it.values.toList().map { it.toDomain() } }
 
     override fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus> =
-        observeForBook(bookId).map { aggregate(bookId.value, it) }
+        state.asStateFlow().map { entities ->
+            aggregate(bookId.value, entities.values.filter { it.bookId == bookId.value })
+        }
 
     override fun observeAllStatuses(): Flow<Map<String, BookDownloadStatus>> =
-        observeAll().map { downloads ->
-            downloads
+        state.asStateFlow().map { entities ->
+            entities.values
                 .groupBy { it.bookId }
                 .mapValues { (bid, files) -> aggregate(bid, files) }
         }
@@ -55,7 +61,8 @@ open class FakeDownloadRepository(
     override suspend fun getLocalPath(audioFileId: String): String? =
         state.value[audioFileId]?.takeIf { it.state == DownloadState.COMPLETED }?.localPath
 
-    override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? = state.value[audioFileId]?.state
+    override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? =
+        state.value[audioFileId]?.state?.toDomain()
 
     // --- State-transition writes ---
 

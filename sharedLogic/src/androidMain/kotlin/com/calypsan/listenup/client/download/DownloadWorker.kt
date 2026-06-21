@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.data.local.db.DownloadState
+import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -136,7 +136,7 @@ class DownloadWorker(
         filename: String,
     ) {
         val rowState = downloadRepository.getStateForAudioFile(audioFileId)
-        if (rowState != DownloadState.CANCELLED) return
+        if (rowState != DownloadStatus.CANCELLED) return
         val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = true)
         if (!SystemFileSystem.exists(tempPath)) return
         try {

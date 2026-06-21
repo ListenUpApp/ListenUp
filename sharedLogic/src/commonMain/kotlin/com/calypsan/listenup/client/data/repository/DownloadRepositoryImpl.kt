@@ -8,7 +8,9 @@ import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
+import com.calypsan.listenup.client.domain.model.Download
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadedBookSummary
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
@@ -27,9 +29,11 @@ internal class DownloadRepositoryImpl(
 ) : DownloadRepository {
     // --- Reads ---
 
-    override fun observeForBook(bookId: BookId): Flow<List<DownloadEntity>> = downloadDao.observeForBook(bookId.value)
+    override fun observeForBook(bookId: BookId): Flow<List<Download>> =
+        downloadDao.observeForBook(bookId.value).map { entities -> entities.map { it.toDomain() } }
 
-    override fun observeAll(): Flow<List<DownloadEntity>> = downloadDao.observeAll()
+    override fun observeAll(): Flow<List<Download>> =
+        downloadDao.observeAll().map { entities -> entities.map { it.toDomain() } }
 
     override fun observeBookStatus(bookId: BookId): Flow<BookDownloadStatus> =
         downloadDao.observeForBook(bookId.value).map { aggregate(bookId.value, it) }
@@ -71,8 +75,8 @@ internal class DownloadRepositoryImpl(
 
     override suspend fun getLocalPath(audioFileId: String): String? = downloadDao.getLocalPath(audioFileId)
 
-    override suspend fun getStateForAudioFile(audioFileId: String): DownloadState? =
-        downloadDao.getByAudioFileId(audioFileId)?.state
+    override suspend fun getStateForAudioFile(audioFileId: String): DownloadStatus? =
+        downloadDao.getByAudioFileId(audioFileId)?.state?.toDomain()
 
     // --- State-transition writes ---
 
@@ -214,3 +218,33 @@ internal class DownloadRepositoryImpl(
         }
     }
 }
+
+// --- Entity → domain mapping (internal so commonTest can use the canonical definitions) ---
+
+internal fun DownloadEntity.toDomain(): Download =
+    Download(
+        audioFileId = audioFileId,
+        bookId = bookId,
+        filename = filename,
+        fileIndex = fileIndex,
+        status = state.toDomain(),
+        localPath = localPath,
+        totalBytes = totalBytes,
+        downloadedBytes = downloadedBytes,
+        queuedAt = queuedAt,
+        startedAt = startedAt,
+        completedAt = completedAt,
+        errorMessage = errorMessage,
+        retryCount = retryCount,
+    )
+
+internal fun DownloadState.toDomain(): DownloadStatus =
+    when (this) {
+        DownloadState.QUEUED -> DownloadStatus.QUEUED
+        DownloadState.DOWNLOADING -> DownloadStatus.DOWNLOADING
+        DownloadState.PAUSED -> DownloadStatus.PAUSED
+        DownloadState.COMPLETED -> DownloadStatus.COMPLETED
+        DownloadState.FAILED -> DownloadStatus.FAILED
+        DownloadState.DELETED -> DownloadStatus.DELETED
+        DownloadState.CANCELLED -> DownloadStatus.CANCELLED
+    }
