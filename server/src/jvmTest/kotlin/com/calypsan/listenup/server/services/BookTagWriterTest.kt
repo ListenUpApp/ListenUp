@@ -1,7 +1,5 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -11,7 +9,7 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -22,15 +20,14 @@ import kotlinx.coroutines.test.runTest
 class BookTagWriterTest :
     FunSpec({
         test("writeScanTags links a deduped set of live tags, case-insensitively") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
-                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
+                val tagRepository = TagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -46,15 +43,14 @@ class BookTagWriterTest :
         }
 
         test("setBookTags reconciles to exactly the selection — adds new, removes absent, keeps kept") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
-                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
+                val tagRepository = TagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -68,15 +64,14 @@ class BookTagWriterTest :
         }
 
         test("setBookTags with an empty selection removes all of the book's tags") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
-                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
+                val tagRepository = TagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
@@ -89,15 +84,14 @@ class BookTagWriterTest :
         }
 
         test("writeScanTags is add-only — a manually-added tag survives a rescan") {
-            withInMemoryDatabase {
-                val db = this
-                seedTestLibraryAndFolder()
-                seedTestBook("book-1")
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book-1")
 
                 val registry = SyncRegistry()
                 val bus = ChangeBus()
-                val tagRepository = TagRepository(db.asSqlDatabase(), bus, registry)
-                val bookTagRepository = BookTagRepository(db.asSqlDatabase(), bus, registry)
+                val tagRepository = TagRepository(sql, bus, registry)
+                val bookTagRepository = BookTagRepository(sql, bus, registry)
                 val writer = BookTagWriter(Clock.System, tagRepository, bookTagRepository)
 
                 runTest {
