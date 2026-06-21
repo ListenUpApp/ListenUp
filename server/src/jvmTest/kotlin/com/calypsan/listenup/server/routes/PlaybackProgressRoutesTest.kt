@@ -14,14 +14,12 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -67,11 +65,10 @@ class PlaybackProgressRoutesTest :
         fun withProgressTestApp(
             block: suspend ProgressTestScope.() -> Unit,
         ) {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val repo = PlaybackPositionRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
+                val repo = PlaybackPositionRepository(db = sql, bus = bus, registry = registry)
                 val service =
                     PlaybackProgressServiceImpl(
                         repository = repo,
@@ -79,25 +76,25 @@ class PlaybackProgressRoutesTest :
                     )
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
+                        install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
                                 playbackProgressRoutes(service, accessPolicy)
@@ -110,7 +107,7 @@ class PlaybackProgressRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    ProgressTestScope(jsonClient, repo, db, collectionRepo, collectionBookRepo).block()
+                    ProgressTestScope(jsonClient, repo, sql, collectionRepo, collectionBookRepo).block()
                 }
             }
         }
@@ -247,10 +244,10 @@ class PlaybackProgressRoutesTest :
 
         test("POST /api/v1/playback-progress/batch drops a member's inaccessible book id from the response") {
             withProgressTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("reachable")
-                db.seedTestBook("forbidden")
-                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("reachable")
+                sql.seedTestBook("forbidden")
+                sql.seedTestUser("member", UserRoleColumn.MEMBER)
                 // The member owns the collection holding "reachable"; "forbidden" is locked
                 // in a stranger's private collection. The member has their own progress on
                 // BOTH books (progress is per-user), but the gate must filter the forbidden
@@ -295,9 +292,9 @@ class PlaybackProgressRoutesTest :
 
         test("POST /api/v1/playback-progress/batch keeps a forbidden book id for an admin (bypass)") {
             withProgressTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("forbidden")
-                db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("forbidden")
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 // "forbidden" is private to a stranger; the admin has no relationship to it
                 // but ADMIN bypasses the filter, so their own progress on it is returned.
                 collectionRepo.upsert(privateProgressCollection("stranger-col", owner = "stranger"))
@@ -394,7 +391,7 @@ class PlaybackProgressRoutesTest :
 private data class ProgressTestScope(
     val client: io.ktor.client.HttpClient,
     val repo: PlaybackPositionRepository,
-    val db: org.jetbrains.exposed.v1.jdbc.Database,
+    val sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
 )

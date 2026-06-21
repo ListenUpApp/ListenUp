@@ -231,7 +231,7 @@ private fun ListenUpDatabase.seedBook(
         explicit = 0L,
         has_scan_warning = 0L,
         total_duration = if (coverHash == null) 0L else 1000L,
-        cover_source = if (coverHash == null) null else "filesystem",
+        cover_source = coverHash?.let { "filesystem" },
         cover_path = null,
         cover_hash = coverHash,
         root_rel_path = "path/$bookId",

@@ -19,8 +19,6 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
 import com.calypsan.listenup.server.testing.roleOf
 import com.calypsan.listenup.server.testing.rootPrincipal
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -72,37 +70,33 @@ class TagRoutesTest :
          */
         fun withTagTestApp(block: suspend TagTestScope.() -> Unit) {
             withSqlDatabase {
-                val db = exposed
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                // Tag + BookTag are on SQLDelight; the rest of the wiring (reindexer,
-                // collection repos, access policy, the service db, roleOf) still speaks
-                // Exposed during the cutover — both views share the one migrated file.
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, db.asSqlDriver())
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
                 val service = TagServiceImpl(tagRepo, bookTagRepo, reindexer, sql, principal = rootPrincipal())
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
+                        install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
                                 tagRoutes(service, accessPolicy)
@@ -115,7 +109,7 @@ class TagRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    TagTestScope(jsonClient, service, db, collectionRepo, collectionBookRepo).block()
+                    TagTestScope(jsonClient, service, sql, collectionRepo, collectionBookRepo).block()
                 }
             }
         }
@@ -133,9 +127,9 @@ class TagRoutesTest :
 
         test("GET /api/v1/tags returns 200 with all tags and their book counts") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
-                db.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 runTest {
                     service.addTagToBook(BookId("book1"), "Fantasy")
                     service.addTagToBook(BookId("book2"), "Fantasy")
@@ -176,8 +170,8 @@ class TagRoutesTest :
 
         test("GET /api/v1/tags/by-slug/{slug} returns 200 with tag for existing slug") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 runTest {
                     service.addTagToBook(BookId("book1"), "Sci-Fi")
                 }
@@ -195,9 +189,9 @@ class TagRoutesTest :
 
         test("GET /api/v1/tags/{tagId}/books returns 200 with book ids for the tag") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
-                db.seedTestBook("book2")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
                 runTest {
                     service.addTagToBook(BookId("book1"), "Mystery")
                     service.addTagToBook(BookId("book2"), "Mystery")
@@ -219,8 +213,8 @@ class TagRoutesTest :
 
         test("GET /api/v1/books/{bookId}/tags returns 200 with empty list for book with no tags") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
 
                 val response = client.get("/api/v1/books/book1/tags") { bearerAuth("u1") }
                 response.status shouldBe HttpStatusCode.OK
@@ -238,9 +232,9 @@ class TagRoutesTest :
 
         test("GET /api/v1/books/{bookId}/tags returns 404 for a member who can't reach a private book") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
-                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("member", UserRoleColumn.MEMBER)
                 // book1 is locked in a private collection owned by a stranger; the
                 // member has no relationship to it, so the gate must answer 404 —
                 // the same shape as a missing book — never 403 (which leaks existence).
@@ -254,9 +248,9 @@ class TagRoutesTest :
 
         test("GET /api/v1/books/{bookId}/tags returns 200 for a member when the book is accessible") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
-                db.seedTestUser("member", UserRoleColumn.MEMBER)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("member", UserRoleColumn.MEMBER)
                 service.addTagToBook(BookId("book1"), "Fantasy")
                 // book1 lives in a collection the member owns, so it is reachable.
                 collectionRepo.upsert(privateCollection("owned-col", owner = "member"))
@@ -272,9 +266,9 @@ class TagRoutesTest :
 
         test("GET /api/v1/books/{bookId}/tags returns 200 for an admin on a private book they don't own") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
-                db.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
                 service.addTagToBook(BookId("book1"), "Fantasy")
                 // book1 is private to a stranger; the admin has no relationship to it
                 // but ADMIN bypasses the access filter entirely.
@@ -292,8 +286,8 @@ class TagRoutesTest :
 
         test("POST /api/v1/books/{bookId}/tags creates tag and returns 200 with the tag") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
 
                 val response =
                     client.post("/api/v1/books/book1/tags") {
@@ -322,8 +316,8 @@ class TagRoutesTest :
 
         test("POST /api/v1/books/{bookId}/tags returns 400 for empty tag name") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
 
                 val response =
                     client.post("/api/v1/books/book1/tags") {
@@ -339,8 +333,8 @@ class TagRoutesTest :
 
         test("DELETE /api/v1/books/{bookId}/tags/{tagId} returns 204 on success") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 var tagId = ""
                 runTest {
                     val r = service.addTagToBook(BookId("book1"), "Fantasy")
@@ -370,8 +364,8 @@ class TagRoutesTest :
 
         test("PATCH /api/v1/tags/{tagId} renames tag and returns 200 with updated tag") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 var tagId = ""
                 runTest {
                     val r = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -407,8 +401,8 @@ class TagRoutesTest :
 
         test("PATCH /api/v1/tags/{tagId} returns 400 for empty new name") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 var tagId = ""
                 runTest {
                     val r = service.addTagToBook(BookId("book1"), "Sci-Fi")
@@ -430,8 +424,8 @@ class TagRoutesTest :
 
         test("DELETE /api/v1/tags/{tagId} returns 204 on success") {
             withTagTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestBook("book1")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
                 var tagId = ""
                 runTest {
                     val r = service.addTagToBook(BookId("book1"), "Fantasy")
@@ -458,11 +452,11 @@ class TagRoutesTest :
         }
     })
 
-/** Test scope giving access to the HTTP [client], raw [service], and raw [db] for seeding. */
+/** Test scope giving access to the HTTP [client], raw [service], and raw [sql] for seeding. */
 private data class TagTestScope(
     val client: io.ktor.client.HttpClient,
     val service: TagService,
-    val db: org.jetbrains.exposed.v1.jdbc.Database,
+    val sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
 )

@@ -1,15 +1,10 @@
 package com.calypsan.listenup.server.routes
 
-import com.calypsan.listenup.server.testing.asSqlDatabase
-import com.calypsan.listenup.server.testing.asSqlDriver
-
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.GenreServiceImpl
-import com.calypsan.listenup.server.db.BookGenreTable
-import com.calypsan.listenup.server.db.GenreTable
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.services.BookRepository
@@ -28,7 +23,7 @@ import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
-import com.calypsan.listenup.server.testing.withInMemoryDatabase
+import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
@@ -45,9 +40,6 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
-import org.jetbrains.exposed.v1.jdbc.Database
-import org.jetbrains.exposed.v1.jdbc.insert
-import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 
 /**
  * Route-level access-gate tests for [genreRoutes]'s reverse-lookup
@@ -62,48 +54,47 @@ class GenreRoutesTest :
     FunSpec({
 
         fun withGenreTestApp(block: suspend GenreTestScope.() -> Unit) {
-            withInMemoryDatabase {
-                val db = this
+            withSqlDatabase {
                 val bus = ChangeBus()
                 val registry = SyncRegistry()
-                val genreRepo = GenreRepository(db.asSqlDatabase(), bus, registry)
-                val contributorRepo = ContributorRepository(db.asSqlDatabase(), bus, registry)
-                val seriesRepo = SeriesRepository(db.asSqlDatabase(), bus, registry)
-                val tagRepo = TagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val bookTagRepo = BookTagRepository(db = db.asSqlDatabase(), bus = bus, registry = registry)
-                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, db.asSqlDatabase(), db.asSqlDriver())
+                val genreRepo = GenreRepository(sql, bus, registry)
+                val contributorRepo = ContributorRepository(sql, bus, registry)
+                val seriesRepo = SeriesRepository(sql, bus, registry)
+                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
                 val bookRepo =
                     BookRepository(
-                        db = db.asSqlDatabase(),
-                        driver = db.asSqlDriver(),
+                        db = sql,
+                        driver = driver,
                         bus = bus,
                         registry = registry,
                         contributorRepository = contributorRepo,
                         seriesRepository = seriesRepo,
                         genreRepository = genreRepo,
                     )
-                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, db.asSqlDatabase())
+                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, sql)
                 val collectionRepo =
                     CollectionRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
                 val collectionBookRepo =
                     CollectionBookRepository(
-                        db = db.asSqlDatabase(),
+                        db = sql,
                         bus = bus,
                         registry = registry,
-                        driver = db.asSqlDriver(),
+                        driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(db.asSqlDatabase(), db.asSqlDriver())
+                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
                         install(ServerContentNegotiation) { json(contractJson) }
                         install(Resources)
-                        install(Authentication) { testAuth(roleResolver = db::roleOf) }
+                        install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
                                 genreRoutes(service, accessPolicy)
@@ -116,21 +107,21 @@ class GenreRoutesTest :
                             install(ContentNegotiation) { json(contractJson) }
                         }
 
-                    GenreTestScope(jsonClient, db, collectionRepo, collectionBookRepo).block()
+                    GenreTestScope(jsonClient, sql, collectionRepo, collectionBookRepo).block()
                 }
             }
         }
 
         test("GET /genres/{id}/books drops a book a member can't reach but keeps the accessible one") {
             withGenreTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestUser("member", UserRoleColumn.MEMBER)
-                db.seedTestBook("accessible")
-                db.seedTestBook("private")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    BookGenreTable.insertIfAbsent("accessible", "g-fant")
-                    BookGenreTable.insertIfAbsent("private", "g-fant")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member", UserRoleColumn.MEMBER)
+                sql.seedTestBook("accessible")
+                sql.seedTestBook("private")
+                sql.transaction {
+                    seedGenre(sql, "g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "accessible", genre_id = "g-fant")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "private", genre_id = "g-fant")
                 }
                 collectionRepo.upsert(privateCollection("owned-col", owner = "member"))
                 collectionBookRepo.upsert(membership("owned-col", "accessible"))
@@ -146,14 +137,14 @@ class GenreRoutesTest :
 
         test("GET /genres/{id}/books returns both books for an admin") {
             withGenreTestApp {
-                db.seedTestLibraryAndFolder()
-                db.seedTestUser("admin", UserRoleColumn.ADMIN)
-                db.seedTestBook("accessible")
-                db.seedTestBook("private")
-                transaction(db) {
-                    seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
-                    BookGenreTable.insertIfAbsent("accessible", "g-fant")
-                    BookGenreTable.insertIfAbsent("private", "g-fant")
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("accessible")
+                sql.seedTestBook("private")
+                sql.transaction {
+                    seedGenre(sql, "g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "accessible", genre_id = "g-fant")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "private", genre_id = "g-fant")
                 }
                 collectionRepo.upsert(privateCollection("stranger-col", owner = "stranger"))
                 collectionBookRepo.upsert(membership("stranger-col", "private"))
@@ -168,33 +159,34 @@ class GenreRoutesTest :
 
 private data class GenreTestScope(
     val client: io.ktor.client.HttpClient,
-    val db: Database,
+    val sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     val collectionRepo: CollectionRepository,
     val collectionBookRepo: CollectionBookRepository,
 )
 
 private fun seedGenre(
+    sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
     id: String,
     name: String,
     slug: String,
     path: String,
 ) {
-    GenreTable.insert {
-        it[GenreTable.id] = id
-        it[GenreTable.name] = name
-        it[GenreTable.slug] = slug
-        it[GenreTable.path] = path
-        it[GenreTable.parentId] = null
-        it[GenreTable.depth] = 0
-        it[GenreTable.sortOrder] = 0
-        it[GenreTable.color] = null
-        it[GenreTable.description] = null
-        it[GenreTable.revision] = 0L
-        it[GenreTable.createdAt] = 0L
-        it[GenreTable.updatedAt] = 0L
-        it[GenreTable.deletedAt] = null
-        it[GenreTable.clientOpId] = null
-    }
+    sql.genresQueries.insert(
+        id = id,
+        name = name,
+        slug = slug,
+        path = path,
+        parent_id = null,
+        depth = 0L,
+        sort_order = 0L,
+        color = null,
+        description = null,
+        revision = 0L,
+        created_at = 0L,
+        updated_at = 0L,
+        deleted_at = null,
+        client_op_id = null,
+    )
 }
 
 private fun privateCollection(
