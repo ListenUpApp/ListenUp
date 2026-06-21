@@ -1,5 +1,7 @@
 package com.calypsan.listenup.server.testing
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import org.sqlite.SQLiteConfig
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
@@ -87,7 +89,23 @@ fun withSqlDatabase(block: SqlTestDatabases.() -> Unit) {
     val tmp = Files.createTempFile("listenup-test-", ".db").toFile().apply { deleteOnExit() }
     val path = tmp.absolutePath
     val exposed = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$path")).database
-    val driver = DriverFactory().createDriver(path)
+    // Test connections enforce foreign_keys + busy_timeout via JDBC connection PROPERTIES rather
+    // than a one-time `driver.execute("PRAGMA …")` — JdbcSqliteDriver opens a connection per
+    // operation, so a post-open PRAGMA configures only a transient connection and is silently lost
+    // (which left ON DELETE CASCADE not firing). Production DriverFactory is intentionally NOT
+    // changed here: enabling FK on every production connection currently breaks live-scan insert
+    // ordering (LibraryLessOnboardingE2ETest) — that is the separate step-3 follow-up (FK-clean
+    // scan + production FK enforcement, as part of optimizing the DB layer once we own it).
+    val driver =
+        JdbcSqliteDriver(
+            "jdbc:sqlite:$path",
+            SQLiteConfig()
+                .apply {
+                    enforceForeignKeys(true)
+                    busyTimeout = 5000
+                    setJournalMode(SQLiteConfig.JournalMode.WAL)
+                }.toProperties(),
+        )
     try {
         SqlTestDatabases(sql = ListenUpDatabase(driver), driver = driver, exposed = exposed).block()
     } finally {
