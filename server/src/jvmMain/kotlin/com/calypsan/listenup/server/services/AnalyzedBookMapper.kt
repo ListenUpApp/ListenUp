@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
@@ -95,6 +96,7 @@ class AnalyzedBookMapper(
             series = resolvedSeries,
             audioFiles = buildAudioFiles(analyzed),
             chapters = buildChapters(analyzed),
+            documents = buildDocuments(analyzed),
             revision = 0L,
             updatedAt = 0L,
             createdAt = 0L,
@@ -169,6 +171,23 @@ class AnalyzedBookMapper(
             )
         }
     }
+
+    /**
+     * Builds the document payloads for [analyzed]. Each [AnalyzedDocument] maps
+     * one-to-one to a [BookDocumentPayload]; `id` is left blank for the caller to
+     * fill in (mirroring the audio-file convention).
+     */
+    fun buildDocuments(analyzed: AnalyzedBook): List<BookDocumentPayload> =
+        analyzed.documents.mapIndexed { index, doc ->
+            BookDocumentPayload(
+                id = "",
+                index = index,
+                filename = doc.relPath,
+                format = doc.format,
+                size = doc.size,
+                hash = doc.hash,
+            )
+        }
 
     /** Builds the chapter payloads for [analyzed]; `duration = endMs - startMs`. */
     fun buildChapters(analyzed: AnalyzedBook): List<BookChapterPayload> =

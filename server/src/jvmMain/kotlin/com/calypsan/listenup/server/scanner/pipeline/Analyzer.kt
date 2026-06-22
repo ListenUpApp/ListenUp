@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.scanner.inference.TrackInference
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedenceSource
+import com.calypsan.listenup.server.scanner.document.DocumentCollector
 import com.calypsan.listenup.server.scanner.sidecar.SidecarMetadata
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -82,6 +83,7 @@ internal class Analyzer(
     private val parseSubtitle: Boolean = false,
     private val sidecarParsers: List<SidecarParser> = emptyList(),
     private val precedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
+    private val documentCollector: DocumentCollector = DocumentCollector(),
 ) {
     fun analyze(candidates: Flow<CandidateBook>): Flow<Result<AnalyzedBook>> =
         flow {
@@ -391,6 +393,7 @@ internal class Analyzer(
             // not fully read. MetadataStatus.Available and a null status (no audio
             // file, or a clean parse) are not warnings.
             hasScanWarning = embeddedStatus.isParseFailure(),
+            documents = documentCollector.collect(rootPath, rootPath.resolve(candidate.rootRelPath), candidate.files),
         )
     }
 
