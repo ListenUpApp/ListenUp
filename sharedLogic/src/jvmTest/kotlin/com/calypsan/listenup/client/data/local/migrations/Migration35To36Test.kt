@@ -40,7 +40,8 @@ class Migration35To36Test :
                 db.columnsOf("chapters") shouldContainAll listOf("partTitle", "bookTitle")
 
                 // Data continuity: the pre-migration row's new columns read back as NULL.
-                db.prepare("SELECT `partTitle`, `bookTitle` FROM `chapters` WHERE `id` = 'c1'")
+                db
+                    .prepare("SELECT `partTitle`, `bookTitle` FROM `chapters` WHERE `id` = 'c1'")
                     .use { stmt ->
                         stmt.step() shouldBe true
                         stmt.isNull(0).shouldBeTrue() // partTitle is NULL for a pre-migration row

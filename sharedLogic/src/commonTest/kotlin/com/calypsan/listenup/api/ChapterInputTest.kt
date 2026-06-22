@@ -38,10 +38,15 @@ class ChapterInputTest :
             }
         }
         test("non-blank header titles are accepted") {
-            val input = ChapterInput(
-                id = "ch1", title = "Chapter 1", startTime = 0, duration = 1000,
-                partTitle = "Part One", bookTitle = "Book I",
-            )
+            val input =
+                ChapterInput(
+                    id = "ch1",
+                    title = "Chapter 1",
+                    startTime = 0,
+                    duration = 1000,
+                    partTitle = "Part One",
+                    bookTitle = "Book I",
+                )
             input.partTitle shouldBe "Part One"
             input.bookTitle shouldBe "Book I"
         }

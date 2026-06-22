@@ -97,22 +97,31 @@ class BookChaptersE2ETest :
                 chapterEntities[1].bookTitle shouldBe null
 
                 // Verify the chapter set groups correctly via the domain groupChapters function.
-                val domainChapters = chapterEntities.map { e ->
-                    Chapter(
-                        id = e.id.value,
-                        title = e.title,
-                        duration = e.duration,
-                        startTime = e.startTime,
-                        partTitle = e.partTitle,
-                        bookTitle = e.bookTitle,
-                    )
-                }
+                val domainChapters =
+                    chapterEntities.map { e ->
+                        Chapter(
+                            id = e.id.value,
+                            title = e.title,
+                            duration = e.duration,
+                            startTime = e.startTime,
+                            partTitle = e.partTitle,
+                            bookTitle = e.bookTitle,
+                        )
+                    }
                 val groups = domainChapters.groupChapters()
                 groups shouldHaveSize 1
                 groups.single().title shouldBe "Book I"
                 groups.single().parts shouldHaveSize 1
-                groups.single().parts.single().title shouldBe "Part One"
-                groups.single().parts.single().chapters shouldHaveSize 2
+                groups
+                    .single()
+                    .parts
+                    .single()
+                    .title shouldBe "Part One"
+                groups
+                    .single()
+                    .parts
+                    .single()
+                    .chapters shouldHaveSize 2
 
                 // Dual assertion against the server side: the book's SSE payload
                 // should carry the same chapters, proving the server end of the
