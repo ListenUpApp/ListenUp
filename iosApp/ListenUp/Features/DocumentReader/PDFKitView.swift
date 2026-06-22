@@ -5,11 +5,15 @@ import SwiftUI
 /// (`autoScales`). The `PDFDocument` is loaded once by the caller and passed in; the
 /// current page index is published back via `currentPageIndex` for the "Page X of Y" label.
 /// Set `goToPage` (0-based) to programmatically navigate; it is cleared after the jump.
+/// Set `highlightSelection` to scroll to and highlight a match; it is cleared after the jump.
+/// Set `clearHighlight` to `true` to remove any existing highlight; it is reset to `false`
+/// after clearing so the binding acts as a one-shot trigger.
 struct PDFKitView: UIViewRepresentable {
     let document: PDFDocument
     @Binding var currentPageIndex: Int
     @Binding var goToPage: Int?
     @Binding var highlightSelection: PDFSelection?
+    @Binding var clearHighlight: Bool
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -37,7 +41,10 @@ struct PDFKitView: UIViewRepresentable {
             uiView.go(to: page)
             DispatchQueue.main.async { goToPage = nil }
         }
-        if let sel = highlightSelection {
+        if clearHighlight {
+            uiView.highlightedSelections = []
+            DispatchQueue.main.async { clearHighlight = false }
+        } else if let sel = highlightSelection {
             uiView.go(to: sel)
             uiView.setCurrentSelection(sel, animate: false)
             uiView.highlightedSelections = [sel]

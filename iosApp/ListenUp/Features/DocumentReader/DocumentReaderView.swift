@@ -17,6 +17,7 @@ struct DocumentReaderView: View {
     @State private var showGrid = false
     @State private var showSearch = false
     @State private var highlightSelection: PDFSelection?
+    @State private var clearHighlight = false
     @State private var search: PdfSearchController?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
@@ -77,7 +78,7 @@ struct DocumentReaderView: View {
                 DocumentSearchView(
                     controller: search,
                     onSelect: { sel in highlightSelection = sel; showSearch = false },
-                    onClose: { search.cancel(); showSearch = false }
+                    onClose: { search.cancel(); clearHighlight = true; showSearch = false }
                 )
             }
         }
@@ -91,7 +92,8 @@ struct DocumentReaderView: View {
             document: document,
             currentPageIndex: $currentPageIndex,
             goToPage: $goToPage,
-            highlightSelection: $highlightSelection
+            highlightSelection: $highlightSelection,
+            clearHighlight: $clearHighlight
         )
         .ignoresSafeArea(edges: .bottom)
         .contentShape(Rectangle())
