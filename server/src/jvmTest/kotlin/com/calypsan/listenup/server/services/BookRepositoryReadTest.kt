@@ -140,6 +140,8 @@ class BookRepositoryReadTest :
                             title = "Prologue",
                             duration = 1_200_000L,
                             start_time = 0L,
+                            part_title = null,
+                            book_title = null,
                         )
                         sql.bookChaptersQueries.insert(
                             book_id = "b1",
@@ -148,6 +150,8 @@ class BookRepositoryReadTest :
                             title = "Chapter 1",
                             duration = 1_800_000L,
                             start_time = 1_200_000L,
+                            part_title = null,
+                            book_title = null,
                         )
                         sql.bookAudioFilesQueries.insert(
                             book_id = "b1",
