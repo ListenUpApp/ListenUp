@@ -13,7 +13,7 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackPreparer
-import com.calypsan.listenup.client.playback.ProgressTracker
+import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
@@ -293,8 +293,8 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
-    fun getProgressTracker(): ProgressTracker {
-        val instance: ProgressTracker by inject()
+    fun getPlaybackProgressReporter(): PlaybackProgressReporter {
+        val instance: PlaybackProgressReporter by inject()
         return instance
     }
 

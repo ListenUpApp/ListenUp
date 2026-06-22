@@ -92,6 +92,7 @@ class PlaybackManagerSpeedTest :
                 chapterDao = db.chapterDao(),
                 imageStorage = imageStorage,
                 progressTracker = progressTracker,
+                reporter = PlaybackProgressReporter(progressTracker, recorder = null, scope = scope),
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,

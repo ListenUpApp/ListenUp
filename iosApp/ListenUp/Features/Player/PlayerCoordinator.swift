@@ -204,7 +204,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     convenience init(deps: Dependencies) {
         self.init(
             preparer: KotlinPlaybackPreparing(preparer: deps.playbackPreparer),
-            progress: KotlinProgressReporting(tracker: deps.progressTracker),
+            progress: KotlinProgressReporting(reporter: deps.playbackProgressReporter),
             sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
             engine: AudioEngine(),
             coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository),

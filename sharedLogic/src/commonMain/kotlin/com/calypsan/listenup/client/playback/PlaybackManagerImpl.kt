@@ -50,6 +50,7 @@ internal class PlaybackManagerImpl(
     private val chapterDao: ChapterDao,
     private val imageStorage: ImageStorage,
     private val progressTracker: ProgressTracker,
+    private val reporter: PlaybackProgressReporter,
     private val tokenProvider: AudioTokenProvider,
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
@@ -236,9 +237,9 @@ internal class PlaybackManagerImpl(
                         // PlaybackManager turns that into PlaybackError on the public flow.
                         // (Android emits errors via [reportError] from MediaControllerHolder;
                         // setPlaybackState never carries Error on the Android path.)
-                        // Drift #28 — Playing/Paused → progressTracker routing lives in
-                        // [setPlaybackState] so both Desktop+iOS (via this collect) and
-                        // Android (via PlaybackStateWriter.setPlaybackState from
+                        // Drift #28 — Playing/Paused → [reporter] (position + listening-event)
+                        // routing lives in [setPlaybackState] so both Desktop (via this collect)
+                        // and Android (via PlaybackStateWriter.setPlaybackState from
                         // MediaControllerHolder.Player.Listener) flow through one path.
                         if (playbackState is PlaybackState.Error) {
                             _playbackError.value =
@@ -258,7 +259,7 @@ internal class PlaybackManagerImpl(
                             // Prevents false completion from spurious Ended events on player
                             // release/stop (#204).
                             if (duration > 0 && position.toFloat() / duration >= BOOK_FINISHED_THRESHOLD) {
-                                progressTracker.onBookFinished(bookId, duration)
+                                reporter.onBookFinished(bookId, duration)
                             } else {
                                 logger.warn {
                                     "Ignoring Ended state: position=${position}ms " +
@@ -303,7 +304,8 @@ internal class PlaybackManagerImpl(
      * Drift #28 — every Playing/Paused transition (whether triggered by Desktop's
      * AudioPlayer state observation in [playerObservationJob] or Android's
      * [MediaControllerHolder.Player.Listener] pushing through this seam) routes
-     * through [progressTracker] here. VMs no longer call the tracker directly.
+     * through [reporter] here, which persists position and (on Desktop/macOS, where a
+     * recorder is bound) records the listening span. VMs no longer call it directly.
      * Playing also clears any previous [playbackError] so transient failures
      * resolve as soon as the player recovers.
      */
@@ -313,7 +315,7 @@ internal class PlaybackManagerImpl(
             PlaybackState.Playing -> {
                 _playbackError.value = null
                 currentBookId.value?.let { activeBookId ->
-                    progressTracker.onPlaybackStarted(
+                    reporter.onPlaybackStarted(
                         activeBookId,
                         currentPositionMs.value,
                         playbackSpeed.value,
@@ -323,7 +325,7 @@ internal class PlaybackManagerImpl(
 
             PlaybackState.Paused -> {
                 currentBookId.value?.let { activeBookId ->
-                    progressTracker.onPlaybackPaused(
+                    reporter.onPlaybackPaused(
                         activeBookId,
                         currentPositionMs.value,
                         playbackSpeed.value,
@@ -358,7 +360,7 @@ internal class PlaybackManagerImpl(
     /**
      * Called when user explicitly changes playback speed for the current book.
      *
-     * Writes per-book only via [progressTracker.onSpeedChanged], which sets
+     * Writes per-book only via [reporter] → [progressTracker.onSpeedChanged], which sets
      * `hasCustomSpeed = true`. The global default is changed only via
      * Settings → Default Speed; per-book changes do NOT mutate the global default.
      */
@@ -366,7 +368,7 @@ internal class PlaybackManagerImpl(
         val bookId = currentBookId.value ?: return
         val positionMs = currentPositionMs.value
         _playbackSpeed.value = speed
-        progressTracker.onSpeedChanged(bookId, positionMs, speed)
+        reporter.onSpeedChanged(bookId, positionMs, speed)
     }
 
     /**
@@ -379,7 +381,7 @@ internal class PlaybackManagerImpl(
         val bookId = currentBookId.value ?: return
         val positionMs = currentPositionMs.value
         _playbackSpeed.value = defaultSpeed
-        progressTracker.onSpeedReset(bookId, positionMs, defaultSpeed)
+        reporter.onSpeedReset(bookId, positionMs, defaultSpeed)
     }
 
     /**

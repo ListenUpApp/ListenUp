@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.download.AppleDownloadService
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.PlaybackPreparer
+import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
@@ -79,11 +80,22 @@ val iosPlaybackModule: Module =
             )
         }
 
-        // Progress tracker — consumed directly by the native Swift PlayerCoordinator
+        // Progress tracker — position persistence, wrapped by PlaybackProgressReporter below.
         single {
             ProgressTracker(
                 downloadRepository = get(),
                 positionRepository = get(),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
+            )
+        }
+
+        // Position reporter — the single playback-session seam consumed by the native Swift
+        // PlayerCoordinator (via KotlinProgressReporting). Bound WITH the recorder so iOS
+        // listening history is recorded with the account user id and synced to the server.
+        single {
+            PlaybackProgressReporter(
+                progressTracker = get(),
+                recorder = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
             )
         }
