@@ -545,15 +545,12 @@ private fun Application.resolveLibraryPaths(): List<Path> {
  * Reads env / system properties here at the config edge so [resolveListenupHome]
  * stays pure.
  */
-private fun Application.resolveImageHome(): Path {
-    val configured =
-        environment.config
-            .propertyOrNull("listenup.home")
-            ?.getString()
-            ?.takeIf { it.isNotBlank() }
-    if (configured != null) return Path.of(configured)
-    return resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
-}
+private fun Application.resolveImageHome(): Path =
+    resolveListenupHome(
+        configuredHome = environment.config.propertyOrNull("listenup.home")?.getString(),
+        envHome = System.getenv("LISTENUP_HOME"),
+        userHome = System.getProperty("user.home"),
+    )
 
 /**
  * Reads `scanner.metadataPrecedence` from configuration and parses it into a

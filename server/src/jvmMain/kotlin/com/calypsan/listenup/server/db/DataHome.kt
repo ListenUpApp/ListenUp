@@ -30,6 +30,26 @@ fun resolveListenupHome(
 ): Path = envHome?.takeIf { it.isNotBlank() }?.let { Path.of(it) } ?: defaultListenupHome(userHome)
 
 /**
+ * The effective ListenUp data home with the full precedence used by EVERY data-home consumer
+ * (database, secrets, covers, scan-spool, metadata images): an explicit [configuredHome]
+ * (the `listenup.home` config property) wins, then [envHome] (`LISTENUP_HOME`), else
+ * [userHome]/ListenUp.
+ *
+ * This single resolver is the guarantee that all server data lands under ONE directory — the DB,
+ * secrets, covers, and spool can never diverge because they all resolve through here. (Previously
+ * the DB and secrets read only [envHome], so a `listenup.home` config split them off from the
+ * covers/spool — the bug behind #703's "data isn't where I cleared it" confusion.) Pure —
+ * callers read the config / env / system properties at the edge.
+ */
+fun resolveListenupHome(
+    configuredHome: String?,
+    envHome: String?,
+    userHome: String,
+): Path =
+    configuredHome?.takeIf { it.isNotBlank() }?.let { Path.of(it) }
+        ?: resolveListenupHome(envHome, userHome)
+
+/**
  * Resolve the effective JDBC URL for the application database.
  *
  * - A non-blank [configuredUrl] (the `database.jdbcUrl` config / `LISTENUP_DB_URL`
