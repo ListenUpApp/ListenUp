@@ -243,7 +243,8 @@
     "contributors": "Contributors",
     "author_count": "%d authors",
     "narrator_count": "%d narrators",
-    "contributors_empty": "No contributors yet"
+    "contributors_empty": "No contributors yet",
+    "has_pdf_badge": "Has a PDF"
   },
   "book": {
     "detail_title": "Book details",

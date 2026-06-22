@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
@@ -54,8 +55,9 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_selected
 import listenup.composeapp.generated.resources.common_completed
+import listenup.composeapp.generated.resources.common_selected
+import listenup.composeapp.generated.resources.library_has_pdf_badge
 import listenup.composeapp.generated.resources.player_now_playing_wide
 
 /**
@@ -92,6 +94,7 @@ data class AvatarOverlayData(
  * @param timeRemaining Optional formatted time remaining (e.g., "2h 15m left")
  * @param isFinished Authoritative completion status. Shows completion badge when true.
  * @param avatarOverlay Optional avatar overlay data for "currently listening" display
+ * @param hasDocuments Whether this book has at least one PDF document attached.
  * @param isInSelectionMode Whether multi-select mode is active
  * @param isSelected Whether this book is currently selected
  * @param onLongPress Callback when card is long-pressed (for entering selection mode)
@@ -111,6 +114,7 @@ fun BookCard(
     isFinished: Boolean = false,
     isPlaying: Boolean = false,
     avatarOverlay: AvatarOverlayData? = null,
+    hasDocuments: Boolean = false,
     isInSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     onLongPress: (() -> Unit)? = null,
@@ -217,7 +221,7 @@ fun BookCard(
                     },
             )
 
-            // Selection checkbox takes precedence over completion / now-playing badges.
+            // Selection checkbox takes precedence over completion / now-playing / documents badges.
             if (isInSelectionMode) {
                 SelectionIndicator(
                     isSelected = isSelected || isFocused,
@@ -227,6 +231,8 @@ fun BookCard(
                 NowPlayingBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             } else if (isCompleted) {
                 CompletionBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
+            } else if (hasDocuments) {
+                DocumentsBadge(modifier = Modifier.align(Alignment.TopEnd).padding(8.dp))
             }
         }
 
@@ -281,6 +287,26 @@ fun BookCard(
                 )
             }
         }
+    }
+}
+
+/** Scallop badge with a book glyph, shown on the cover of books that have a PDF document. */
+@Composable
+private fun DocumentsBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier =
+            modifier
+                .size(28.dp)
+                .clip(cookieScallopShape())
+                .background(MaterialTheme.colorScheme.secondary),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.MenuBook,
+            contentDescription = stringResource(Res.string.library_has_pdf_badge),
+            tint = MaterialTheme.colorScheme.onSecondary,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
 
