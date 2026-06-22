@@ -1,8 +1,8 @@
 import SwiftUI
 @preconcurrency import Shared
 
-/// The "Supplementary materials" block on Book Detail: a heading then one tappable row
-/// per document (format icon · basename · "<FORMAT> · <size>"). A row shows a spinner
+/// The "Supplementary materials" block on Book Detail: a heading then one tappable card
+/// per document (format icon · basename · "<FORMAT> · <size>"). A card shows a spinner
 /// while its bytes download (`openingDocIds`). PDFs open the reader; other formats route
 /// to a "coming soon" path in the view model.
 struct SupplementaryMaterialsSection: View {
@@ -12,35 +12,28 @@ struct SupplementaryMaterialsSection: View {
     let onOpen: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(String(localized: "book.detail_supplementary_materials"))
                 .font(.headline)
-                .padding(.bottom, 8)
-
-            ForEach(Array(documents.enumerated()), id: \.element.id) { index, doc in
-                if index > 0 { Divider() }
-                row(doc)
-            }
+                .padding(.bottom, 2)
+            ForEach(documents, id: \.id) { doc in card(doc) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func row(_ doc: BookDocument) -> some View {
+    private func card(_ doc: BookDocument) -> some View {
         Button { onOpen(doc.id) } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 14) {
                 Image(systemName: documentFormatSymbol(doc.format))
                     .font(.title3)
                     .foregroundStyle(tint)
-                    .frame(width: 28)
+                    .frame(width: 44, height: 44)
+                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(documentBasename(doc.filename))
-                        .font(.body)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
+                    Text(documentBasename(doc.filename)).font(.body).foregroundStyle(.primary).lineLimit(1)
                     Text("\(doc.format.uppercased()) · \(formatDocumentSize(doc.size))")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 8)
@@ -48,13 +41,15 @@ struct SupplementaryMaterialsSection: View {
                 if openingDocIds.contains(doc.id) {
                     ProgressView()
                 } else {
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
+                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                 }
             }
-            .padding(.vertical, 11)
-            .contentShape(Rectangle())
+            .padding(14)
+            .background(
+                Color(.secondarySystemGroupedBackground),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(openingDocIds.contains(doc.id))
