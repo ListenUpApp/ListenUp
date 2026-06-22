@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.data.local.migrations.MIGRATION_30_31
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_32_33
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_33_34
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_34_35
+import com.calypsan.listenup.client.data.local.migrations.MIGRATION_35_36
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -51,6 +52,7 @@ internal actual val platformDatabaseModule: Module =
                     MIGRATION_32_33,
                     MIGRATION_33_34,
                     MIGRATION_34_35,
+                    MIGRATION_35_36,
                 )
                 // No public installs yet — every schema change nukes and re-creates local
                 // data. Flip back to `false` + a proper Migration chain before launch.

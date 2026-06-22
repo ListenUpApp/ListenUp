@@ -262,6 +262,8 @@ internal class BookSyncDomainHandler(
                     title = chapter.title,
                     duration = chapter.duration,
                     startTime = chapter.startTime,
+                    partTitle = chapter.partTitle,
+                    bookTitle = chapter.bookTitle,
                 )
             },
         )
