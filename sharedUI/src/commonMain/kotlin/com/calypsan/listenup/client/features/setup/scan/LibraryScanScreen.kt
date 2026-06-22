@@ -172,7 +172,13 @@ private fun ScanBody(
             Spacer(Modifier.height(26.dp))
             LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
         } else {
-            ScanHeader(wide = wide, subtitle = "Analyzing your audiobooks — this'll just take a moment.")
+            val subtitle =
+                if (progress.phase == "persisting") {
+                    "Saving your library — almost done."
+                } else {
+                    "Analyzing your audiobooks — this'll just take a moment."
+                }
+            ScanHeader(wide = wide, subtitle = subtitle)
             Spacer(Modifier.height(26.dp))
             ScanProgressBlock(progress = progress)
             Spacer(Modifier.height(26.dp))
@@ -254,6 +260,17 @@ private fun ScanProgressLabel(progress: ScanProgressState) {
     if (fraction == null) {
         Text(
             text = progress.phaseDisplayName,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    if (progress.phase == "persisting") {
+        // The persist phase has no meaningful per-scan ETA (the bar restarts at 0 after analysis
+        // already elapsed), so show the honest "Saving N of M" count instead of a bogus time.
+        Text(
+            text = progress.savingLabel,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

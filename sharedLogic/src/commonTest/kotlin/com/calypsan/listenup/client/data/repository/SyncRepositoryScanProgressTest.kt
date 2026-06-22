@@ -288,6 +288,69 @@ class SyncRepositoryScanProgressTest :
             }
         }
 
+        // The persist phase: after ANALYZING hits 100%, the server emits PERSISTING progress so the bar
+        // advances again under "Saving library" instead of freezing. Those events only carry book counts
+        // — the rich stats (authors, hours, recent-books carousel) aren't re-sent, so the reducer must
+        // PRESERVE the prior state and update only phase + save counts, or the stats panel blanks.
+        test("Progress for the PERSISTING phase preserves analyze stats and only advances the save counts") {
+            runTest {
+                var progress: ScanProgressState? = null
+                val apply: suspend (ScanEvent.Progress) -> Unit = { event ->
+                    applyScanEvent(
+                        event = event,
+                        isInitialScanComplete = { false },
+                        setScanning = {},
+                        setProgress = { progress = it },
+                        markInitialScanComplete = {},
+                        reconcile = {},
+                        getProgress = { progress },
+                        nowMs = { 5_000L },
+                        getStartedAt = { 1_000L },
+                        setStartedAt = {},
+                    )
+                }
+
+                // ANALYZING establishes the rich stats.
+                apply(
+                    ScanEvent.Progress(
+                        "c1",
+                        LibraryId("lib-1"),
+                        ScanPhase.ANALYZING,
+                        filesWalked = 100,
+                        booksAnalyzed = 1000,
+                        errors = 0,
+                        totalFiles = 1647,
+                        booksTotal = 1000,
+                        authorsMatched = 42,
+                        totalDurationMs = 7_200_000L,
+                        recentBooks = listOf(ScanBookRef("Dune", "Herbert")),
+                    ),
+                )
+
+                // PERSISTING carries only the save counts (as the server sends it).
+                apply(
+                    ScanEvent.Progress(
+                        "c1",
+                        LibraryId("lib-1"),
+                        ScanPhase.PERSISTING,
+                        filesWalked = 0,
+                        booksAnalyzed = 250,
+                        errors = 0,
+                        booksTotal = 1000,
+                    ),
+                )
+
+                // Phase + save progress advance…
+                progress!!.phase shouldBe "persisting"
+                progress!!.books shouldBe 250
+                progress!!.booksTotal shouldBe 1000
+                // …but the analyze stats are preserved, not blanked.
+                progress!!.authors shouldBe 42
+                progress!!.hours shouldBe 2
+                progress!!.recentBooks shouldBe listOf(ScanBookRef("Dune", "Herbert"))
+            }
+        }
+
         test("Started stamps the start time") {
             runTest {
                 var started = 0L

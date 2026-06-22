@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
+import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.event.ScanEvent
@@ -30,6 +31,14 @@ import kotlinx.coroutines.withContext
 import java.nio.file.Path as JPath
 
 private val log = KotlinLogging.logger {}
+
+/**
+ * Cap the number of PERSISTING progress ticks emitted per scan, independent of library size: the
+ * persister emits at most this many `ScanEvent.Progress(phase = PERSISTING)` events (plus the
+ * initial 0 and a final at the total). Keeps the scan event stream light while the "Saving library"
+ * bar still advances smoothly on a large library.
+ */
+private const val PERSIST_PROGRESS_TICKS = 100
 
 /**
  * Consumes the Scanner's [ScanResult] stream and persists every
@@ -184,6 +193,33 @@ class BookPersister internal constructor(
         var persisted = 0
         var failed = 0
 
+        // Persistence is a visible phase, not a silent gap. The bar binds to booksAnalyzed/booksTotal
+        // and hits 100% the instant ANALYZING ends; without these events the client would freeze at
+        // 100% for the whole persist. We emit PERSISTING progress so the same bar advances 0→100% again
+        // under a "Saving library" label. [toPersist] is the count of books actually written
+        // (Added/Modified/Moved); Removed changes are tombstones, not persisted books.
+        val toPersist =
+            result.changes.count {
+                it is ChangeEventDto.Added || it is ChangeEventDto.Modified ||
+                    it is ChangeEventDto.Moved
+            }
+        val persistProgressStride = maxOf(1, toPersist / PERSIST_PROGRESS_TICKS)
+        var processed = 0
+
+        suspend fun emitPersistProgress() {
+            eventBus.emit(
+                ScanEvent.Progress(
+                    correlationId = result.correlationId,
+                    libraryId = libraryId,
+                    phase = ScanPhase.PERSISTING,
+                    filesWalked = 0,
+                    booksAnalyzed = processed,
+                    errors = failed,
+                    booksTotal = toPersist,
+                ),
+            )
+        }
+
         // Persist one changed book and count the outcome. An OutOfMemoryError aborts the whole
         // scan: the heap is compromised, so we wrap the partial counts in PersistAbortedByOom and
         // rethrow rather than swallowing it per-book.
@@ -196,7 +232,14 @@ class BookPersister internal constructor(
                     throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
                 }
             if (bookId != null) persisted++ else failed++
+            // Drive the bar by books processed (persisted + failed) so it reaches the total even when
+            // some books fail; throttled to ~PERSIST_PROGRESS_TICKS ticks for a large library.
+            processed++
+            if (processed % persistProgressStride == 0) emitPersistProgress()
         }
+
+        // Initial tick at 0 so the UI leaves the 100%-analyze state the moment persistence begins.
+        if (toPersist > 0) emitPersistProgress()
 
         // Persist only the books that actually changed. Added/Modified/Moved each carry the changed
         // AnalyzedBook in the ChangeEventDto, but artwork-stripped — so we re-resolve the cover-bearing
@@ -232,6 +275,10 @@ class BookPersister internal constructor(
                 }
             }
         }
+
+        // Final tick at the total so the bar lands on 100% before the terminal Completed, even if the
+        // last stride boundary didn't fall exactly on the final book.
+        if (toPersist > 0) emitPersistProgress()
 
         if (result.scope is ScanScope.Full) {
             // Path-based sweep is safe: every book present on disk (including any that failed
