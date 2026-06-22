@@ -81,7 +81,7 @@ struct FullScreenPlayerView: View {
         }
         .fullScreenCover(item: Binding(
             get: { observer.documentToOpen },
-            set: { if $0 == nil { observer.documentToOpen = nil } }
+            set: { observer.documentToOpen = $0 }
         )) { doc in
             DocumentReaderView(document: doc, onDone: { observer.documentToOpen = nil })
         }

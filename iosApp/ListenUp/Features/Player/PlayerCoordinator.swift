@@ -418,7 +418,12 @@ final class PlayerCoordinator: RemoteCommandHandler {
         playbackSpeed = prepared.resumeSpeed
         coverBlurHash = await coverProvider.coverBlurHash(bookId: bookId)
         // Resolve PDF availability concurrently — does not block audio start.
-        Task { firstPdfDocId = await documentProvider.firstPdfDocId(bookId: bookId) }
+        // Guard against a stale result landing after a rapid book switch: only apply
+        // the resolved id if this book is still the current one.
+        Task {
+            let id = await documentProvider.firstPdfDocId(bookId: bookId)
+            if bookId == currentBookId { firstPdfDocId = id }
+        }
 
         let segments = prepared.timeline.files.compactMap { file -> AudioSegment? in
             let url: URL

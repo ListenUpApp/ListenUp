@@ -326,6 +326,58 @@ struct StopDeactivatesSessionTests {
     }
 }
 
+@Suite("Document provider wiring")
+@MainActor
+struct DocumentProviderTests {
+    private func makeCoordinator(documentProvider: FakeBookDocumentProviding) -> PlayerCoordinator {
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        return PlayerCoordinator(
+            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
+            engine: FakePlaybackEngine(), coverProvider: FakeBookCoverProviding(),
+            documentProvider: documentProvider
+        )
+    }
+
+    @Test func firstPdfDocIdIsSetAfterPlayWhenFakeReturnsPdfId() async {
+        let docProvider = FakeBookDocumentProviding()
+        docProvider.pdfDocId = "doc-42"
+        let coordinator = makeCoordinator(documentProvider: docProvider)
+        coordinator.play(bookId: "book1")
+        await awaitUntil { coordinator.firstPdfDocId == "doc-42" }
+        #expect(coordinator.firstPdfDocId == "doc-42")
+    }
+
+    @Test func firstPdfDocIdRemainsNilWhenFakeReturnsNil() async {
+        let docProvider = FakeBookDocumentProviding()
+        docProvider.pdfDocId = nil
+        let coordinator = makeCoordinator(documentProvider: docProvider)
+        coordinator.play(bookId: "book1")
+        // Allow the async task to settle, then confirm nil.
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(coordinator.firstPdfDocId == nil)
+    }
+
+    @Test func openCurrentBookPdfSetsDocumentToOpenWithFakePath() async {
+        let docProvider = FakeBookDocumentProviding()
+        docProvider.pdfDocId = "doc-99"
+        docProvider.localPath = "/books/mybook.pdf"
+        let coordinator = makeCoordinator(documentProvider: docProvider)
+        coordinator.play(bookId: "book1")
+        await awaitUntil { coordinator.firstPdfDocId == "doc-99" }
+
+        coordinator.openCurrentBookPdf()
+        await awaitUntil { coordinator.documentToOpen != nil }
+
+        #expect(coordinator.documentToOpen?.url == URL(fileURLWithPath: "/books/mybook.pdf"))
+    }
+}
+
 @Suite("Playback lifecycle")
 @MainActor
 struct PlaybackLifecycleTests {
