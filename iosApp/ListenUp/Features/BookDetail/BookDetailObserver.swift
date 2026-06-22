@@ -53,6 +53,15 @@ final class BookDetailObserver {
     private(set) var isDownloaded: Bool = false
     private(set) var downloadError: String?
 
+    // MARK: - Documents
+
+    private(set) var documents: [BookDocument] = []
+    private(set) var openingDocIds: Set<String> = []
+    /// Set when a tapped PDF is ready; drives `.fullScreenCover`. Nil dismisses the reader.
+    var documentToOpen: ReaderDocument?
+    /// Set when a non-PDF document is tapped; drives a "coming soon" alert.
+    var showComingSoon: Bool = false
+
     // MARK: - Curation & progress state
 
     /// Per-book accent, derived from cover art. Coral until extraction resolves.
@@ -95,6 +104,15 @@ final class BookDetailObserver {
         bridge.bind(viewModel.shelvesContainingBook) { [weak self] shelves in
             self?.shelfIdsContainingBook = Set(shelves.map { $0.id })
             self?.recomputeShelfRows()
+        }
+        bridge.bind(viewModel.documents) { [weak self] docs in
+            self?.documents = docs
+        }
+        bridge.bind(viewModel.openingDocumentIds) { [weak self] ids in
+            self?.openingDocIds = Set(ids)
+        }
+        bridge.bind(viewModel.navActions) { [weak self] action in
+            self?.applyNavAction(action)
         }
     }
 
@@ -188,6 +206,12 @@ final class BookDetailObserver {
     func createShelfAndAdd(name: String) { viewModel.createShelfAndAddBook(name: name) }
     func clearShelfError() { viewModel.clearShelfError() }
 
+    // MARK: - Documents
+
+    func openDocument(docId: String) { viewModel.onOpenDocument(docId: docId) }
+    func dismissReader() { documentToOpen = nil }
+    func dismissComingSoon() { showComingSoon = false }
+
     // MARK: - Progress
 
     func restart() { viewModel.restartBook() }
@@ -271,6 +295,15 @@ final class BookDetailObserver {
     private func observeDownloadStatus(bookId: String) {
         bridge.bind(downloadService.observeBookStatus(bookId: bookId)) { [weak self] status in
             self?.applyDownloadStatus(status)
+        }
+    }
+
+    private func applyNavAction(_ action: BookDetailNavAction) {
+        switch onEnum(of: action) {
+        case .openDocumentViewer(let open):
+            documentToOpen = ReaderDocument(localPath: open.localPath, title: title)
+        case .showViewerComingSoon:
+            showComingSoon = true
         }
     }
 
