@@ -90,6 +90,17 @@ internal class SyncEngine(
     private var cursorStaleRunning = false
     private var cursorStalePending = false
 
+    // Completion signals for coalesced callers. A caller that finds a recovery already running
+    // (e.g. `refreshListeningHistory()` right after a large ABS import, while start()'s reconcile or
+    // a scan-completion recovery is still draining) must AWAIT a forward catch-up that runs at-or-
+    // after its request — otherwise it returns before the imported rows reach Room (Continue
+    // Listening / streak starved until a restart). Each coalesced caller registers a deferred here
+    // while the leading recovery is in flight; the leading loop snapshots the outstanding waiters at
+    // the START of every pass and completes them when that pass ENDS. Because a waiter is only
+    // satisfied by a pass that began after it registered (and the pending flag guarantees that pass
+    // runs), the caller suspends exactly until a catch-up pass covering its request has drained.
+    private val cursorStaleWaiters = mutableListOf<CompletableDeferred<Unit>>()
+
     // Flips to true on the last line of [runStart] for the active user. If
     // [runStart] throws before that line, the flag stays false even though
     // engineJob has completed — that's the signal start() uses to retry
@@ -287,25 +298,37 @@ internal class SyncEngine(
      *  4. Reconnect SSE. Live tail resumes from the new cursor.
      */
     internal suspend fun handleCursorStale() {
-        // Coalesce: if a recovery is already running, request a single follow-up pass and return
-        // instead of starting a concurrent catchUpAll. The first caller drains the pending flag in a
-        // loop so the last-requested signal is honoured exactly once.
-        val shouldRun =
+        // Coalesce: if a recovery is already running, request a single follow-up pass instead of
+        // starting a concurrent catchUpAll, and AWAIT that follow-up so the caller does not return
+        // before the rows its request needs have drained. The leading caller drains the pending flag
+        // in a loop so a burst of triggers collapses to one follow-up pass, and completes each
+        // coalesced waiter when the pass that began after its request ends.
+        val coalescedWaiter =
             cursorStaleMutex.withLock {
                 if (cursorStaleRunning) {
                     cursorStalePending = true
-                    false
+                    CompletableDeferred<Unit>().also { cursorStaleWaiters += it }
                 } else {
                     cursorStaleRunning = true
-                    true
+                    null
                 }
             }
-        if (!shouldRun) return
+        if (coalescedWaiter != null) {
+            // Suspend until the leading loop's next pass (forced by the pending flag we just set)
+            // completes and resolves this waiter. join() returns normally on cancellation, so a
+            // cancelled recovery propagates through the leading caller, not here.
+            coalescedWaiter.join()
+            return
+        }
 
         try {
             var more = true
             while (more) {
+                // Snapshot the waiters registered BEFORE this pass starts. They are satisfied the
+                // moment this pass ends — it began after their request, so it covers it.
+                val satisfiedByThisPass = cursorStaleMutex.withLock { drainWaiters() }
                 runCursorStaleRecovery()
+                satisfiedByThisPass.forEach { it.complete(Unit) }
                 more =
                     cursorStaleMutex.withLock {
                         if (cursorStalePending) {
@@ -319,14 +342,27 @@ internal class SyncEngine(
             }
         } finally {
             // Normal exit already cleared cursorStaleRunning in the loop; this only fires when a
-            // recovery threw or was cancelled, so a future CursorStale can still recover.
+            // recovery threw or was cancelled, so a future CursorStale can still recover. Any waiters
+            // still outstanding (their covering pass never completed) must be released so coalesced
+            // callers are not stranded — cancelled, not completed, since their request was not served.
             if (cursorStaleRunning) {
-                cursorStaleMutex.withLock {
-                    cursorStaleRunning = false
-                    cursorStalePending = false
-                }
+                val stranded =
+                    cursorStaleMutex.withLock {
+                        cursorStaleRunning = false
+                        cursorStalePending = false
+                        drainWaiters()
+                    }
+                stranded.forEach { it.cancel() }
             }
         }
+    }
+
+    /** Remove and return all outstanding cursor-stale waiters. MUST be called holding [cursorStaleMutex]. */
+    private fun drainWaiters(): List<CompletableDeferred<Unit>> {
+        if (cursorStaleWaiters.isEmpty()) return emptyList()
+        val snapshot = cursorStaleWaiters.toList()
+        cursorStaleWaiters.clear()
+        return snapshot
     }
 
     private suspend fun runCursorStaleRecovery() {
