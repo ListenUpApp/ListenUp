@@ -83,14 +83,45 @@ class CoverSpool(
             .onFailure { logger.warn(it) { "cover spool clear failed for scan $scanId" } }
     }
 
-    /** Startup: delete every leftover scan dir from a crashed scan. Never throws. */
+    /**
+     * Startup: delete leftover scan dirs from a crashed scan — but only those untouched for at
+     * least [ORPHAN_GRACE_MS]. A live scan's dir is modified on every cover write, so it stays far
+     * under this window; recently-modified dirs are therefore left alone. This stops a fresh boot's
+     * sweep from deleting a **concurrent** instance's in-flight scan dir out from under its persist
+     * (the cause of the spooled-cover 404s in #703 when a stale JVM still shares this data dir).
+     * Never throws.
+     */
     fun sweepOrphans() {
         if (!root.exists()) return
+        val cutoff = System.currentTimeMillis() - ORPHAN_GRACE_MS
         runCatching {
-            Files.newDirectoryStream(root).use { stream -> stream.forEach { it.toFile().deleteRecursively() } }
+            Files.newDirectoryStream(root).use { stream ->
+                stream.forEach { dir ->
+                    val lastModified = runCatching { Files.getLastModifiedTime(dir).toMillis() }.getOrDefault(0L)
+                    if (lastModified <= cutoff) {
+                        dir.toFile().deleteRecursively()
+                    } else {
+                        logger.info {
+                            "cover spool sweep: keeping recent dir ${dir.fileName} " +
+                                "(modified ${System.currentTimeMillis() - lastModified}ms ago, under grace) — " +
+                                "another scan may be live"
+                        }
+                    }
+                }
+            }
         }.onFailure { logger.warn(it) { "cover spool orphan sweep failed" } }
     }
 
     private fun key(rootRelPath: String): String =
         MessageDigest.getInstance("SHA-256").digest(rootRelPath.toByteArray()).joinToString("") { "%02x".format(it) }
+
+    companion object {
+        /**
+         * A spool dir untouched for at least this long is treated as a crashed-scan orphan and
+         * swept at startup. A live scan rewrites its dir on every cover spool, so it never ages
+         * past this window — the grace is what keeps the startup sweep from clobbering a live
+         * (possibly other-process) scan.
+         */
+        const val ORPHAN_GRACE_MS: Long = 30 * 60 * 1000L // 30 minutes
+    }
 }
