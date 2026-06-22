@@ -103,11 +103,6 @@ struct ABSImportHubView: View {
             .readableWidth(640)
         }
         .refreshable { observer.reload() }
-        .overlay(alignment: .bottom) {
-            if ready.isCreating {
-                ProgressView().controlSize(.large).padding(24)
-            }
-        }
     }
 
     private var emptyState: some View {
@@ -166,8 +161,8 @@ struct ABSImportHubView: View {
 
 // MARK: - Summary row
 
-/// One import in the hub list: a stage-tinted icon tile, name + relative created date, a stage
-/// badge, and a contextual delete. Tallies (users · books · sessions) read as the subtitle.
+/// One import in the hub list: a stage-tinted icon tile, the created timestamp as the title, a
+/// stage badge, and a contextual delete. The book tally reads as the subtitle.
 private struct ImportSummaryRow: View {
     let summary: ImportSummaryRowModel
     let onDelete: () -> Void
@@ -176,7 +171,7 @@ private struct ImportSummaryRow: View {
         HStack(spacing: 13) {
             IconTile(systemImage: stageIcon, tint: stageTint, size: 38)
             VStack(alignment: .leading, spacing: 2) {
-                Text(summary.name)
+                Text(summary.createdAt.formatted(date: .abbreviated, time: .shortened))
                     .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
@@ -199,12 +194,7 @@ private struct ImportSummaryRow: View {
     }
 
     private var subtitle: String {
-        let created = summary.createdAt.map {
-            RelativeDateTimeFormatter().localizedString(for: $0, relativeTo: Date())
-        }
-        let tallies = "\(summary.totalUsers) · \(summary.totalBooks)"
-        if let created { return "\(created) · \(tallies)" }
-        return tallies
+        String(format: String(localized: "common.books_count"), summary.bookCount)
     }
 
     private var stageBadge: some View {

@@ -153,7 +153,7 @@ struct ImportCompleteContent: View {
             StatLineRow(
                 systemImage: "xmark",
                 label: String(localized: "import.books_skipped_stat"),
-                value: "\(done.skippedCount)",
+                value: "\(done.booksNotInLibrary)",
                 isMuted: true
             )
         }

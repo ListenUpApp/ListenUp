@@ -330,20 +330,20 @@ struct ImportPickerUser: Identifiable, Equatable {
 struct ImportDoneModel: Equatable {
     let importedCount: Int
     let sessionsImported: Int
-    let skippedCount: Int
+    let booksNotInLibrary: Int
     let usersUpdated: Int
 
     init(from result: ImportResult) {
         self.importedCount = Int(result.importedCount)
         self.sessionsImported = Int(result.sessionsImported)
-        self.skippedCount = Int(result.skippedCount)
+        self.booksNotInLibrary = Int(result.booksNotInLibrary)
         self.usersUpdated = Int(result.perUser.count)
     }
 
-    init(importedCount: Int, sessionsImported: Int, skippedCount: Int, usersUpdated: Int) {
+    init(importedCount: Int, sessionsImported: Int, booksNotInLibrary: Int, usersUpdated: Int) {
         self.importedCount = importedCount
         self.sessionsImported = sessionsImported
-        self.skippedCount = skippedCount
+        self.booksNotInLibrary = booksNotInLibrary
         self.usersUpdated = usersUpdated
     }
 }

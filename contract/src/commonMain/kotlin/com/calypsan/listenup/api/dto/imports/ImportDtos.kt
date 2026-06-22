@@ -44,7 +44,13 @@ data class ImportSummary(
     val status: ImportStatus,
     val bookCount: Int,
     val userCount: Int,
-)
+) {
+    /** The import id as a plain String for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+
+    /** The [status] name as a plain String for the Swift/SKIE boundary, where Kotlin enums don't bridge cleanly. */
+    val statusName: String get() = status.name
+}
 
 /**
  * A suggested ABS-user → ListenUp-user mapping, produced by [com.calypsan.listenup.api.ImportService.analyze].

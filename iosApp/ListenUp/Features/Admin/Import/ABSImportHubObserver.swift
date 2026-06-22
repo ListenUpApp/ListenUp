@@ -42,7 +42,7 @@ final class ABSImportHubObserver {
 
     // MARK: - Actions
 
-    func reload() { viewModel.loadImports() }
+    func reload() { viewModel.refresh() }
     func deleteImport(id: String) { viewModel.deleteImport(importId: id) }
     func clearError() { viewModel.clearError() }
 
@@ -61,7 +61,7 @@ final class ABSImportHubObserver {
         case .ready(let ready):
             return .ready(ImportHubReadyModel(from: ready))
         case .error(let error):
-            return .error(message: error.message)
+            return .error(message: error.error.message)
         }
     }
 }
@@ -77,22 +77,19 @@ enum ImportHubPhase: Equatable {
 
 // MARK: - Ready model
 
-/// The hub list snapshot: the staged imports (newest first), the create-in-flight overlay, and
-/// any transient mutation error.
+/// The hub list snapshot: the staged imports (newest first) and any transient mutation error
+/// surfaced as a snackbar/alert without clearing the list.
 struct ImportHubReadyModel: Equatable {
     let imports: [ImportSummaryRowModel]
-    let isCreating: Bool
     let error: String?
 
     init(from ready: ABSImportListUiStateReady) {
         self.imports = ready.imports.map(ImportSummaryRowModel.init(from:))
-        self.isCreating = ready.isCreating
-        self.error = ready.error
+        self.error = ready.error?.message
     }
 
-    init(imports: [ImportSummaryRowModel], isCreating: Bool, error: String?) {
+    init(imports: [ImportSummaryRowModel], error: String?) {
         self.imports = imports
-        self.isCreating = isCreating
         self.error = error
     }
 }
@@ -120,41 +117,25 @@ enum ImportStage: Equatable {
     }
 }
 
-/// One row in the imports list: name, created date, stage badge, and the tallies for a subtitle.
+/// One row in the imports list: the created timestamp (the only human-facing identifier the lean
+/// `ImportSummary` carries), a stage badge, and the book tally for the subtitle.
 struct ImportSummaryRowModel: Identifiable, Equatable {
     let id: String
-    let name: String
-    let createdAt: Date?
+    let createdAt: Date
     let stage: ImportStage
-    let totalUsers: Int
-    let totalBooks: Int
-    let sessionsImported: Int
+    let bookCount: Int
 
-    init(from summary: ABSImportSummary) {
-        self.id = summary.id
-        self.name = summary.name
-        self.createdAt = ISO8601DateParser.date(from: summary.createdAt)
-        self.stage = ImportStage.from(status: summary.status)
-        self.totalUsers = Int(summary.totalUsers)
-        self.totalBooks = Int(summary.totalBooks)
-        self.sessionsImported = Int(summary.sessionsImported)
+    init(from summary: ImportSummary) {
+        self.id = summary.idString
+        self.createdAt = Date(timeIntervalSince1970: Double(summary.createdAt) / 1000)
+        self.stage = ImportStage.from(status: summary.statusName)
+        self.bookCount = Int(summary.bookCount)
     }
 
-    init(
-        id: String,
-        name: String,
-        createdAt: Date?,
-        stage: ImportStage,
-        totalUsers: Int,
-        totalBooks: Int,
-        sessionsImported: Int
-    ) {
+    init(id: String, createdAt: Date, stage: ImportStage, bookCount: Int) {
         self.id = id
-        self.name = name
         self.createdAt = createdAt
         self.stage = stage
-        self.totalUsers = totalUsers
-        self.totalBooks = totalBooks
-        self.sessionsImported = sessionsImported
+        self.bookCount = bookCount
     }
 }
