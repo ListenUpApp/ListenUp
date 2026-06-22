@@ -120,6 +120,8 @@ fun WideNowPlaying(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    hasPdf: Boolean = false,
+    onOpenPdf: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -137,6 +139,8 @@ fun WideNowPlaying(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                hasPdf = hasPdf,
+                onOpenPdf = onOpenPdf,
                 wide = true,
                 modifier =
                     Modifier

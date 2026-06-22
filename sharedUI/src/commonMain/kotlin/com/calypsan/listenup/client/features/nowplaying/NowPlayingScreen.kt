@@ -68,6 +68,8 @@ fun NowPlayingScreen(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    hasPdf: Boolean = false,
+    onOpenPdf: () -> Unit = {},
     isTv: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -215,6 +217,8 @@ fun NowPlayingScreen(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                hasPdf = hasPdf,
+                onOpenPdf = onOpenPdf,
             )
         } else {
             CompactNowPlaying(
@@ -236,6 +240,8 @@ fun NowPlayingScreen(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                hasPdf = hasPdf,
+                onOpenPdf = onOpenPdf,
             )
         }
     }

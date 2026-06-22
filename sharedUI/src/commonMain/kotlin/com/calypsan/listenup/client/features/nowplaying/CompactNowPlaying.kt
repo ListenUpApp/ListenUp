@@ -104,6 +104,8 @@ fun CompactNowPlaying(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    hasPdf: Boolean = false,
+    onOpenPdf: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
@@ -140,6 +142,8 @@ fun CompactNowPlaying(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                hasPdf = hasPdf,
+                onOpenPdf = onOpenPdf,
                 wide = false,
                 modifier = Modifier.fillMaxWidth(),
             )

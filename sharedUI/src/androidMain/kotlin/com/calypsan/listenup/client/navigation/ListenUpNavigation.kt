@@ -707,6 +707,9 @@ private fun BoxScope.AuthenticatedNavOverlays(
         onNavigateToContributor = { contributorId ->
             backStack.add(ContributorDetail(contributorId))
         },
+        onNavigateToDocument = { localPath ->
+            backStack.add(DocumentViewer(localPath))
+        },
         viewModel = nowPlayingViewModel,
     )
 

@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.NowPlayingState
@@ -60,10 +61,12 @@ class NowPlayingProgressIsolationTest :
             val playbackController = mock<PlaybackController>()
             val playbackPreferences = mock<PlaybackPreferences>()
             val networkMonitor = mock<NetworkMonitor>()
+            val documentRepository = mock<DocumentRepository>()
             every { networkMonitor.isOnline() } returns true
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
             everySuspend { bookRepository.getBookListItem(any()) } returns sampleBook()
+            every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
             every { playbackController.acquire() } returns Unit
             return NowPlayingViewModel(
                 playbackManager = fakePm,
@@ -72,6 +75,7 @@ class NowPlayingProgressIsolationTest :
                 playbackController = playbackController,
                 playbackPreferences = playbackPreferences,
                 networkMonitor = networkMonitor,
+                documentRepository = documentRepository,
             )
         }
 

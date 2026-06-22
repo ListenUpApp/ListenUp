@@ -24,6 +24,7 @@ val playbackPresentationModule =
                 playbackController = get(),
                 playbackPreferences = get(),
                 networkMonitor = get(),
+                documentRepository = get(),
             )
         }
     }
