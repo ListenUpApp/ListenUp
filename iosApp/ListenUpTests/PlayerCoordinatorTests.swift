@@ -332,7 +332,7 @@ struct DocumentProviderTests {
     private func makeCoordinator(documentProvider: FakeBookDocumentProviding) -> PlayerCoordinator {
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
