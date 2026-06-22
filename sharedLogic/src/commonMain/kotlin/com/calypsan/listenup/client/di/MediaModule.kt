@@ -1,9 +1,11 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.local.documents.DocumentStorageImpl
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.data.repository.AvatarDownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.CoverDownloadRepositoryImpl
+import com.calypsan.listenup.client.data.repository.DocumentRepositoryImpl
 import com.calypsan.listenup.client.data.repository.DownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
 import com.calypsan.listenup.client.data.sync.CoverDownloadWorker
@@ -11,6 +13,7 @@ import com.calypsan.listenup.client.data.sync.ImageDownloader
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.CoverDownloadRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -36,6 +39,8 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.BookRepository] — `bookModule`
  *  - [com.calypsan.listenup.client.download.DownloadEnqueuer] — platform download module
+ *  - [com.calypsan.listenup.client.data.local.db.BookDocumentDao] — `persistenceModule`
+ *  - [com.calypsan.listenup.client.data.local.images.StoragePaths] — platform storage module
  */
 val mediaModule: Module =
     module {
@@ -108,6 +113,15 @@ val mediaModule: Module =
             CoverDownloadWorker(
                 coverDownloadDao = get(),
                 imageDownloader = get(),
+            )
+        }
+
+        // DocumentRepository — on-demand fetch + disk cache for supplementary book documents.
+        single<DocumentRepository> {
+            DocumentRepositoryImpl(
+                documentDao = get(),
+                storage = DocumentStorageImpl(get()),
+                clientFactory = get(),
             )
         }
     }

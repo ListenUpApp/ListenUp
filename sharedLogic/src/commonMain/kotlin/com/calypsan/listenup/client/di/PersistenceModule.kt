@@ -49,6 +49,7 @@ val persistenceModule: Module =
         single { get<ListenUpDatabase>().bookTagDao() }
         single { get<ListenUpDatabase>().libraryDao() }
         single { get<ListenUpDatabase>().libraryFolderDao() }
+        single { get<ListenUpDatabase>().bookDocumentDao() }
 
         single<TransactionRunner> {
             RoomTransactionRunner(get())
