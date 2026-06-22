@@ -92,11 +92,7 @@ internal fun Route.bookRoutes(
     accessPolicy: BookAccessPolicy,
 ) {
     get<BookResources.Detail> { res ->
-        // getBook is access-gated by the caller's principal — scope the service to
-        // the authenticated user per-request, mirroring the RPC mount in RpcRoutes.
-        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
-        val scoped = (bookService as BookServiceImpl).copyWith(PrincipalProvider { p })
-        when (val result = scoped.getBook(res.id)) {
+        when (val result = call.scoped(bookService).getBook(res.id)) {
             is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -115,18 +111,12 @@ internal fun Route.bookRoutes(
     }
 
     put<BookResources.Cover> { res ->
-        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
-        val scoped = (bookService as BookServiceImpl).copyWith(PrincipalProvider { p })
-        call.handleCoverUpload(res.id, scoped)
+        call.handleCoverUpload(res.id, call.scoped(bookService))
     }
 
     rateLimit(RateLimitBuckets.BooksSearch) {
         get<BookResources> { res ->
-            // searchBooks is access-gated by the caller's principal — scope the service to
-            // the authenticated user per-request, mirroring the Detail (getBook) handler.
-            val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
-            val scoped = (bookService as BookServiceImpl).copyWith(PrincipalProvider { p })
-            when (val result = scoped.searchBooks(res.q ?: "", res.limit)) {
+            when (val result = call.scoped(bookService).searchBooks(res.q ?: "", res.limit)) {
                 is AppResult.Success -> call.respond(result.data)
                 is AppResult.Failure -> call.respondBareAppError(result.error)
             }
@@ -135,7 +125,7 @@ internal fun Route.bookRoutes(
 
     patch<BookResources.Detail> { res ->
         val patch = call.receive<BookUpdate>()
-        when (val result = bookService.updateBook(res.id, patch)) {
+        when (val result = call.scoped(bookService).updateBook(res.id, patch)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -143,7 +133,7 @@ internal fun Route.bookRoutes(
 
     put<BookResources.Contributors> { res ->
         val contributors = call.receive<List<BookContributorInput>>()
-        when (val result = bookService.setBookContributors(res.id, contributors)) {
+        when (val result = call.scoped(bookService).setBookContributors(res.id, contributors)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -168,7 +158,7 @@ internal fun Route.bookRoutes(
 
     put<BookResources.Series> { res ->
         val series = call.receive<List<BookSeriesInput>>()
-        when (val result = bookService.setBookSeries(res.id, series)) {
+        when (val result = call.scoped(bookService).setBookSeries(res.id, series)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
@@ -176,18 +166,31 @@ internal fun Route.bookRoutes(
 
     put<BookResources.Genres> { res ->
         val genres = call.receive<List<BookGenreInput>>()
-        when (val result = bookService.setBookGenres(res.id, genres)) {
+        when (val result = call.scoped(bookService).setBookGenres(res.id, genres)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
 
     delete<BookResources.Cover> { res ->
-        when (val result = bookService.deleteBookCover(res.id)) {
+        when (val result = call.scoped(bookService).deleteBookCover(res.id)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }
+}
+
+/**
+ * Scopes [service] to the authenticated caller for this request and returns the
+ * principal-bound [BookServiceImpl]. Book-domain service methods read
+ * `principal.current()` (`requireCanEdit`, access gates); the DI singleton holds a
+ * throwing `unscopedPlaceholder`, so every handler that calls a principal-reading
+ * method must scope first or it 500s. Mirrors the `scoped()` helper in the sibling
+ * route files (SeriesRoutes, GenreRoutes, ContributorRoutes, TagRoutes).
+ */
+private fun ApplicationCall.scoped(service: BookService): BookServiceImpl {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    return (service as BookServiceImpl).copyWith(PrincipalProvider { p })
 }
 
 /**
