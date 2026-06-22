@@ -2411,6 +2411,46 @@
         }
       }
     },
+    "book.detail_document_pages_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading"
+          }
+        }
+      }
+    },
+    "book.detail_document_pages_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Pages"
+          }
+        }
+      }
+    },
+    "book.detail_document_reader_controls_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "p. %1$d of %2$d · tap to show controls"
+          }
+        }
+      }
+    },
+    "book.detail_document_reader_toggle_grid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle grid view"
+          }
+        }
+      }
+    },
     "book.detail_document_viewer_coming_soon": {
       "localizations": {
         "en": {
@@ -3467,6 +3507,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "You have unsaved changes. Are you sure you want to discard them?"
+          }
+        }
+      }
+    },
+    "book.reader_scrubber_page_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d"
+          }
+        }
+      }
+    },
+    "book.reader_scrubber_page_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "p. %1$d"
           }
         }
       }

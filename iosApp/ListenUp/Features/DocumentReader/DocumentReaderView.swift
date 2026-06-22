@@ -1,10 +1,9 @@
 import PDFKit
 import SwiftUI
 
-/// Full-screen basic PDF reader: a glass top bar (Done · title · format), the PDF body,
-/// and a "Page X of Y" overlay. Loads the document once; shows an error state instead of a
-/// blank view when the file can't be parsed. Presented via `.fullScreenCover(item:)` with a
-/// `ReaderDocument`.
+/// Full-screen PDF reader with immersive chrome: tap to toggle the top bar and bottom dock
+/// (scrubber + now-playing strip). A folio hint pill anchors the top when chrome is hidden
+/// so the reader always knows their position.
 struct DocumentReaderView: View {
     let document: ReaderDocument
     var onDone: () -> Void
@@ -12,6 +11,11 @@ struct DocumentReaderView: View {
     @State private var pdfDocument: PDFDocument?
     @State private var didAttemptLoad = false
     @State private var currentPageIndex = 0
+    @State private var chromeVisible = true
+    @State private var goToPage: Int?
+    @State private var scrubFraction: Double = 0
+    @State private var showGrid = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
 
@@ -20,8 +24,23 @@ struct DocumentReaderView: View {
             Color(.systemBackground).ignoresSafeArea()
 
             if let pdfDocument {
-                PDFKitView(document: pdfDocument, currentPageIndex: $currentPageIndex)
-                    .ignoresSafeArea(edges: .bottom)
+                PDFKitView(
+                    document: pdfDocument,
+                    currentPageIndex: $currentPageIndex,
+                    goToPage: $goToPage
+                )
+                .ignoresSafeArea(edges: .bottom)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                        chromeVisible.toggle()
+                    }
+                }
+                .onChange(of: currentPageIndex) { _, newIndex in
+                    scrubFraction = pageCount > 1
+                        ? Double(newIndex) / Double(pageCount - 1)
+                        : 0
+                }
             } else if didAttemptLoad {
                 errorState
             } else {
@@ -32,42 +51,109 @@ struct DocumentReaderView: View {
             pdfDocument = PDFDocument(url: document.url)
             didAttemptLoad = true
         }
-        .safeAreaInset(edge: .top) { topBar }
-        .overlay(alignment: .bottom) {
-            if pdfDocument != nil, pageCount > 0 { pageIndicator }
+        .safeAreaInset(edge: .top) {
+            if chromeVisible { topBar }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if chromeVisible, pdfDocument != nil, pageCount > 0 { bottomDock }
+        }
+        .overlay(alignment: .top) {
+            if !chromeVisible, pageCount > 0 { folioHint }
+        }
+        .fullScreenCover(isPresented: $showGrid) {
+            if let pdfDocument {
+                PageGridView(
+                    document: pdfDocument,
+                    currentPageIndex: currentPageIndex,
+                    onSelect: { idx in goToPage = idx; showGrid = false },
+                    onClose: { showGrid = false }
+                )
+            }
         }
     }
+
+    // MARK: - Top bar
 
     private var topBar: some View {
         HStack {
             Button(String(localized: "common.done"), action: onDone)
                 .font(.body.weight(.semibold))
             Spacer()
+            HStack(spacing: 8) {
+                Button { showGrid = true } label: {
+                    Image(systemName: "square.grid.2x2")
+                }
+                .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
+                Menu {
+                    // placeholder — actions added in 3b
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+            }
         }
         .overlay {
             VStack(spacing: 1) {
                 Text(document.title).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text("PDF").font(.caption2).foregroundStyle(.secondary)
             }
-            .padding(.horizontal, 60)
+            .padding(.horizontal, 80)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(.bar)
     }
 
-    private var pageIndicator: some View {
+    // MARK: - Bottom dock
+
+    private var bottomDock: some View {
+        VStack(spacing: 8) {
+            NowPlayingStrip()
+            scrubberRow
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.bar)
+    }
+
+    private var scrubberRow: some View {
         let display = pageDisplay(currentIndex: currentPageIndex, pageCount: pageCount)
-        let pageOfFormat = String(localized: "book.detail_document_viewer_page_of")
-        return Text(String(format: pageOfFormat, display.page, display.total))
+        return HStack(spacing: 8) {
+            Text(String(format: String(localized: "book.reader_scrubber_page_label"), display.page))
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 32, alignment: .leading)
+
+            Slider(value: $scrubFraction, in: 0...1) { editing in
+                if !editing {
+                    goToPage = scrubberPage(fraction: scrubFraction, pageCount: pageCount) - 1
+                }
+            }
+
+            Text(String(format: String(localized: "book.reader_scrubber_page_count"), pageCount))
+                .font(.caption.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 32, alignment: .trailing)
+        }
+    }
+
+    // MARK: - Folio hint
+
+    private var folioHint: some View {
+        let display = pageDisplay(currentIndex: currentPageIndex, pageCount: pageCount)
+        let format = String(localized: "book.detail_document_reader_controls_hint")
+        return Text(String(format: format, display.page, display.total))
             .font(.caption.weight(.medium))
             .monospacedDigit()
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
             .background(.black.opacity(0.55), in: Capsule())
-            .padding(.bottom, 16)
+            .padding(.top, 8)
     }
+
+    // MARK: - Error state
 
     private var errorState: some View {
         VStack(spacing: 8) {

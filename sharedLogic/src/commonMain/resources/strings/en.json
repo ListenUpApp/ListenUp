@@ -385,7 +385,13 @@
     "detail_document_viewer_coming_soon": "Viewer coming soon",
     "detail_document_viewer_page_of": "Page %1$d of %2$d",
     "detail_document_viewer_loading": "Loading page…",
-    "detail_document_viewer_error": "Could not open document."
+    "detail_document_viewer_error": "Could not open document.",
+    "detail_document_reader_controls_hint": "p. %1$d of %2$d · tap to show controls",
+    "detail_document_reader_toggle_grid": "Toggle grid view",
+    "detail_document_pages_title": "All Pages",
+    "detail_document_pages_back": "Reading",
+    "reader_scrubber_page_label": "p. %1$d",
+    "reader_scrubber_page_count": "%1$d"
   },
   "series": {
     "book_sequence": "Book %1$s",

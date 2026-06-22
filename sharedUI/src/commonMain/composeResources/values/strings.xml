@@ -242,6 +242,10 @@ One beautiful library.</string>
     <string name="book_detail_discard_progress">Discard Progress</string>
     <string name="book_detail_discard_progress_prompt">Discard your listening progress?</string>
     <string name="book_detail_document_meta">%1$s · %2$s</string>
+    <string name="book_detail_document_pages_back">Reading</string>
+    <string name="book_detail_document_pages_title">All Pages</string>
+    <string name="book_detail_document_reader_controls_hint">p. %1$d of %2$d · tap to show controls</string>
+    <string name="book_detail_document_reader_toggle_grid">Toggle grid view</string>
     <string name="book_detail_document_viewer_coming_soon">Viewer coming soon</string>
     <string name="book_detail_document_viewer_error">Could not open document.</string>
     <string name="book_detail_document_viewer_loading">Loading page…</string>
@@ -348,6 +352,8 @@ One beautiful library.</string>
     <string name="book_edit_unsaved_changes">Unsaved Changes</string>
     <string name="book_edit_year">Year</string>
     <string name="book_edit_you_have_unsaved_changes_are">You have unsaved changes. Are you sure you want to discard them?</string>
+    <string name="book_reader_scrubber_page_count">%1$d</string>
+    <string name="book_reader_scrubber_page_label">p. %1$d</string>
     <string name="book_show_all_chapters">Show all %1$d chapters</string>
     <string name="book_tag_add">Add Tag</string>
     <string name="book_tag_add_placeholder">Add tag...</string>
