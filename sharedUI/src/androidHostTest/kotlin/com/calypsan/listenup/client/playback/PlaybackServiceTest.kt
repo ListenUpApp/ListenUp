@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import io.kotest.core.spec.style.FunSpec
@@ -105,7 +104,6 @@ class PlaybackServiceTest :
 private fun makeTracker(repo: PlaybackPositionRepository): ProgressTracker =
     object : ProgressTracker(
         downloadRepository = ThrowingDownloadRepository2,
-        listeningEventRepository = ThrowingListeningEventRepository2,
         positionRepository = repo,
         scope = CoroutineScope(Dispatchers.Unconfined),
     ) {}
@@ -192,39 +190,4 @@ private object ThrowingDownloadRepository2 : DownloadRepository {
     override suspend fun deleteForBook(bookId: String) = TODO("not used")
 
     override suspend fun resumeIncompleteDownloads() = TODO("not used")
-}
-
-private object ThrowingListeningEventRepository2 : ListeningEventRepository {
-    override suspend fun queueListeningEvent(
-        bookId: BookId,
-        startPositionMs: Long,
-        endPositionMs: Long,
-        startedAt: Long,
-        endedAt: Long,
-        playbackSpeed: Float,
-    ) = TODO("not used")
-
-    override fun observeEventsForBook(bookId: String) = TODO("not used")
-
-    override fun observeEventsInRange(
-        startMs: Long,
-        endMs: Long,
-    ) = TODO("not used")
-
-    override fun observeEventsSince(startMs: Long) = TODO("not used")
-
-    override suspend fun getTotalDurationSince(startMs: Long): Long = TODO("not used")
-
-    override fun observeTotalDurationSince(startMs: Long) = TODO("not used")
-
-    override fun observeDistinctBooksSince(startMs: Long) = TODO("not used")
-
-    override fun observeDistinctDaysSince(startMs: Long) = TODO("not used")
-
-    override suspend fun getDistinctDaysWithActivity(startMs: Long) = TODO("not used")
-
-    override suspend fun getDurationByBook(
-        startMs: Long,
-        endMs: Long,
-    ) = TODO("not used")
 }

@@ -130,7 +130,14 @@ class FileSecretStore(
  * secrets are generated/persisted under `$LISTENUP_HOME/secrets.properties`.
  */
 fun resolveServerSecrets(config: ApplicationConfig): ServerSecrets {
-    val home = resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
+    // Honour `listenup.home` (config) so secrets.properties lands under the SAME home as the DB and
+    // covers/spool — all server data stays under one directory (#703).
+    val home =
+        resolveListenupHome(
+            configuredHome = config.propertyOrNull("listenup.home")?.getString(),
+            envHome = System.getenv("LISTENUP_HOME"),
+            userHome = System.getProperty("user.home"),
+        )
     val store = FileSecretStore(home)
     return ServerSecrets(
         jwtSecret =

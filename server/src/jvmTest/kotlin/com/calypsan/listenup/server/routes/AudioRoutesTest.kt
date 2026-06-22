@@ -106,6 +106,9 @@ class AudioRoutesTest :
 
                     response.status shouldBe HttpStatusCode.OK
                     response.headers[HttpHeaders.AcceptRanges] shouldBe "bytes"
+                    // The extension-less signed URL forces AVPlayer to trust this header;
+                    // `.m4b` must resolve to audio/mp4, not Ktor's octet-stream default.
+                    response.headers[HttpHeaders.ContentType].shouldContain("audio/mp4")
                     response.bodyAsBytes().toList() shouldBe audioBytes.toList()
                 }
             } finally {

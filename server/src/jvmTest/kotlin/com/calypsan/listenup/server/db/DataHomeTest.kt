@@ -59,4 +59,18 @@ class DataHomeTest :
             resolveListenupHome(envHome = null, userHome = "/Users/x") shouldBe Path.of("/Users/x", "ListenUp")
             resolveListenupHome(envHome = "  ", userHome = "/Users/x") shouldBe Path.of("/Users/x", "ListenUp")
         }
+
+        test("resolveListenupHome (config-aware): listenup.home config wins, then env, then default — ONE home for all data (#703)") {
+            // config wins over env + default — this is what the DB/secrets previously ignored
+            resolveListenupHome(configuredHome = "/data/lu", envHome = "/env/lu", userHome = "/Users/x") shouldBe
+                Path.of("/data/lu")
+            // blank/absent config falls through to env
+            resolveListenupHome(configuredHome = "  ", envHome = "/env/lu", userHome = "/Users/x") shouldBe
+                Path.of("/env/lu")
+            resolveListenupHome(configuredHome = null, envHome = "/env/lu", userHome = "/Users/x") shouldBe
+                Path.of("/env/lu")
+            // no config, no env → userHome/ListenUp
+            resolveListenupHome(configuredHome = null, envHome = null, userHome = "/Users/x") shouldBe
+                Path.of("/Users/x", "ListenUp")
+        }
     })

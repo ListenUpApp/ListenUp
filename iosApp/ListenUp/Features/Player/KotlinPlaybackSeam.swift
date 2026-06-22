@@ -13,6 +13,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
         return PreparedPlayback(
             bookTitle: prepared.bookTitle,
             bookAuthor: prepared.bookAuthor,
+            bookNarrator: prepared.bookNarrator,
             coverPath: prepared.coverPath,
             resumeSpeed: prepared.resumeSpeed,
             resumePositionMs: prepared.resumePositionMs,

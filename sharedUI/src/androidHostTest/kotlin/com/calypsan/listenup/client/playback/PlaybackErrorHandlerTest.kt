@@ -50,7 +50,6 @@ import androidx.media3.exoplayer.video.spherical.CameraMotionListener
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import kotlinx.coroutines.CoroutineScope
@@ -450,7 +449,6 @@ private class FakeProgressTracker {
     val tracker: ProgressTracker =
         object : ProgressTracker(
             downloadRepository = ThrowingDownloadRepository,
-            listeningEventRepository = ThrowingListeningEventRepository,
             positionRepository = repo,
             scope = CoroutineScope(Dispatchers.Unconfined),
         ) {}
@@ -539,41 +537,6 @@ private object ThrowingDownloadRepository : DownloadRepository {
     override suspend fun deleteForBook(bookId: String) = TODO("not used in handler test")
 
     override suspend fun resumeIncompleteDownloads() = TODO("not used in handler test")
-}
-
-private object ThrowingListeningEventRepository : ListeningEventRepository {
-    override suspend fun queueListeningEvent(
-        bookId: BookId,
-        startPositionMs: Long,
-        endPositionMs: Long,
-        startedAt: Long,
-        endedAt: Long,
-        playbackSpeed: Float,
-    ) = TODO("not used in handler test")
-
-    override fun observeEventsForBook(bookId: String) = TODO("not used in handler test")
-
-    override fun observeEventsInRange(
-        startMs: Long,
-        endMs: Long,
-    ) = TODO("not used in handler test")
-
-    override fun observeEventsSince(startMs: Long) = TODO("not used in handler test")
-
-    override suspend fun getTotalDurationSince(startMs: Long): Long = TODO("not used in handler test")
-
-    override fun observeTotalDurationSince(startMs: Long) = TODO("not used in handler test")
-
-    override fun observeDistinctBooksSince(startMs: Long) = TODO("not used in handler test")
-
-    override fun observeDistinctDaysSince(startMs: Long) = TODO("not used in handler test")
-
-    override suspend fun getDistinctDaysWithActivity(startMs: Long) = TODO("not used in handler test")
-
-    override suspend fun getDurationByBook(
-        startMs: Long,
-        endMs: Long,
-    ) = TODO("not used in handler test")
 }
 
 // ── Stubs ─────────────────────────────────────────────────────────────────────

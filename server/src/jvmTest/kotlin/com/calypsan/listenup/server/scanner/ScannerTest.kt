@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
@@ -285,6 +286,33 @@ class ScannerTest :
                     val result = bus.replayCache.last()
                     (result.scope is ScanScope.Subtree) shouldBe true
                     (result.scope as ScanScope.Subtree).rootRelPath shouldBe "Author/Title"
+                }
+            }
+        }
+
+        test("runIncremental stamps the result with its OWN correlationId, not the previous full scan's (#703)") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    val bus = MutableSharedFlow<ScanResult>(replay = 1)
+                    val counter = AtomicLong(0)
+                    val (scanner, _) =
+                        newScanner(
+                            fixture,
+                            correlationIdFactory = { "scan-${counter.incrementAndGet()}" },
+                            scanResultBus = bus,
+                        )
+                    scanner.runFullScan() // scan-1
+
+                    scanner.runIncremental(fixture.root.resolve("Author/Title")) // scan-2
+
+                    // Bug #703: `lastResult?.copy(...)` inherited the prior full scan's correlationId,
+                    // so the incremental spooled to scan-2 but cleared/reported scan-1 — leaking the
+                    // real spool dir and mis-keying ScanEvent.Completed.
+                    withClue("incremental result must carry its own correlationId (scan-2), not inherit scan-1") {
+                        bus.replayCache.last().correlationId shouldBe "scan-2"
+                    }
                 }
             }
         }

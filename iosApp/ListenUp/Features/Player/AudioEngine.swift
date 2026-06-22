@@ -39,6 +39,10 @@ actor AudioEngine: PlaybackEngine {
 
     private var timeObserver: Any?
     private var endObserver: NSObjectProtocol?
+    /// Observes `AVPlayerItem` error-log entries — the only place AVFoundation
+    /// surfaces transient HTTP/streaming failures (403/500/timeout on a range
+    /// request) that don't flip the item to `.failed`. Logged for diagnosis.
+    private var errorLogObserver: NSObjectProtocol?
     private var currentItemObservation: NSKeyValueObservation?
     private var statusObservation: NSKeyValueObservation?
     private var keepUpObservation: NSKeyValueObservation?
@@ -67,6 +71,7 @@ actor AudioEngine: PlaybackEngine {
         rebuildQueue(fromSegment: startIndex)
         installTimeObserver()
         observeEnd()
+        observeErrorLog()
         observeCurrentItemTransitions()
     }
 
@@ -134,6 +139,10 @@ actor AudioEngine: PlaybackEngine {
         if let endObserver {
             NotificationCenter.default.removeObserver(endObserver)
             self.endObserver = nil
+        }
+        if let errorLogObserver {
+            NotificationCenter.default.removeObserver(errorLogObserver)
+            self.errorLogObserver = nil
         }
         currentItemObservation = nil
         statusObservation = nil
@@ -217,6 +226,30 @@ actor AudioEngine: PlaybackEngine {
         }
     }
 
+    /// Log AVFoundation error-log entries. These surface transient HTTP/streaming
+    /// failures (e.g. ATS blocking a cleartext URL, a 403/500 on a range request, a
+    /// TLS-trust failure) that often *don't* flip the item to `.failed` — the player
+    /// just never starts. The single most useful signal for diagnosing why a stream
+    /// won't play when the downloaded file plays fine.
+    private func observeErrorLog() {
+        if let errorLogObserver {
+            NotificationCenter.default.removeObserver(errorLogObserver)
+        }
+        errorLogObserver = NotificationCenter.default.addObserver(
+            forName: AVPlayerItem.newErrorLogEntryNotification,
+            object: nil,
+            queue: .main
+        ) { notification in
+            guard let item = notification.object as? AVPlayerItem,
+                  let event = item.errorLog()?.events.last else { return }
+            Log.error(
+                "AVPlayer streaming error: status=\(event.errorStatusCode) " +
+                    "domain=\(event.errorDomain) comment=\(event.errorComment ?? "—") " +
+                    "uri=\(event.uri ?? "—")"
+            )
+        }
+    }
+
     private func handleItemEnded(_ itemId: ObjectIdentifier) {
         guard let last = queue.last else { return }
         // The whole book has ended only when the *final* segment's item finishes.
@@ -246,7 +279,10 @@ actor AudioEngine: PlaybackEngine {
             guard let self else { return }
             let status = item.status
             let errorMessage = item.error?.localizedDescription
-            Task { await self.handleItemStatus(status, errorMessage: errorMessage) }
+            // Capture the NSError domain/code too — the localized text alone rarely
+            // names the cause (ATS, TLS trust, HTTP status).
+            let detail = (item.error as NSError?).map { " [\($0.domain) \($0.code)]" } ?? ""
+            Task { await self.handleItemStatus(status, errorMessage: errorMessage, errorDetail: detail) }
         }
         keepUpObservation = item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
             guard let self else { return }
@@ -259,7 +295,7 @@ actor AudioEngine: PlaybackEngine {
         continuation.yield(.statusChanged(likelyToKeepUp ? .ready : .buffering))
     }
 
-    private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?) {
+    private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String) {
         switch status {
         case .readyToPlay:
             if let pending = pendingSeekWithinSegmentMs {
@@ -271,6 +307,7 @@ actor AudioEngine: PlaybackEngine {
             }
             continuation.yield(.statusChanged(.ready))
         case .failed:
+            Log.error("AVPlayerItem failed: \(errorMessage ?? "unknown error")\(errorDetail)")
             continuation.yield(.failed(message: errorMessage ?? "Playback failed."))
         case .unknown:
             break

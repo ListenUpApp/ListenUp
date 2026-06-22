@@ -212,6 +212,13 @@ private fun ApplicationConfig.serverName(): String =
  */
 private fun ApplicationConfig.resolveJdbcUrl(): String {
     val configured = propertyOrNull("database.jdbcUrl")?.getString().orEmpty()
-    val home = resolveListenupHome(System.getenv("LISTENUP_HOME"), System.getProperty("user.home"))
+    // Honour `listenup.home` (config) so the DB lands under the SAME home as covers/spool — not just
+    // $LISTENUP_HOME. Keeps all server data under one directory (#703).
+    val home =
+        resolveListenupHome(
+            configuredHome = propertyOrNull("listenup.home")?.getString(),
+            envHome = System.getenv("LISTENUP_HOME"),
+            userHome = System.getProperty("user.home"),
+        )
     return resolveDatabaseUrl(configuredUrl = configured, listenupHome = home)
 }

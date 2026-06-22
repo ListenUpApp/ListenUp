@@ -10,12 +10,14 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
+import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
+import java.nio.file.attribute.FileTime
 import kotlin.io.path.exists
 
 // ---------------------------------------------------------------------------
@@ -198,7 +200,7 @@ class CoverSpoolTest :
         // Lifecycle: clearScan / sweepOrphans
         // -------------------------------------------------------------------
 
-        test("clearScan removes the scan's dir; sweepOrphans removes all leftover dirs") {
+        test("clearScan removes the scan's dir; sweepOrphans removes STALE leftover dirs") {
             val root = Files.createTempDirectory("spool-test")
             val spool = CoverSpool(root)
             spool.spoolCover("scanA", bookWithEmbeddedCover("A", byteArrayOf(9)))
@@ -206,8 +208,38 @@ class CoverSpoolTest :
             spool.clearScan("scanA")
             root.resolve("scanA").exists() shouldBe false
             root.resolve("scanB").exists() shouldBe true
+            // Age scanB past the orphan grace so the sweep treats it as a crashed-scan leftover.
+            Files.setLastModifiedTime(
+                root.resolve("scanB"),
+                FileTime.fromMillis(System.currentTimeMillis() - CoverSpool.ORPHAN_GRACE_MS - 60_000L),
+            )
             spool.sweepOrphans()
             root.resolve("scanB").exists() shouldBe false
+        }
+
+        test("sweepOrphans preserves recently-modified dirs — a live scan is never clobbered") {
+            val root = Files.createTempDirectory("spool-test")
+            val spool = CoverSpool(root)
+
+            // A just-created dir stands in for a concurrent (possibly other-process) live scan.
+            val liveDir = root.resolve("live-scan-corr")
+            Files.createDirectories(liveDir)
+
+            val crashedDir = root.resolve("crashed-scan-corr")
+            Files.createDirectories(crashedDir)
+            Files.setLastModifiedTime(
+                crashedDir,
+                FileTime.fromMillis(System.currentTimeMillis() - 2 * 60 * 60 * 1000L), // 2h ago
+            )
+
+            spool.sweepOrphans()
+
+            withClue("a recently-written (live) scan dir must survive the startup sweep") {
+                liveDir.exists() shouldBe true
+            }
+            withClue("a long-stale (crashed) scan dir must be swept") {
+                crashedDir.exists() shouldBe false
+            }
         }
 
         // -------------------------------------------------------------------

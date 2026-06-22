@@ -153,12 +153,6 @@ struct FullScreenPlayerView: View {
             ChapterScrubberSection(observer: observer, tint: tint)
                 .padding(.horizontal, 26)
 
-            Spacer().frame(height: 12)
-
-            // Overall book progress bar (thin)
-            overallProgressBar
-                .padding(.horizontal, 26)
-
             Spacer(minLength: 20)
 
             transport
@@ -246,43 +240,15 @@ struct FullScreenPlayerView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
-            Text(String(format: String(localized: "books.detail_narrated_by_value"), observer.authorName))
-                .font(.footnote)
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
+            if !observer.narratorName.isEmpty {
+                Text(String(format: String(localized: "book.detail_narrated_by_value"), observer.narratorName))
+                    .font(.footnote)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 26)
-    }
-
-    // MARK: - Overall progress
-
-    private var overallProgressBar: some View {
-        VStack(spacing: 4) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color(.systemFill))
-                        .frame(height: 3)
-                    Capsule()
-                        .fill(tint)
-                        .frame(width: geo.size.width * CGFloat(observer.displayBookProgress), height: 3)
-                }
-            }
-            .frame(height: 3)
-
-            HStack {
-                Text(formatTime(observer.displayBookPositionMs))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
-                Spacer()
-                Text(formatTime(observer.bookDurationMs))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                    .monospacedDigit()
-            }
-        }
     }
 
     // MARK: - Transport
@@ -382,7 +348,7 @@ struct FullScreenPlayerView: View {
                 Button(action: { showSleepTimer = true }) {
                     Image(systemName: observer.sleepTimerActive ? "moon.zzz.fill" : "moon.zzz")
                         .font(.title3)
-                        .foregroundStyle(observer.sleepTimerActive ? tint : .secondary)
+                        .foregroundStyle(observer.sleepTimerActive ? tint : .primary)
                         .frame(height: 28)
                 }
             }
@@ -393,7 +359,7 @@ struct FullScreenPlayerView: View {
                     Button(action: { showChapterList = true }) {
                         Image(systemName: "list.bullet")
                             .font(.title3)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.primary)
                             .frame(height: 28)
                     }
                 }
@@ -401,7 +367,7 @@ struct FullScreenPlayerView: View {
 
             // AirPlay — self-voicing route picker; keep it as its own interactive element.
             controlItem(label: String(localized: "player.airplay"), combineForVoiceOver: false) {
-                RoutePickerView(tint: Color(.secondaryLabel), activeTint: tint)
+                RoutePickerView(tint: Color(.label), activeTint: tint)
                     .frame(width: 28, height: 28)
             }
         }
@@ -445,32 +411,6 @@ struct FullScreenPlayerView: View {
     }
 
     // MARK: - Helpers
-
-    private func formatTime(_ ms: Int64) -> String {
-        let totalSeconds = ms / 1000
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%d:%02d", minutes, seconds)
-        }
-    }
-
-    private func formatTimeRemaining(_ ms: Int64) -> String {
-        let totalSeconds = ms / 1000
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "-%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "-%d:%02d", minutes, seconds)
-        }
-    }
 
     private func formatSpeed(_ speed: Float) -> String {
         if speed == Float(Int(speed)) {
