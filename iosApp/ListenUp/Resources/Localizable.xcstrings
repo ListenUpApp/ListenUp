@@ -3481,6 +3481,26 @@
         }
       }
     },
+    "book.reader_scrubber_page_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d"
+          }
+        }
+      }
+    },
+    "book.reader_scrubber_page_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "p. %1$d"
+          }
+        }
+      }
+    },
     "book.show_all_chapters": {
       "localizations": {
         "en": {
