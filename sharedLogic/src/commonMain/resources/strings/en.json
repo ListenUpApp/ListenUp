@@ -387,6 +387,7 @@
     "detail_document_viewer_loading": "Loading page…",
     "detail_document_viewer_error": "Could not open document.",
     "detail_document_reader_controls_hint": "p. %1$d of %2$d · tap to show controls",
+    "detail_document_reader_toggle_grid": "Toggle grid view",
     "reader_scrubber_page_label": "p. %1$d",
     "reader_scrubber_page_count": "%1$d"
   },

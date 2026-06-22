@@ -2421,6 +2421,16 @@
         }
       }
     },
+    "book.detail_document_reader_toggle_grid": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toggle grid view"
+          }
+        }
+      }
+    },
     "book.detail_document_viewer_coming_soon": {
       "localizations": {
         "en": {

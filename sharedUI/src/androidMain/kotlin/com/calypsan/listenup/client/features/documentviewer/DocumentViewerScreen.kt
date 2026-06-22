@@ -1,11 +1,18 @@
 package com.calypsan.listenup.client.features.documentviewer
 
 import android.graphics.Bitmap
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,7 +21,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -27,8 +37,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,16 +55,25 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_document_reader_controls_hint
+import listenup.composeapp.generated.resources.book_detail_document_reader_toggle_grid
 import listenup.composeapp.generated.resources.book_detail_document_viewer_error
 import listenup.composeapp.generated.resources.book_detail_document_viewer_loading
 import listenup.composeapp.generated.resources.book_detail_document_viewer_page_of
+import listenup.composeapp.generated.resources.book_detail_more_options
 import listenup.composeapp.generated.resources.common_back
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.viewmodel.koinViewModel
 
 /**
  * Full-screen PDF viewer for a locally cached supplement document.
@@ -61,8 +82,14 @@ import org.jetbrains.compose.resources.stringResource
  * [android.graphics.pdf.PdfRenderer]).  Each page is rendered lazily on [Dispatchers.Default]
  * behind a [Mutex] (PdfRenderer is single-threaded), then displayed in a [LazyColumn].
  *
- * A pinch-to-zoom gesture layer wraps the page list; a page indicator overlay shows the
- * currently-visible page number.
+ * A pinch-to-zoom gesture layer wraps the page list. Chrome (top bar + bottom dock) is
+ * toggled by tapping the page area; a tap-detection [pointerInput] intercepts single taps
+ * without consuming scroll/zoom gestures by using a separate [pointerInput] key on an
+ * outer [Box], leaving [ZoomableBox]'s own [pointerInput] to handle transform gestures.
+ *
+ * The bottom dock shows a [ReaderNowPlayingStrip] (when playback is active) above a
+ * [ReaderPageScrubber]. Playback state is sourced from the process-singleton
+ * [NowPlayingViewModel], matching the shell's mini-player wiring.
  *
  * @param path Absolute path to the local PDF file.
  * @param onBack Called when the user taps the navigation-icon back button.
@@ -79,30 +106,35 @@ internal fun DocumentViewerScreen(
         onDispose { wrapper?.close() }
     }
 
-    // Shared mutex: PdfRenderer can only render one page at a time.
     val renderMutex = remember(path) { Mutex() }
-
     val listState = rememberLazyListState()
     val firstVisible = listState.firstVisibleItemIndex
+    val scope = rememberCoroutineScope()
+
+    // Playback state — reuse the process-singleton NowPlayingViewModel, same as the shell.
+    val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
+    val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    val nowPlayingProgress by nowPlayingViewModel.progress.collectAsStateWithLifecycle()
+
+    var chromeVisible by remember { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = basenameOf(path),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(Res.string.common_back),
-                        )
-                    }
-                },
+            ReaderTopBar(
+                title = basenameOf(path),
+                onBack = onBack,
+                chromeVisible = chromeVisible,
+            )
+        },
+        bottomBar = {
+            ReaderBottomDock(
+                chromeVisible = chromeVisible,
+                nowPlayingState = nowPlayingScreenState.state,
+                nowPlayingProgress = nowPlayingProgress,
+                onPlayPause = nowPlayingViewModel::playPause,
+                wrapper = wrapper,
+                firstVisible = firstVisible,
+                onSeekToIndex = { index -> scope.launch { listState.scrollToItem(index) } },
             )
         },
     ) { paddingValues ->
@@ -116,28 +148,136 @@ internal fun DocumentViewerScreen(
                 ErrorContent()
             } else {
                 val pageCount = wrapper.pageCount
-                ZoomableBox(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        items(pageCount) { pageIndex ->
-                            PdfPageItem(
-                                pageIndex = pageIndex,
-                                wrapper = wrapper,
-                                renderMutex = renderMutex,
-                            )
+                // Outer Box: tap-to-toggle chrome without consuming zoom/pan gestures.
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .pointerInput(Unit) {
+                                detectTapGestures(onTap = { chromeVisible = !chromeVisible })
+                            },
+                ) {
+                    ZoomableBox(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                            items(pageCount) { pageIndex ->
+                                PdfPageItem(pageIndex = pageIndex, wrapper = wrapper, renderMutex = renderMutex)
+                            }
                         }
                     }
                 }
-
-                if (wrapper.pageCount > 0) {
-                    PageIndicator(
-                        currentPage = firstVisible + 1,
-                        totalPages = wrapper.pageCount,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 8.dp, end = 12.dp),
+                // When chrome is hidden, show a small pill so the user can find their way back.
+                AnimatedVisibility(
+                    visible = !chromeVisible && pageCount > 0,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    HintPill(
+                        text =
+                            stringResource(
+                                Res.string.book_detail_document_reader_controls_hint,
+                                firstVisible + 1,
+                                pageCount,
+                            ),
                     )
                 }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Top bar
+// ---------------------------------------------------------------------------
+
+/**
+ * Animating top bar with back navigation + grid (placeholder) + overflow actions.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReaderTopBar(
+    title: String,
+    onBack: () -> Unit,
+    chromeVisible: Boolean,
+) {
+    var showOverflowMenu by remember { mutableStateOf(false) }
+
+    AnimatedVisibility(
+        visible = chromeVisible,
+        enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+    ) {
+        TopAppBar(
+            title = { Text(text = title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = stringResource(Res.string.common_back),
+                    )
+                }
+            },
+            actions = {
+                // Grid view — inert placeholder for task 3b.
+                IconButton(onClick = {}, enabled = false) {
+                    Icon(
+                        imageVector = Icons.Rounded.GridView,
+                        contentDescription = stringResource(Res.string.book_detail_document_reader_toggle_grid),
+                    )
+                }
+                Box {
+                    IconButton(onClick = { showOverflowMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = stringResource(Res.string.book_detail_more_options),
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showOverflowMenu,
+                        onDismissRequest = { showOverflowMenu = false },
+                    ) {
+                        // Populated in future tasks (3b, 3c).
+                    }
+                }
+            },
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Bottom dock
+// ---------------------------------------------------------------------------
+
+/**
+ * Animating bottom dock containing [ReaderNowPlayingStrip] + [ReaderPageScrubber].
+ */
+@Composable
+private fun ReaderBottomDock(
+    chromeVisible: Boolean,
+    nowPlayingState: NowPlayingState,
+    nowPlayingProgress: PlaybackProgress,
+    onPlayPause: () -> Unit,
+    wrapper: PdfRendererWrapper?,
+    firstVisible: Int,
+    onSeekToIndex: (Int) -> Unit,
+) {
+    AnimatedVisibility(
+        visible = chromeVisible,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            ReaderNowPlayingStrip(
+                state = nowPlayingState,
+                progress = nowPlayingProgress,
+                onPlayPause = onPlayPause,
+            )
+            if (wrapper != null && wrapper.pageCount > 0) {
+                ReaderPageScrubber(
+                    currentPage = firstVisible + 1,
+                    pageCount = wrapper.pageCount,
+                    onSeekToIndex = onSeekToIndex,
+                )
             }
         }
     }
@@ -218,6 +358,9 @@ private fun PdfPageItem(
  * Zoom is clamped to [1f, 4f]; pan is unclamped (the natural boundary is the
  * content inside the box).  State is [rememberSaveable] so it survives recomposition
  * but resets on back-stack pop.
+ *
+ * The tap-to-toggle chrome gesture lives in an *outer* [Box] (see [DocumentViewerScreen]),
+ * keeping this composable's [pointerInput] focused solely on transform gestures.
  */
 @Composable
 private fun ZoomableBox(
@@ -256,16 +399,15 @@ private fun ZoomableBox(
 }
 
 // ---------------------------------------------------------------------------
-// Page indicator
+// Hidden-chrome hint pill
 // ---------------------------------------------------------------------------
 
 /**
- * Small pill overlay showing "[currentPage] / [totalPages]".
+ * Small pill shown when chrome is hidden, displaying the page position hint text.
  */
 @Composable
-private fun PageIndicator(
-    currentPage: Int,
-    totalPages: Int,
+private fun HintPill(
+    text: String,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -274,7 +416,7 @@ private fun PageIndicator(
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
     ) {
         Text(
-            text = stringResource(Res.string.book_detail_document_viewer_page_of, currentPage, totalPages),
+            text = text,
             style = MaterialTheme.typography.labelSmall,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
