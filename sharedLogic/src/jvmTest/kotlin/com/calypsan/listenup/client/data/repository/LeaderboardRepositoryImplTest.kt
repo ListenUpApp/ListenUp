@@ -6,7 +6,6 @@ import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +19,12 @@ private fun entity(
     finished: Int,
     currentStreak: Int = 0,
     longest: Int,
+    booksW7: Int = 0,
+    booksW30: Int = 0,
+    booksW365: Int = 0,
+    streakW7: Int = 0,
+    streakW30: Int = 0,
+    streakW365: Int = 0,
 ) = PublicProfileEntity(
     id = id,
     displayName = "User $id",
@@ -31,6 +36,12 @@ private fun entity(
     booksFinished = finished,
     currentStreakDays = currentStreak,
     longestStreakDays = longest,
+    booksFinishedLast7Days = booksW7,
+    booksFinishedLast30Days = booksW30,
+    booksFinishedLast365Days = booksW365,
+    longestStreakLast7Days = streakW7,
+    longestStreakLast30Days = streakW30,
+    longestStreakLast365Days = streakW365,
     revision = 1,
     deletedAt = null,
 )
@@ -75,20 +86,23 @@ class LeaderboardRepositoryImplTest :
             }
         }
 
-        test("Year ranking uses last365 and leaves Books/Streak empty (bounded period)") {
+        test("Year ranking uses last365 for Time, and the 365-day windowed columns for Books/Streak") {
             val rows =
                 MutableStateFlow(
                     listOf(
-                        entity("a", allTime = 300, last365 = 30, finished = 2, longest = 5),
-                        entity("c", allTime = 100, last365 = 99, finished = 1, longest = 8),
+                        entity("a", allTime = 300, last365 = 30, finished = 2, longest = 5, booksW365 = 1, streakW365 = 2),
+                        entity("c", allTime = 100, last365 = 99, finished = 1, longest = 8, booksW365 = 4, streakW365 = 7),
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
             repo.observeSnapshot(LeaderboardPeriod.Year, limit = 20).test {
                 val snap = awaitItem()
                 snap.time.map { it.userId } shouldBe listOf("c", "a")
-                snap.books shouldBe emptyList()
-                snap.streak shouldBe emptyList()
+                // Books/Streak now rank by the 365-day windowed columns and carry the windowed value.
+                snap.books.map { it.userId } shouldBe listOf("c", "a")
+                snap.books.first().booksFinished shouldBe 4
+                snap.streak.map { it.userId } shouldBe listOf("c", "a")
+                snap.streak.first().longestStreakDays shouldBe 7
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -97,8 +111,8 @@ class LeaderboardRepositoryImplTest :
             val rows =
                 MutableStateFlow(
                     listOf(
-                        entity("a", allTime = 1000, last7 = 60, last365 = 30, finished = 2, longest = 5),
-                        entity("b", allTime = 500, last7 = 120, last365 = 10, finished = 1, longest = 1),
+                        entity("a", allTime = 1000, last7 = 60, last365 = 30, finished = 2, longest = 5, booksW7 = 3, streakW7 = 2),
+                        entity("b", allTime = 500, last7 = 120, last365 = 10, finished = 1, longest = 1, booksW7 = 1, streakW7 = 4),
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
@@ -108,8 +122,11 @@ class LeaderboardRepositoryImplTest :
                 snap.time.map { it.userId } shouldBe listOf("b", "a")
                 snap.time[0].totalSeconds shouldBe 120L
                 snap.time[1].totalSeconds shouldBe 60L
-                snap.books.shouldBeEmpty()
-                snap.streak.shouldBeEmpty()
+                // Books rank by booksFinishedLast7Days (a=3 > b=1); Streak by longestStreakLast7Days (b=4 > a=2).
+                snap.books.map { it.userId } shouldBe listOf("a", "b")
+                snap.books.first().booksFinished shouldBe 3
+                snap.streak.map { it.userId } shouldBe listOf("b", "a")
+                snap.streak.first().longestStreakDays shouldBe 4
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -118,8 +135,8 @@ class LeaderboardRepositoryImplTest :
             val rows =
                 MutableStateFlow(
                     listOf(
-                        entity("x", allTime = 1000, last30 = 200, last365 = 30, finished = 2, longest = 5),
-                        entity("y", allTime = 2000, last30 = 50, last365 = 10, finished = 1, longest = 1),
+                        entity("x", allTime = 1000, last30 = 200, last365 = 30, finished = 2, longest = 5, booksW30 = 5, streakW30 = 2),
+                        entity("y", allTime = 2000, last30 = 50, last365 = 10, finished = 1, longest = 1, booksW30 = 1, streakW30 = 9),
                     ),
                 )
             val repo = LeaderboardRepositoryImpl(FakePublicProfileDao(rows))
@@ -127,7 +144,11 @@ class LeaderboardRepositoryImplTest :
                 val snap = awaitItem()
                 snap.time.map { it.userId } shouldBe listOf("x", "y")
                 snap.time[0].totalSeconds shouldBe 200L
-                snap.books.shouldBeEmpty()
+                // Books rank by booksFinishedLast30Days (x=5 > y=1); Streak by longestStreakLast30Days (y=9 > x=2).
+                snap.books.map { it.userId } shouldBe listOf("x", "y")
+                snap.books.first().booksFinished shouldBe 5
+                snap.streak.map { it.userId } shouldBe listOf("y", "x")
+                snap.streak.first().longestStreakDays shouldBe 9
                 cancelAndIgnoreRemainingEvents()
             }
         }

@@ -4,24 +4,31 @@
 -- leaderboard and social roster). One row per user (`id == user_id`). Server-maintained
 -- by PublicProfileMaintainer; clients never write it.
 -- Column set matches V31__public_profiles.sql + V32__public_profiles_tagline.sql
--- (`tagline` added by V32) exactly.
+-- (`tagline` added by V32) + V45__windowed_books_and_streak.sql (the six windowed
+-- books/streak columns, appended last to mirror the ALTER order) exactly.
 CREATE TABLE public_profiles (
-    id                          TEXT    NOT NULL PRIMARY KEY,
-    display_name                TEXT    NOT NULL,
-    avatar_type                 TEXT    NOT NULL DEFAULT 'auto',
-    total_seconds_all_time      INTEGER NOT NULL DEFAULT 0,
-    total_seconds_last_7_days   INTEGER NOT NULL DEFAULT 0,
-    total_seconds_last_30_days  INTEGER NOT NULL DEFAULT 0,
-    total_seconds_last_365_days INTEGER NOT NULL DEFAULT 0,
-    books_finished              INTEGER NOT NULL DEFAULT 0,
-    current_streak_days         INTEGER NOT NULL DEFAULT 0,
-    longest_streak_days         INTEGER NOT NULL DEFAULT 0,
-    created_at                  INTEGER NOT NULL,
-    updated_at                  INTEGER NOT NULL,
-    revision                    INTEGER NOT NULL,
-    deleted_at                  INTEGER,
-    client_op_id                TEXT,
-    tagline                     TEXT
+    id                           TEXT    NOT NULL PRIMARY KEY,
+    display_name                 TEXT    NOT NULL,
+    avatar_type                  TEXT    NOT NULL DEFAULT 'auto',
+    total_seconds_all_time       INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_7_days    INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_30_days   INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_365_days  INTEGER NOT NULL DEFAULT 0,
+    books_finished               INTEGER NOT NULL DEFAULT 0,
+    current_streak_days          INTEGER NOT NULL DEFAULT 0,
+    longest_streak_days          INTEGER NOT NULL DEFAULT 0,
+    created_at                   INTEGER NOT NULL,
+    updated_at                   INTEGER NOT NULL,
+    revision                     INTEGER NOT NULL,
+    deleted_at                   INTEGER,
+    client_op_id                 TEXT,
+    tagline                      TEXT,
+    books_finished_last_7_days   INTEGER NOT NULL DEFAULT 0,
+    books_finished_last_30_days  INTEGER NOT NULL DEFAULT 0,
+    books_finished_last_365_days INTEGER NOT NULL DEFAULT 0,
+    longest_streak_last_7_days   INTEGER NOT NULL DEFAULT 0,
+    longest_streak_last_30_days  INTEGER NOT NULL DEFAULT 0,
+    longest_streak_last_365_days INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_public_profiles_revision ON public_profiles(revision);
@@ -63,12 +70,16 @@ insert:
 INSERT INTO public_profiles (
     id, display_name, avatar_type, tagline, total_seconds_all_time, total_seconds_last_7_days,
     total_seconds_last_30_days, total_seconds_last_365_days, books_finished, current_streak_days,
-    longest_streak_days, revision, created_at, updated_at, deleted_at, client_op_id
+    longest_streak_days, revision, created_at, updated_at, deleted_at, client_op_id,
+    books_finished_last_7_days, books_finished_last_30_days, books_finished_last_365_days,
+    longest_streak_last_7_days, longest_streak_last_30_days, longest_streak_last_365_days
 )
 VALUES (
     :id, :display_name, :avatar_type, :tagline, :total_seconds_all_time, :total_seconds_last_7_days,
     :total_seconds_last_30_days, :total_seconds_last_365_days, :books_finished, :current_streak_days,
-    :longest_streak_days, :revision, :created_at, :updated_at, :deleted_at, :client_op_id
+    :longest_streak_days, :revision, :created_at, :updated_at, :deleted_at, :client_op_id,
+    :books_finished_last_7_days, :books_finished_last_30_days, :books_finished_last_365_days,
+    :longest_streak_last_7_days, :longest_streak_last_30_days, :longest_streak_last_365_days
 );
 
 update:
@@ -80,6 +91,12 @@ SET display_name = :display_name, avatar_type = :avatar_type, tagline = :tagline
     total_seconds_last_365_days = :total_seconds_last_365_days,
     books_finished = :books_finished, current_streak_days = :current_streak_days,
     longest_streak_days = :longest_streak_days,
+    books_finished_last_7_days = :books_finished_last_7_days,
+    books_finished_last_30_days = :books_finished_last_30_days,
+    books_finished_last_365_days = :books_finished_last_365_days,
+    longest_streak_last_7_days = :longest_streak_last_7_days,
+    longest_streak_last_30_days = :longest_streak_last_30_days,
+    longest_streak_last_365_days = :longest_streak_last_365_days,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;

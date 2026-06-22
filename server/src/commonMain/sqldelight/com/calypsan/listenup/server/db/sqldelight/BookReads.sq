@@ -30,3 +30,9 @@ finishesForUserBook:
 SELECT finished_at FROM book_reads
 WHERE user_id = :userId AND book_id = :bookId
 ORDER BY finished_at DESC;
+
+-- Distinct books a user finished at/after a cutoff — the windowed "books finished" leaderboard
+-- metric (re-reads of the same book collapse to one via COUNT DISTINCT).
+countDistinctFinishedSince:
+SELECT COUNT(DISTINCT book_id) FROM book_reads
+WHERE user_id = :userId AND finished_at >= :cutoffMs;

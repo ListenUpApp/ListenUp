@@ -55,4 +55,36 @@ class PublicProfileSyncPayloadTest :
             val decoded = contractJson.decodeFromString(PublicProfileSyncPayload.serializer(), json)
             decoded shouldBe tombstoned
         }
+
+        test("round-trips the windowed books and streak metrics") {
+            val payload =
+                PublicProfileSyncPayload(
+                    id = "user-3",
+                    displayName = "Katherine Johnson",
+                    avatarType = "auto",
+                    tagline = null,
+                    totalSecondsAllTime = 100L,
+                    totalSecondsLast7Days = 10L,
+                    totalSecondsLast30Days = 20L,
+                    totalSecondsLast365Days = 30L,
+                    booksFinished = 9,
+                    currentStreakDays = 2,
+                    longestStreakDays = 8,
+                    booksFinishedLast7Days = 1,
+                    booksFinishedLast30Days = 3,
+                    booksFinishedLast365Days = 7,
+                    longestStreakLast7Days = 2,
+                    longestStreakLast30Days = 4,
+                    longestStreakLast365Days = 6,
+                    revision = 5L,
+                    updatedAt = 1_700_000_000_000L,
+                    createdAt = 1_600_000_000_000L,
+                    deletedAt = null,
+                )
+            val json = contractJson.encodeToString(PublicProfileSyncPayload.serializer(), payload)
+            val decoded = contractJson.decodeFromString(PublicProfileSyncPayload.serializer(), json)
+            decoded shouldBe payload
+            decoded.booksFinishedLast30Days shouldBe 3
+            decoded.longestStreakLast365Days shouldBe 6
+        }
     })
