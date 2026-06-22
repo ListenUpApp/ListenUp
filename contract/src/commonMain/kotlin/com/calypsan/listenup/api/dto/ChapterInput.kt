@@ -21,6 +21,8 @@ data class ChapterInput(
     @SerialName("title") val title: String,
     @SerialName("startTime") val startTime: Long,
     @SerialName("duration") val duration: Long,
+    @SerialName("partTitle") val partTitle: String? = null,
+    @SerialName("bookTitle") val bookTitle: String? = null,
 ) {
     init {
         require(id.isNotBlank()) { "id must not be blank" }
@@ -28,6 +30,14 @@ data class ChapterInput(
         require(title.length <= MAX_TITLE) { "title must be <= $MAX_TITLE chars" }
         require(startTime >= 0) { "startTime must be non-negative" }
         require(duration >= 0) { "duration must be non-negative" }
+        partTitle?.let {
+            require(it.isNotBlank()) { "partTitle must not be blank" }
+            require(it.length <= MAX_TITLE) { "partTitle must be <= $MAX_TITLE chars" }
+        }
+        bookTitle?.let {
+            require(it.isNotBlank()) { "bookTitle must not be blank" }
+            require(it.length <= MAX_TITLE) { "bookTitle must be <= $MAX_TITLE chars" }
+        }
     }
 
     companion object {
