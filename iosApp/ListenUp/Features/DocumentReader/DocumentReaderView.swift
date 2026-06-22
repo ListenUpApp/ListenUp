@@ -19,6 +19,7 @@ struct DocumentReaderView: View {
     @State private var highlightSelection: PDFSelection?
     @State private var search: PdfSearchController?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var hSize
 
     private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
 
@@ -27,23 +28,19 @@ struct DocumentReaderView: View {
             Color(.systemBackground).ignoresSafeArea()
 
             if let pdfDocument {
-                PDFKitView(
-                    document: pdfDocument,
-                    currentPageIndex: $currentPageIndex,
-                    goToPage: $goToPage,
-                    highlightSelection: $highlightSelection
-                )
-                .ignoresSafeArea(edges: .bottom)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        chromeVisible.toggle()
+                // On regular (iPad) show the persistent page rail beside the reader.
+                // On compact (iPhone, or iPad in narrow Split View) show the PDF full-width.
+                if hSize == .regular {
+                    HStack(spacing: 0) {
+                        PageRailView(
+                            document: pdfDocument,
+                            currentPageIndex: currentPageIndex,
+                            onSelect: { goToPage = $0 }
+                        )
+                        pdfView(document: pdfDocument)
                     }
-                }
-                .onChange(of: currentPageIndex) { _, newIndex in
-                    scrubFraction = pageCount > 1
-                        ? Double(newIndex) / Double(pageCount - 1)
-                        : 0
+                } else {
+                    pdfView(document: pdfDocument)
                 }
             } else if didAttemptLoad {
                 errorState
@@ -86,6 +83,30 @@ struct DocumentReaderView: View {
         }
     }
 
+    // MARK: - PDF view
+
+    @ViewBuilder
+    private func pdfView(document: PDFDocument) -> some View {
+        PDFKitView(
+            document: document,
+            currentPageIndex: $currentPageIndex,
+            goToPage: $goToPage,
+            highlightSelection: $highlightSelection
+        )
+        .ignoresSafeArea(edges: .bottom)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                chromeVisible.toggle()
+            }
+        }
+        .onChange(of: currentPageIndex) { _, newIndex in
+            scrubFraction = pageCount > 1
+                ? Double(newIndex) / Double(pageCount - 1)
+                : 0
+        }
+    }
+
     // MARK: - Top bar
 
     private var topBar: some View {
@@ -100,10 +121,13 @@ struct DocumentReaderView: View {
                     }
                     .accessibilityLabel(String(localized: "book.detail_document_search"))
                 }
-                Button { showGrid = true } label: {
-                    Image(systemName: "square.grid.2x2")
+                // The rail is the always-on equivalent on regular (iPad); hide the grid button there.
+                if hSize != .regular {
+                    Button { showGrid = true } label: {
+                        Image(systemName: "square.grid.2x2")
+                    }
+                    .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
                 }
-                .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
                 Menu {
                     // placeholder — actions added in 3b
                 } label: {
