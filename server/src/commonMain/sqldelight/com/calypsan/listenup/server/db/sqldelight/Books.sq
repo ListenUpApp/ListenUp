@@ -45,6 +45,7 @@ CREATE TABLE books (
     cover_source     TEXT,
     cover_path       TEXT,
     cover_hash       TEXT,
+    chapter_source   TEXT    NOT NULL DEFAULT 'embedded',
     root_rel_path    TEXT    NOT NULL,
     inode            INTEGER,
     scanned_at       INTEGER NOT NULL,
@@ -88,6 +89,11 @@ SELECT id FROM books WHERE library_id = :library_id AND inode = :inode;
 -- column before deciding whether to preserve the cover columns on re-scan.
 selectCoverSourceById:
 SELECT cover_source FROM books WHERE id = :id;
+
+-- chapter_source only — the sticky-USER check in writePayload reads just this
+-- column before deciding whether to preserve the chapter rows on re-scan.
+selectChapterSourceById:
+SELECT chapter_source FROM books WHERE id = :id;
 
 -- Live (non-tombstoned) (id, root_rel_path) for a library — feeds the full-scan
 -- tombstone sweep (softDeleteAbsent / softDeleteAbsentByPaths), which filters
@@ -198,6 +204,12 @@ UPDATE books SET revision = :revision, updated_at = :updated_at WHERE id = :id;
 -- tests need a non-zero duration without re-running a full upsert).
 updateTotalDuration:
 UPDATE books SET total_duration = :total_duration WHERE id = :id;
+
+-- Sets chapter_source only — written by writePayload after replaceChapters so the
+-- provenance enum persists with every aggregate upsert (insert and update paths both
+-- land here via BookRepository.writePayload).
+updateChapterSource:
+UPDATE books SET chapter_source = :chapter_source WHERE id = :id;
 
 -- Rows affected by the most recent statement on this connection — lets the repo
 -- distinguish a 0-row update (NotFound) from a successful one.

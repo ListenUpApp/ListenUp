@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 
@@ -59,6 +60,17 @@ interface BookEditRepository {
     suspend fun setBookGenres(
         id: BookId,
         genres: List<BookGenreInput>,
+    ): AppResult<Unit>
+
+    /**
+     * Replaces the full chapter list for the book identified by [id] and marks
+     * provenance USER server-side. Dispatches via
+     * [com.calypsan.listenup.api.BookService.setBookChapters]; authoritative
+     * state returns through the SSE sync engine (no optimistic Room write).
+     */
+    suspend fun setBookChapters(
+        id: BookId,
+        chapters: List<ChapterInput>,
     ): AppResult<Unit>
 
     /**

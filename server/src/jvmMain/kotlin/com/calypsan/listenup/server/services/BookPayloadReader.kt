@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.FolderId
@@ -69,6 +70,9 @@ internal fun assembleBookPayload(
         genres = genres,
         audioFiles = audioFiles,
         chapters = chapters,
+        chapterSource =
+            ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
+                ?: ChapterSource.EMBEDDED,
         revision = bookRow.revision,
         updatedAt = bookRow.updated_at,
         createdAt = bookRow.created_at,

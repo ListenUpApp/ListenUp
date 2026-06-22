@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.server.routes.resources.BookResources
 import com.calypsan.listenup.api.result.AppResult
@@ -46,7 +47,7 @@ private const val AUTH_WALL_REGRESSION_MSG =
 private const val COVER_MAX_BYTES = 10L * 1024 * 1024
 
 /**
- * REST surface for [BookService]. Eight endpoints:
+ * REST surface for [BookService]. Eleven endpoints:
  *
  *  - `GET /api/v1/books/{id}` — returns the full [BookSyncPayload] for the
  *    given id. HTTP 200 on success; HTTP 404 when no book with that id exists.
@@ -58,6 +59,8 @@ private const val COVER_MAX_BYTES = 10L * 1024 * 1024
  *  - `GET /api/v1/books/{id}/cover` — serves the book's cover image bytes
  *    (filesystem image or embedded artwork). HTTP 200 with the image on
  *    success, HTTP 404 when the book is absent or has no servable cover.
+ *  - `GET /api/v1/covers/{id}` — legacy cover alias used by the KMP/mobile client;
+ *    identical access-gate semantics to the nested route above.
  *  - `PUT /api/v1/books/{id}/cover` — uploads a replacement cover image (multipart).
  *    Gated on the `canEdit` permission flag; ROOT/ADMIN pass implicitly. HTTP 204 on
  *    success; 403 when the caller lacks `canEdit`; 413 when the part exceeds 10 MiB;
@@ -66,8 +69,12 @@ private const val COVER_MAX_BYTES = 10L * 1024 * 1024
  *    HTTP 204 on success.
  *  - `PUT /api/v1/books/{id}/contributors` — replaces the full contributor list
  *    for a book (body: JSON array of [BookContributorInput]). HTTP 204 on success.
+ *  - `PUT /api/v1/books/{id}/chapters` — replaces the full chapter list for a book
+ *    (body: JSON array of [ChapterInput]). HTTP 204 on success.
  *  - `PUT /api/v1/books/{id}/series` — replaces the full series list for a book
  *    (body: JSON array of [BookSeriesInput]). HTTP 204 on success.
+ *  - `PUT /api/v1/books/{id}/genres` — replaces the full genre list for a book
+ *    (body: JSON array of [BookGenreInput]). HTTP 204 on success.
  *  - `DELETE /api/v1/books/{id}/cover` — removes the book's cover image.
  *    HTTP 204 on success.
  *
@@ -137,6 +144,23 @@ internal fun Route.bookRoutes(
     put<BookResources.Contributors> { res ->
         val contributors = call.receive<List<BookContributorInput>>()
         when (val result = bookService.setBookContributors(res.id, contributors)) {
+            is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+            is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<BookResources.Chapters> { res ->
+        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+        val chapters = call.receive<List<ChapterInput>>()
+        when (
+            val result =
+                (bookService as BookServiceImpl)
+                    .copyWith(
+                        PrincipalProvider {
+                            p
+                        },
+                    ).setBookChapters(res.id, chapters)
+        ) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }

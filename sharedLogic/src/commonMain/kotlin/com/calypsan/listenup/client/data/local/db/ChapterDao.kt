@@ -4,11 +4,15 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.calypsan.listenup.core.BookId
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 internal interface ChapterDao {
     @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY startTime ASC")
     suspend fun getChaptersForBook(bookId: BookId): List<ChapterEntity>
+
+    @Query("SELECT * FROM chapters WHERE bookId = :bookId ORDER BY startTime ASC")
+    fun observeChaptersForBook(bookId: BookId): Flow<List<ChapterEntity>>
 
     @Upsert
     suspend fun upsertAll(chapters: List<ChapterEntity>)

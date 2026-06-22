@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BookError
@@ -12,8 +13,10 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
@@ -33,6 +36,7 @@ private const val MAX_SEARCH_LIMIT = 200
 private const val MAX_CONTRIBUTORS_PER_BOOK = 200
 private const val MAX_SERIES_PER_BOOK = 200
 private const val MAX_GENRES_PER_BOOK = 200
+private const val MAX_CHAPTERS_PER_BOOK = 5000
 
 /**
  * Thin [BookService] implementation. The work lives in [BookRepository]; this
@@ -203,6 +207,51 @@ internal class BookServiceImpl(
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
+    }
+
+    override suspend fun setBookChapters(
+        id: BookId,
+        chapters: List<ChapterInput>,
+    ): AppResult<Unit> {
+        requireCanEdit()?.let { return AppResult.Failure(it) }
+        if (chapters.size > MAX_CHAPTERS_PER_BOOK) {
+            return AppResult.Failure(
+                BookError.InvalidInput(
+                    debugInfo = "chapters: size ${chapters.size} exceeds max $MAX_CHAPTERS_PER_BOOK",
+                ),
+            )
+        }
+        val current = repo.findById(id) ?: return bookNotFound(id)
+        validateChapterSet(chapters, current.totalDuration)?.let { return AppResult.Failure(it) }
+        val payloadChapters =
+            chapters.map {
+                BookChapterPayload(id = it.id, title = it.title, duration = it.duration, startTime = it.startTime)
+            }
+        return when (
+            val res =
+                repo.upsert(
+                    current.copy(chapters = payloadChapters, chapterSource = ChapterSource.USER),
+                )
+        ) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(res.error)
+        }
+    }
+
+    /** Set-level invariants (per-row shape is already checked by ChapterInput.init). Null = valid. */
+    private fun validateChapterSet(
+        chapters: List<ChapterInput>,
+        bookDurationMs: Long,
+    ): AppError? {
+        if (chapters.isEmpty()) return null
+        val starts = chapters.map { it.startTime }
+        if (starts != starts.sorted() || starts.toSet().size != starts.size) {
+            return BookError.InvalidInput(debugInfo = "chapter starts must be strictly increasing")
+        }
+        if (chapters.any { it.startTime >= bookDurationMs }) {
+            return BookError.InvalidInput(debugInfo = "chapter start beyond book duration")
+        }
+        return null
     }
 
     override suspend fun setBookSeries(

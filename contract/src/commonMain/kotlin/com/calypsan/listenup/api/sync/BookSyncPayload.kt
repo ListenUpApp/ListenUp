@@ -47,6 +47,8 @@ data class BookSyncPayload(
     @SerialName("genres") val genres: List<BookGenrePayload> = emptyList(),
     val audioFiles: List<BookAudioFilePayload>,
     val chapters: List<BookChapterPayload>,
+    /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
+    val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
     val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
@@ -134,6 +136,23 @@ data class CoverPayload(
     val source: CoverSource,
     val hash: String,
 )
+
+/**
+ * Where a book's chapter set came from — the provenance that makes user edits
+ * rescan-safe.
+ *
+ * [EMBEDDED] chapters were parsed from audio-file metadata at scan time.
+ * [AUDNEXUS] chapters were looked up from Audible/Audnexus.
+ * [USER] chapters were hand-edited in the chapter editor. A book whose source is
+ * [USER] is never overwritten by a rescan — the scanner preserves the existing
+ * chapter set. Re-import is an explicit user action.
+ */
+@Serializable
+enum class ChapterSource {
+    EMBEDDED,
+    AUDNEXUS,
+    USER,
+}
 
 /**
  * Where the cover bytes live on the server.

@@ -17,7 +17,8 @@ import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.core.isFirstInSeries
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -108,7 +109,7 @@ internal class BookRepositoryImpl(
     private val joinSources: BookDetailJoinSources,
     private val networkMonitor: NetworkMonitor,
     private val bookRpcFactory: BookRpcFactory,
-    private val bookSyncDomainHandler: BookSyncDomainHandler,
+    private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
 ) : com.calypsan.listenup.client.domain.repository.BookRepository,
     BookIngestPort {
     private val logger = KotlinLogging.logger {}
@@ -132,6 +133,11 @@ internal class BookRepositoryImpl(
         val localChapters = chapterDao.getChaptersForBook(BookId(bookId))
         return localChapters.map { it.toDomain() }
     }
+
+    override fun observeChapters(bookId: String): Flow<List<Chapter>> =
+        chapterDao
+            .observeChaptersForBook(BookId(bookId))
+            .map { rows -> rows.map { it.toDomain() } }
 
     private fun ChapterEntity.toDomain(): Chapter =
         Chapter(
