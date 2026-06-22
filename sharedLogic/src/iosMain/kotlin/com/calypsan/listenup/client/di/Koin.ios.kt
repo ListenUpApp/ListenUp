@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 
 /**
@@ -299,6 +300,11 @@ object KoinHelper : KoinComponent {
 
     fun getBookRepository(): BookRepository {
         val instance: BookRepository by inject()
+        return instance
+    }
+
+    fun getDocumentRepository(): DocumentRepository {
+        val instance: DocumentRepository by inject()
         return instance
     }
 

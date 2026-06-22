@@ -1054,6 +1054,7 @@ One beautiful library.</string>
     <string name="player_now_playing">Now Playing</string>
     <string name="player_now_playing_overline">NOW PLAYING</string>
     <string name="player_now_playing_wide">Now playing</string>
+    <string name="player_open_pdf">Open PDF</string>
     <string name="player_pause">Pause</string>
     <string name="player_play">Play</string>
     <string name="player_playback_speed">Playback speed</string>

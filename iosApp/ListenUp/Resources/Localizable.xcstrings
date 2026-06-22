@@ -10531,6 +10531,16 @@
         }
       }
     },
+    "player.open_pdf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open PDF"
+          }
+        }
+      }
+    },
     "player.pause": {
       "localizations": {
         "en": {

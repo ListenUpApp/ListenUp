@@ -155,12 +155,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let progress: PlaybackProgressReporting
     private let sleep: SleepTiming
     private let coverProvider: BookCoverProviding
+    private let documentProvider: BookDocumentProviding
     /// Per-step delay of the sleep-timer fade-out. Injected so tests run the fade instantly
     /// (`.zero`) instead of depending on ~3 s of real wall-clock time, which flakes under CI load.
     private let fadeStepDelay: Duration
     private let bridge = FlowBridge()
 
     private(set) var currentBookId: String?
+    /// The id of the first PDF document for the currently-loaded book, or `nil` if none.
+    /// Set asynchronously after each book load; drives the "Open PDF" menu item visibility.
+    private(set) var firstPdfDocId: String?
+    /// Set when a PDF is ready to present; cleared on dismiss. Drives `.fullScreenCover(item:)`.
+    var documentToOpen: ReaderDocument?
     private var lastReportedPositionMs: Int64 = 0
     private var lastSyncedChapterIndex: Int = -1
     private var isFading = false
@@ -174,6 +180,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         sleep: SleepTiming,
         engine: PlaybackEngine,
         coverProvider: BookCoverProviding,
+        documentProvider: BookDocumentProviding = NoDocumentProviding(),
         fadeStepDelay: Duration = .milliseconds(250)
     ) {
         self.preparer = preparer
@@ -181,6 +188,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.sleep = sleep
         self.engine = engine
         self.coverProvider = coverProvider
+        self.documentProvider = documentProvider
         self.fadeStepDelay = fadeStepDelay
         system.attach(handler: self)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
@@ -196,7 +204,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
             progress: KotlinProgressReporting(tracker: deps.progressTracker),
             sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
             engine: AudioEngine(),
-            coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository)
+            coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository),
+            documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository)
         )
     }
 
@@ -349,6 +358,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func setSleepTimerEndOfChapter() { sleep.setEndOfChapterTimer() }
     func cancelSleepTimer() { sleep.cancelTimer() }
 
+    /// Download the current book's first PDF (if needed) and set `documentToOpen`
+    /// to present `DocumentReaderView`. Audio playback is not affected.
+    func openCurrentBookPdf() {
+        guard let bookId = currentBookId, let docId = firstPdfDocId else { return }
+        let title = bookTitle
+        Task {
+            if let path = await documentProvider.ensureLocalPath(bookId: bookId, docId: docId) {
+                documentToOpen = ReaderDocument(localPath: path, title: title)
+            }
+        }
+    }
+
     /// Persist the current position immediately. Called on pause, seek, and when
     /// the app backgrounds/terminates — the periodic 5s tick is not enough to
     /// guarantee the user's place survives a kill.
@@ -382,6 +403,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - Prepare
 
     private func prepareAndStart(bookId: String) async {
+        // Reset document state at the start of every new book load.
+        firstPdfDocId = nil
+        documentToOpen = nil
+
         guard let prepared = await preparer.prepare(bookId: bookId) else {
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
             return
@@ -392,6 +417,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
         chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed
         coverBlurHash = await coverProvider.coverBlurHash(bookId: bookId)
+        // Resolve PDF availability concurrently — does not block audio start.
+        Task { firstPdfDocId = await documentProvider.firstPdfDocId(bookId: bookId) }
 
         let segments = prepared.timeline.files.compactMap { file -> AudioSegment? in
             let url: URL

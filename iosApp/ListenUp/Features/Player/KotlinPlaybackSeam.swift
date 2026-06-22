@@ -112,3 +112,33 @@ struct KotlinBookCoverProviding: BookCoverProviding {
         (try? await repository.getBookListItem(id: bookId))?.coverBlurHash
     }
 }
+
+/// Adapts `DocumentRepository` to `BookDocumentProviding`. Takes the first emission from
+/// `observeDocuments` (a one-shot read) and calls `ensureLocal` to download on demand.
+struct KotlinBookDocumentProviding: BookDocumentProviding {
+    let repository: DocumentRepository
+
+    func firstPdfDocId(bookId: String) async -> String? {
+        // `observeDocuments` is a Kotlin Flow; SKIE bridges it as an AsyncSequence.
+        // Take the first emission — the Room store reflects the last sync, so one
+        // read is sufficient here (the coordinator re-reads on each book load).
+        guard let docs = try? await repository.observeDocuments(bookId: bookId).first(where: { _ in true }) else {
+            return nil
+        }
+        // `BookDocument.format` is a plain Kotlin String; SKIE exposes it directly.
+        return docs.first(where: { $0.format.lowercased() == "pdf" })?.id
+    }
+
+    func ensureLocalPath(bookId: String, docId: String) async -> String? {
+        // SKIE bridges the Kotlin suspend fun as `async throws`; failures via AppResult
+        // come back as `.failure`, not as thrown exceptions. Drop thrown errors (infra faults).
+        guard let result = try? await repository.ensureLocal(bookId: bookId, docId: docId) else {
+            return nil
+        }
+        switch onEnum(of: result) {
+        // `AppResult<String>` — `data` is erased to `Any?` at the Obj-C boundary.
+        case .success(let success): return success.data as? String
+        case .failure: return nil
+        }
+    }
+}

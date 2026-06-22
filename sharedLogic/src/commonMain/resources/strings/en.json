@@ -1237,6 +1237,7 @@
     "collapse": "Collapse player",
     "cast": "Cast",
     "go_to_book": "Go to Book",
+    "open_pdf": "Open PDF",
     "go_to_series": "Go to Series",
     "close_book": "Close Book"
   },
