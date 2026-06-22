@@ -73,6 +73,7 @@ struct DocumentReaderView: View {
                     Image(systemName: "square.grid.2x2")
                 }
                 .disabled(true)
+                .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
                 Menu {
                     // placeholder — actions added in 3b
                 } label: {
@@ -107,7 +108,7 @@ struct DocumentReaderView: View {
     private var scrubberRow: some View {
         let display = pageDisplay(currentIndex: currentPageIndex, pageCount: pageCount)
         return HStack(spacing: 8) {
-            Text("p. \(display.page)")
+            Text(String(format: String(localized: "book.reader_scrubber_page_label"), display.page))
                 .font(.caption.weight(.medium))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
@@ -119,7 +120,7 @@ struct DocumentReaderView: View {
                 }
             }
 
-            Text("\(pageCount)")
+            Text(String(format: String(localized: "book.reader_scrubber_page_count"), pageCount))
                 .font(.caption.weight(.medium))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
