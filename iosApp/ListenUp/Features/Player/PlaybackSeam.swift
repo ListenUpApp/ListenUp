@@ -28,6 +28,8 @@ protocol PlaybackEngine: Sendable {
 struct PreparedPlayback: Sendable {
     let bookTitle: String
     let bookAuthor: String
+    /// Comma-joined narrator(s); empty when the book has no narrator.
+    let bookNarrator: String
     let coverPath: String?
     let resumeSpeed: Float
     let resumePositionMs: Int64

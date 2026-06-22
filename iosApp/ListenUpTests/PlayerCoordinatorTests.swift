@@ -75,7 +75,7 @@ struct PlayerCoordinatorWiringTests {
         let sleep = FakeSleepTiming()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
             resumeSpeed: 1.5, resumePositionMs: 2000,
             chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
@@ -109,7 +109,7 @@ struct SleepTimerFiringTests {
         let sleep = FakeSleepTiming()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -139,7 +139,7 @@ struct SaveCurrentPositionTests {
         let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 4321, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -186,7 +186,7 @@ struct RouteChangeTests {
         let engine = FakePlaybackEngine()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -238,7 +238,7 @@ struct EndOfChapterTests {
             Chapter_(id: "c1", title: "c1", duration: 1000, startTime: 1000)
         ]
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 0, chapters: chapters,
             timeline: PreparedTimeline(totalDurationMs: 2000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 2000, startOffsetMs: 0)])
@@ -265,7 +265,7 @@ struct SeekPersistenceTests {
         let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
@@ -287,7 +287,7 @@ struct SeekPersistenceTests {
 struct SeamValueTypeTests {
     @Test func preparedPlaybackHoldsTimeline() {
         let prepared = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil,
             resumeSpeed: 1.0, resumePositionMs: 0,
             chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 1000, files: [
@@ -333,7 +333,7 @@ struct PlaybackLifecycleTests {
         let engine = FakePlaybackEngine()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
-            bookTitle: "T", bookAuthor: "A", coverPath: nil, resumeSpeed: 1.0,
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
             resumePositionMs: 0, chapters: [],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])

@@ -166,6 +166,10 @@ struct ChapterRow: View {
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
             .frame(minHeight: 54)
+            // Make the whole row tappable — without this the transparent gaps
+            // (Spacer, the clear background of non-current rows) aren't hit-tested,
+            // so only the text/glyphs register taps.
+            .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 11)
                     .fill(isCurrent ? tint.opacity(0.09) : .clear)
