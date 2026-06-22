@@ -106,6 +106,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.syncRoutes
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.db.DataDirLock
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -324,6 +325,7 @@ fun Application.module() {
             resolveDemoLibraryFallback(seedProfile)?.let { listOf(it) } ?: emptyList()
         }
     val homeDir = resolveImageHome()
+    acquireDataDirLockIfEnabled(homeDir)
     val metadataPrecedence = resolveMetadataPrecedence()
     val embeddedCoverCacheSize = resolveEmbeddedCoverCacheSize()
 
@@ -551,6 +553,28 @@ private fun Application.resolveImageHome(): Path =
         envHome = System.getenv("LISTENUP_HOME"),
         userHome = System.getProperty("user.home"),
     )
+
+/**
+ * Takes an exclusive lock on the data directory when `server.dataDirLock` is enabled (production
+ * default in `application.conf`), so a second server on the same `$LISTENUP_HOME` fails fast with a
+ * clear message instead of racing the scan-spool (#703 — a stale JVM whose covers get swept by a
+ * fresh boot). Off by default in code, so the isolated test configs (which omit the key) never
+ * lock. The lock is released on [ApplicationStopped]; the OS frees it anyway on process death.
+ */
+private fun Application.acquireDataDirLockIfEnabled(homeDir: Path) {
+    val enabled =
+        environment.config
+            .propertyOrNull("server.dataDirLock")
+            ?.getString()
+            ?.toBooleanStrictOrNull() ?: false
+    if (!enabled) return
+    val lock = DataDirLock.forDataHome(homeDir)
+    check(lock.tryAcquire()) {
+        "Another ListenUp server is already using the data directory $homeDir. Stop it before " +
+            "starting another instance, or point this one at a different LISTENUP_HOME."
+    }
+    monitor.subscribe(ApplicationStopped) { lock.close() }
+}
 
 /**
  * Reads `scanner.metadataPrecedence` from configuration and parses it into a
