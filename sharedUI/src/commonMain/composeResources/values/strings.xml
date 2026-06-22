@@ -241,6 +241,7 @@ One beautiful library.</string>
     <string name="book_detail_details">Details</string>
     <string name="book_detail_discard_progress">Discard Progress</string>
     <string name="book_detail_discard_progress_prompt">Discard your listening progress?</string>
+    <string name="book_detail_document_viewer_coming_soon">Viewer coming soon</string>
     <string name="book_detail_done">Done</string>
     <string name="book_detail_download">Download</string>
     <string name="book_detail_download_book">Download book</string>
@@ -291,6 +292,7 @@ One beautiful library.</string>
     <string name="book_detail_series_pill_a11y">Series, %1$s</string>
     <string name="book_detail_show_less">Show Less</string>
     <string name="book_detail_stream_now">Play Now</string>
+    <string name="book_detail_supplementary_materials">Supplementary materials</string>
     <string name="book_detail_synopsis">Synopsis</string>
     <string name="book_detail_tags">Tags</string>
     <string name="book_detail_title">Book details</string>

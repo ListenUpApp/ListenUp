@@ -319,6 +319,7 @@ val bookPresentationModule =
                 errorBus = get(),
                 bookAvailability = get(),
                 serverReachability = get(),
+                documentRepository = get(),
             )
         }
         factory { params ->

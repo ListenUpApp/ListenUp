@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.Genre
@@ -13,6 +14,7 @@ import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
@@ -25,6 +27,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +39,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -60,9 +64,15 @@ class BookDetailViewModel(
     private val errorBus: ErrorBus,
     private val bookAvailability: BookAvailability,
     private val serverReachability: ServerReachability,
+    private val documentRepository: DocumentRepository,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
+
+    private val _navActions = Channel<BookDetailNavAction>(Channel.BUFFERED)
+
+    /** One-shot navigation and side-effect events — collect once at the screen entry point. */
+    val navActions: Flow<BookDetailNavAction> = _navActions.receiveAsFlow()
 
     /**
      * The currently requested book id. Writing to this flow is the single entry
@@ -134,6 +144,18 @@ class BookDetailViewModel(
         bookIdFlow
             .filterNotNull()
             .flatMapLatest { id -> shelfRepository.observeShelvesContainingBook(id) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Supplementary documents for the loaded book, ordered by index ascending.
+     *
+     * Reactive — switches automatically when [loadBook] is called. Empty until the
+     * book's documents have been synced to the local Room store.
+     */
+    val documents: StateFlow<List<BookDocument>> =
+        bookIdFlow
+            .filterNotNull()
+            .flatMapLatest { id -> documentRepository.observeDocuments(BookId(id)) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
@@ -529,6 +551,39 @@ class BookDetailViewModel(
     fun hideShelfPicker() {
         updateReady { it.copy(showShelfPicker = false) }
     }
+
+    /**
+     * Handle a tap on a supplementary document row.
+     *
+     * For PDF documents: downloads (if not already cached) then emits
+     * [BookDetailNavAction.OpenDocumentViewer] with the local file path so the
+     * platform-specific viewer screen can render it.
+     *
+     * For non-PDF formats: emits [BookDetailNavAction.ShowViewerComingSoon] — the
+     * path is NOT resolved and [DocumentRepository.ensureLocal] is NOT called.
+     *
+     * @param docId [BookDocument.id] of the tapped document.
+     */
+    fun onOpenDocument(docId: String) {
+        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        val doc = documents.value.find { it.id == docId } ?: return
+        if (doc.format != "pdf") {
+            _navActions.trySend(BookDetailNavAction.ShowViewerComingSoon)
+            return
+        }
+        viewModelScope.launch {
+            when (val result = documentRepository.ensureLocal(BookId(bookId), docId)) {
+                is AppResult.Success -> {
+                    _navActions.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to open document $docId for book $bookId: ${result.error.message}" }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -699,4 +754,25 @@ private fun isSubtitleRedundant(
 
     // If very little meaningful content remains (less than 3 chars), it's redundant
     return remaining.length < 3
+}
+
+/**
+ * One-shot navigation and side-effect events emitted by [BookDetailViewModel].
+ *
+ * Consumed once at the screen entry point via [BookDetailViewModel.navActions].
+ */
+sealed interface BookDetailNavAction {
+    /**
+     * Open the in-app document viewer for the given local file.
+     *
+     * @param localPath Absolute path to the cached document file on disk, as returned
+     *   by [DocumentRepository.ensureLocal].
+     */
+    data class OpenDocumentViewer(val localPath: String) : BookDetailNavAction
+
+    /**
+     * Show a transient snackbar informing the user that a viewer is not yet available
+     * for this document format.
+     */
+    data object ShowViewerComingSoon : BookDetailNavAction
 }

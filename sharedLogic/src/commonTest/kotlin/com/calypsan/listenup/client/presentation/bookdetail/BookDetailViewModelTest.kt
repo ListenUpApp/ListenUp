@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -25,6 +26,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -103,6 +105,7 @@ class BookDetailViewModelTest :
             val shelfRepository: ShelfRepository = mock()
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
+            val documentRepository: DocumentRepository = mock()
             val bookAvailability = FakeBookAvailability()
             val serverReachability = FakeServerReachability()
 
@@ -113,6 +116,7 @@ class BookDetailViewModelTest :
                 every { shelfRepository.observeShelvesContainingBook(any()) } returns flowOf(emptyList())
                 every { tagRepository.observeAll() } returns flowOf(emptyList())
                 every { userRepository.observeIsAdmin() } returns flowOf(false)
+                every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
             }
 
             fun build(): BookDetailViewModel =
@@ -127,6 +131,7 @@ class BookDetailViewModelTest :
                     errorBus = ErrorBus(),
                     bookAvailability = bookAvailability,
                     serverReachability = serverReachability,
+                    documentRepository = documentRepository,
                 )
         }
 
@@ -957,6 +962,120 @@ class BookDetailViewModelTest :
                     advanceUntilIdle()
                     membership.expectMostRecentItem().map { it.id } shouldContainExactly listOf("s1")
                     membership.cancel()
+                }
+            }
+        }
+
+        // ========== Documents / Supplementary Materials Tests ==========
+
+        test("documents reflects observeDocuments flow for loaded book") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                val doc1 = TestData.bookDocument(id = "doc-1", index = 0, filename = "map.pdf")
+                val doc2 = TestData.bookDocument(id = "doc-2", index = 1, filename = "extras/notes.pdf")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns
+                    flowOf(listOf(doc1, doc2))
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val docs = viewModel.documents.testIn(backgroundScope)
+                    docs.awaitItem() // initial emptyList seed
+
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+
+                    val current = docs.expectMostRecentItem()
+                    current.size shouldBe 2
+                    current[0].id shouldBe "doc-1"
+                    current[1].id shouldBe "doc-2"
+                    docs.cancel()
+                }
+            }
+        }
+
+        test("onOpenDocument on pdf calls ensureLocal and emits OpenDocumentViewer nav event") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                val doc = TestData.bookDocument(id = "doc-1", format = "pdf")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
+                everySuspend {
+                    fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1")
+                } returns AppResult.Success("/cache/book-1/doc-1.pdf")
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    val navEvents = viewModel.navActions.testIn(backgroundScope)
+                    // Subscribe to documents so WhileSubscribed keeps the upstream alive
+                    // and documents.value is populated before onOpenDocument reads it.
+                    val docsObserver = viewModel.documents.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    docsObserver.awaitItem() // initial emptyList seed
+
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    states.expectMostRecentItem().shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    docsObserver.expectMostRecentItem() // doc list emitted
+
+                    // When
+                    viewModel.onOpenDocument("doc-1")
+                    advanceUntilIdle()
+
+                    // Then — ensureLocal was called and viewer nav event emitted
+                    verifySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") }
+                    val event = navEvents.awaitItem()
+                    event.shouldBeInstanceOf<BookDetailNavAction.OpenDocumentViewer>()
+                    (event as BookDetailNavAction.OpenDocumentViewer).localPath shouldBe "/cache/book-1/doc-1.pdf"
+
+                    states.cancel()
+                    navEvents.cancel()
+                    docsObserver.cancel()
+                }
+            }
+        }
+
+        test("onOpenDocument on non-pdf emits ShowViewerComingSoon and does not call ensureLocal") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                val doc = TestData.bookDocument(id = "doc-2", format = "epub")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    val navEvents = viewModel.navActions.testIn(backgroundScope)
+                    // Subscribe to documents so WhileSubscribed keeps the upstream alive
+                    // and documents.value is populated before onOpenDocument reads it.
+                    val docsObserver = viewModel.documents.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    docsObserver.awaitItem() // initial emptyList seed
+
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    states.expectMostRecentItem().shouldBeInstanceOf<BookDetailUiState.Ready>()
+                    docsObserver.expectMostRecentItem() // doc list emitted
+
+                    // When
+                    viewModel.onOpenDocument("doc-2")
+                    advanceUntilIdle()
+
+                    // Then — ShowViewerComingSoon emitted; ensureLocal NOT called
+                    val event = navEvents.awaitItem()
+                    event shouldBe BookDetailNavAction.ShowViewerComingSoon
+                    verifySuspend(VerifyMode.exactly(0)) { fixture.documentRepository.ensureLocal(any(), any()) }
+
+                    states.cancel()
+                    navEvents.cancel()
+                    docsObserver.cancel()
                 }
             }
         }
