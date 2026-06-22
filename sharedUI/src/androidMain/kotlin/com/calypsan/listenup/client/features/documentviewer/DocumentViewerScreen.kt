@@ -117,6 +117,7 @@ internal fun DocumentViewerScreen(
     val nowPlayingProgress by nowPlayingViewModel.progress.collectAsStateWithLifecycle()
 
     var chromeVisible by remember { mutableStateOf(true) }
+    var showGrid by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -124,6 +125,7 @@ internal fun DocumentViewerScreen(
                 title = basenameOf(path),
                 onBack = onBack,
                 chromeVisible = chromeVisible,
+                onGrid = { showGrid = true },
             )
         },
         bottomBar = {
@@ -181,6 +183,25 @@ internal fun DocumentViewerScreen(
                             ),
                     )
                 }
+                // Grid overlay — full-bleed, top layer; only shown when showGrid is true.
+                AnimatedVisibility(
+                    visible = showGrid,
+                    modifier = Modifier.fillMaxSize(),
+                    enter = fadeIn(),
+                    exit = fadeOut(),
+                ) {
+                    PageGridOverlay(
+                        wrapper = wrapper,
+                        renderMutex = renderMutex,
+                        pageCount = pageCount,
+                        currentPage = firstVisible,
+                        onSelect = { idx ->
+                            scope.launch { listState.scrollToItem(idx) }
+                            showGrid = false
+                        },
+                        onClose = { showGrid = false },
+                    )
+                }
             }
         }
     }
@@ -191,7 +212,7 @@ internal fun DocumentViewerScreen(
 // ---------------------------------------------------------------------------
 
 /**
- * Animating top bar with back navigation + grid (placeholder) + overflow actions.
+ * Animating top bar with back navigation + grid toggle + overflow actions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,6 +220,7 @@ private fun ReaderTopBar(
     title: String,
     onBack: () -> Unit,
     chromeVisible: Boolean,
+    onGrid: () -> Unit,
 ) {
     var showOverflowMenu by remember { mutableStateOf(false) }
 
@@ -218,8 +240,7 @@ private fun ReaderTopBar(
                 }
             },
             actions = {
-                // Grid view — inert placeholder for task 3b.
-                IconButton(onClick = {}, enabled = false) {
+                IconButton(onClick = onGrid) {
                     Icon(
                         imageVector = Icons.Rounded.GridView,
                         contentDescription = stringResource(Res.string.book_detail_document_reader_toggle_grid),
