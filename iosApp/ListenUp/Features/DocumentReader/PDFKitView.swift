@@ -4,9 +4,11 @@ import SwiftUI
 /// Bridges a `PDFView` into SwiftUI. Continuous vertical scroll with pinch-zoom
 /// (`autoScales`). The `PDFDocument` is loaded once by the caller and passed in; the
 /// current page index is published back via `currentPageIndex` for the "Page X of Y" label.
+/// Set `goToPage` (0-based) to programmatically navigate; it is cleared after the jump.
 struct PDFKitView: UIViewRepresentable {
     let document: PDFDocument
     @Binding var currentPageIndex: Int
+    @Binding var goToPage: Int?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -26,7 +28,14 @@ struct PDFKitView: UIViewRepresentable {
         return view
     }
 
-    func updateUIView(_ uiView: PDFView, context: Context) {}
+    func updateUIView(_ uiView: PDFView, context: Context) {
+        guard let target = goToPage,
+              target >= 0, target < document.pageCount,
+              let page = document.page(at: target),
+              uiView.currentPage !== page else { return }
+        uiView.go(to: page)
+        DispatchQueue.main.async { goToPage = nil }
+    }
 
     static func dismantleUIView(_ uiView: PDFView, coordinator: Coordinator) {
         NotificationCenter.default.removeObserver(coordinator)

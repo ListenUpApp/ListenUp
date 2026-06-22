@@ -2411,6 +2411,16 @@
         }
       }
     },
+    "book.detail_document_reader_controls_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "p. %1$d of %2$d · tap to show controls"
+          }
+        }
+      }
+    },
     "book.detail_document_viewer_coming_soon": {
       "localizations": {
         "en": {
