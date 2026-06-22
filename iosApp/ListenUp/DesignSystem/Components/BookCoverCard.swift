@@ -47,7 +47,7 @@ struct BookCoverCard: View {
                             .padding(6)
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .padding(6)
-                            .accessibilityLabel(String(localized: "library.has_pdf_badge"))
+                            .accessibilityLabel(String(localized: "library.has_documents_badge"))
                     }
                 }
 

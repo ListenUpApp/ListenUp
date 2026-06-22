@@ -8931,12 +8931,12 @@
         }
       }
     },
-    "library.has_pdf_badge": {
+    "library.has_documents_badge": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Has a PDF"
+            "value": "Has supplementary material"
           }
         }
       }

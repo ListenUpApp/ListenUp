@@ -57,7 +57,7 @@ import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_completed
 import listenup.composeapp.generated.resources.common_selected
-import listenup.composeapp.generated.resources.library_has_pdf_badge
+import listenup.composeapp.generated.resources.library_has_documents_badge
 import listenup.composeapp.generated.resources.player_now_playing_wide
 
 /**
@@ -303,7 +303,7 @@ private fun DocumentsBadge(modifier: Modifier = Modifier) {
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Rounded.MenuBook,
-            contentDescription = stringResource(Res.string.library_has_pdf_badge),
+            contentDescription = stringResource(Res.string.library_has_documents_badge),
             tint = MaterialTheme.colorScheme.onSecondary,
             modifier = Modifier.size(16.dp),
         )
