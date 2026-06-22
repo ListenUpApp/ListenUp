@@ -108,8 +108,15 @@ internal fun List<BookContributorCrossRef>.extractByRole(
  *
  * Returns the list-shaped projection — no genres, tags, or allContributors. Use
  * [toDetail] when those fields are required.
+ *
+ * @param hasDocuments Whether the book has at least one supplementary document row in
+ *   [book_documents]. Callers that resolve this from a combined DAO query pass the computed
+ *   value here; callers that do not need the flag leave it at the default of `false`.
  */
-internal fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookListItem {
+internal fun BookWithContributors.toListItem(
+    imageStorage: ImageStorage,
+    hasDocuments: Boolean = false,
+): BookListItem {
     val contributorsById = contributors.associateBy { it.id }
 
     val authors = contributorRoles.extractByRole(ROLE_AUTHOR, contributorsById)
@@ -151,6 +158,7 @@ internal fun BookWithContributors.toListItem(imageStorage: ImageStorage): BookLi
         asin = book.asin,
         abridged = book.abridged,
         rating = null,
+        hasDocuments = hasDocuments,
     )
 }
 

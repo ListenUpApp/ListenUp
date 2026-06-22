@@ -40,6 +40,7 @@ data class BookListItem(
     val asin: String? = null,
     val abridged: Boolean = false,
     val rating: Double? = null,
+    val hasDocuments: Boolean = false,
 ) : BookSummaryFields {
     /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value
