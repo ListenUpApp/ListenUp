@@ -7,8 +7,6 @@ import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.data.remote.model.AsyncAnalyzeResponse
 import com.calypsan.listenup.client.data.remote.model.ApiResponse
-import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
-import com.calypsan.listenup.client.data.remote.model.ImportABSResponse
 import io.ktor.client.call.body
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.forms.ChannelProvider
@@ -101,19 +99,5 @@ internal class BackupApi(
                 .getClient()
                 .get("/api/v1/admin/abs/analyze/$analysisId/status")
                 .body<ApiResponse<AnalysisStatusResponse>>()
-        }
-
-    override suspend fun importABSBackup(request: ImportABSRequest): AppResult<ImportABSResponse> =
-        apiCall(errorMessage = "ABS import response missing data") {
-            clientFactory
-                .getClient()
-                .post("/api/v1/admin/abs/import") {
-                    setBody(request)
-                    // Import can process many items (5 minutes)
-                    timeout {
-                        requestTimeoutMillis = 5 * 60 * 1000
-                        socketTimeoutMillis = 5 * 60 * 1000
-                    }
-                }.body<ApiResponse<ImportABSResponse>>()
         }
 }

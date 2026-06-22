@@ -12,7 +12,7 @@ import io.kotest.matchers.shouldNotBe
  * constructing the factory at DI-resolution time would eagerly resolve
  * DownloadRepository → DownloadEnqueuer → WorkManager.getInstance(), which threw
  * because WorkManager.initialize() had not yet been called.  After the fix, all
- * nine dependencies are [Lazy]; none is accessed until [WorkerFactory.createWorker]
+ * dependencies are [Lazy]; none is accessed until [WorkerFactory.createWorker]
  * runs at job-dispatch time.
  */
 class ListenUpWorkerFactoryLazyTest :
@@ -27,8 +27,6 @@ class ListenUpWorkerFactoryLazyTest :
                     fileManager = lazy { error("fileManager forced at construction") },
                     apiClientFactory = lazy { error("apiClientFactory forced at construction") },
                     playbackRpcFactory = lazy { error("playbackRpcFactory forced at construction") },
-                    backupApi = lazy { error("backupApi forced at construction") },
-                    absImportApi = lazy { error("absImportApi forced at construction") },
                     errorBus = lazy { error("errorBus forced at construction") },
                 )
             // If we reach here, no dep was forced — the factory was safely constructed.

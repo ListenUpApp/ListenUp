@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.ABSImportApi
-import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
@@ -55,12 +53,6 @@ val adminModule: Module =
         single {
             BackupApi(clientFactory = get())
         } bind BackupApiContract::class
-
-        // ABSImportApi — legacy REST surface, still backing the WorkManager upload subsystem
-        // (ABSUploadWorker / ListenUpWorkerFactory). The inline import list now uses ImportService.
-        single {
-            ABSImportApi(clientFactory = get(), errorBus = get())
-        } bind ABSImportApiContract::class
 
         // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
         single<LibraryAdminRpcFactory> {

@@ -118,32 +118,3 @@ data class AnalysisStatusResponse(
     val result: AnalyzeABSResponse? = null,
     val error: String? = null,
 )
-
-/**
- * Request to import from an ABS backup.
- */
-@Serializable
-data class ImportABSRequest(
-    @SerialName("backup_path") val backupPath: String,
-    @SerialName("user_mappings") val userMappings: Map<String, String>,
-    @SerialName("book_mappings") val bookMappings: Map<String, String>,
-    @SerialName("import_sessions") val importSessions: Boolean = true,
-    @SerialName("import_progress") val importProgress: Boolean = true,
-    @SerialName("rebuild_progress") val rebuildProgress: Boolean = true,
-)
-
-/**
- * Response from ABS import operation.
- */
-@Serializable
-data class ImportABSResponse(
-    @SerialName("sessions_imported") val sessionsImported: Int,
-    @SerialName("sessions_skipped") val sessionsSkipped: Int,
-    @SerialName("progress_imported") val progressImported: Int,
-    @SerialName("progress_skipped") val progressSkipped: Int,
-    @SerialName("events_created") val eventsCreated: Int,
-    @SerialName("affected_users") val affectedUsers: Int,
-    val duration: String,
-    val warnings: List<String> = emptyList(),
-    val errors: List<String> = emptyList(),
-)

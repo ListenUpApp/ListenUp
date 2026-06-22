@@ -70,7 +70,6 @@ import com.calypsan.listenup.client.presentation.admin.ABSImportListUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupUiState
 import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
 import com.calypsan.listenup.client.presentation.error.localized
-import com.calypsan.listenup.client.util.rememberABSBackupPicker
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -148,38 +147,6 @@ fun AdminBackupScreen(
     // Delete import confirmation state
     var deleteConfirmImport by remember { mutableStateOf<ImportSummary?>(null) }
 
-    // Upload sheet state
-    var showUploadSheet by remember { mutableStateOf(false) }
-    val uploadSheetState = rememberABSUploadSheetState()
-
-    // Document picker for ABS backup files
-    val documentPicker =
-        rememberABSBackupPicker { result ->
-            uploadSheetState.onDocumentSelected(result)
-        }
-
-    // Restore any in-flight upload job after app restart
-    LaunchedEffect(Unit) {
-        uploadSheetState.restoreActiveWorkIfRunning(context)
-    }
-
-    // Observe WorkManager work info when an upload is active
-    LaunchedEffect(uploadSheetState.activeWorkId) {
-        val flow = uploadSheetState.getWorkInfoFlow(context) ?: return@LaunchedEffect
-        flow.collect { workInfo ->
-            uploadSheetState.observeWorkInfo(workInfo)
-        }
-    }
-
-    // Auto-navigate to import detail when background upload completes while on this screen
-    LaunchedEffect(uploadSheetState.uploadState) {
-        val currentState = uploadSheetState.uploadState
-        if (currentState is ABSUploadState.Complete && currentState.importId.isNotEmpty()) {
-            uploadSheetState.reset()
-            onABSImportHubClick(currentState.importId)
-        }
-    }
-
     val readyState = backupState as? AdminBackupUiState.Ready
 
     Scaffold(
@@ -219,32 +186,6 @@ fun AdminBackupScreen(
                 onUploadABSBackup = onNewImportClick,
             )
         }
-    }
-
-    // ABS Upload Sheet
-    if (showUploadSheet) {
-        ABSUploadSheet(
-            state = uploadSheetState.uploadState,
-            onPickFile = { documentPicker.launch() },
-            onUpload = {
-                // Sheet stays visible during upload — shows existing progress UI.
-                // Upload runs via foreground service so user can dismiss freely.
-                uploadSheetState.enqueueUpload(context)
-            },
-            onNavigateToImport = { importId ->
-                showUploadSheet = false
-                uploadSheetState.reset()
-                onABSImportHubClick(importId)
-            },
-            onDismiss = {
-                showUploadSheet = false
-                uploadSheetState.reset()
-            },
-            onRetry = {
-                uploadSheetState.retry()
-                documentPicker.launch()
-            },
-        )
     }
 
     // Delete backup confirmation dialog (only meaningful when Ready).

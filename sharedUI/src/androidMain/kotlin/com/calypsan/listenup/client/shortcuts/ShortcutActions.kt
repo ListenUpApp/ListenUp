@@ -61,10 +61,9 @@ object ShortcutActions {
     const val SLEEP_TIMER = "com.calypsan.listenup.action.SLEEP_TIMER"
 
     /**
-     * Navigate to a specific ABS import detail screen.
+     * Resume an in-progress ABS import in the import flow.
      *
-     * Used by completion notifications from ABSUploadWorker.
-     * Requires EXTRA_IMPORT_ID to identify which import to view.
+     * Requires EXTRA_IMPORT_ID to identify which import to open.
      */
     const val NAVIGATE_TO_ABS_IMPORT = "com.calypsan.listenup.action.NAVIGATE_TO_ABS_IMPORT"
 

@@ -6,8 +6,6 @@ import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
 import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
 import com.calypsan.listenup.client.data.remote.model.AsyncAnalyzeResponse
-import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
-import com.calypsan.listenup.client.data.remote.model.ImportABSResponse
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -54,11 +52,6 @@ interface BackupApiContract {
      * Poll the status of an async analysis.
      */
     suspend fun getAnalysisStatus(analysisId: String): AppResult<AnalysisStatusResponse>
-
-    /**
-     * Import from an Audiobookshelf backup.
-     */
-    suspend fun importABSBackup(request: ImportABSRequest): AppResult<ImportABSResponse>
 }
 
 /**
