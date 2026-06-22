@@ -9,6 +9,7 @@ struct PDFKitView: UIViewRepresentable {
     let document: PDFDocument
     @Binding var currentPageIndex: Int
     @Binding var goToPage: Int?
+    @Binding var highlightSelection: PDFSelection?
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
@@ -29,12 +30,19 @@ struct PDFKitView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: PDFView, context: Context) {
-        guard let target = goToPage,
-              target >= 0, target < document.pageCount,
-              let page = document.page(at: target),
-              uiView.currentPage !== page else { return }
-        uiView.go(to: page)
-        DispatchQueue.main.async { goToPage = nil }
+        if let target = goToPage,
+           target >= 0, target < document.pageCount,
+           let page = document.page(at: target),
+           uiView.currentPage !== page {
+            uiView.go(to: page)
+            DispatchQueue.main.async { goToPage = nil }
+        }
+        if let sel = highlightSelection {
+            uiView.go(to: sel)
+            uiView.setCurrentSelection(sel, animate: false)
+            uiView.highlightedSelections = [sel]
+            DispatchQueue.main.async { highlightSelection = nil }
+        }
     }
 
     static func dismantleUIView(_ uiView: PDFView, coordinator: Coordinator) {

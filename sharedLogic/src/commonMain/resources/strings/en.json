@@ -391,7 +391,10 @@
     "detail_document_pages_title": "All Pages",
     "detail_document_pages_back": "Reading",
     "reader_scrubber_page_label": "p. %1$d",
-    "reader_scrubber_page_count": "%1$d"
+    "reader_scrubber_page_count": "%1$d",
+    "detail_document_search": "Search",
+    "detail_document_search_placeholder": "Search in document",
+    "detail_document_search_no_results": "No results"
   },
   "series": {
     "book_sequence": "Book %1$s",

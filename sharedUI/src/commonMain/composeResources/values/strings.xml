@@ -246,6 +246,9 @@ One beautiful library.</string>
     <string name="book_detail_document_pages_title">All Pages</string>
     <string name="book_detail_document_reader_controls_hint">p. %1$d of %2$d · tap to show controls</string>
     <string name="book_detail_document_reader_toggle_grid">Toggle grid view</string>
+    <string name="book_detail_document_search">Search</string>
+    <string name="book_detail_document_search_no_results">No results</string>
+    <string name="book_detail_document_search_placeholder">Search in document</string>
     <string name="book_detail_document_viewer_coming_soon">Viewer coming soon</string>
     <string name="book_detail_document_viewer_error">Could not open document.</string>
     <string name="book_detail_document_viewer_loading">Loading page…</string>

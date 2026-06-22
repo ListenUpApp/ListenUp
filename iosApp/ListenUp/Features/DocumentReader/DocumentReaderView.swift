@@ -15,6 +15,9 @@ struct DocumentReaderView: View {
     @State private var goToPage: Int?
     @State private var scrubFraction: Double = 0
     @State private var showGrid = false
+    @State private var showSearch = false
+    @State private var highlightSelection: PDFSelection?
+    @State private var search: PdfSearchController?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
@@ -27,7 +30,8 @@ struct DocumentReaderView: View {
                 PDFKitView(
                     document: pdfDocument,
                     currentPageIndex: $currentPageIndex,
-                    goToPage: $goToPage
+                    goToPage: $goToPage,
+                    highlightSelection: $highlightSelection
                 )
                 .ignoresSafeArea(edges: .bottom)
                 .contentShape(Rectangle())
@@ -49,6 +53,7 @@ struct DocumentReaderView: View {
         }
         .task {
             pdfDocument = PDFDocument(url: document.url)
+            if let pdfDocument { search = PdfSearchController(document: pdfDocument) }
             didAttemptLoad = true
         }
         .safeAreaInset(edge: .top) {
@@ -70,6 +75,15 @@ struct DocumentReaderView: View {
                 )
             }
         }
+        .fullScreenCover(isPresented: $showSearch) {
+            if let search {
+                DocumentSearchView(
+                    controller: search,
+                    onSelect: { sel in highlightSelection = sel; showSearch = false },
+                    onClose: { search.cancel(); showSearch = false }
+                )
+            }
+        }
     }
 
     // MARK: - Top bar
@@ -80,6 +94,12 @@ struct DocumentReaderView: View {
                 .font(.body.weight(.semibold))
             Spacer()
             HStack(spacing: 8) {
+                if search != nil {
+                    Button { showSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .accessibilityLabel(String(localized: "book.detail_document_search"))
+                }
                 Button { showGrid = true } label: {
                     Image(systemName: "square.grid.2x2")
                 }
