@@ -1,0 +1,35 @@
+-- book_documents: supplementary document/ebook rows owned by a book. Column set matches
+-- V43__book_documents.sql. Composite PK (book_id, ordinal) preserves a stable order.
+-- `id` is a stable per-document UUID surface for clients. `filename` is the book-root-relative
+-- path (handles documents in subfolders). Replaced wholesale (delete-by-book then insert) on
+-- every aggregate upsert —
+-- there is no single-file update path.
+-- FK (book_id -> books) lives in the migration DDL.
+CREATE TABLE book_documents (
+    book_id  TEXT    NOT NULL,
+    ordinal  INTEGER NOT NULL,
+    id       TEXT    NOT NULL,
+    filename TEXT    NOT NULL,
+    format   TEXT    NOT NULL,
+    size     INTEGER NOT NULL,
+    hash     TEXT    NOT NULL,
+    PRIMARY KEY (book_id, ordinal)
+);
+
+-- Batched read for readBookPayloads, ordered by ordinal so the assembled payload
+-- preserves document order.
+selectByBookIds:
+SELECT * FROM book_documents WHERE book_id IN :ids ORDER BY ordinal;
+
+-- Single document by (book_id, id) → its on-disk filename, container format, byte
+-- size, and content hash. Hash is used for ETag construction at serve time.
+selectFileForBook:
+SELECT filename, format, size, hash FROM book_documents WHERE book_id = :book_id AND id = :id LIMIT 1;
+
+insert:
+INSERT INTO book_documents (book_id, ordinal, id, filename, format, size, hash)
+VALUES (:book_id, :ordinal, :id, :filename, :format, :size, :hash);
+
+-- Wholesale-replace step.
+deleteByBookId:
+DELETE FROM book_documents WHERE book_id = :book_id;

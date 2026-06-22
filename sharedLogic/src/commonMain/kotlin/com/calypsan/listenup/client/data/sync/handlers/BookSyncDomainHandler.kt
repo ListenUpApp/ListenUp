@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync.handlers
 
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookGenrePayload
@@ -15,6 +16,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
+import com.calypsan.listenup.client.data.local.db.BookDocumentEntity
 import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.BookGenreCrossRef
@@ -163,6 +165,7 @@ internal class BookSyncDomainHandler(
         applyGenres(bookId, payload.genres)
         applyChapters(bookId, payload.chapters)
         applyAudioFiles(payload.id, payload.audioFiles)
+        applyDocuments(payload.id, payload.documents)
     }
 
     /**
@@ -280,6 +283,26 @@ internal class BookSyncDomainHandler(
                     codec = file.codec,
                     duration = file.duration,
                     size = file.size,
+                )
+            },
+        )
+    }
+
+    private suspend fun applyDocuments(
+        bookId: String,
+        documents: List<BookDocumentPayload>,
+    ) {
+        database.bookDocumentDao().deleteForBook(bookId)
+        database.bookDocumentDao().upsertAll(
+            documents.map { doc ->
+                BookDocumentEntity(
+                    bookId = BookId(bookId),
+                    index = doc.index,
+                    id = doc.id,
+                    filename = doc.filename,
+                    format = doc.format,
+                    size = doc.size,
+                    hash = doc.hash,
                 )
             },
         )

@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -34,6 +35,7 @@ internal fun assembleBookPayload(
     genres: List<BookGenrePayload>,
     audioFiles: List<BookAudioFilePayload>,
     chapters: List<BookChapterPayload>,
+    documents: List<BookDocumentPayload>,
 ): BookSyncPayload {
     val cover =
         bookRow.cover_hash?.let { hash ->
@@ -73,6 +75,7 @@ internal fun assembleBookPayload(
         chapterSource =
             ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
                 ?: ChapterSource.EMBEDDED,
+        documents = documents,
         revision = bookRow.revision,
         updatedAt = bookRow.updated_at,
         createdAt = bookRow.created_at,
@@ -98,6 +101,7 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
     val chaptersByBook = HashMap<String, MutableList<BookChapterPayload>>()
     val genresByBook = HashMap<String, MutableList<BookGenrePayload>>()
     val audioByBook = HashMap<String, MutableList<BookAudioFilePayload>>()
+    val documentsByBook = HashMap<String, MutableList<BookDocumentPayload>>()
 
     idStrs.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
         booksQueries.selectByIds(chunk).executeAsList().forEach { row -> bookRows[row.id] = row }
@@ -169,6 +173,21 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
                     ),
                 )
         }
+
+        bookDocumentsQueries.selectByBookIds(chunk).executeAsList().forEach { row ->
+            documentsByBook
+                .getOrPut(row.book_id) { mutableListOf() }
+                .add(
+                    BookDocumentPayload(
+                        id = row.id,
+                        index = row.ordinal.toInt(),
+                        filename = row.filename,
+                        format = row.format,
+                        size = row.size,
+                        hash = row.hash,
+                    ),
+                )
+        }
     }
 
     return idStrs.mapNotNull { id ->
@@ -180,6 +199,7 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
             genres = genresByBook[id].orEmpty(),
             audioFiles = audioByBook[id].orEmpty(),
             chapters = chaptersByBook[id].orEmpty(),
+            documents = documentsByBook[id].orEmpty(),
         )
     }
 }

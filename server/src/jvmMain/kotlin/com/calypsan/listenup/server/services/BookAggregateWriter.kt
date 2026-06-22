@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import java.util.UUID
@@ -109,6 +110,24 @@ internal class BookAggregateWriter(
                 codec = f.codec,
                 duration = f.duration,
                 size = f.size,
+            )
+        }
+    }
+
+    fun replaceDocuments(
+        bookId: String,
+        documents: List<BookDocumentPayload>,
+    ) {
+        db.bookDocumentsQueries.deleteByBookId(bookId)
+        documents.forEachIndexed { idx, d ->
+            db.bookDocumentsQueries.insert(
+                book_id = bookId,
+                ordinal = idx.toLong(),
+                id = d.id.ifBlank { UUID.randomUUID().toString() },
+                filename = d.filename,
+                format = d.format,
+                size = d.size,
+                hash = d.hash,
             )
         }
     }

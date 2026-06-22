@@ -27,9 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ContentShapes
 import com.calypsan.listenup.client.design.theme.Spacing
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.mostSpecificGenre
 import com.calypsan.listenup.client.features.bookdetail.BookDetailScanWarning
+import com.calypsan.listenup.client.features.bookdetail.SupplementaryMaterialsSection
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
@@ -64,6 +66,8 @@ fun WideBookDetail(
     hasProgress: Boolean,
     isAdmin: Boolean,
     isWaitingForWifi: Boolean,
+    documents: List<BookDocument> = emptyList(),
+    onOpenDocument: (docId: String) -> Unit = {},
     showPlaybackActions: Boolean = true,
     onBackClick: () -> Unit,
     onEditClick: () -> Unit,
@@ -173,43 +177,32 @@ fun WideBookDetail(
             )
 
             // Two-column body.
-            Row(
-                modifier =
-                    screenPadding
-                        .fillMaxWidth()
-                        .padding(top = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                WideLeftColumn(
-                    state = state,
-                    downloadStatus = downloadStatus,
-                    isWaitingForWifi = isWaitingForWifi,
-                    showPlaybackActions = showPlaybackActions,
-                    playEnabled = playEnabled,
-                    downloadEnabled = downloadEnabled,
-                    showServerWarning = showServerWarning,
-                    isDescriptionExpanded = isDescriptionExpanded,
-                    onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
-                    onContributorClick = onContributorClick,
-                    onTagClick = onTagClick,
-                    onPlayClick = onPlayClick,
-                    onDownloadClick = onDownloadClick,
-                    onCancelClick = onCancelClick,
-                    onDeleteClick = onDeleteClick,
-                    onPlayDisabledClick = onPlayDisabledClick,
-                    modifier = Modifier.weight(1f),
-                )
-
-                WideRightColumn(
-                    bookId = bookId,
-                    chapters = state.chapters,
-                    isChaptersExpanded = isChaptersExpanded,
-                    onExpandChapters = { isChaptersExpanded = true },
-                    onUserProfileClick = onUserProfileClick,
-                    onSeeAllReaders = onSeeAllReaders,
-                    modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
-                )
-            }
+            WideBodyColumns(
+                bookId = bookId,
+                state = state,
+                downloadStatus = downloadStatus,
+                isWaitingForWifi = isWaitingForWifi,
+                showPlaybackActions = showPlaybackActions,
+                playEnabled = playEnabled,
+                downloadEnabled = downloadEnabled,
+                showServerWarning = showServerWarning,
+                isDescriptionExpanded = isDescriptionExpanded,
+                onToggleDescription = { isDescriptionExpanded = !isDescriptionExpanded },
+                documents = documents,
+                onOpenDocument = onOpenDocument,
+                isChaptersExpanded = isChaptersExpanded,
+                onExpandChapters = { isChaptersExpanded = true },
+                onContributorClick = onContributorClick,
+                onTagClick = onTagClick,
+                onPlayClick = onPlayClick,
+                onDownloadClick = onDownloadClick,
+                onCancelClick = onCancelClick,
+                onDeleteClick = onDeleteClick,
+                onPlayDisabledClick = onPlayDisabledClick,
+                onUserProfileClick = onUserProfileClick,
+                onSeeAllReaders = onSeeAllReaders,
+                modifier = screenPadding.fillMaxWidth().padding(top = 24.dp),
+            )
         }
 
         castRole?.let { role ->
@@ -221,6 +214,77 @@ fun WideBookDetail(
                 onDismiss = { castRole = null },
             )
         }
+    }
+}
+
+/**
+ * The two-column wide body: the flexing left column (About + primary actions) and the
+ * width-capped right column (Readers + Chapters + Supplementary materials). Extracted from
+ * [WideBookDetail] to keep that composable within the method-length budget.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun WideBodyColumns(
+    bookId: String,
+    state: BookDetailUiState.Ready,
+    downloadStatus: BookDownloadStatus,
+    isWaitingForWifi: Boolean,
+    showPlaybackActions: Boolean,
+    playEnabled: Boolean,
+    downloadEnabled: Boolean,
+    showServerWarning: Boolean,
+    isDescriptionExpanded: Boolean,
+    onToggleDescription: () -> Unit,
+    documents: List<BookDocument>,
+    onOpenDocument: (docId: String) -> Unit,
+    isChaptersExpanded: Boolean,
+    onExpandChapters: () -> Unit,
+    onContributorClick: (contributorId: String) -> Unit,
+    onTagClick: (tagId: String) -> Unit,
+    onPlayClick: () -> Unit,
+    onDownloadClick: () -> Unit,
+    onCancelClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onPlayDisabledClick: () -> Unit,
+    onUserProfileClick: (userId: String) -> Unit,
+    onSeeAllReaders: (bookId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        WideLeftColumn(
+            state = state,
+            downloadStatus = downloadStatus,
+            isWaitingForWifi = isWaitingForWifi,
+            showPlaybackActions = showPlaybackActions,
+            playEnabled = playEnabled,
+            downloadEnabled = downloadEnabled,
+            showServerWarning = showServerWarning,
+            isDescriptionExpanded = isDescriptionExpanded,
+            onToggleDescription = onToggleDescription,
+            onContributorClick = onContributorClick,
+            onTagClick = onTagClick,
+            onPlayClick = onPlayClick,
+            onDownloadClick = onDownloadClick,
+            onCancelClick = onCancelClick,
+            onDeleteClick = onDeleteClick,
+            onPlayDisabledClick = onPlayDisabledClick,
+            modifier = Modifier.weight(1f),
+        )
+
+        WideRightColumn(
+            bookId = bookId,
+            chapters = state.chapters,
+            documents = documents,
+            onOpenDocument = onOpenDocument,
+            isChaptersExpanded = isChaptersExpanded,
+            onExpandChapters = onExpandChapters,
+            onUserProfileClick = onUserProfileClick,
+            onSeeAllReaders = onSeeAllReaders,
+            modifier = Modifier.widthIn(max = RIGHT_COLUMN_MAX_WIDTH),
+        )
     }
 }
 
@@ -302,6 +366,8 @@ private fun WideLeftColumn(
 private fun WideRightColumn(
     bookId: String,
     chapters: List<ChapterUiModel>,
+    documents: List<BookDocument>,
+    onOpenDocument: (docId: String) -> Unit,
     isChaptersExpanded: Boolean,
     onExpandChapters: () -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
@@ -329,6 +395,17 @@ private fun WideRightColumn(
                 isExpanded = isChaptersExpanded,
                 onExpand = onExpandChapters,
             )
+        }
+
+        // Supplementary materials card — PDFs and other documents attached to this book.
+        // Mirrors the phone layout's placement (after chapters).
+        if (documents.isNotEmpty()) {
+            WideSectionCard {
+                SupplementaryMaterialsSection(
+                    documents = documents,
+                    onOpenDocument = onOpenDocument,
+                )
+            }
         }
     }
 }

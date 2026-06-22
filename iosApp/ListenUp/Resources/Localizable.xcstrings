@@ -2401,6 +2401,46 @@
         }
       }
     },
+    "book.detail_document_viewer_coming_soon": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Viewer coming soon"
+          }
+        }
+      }
+    },
+    "book.detail_document_viewer_error": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not open document."
+          }
+        }
+      }
+    },
+    "book.detail_document_viewer_loading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading page…"
+          }
+        }
+      }
+    },
+    "book.detail_document_viewer_page_of": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Page %1$d of %2$d"
+          }
+        }
+      }
+    },
     "book.detail_done": {
       "localizations": {
         "en": {
@@ -2897,6 +2937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play Now"
+          }
+        }
+      }
+    },
+    "book.detail_supplementary_materials": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Supplementary materials"
           }
         }
       }

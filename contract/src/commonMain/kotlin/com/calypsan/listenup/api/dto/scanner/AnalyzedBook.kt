@@ -61,6 +61,7 @@ data class AnalyzedBook(
      * filename metadata); this flag surfaces a user-facing "double-check this book" advisory.
      */
     val hasScanWarning: Boolean = false,
+    val documents: List<AnalyzedDocument> = emptyList(),
 )
 
 /**

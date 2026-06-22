@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,12 +18,16 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -40,6 +45,7 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.api.result.AppResult
@@ -60,6 +66,8 @@ import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
 import com.calypsan.listenup.client.features.bookdetail.components.StatsRow
 import com.calypsan.listenup.client.features.bookdetail.components.WideBookDetail
+import com.calypsan.listenup.client.domain.model.BookDocument
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import kotlinx.coroutines.launch
@@ -68,7 +76,9 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_scan_warning
+import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import listenup.composeapp.generated.resources.book_show_all_chapters
 
 /**
@@ -98,10 +108,24 @@ fun BookDetailScreen(
     onTagClick: (tagId: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
+    onOpenDocumentViewer: (localPath: String) -> Unit = {},
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {
         viewModel.loadBook(bookId)
+    }
+
+    val snackbarHostState = LocalSnackbarHostState.current
+    val viewerComingSoonLabel = stringResource(Res.string.book_detail_document_viewer_coming_soon)
+
+    // Consume one-shot navigation events from the ViewModel.
+    LaunchedEffect(viewModel) {
+        viewModel.navActions.collect { action ->
+            when (action) {
+                is BookDetailNavAction.OpenDocumentViewer -> onOpenDocumentViewer(action.localPath)
+                is BookDetailNavAction.ShowViewerComingSoon -> snackbarHostState.showSnackbar(viewerComingSoonLabel)
+            }
+        }
     }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -176,6 +200,7 @@ private fun BookDetailReadyContent(
     val instanceRepository: InstanceRepository = koinInject()
     val scope = rememberCoroutineScope()
     val snackbarHostState = LocalSnackbarHostState.current
+    val documents by viewModel.documents.collectAsStateWithLifecycle()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
@@ -191,6 +216,8 @@ private fun BookDetailReadyContent(
     BookDetailContent(
         bookId = bookId,
         state = state,
+        documents = documents,
+        onOpenDocument = { docId -> viewModel.onOpenDocument(docId) },
         downloadStatus = state.downloadStatus,
         isComplete = state.isComplete,
         hasProgress = hasProgress,
@@ -309,6 +336,8 @@ private fun BookDetailReadyContent(
 fun BookDetailContent(
     bookId: String,
     state: BookDetailUiState.Ready,
+    documents: List<BookDocument> = emptyList(),
+    onOpenDocument: (docId: String) -> Unit = {},
     downloadStatus: BookDownloadStatus,
     isComplete: Boolean,
     hasProgress: Boolean,
@@ -353,6 +382,8 @@ fun BookDetailContent(
         WideBookDetail(
             bookId = bookId,
             state = state,
+            documents = documents,
+            onOpenDocument = onOpenDocument,
             downloadStatus = downloadStatus,
             isComplete = isComplete,
             hasProgress = hasProgress,
@@ -387,6 +418,8 @@ fun BookDetailContent(
         ImmersiveBookDetail(
             bookId = bookId,
             state = state,
+            documents = documents,
+            onOpenDocument = onOpenDocument,
             downloadStatus = downloadStatus,
             isComplete = isComplete,
             hasProgress = hasProgress,
@@ -437,6 +470,8 @@ fun BookDetailContent(
 private fun ImmersiveBookDetail(
     bookId: String,
     state: BookDetailUiState.Ready,
+    documents: List<BookDocument> = emptyList(),
+    onOpenDocument: (docId: String) -> Unit = {},
     downloadStatus: BookDownloadStatus,
     isComplete: Boolean,
     hasProgress: Boolean,
@@ -641,6 +676,18 @@ private fun ImmersiveBookDetail(
                 }
             }
 
+            // Supplementary materials — PDFs and other documents attached to this book.
+            if (documents.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    SupplementaryMaterialsSection(
+                        documents = documents,
+                        onOpenDocument = onOpenDocument,
+                        modifier = screenPadding,
+                    )
+                }
+            }
+
             // Credits — every contributor role grouped by role; anchored at the bottom of the page.
             item {
                 Spacer(modifier = Modifier.height(16.dp))
@@ -707,6 +754,89 @@ fun BookDetailScanWarning(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
+        }
+    }
+}
+
+/**
+ * "Supplementary materials" section — a header followed by one tappable row per document.
+ *
+ * Rendered only when [documents] is non-empty (the caller gates on this). Each row shows
+ * a generic document icon, the file's basename, and the formatted size. Tapping a row
+ * calls [onOpenDocument] with the document's id — the ViewModel handles format dispatch.
+ */
+@Composable
+internal fun SupplementaryMaterialsSection(
+    documents: List<BookDocument>,
+    onOpenDocument: (docId: String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        // Section header — mirrors ChaptersHeader style.
+        Text(
+            text = stringResource(Res.string.book_detail_supplementary_materials),
+            style =
+                MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                ),
+            modifier = Modifier.padding(vertical = 8.dp),
+        )
+
+        documents.forEachIndexed { index, doc ->
+            DocumentRow(
+                doc = doc,
+                onClick = { onOpenDocument(doc.id) },
+                showDivider = index < documents.lastIndex,
+            )
+        }
+    }
+}
+
+/**
+ * Single supplementary document row: format icon, filename basename, size, and tap affordance.
+ */
+@Composable
+private fun DocumentRow(
+    doc: BookDocument,
+    onClick: () -> Unit,
+    showDivider: Boolean,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onClick)
+                    .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Default.Description,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Text(
+                text = doc.filename.substringAfterLast('/'),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Text(
+                text = formatFileSize(doc.size),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (showDivider) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.cover.CoverResponder
+import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
@@ -397,6 +398,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val contributorService by inject<ContributorService>()
     val seriesService by inject<SeriesService>()
     val coverResponder by inject<CoverResponder>()
+    val documentFileLocator by inject<DocumentFileLocator>()
     val bookAccessPolicy by inject<BookAccessPolicy>()
     val playbackService by inject<PlaybackService>()
     val playbackProgressService by inject<PlaybackProgressService>()
@@ -481,7 +483,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             adminUserRoutes(adminUserService)
             adminInviteRoutes(inviteService)
             libraryAdminRoutes(libraryAdminService)
-            bookRoutes(bookService, coverResponder, bookAccessPolicy)
+            bookRoutes(bookService, coverResponder, bookAccessPolicy, documentFileLocator)
             contributorRoutes(contributorService, bookAccessPolicy)
             seriesRoutes(seriesService, bookAccessPolicy)
             playbackRoutes(playbackService)

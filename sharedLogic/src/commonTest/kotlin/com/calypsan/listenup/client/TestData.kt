@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.BookSeries
 import com.calypsan.listenup.client.domain.model.Chapter
@@ -243,6 +244,33 @@ object TestData {
                 startTime = (index - 1) * chapterDuration,
             )
         }
+
+    /**
+     * Creates a sample [BookDocument] with sensible defaults.
+     *
+     * @param id Server document UUID.
+     * @param index 0-based position in the document list.
+     * @param filename Book-root-relative path.
+     * @param format File extension in lowercase (e.g. `"pdf"`).
+     * @param size File size in bytes.
+     * @param hash SHA-256 hex digest.
+     */
+    fun bookDocument(
+        id: String = "doc-1",
+        index: Int = 0,
+        filename: String = "extras/map.pdf",
+        format: String = "pdf",
+        size: Long = 1_024_000L,
+        hash: String = "abc123",
+    ): BookDocument =
+        BookDocument(
+            id = id,
+            index = index,
+            filename = filename,
+            format = format,
+            size = size,
+            hash = hash,
+        )
 
     /**
      * Creates a sample [BookDetail] with full series information.

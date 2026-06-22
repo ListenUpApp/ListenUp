@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
@@ -54,6 +55,27 @@ class BookSyncDomainHandlerTest :
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 3
+            }
+        }
+
+        test("Updated event replaces book document rows wholesale, ordered by index") {
+            withTestHandler { handler, db ->
+                val initial = bookPayload(id = "b1", documents = (1..4).map { document(it) })
+                handler
+                    .onEvent(created(initial), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                db.bookDocumentDao().getForBook("b1").size shouldBe 4
+
+                val updated = initial.copy(revision = 2, documents = (1..2).map { document(it) })
+                handler
+                    .onEvent(updatedEvent(updated), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val docs = db.bookDocumentDao().getForBook("b1")
+                docs.map { it.id } shouldBe listOf("doc1", "doc2")
+                docs.first().filename shouldBe "doc1.pdf"
+                docs.first().format shouldBe "pdf"
+                docs.first().hash shouldBe "h1"
             }
         }
 
@@ -320,6 +342,16 @@ private fun chapter(index: Int): BookChapterPayload =
         startTime = (index - 1) * 60_000L,
     )
 
+private fun document(index: Int): BookDocumentPayload =
+    BookDocumentPayload(
+        id = "doc$index",
+        index = index - 1,
+        filename = "doc$index.pdf",
+        format = "pdf",
+        size = (index * 100).toLong(),
+        hash = "h$index",
+    )
+
 private fun contrib(
     id: String,
     name: String,
@@ -356,6 +388,7 @@ private fun bookPayload(
     contributors: List<BookContributorPayload> = emptyList(),
     series: List<BookSeriesPayload> = emptyList(),
     audioFiles: List<BookAudioFilePayload> = emptyList(),
+    documents: List<BookDocumentPayload> = emptyList(),
 ): BookSyncPayload =
     BookSyncPayload(
         id = id,
@@ -381,6 +414,7 @@ private fun bookPayload(
         series = series,
         audioFiles = audioFiles,
         chapters = chapters,
+        documents = documents,
         revision = revision,
         updatedAt = updatedAt,
         createdAt = 1L,

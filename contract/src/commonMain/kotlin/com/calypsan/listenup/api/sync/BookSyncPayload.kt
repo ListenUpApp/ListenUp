@@ -46,6 +46,7 @@ data class BookSyncPayload(
     val series: List<BookSeriesPayload>,
     @SerialName("genres") val genres: List<BookGenrePayload> = emptyList(),
     val audioFiles: List<BookAudioFilePayload>,
+    val documents: List<BookDocumentPayload> = emptyList(),
     val chapters: List<BookChapterPayload>,
     /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
     val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
@@ -103,6 +104,26 @@ data class BookAudioFilePayload(
     val codec: String,
     val duration: Long,
     val size: Long,
+)
+
+/**
+ * A supplementary document (ebook) that ships with a book — served at
+ * `GET /books/{bookId}/documents/{id}`.
+ *
+ * `filename` is the book-root-relative path; clients display its basename.
+ * `format` is the file extension in lowercase (e.g. "pdf", "epub").
+ * `hash` is the SHA-256 hex digest of the file contents, used for cache-busting
+ * and integrity checks.
+ */
+@Serializable
+@SerialName("BookDocumentPayload")
+data class BookDocumentPayload(
+    val id: String,
+    val index: Int,
+    val filename: String,
+    val format: String,
+    val size: Long,
+    val hash: String,
 )
 
 /**

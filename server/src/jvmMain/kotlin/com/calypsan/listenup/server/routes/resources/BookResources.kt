@@ -54,6 +54,21 @@ class BookResources(
     )
 
     /**
+     * `GET /api/v1/books/{id}/documents/{docId}` — serves the bytes of a supplementary
+     * document (PDF/ebook) that ships with the book. Responds 200 with the file bytes
+     * (byte-range/resume via `PartialContent`) on success, 304 when the `If-None-Match`
+     * ETag matches the document's content hash, and 404 when the book is inaccessible or
+     * the document row/file is absent (never 403 — an inaccessible book is
+     * indistinguishable from an absent one). Requires JWT authentication.
+     */
+    @Resource("{id}/documents/{docId}")
+    class Document(
+        val parent: BookResources = BookResources(),
+        val id: BookId,
+        val docId: String,
+    )
+
+    /**
      * REST mirror of [com.calypsan.listenup.api.BookService.setBookContributors] —
      * `PUT /api/v1/books/{id}/contributors` replaces the full contributor list
      * for a book. Body is a JSON array of [com.calypsan.listenup.api.dto.BookContributorInput].

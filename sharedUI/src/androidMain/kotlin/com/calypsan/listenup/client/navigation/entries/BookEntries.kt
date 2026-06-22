@@ -3,10 +3,12 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
 import com.calypsan.listenup.client.navigation.ContributorDetail
+import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.MatchPreview
 import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.SeriesDetail
@@ -41,6 +43,17 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
             },
             onSeeAllReaders = { id ->
                 backStack.add(BookReaders(id))
+            },
+            onOpenDocumentViewer = { localPath ->
+                backStack.add(DocumentViewer(localPath))
+            },
+        )
+    }
+    entry<DocumentViewer> { args ->
+        DocumentViewerScreen(
+            path = args.localPath,
+            onBack = {
+                backStack.removeAt(backStack.lastIndex)
             },
         )
     }

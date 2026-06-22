@@ -96,4 +96,7 @@ private fun sampleRoutes(): List<Route> =
         // Profile
         add(UserProfile(userId = "test-user-id"))
         add(EditProfile)
+
+        // Document viewer (Android-only PDF viewer)
+        add(DocumentViewer(localPath = "/data/data/com.example/cache/doc.pdf"))
     }
