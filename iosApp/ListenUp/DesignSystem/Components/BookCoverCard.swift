@@ -39,6 +39,17 @@ struct BookCoverCard: View {
                 .aspectRatio(1, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+                .overlay(alignment: .topTrailing) {
+                    if book.hasDocuments {
+                        Image(systemName: "book.closed.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color.listenUpOrange)
+                            .padding(6)
+                            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .padding(6)
+                            .accessibilityLabel(String(localized: "library.has_pdf_badge"))
+                    }
+                }
 
             // Progress bar overlay
             if let progress, progress > 0 {
