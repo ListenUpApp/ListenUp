@@ -2,11 +2,14 @@ package com.calypsan.listenup.client.data.local.documents
 
 import com.calypsan.listenup.client.data.local.images.StoragePaths
 import com.calypsan.listenup.core.IODispatcher
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.withContext
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.write
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * On-disk cache for supplementary book documents (PDFs, ebooks, etc.).
@@ -56,6 +59,24 @@ internal interface DocumentStorage {
         path: String,
         bytes: ByteArray,
     )
+
+    /**
+     * Deletes the cached file for a document, if present. Best-effort: a missing file or a
+     * failed delete is silently ignored — the cache is a derived store whose worst case is a
+     * re-fetch. Runs on [IODispatcher].
+     *
+     * Used to garbage-collect orphaned cache files when a book's document UUIDs rotate on
+     * rescan (issue #699).
+     *
+     * @param bookId Owning book identifier.
+     * @param docId Server document UUID whose cached file should be removed.
+     * @param format Lowercase file extension the file was cached under.
+     */
+    suspend fun deleteCached(
+        bookId: String,
+        docId: String,
+        format: String,
+    )
 }
 
 /**
@@ -95,6 +116,22 @@ internal class DocumentStorageImpl(
             }
             SystemFileSystem.sink(target).buffered().use { sink ->
                 sink.write(bytes)
+            }
+        }
+    }
+
+    override suspend fun deleteCached(
+        bookId: String,
+        docId: String,
+        format: String,
+    ) {
+        withContext(IODispatcher) {
+            try {
+                SystemFileSystem.delete(Path(pathFor(bookId, docId, format)), mustExist = false)
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "[DocumentStorage] Failed to delete cached document $docId for book $bookId" }
             }
         }
     }

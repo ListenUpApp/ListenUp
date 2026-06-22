@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.local.documents.DocumentStorageImpl
 import com.calypsan.listenup.client.data.remote.ImageApi
 import com.calypsan.listenup.client.data.remote.ImageApiContract
@@ -116,11 +117,15 @@ val mediaModule: Module =
             )
         }
 
+        // On-disk document cache. A single binding so both the repository (fetch + cache) and
+        // the book sync handler (orphan GC on docId rotation, issue #699) share one instance.
+        single<DocumentStorage> { DocumentStorageImpl(get()) }
+
         // DocumentRepository — on-demand fetch + disk cache for supplementary book documents.
         single<DocumentRepository> {
             DocumentRepositoryImpl(
                 documentDao = get(),
-                storage = DocumentStorageImpl(get()),
+                storage = get(),
                 clientFactory = get(),
             )
         }

@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -76,6 +77,39 @@ class BookSyncDomainHandlerTest :
                 docs.first().filename shouldBe "doc1.pdf"
                 docs.first().format shouldBe "pdf"
                 docs.first().hash shouldBe "h1"
+            }
+        }
+
+        test("rescan that rotates a document id GCs the orphaned cache file for the old id (#699)") {
+            withGcHandler { handler, _, storage ->
+                handler
+                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // Server mints a fresh UUID on rescan: doc1 -> doc2 for the same file.
+                handler
+                    .onEvent(
+                        updatedEvent(bookPayload(id = "b1", revision = 2, documents = listOf(document(2)))),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // The stranded old-id cache file is collected; the new current row is not.
+                storage.deletedKeys shouldBe listOf(Triple("b1", "doc1", "pdf"))
+            }
+        }
+
+        test("rescan that keeps the same document ids touches no cache files (#699)") {
+            withGcHandler { handler, _, storage ->
+                handler
+                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler
+                    .onEvent(
+                        updatedEvent(bookPayload(id = "b1", revision = 2, documents = listOf(document(1)))),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                storage.deletedKeys shouldBe emptyList()
             }
         }
 
@@ -315,6 +349,57 @@ private fun withTestHandler(block: suspend (BookSyncDomainHandler, ListenUpDatab
             db.close()
         }
     }
+
+/**
+ * Like [withTestHandler] but injects a [RecordingDocumentStorage] so document-cache GC
+ * (issue #699) can be asserted. The storage is exposed to the block.
+ */
+private fun withGcHandler(
+    block: suspend (BookSyncDomainHandler, ListenUpDatabase, RecordingDocumentStorage) -> Unit,
+) = runTest {
+    val db = createInMemoryTestDatabase()
+    try {
+        val storage = RecordingDocumentStorage()
+        val handler =
+            BookSyncDomainHandler(
+                db,
+                BookEntityMapper(),
+                RoomTransactionRunner(db),
+                stubImageStorage(),
+                ClientSyncDomainRegistry(),
+                documentStorage = storage,
+            )
+        block(handler, db, storage)
+    } finally {
+        db.close()
+    }
+}
+
+/** In-memory [DocumentStorage] that records every [deleteCached] call as a (bookId, docId, format) triple. */
+private class RecordingDocumentStorage : DocumentStorage {
+    val deletedKeys: MutableList<Triple<String, String, String>> = mutableListOf()
+
+    override fun pathFor(
+        bookId: String,
+        docId: String,
+        format: String,
+    ): String = "$bookId/$docId.$format"
+
+    override fun exists(path: String): Boolean = false
+
+    override suspend fun write(
+        path: String,
+        bytes: ByteArray,
+    ) = Unit
+
+    override suspend fun deleteCached(
+        bookId: String,
+        docId: String,
+        format: String,
+    ) {
+        deletedKeys += Triple(bookId, docId, format)
+    }
+}
 
 private fun created(payload: BookSyncPayload): SyncEvent.Created<BookSyncPayload> =
     SyncEvent.Created(

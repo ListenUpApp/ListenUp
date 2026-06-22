@@ -356,6 +356,14 @@ private class FakeDocumentStorage(
         cachedPaths.add(path)
     }
 
+    override suspend fun deleteCached(
+        bookId: String,
+        docId: String,
+        format: String,
+    ) {
+        cachedPaths.remove(fakePathFor(bookId, docId, format))
+    }
+
     companion object {
         fun fakePathFor(
             bookId: String,

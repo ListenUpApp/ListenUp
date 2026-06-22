@@ -226,6 +226,7 @@ val clientSyncRenovationModule =
                 transactionRunner = get(),
                 imageStorage = get(),
                 registry = get(),
+                documentStorage = get(),
             )
         }
         single(createdAtStart = true) {

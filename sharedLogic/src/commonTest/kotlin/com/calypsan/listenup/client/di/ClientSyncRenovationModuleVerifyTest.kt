@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -67,6 +68,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         Function3::class,
                         Boolean::class,
                         ImageStorage::class,
+                        DocumentStorage::class,
                     ),
             )
         }
