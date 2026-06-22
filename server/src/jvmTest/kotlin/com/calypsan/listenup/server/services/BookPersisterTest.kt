@@ -5,16 +5,19 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CandidateBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
+import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
+import com.calypsan.listenup.api.dto.scanner.withoutArtwork
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -61,6 +64,35 @@ class BookPersisterTest :
                     )
 
                     fake.resolved shouldContainExactly listOf("a", "b")
+                }
+            }
+        }
+
+        test("persists the cover-bearing book from ScanResult.books, not the artwork-stripped change") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    // The Scanner puts cover-bearing books in `result.books`, but strips artwork
+                    // from the copies it places in `result.changes` (via withoutArtwork, which nulls
+                    // Embedded/Spooled covers so the volatile artwork never pollutes change detection).
+                    // The persister must source each changed book's cover from `result.books`.
+                    val coverBearing =
+                        analyzedBook("a").copy(
+                            cover = CoverSource.Embedded(EmbeddedArtwork(mime = "image/jpeg", bytes = byteArrayOf(1, 2, 3))),
+                        )
+
+                    persister.persist(
+                        scanResult(
+                            books = listOf(coverBearing),
+                            changes = listOf(ChangeEventDto.Added(coverBearing.withoutArtwork())),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    // resolveOrInsert must see the cover, not the stripped (null-cover) change copy.
+                    fake.coverByPath["a"] shouldBe coverBearing.cover
                 }
             }
         }
@@ -457,6 +489,9 @@ private class FakeBookIngest(
     /** rootRelPaths successfully resolved, in call order. */
     val resolved = mutableListOf<String>()
 
+    /** The [AnalyzedBook.cover] each [resolveOrInsert] saw, keyed by rootRelPath. */
+    val coverByPath = mutableMapOf<String, CoverSource?>()
+
     /** seenPaths sets passed to each [softDeleteAbsentByPaths] call. */
     val softDeleteAbsentByPathsCalls = mutableListOf<Set<String>>()
 
@@ -478,6 +513,7 @@ private class FakeBookIngest(
     ): AppResult<IngestOutcome> {
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
+        coverByPath[path] = analyzed.cover
         if (path in oomForRootRelPath) {
             throw OutOfMemoryError("simulated OOM for $path")
         }
