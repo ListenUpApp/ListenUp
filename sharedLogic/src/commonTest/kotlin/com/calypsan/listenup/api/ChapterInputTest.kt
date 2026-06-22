@@ -27,4 +27,27 @@ class ChapterInputTest :
                 ChapterInput(id = "ch1", title = "A".repeat(ChapterInput.MAX_TITLE + 1), startTime = 0, duration = 1000)
             }
         }
+        test("blank partTitle is rejected") {
+            shouldThrow<IllegalArgumentException> {
+                ChapterInput(id = "ch1", title = "Chapter 1", startTime = 0, duration = 1000, partTitle = "  ")
+            }
+        }
+        test("blank bookTitle is rejected") {
+            shouldThrow<IllegalArgumentException> {
+                ChapterInput(id = "ch1", title = "Chapter 1", startTime = 0, duration = 1000, bookTitle = "  ")
+            }
+        }
+        test("non-blank header titles are accepted") {
+            val input =
+                ChapterInput(
+                    id = "ch1",
+                    title = "Chapter 1",
+                    startTime = 0,
+                    duration = 1000,
+                    partTitle = "Part One",
+                    bookTitle = "Book I",
+                )
+            input.partTitle shouldBe "Part One"
+            input.bookTitle shouldBe "Book I"
+        }
     })

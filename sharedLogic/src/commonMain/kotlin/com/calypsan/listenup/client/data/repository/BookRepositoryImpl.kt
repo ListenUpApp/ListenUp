@@ -145,6 +145,8 @@ internal class BookRepositoryImpl(
             title = title,
             duration = duration,
             startTime = startTime,
+            partTitle = partTitle,
+            bookTitle = bookTitle,
         )
 
     /**

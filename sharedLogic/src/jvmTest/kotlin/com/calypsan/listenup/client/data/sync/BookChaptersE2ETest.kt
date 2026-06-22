@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.chapter.groupChapters
+import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -61,6 +63,8 @@ class BookChaptersE2ETest :
                                 title = "Prologue",
                                 startTime = 0L,
                                 duration = 600_000L,
+                                partTitle = "Part One",
+                                bookTitle = "Book I",
                             ),
                             ChapterInput(
                                 id = "c2",
@@ -81,10 +85,43 @@ class BookChaptersE2ETest :
                     }
                 }
 
-                val chapters = clientDatabase.chapterDao().getChaptersForBook(BookId("chapters-b1"))
-                chapters shouldHaveSize 2
-                chapters[0].title shouldBe "Prologue"
-                chapters[1].title shouldBe "Act One"
+                val chapterEntities = clientDatabase.chapterDao().getChaptersForBook(BookId("chapters-b1"))
+                chapterEntities shouldHaveSize 2
+                chapterEntities[0].title shouldBe "Prologue"
+                chapterEntities[1].title shouldBe "Act One"
+
+                // Header fields must survive the full server→sync→Room round trip.
+                chapterEntities[0].partTitle shouldBe "Part One"
+                chapterEntities[0].bookTitle shouldBe "Book I"
+                chapterEntities[1].partTitle shouldBe null
+                chapterEntities[1].bookTitle shouldBe null
+
+                // Verify the chapter set groups correctly via the domain groupChapters function.
+                val domainChapters =
+                    chapterEntities.map { e ->
+                        Chapter(
+                            id = e.id.value,
+                            title = e.title,
+                            duration = e.duration,
+                            startTime = e.startTime,
+                            partTitle = e.partTitle,
+                            bookTitle = e.bookTitle,
+                        )
+                    }
+                val groups = domainChapters.groupChapters()
+                groups shouldHaveSize 1
+                groups.single().title shouldBe "Book I"
+                groups.single().parts shouldHaveSize 1
+                groups
+                    .single()
+                    .parts
+                    .single()
+                    .title shouldBe "Part One"
+                groups
+                    .single()
+                    .parts
+                    .single()
+                    .chapters shouldHaveSize 2
 
                 // Dual assertion against the server side: the book's SSE payload
                 // should carry the same chapters, proving the server end of the

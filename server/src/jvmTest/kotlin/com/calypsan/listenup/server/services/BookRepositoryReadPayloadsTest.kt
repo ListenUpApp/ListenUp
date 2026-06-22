@@ -103,6 +103,8 @@ class BookRepositoryReadPayloadsTest :
                                     title = "Chapter $ci",
                                     duration = 100L,
                                     start_time = (ci * 100).toLong(),
+                                    part_title = null,
+                                    book_title = null,
                                 )
                                 sql.bookAudioFilesQueries.insert(
                                     book_id = bookId,

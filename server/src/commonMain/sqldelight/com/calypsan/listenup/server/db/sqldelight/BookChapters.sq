@@ -13,6 +13,8 @@ CREATE TABLE book_chapters (
     title      TEXT    NOT NULL,
     duration   INTEGER NOT NULL,
     start_time INTEGER NOT NULL,
+    part_title TEXT,
+    book_title TEXT,
     PRIMARY KEY (book_id, ordinal)
 );
 
@@ -22,8 +24,8 @@ selectByBookIds:
 SELECT * FROM book_chapters WHERE book_id IN :ids ORDER BY ordinal;
 
 insert:
-INSERT INTO book_chapters (book_id, ordinal, id, title, duration, start_time)
-VALUES (:book_id, :ordinal, :id, :title, :duration, :start_time);
+INSERT INTO book_chapters (book_id, ordinal, id, title, duration, start_time, part_title, book_title)
+VALUES (:book_id, :ordinal, :id, :title, :duration, :start_time, :part_title, :book_title);
 
 -- Wholesale-replace step.
 deleteByBookId:
