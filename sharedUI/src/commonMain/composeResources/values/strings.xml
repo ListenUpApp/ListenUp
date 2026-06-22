@@ -242,6 +242,9 @@ One beautiful library.</string>
     <string name="book_detail_discard_progress">Discard Progress</string>
     <string name="book_detail_discard_progress_prompt">Discard your listening progress?</string>
     <string name="book_detail_document_viewer_coming_soon">Viewer coming soon</string>
+    <string name="book_detail_document_viewer_error">Could not open document.</string>
+    <string name="book_detail_document_viewer_loading">Loading page…</string>
+    <string name="book_detail_document_viewer_page_of">Page %1$d of %2$d</string>
     <string name="book_detail_done">Done</string>
     <string name="book_detail_download">Download</string>
     <string name="book_detail_download_book">Download book</string>

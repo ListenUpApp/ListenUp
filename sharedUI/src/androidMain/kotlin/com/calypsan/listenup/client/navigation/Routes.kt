@@ -474,3 +474,17 @@ data class UserProfile(
  */
 @Serializable
 data object EditProfile : Route
+
+/**
+ * In-app PDF document viewer — renders a local file using [android.graphics.pdf.PdfRenderer].
+ *
+ * [localPath] is the absolute filesystem path to the cached PDF file. It is carried as a
+ * [Route] property (Navigation 3 serialisation) rather than URL-encoded in a string template,
+ * so the path survives round-trips through the back-stack without encoding issues.
+ *
+ * @property localPath Absolute path to the local PDF file to display.
+ */
+@Serializable
+data class DocumentViewer(
+    val localPath: String,
+) : Route
