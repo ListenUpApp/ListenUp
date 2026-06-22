@@ -14,19 +14,20 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.test.runTest
 
-class BookEditRepositorySetChaptersTest : FunSpec({
-    test("setBookChapters dispatches to BookService over RPC") {
-        runTest {
-            val service = mock<BookService>(MockMode.autoUnit)
-            val rpcFactory = mock<BookRpcFactory>(MockMode.autoUnit)
-            everySuspend { rpcFactory.bookService() } returns service
-            val chapters = listOf(ChapterInput(id = "c1", title = "A", startTime = 0, duration = 1000))
-            everySuspend { service.setBookChapters(BookId("b1"), chapters) } returns AppResult.Success(Unit)
+class BookEditRepositorySetChaptersTest :
+    FunSpec({
+        test("setBookChapters dispatches to BookService over RPC") {
+            runTest {
+                val service = mock<BookService>(MockMode.autoUnit)
+                val rpcFactory = mock<BookRpcFactory>(MockMode.autoUnit)
+                everySuspend { rpcFactory.bookService() } returns service
+                val chapters = listOf(ChapterInput(id = "c1", title = "A", startTime = 0, duration = 1000))
+                everySuspend { service.setBookChapters(BookId("b1"), chapters) } returns AppResult.Success(Unit)
 
-            val repo = BookEditRepositoryImpl(rpcFactory, mock<CollectionRpcFactory>(MockMode.autoUnit))
-            repo.setBookChapters(BookId("b1"), chapters)
+                val repo = BookEditRepositoryImpl(rpcFactory, mock<CollectionRpcFactory>(MockMode.autoUnit))
+                repo.setBookChapters(BookId("b1"), chapters)
 
-            verifySuspend { service.setBookChapters(BookId("b1"), chapters) }
+                verifySuspend { service.setBookChapters(BookId("b1"), chapters) }
+            }
         }
-    }
-})
+    })

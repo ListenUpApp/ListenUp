@@ -12,7 +12,10 @@ class BookChapterSourceColumnTest :
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook(bookId = "b-cs")
-                sql.booksQueries.selectById("b-cs").executeAsOne().chapter_source shouldBe "embedded"
+                sql.booksQueries
+                    .selectById("b-cs")
+                    .executeAsOne()
+                    .chapter_source shouldBe "embedded"
             }
         }
     })

@@ -17,12 +17,15 @@ data class ChapterAnchor(
 /** Outcome of [correctDrift]: a recomputed contiguous chapter set, or a typed rejection. */
 sealed interface DriftResult {
     /** Success — [chapters] is the corrected, contiguous, book-bounded set. */
-    data class Corrected(val chapters: List<Chapter>) : DriftResult
+    data class Corrected(
+        val chapters: List<Chapter>,
+    ) : DriftResult
 
     /** The correction could not be computed. */
     sealed interface Rejected : DriftResult {
         /** Fewer than one anchor, more than two, or an anchor referencing an unknown chapter. */
         data object BadAnchors : Rejected
+
         /** Two anchors imply a non-positive scale (would reverse chapter order). */
         data object InvertedAnchors : Rejected
     }
@@ -53,29 +56,31 @@ fun correctDrift(
     val a0 = anchors[0]
     val s1 = byId[a0.chapterId]?.startTime ?: return DriftResult.Rejected.BadAnchors
 
-    val map: (Long) -> Long = if (anchors.size == 1) {
-        val shift = a0.trueStartMs - s1
-        ({ s -> s + shift })
-    } else {
-        val a1 = anchors[1]
-        val s2 = byId[a1.chapterId]?.startTime ?: return DriftResult.Rejected.BadAnchors
-        if (s2 == s1) return DriftResult.Rejected.BadAnchors
-        val scale = (a1.trueStartMs - a0.trueStartMs).toDouble() / (s2 - s1).toDouble()
-        if (scale <= 0.0) return DriftResult.Rejected.InvertedAnchors
-        val offset = a0.trueStartMs - scale * s1
-        ({ s -> (scale * s + offset).roundToLong() })
-    }
-
-    val moved = chapters
-        .map { ch ->
-            val newStart = if (ch.id in lockedIds) ch.startTime else map(ch.startTime)
-            ch to newStart.coerceIn(0L, bookDurationMs)
+    val map: (Long) -> Long =
+        if (anchors.size == 1) {
+            val shift = a0.trueStartMs - s1
+            { s -> s + shift }
+        } else {
+            val a1 = anchors[1]
+            val s2 = byId[a1.chapterId]?.startTime ?: return DriftResult.Rejected.BadAnchors
+            if (s2 == s1) return DriftResult.Rejected.BadAnchors
+            val scale = (a1.trueStartMs - a0.trueStartMs).toDouble() / (s2 - s1).toDouble()
+            if (scale <= 0.0) return DriftResult.Rejected.InvertedAnchors
+            val offset = a0.trueStartMs - scale * s1
+            { s -> (scale * s + offset).roundToLong() }
         }
-        .sortedBy { it.second }
 
-    val result = moved.mapIndexed { i, (ch, start) ->
-        val end = if (i == moved.lastIndex) bookDurationMs else moved[i + 1].second
-        ch.copy(startTime = start, duration = (end - start).coerceAtLeast(0L))
-    }
+    val moved =
+        chapters
+            .map { ch ->
+                val newStart = if (ch.id in lockedIds) ch.startTime else map(ch.startTime)
+                ch to newStart.coerceIn(0L, bookDurationMs)
+            }.sortedBy { it.second }
+
+    val result =
+        moved.mapIndexed { i, (ch, start) ->
+            val end = if (i == moved.lastIndex) bookDurationMs else moved[i + 1].second
+            ch.copy(startTime = start, duration = (end - start).coerceAtLeast(0L))
+        }
     return DriftResult.Corrected(result)
 }

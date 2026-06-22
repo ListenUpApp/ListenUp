@@ -135,7 +135,8 @@ internal class BookRepositoryImpl(
     }
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> =
-        chapterDao.observeChaptersForBook(BookId(bookId))
+        chapterDao
+            .observeChaptersForBook(BookId(bookId))
             .map { rows -> rows.map { it.toDomain() } }
 
     private fun ChapterEntity.toDomain(): Chapter =

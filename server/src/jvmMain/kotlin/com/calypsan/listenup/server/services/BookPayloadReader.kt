@@ -70,7 +70,9 @@ internal fun assembleBookPayload(
         genres = genres,
         audioFiles = audioFiles,
         chapters = chapters,
-        chapterSource = ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) } ?: ChapterSource.EMBEDDED,
+        chapterSource =
+            ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
+                ?: ChapterSource.EMBEDDED,
         revision = bookRow.revision,
         updatedAt = bookRow.updated_at,
         createdAt = bookRow.created_at,

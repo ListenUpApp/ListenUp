@@ -217,7 +217,7 @@ internal class BookServiceImpl(
         if (chapters.size > MAX_CHAPTERS_PER_BOOK) {
             return AppResult.Failure(
                 BookError.InvalidInput(
-                    debugInfo = "chapters: ${chapters.size} exceeds $MAX_CHAPTERS_PER_BOOK",
+                    debugInfo = "chapters: size ${chapters.size} exceeds max $MAX_CHAPTERS_PER_BOOK",
                 ),
             )
         }
@@ -227,7 +227,12 @@ internal class BookServiceImpl(
             chapters.map {
                 BookChapterPayload(id = it.id, title = it.title, duration = it.duration, startTime = it.startTime)
             }
-        return when (val res = repo.upsert(current.copy(chapters = payloadChapters, chapterSource = ChapterSource.USER))) {
+        return when (
+            val res =
+                repo.upsert(
+                    current.copy(chapters = payloadChapters, chapterSource = ChapterSource.USER),
+                )
+        ) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(res.error)
         }
