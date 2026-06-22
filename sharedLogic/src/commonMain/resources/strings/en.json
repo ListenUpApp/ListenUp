@@ -380,6 +380,7 @@
     "detail_stream_now": "Play Now",
     "show_all_chapters": "Show all %1$d chapters",
     "detail_supplementary_materials": "Supplementary materials",
+    "detail_document_meta": "%1$s · %2$s",
     "detail_document_viewer_coming_soon": "Viewer coming soon",
     "detail_document_viewer_page_of": "Page %1$d of %2$d",
     "detail_document_viewer_loading": "Loading page…",

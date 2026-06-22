@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.features.bookdetail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,11 +15,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -76,6 +76,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_document_meta
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
 import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_supplementary_materials
@@ -759,11 +760,11 @@ fun BookDetailScanWarning(
 }
 
 /**
- * "Supplementary materials" section — a header followed by one tappable row per document.
+ * "Supplementary materials" section — a header followed by one tappable card per document.
  *
- * Rendered only when [documents] is non-empty (the caller gates on this). Each row shows
- * a generic document icon, the file's basename, and the formatted size. Tapping a row
- * calls [onOpenDocument] with the document's id — the ViewModel handles format dispatch.
+ * Rendered only when [documents] is non-empty (the caller gates on this). Each card shows a tinted
+ * icon tile, the file's basename, format + size, and a chevron. Tapping calls [onOpenDocument] with
+ * the document's id — the ViewModel handles format dispatch.
  */
 @Composable
 internal fun SupplementaryMaterialsSection(
@@ -771,7 +772,7 @@ internal fun SupplementaryMaterialsSection(
     onOpenDocument: (docId: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Section header — mirrors ChaptersHeader style.
         Text(
             text = stringResource(Res.string.book_detail_supplementary_materials),
@@ -783,60 +784,70 @@ internal fun SupplementaryMaterialsSection(
             modifier = Modifier.padding(vertical = 8.dp),
         )
 
-        documents.forEachIndexed { index, doc ->
-            DocumentRow(
-                doc = doc,
-                onClick = { onOpenDocument(doc.id) },
-                showDivider = index < documents.lastIndex,
-            )
+        documents.forEach { doc ->
+            DocumentCard(doc = doc, onClick = { onOpenDocument(doc.id) })
         }
     }
 }
 
 /**
- * Single supplementary document row: format icon, filename basename, size, and tap affordance.
+ * Tappable format card for a single supplementary document: tinted icon tile, filename basename,
+ * format + size label, and a trailing chevron.
  */
 @Composable
-private fun DocumentRow(
+private fun DocumentCard(
     doc: BookDocument,
     onClick: () -> Unit,
-    showDivider: Boolean,
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onClick)
-                    .padding(vertical = 12.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
+            Box(
+                modifier =
+                    Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Description,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = doc.filename.substringAfterLast('/'),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text =
+                        stringResource(
+                            Res.string.book_detail_document_meta,
+                            doc.format.uppercase(),
+                            formatFileSize(doc.size),
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             Icon(
-                imageVector = Icons.Default.Description,
+                imageVector = Icons.Rounded.ChevronRight,
                 contentDescription = null,
-                modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            Text(
-                text = doc.filename.substringAfterLast('/'),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Text(
-                text = formatFileSize(doc.size),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        if (showDivider) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }
