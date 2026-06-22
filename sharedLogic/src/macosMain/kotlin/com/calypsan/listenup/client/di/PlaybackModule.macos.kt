@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.playback.AvFoundationAudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
+import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
@@ -88,6 +89,17 @@ val macosPlaybackModule: Module =
             )
         }
 
+        // Position reporter for the PlaybackManagerImpl seam. macOS has no Media3
+        // `PlaybackService`, so the reporter is the only driver of listening-event
+        // recording here — it is bound WITH the recorder.
+        single {
+            PlaybackProgressReporter(
+                progressTracker = get(),
+                recorder = get(),
+                scope = get(qualifier = named(PLAYBACK_SCOPE)),
+            )
+        }
+
         // Structured device identity — shared source for auth login + listening history.
         single<DeviceInfoProvider> {
             DeviceInfoProvider {
@@ -117,6 +129,7 @@ val macosPlaybackModule: Module =
                 chapterDao = get(),
                 imageStorage = get(),
                 progressTracker = get(),
+                reporter = get(),
                 tokenProvider = get(),
                 downloadService = get(),
                 playbackRpcFactory = get(),

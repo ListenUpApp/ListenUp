@@ -33,27 +33,31 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
     }
 }
 
+/// Adapts the Koin-resolved `PlaybackProgressReporter` to `PlaybackProgressReporting`.
+/// The reporter fans each signal out to position persistence *and* (on iOS, where a
+/// recorder is bound) listening-event recording — so iOS listening history reaches the
+/// server. See `PlaybackProgressReporter` in `:sharedLogic`.
 struct KotlinProgressReporting: PlaybackProgressReporting {
-    let tracker: ProgressTracker
+    let reporter: PlaybackProgressReporter
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
-        tracker.onPlaybackStarted(bookId: bookId, positionMs: positionMs, speed: speed)
+        reporter.onPlaybackStarted(bookId: bookId, positionMs: positionMs, speed: speed)
     }
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float) {
-        tracker.onPlaybackPaused(bookId: bookId, positionMs: positionMs, speed: speed)
+        reporter.onPlaybackPaused(bookId: bookId, positionMs: positionMs, speed: speed)
     }
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
-        tracker.onPositionUpdate(bookId: bookId, positionMs: positionMs, speed: speed)
+        reporter.onPositionUpdate(bookId: bookId, positionMs: positionMs, speed: speed)
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
-        tracker.onSpeedChanged(bookId: bookId, positionMs: positionMs, newSpeed: newSpeed)
+        reporter.onSpeedChanged(bookId: bookId, positionMs: positionMs, newSpeed: newSpeed)
     }
     func onBookFinished(bookId: String, finalPositionMs: Int64) {
-        tracker.onBookFinished(bookId: bookId, finalPositionMs: finalPositionMs)
+        reporter.onBookFinished(bookId: bookId, finalPositionMs: finalPositionMs)
     }
     func savePositionNow(bookId: String, positionMs: Int64) async {
         // SKIE bridges the Kotlin suspend fun as `async throws`; it never throws in
-        // practice (failures are logged inside the tracker), so the error is dropped.
-        try? await tracker.savePositionNow(bookId: bookId, positionMs: positionMs)
+        // practice (failures are logged inside the reporter), so the error is dropped.
+        try? await reporter.savePositionNow(bookId: bookId, positionMs: positionMs)
     }
 }
 

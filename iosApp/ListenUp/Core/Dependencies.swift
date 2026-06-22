@@ -46,7 +46,7 @@ final class Dependencies {
     // MARK: - Playback seam (consumed by PlayerCoordinator)
 
     var playbackPreparer: PlaybackPreparer { resolve { KoinHelper.shared.getPlaybackPreparer() } }
-    var progressTracker: ProgressTracker { resolve { KoinHelper.shared.getProgressTracker() } }
+    var playbackProgressReporter: PlaybackProgressReporter { resolve { KoinHelper.shared.getPlaybackProgressReporter() } }
     var sleepTimerManager: SleepTimerManager { resolve { KoinHelper.shared.getSleepTimerManager() } }
 
     // MARK: - Library services
