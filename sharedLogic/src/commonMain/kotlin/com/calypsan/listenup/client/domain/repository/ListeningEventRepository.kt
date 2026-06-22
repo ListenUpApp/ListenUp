@@ -1,43 +1,24 @@
 package com.calypsan.listenup.client.domain.repository
 
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListeningDuration
 import com.calypsan.listenup.client.domain.model.ListeningEvent
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Repository for listening events.
+ * Read-only repository for listening events.
  *
- * Encapsulates the two-write atomic operation (local upsert + pending-op queue) behind
- * a single transactional call. All read methods surface DAO queries to callers that
- * currently access [com.calypsan.listenup.client.data.local.db.ListeningEventDao] directly
+ * Surfaces DAO queries to callers that currently access
+ * [com.calypsan.listenup.client.data.local.db.ListeningEventDao] directly
  * (Stats, Leaderboard) — so those callers can migrate through this interface later.
+ *
+ * Listening-event writes are owned exclusively by the canonical P2 recording path
+ * ([com.calypsan.listenup.client.playback.ListeningEventRecorder]); this interface
+ * exposes no write method.
  *
  * Read methods return domain types ([ListeningEvent], [BookListeningDuration]); mapping
  * from the data layer happens once in the implementation.
  */
 interface ListeningEventRepository {
-    /**
-     * Save a listening event locally (Room-only write).
-     *
-     * Writes through [com.calypsan.listenup.client.data.local.db.ListeningEventDao.upsert]
-     * inside a [com.calypsan.listenup.client.data.local.db.TransactionRunner.atomically] block.
-     * The server-sync pending-op is **not** enqueued here — the P2 canonical recording path
-     * ([com.calypsan.listenup.client.playback.ListeningEventRecorder.finalizeCurrentSpan])
-     * handles the pending-op enqueue directly.
-     *
-     * [kotlinx.coroutines.CancellationException] is always rethrown (EM-R1).
-     */
-    suspend fun queueListeningEvent(
-        bookId: BookId,
-        startPositionMs: Long,
-        endPositionMs: Long,
-        startedAt: Long,
-        endedAt: Long,
-        playbackSpeed: Float,
-    ): AppResult<Unit>
-
     // ==================== Read methods (external callers today) ====================
 
     /** All events for [bookId], newest first. Used by future per-book stats. */

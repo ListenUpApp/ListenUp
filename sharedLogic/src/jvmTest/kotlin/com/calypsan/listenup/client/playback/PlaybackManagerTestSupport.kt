@@ -13,7 +13,6 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.test.fake.FakeProgressTracker
 import dev.mokkery.answering.returns
@@ -38,7 +37,6 @@ fun buildProgressTracker(
 ): ProgressTracker =
     ProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
-        listeningEventRepository = mock<ListeningEventRepository>(),
         positionRepository = positionRepository,
         scope = scope,
     )
@@ -54,7 +52,6 @@ fun buildFakeProgressTracker(
 ): FakeProgressTracker =
     FakeProgressTracker(
         downloadRepository = mock<DownloadRepository>(),
-        listeningEventRepository = mock<ListeningEventRepository>(),
         positionRepository = positionRepository,
         scope = scope,
     )
