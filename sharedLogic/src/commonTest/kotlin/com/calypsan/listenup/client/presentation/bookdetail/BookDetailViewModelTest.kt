@@ -15,12 +15,14 @@ import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -35,6 +37,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.Flow
@@ -1075,6 +1078,76 @@ class BookDetailViewModelTest :
 
                     states.cancel()
                     navEvents.cancel()
+                    docsObserver.cancel()
+                }
+            }
+        }
+
+        test("openingDocumentIds adds the docId while a pdf downloads, then clears on success") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                val doc = TestData.bookDocument(id = "doc-1", format = "pdf")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
+                val gate = CompletableDeferred<AppResult<String>>()
+                everySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") } calls { gate.await() }
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val opening = viewModel.openingDocumentIds.testIn(backgroundScope)
+                    val docsObserver = viewModel.documents.testIn(backgroundScope)
+                    opening.awaitItem() shouldBe emptySet() // initial
+                    docsObserver.awaitItem() // initial empty seed
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    docsObserver.expectMostRecentItem() // doc list emitted
+
+                    viewModel.onOpenDocument("doc-1")
+                    advanceUntilIdle()
+                    opening.awaitItem() shouldBe setOf("doc-1") // added; suspended on the gate
+
+                    gate.complete(AppResult.Success("/cache/book-1/doc-1.pdf"))
+                    advanceUntilIdle()
+                    opening.awaitItem() shouldBe emptySet() // cleared after success
+
+                    opening.cancel()
+                    docsObserver.cancel()
+                }
+            }
+        }
+
+        test("openingDocumentIds clears the docId when the pdf download fails") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                val doc = TestData.bookDocument(id = "doc-1", format = "pdf")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                every { fixture.documentRepository.observeDocuments(BookId("book-1")) } returns flowOf(listOf(doc))
+                val gate = CompletableDeferred<AppResult<String>>()
+                everySuspend { fixture.documentRepository.ensureLocal(BookId("book-1"), "doc-1") } calls { gate.await() }
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val opening = viewModel.openingDocumentIds.testIn(backgroundScope)
+                    val docsObserver = viewModel.documents.testIn(backgroundScope)
+                    opening.awaitItem() shouldBe emptySet()
+                    docsObserver.awaitItem()
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    docsObserver.expectMostRecentItem()
+
+                    viewModel.onOpenDocument("doc-1")
+                    advanceUntilIdle()
+                    opening.awaitItem() shouldBe setOf("doc-1")
+
+                    gate.complete(AppResult.Failure(InternalError(debugInfo = "boom")))
+                    advanceUntilIdle()
+                    opening.awaitItem() shouldBe emptySet() // cleared even on failure
+
+                    opening.cancel()
                     docsObserver.cancel()
                 }
             }
