@@ -44,7 +44,13 @@ data class ImportSummary(
     val status: ImportStatus,
     val bookCount: Int,
     val userCount: Int,
-)
+) {
+    /** The import id as a plain String for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+
+    /** The [status] name as a plain String for the Swift/SKIE boundary, where Kotlin enums don't bridge cleanly. */
+    val statusName: String get() = status.name
+}
 
 /**
  * A suggested ABS-user → ListenUp-user mapping, produced by [com.calypsan.listenup.api.ImportService.analyze].
@@ -104,16 +110,18 @@ data class ImportAnalysis(
  * Outcome of a completed [com.calypsan.listenup.api.ImportService.apply] operation.
  *
  * [importedCount] is the total number of progress records written; [sessionsImported]
- * is the number of ABS playback sessions written as listening events; [skippedCount]
- * is the number skipped (unmapped user, no matched/overridden book, or manual null override).
- * [perUser] breaks down imported counts by ListenUp user ID.
+ * is the number of ABS playback sessions written as listening events; [booksNotInLibrary]
+ * is the count of distinct books a *mapped* user has history for but which aren't in this
+ * ListenUp library, so their history couldn't be imported. History for ABS users the admin
+ * chose not to map is a deliberate review-step exclusion, NOT a "not found", and is never
+ * counted here. [perUser] breaks down imported counts by ListenUp user ID.
  */
 @Serializable
 @SerialName("ImportResult")
 data class ImportResult(
     val importedCount: Int,
     val sessionsImported: Int = 0,
-    val skippedCount: Int,
+    val booksNotInLibrary: Int,
     val perUser: Map<UserId, Int>,
 )
 

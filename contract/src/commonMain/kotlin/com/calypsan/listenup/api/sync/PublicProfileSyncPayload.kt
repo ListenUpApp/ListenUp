@@ -33,6 +33,16 @@ data class PublicProfileSyncPayload(
     val booksFinished: Int,
     val currentStreakDays: Int,
     val longestStreakDays: Int,
+    // Windowed leaderboard metrics, computed live by PublicProfileMaintainer.refresh() and anchored
+    // at the present (like the rolling-window seconds above). Books = distinct books finished in the
+    // window; streak = the longest consecutive listening-day run whose days fall inside the window
+    // (so it caps at the window length). Default 0 so pre-V45 rows and non-projection callers omit them.
+    val booksFinishedLast7Days: Int = 0,
+    val booksFinishedLast30Days: Int = 0,
+    val booksFinishedLast365Days: Int = 0,
+    val longestStreakLast7Days: Int = 0,
+    val longestStreakLast30Days: Int = 0,
+    val longestStreakLast365Days: Int = 0,
     val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,

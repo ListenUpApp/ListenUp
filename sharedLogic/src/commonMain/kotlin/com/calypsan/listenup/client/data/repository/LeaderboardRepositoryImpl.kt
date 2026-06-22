@@ -15,9 +15,10 @@ import kotlinx.coroutines.flow.map
  * rankings compute client-side with no network call.
  *
  * Time ranks by the period-appropriate rolling-window seconds field (Week=last7,
- * Month=last30, Year=last365, AllTime=allTime). Books and Streak are cumulative —
- * populated for [LeaderboardPeriod.AllTime] only; bounded periods leave them empty,
- * matching the [LeaderboardSnapshot] contract the UI already handles.
+ * Month=last30, Year=last365, AllTime=allTime). Books and Streak rank by the same
+ * period: a bounded period uses the windowed columns (distinct books finished within
+ * the window; the longest consecutive-day run within the window), AllTime uses the
+ * cumulative totals. The ranked value is carried on the entry so the UI shows it directly.
  *
  * Dense ranking: ties share a rank; the next distinct value jumps to its 1-indexed position.
  */
@@ -46,23 +47,28 @@ internal class LeaderboardRepositoryImpl(
             rankDense(rows.sortedByDescending(timeSelector).take(limit), timeSelector)
                 .map { (rank, e) -> e.toEntry(rank).copy(totalSeconds = timeSelector(e)) }
 
-        val books: List<LeaderboardEntry>
-        val streak: List<LeaderboardEntry>
-        if (period == LeaderboardPeriod.AllTime) {
-            books =
-                rankDense(
-                    rows.sortedByDescending { it.booksFinished }.take(limit),
-                ) { it.booksFinished.toLong() }
-                    .map { (rank, e) -> e.toEntry(rank) }
-            streak =
-                rankDense(
-                    rows.sortedByDescending { it.longestStreakDays }.take(limit),
-                ) { it.longestStreakDays.toLong() }
-                    .map { (rank, e) -> e.toEntry(rank) }
-        } else {
-            books = emptyList()
-            streak = emptyList()
-        }
+        val booksSelector: (PublicProfileEntity) -> Int =
+            when (period) {
+                LeaderboardPeriod.Week -> { e -> e.booksFinishedLast7Days }
+                LeaderboardPeriod.Month -> { e -> e.booksFinishedLast30Days }
+                LeaderboardPeriod.Year -> { e -> e.booksFinishedLast365Days }
+                LeaderboardPeriod.AllTime -> { e -> e.booksFinished }
+            }
+        val streakSelector: (PublicProfileEntity) -> Int =
+            when (period) {
+                LeaderboardPeriod.Week -> { e -> e.longestStreakLast7Days }
+                LeaderboardPeriod.Month -> { e -> e.longestStreakLast30Days }
+                LeaderboardPeriod.Year -> { e -> e.longestStreakLast365Days }
+                LeaderboardPeriod.AllTime -> { e -> e.longestStreakDays }
+            }
+
+        val books =
+            rankDense(rows.sortedByDescending(booksSelector).take(limit)) { booksSelector(it).toLong() }
+                .map { (rank, e) -> e.toEntry(rank).copy(booksFinished = booksSelector(e)) }
+        val streak =
+            rankDense(rows.sortedByDescending(streakSelector).take(limit)) { streakSelector(it).toLong() }
+                .map { (rank, e) -> e.toEntry(rank).copy(longestStreakDays = streakSelector(e)) }
+
         return LeaderboardSnapshot(time, books, streak)
     }
 

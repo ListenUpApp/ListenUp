@@ -11,6 +11,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -45,7 +46,8 @@ private val logger = KotlinLogging.logger {}
  * import therefore produces no duplicate events and leaves stats unchanged.
  *
  * Unmapped users and unresolved items are **skipped, not errored** — a partial library overlap is
- * the normal case, not a failure. They are counted in [ImportResult.skippedCount].
+ * the normal case, not a failure. A mapped user's books that aren't in this library are surfaced
+ * as [ImportResult.booksNotInLibrary]; unmapped-user history is excluded by the admin, not counted.
  */
 class ImportApplier internal constructor(
     private val reader: AbsBackupReader,
@@ -55,6 +57,7 @@ class ImportApplier internal constructor(
     private val sessionConverter: SessionConverter,
     private val listeningEventRepository: ListeningEventRepository,
     private val statsBackfill: UserStatsBackfillService,
+    private val publicProfileMaintainer: PublicProfileMaintainer,
 ) {
     /**
      * Applies the confirmed import [importId], emitting [ImportEvent.Applying] progress through
@@ -86,24 +89,36 @@ class ImportApplier internal constructor(
                     }
 
                 val affectedUsers = mutableSetOf<String>()
+                // The honest "couldn't import" count: distinct books a mapped user has history for
+                // that aren't in this library. Computed once over the raw data — independent of the
+                // write loops, which simply skip the unresolvable rows.
+                val booksNotInLibrary =
+                    mappedUserBooksNotInLibrary(progress, sessions, mapping.userMappings, effectiveBooks)
                 // Bulk import: suppress the live firehose so the burst can't overflow the lossy
                 // tail. Rows still commit + bump the revision, so clients catch up via REST.
                 val result =
                     withContext(FirehoseSuppressed) {
-                        val progressResult =
+                        val perUser =
                             recordAll(progress, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
-                        val sessionCounts =
+                        val sessionsImported =
                             recordSessions(sessions, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
                         ImportResult(
-                            importedCount = progressResult.importedCount,
-                            sessionsImported = sessionCounts.imported,
-                            skippedCount = progressResult.skippedCount + sessionCounts.skipped,
-                            perUser = progressResult.perUser,
+                            importedCount = perUser.values.sum(),
+                            sessionsImported = sessionsImported,
+                            booksNotInLibrary = booksNotInLibrary,
+                            perUser = perUser,
                         )
                     }
 
-                // Outside suppression: the authoritative per-user stats recompute publishes live.
-                affectedUsers.forEach { statsBackfill.backfillFor(it) }
+                // Outside suppression: recompute each affected user's stats, then rebuild their
+                // public_profiles projection from those fresh stats. The projection is what the
+                // leaderboard reads and what the activity-feed / book-detail readers surfaces resolve
+                // identities through, so a backfill that skipped the refresh left those surfaces stale
+                // (or empty) until a server restart rebuilt the projection. Both publish live.
+                affectedUsers.forEach { userId ->
+                    statsBackfill.backfillFor(userId)
+                    publicProfileMaintainer.refresh(userId)
+                }
 
                 store.markApplied(importId)
                 onEvent(ImportEvent.Applied(result))
@@ -138,9 +153,26 @@ class ImportApplier internal constructor(
     }
 
     /**
-     * Records every resolvable progress row, counting imports per user and skips overall, and adds
-     * each imported user to [affectedUsers] so their stats are backfilled (a finished position
-     * refreshes `booksFinished` even when the user has no imported sessions).
+     * Distinct ABS items a *mapped* user has history for (progress or sessions) but which aren't in
+     * this ListenUp library — the honest "couldn't import: not in your library" count. Unmapped-user
+     * history is the admin's deliberate review-step exclusion, not a "not found", so it never counts.
+     */
+    private fun mappedUserBooksNotInLibrary(
+        progress: List<AbsProgress>,
+        sessions: List<AbsSession>,
+        userMappings: Map<AbsUserId, UserId>,
+        effectiveBooks: Map<AbsItemId, BookId>,
+    ): Int {
+        val mappedItems =
+            progress.asSequence().filter { AbsUserId(it.userId) in userMappings }.map { AbsItemId(it.itemId) } +
+                sessions.asSequence().filter { AbsUserId(it.userId) in userMappings }.map { AbsItemId(it.itemId) }
+        return mappedItems.filter { it !in effectiveBooks }.toSet().size
+    }
+
+    /**
+     * Records every resolvable progress row, counting imports per user, and adds each imported user
+     * to [affectedUsers] so their stats are backfilled (a finished position refreshes `booksFinished`
+     * even when the user has no imported sessions). Returns the per-user written-position counts.
      */
     private suspend fun recordAll(
         progress: List<AbsProgress>,
@@ -148,17 +180,14 @@ class ImportApplier internal constructor(
         effectiveBooks: Map<AbsItemId, BookId>,
         affectedUsers: MutableSet<String>,
         onEvent: (ImportEvent) -> Unit,
-    ): ImportResult {
+    ): Map<UserId, Int> {
         val total = progress.size
         val perUser = mutableMapOf<UserId, Int>()
-        var skipped = 0
 
         progress.forEachIndexed { index, row ->
             val targetUser = userMappings[AbsUserId(row.userId)]
             val targetBook = effectiveBooks[AbsItemId(row.itemId)]
-            if (targetUser == null || targetBook == null) {
-                skipped++
-            } else {
+            if (targetUser != null && targetBook != null) {
                 recordPosition(targetUser, targetBook, row)
                 perUser[targetUser] = (perUser[targetUser] ?: 0) + 1
                 affectedUsers += targetUser.value
@@ -172,18 +201,14 @@ class ImportApplier internal constructor(
             )
         }
 
-        return ImportResult(
-            importedCount = perUser.values.sum(),
-            skippedCount = skipped,
-            perUser = perUser,
-        )
+        return perUser
     }
 
     /**
-     * Imports every resolvable playback session as a listening event (stable `abs:<id>`), counting
-     * imports vs skips and adding each imported user to [affectedUsers]. The per-event stats hook
-     * fires idempotently inside [ListeningEventRepository.upsert]; the final per-user backfill is
-     * the authority.
+     * Imports every resolvable playback session as a listening event (stable `abs:<id>`) and adds
+     * each imported user to [affectedUsers]. The per-event stats hook fires idempotently inside
+     * [ListeningEventRepository.upsert]; the final per-user backfill is the authority. Returns the
+     * number of sessions written.
      */
     private suspend fun recordSessions(
         sessions: List<AbsSession>,
@@ -191,17 +216,14 @@ class ImportApplier internal constructor(
         effectiveBooks: Map<AbsItemId, BookId>,
         affectedUsers: MutableSet<String>,
         onEvent: (ImportEvent) -> Unit,
-    ): SessionCounts {
+    ): Int {
         val total = sessions.size
         var imported = 0
-        var skipped = 0
 
         sessions.forEachIndexed { index, session ->
             val targetUser = userMappings[AbsUserId(session.userId)]
             val targetBook = effectiveBooks[AbsItemId(session.itemId)]
-            if (targetUser == null || targetBook == null) {
-                skipped++
-            } else {
+            if (targetUser != null && targetBook != null) {
                 listeningEventRepository.upsert(
                     value = sessionConverter.toEvent(session, targetBook.value),
                     clientOpId = null,
@@ -220,13 +242,8 @@ class ImportApplier internal constructor(
             )
         }
 
-        return SessionCounts(imported = imported, skipped = skipped)
+        return imported
     }
-
-    private data class SessionCounts(
-        val imported: Int,
-        val skipped: Int,
-    )
 
     private suspend fun recordPosition(
         targetUser: UserId,

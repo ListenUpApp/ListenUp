@@ -1,18 +1,19 @@
 package com.calypsan.listenup.client.presentation.admin
 
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.data.remote.ABSImportApiContract
-import com.calypsan.listenup.client.data.remote.ABSImportBook
-import com.calypsan.listenup.client.data.remote.ABSImportResponse
-import com.calypsan.listenup.client.data.remote.ABSImportUser
-import com.calypsan.listenup.client.data.remote.MappingFilter
-import com.calypsan.listenup.client.data.remote.SearchApiContract
-import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.core.ImportId
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
-import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -20,202 +21,70 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import com.calypsan.listenup.core.error.ErrorBus
-import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 
+/**
+ * The migrated hub is a thin read-only list over [ImportRepository] (the new `ImportService` stack):
+ * load the staged imports, surface failures, and delete a job. The old per-import detail/mapping
+ * behaviour moved to the linear `ImportFlow` and is no longer this ViewModel's concern.
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ABSImportHubViewModelTest :
     FunSpec({
         val testDispatcher = StandardTestDispatcher()
 
-        val testImport =
-            ABSImportResponse(
-                id = "import-1",
-                name = "Test Import",
-                backupPath = "/test/backup.zip",
-                status = "active",
-                createdAt = "2024-01-01T00:00:00Z",
-                updatedAt = "2024-01-01T00:00:00Z",
-                totalUsers = 1,
-                totalBooks = 1,
-                totalSessions = 0,
-                usersMapped = 0,
-                booksMapped = 0,
-                sessionsImported = 0,
+        fun summary(id: String) =
+            ImportSummary(
+                id = ImportId(id),
+                createdAt = 1_000L,
+                status = ImportStatus.UPLOADED,
+                bookCount = 3,
+                userCount = 1,
             )
-
-        fun createUser(
-            absUserId: String = "abs-user-1",
-            absUsername: String = "testuser",
-            isMapped: Boolean = false,
-        ) = ABSImportUser(
-            absUserId = absUserId,
-            absUsername = absUsername,
-            isMapped = isMapped,
-        )
-
-        fun createBook(
-            absMediaId: String = "abs-book-1",
-            absTitle: String = "Test Book",
-            absAuthor: String = "Author",
-            isMapped: Boolean = false,
-        ) = ABSImportBook(
-            absMediaId = absMediaId,
-            absTitle = absTitle,
-            absAuthor = absAuthor,
-            isMapped = isMapped,
-        )
 
         beforeTest { Dispatchers.setMain(testDispatcher) }
         afterTest { Dispatchers.resetMain() }
 
-        fun createMockedApi(): ABSImportApiContract {
-            val api: ABSImportApiContract = mock()
-            everySuspend { api.listImports() } returns AppResult.Success(emptyList())
-            everySuspend { api.getImport("import-1") } returns AppResult.Success(testImport)
-            everySuspend { api.listImportUsers("import-1", any()) } returns AppResult.Success(listOf(createUser()))
-            everySuspend { api.listImportBooks("import-1", any()) } returns AppResult.Success(listOf(createBook()))
-            return api
-        }
-
-        // ========== mapBook in-flight state ==========
-
-        test("mapBook adds absMediaId to mappingInFlightBooks during request") {
+        test("init loads the staged imports into Ready") {
             runTest {
-                val api = createMockedApi()
-                val mappedBook = createBook(isMapped = true)
-                everySuspend { api.mapBook("import-1", "abs-book-1", "lu-book-1") } returns AppResult.Success(mappedBook)
+                val repo: ImportRepository = mock()
+                everySuspend { repo.listImports() } returns AppResult.Success(listOf(summary("import-1")))
 
-                val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
+                val vm = ABSImportHubViewModel(repo, ErrorBus())
                 advanceUntilIdle()
 
-                // Open import to set importId
-                vm.openImport("import-1")
-                advanceUntilIdle()
-
-                // Switch to books tab to load books
-                vm.setBooksFilter(MappingFilter.ALL)
-                advanceUntilIdle()
-
-                // Trigger mapBook — in-flight set should be populated synchronously
-                vm.mapBook("abs-book-1", "lu-book-1")
-                val inFlight = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                inFlight.mappingInFlightBooks.contains("abs-book-1") shouldBe true
-
-                advanceUntilIdle()
-
-                // After completion, in-flight set should be cleared
-                val after = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                after.mappingInFlightBooks.contains("abs-book-1") shouldBe false
+                val ready = vm.listState.value.shouldBeInstanceOf<ABSImportListUiState.Ready>()
+                ready.imports.map { it.id } shouldBe listOf(ImportId("import-1"))
             }
         }
 
-        test("mapBook clears in-flight on failure") {
+        test("an initial load failure surfaces Error carrying the typed AppError") {
             runTest {
-                val api = createMockedApi()
-                everySuspend { api.mapBook("import-1", "abs-book-1", "lu-book-1") } returns
-                    Failure(Exception("Server error"))
+                val repo: ImportRepository = mock()
+                val error = SyncError.NotFound(domain = "imports", entityId = "x")
+                everySuspend { repo.listImports() } returns AppResult.Failure(error)
 
-                val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
+                val vm = ABSImportHubViewModel(repo, ErrorBus())
                 advanceUntilIdle()
 
-                vm.openImport("import-1")
-                advanceUntilIdle()
-
-                vm.mapBook("abs-book-1", "lu-book-1")
-                val inFlight = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                inFlight.mappingInFlightBooks.contains("abs-book-1") shouldBe true
-
-                advanceUntilIdle()
-
-                val after = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                after.mappingInFlightBooks.contains("abs-book-1") shouldBe false
-                after.error shouldBe "Failed to map book"
+                val state = vm.listState.value.shouldBeInstanceOf<ABSImportListUiState.Error>()
+                state.error shouldBe error
             }
         }
 
-        // ========== mapUser in-flight state ==========
-
-        test("mapUser adds absUserId to mappingInFlightUsers during request") {
+        test("deleteImport calls the repository and reloads the list") {
             runTest {
-                val api = createMockedApi()
-                val mappedUser = createUser(isMapped = true)
-                everySuspend { api.mapUser("import-1", "abs-user-1", "lu-user-1") } returns AppResult.Success(mappedUser)
+                val repo: ImportRepository = mock()
+                everySuspend { repo.listImports() } returns AppResult.Success(listOf(summary("a")))
+                everySuspend { repo.deleteImport(ImportId("a")) } returns AppResult.Success(Unit)
 
-                val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
+                val vm = ABSImportHubViewModel(repo, ErrorBus())
                 advanceUntilIdle()
 
-                vm.openImport("import-1")
+                vm.deleteImport(ImportId("a"))
                 advanceUntilIdle()
 
-                vm.mapUser("abs-user-1", "lu-user-1")
-                val inFlight = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                inFlight.mappingInFlightUsers.contains("abs-user-1") shouldBe true
-
-                advanceUntilIdle()
-
-                val after = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                after.mappingInFlightUsers.contains("abs-user-1") shouldBe false
-            }
-        }
-
-        test("mapUser clears in-flight on failure") {
-            runTest {
-                val api = createMockedApi()
-                everySuspend { api.mapUser("import-1", "abs-user-1", "lu-user-1") } returns
-                    Failure(Exception("Server error"))
-
-                val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
-                advanceUntilIdle()
-
-                vm.openImport("import-1")
-                advanceUntilIdle()
-
-                vm.mapUser("abs-user-1", "lu-user-1")
-                val inFlight = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                inFlight.mappingInFlightUsers.contains("abs-user-1") shouldBe true
-
-                advanceUntilIdle()
-
-                val after = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                after.mappingInFlightUsers.contains("abs-user-1") shouldBe false
-                after.error shouldBe "Failed to map user"
-            }
-        }
-
-        // ========== openImport polling behavior ==========
-
-        test("openImport starts polling when status is analyzing") {
-            runTest {
-                val api = createMockedApi()
-                val analyzingImport = testImport.copy(status = "analyzing")
-                val completedImport = testImport.copy(status = "active")
-
-                // openImport will get "analyzing" → triggers startAnalysisPolling
-                everySuspend { api.getImport("import-1") } returns AppResult.Success(analyzingImport)
-
-                val vm = ABSImportHubViewModel(api, mock(), mock(), errorBus = ErrorBus())
-                advanceUntilIdle() // drain init (loadImports)
-
-                vm.openImport("import-1")
-                // Use runCurrent() — NOT advanceUntilIdle() — to execute the openImport
-                // coroutine without advancing virtual time into the infinite polling loop
-                testScheduler.runCurrent()
-
-                val analyzing = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                analyzing.import.status shouldBe "analyzing"
-
-                // Re-stub so the next poll returns "active" — polling loop exits naturally
-                everySuspend { api.getImport("import-1") } returns AppResult.Success(completedImport)
-
-                // Advance past the 3-second polling interval so the poll fires
-                testScheduler.advanceTimeBy(3_100)
-                testScheduler.runCurrent()
-
-                val completed = vm.hubState.value.shouldBeInstanceOf<ABSImportHubUiState.Ready>()
-                completed.import.status shouldBe "active"
+                verifySuspend { repo.deleteImport(ImportId("a")) }
+                vm.listState.value.shouldBeInstanceOf<ABSImportListUiState.Ready>()
             }
         }
     })

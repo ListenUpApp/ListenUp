@@ -64,7 +64,7 @@ class ImportRepositoryImplTest :
                 unmatched = emptyList(),
             )
 
-        fun stubResult() = ImportResult(importedCount = 8, skippedCount = 3, perUser = emptyMap())
+        fun stubResult() = ImportResult(importedCount = 8, booksNotInLibrary = 3, perUser = emptyMap())
 
         /** Minimal factory that always returns the supplied [ImportService] mock. */
         class FakeImportRpcFactory(
@@ -225,7 +225,7 @@ class ImportRepositoryImplTest :
                         emit(RpcEvent.Data<ImportEvent>(ImportEvent.Parsing))
                         emit(RpcEvent.Error(InternalError()))
                         emit(RpcEvent.Complete)
-                        emit(RpcEvent.Data(ImportEvent.Applied(ImportResult(importedCount = 8, sessionsImported = 5, skippedCount = 3, perUser = emptyMap()))))
+                        emit(RpcEvent.Data(ImportEvent.Applied(ImportResult(importedCount = 8, sessionsImported = 5, booksNotInLibrary = 3, perUser = emptyMap()))))
                     }
 
                 val svc = mock<ImportService>()
@@ -234,7 +234,7 @@ class ImportRepositoryImplTest :
                 val events = mutableListOf<ImportEvent>()
                 buildRepo(svc).observeProgress(importId).collect { events.add(it) }
 
-                events shouldBe listOf(ImportEvent.Parsing, ImportEvent.Applied(ImportResult(importedCount = 8, sessionsImported = 5, skippedCount = 3, perUser = emptyMap())))
+                events shouldBe listOf(ImportEvent.Parsing, ImportEvent.Applied(ImportResult(importedCount = 8, sessionsImported = 5, booksNotInLibrary = 3, perUser = emptyMap())))
             }
         }
     })

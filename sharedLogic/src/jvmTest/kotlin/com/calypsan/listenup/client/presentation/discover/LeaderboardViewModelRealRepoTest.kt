@@ -51,6 +51,8 @@ class LeaderboardViewModelRealRepoTest :
             booksFinished: Int = 1,
             currentStreak: Int = 2,
             longestStreak: Int = 5,
+            booksW7: Int = 0,
+            streakW7: Int = 0,
         ) = PublicProfileEntity(
             id = id,
             displayName = "User $id",
@@ -62,6 +64,8 @@ class LeaderboardViewModelRealRepoTest :
             booksFinished = booksFinished,
             currentStreakDays = currentStreak,
             longestStreakDays = longestStreak,
+            booksFinishedLast7Days = booksW7,
+            longestStreakLast7Days = streakW7,
             revision = 1,
             deletedAt = null,
         )
@@ -168,13 +172,13 @@ class LeaderboardViewModelRealRepoTest :
             }
         }
 
-        // ── 4. Bounded period leaves Books/Streak empty ───────────────────────
+        // ── 4. Bounded period ranks Books/Streak by the windowed columns ──────
 
-        test("selectPeriod(Week) leaves Books and Streak empty per repo contract") {
+        test("selectPeriod(Week) populates Books and Streak from the 7-day windowed columns") {
             runTest {
                 val rows =
                     MutableStateFlow(
-                        listOf(entity("alice", last7 = 60L, booksFinished = 5, longestStreak = 3)),
+                        listOf(entity("alice", last7 = 60L, booksFinished = 5, longestStreak = 3, booksW7 = 2, streakW7 = 4)),
                     )
                 val vm = vmOver(rows)
 
@@ -183,8 +187,14 @@ class LeaderboardViewModelRealRepoTest :
                 advanceUntilIdle()
 
                 val data = vm.uiState.value.shouldBeInstanceOf<LeaderboardUiState.Data>()
-                data.snapshot.books shouldBe emptyList()
-                data.snapshot.streak shouldBe emptyList()
+                // Bounded periods now carry the windowed values, not the all-time totals.
+                data.snapshot.books.map { it.userId } shouldBe listOf("alice")
+                data.snapshot.books
+                    .first()
+                    .booksFinished shouldBe 2
+                data.snapshot.streak
+                    .first()
+                    .longestStreakDays shouldBe 4
             }
         }
 

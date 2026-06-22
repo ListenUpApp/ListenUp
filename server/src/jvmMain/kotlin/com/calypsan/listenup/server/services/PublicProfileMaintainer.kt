@@ -50,18 +50,31 @@ class PublicProfileMaintainer(
             } ?: return
 
         val nowMs = clock.now().toEpochMilliseconds()
+        // Home timezone for the windowed-streak day math (same frame the stats walk uses). Read
+        // outside the payload transaction, mirroring UserStatsBackfillService.
+        val tz = sql.homeTimeZone(userId)
+        val cutoff7 = nowMs - 7 * 86_400_000L
+        val cutoff30 = nowMs - 30 * 86_400_000L
+        val yearCutoff = nowMs - YEAR_WINDOW_DAYS * 86_400_000L
 
-        // Aggregates from the SQLDelight `user_stats` / `listening_events` tables.
+        // Aggregates from the SQLDelight `user_stats` / `listening_events` / `book_reads` tables.
         val payload =
             suspendTransaction(sql) {
                 val stats = sql.userStatsQueries.selectLiveForUser(userId).executeAsOneOrNull()
-                val yearCutoff = nowMs - YEAR_WINDOW_DAYS * 86_400_000L
                 val yearWindowSeconds =
-                    sql.listeningEventsQueries
-                        .sumWallSecondsSince(
-                            userId,
-                            yearCutoff,
-                        ).executeAsOne()
+                    sql.listeningEventsQueries.sumWallSecondsSince(userId, yearCutoff).executeAsOne()
+
+                // Windowed books: distinct books finished within each trailing window.
+                val books = sql.bookReadsQueries
+
+                fun booksFinishedSince(cutoffMs: Long): Int =
+                    books.countDistinctFinishedSince(userId, cutoffMs).executeAsOne().toInt()
+
+                // Windowed streak: longest consecutive listening-day run whose events fall in the window.
+                val events = sql.listeningEventsQueries
+
+                fun longestStreakSince(cutoffMs: Long): Int =
+                    longestStreakInWindow(events.selectEndedAtForUserSince(userId, cutoffMs).executeAsList(), tz)
 
                 PublicProfileSyncPayload(
                     id = userId,
@@ -75,6 +88,12 @@ class PublicProfileMaintainer(
                     booksFinished = (stats?.books_finished ?: 0L).toInt(),
                     currentStreakDays = (stats?.current_streak_days ?: 0L).toInt(),
                     longestStreakDays = (stats?.longest_streak_days ?: 0L).toInt(),
+                    booksFinishedLast7Days = booksFinishedSince(cutoff7),
+                    booksFinishedLast30Days = booksFinishedSince(cutoff30),
+                    booksFinishedLast365Days = booksFinishedSince(yearCutoff),
+                    longestStreakLast7Days = longestStreakSince(cutoff7),
+                    longestStreakLast30Days = longestStreakSince(cutoff30),
+                    longestStreakLast365Days = longestStreakSince(yearCutoff),
                     revision = 0,
                     updatedAt = 0,
                     createdAt = 0,

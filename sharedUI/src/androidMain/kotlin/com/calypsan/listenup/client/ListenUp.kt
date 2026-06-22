@@ -300,8 +300,6 @@ class ListenUp :
                 fileManager = lazy { get() },
                 apiClientFactory = lazy { get() },
                 playbackRpcFactory = lazy { get() },
-                backupApi = lazy { get() },
-                absImportApi = lazy { get() },
                 errorBus = lazy { get() },
             )
 

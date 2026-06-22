@@ -106,6 +106,13 @@ SELECT COALESCE(SUM((ended_at - started_at) / 1000), 0)
 FROM listening_events
 WHERE user_id = :userId AND ended_at >= :cutoffMs;
 
+-- Stats support: the ended-at timestamps of a user's non-deleted events at/after :cutoffMs, ascending.
+-- Feeds the windowed-streak walk (longest consecutive listening-day run within a trailing window).
+selectEndedAtForUserSince:
+SELECT ended_at FROM listening_events
+WHERE user_id = :userId AND deleted_at IS NULL AND ended_at >= :cutoffMs
+ORDER BY ended_at ASC;
+
 -- True iff the user has at least one live (non-deleted) listening event — drives
 -- ListeningEventDomainSeeder.isAlreadySeeded.
 hasAnyLiveForUser:

@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.ABSImportApi
-import com.calypsan.listenup.client.data.remote.ABSImportApiContract
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BackupApi
@@ -55,11 +53,6 @@ val adminModule: Module =
         single {
             BackupApi(clientFactory = get())
         } bind BackupApiContract::class
-
-        // ABSImportApi for persistent ABS import operations
-        single {
-            ABSImportApi(clientFactory = get(), errorBus = get())
-        } bind ABSImportApiContract::class
 
         // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
         single<LibraryAdminRpcFactory> {

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -39,6 +40,18 @@ internal data class PublicProfileEntity(
     val currentStreakDays: Int,
     /** Longest listening streak ever recorded, in days. */
     val longestStreakDays: Int,
+    /** Distinct books finished in the trailing 7-day window (windowed leaderboard metric). */
+    @ColumnInfo(defaultValue = "0") val booksFinishedLast7Days: Int = 0,
+    /** Distinct books finished in the trailing 30-day window. */
+    @ColumnInfo(defaultValue = "0") val booksFinishedLast30Days: Int = 0,
+    /** Distinct books finished in the trailing 365-day window. */
+    @ColumnInfo(defaultValue = "0") val booksFinishedLast365Days: Int = 0,
+    /** Longest consecutive listening-day run within the trailing 7-day window. */
+    @ColumnInfo(defaultValue = "0") val longestStreakLast7Days: Int = 0,
+    /** Longest consecutive listening-day run within the trailing 30-day window. */
+    @ColumnInfo(defaultValue = "0") val longestStreakLast30Days: Int = 0,
+    /** Longest consecutive listening-day run within the trailing 365-day window. */
+    @ColumnInfo(defaultValue = "0") val longestStreakLast365Days: Int = 0,
     /** Monotonic server revision; 0 until the server has confirmed the row. */
     val revision: Long = 0,
     /** Epoch-ms tombstone; null while the row is live. */

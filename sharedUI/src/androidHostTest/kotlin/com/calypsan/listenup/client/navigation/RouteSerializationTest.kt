@@ -75,10 +75,8 @@ private fun sampleRoutes(): List<Route> =
         add(CreateBackup)
         add(RestoreBackup(backupId = "test-backup-id"))
 
-        // ABS Import
-        add(ABSImportList)
-        add(ABSImportDetail(importId = "test-import-id"))
-        add(ABSImport)
+        // ABS Import — single linear flow (the legacy list/detail/wizard routes were removed)
+        add(ImportFlow)
 
         // Settings / misc
         add(Settings)

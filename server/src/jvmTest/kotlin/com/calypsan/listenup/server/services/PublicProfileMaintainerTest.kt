@@ -3,11 +3,13 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 class PublicProfileMaintainerTest :
@@ -191,6 +193,96 @@ class PublicProfileMaintainerTest :
                     val saved = repo.pullSince(userId = null, cursor = 0, limit = 10).items.single()
                     saved.deletedAt shouldNotBe null
                     saved.deletedAt.shouldNotBeNull()
+                }
+            }
+        }
+
+        test("refresh computes windowed books-finished and longest-streak-within-window") {
+            val day = 86_400_000L
+            val nowMs = 1_700_000_000_000L
+            withSqlDatabase {
+                sql.transaction {
+                    sql.usersQueries.insert(
+                        id = "uw",
+                        email = "win@example.com",
+                        email_normalized = "win@example.com",
+                        password_hash = "phc",
+                        role = "MEMBER",
+                        display_name = "Win",
+                        status = "ACTIVE",
+                        created_at = 1L,
+                        updated_at = 1L,
+                        last_login_at = null,
+                        can_edit = 1L,
+                        can_share = 1L,
+                        approved_by = null,
+                        approved_at = null,
+                        deleted_at = null,
+                        invited_by = null,
+                        tagline = null,
+                        avatar_type = "auto",
+                        timezone = "UTC",
+                    )
+                    // book_reads: A finished -2d & -1d (a re-read), B at -10d, C at -100d. Distinct
+                    // books finished within 7d = {A} = 1, 30d = {A,B} = 2, 365d = {A,B,C} = 3.
+                    listOf(
+                        Triple("br1", "A", nowMs - 2 * day),
+                        Triple("br2", "A", nowMs - 1 * day),
+                        Triple("br3", "B", nowMs - 10 * day),
+                        Triple("br4", "C", nowMs - 100 * day),
+                    ).forEach { (rid, book, at) ->
+                        sql.bookReadsQueries.insert(
+                            id = rid,
+                            user_id = "uw",
+                            book_id = book,
+                            finished_at = at,
+                            source = "test",
+                            created_at = 1L,
+                        )
+                    }
+                    // listening_events feeding the windowed-streak walk: consecutive-day runs at
+                    // increasing distance — -1,-2 (run 2, inside 7d); -10,-11,-12 (run 3, inside 30d);
+                    // -97..-100 (run 4, inside 365d). The all-time longest (4) exceeds the 7d/30d windows.
+                    listOf(1, 2, 10, 11, 12, 97, 98, 99, 100).forEachIndexed { i, daysAgo ->
+                        val endedAt = nowMs - daysAgo * day
+                        sql.listeningEventsQueries.insert(
+                            id = "ev$i",
+                            user_id = "uw",
+                            book_id = "A",
+                            start_position_ms = 0L,
+                            end_position_ms = 1_000L,
+                            started_at = endedAt - 3_600_000L,
+                            ended_at = endedAt,
+                            playback_speed = 1.0,
+                            tz = "UTC",
+                            device_label = null,
+                            revision = 1L,
+                            created_at = 1L,
+                            updated_at = 1L,
+                            deleted_at = null,
+                            client_op_id = null,
+                        )
+                    }
+                }
+
+                val repo = PublicProfileRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer =
+                    PublicProfileMaintainer(
+                        sql = sql,
+                        publicProfileRepo = repo,
+                        clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
+                    )
+
+                runTest {
+                    maintainer.refresh("uw")
+                    val saved = repo.pullSince(userId = null, cursor = 0, limit = 10).items.single()
+
+                    saved.booksFinishedLast7Days shouldBe 1
+                    saved.booksFinishedLast30Days shouldBe 2
+                    saved.booksFinishedLast365Days shouldBe 3
+                    saved.longestStreakLast7Days shouldBe 2
+                    saved.longestStreakLast30Days shouldBe 3
+                    saved.longestStreakLast365Days shouldBe 4
                 }
             }
         }

@@ -5,31 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.work.ListenableWorker
 import androidx.work.WorkerParameters
 import androidx.work.testing.TestListenableWorkerBuilder
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.FileSource
-import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.data.remote.ABSImportApiContract
-import com.calypsan.listenup.client.data.remote.ABSImportBook
-import com.calypsan.listenup.client.data.remote.ABSImportResponse
-import com.calypsan.listenup.client.data.remote.ABSImportSummary
-import com.calypsan.listenup.client.data.remote.ABSImportUser
-import com.calypsan.listenup.client.data.remote.ABSSessionsResponse
-import com.calypsan.listenup.client.data.remote.BackupApiContract
-import com.calypsan.listenup.client.data.remote.ImportSessionsResult
-import com.calypsan.listenup.client.data.remote.MappingFilter
-import com.calypsan.listenup.client.data.remote.SessionStatusFilter
-import com.calypsan.listenup.client.data.remote.UploadABSBackupResponse
-import com.calypsan.listenup.client.data.remote.UserSearchResult
-import com.calypsan.listenup.client.data.remote.model.AnalysisStatusResponse
-import com.calypsan.listenup.client.data.remote.model.AnalyzeABSRequest
-import com.calypsan.listenup.client.data.remote.model.AnalyzeABSResponse
-import com.calypsan.listenup.client.data.remote.model.AsyncAnalyzeResponse
-import com.calypsan.listenup.client.data.remote.model.ImportABSRequest
-import com.calypsan.listenup.client.data.remote.model.ImportABSResponse
-import com.calypsan.listenup.client.upload.ABSUploadWorker
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,8 +15,8 @@ import org.robolectric.annotation.Config
 /**
  * Routing coverage for [ListenUpWorkerFactory.createWorker].
  *
- * Verifies the `when (workerClassName)` dispatch: each known class name routes to
- * the correct [ListenableWorker] subtype, and an unknown name produces `null`.
+ * Verifies the `when (workerClassName)` dispatch: an unknown name produces `null` without
+ * touching any dependency.
  *
  * [WorkerParameters] is an Android framework type that requires Robolectric to
  * instantiate properly; this test uses [RobolectricTestRunner] + JUnit4, consistent
@@ -85,22 +61,6 @@ class ListenUpWorkerFactoryRoutingTest {
         result shouldBe null
     }
 
-    // ─────────────────────── ABSUploadWorker routing ─────────────────────────
-
-    @Test
-    fun `createWorker routes ABSUploadWorker class name to an ABSUploadWorker instance`() {
-        val factory = buildFactoryWithABSApiDeps()
-        val params = fakeWorkerParams()
-        val result =
-            factory.createWorker(
-                context,
-                ABSUploadWorker::class.java.name,
-                params,
-            )
-        result shouldNotBe null
-        result.shouldBeInstanceOf<ABSUploadWorker>()
-    }
-
     // ─────────────────────── factory builders ────────────────────────────────
 
     /**
@@ -115,25 +75,7 @@ class ListenUpWorkerFactoryRoutingTest {
             fileManager = lazy { error("fileManager should not be accessed") },
             apiClientFactory = lazy { error("apiClientFactory should not be accessed") },
             playbackRpcFactory = lazy { error("playbackRpcFactory should not be accessed") },
-            backupApi = lazy { error("backupApi should not be accessed") },
-            absImportApi = lazy { error("absImportApi should not be accessed") },
             errorBus = lazy { error("errorBus should not be accessed") },
-        )
-
-    /**
-     * Factory where [backupApi] and [absImportApi] are wired with stub implementations.
-     * [ABSUploadWorker]'s constructor only accepts those two API deps plus the standard
-     * WorkManager (context, params) — no other lazy is touched.
-     */
-    private fun buildFactoryWithABSApiDeps(): ListenUpWorkerFactory =
-        ListenUpWorkerFactory(
-            downloadRepository = lazy { error("downloadRepository should not be accessed") },
-            fileManager = lazy { error("fileManager should not be accessed") },
-            apiClientFactory = lazy { error("apiClientFactory should not be accessed") },
-            playbackRpcFactory = lazy { error("playbackRpcFactory should not be accessed") },
-            backupApi = lazy { StubBackupApi() },
-            absImportApi = lazy { StubABSImportApi() },
-            errorBus = lazy { ErrorBus() },
         )
 
     /**
@@ -159,100 +101,3 @@ class ListenUpWorkerFactoryRoutingTest {
         override suspend fun doWork(): Result = Result.success()
     }
 }
-
-// ────────────────────────────── Stub API fakes ────────────────────────────────
-
-/**
- * Stub [BackupApiContract] whose methods throw if called.
- * Passed to [ABSUploadWorker] which holds it by reference but doesn't call it
- * during construction.
- */
-private class StubBackupApi : BackupApiContract {
-    override suspend fun browseFilesystem(path: String): AppResult<com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse> = notCalled()
-
-    override suspend fun uploadABSBackup(fileSource: FileSource): AppResult<UploadABSBackupResponse> = notCalled()
-
-    override suspend fun analyzeABSBackup(request: AnalyzeABSRequest): AppResult<AnalyzeABSResponse> = notCalled()
-
-    override suspend fun analyzeABSBackupAsync(request: AnalyzeABSRequest): AppResult<AsyncAnalyzeResponse> = notCalled()
-
-    override suspend fun getAnalysisStatus(analysisId: String): AppResult<AnalysisStatusResponse> = notCalled()
-
-    override suspend fun importABSBackup(request: ImportABSRequest): AppResult<ImportABSResponse> = notCalled()
-}
-
-/**
- * Stub [ABSImportApiContract] whose methods throw if called.
- * Passed to [ABSUploadWorker] which holds it by reference but doesn't call it
- * during construction.
- */
-private class StubABSImportApi : ABSImportApiContract {
-    override suspend fun createImport(
-        fileSource: FileSource,
-        name: String,
-    ): AppResult<ABSImportResponse> = notCalled()
-
-    override suspend fun createImportFromPath(
-        backupPath: String,
-        name: String,
-    ): AppResult<ABSImportResponse> = notCalled()
-
-    override suspend fun listImports(): AppResult<List<ABSImportSummary>> = notCalled()
-
-    override suspend fun getImport(importId: String): AppResult<ABSImportResponse> = notCalled()
-
-    override suspend fun deleteImport(importId: String): AppResult<Unit> = notCalled()
-
-    override suspend fun listImportUsers(
-        importId: String,
-        filter: MappingFilter,
-    ): AppResult<List<ABSImportUser>> = notCalled()
-
-    override suspend fun mapUser(
-        importId: String,
-        absUserId: String,
-        listenUpId: String,
-    ): AppResult<ABSImportUser> = notCalled()
-
-    override suspend fun clearUserMapping(
-        importId: String,
-        absUserId: String,
-    ): AppResult<ABSImportUser> = notCalled()
-
-    override suspend fun searchUsers(
-        query: String,
-        limit: Int,
-    ): AppResult<List<UserSearchResult>> = notCalled()
-
-    override suspend fun listImportBooks(
-        importId: String,
-        filter: MappingFilter,
-    ): AppResult<List<ABSImportBook>> = notCalled()
-
-    override suspend fun mapBook(
-        importId: String,
-        absMediaId: String,
-        listenUpId: String,
-    ): AppResult<ABSImportBook> = notCalled()
-
-    override suspend fun clearBookMapping(
-        importId: String,
-        absMediaId: String,
-    ): AppResult<ABSImportBook> = notCalled()
-
-    override suspend fun listSessions(
-        importId: String,
-        status: SessionStatusFilter,
-    ): AppResult<ABSSessionsResponse> = notCalled()
-
-    override suspend fun importReadySessions(importId: String): AppResult<ImportSessionsResult> = notCalled()
-
-    override suspend fun skipSession(
-        importId: String,
-        sessionId: String,
-        reason: String?,
-    ): AppResult<Unit> = notCalled()
-}
-
-@Suppress("NOTHING_TO_INLINE")
-private inline fun <T> notCalled(): T = error("This stub method should not be called during worker construction")

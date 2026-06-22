@@ -40,7 +40,6 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 "RegisterViewModel",
                 "LibrarySetupViewModel",
                 "UserDetailViewModel",
-                "ABSImportViewModel",
                 "AdminBackupViewModel",
                 "AdminCollectionDetailViewModel",
                 "RestoreBackupViewModel",
