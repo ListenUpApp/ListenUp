@@ -32,6 +32,7 @@ data class ScanProgressState(
                 "resolving" -> "Processing"
                 "diffing" -> "Syncing"
                 "applying" -> "Syncing"
+                "persisting" -> "Saving library"
                 "complete" -> "Finishing up"
                 else -> phase.replaceFirstChar { it.uppercase() }
             }
@@ -47,6 +48,14 @@ data class ScanProgressState(
     /** Total matched audio rounded to whole hours, for the "Hours" stat. */
     val hours: Int
         get() = (durationMs / 3_600_000.0).roundToInt()
+
+    /**
+     * The label shown under the bar during the PERSISTING phase — "Saving N of M" over the books
+     * being written. Distinct from the ANALYZING label (a percentage + ETA) because the persist
+     * phase has no meaningful per-scan ETA: the bar restarts at 0 after analysis already elapsed.
+     */
+    val savingLabel: String
+        get() = "Saving $books of $booksTotal"
 
     val changesSummary: String?
         get() {

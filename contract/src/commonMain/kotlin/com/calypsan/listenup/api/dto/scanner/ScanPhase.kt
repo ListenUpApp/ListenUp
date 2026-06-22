@@ -9,5 +9,6 @@ enum class ScanPhase {
     GROUPING,
     ANALYZING,
     DIFFING,
+    PERSISTING,
     COMPLETED,
 }

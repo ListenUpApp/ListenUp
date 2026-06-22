@@ -55,9 +55,11 @@ so no event-shape change.
   covers the reconcile.
 - If `toPersist == 0` (nothing changed), skip PERSISTING emission entirely — no 0/0 bar.
 
-### 3. Client — display name + stat preservation
+### 3. Client — state, display name + stat preservation
 
 - `ScanProgressState.phaseDisplayName`: add `"persisting" -> "Saving library"`.
+- `ScanProgressState.savingLabel`: new property → `"Saving $books of $booksTotal"` (the label under the
+  bar during persist).
 - `SyncRepositoryImpl.applyScanEvent` (the `ScanEvent.Progress` branch): for the PERSISTING phase,
   **preserve the prior `ScanProgressState`** and update only `phase`, `books` (= persisted), and
   `booksTotal` (= toPersist) — e.g. `getProgress()?.copy(phase = "persisting", books = …, booksTotal = …)`.
@@ -66,6 +68,21 @@ so no event-shape change.
   hours/authors/recent-books carousel on screen while `progressFraction` (`books/booksTotal`) climbs
   0→100% under the "Saving library" label. (Non-PERSISTING phases keep building a fresh state from the
   event, unchanged.)
+
+### 4. Screen — `LibraryScanScreen` (added during implementation)
+
+The original spec assumed the screen needed no change. It does, because the determinate path:
+- hard-codes the subtitle *"Analyzing your audiobooks…"*, and
+- shows *"X% complete · about N min left"* where the ETA is computed from the **whole-scan start** —
+  during persist that elapsed time includes the ~25s analyze, so the ETA would be bogus.
+
+Two localized tweaks (no redesign; existing Expressive components):
+- **Subtitle:** phase-aware — `"Saving your library — almost done."` during persist, else the existing
+  analyzing copy.
+- **Progress label (`ScanProgressLabel`):** early-return for the persist phase showing
+  `progress.savingLabel` ("Saving N of M") instead of the percentage/ETA — the persist phase has no
+  meaningful per-scan ETA. The file-count row and stats panel stay (state is preserved), so only the
+  bar restarts and the label/subtitle reflect the new step.
 
 ### Resulting UX
 

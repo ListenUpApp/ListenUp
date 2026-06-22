@@ -48,4 +48,12 @@ class ScanProgressStateTest :
             // filesTotal == current (all files walked) but only 30% of books analyzed → 0.3, not 1.0.
             state(books = 30, booksTotal = 100, current = 1647, filesTotal = 1647).progressFraction shouldBe 0.3f
         }
+
+        test("phaseDisplayName maps the persisting phase to 'Saving library'") {
+            state(books = 10, booksTotal = 100).copy(phase = "persisting").phaseDisplayName shouldBe "Saving library"
+        }
+
+        test("savingLabel reads 'Saving N of M' from the book counts") {
+            state(books = 250, booksTotal = 1000).savingLabel shouldBe "Saving 250 of 1000"
+        }
     })

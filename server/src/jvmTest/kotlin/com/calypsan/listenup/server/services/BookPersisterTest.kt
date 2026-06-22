@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.CoverSource
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
+import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
@@ -197,6 +198,46 @@ class BookPersisterTest :
                     val completed = eventBus.replayCache.filterIsInstance<ScanEvent.Completed>().single()
                     completed.result.totalBooks shouldBe 2
                     fake.resolved shouldContainExactly listOf("a", "b")
+                }
+            }
+        }
+
+        test("persistAll emits PERSISTING progress with live counts, ending at the total, before Completed") {
+            withSqlDatabase {
+                runTest {
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 64)
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this, eventBus = eventBus)
+
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), analyzedBook("b"), analyzedBook("c")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(analyzedBook("a")),
+                                    ChangeEventDto.Added(analyzedBook("b")),
+                                    ChangeEventDto.Added(analyzedBook("c")),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    val events = eventBus.replayCache
+                    val persistProgress =
+                        events.filterIsInstance<ScanEvent.Progress>().filter { it.phase == ScanPhase.PERSISTING }
+
+                    // Persistence is now a visible phase, not a silent gap.
+                    persistProgress.isNotEmpty() shouldBe true
+                    // Every event is scoped to the 3 books being written.
+                    persistProgress.all { it.booksTotal == 3 } shouldBe true
+                    // It starts at 0 (so the UI leaves the 100%-analyze state) and reaches the total.
+                    persistProgress.first().booksAnalyzed shouldBe 0
+                    persistProgress.last().booksAnalyzed shouldBe 3
+
+                    // PERSISTING progress lands before the terminal Completed.
+                    val lastPersist = events.indexOfLast { (it as? ScanEvent.Progress)?.phase == ScanPhase.PERSISTING }
+                    val completed = events.indexOfFirst { it is ScanEvent.Completed }
+                    (lastPersist in 0 until completed) shouldBe true
                 }
             }
         }

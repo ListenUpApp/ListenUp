@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanBookRef
+import com.calypsan.listenup.api.dto.scanner.ScanPhase
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
@@ -405,27 +406,40 @@ internal suspend fun applyScanEvent(
         is ScanEvent.Progress -> {
             if (!isInitialScanComplete()) {
                 setScanning(true)
-                setProgress(
-                    ScanProgressState(
-                        phase = event.phase.name.lowercase(),
-                        current = event.filesWalked,
-                        total = event.filesWalked,
-                        added = 0,
-                        updated = 0,
-                        removed = 0,
-                        filesTotal = event.totalFiles,
-                        books = event.booksAnalyzed,
-                        booksTotal = event.booksTotal,
-                        authors = event.authorsMatched,
-                        durationMs = event.totalDurationMs,
-                        currentFile = event.currentFile,
-                        // Accumulate across events rather than render the server's rolling window:
-                        // the carousel grows and an already-shown title keeps its place — it never
-                        // gets swapped out by a freshly-matched book.
-                        recentBooks = mergeRecentBooks(getProgress()?.recentBooks.orEmpty(), event.recentBooks),
-                        startedAtMs = getStartedAt(),
-                    ),
-                )
+                val prior = getProgress()
+                // The PERSISTING phase reports only the save counts — the rich stats (authors, hours,
+                // recent-books carousel) aren't re-sent. Preserve the prior ANALYZING state and advance
+                // only phase + book counts, so the bar climbs 0→100% under "Saving library" without the
+                // stats panel blanking. Every other phase builds a fresh state from the event.
+                val next =
+                    if (event.phase == ScanPhase.PERSISTING && prior != null) {
+                        prior.copy(
+                            phase = event.phase.name.lowercase(),
+                            books = event.booksAnalyzed,
+                            booksTotal = event.booksTotal,
+                        )
+                    } else {
+                        ScanProgressState(
+                            phase = event.phase.name.lowercase(),
+                            current = event.filesWalked,
+                            total = event.filesWalked,
+                            added = 0,
+                            updated = 0,
+                            removed = 0,
+                            filesTotal = event.totalFiles,
+                            books = event.booksAnalyzed,
+                            booksTotal = event.booksTotal,
+                            authors = event.authorsMatched,
+                            durationMs = event.totalDurationMs,
+                            currentFile = event.currentFile,
+                            // Accumulate across events rather than render the server's rolling window:
+                            // the carousel grows and an already-shown title keeps its place — it never
+                            // gets swapped out by a freshly-matched book.
+                            recentBooks = mergeRecentBooks(prior?.recentBooks.orEmpty(), event.recentBooks),
+                            startedAtMs = getStartedAt(),
+                        )
+                    }
+                setProgress(next)
             }
         }
 
