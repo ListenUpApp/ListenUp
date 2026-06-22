@@ -162,6 +162,16 @@ class BookPersister internal constructor(
         // This represents every rootRelPath present on disk at scan time.
         val seenPaths = result.books.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
 
+        // The books carried by `result.changes` are artwork-FREE: the Scanner strips Embedded/Spooled
+        // covers off the diff copies (AnalyzedBook.withoutArtwork) so the volatile artwork bytes and
+        // the per-scan spool path never pollute change detection. The cover-bearing copies live in
+        // `result.books`. Persist must read each changed book's cover from there, or every embedded
+        // cover lands as a null cover_source. Keyed by rootRelPath — stable across Added/Modified/Moved.
+        val coverBearingByPath = result.books.associateBy { it.candidate.rootRelPath }
+
+        fun coverBearing(change: AnalyzedBook): AnalyzedBook =
+            coverBearingByPath[change.candidate.rootRelPath] ?: change
+
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
         val scanRoot = JPath.of(result.rootPath)
@@ -188,20 +198,21 @@ class BookPersister internal constructor(
             if (bookId != null) persisted++ else failed++
         }
 
-        // Persist only the books that actually changed. Added/Modified/Moved each carry the
-        // AnalyzedBook directly in the ChangeEventDto — no join against result.books needed.
+        // Persist only the books that actually changed. Added/Modified/Moved each carry the changed
+        // AnalyzedBook in the ChangeEventDto, but artwork-stripped — so we re-resolve the cover-bearing
+        // copy from result.books (by rootRelPath) before persisting, restoring embedded covers.
         for (change in result.changes) {
             when (change) {
                 is ChangeEventDto.Added -> {
-                    persistCounted(change.book)
+                    persistCounted(coverBearing(change.book))
                 }
 
                 is ChangeEventDto.Modified -> {
-                    persistCounted(change.book)
+                    persistCounted(coverBearing(change.book))
                 }
 
                 is ChangeEventDto.Moved -> {
-                    persistCounted(change.book)
+                    persistCounted(coverBearing(change.book))
                 }
 
                 is ChangeEventDto.Removed -> {
