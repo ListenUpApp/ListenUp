@@ -70,6 +70,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     private(set) var bookTitle: String = ""
     private(set) var authorName: String = ""
+    /// Comma-joined narrator(s); empty when the book has no narrator (the player
+    /// hides the "Narrated by" line in that case).
+    private(set) var narratorName: String = ""
     private(set) var coverPath: String?
     private(set) var coverBlurHash: String?
     private(set) var playbackSpeed: Float = 1.0
@@ -388,6 +391,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         }
         bookTitle = prepared.bookTitle
         authorName = prepared.bookAuthor
+        narratorName = prepared.bookNarrator
         coverPath = prepared.coverPath
         chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed
