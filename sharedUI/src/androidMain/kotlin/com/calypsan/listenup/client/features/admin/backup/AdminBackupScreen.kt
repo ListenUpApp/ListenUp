@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -39,7 +38,6 @@ import com.calypsan.listenup.client.design.components.ScallopBadge
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -53,13 +51,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.calypsan.listenup.client.data.remote.ABSImportSummary
+import com.calypsan.listenup.api.dto.imports.ImportStatus
+import com.calypsan.listenup.api.dto.imports.ImportSummary
+import listenup.composeapp.generated.resources.common_books_count
 import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.core.BackupId
 import kotlinx.io.asSink
@@ -86,9 +85,6 @@ import listenup.composeapp.generated.resources.admin_create_backup
 import listenup.composeapp.generated.resources.admin_create_backup_to_protect
 import listenup.composeapp.generated.resources.admin_delete_backup
 import listenup.composeapp.generated.resources.admin_download_backup
-import listenup.composeapp.generated.resources.admin_import_books_progress
-import listenup.composeapp.generated.resources.admin_import_sessions_progress
-import listenup.composeapp.generated.resources.admin_import_users_progress
 import listenup.composeapp.generated.resources.admin_migrate_listening_history
 import listenup.composeapp.generated.resources.admin_no_backups_yet
 import listenup.composeapp.generated.resources.admin_restore
@@ -150,7 +146,7 @@ fun AdminBackupScreen(
     }
 
     // Delete import confirmation state
-    var deleteConfirmImport by remember { mutableStateOf<ABSImportSummary?>(null) }
+    var deleteConfirmImport by remember { mutableStateOf<ImportSummary?>(null) }
 
     // Upload sheet state
     var showUploadSheet by remember { mutableStateOf(false) }
@@ -267,7 +263,7 @@ fun AdminBackupScreen(
             shape = MaterialTheme.shapes.large,
             title = { Text(stringResource(Res.string.import_delete_import)) },
             text = {
-                Text(stringResource(Res.string.import_delete_confirm, import.name))
+                Text(stringResource(Res.string.import_delete_confirm, import.id.value))
             },
             confirmButton = {
                 TextButton(
@@ -315,7 +311,7 @@ private fun DeleteBackupDialog(
 @Composable
 private fun AdminBackupBody(
     state: AdminBackupUiState,
-    absImports: List<ABSImportSummary>,
+    absImports: List<ImportSummary>,
     isLoadingImports: Boolean,
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
@@ -323,7 +319,7 @@ private fun AdminBackupBody(
     onDeleteClick: (BackupInfo) -> Unit,
     onDownloadClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
-    onDeleteImportClick: (ABSImportSummary) -> Unit,
+    onDeleteImportClick: (ImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
 ) {
     when (state) {
@@ -365,7 +361,7 @@ private fun AdminBackupBody(
 @Composable
 private fun AdminBackupReadyContent(
     state: AdminBackupUiState.Ready,
-    absImports: List<ABSImportSummary>,
+    absImports: List<ImportSummary>,
     isLoadingImports: Boolean,
     modifier: Modifier = Modifier,
     onRestoreClick: (String) -> Unit,
@@ -373,7 +369,7 @@ private fun AdminBackupReadyContent(
     onDeleteClick: (BackupInfo) -> Unit,
     onDownloadClick: (BackupInfo) -> Unit,
     onABSImportClick: (String) -> Unit,
-    onDeleteImportClick: (ABSImportSummary) -> Unit,
+    onDeleteImportClick: (ImportSummary) -> Unit,
     onUploadABSBackup: () -> Unit,
 ) {
     if (state.backups.isEmpty() && absImports.isEmpty()) {
@@ -441,7 +437,7 @@ private fun AdminBackupReadyContent(
             items(absImports, key = { "import_${it.id}" }) { import ->
                 ABSImportSummaryCard(
                     import = import,
-                    onClick = { onABSImportClick(import.id) },
+                    onClick = { onABSImportClick(import.id.value) },
                     onDeleteClick = { onDeleteImportClick(import) },
                 )
             }
@@ -594,22 +590,21 @@ private fun UploadABSBackupCard(onClick: () -> Unit) {
 }
 
 /**
- * Card showing an existing ABS import with progress.
+ * Card for a staged ABS import: created-at timestamp, status, and book count. Tapping resumes into
+ * the linear import flow; the overflow menu deletes the staged job.
  */
 @Composable
 private fun ABSImportSummaryCard(
-    import: ABSImportSummary,
+    import: ImportSummary,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
-    val isActive = import.status.lowercase() == "active"
-    val progress =
-        if (import.totalSessions > 0) {
-            import.sessionsImported.toFloat() / import.totalSessions.toFloat()
-        } else {
-            0f
-        }
     var showMenu by remember { mutableStateOf(false) }
+    val localDateTime =
+        Instant
+            .fromEpochMilliseconds(import.createdAt)
+            .toLocalDateTime(TimeZone.currentSystemDefault())
+    val timeStr = "${localDateTime.hour}:${localDateTime.minute.toString().padStart(2, '0')}"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -626,7 +621,7 @@ private fun ABSImportSummaryCard(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = import.name,
+                    text = stringResource(Res.string.admin_backup_created_at, localDateTime.date.toString(), timeStr),
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -670,91 +665,48 @@ private fun ABSImportSummaryCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Progress info
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.admin_import_users_progress,
-                            import.usersMapped,
-                            import.totalUsers,
-                        ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.admin_import_books_progress,
-                            import.booksMapped,
-                            import.totalBooks,
-                        ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text =
-                        stringResource(
-                            Res.string.admin_import_sessions_progress,
-                            import.sessionsImported,
-                            import.totalSessions,
-                        ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
-            // Progress bar for active imports
-            if (isActive && progress < 1f) {
-                Spacer(modifier = Modifier.height(8.dp))
-                LinearProgressIndicator(
-                    progress = { progress },
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(2.dp)),
-                )
-            }
+            Text(
+                text = stringResource(Res.string.common_books_count, import.bookCount),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
 
 @Composable
-private fun StatusBadge(status: String) {
+private fun StatusBadge(status: ImportStatus) {
     val (containerColor, contentColor, label) =
-        when (status.lowercase()) {
-            "active" -> {
-                Triple(
-                    MaterialTheme.colorScheme.primaryContainer,
-                    MaterialTheme.colorScheme.onPrimaryContainer,
-                    "Active",
-                )
-            }
-
-            "completed" -> {
-                Triple(
-                    MaterialTheme.colorScheme.tertiaryContainer,
-                    MaterialTheme.colorScheme.onTertiaryContainer,
-                    "Completed",
-                )
-            }
-
-            "archived" -> {
+        when (status) {
+            ImportStatus.UPLOADED -> {
                 Triple(
                     MaterialTheme.colorScheme.surfaceContainerHighest,
                     MaterialTheme.colorScheme.onSurfaceVariant,
-                    "Archived",
+                    "Uploaded",
                 )
             }
 
-            else -> {
+            ImportStatus.ANALYZED -> {
                 Triple(
-                    MaterialTheme.colorScheme.surfaceContainerHigh,
-                    MaterialTheme.colorScheme.onSurfaceVariant,
-                    status,
+                    MaterialTheme.colorScheme.primaryContainer,
+                    MaterialTheme.colorScheme.onPrimaryContainer,
+                    "Analyzed",
+                )
+            }
+
+            ImportStatus.MAPPED -> {
+                Triple(
+                    MaterialTheme.colorScheme.secondaryContainer,
+                    MaterialTheme.colorScheme.onSecondaryContainer,
+                    "Mapped",
+                )
+            }
+
+            ImportStatus.APPLIED -> {
+                Triple(
+                    MaterialTheme.colorScheme.tertiaryContainer,
+                    MaterialTheme.colorScheme.onTertiaryContainer,
+                    "Applied",
                 )
             }
         }

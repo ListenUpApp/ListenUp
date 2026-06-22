@@ -56,7 +56,8 @@ val adminModule: Module =
             BackupApi(clientFactory = get())
         } bind BackupApiContract::class
 
-        // ABSImportApi for persistent ABS import operations
+        // ABSImportApi — legacy REST surface, still backing the WorkManager upload subsystem
+        // (ABSUploadWorker / ListenUpWorkerFactory). The inline import list now uses ImportService.
         single {
             ABSImportApi(clientFactory = get(), errorBus = get())
         } bind ABSImportApiContract::class

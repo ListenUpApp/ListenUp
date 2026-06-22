@@ -8,14 +8,10 @@ import androidx.compose.runtime.getValue
 import com.calypsan.listenup.client.features.admin.AdminScreen
 import com.calypsan.listenup.client.features.admin.CreateInviteScreen
 import com.calypsan.listenup.client.features.admin.backup.AdminBackupScreen
-import com.calypsan.listenup.client.features.admin.backup.ABSImportHubDetailScreen
-import com.calypsan.listenup.client.features.admin.backup.ABSImportScreen
 import com.calypsan.listenup.client.features.admin.import.ImportFlowScreen
 import com.calypsan.listenup.client.features.admin.backup.CreateBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreBackupScreen
 import com.calypsan.listenup.client.features.admin.backup.RestoreFromFileScreen
-import com.calypsan.listenup.client.navigation.ABSImport
-import com.calypsan.listenup.client.navigation.ABSImportDetail
 import com.calypsan.listenup.client.navigation.ImportFlow
 import com.calypsan.listenup.client.navigation.Admin
 import com.calypsan.listenup.client.navigation.AdminBackups
@@ -206,8 +202,10 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
             onRestoreFromFileClick = {
                 backStack.add(RestoreFromFile)
             },
-            onABSImportHubClick = { importId ->
-                backStack.add(ABSImportDetail(importId))
+            onABSImportHubClick = {
+                // The persistent per-import detail editor is gone; the linear ImportFlow now owns
+                // analyze→review→apply. Tapping a staged import resumes into that flow.
+                backStack.add(ImportFlow)
             },
             onNewImportClick = {
                 backStack.add(ImportFlow)
@@ -233,22 +231,8 @@ internal fun EntryProviderScope<NavKey>.adminMaintenanceEntries(backStack: NavBa
             },
         )
     }
-    // ABSImportList removed - imports are now shown inline in AdminBackupScreen
-    entry<ABSImportDetail> { args ->
-        ABSImportHubDetailScreen(
-            importId = args.importId,
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
-        )
-    }
-    entry<ABSImport> {
-        ABSImportScreen(
-            onBackClick = { backStack.removeAt(backStack.lastIndex) },
-            onComplete = {
-                // Navigate back to backup list after import
-                backStack.removeAt(backStack.lastIndex)
-            },
-        )
-    }
+    // The legacy ABSImport wizard and per-import detail hub were removed — the linear ImportFlow
+    // is the single ABS import surface; the import list lives inline in AdminBackupScreen.
     entry<ImportFlow> {
         ImportFlowScreen(
             onNavigateBack = { backStack.removeAt(backStack.lastIndex) },

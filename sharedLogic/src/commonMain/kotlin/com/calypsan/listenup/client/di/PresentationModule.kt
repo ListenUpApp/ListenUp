@@ -213,23 +213,10 @@ val adminPresentationModule =
                 errorBus = get(),
             )
         }
-        // ABSImportViewModel for Audiobookshelf import (legacy wizard)
-        factory {
-            com.calypsan.listenup.client.presentation.admin.ABSImportViewModel(
-                backupApi = get(),
-                searchApi = get(),
-                absImportApi = get(),
-                syncRepository = get(),
-                errorBus = get(),
-            )
-        }
-
-        // ABSImportHubViewModel for persistent/resumable imports
+        // ABSImportHubViewModel — inline staged-import list (backed by the new ImportService stack)
         single {
             com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel(
-                absImportApi = get(),
-                searchApi = get(),
-                syncRepository = get(),
+                importRepository = get(),
                 errorBus = get(),
             )
         }

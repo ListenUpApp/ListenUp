@@ -486,7 +486,7 @@ private suspend fun handleShortcutAction(
             logger.info { "Navigating to ABS import: ${action.importId}" }
             resetToShell()
             backStack.add(AdminBackups)
-            backStack.add(ABSImportDetail(action.importId))
+            backStack.add(ImportFlow)
         }
     }
 }
