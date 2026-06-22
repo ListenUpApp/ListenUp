@@ -100,7 +100,6 @@ val platformModule: Module =
         single {
             ProgressTracker(
                 downloadRepository = get(),
-                listeningEventRepository = get(),
                 positionRepository = get(),
                 scope = get(qualifier = named("playbackScope")),
             )

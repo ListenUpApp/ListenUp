@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.test.fake
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.playback.ProgressTracker
 import kotlinx.coroutines.CoroutineScope
@@ -23,12 +22,10 @@ import kotlinx.coroutines.CoroutineScope
  */
 class FakeProgressTracker(
     downloadRepository: DownloadRepository,
-    listeningEventRepository: ListeningEventRepository,
     positionRepository: PlaybackPositionRepository,
     scope: CoroutineScope,
 ) : ProgressTracker(
         downloadRepository = downloadRepository,
-        listeningEventRepository = listeningEventRepository,
         positionRepository = positionRepository,
         scope = scope,
     ) {

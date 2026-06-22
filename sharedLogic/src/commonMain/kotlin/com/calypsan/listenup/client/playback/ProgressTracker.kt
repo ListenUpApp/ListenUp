@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
-import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -14,7 +13,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.getAndUpdate
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
@@ -22,18 +20,12 @@ import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 
-/** Minimum elapsed playback within a chunk before it is recorded as a listening event. */
-private const val MIN_LISTENING_CHUNK_MS = 10_000L
-
 /**
- * Coordinates position persistence and event recording.
+ * Coordinates position persistence and playback-session tracking.
  *
- * Two separate concerns:
- * 1. Position persistence (local-first, instant) - never lose user's place
- * 2. Event recording (append-only, eventually consistent) - listening history
- *
- * Position is sacred: saves immediately on every pause/seek.
- * Events are queued locally via the unified push sync system.
+ * Position is sacred: saves immediately on every pause/seek. Listening-event
+ * history is owned exclusively by the canonical P2 path
+ * ([ListeningEventRecorder]) — this tracker never records listening events.
  *
  * Note on `open`: this class (and its overridable methods below) are `open`
  * solely so seam-level tests can substitute a hand-rolled
@@ -44,7 +36,6 @@ private const val MIN_LISTENING_CHUNK_MS = 10_000L
  */
 open class ProgressTracker(
     private val downloadRepository: DownloadRepository,
-    private val listeningEventRepository: ListeningEventRepository,
     private val positionRepository: PlaybackPositionRepository,
     private val scope: CoroutineScope,
 ) {
@@ -63,8 +54,6 @@ open class ProgressTracker(
         _sessionState.value =
             SessionState.Active(
                 bookId = bookId,
-                chunkStartPositionMs = positionMs,
-                chunkStartedAt = now,
                 playbackStartPositionMs = positionMs,
                 playbackStartedAt = now,
                 speed = speed,
@@ -98,7 +87,7 @@ open class ProgressTracker(
 
     /**
      * Called when playback pauses/stops.
-     * Saves position immediately, queues event for sync.
+     * Saves position immediately.
      */
     open fun onPlaybackPaused(
         bookId: BookId,
@@ -108,13 +97,11 @@ open class ProgressTracker(
         val now = Clock.System.now().toEpochMilliseconds()
 
         // Atomic transition: Active(matching bookId) -> Paused; else no-op
-        val priorState = _sessionState.value // capture for side effects below
+        val priorState = _sessionState.value // capture for transition logging
         _sessionState.update { current ->
             if (current is SessionState.Active && current.bookId == bookId) {
                 SessionState.Paused(
                     bookId = current.bookId,
-                    chunkStartPositionMs = current.chunkStartPositionMs,
-                    chunkStartedAt = current.chunkStartedAt,
                     playbackStartPositionMs = current.playbackStartPositionMs,
                     playbackStartedAt = current.playbackStartedAt,
                     pausedAt = now,
@@ -128,23 +115,8 @@ open class ProgressTracker(
         logPausedTransition(bookId, positionMs, priorState)
 
         scope.launch {
-            // CONCERN 1: Save position immediately
+            // Save position immediately
             savePosition(bookId, positionMs, speed)
-
-            // CONCERN 2: Queue listening event (if meaningful session)
-            if (priorState is SessionState.Active && priorState.bookId == bookId) {
-                val chunkDurationMs = positionMs - priorState.chunkStartPositionMs
-                if (chunkDurationMs >= MIN_LISTENING_CHUNK_MS) {
-                    queueListeningEvent(
-                        bookId = bookId,
-                        startPositionMs = priorState.chunkStartPositionMs,
-                        endPositionMs = positionMs,
-                        startedAt = priorState.chunkStartedAt,
-                        endedAt = now,
-                        playbackSpeed = priorState.speed,
-                    )
-                }
-            }
         }
     }
 
@@ -175,8 +147,7 @@ open class ProgressTracker(
 
     /**
      * Called periodically during playback (every 30 seconds).
-     * Updates local position AND flushes the current session as a listening event.
-     * This enables real-time stats updates during playback.
+     * Updates local position so the user's place is never lost.
      */
     fun onPositionUpdate(
         bookId: BookId,
@@ -186,36 +157,6 @@ open class ProgressTracker(
         scope.launch {
             // Save position locally
             savePosition(bookId, positionMs, speed)
-
-            val state = _sessionState.value
-            if (state is SessionState.Active && state.bookId == bookId) {
-                val chunkDurationMs = positionMs - state.chunkStartPositionMs
-                if (chunkDurationMs >= MIN_LISTENING_CHUNK_MS) {
-                    val now = Clock.System.now().toEpochMilliseconds()
-                    queueListeningEvent(
-                        bookId = bookId,
-                        startPositionMs = state.chunkStartPositionMs,
-                        endPositionMs = positionMs,
-                        startedAt = state.chunkStartedAt,
-                        endedAt = now,
-                        playbackSpeed = state.speed,
-                    )
-                    // Atomic chunk-window advance: only update if state is still Active for the same book.
-                    // If a concurrent onPlaybackPaused / onBookFinished / onPlaybackStarted has changed
-                    // state, leave the new state in place — the chunk has already been recorded.
-                    _sessionState.update { current ->
-                        if (current is SessionState.Active && current.bookId == bookId) {
-                            current.copy(
-                                chunkStartPositionMs = positionMs,
-                                chunkStartedAt = now,
-                                speed = speed,
-                            )
-                        } else {
-                            current
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -353,22 +294,10 @@ open class ProgressTracker(
         bookId: BookId,
         finalPositionMs: Long,
     ) {
-        val priorState = _sessionState.getAndUpdate { _ -> SessionState.Idle }
+        _sessionState.update { _ -> SessionState.Idle }
 
         scope.launch {
             logger.info { "Book finished: ${bookId.value}, finalPosition=$finalPositionMs" }
-
-            // Record listening-event chunk if Active for this book
-            if (priorState is SessionState.Active && priorState.bookId == bookId) {
-                queueListeningEvent(
-                    bookId = bookId,
-                    startPositionMs = priorState.chunkStartPositionMs,
-                    endPositionMs = finalPositionMs,
-                    startedAt = priorState.chunkStartedAt,
-                    endedAt = Clock.System.now().toEpochMilliseconds(),
-                    playbackSpeed = priorState.speed,
-                )
-            }
 
             // Clear any DELETED download records so future playback will auto-download again
             // This means that the next time a user wants to listen to the same book. We assume
@@ -432,62 +361,4 @@ open class ProgressTracker(
             is SessionState.Paused -> s.speed
             SessionState.Idle -> 1.0f
         }
-
-    /**
-     * Validate and delegate a listening event to [ListeningEventRepository].
-     *
-     * Position validation is applied here (not in the repository) because ProgressTracker
-     * owns the "what counts as a valid event" decision at the playback layer. The repository
-     * owns atomicity of the write, not event semantics.
-     */
-    private suspend fun queueListeningEvent(
-        bookId: BookId,
-        startPositionMs: Long,
-        endPositionMs: Long,
-        startedAt: Long,
-        endedAt: Long,
-        playbackSpeed: Float,
-    ) {
-        // Validate positions to prevent corrupted events.
-        // Max reasonable audiobook position: 7 days worth of audio (168 hours).
-        val maxReasonablePositionMs = 7L * 24 * 60 * 60 * 1000 // ~604,800,000ms
-        if (endPositionMs < 0 || endPositionMs > maxReasonablePositionMs) {
-            logger.error {
-                "🎧 REJECTING CORRUPTED EVENT: book=${bookId.value}, " +
-                    "endPositionMs=$endPositionMs is invalid (expected 0-$maxReasonablePositionMs)"
-            }
-            return
-        }
-        if (startPositionMs < 0 || startPositionMs > endPositionMs) {
-            logger.error {
-                "🎧 REJECTING CORRUPTED EVENT: book=${bookId.value}, " +
-                    "startPositionMs=$startPositionMs is invalid (expected 0-$endPositionMs)"
-            }
-            return
-        }
-
-        when (
-            val result =
-                listeningEventRepository.queueListeningEvent(
-                    bookId = bookId,
-                    startPositionMs = startPositionMs,
-                    endPositionMs = endPositionMs,
-                    startedAt = startedAt,
-                    endedAt = endedAt,
-                    playbackSpeed = playbackSpeed,
-                )
-        ) {
-            is AppResult.Success -> {
-                logger.info {
-                    "🎧 EVENT QUEUED: book=${bookId.value}, start=$startPositionMs, end=$endPositionMs"
-                }
-            }
-
-            is AppResult.Failure -> {
-                logger.warn {
-                    "🎧 FAILED TO QUEUE EVENT: book=${bookId.value}: ${result.error.message}"
-                }
-            }
-        }
-    }
 }

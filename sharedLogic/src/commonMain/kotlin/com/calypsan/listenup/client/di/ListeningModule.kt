@@ -12,7 +12,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import org.koin.core.module.Module
-import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.module
 
@@ -27,7 +26,6 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.PlaybackPositionDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.TransactionRunner] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
- *  - [String] (named `"deviceId"`) — platform playback modules
  *  - [com.calypsan.listenup.client.data.sync.PendingOperationQueue] — `clientSyncRenovationModule`
  */
 val listeningModule: Module =
@@ -46,20 +44,12 @@ val listeningModule: Module =
             )
         }
 
-        // ListeningEventRepository — transactional write (upsert + pending-op) + DAO read surface.
-        // TODO(P2-session): Replace userId placeholder with the authenticated user ID from the
-        //  active session once the P2 session-context DI binding lands. For now we use the
-        //  deviceId as a stable surrogate so that existing events can be distinguished by device.
+        // ListeningEventRepository — read-only DAO surface for stats/leaderboard.
+        // Listening-event writes are owned by the P2 canonical recording path
+        // (ListeningEventRecorder, bound below).
         single<ListeningEventRepository> {
             ListeningEventRepositoryImpl(
                 listeningEventDao = get(),
-                transactionRunner = get(),
-                userId = get(qualifier = named("deviceId")),
-                tz =
-                    kotlinx.datetime.TimeZone
-                        .currentSystemDefault()
-                        .id,
-                deviceLabel = null,
             )
         }
 

@@ -167,11 +167,10 @@ val playbackModule =
         single { AndroidAudioTokenProvider(core = get()) }
         single<AudioTokenProvider> { get<AndroidAudioTokenProvider>() }
 
-        // Progress tracker for position persistence and event recording
+        // Progress tracker for position persistence and playback-session tracking
         single {
             ProgressTracker(
                 downloadRepository = get(),
-                listeningEventRepository = get(),
                 positionRepository = get(),
                 scope = get(),
             )

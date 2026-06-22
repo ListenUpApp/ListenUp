@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.test.fake
 
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.repository.toDomain
 import com.calypsan.listenup.client.domain.model.BookListeningDuration
@@ -13,52 +11,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 
 /**
- * In-memory fake of [ListeningEventRepository].
+ * In-memory fake of the read-only [ListeningEventRepository].
  *
  * Backed by a [MutableStateFlow] of [ListeningEventEntity] so reactive
- * `observe*` methods emit on every [queueListeningEvent] call — matching the
+ * `observe*` methods emit on every [setEvents] call — matching the
  * read-after-write semantics of the Room-backed implementation.
  *
  * Mapping from entity to domain is delegated to the canonical `toDomain()` extension
  * defined in [com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl].
- *
- * [queueCount] is exposed for tests that care about how many events were queued
- * without examining the emitted flows.
  */
 internal class FakeListeningEventRepository(
     initialEvents: List<ListeningEventEntity> = emptyList(),
 ) : ListeningEventRepository {
     private val events = MutableStateFlow(initialEvents)
-
-    /** Number of times [queueListeningEvent] was called successfully. */
-    var queueCount: Int = 0
-        private set
-
-    override suspend fun queueListeningEvent(
-        bookId: BookId,
-        startPositionMs: Long,
-        endPositionMs: Long,
-        startedAt: Long,
-        endedAt: Long,
-        playbackSpeed: Float,
-    ): AppResult<Unit> {
-        val entity =
-            ListeningEventEntity(
-                id = "fake-evt-${queueCount + 1}",
-                userId = "fake-user",
-                bookId = bookId.value,
-                startPositionMs = startPositionMs,
-                endPositionMs = endPositionMs,
-                startedAt = startedAt,
-                endedAt = endedAt,
-                playbackSpeed = playbackSpeed,
-                tz = "UTC",
-                deviceLabel = null,
-            )
-        events.value = events.value + entity
-        queueCount++
-        return AppResult.Success(Unit)
-    }
 
     override fun observeEventsForBook(bookId: String): Flow<List<ListeningEvent>> =
         events.asStateFlow().map { list -> list.filter { it.bookId == bookId }.map { it.toDomain() } }

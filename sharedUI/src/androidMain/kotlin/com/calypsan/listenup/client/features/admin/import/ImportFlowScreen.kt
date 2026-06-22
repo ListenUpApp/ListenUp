@@ -58,6 +58,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.AbsItemRef
 import com.calypsan.listenup.api.dto.imports.AbsUserMatch
@@ -127,14 +129,12 @@ import listenup.composeapp.generated.resources.import_stat_users_merged
 import listenup.composeapp.generated.resources.import_to_review_count
 import listenup.composeapp.generated.resources.import_uploading_subtitle
 import listenup.composeapp.generated.resources.import_uploading_title
-import listenup.composeapp.generated.resources.import_user_accept_suggestion
 import listenup.composeapp.generated.resources.import_user_assign
 import listenup.composeapp.generated.resources.import_user_assigned_to
 import listenup.composeapp.generated.resources.import_user_needs_review
 import listenup.composeapp.generated.resources.import_user_pick_user
 import listenup.composeapp.generated.resources.import_user_skip
 import listenup.composeapp.generated.resources.import_user_skipped
-import listenup.composeapp.generated.resources.import_user_suggested
 import listenup.composeapp.generated.resources.import_users_in_backup
 import listenup.composeapp.generated.resources.import_writing_current_item
 import listenup.composeapp.generated.resources.import_writing_history_subtitle
@@ -143,6 +143,9 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 
 private val CONTENT_MAX_WIDTH = 560.dp
+
+// Extra bottom clearance when the floating mini-player pill is visible on detail routes.
+private val MiniPlayerClearance = 88.dp
 
 // Zero-based wizard step index for each progress phase, mapped onto the 4-step tracker.
 private const val STEP_UPLOAD = 0
@@ -167,8 +170,17 @@ private const val STEP_DONE = 3
 fun ImportFlowScreen(
     onNavigateBack: () -> Unit,
     viewModel: ImportFlowViewModel = koinViewModel(),
+    nowPlayingViewModel: NowPlayingViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    val miniPlayerBottomPadding =
+        if (nowPlayingScreenState.state is NowPlayingState.Active) {
+            MiniPlayerClearance
+        } else {
+            0
+                .dp
+        }
 
     // The file picker is declared here (at the screen level) so the composable lifecycle
     // that wires the ActivityResult launcher is stable across all phases. It is only
@@ -185,7 +197,8 @@ fun ImportFlowScreen(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(paddingValues)
+                    .padding(bottom = miniPlayerBottomPadding),
         ) {
             FlowHero(state = uiState, onBack = onNavigateBack)
             CenteredColumn {
@@ -344,7 +357,7 @@ private fun IdleContent(onChooseFile: () -> Unit) {
         Spacer(Modifier.height(24.dp))
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
+            shape = MaterialTheme.shapes.large,
             color = MaterialTheme.colorScheme.surfaceContainerLow,
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
@@ -535,7 +548,6 @@ private fun ReviewContent(
                     assignedUserId = state.userMappings[match.absUserId],
                     isSkipped = state.skippedUsers.contains(match.absUserId),
                     listenupUsers = state.listenupUsers,
-                    onAcceptSuggestion = { suggestedId -> onSetUserMapping(match.absUserId, suggestedId) },
                     onAssign = { pickedUser -> onSetUserMapping(match.absUserId, UserId(pickedUser.id)) },
                     onSkip = { onSkipUser(match.absUserId) },
                 )
@@ -638,7 +650,6 @@ private fun UserMatchCard(
     assignedUserId: UserId?,
     isSkipped: Boolean,
     listenupUsers: List<AdminUserInfo>,
-    onAcceptSuggestion: (UserId) -> Unit,
     onAssign: (AdminUserInfo) -> Unit,
     onSkip: () -> Unit,
 ) {
@@ -648,7 +659,7 @@ private fun UserMatchCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color =
             when {
                 isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
@@ -667,9 +678,7 @@ private fun UserMatchCard(
                 AssignedToRow(label = assignedUser?.displayableName ?: assignedUserId.value)
             } else if (!isSkipped) {
                 UnresolvedUserActions(
-                    match = match,
                     listenupUsers = listenupUsers,
-                    onAcceptSuggestion = onAcceptSuggestion,
                     onAssign = onAssign,
                     onSkip = onSkip,
                 )
@@ -765,20 +774,10 @@ private fun AssignedToRow(label: String) {
 
 @Composable
 private fun UnresolvedUserActions(
-    match: AbsUserMatch,
     listenupUsers: List<AdminUserInfo>,
-    onAcceptSuggestion: (UserId) -> Unit,
     onAssign: (AdminUserInfo) -> Unit,
     onSkip: () -> Unit,
 ) {
-    val suggestedUserId = match.suggestedUserId
-    if (suggestedUserId != null) {
-        UserSuggestionRow(
-            suggestedId = suggestedUserId,
-            listenupUsers = listenupUsers,
-            onAccept = onAcceptSuggestion,
-        )
-    }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         UserAssignDropdown(listenupUsers = listenupUsers, onAssign = onAssign, modifier = Modifier.weight(1f))
         ListenUpButton(
@@ -787,47 +786,6 @@ private fun UnresolvedUserActions(
             leadingIcon = Icons.Outlined.Block,
             filled = false,
             modifier = Modifier.weight(1f),
-        )
-    }
-}
-
-@Composable
-private fun UserSuggestionRow(
-    suggestedId: UserId,
-    listenupUsers: List<AdminUserInfo>,
-    onAccept: (UserId) -> Unit,
-) {
-    val suggestedUser = listenupUsers.find { it.id == suggestedId.value }
-    val suggestionLabel = suggestedUser?.displayableName ?: suggestedId.value
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clip(MaterialTheme.shapes.large)
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = Icons.Outlined.AutoAwesome,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = stringResource(Res.string.import_user_suggested, suggestionLabel),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        ListenUpButton(
-            text = stringResource(Res.string.import_user_accept_suggestion),
-            onClick = { onAccept(suggestedId) },
-            leadingIcon = Icons.Filled.Check,
-            fillMaxWidth = false,
         )
     }
 }
@@ -913,7 +871,7 @@ private fun BookReviewCard(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color =
             when {
                 isSkipped -> MaterialTheme.colorScheme.surfaceContainerLowest
@@ -1084,7 +1042,7 @@ private fun ApplyingContent(state: ImportFlowUiState.Applying) {
             Spacer(Modifier.height(20.dp))
             Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.extraLarge,
+                shape = MaterialTheme.shapes.large,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
