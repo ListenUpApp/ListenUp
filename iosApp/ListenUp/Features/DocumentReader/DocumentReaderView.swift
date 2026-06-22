@@ -2,31 +2,39 @@ import PDFKit
 import SwiftUI
 
 /// Full-screen basic PDF reader: a glass top bar (Done · title · format), the PDF body,
-/// and a "Page X of Y" overlay. Shows an error state instead of a blank view when the
-/// file can't be parsed. Presented via `.fullScreenCover(item:)` with a `ReaderDocument`.
+/// and a "Page X of Y" overlay. Loads the document once; shows an error state instead of a
+/// blank view when the file can't be parsed. Presented via `.fullScreenCover(item:)` with a
+/// `ReaderDocument`.
 struct DocumentReaderView: View {
     let document: ReaderDocument
     var onDone: () -> Void
 
+    @State private var pdfDocument: PDFDocument?
+    @State private var didAttemptLoad = false
     @State private var currentPageIndex = 0
-    @State private var pageCount = 0
 
-    private var canRender: Bool { PDFDocument(url: document.url) != nil }
+    private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
 
     var body: some View {
         ZStack {
             Color(.systemBackground).ignoresSafeArea()
 
-            if canRender {
-                PDFKitView(url: document.url, currentPageIndex: $currentPageIndex, pageCount: $pageCount)
+            if let pdfDocument {
+                PDFKitView(document: pdfDocument, currentPageIndex: $currentPageIndex)
                     .ignoresSafeArea(edges: .bottom)
-            } else {
+            } else if didAttemptLoad {
                 errorState
+            } else {
+                ProgressView()
             }
+        }
+        .task {
+            pdfDocument = PDFDocument(url: document.url)
+            didAttemptLoad = true
         }
         .safeAreaInset(edge: .top) { topBar }
         .overlay(alignment: .bottom) {
-            if canRender, pageCount > 0 { pageIndicator }
+            if pdfDocument != nil, pageCount > 0 { pageIndicator }
         }
     }
 
@@ -35,13 +43,13 @@ struct DocumentReaderView: View {
             Button(String(localized: "common.done"), action: onDone)
                 .font(.body.weight(.semibold))
             Spacer()
+        }
+        .overlay {
             VStack(spacing: 1) {
                 Text(document.title).font(.subheadline.weight(.semibold)).lineLimit(1)
                 Text("PDF").font(.caption2).foregroundStyle(.secondary)
             }
-            Spacer()
-            // Symmetry spacer so the title stays centered.
-            Button(String(localized: "common.done"), action: {}).opacity(0).disabled(true)
+            .padding(.horizontal, 60)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
