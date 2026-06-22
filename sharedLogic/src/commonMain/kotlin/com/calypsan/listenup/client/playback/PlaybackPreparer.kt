@@ -5,9 +5,11 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
+import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
+import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
@@ -53,6 +55,7 @@ data class PreparedPlayback(
     val chapters: List<Chapter>,
     val bookTitle: String,
     val bookAuthor: String,
+    val bookNarrator: String,
     val seriesName: String?,
     val coverPath: String?,
     val resumePositionMs: Long,
@@ -121,6 +124,7 @@ class PlaybackPreparer internal constructor(
         val book = bookWithContributors.book
 
         val bookAuthor = deriveAuthorName(bookWithContributors)
+        val bookNarrator = deriveNarratorName(bookWithContributors)
 
         // Get series name (first series if multiple)
         val seriesName = bookWithContributors.series.firstOrNull()?.name
@@ -224,6 +228,7 @@ class PlaybackPreparer internal constructor(
             chapters = chapters,
             bookTitle = book.title,
             bookAuthor = bookAuthor,
+            bookNarrator = bookNarrator,
             seriesName = seriesName,
             coverPath = coverPath,
             resumePositionMs = resumePositionMs,
@@ -233,21 +238,25 @@ class PlaybackPreparer internal constructor(
 
     /**
      * Derive the comma-joined author display name from the book's contributor
-     * roles, preferring `creditedAs` over the contributor's canonical name for
-     * proper attribution. Falls back to "Unknown Author" when no author is found.
+     * roles. Falls back to "Unknown Author" when no author is found.
      */
-    private fun deriveAuthorName(bookWithContributors: BookWithContributors): String {
-        val contributorsById = bookWithContributors.contributors.associateBy { it.id }
-        val authorNames =
-            bookWithContributors.contributorRoles
-                .filter { it.role == ContributorRole.AUTHOR.apiValue }
-                .mapNotNull { crossRef ->
-                    contributorsById[crossRef.contributorId]?.let { entity ->
-                        crossRef.creditedAs ?: entity.name
-                    }
-                }.distinct()
-        return authorNames.joinToString(", ").ifEmpty { "Unknown Author" }
-    }
+    private fun deriveAuthorName(bookWithContributors: BookWithContributors): String =
+        joinContributorNames(
+            bookWithContributors.contributors,
+            bookWithContributors.contributorRoles,
+            ContributorRole.AUTHOR,
+        ).ifEmpty { "Unknown Author" }
+
+    /**
+     * Derive the comma-joined narrator display name, or an empty string when the
+     * book has no narrator — the player hides the "Narrated by" line in that case.
+     */
+    private fun deriveNarratorName(bookWithContributors: BookWithContributors): String =
+        joinContributorNames(
+            bookWithContributors.contributors,
+            bookWithContributors.contributorRoles,
+            ContributorRole.NARRATOR,
+        )
 
     /**
      * Log per-file diagnostics for [audioFiles], flagging invalid (≤0) and
@@ -429,3 +438,26 @@ private fun AudioFileEntity.toAudioFileResponse(): AudioFileResponse =
         duration = duration,
         size = size,
     )
+
+/**
+ * Comma-join the display names of the [contributors] credited with [role] on a
+ * book, preferring each cross-ref's `creditedAs` (alias attribution) over the
+ * contributor's canonical name. Returns an empty string when no contributor holds
+ * the role. Pure — split out from [PlaybackPreparer] so it is unit-testable
+ * without a database.
+ */
+internal fun joinContributorNames(
+    contributors: List<ContributorEntity>,
+    contributorRoles: List<BookContributorCrossRef>,
+    role: ContributorRole,
+): String {
+    val contributorsById = contributors.associateBy { it.id }
+    return contributorRoles
+        .filter { it.role == role.apiValue }
+        .mapNotNull { crossRef ->
+            contributorsById[crossRef.contributorId]?.let { entity ->
+                crossRef.creditedAs ?: entity.name
+            }
+        }.distinct()
+        .joinToString(", ")
+}
