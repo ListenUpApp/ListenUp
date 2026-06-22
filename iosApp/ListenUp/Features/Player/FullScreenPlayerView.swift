@@ -79,6 +79,12 @@ struct FullScreenPlayerView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        .fullScreenCover(item: Binding(
+            get: { observer.documentToOpen },
+            set: { observer.documentToOpen = $0 }
+        )) { doc in
+            DocumentReaderView(document: doc, onDone: { observer.documentToOpen = nil })
+        }
     }
 
     // MARK: - Layout
@@ -191,6 +197,11 @@ struct FullScreenPlayerView: View {
             Menu {
                 Button(action: onViewDetails) {
                     Label(String(localized: "player.go_to_book"), systemImage: "book")
+                }
+                if observer.firstPdfDocId != nil {
+                    Button(action: { observer.openCurrentBookPdf() }) {
+                        Label(String(localized: "player.open_pdf"), systemImage: "doc.richtext")
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis")

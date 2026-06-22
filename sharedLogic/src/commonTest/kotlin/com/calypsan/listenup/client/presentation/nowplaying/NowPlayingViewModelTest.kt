@@ -1,9 +1,12 @@
 package com.calypsan.listenup.client.presentation.nowplaying
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.NowPlayingOverlay
@@ -15,6 +18,7 @@ import com.calypsan.listenup.client.playback.PlaybackManager.PrepareResult
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.SleepTimerMode
 import com.calypsan.listenup.client.playback.SleepTimerState
+import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
 import com.calypsan.listenup.client.test.fake.FakePlaybackManager
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
@@ -28,10 +32,12 @@ import dev.mokkery.verifySuspend
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import app.cash.turbine.test
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -64,6 +70,7 @@ class NowPlayingViewModelTest :
             val playbackController: PlaybackController = mock()
             val playbackPreferences: PlaybackPreferences = mock()
             val networkMonitor: NetworkMonitor = mock()
+            val documentRepository: DocumentRepository = mock()
             val sleepTimerManager: SleepTimerManager = SleepTimerManager(CoroutineScope(Job()))
 
             init {
@@ -76,6 +83,8 @@ class NowPlayingViewModelTest :
                 // Default: bookRepository.getBookListItem returns null (no metadata).
                 // bookFlow tolerates null; pure mapToNowPlayingState handles it.
                 everySuspend { bookRepository.getBookListItem(any()) } returns null
+                // Default: documentRepository.observeDocuments returns empty list (no documents).
+                every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 // NowPlayingViewModel's init block calls playbackController.acquire() to
                 // establish the MediaController connection. Mokkery is strict by default
                 // and would raise CallNotMockedException without this stub.
@@ -90,6 +99,7 @@ class NowPlayingViewModelTest :
                     playbackController = playbackController,
                     playbackPreferences = playbackPreferences,
                     networkMonitor = networkMonitor,
+                    documentRepository = documentRepository,
                 )
         }
 
@@ -612,6 +622,87 @@ class NowPlayingViewModelTest :
                 }
                 withClue("expected collapsed after closeBook") {
                     !vm.screenState.value.isExpanded shouldBe true
+                }
+            }
+        }
+
+        // ========== firstPdfDocId ==========
+
+        test("firstPdfDocId is null when the book has no pdf documents") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                val docsFlow = MutableStateFlow<List<BookDocument>>(emptyList())
+                every { fixture.documentRepository.observeDocuments(bookId) } returns docsFlow
+                fixture.fakePm.activateBook(bookId)
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.firstPdfDocId.collect {} }
+                advanceUntilIdle()
+
+                withClue("no pdf docs → firstPdfDocId must be null; got: ${vm.firstPdfDocId.value}") {
+                    vm.firstPdfDocId.value shouldBe null
+                }
+            }
+        }
+
+        test("firstPdfDocId returns first pdf doc id when book has pdf documents") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                val pdfDoc =
+                    BookDocument(
+                        id = "doc-pdf-1",
+                        index = 0,
+                        filename = "guide.pdf",
+                        format = "pdf",
+                        size = 1_000L,
+                        hash = "abc123",
+                    )
+                val docsFlow = MutableStateFlow(listOf(pdfDoc))
+                every { fixture.documentRepository.observeDocuments(bookId) } returns docsFlow
+                fixture.fakePm.activateBook(bookId)
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.firstPdfDocId.collect {} }
+                advanceUntilIdle()
+
+                withClue("pdf doc present → firstPdfDocId must be doc-pdf-1; got: ${vm.firstPdfDocId.value}") {
+                    vm.firstPdfDocId.value shouldBe "doc-pdf-1"
+                }
+            }
+        }
+
+        test("onOpenCurrentPdf emits OpenDocumentViewer nav action on success") {
+            runTest(testDispatcher) {
+                val fixture = TestFixture()
+                val bookId = BookId("book-1")
+                val docId = "doc-pdf-1"
+                val localPath = "/cache/books/book-1/doc-pdf-1.pdf"
+                val pdfDoc =
+                    BookDocument(
+                        id = docId,
+                        index = 0,
+                        filename = "guide.pdf",
+                        format = "pdf",
+                        size = 1_000L,
+                        hash = "abc123",
+                    )
+                every { fixture.documentRepository.observeDocuments(bookId) } returns MutableStateFlow(listOf(pdfDoc))
+                everySuspend { fixture.documentRepository.ensureLocal(bookId, docId) } returns AppResult.Success(localPath)
+                fixture.fakePm.activateBook(bookId)
+
+                val vm = fixture.newVm()
+                backgroundScope.launch { vm.firstPdfDocId.collect {} }
+                advanceUntilIdle()
+
+                vm.navActions.test {
+                    vm.onOpenCurrentPdf()
+                    advanceUntilIdle()
+                    val action = awaitItem()
+                    withClue("expected OpenDocumentViewer($localPath); got: $action") {
+                        (action is NowPlayingNavAction.OpenDocumentViewer && action.localPath == localPath) shouldBe true
+                    }
                 }
             }
         }

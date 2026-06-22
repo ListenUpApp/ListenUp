@@ -2401,6 +2401,16 @@
         }
       }
     },
+    "book.detail_document_meta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
     "book.detail_document_viewer_coming_soon": {
       "localizations": {
         "en": {
@@ -8921,6 +8931,16 @@
         }
       }
     },
+    "library.has_documents_badge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Has supplementary material"
+          }
+        }
+      }
+    },
     "library.ignoring_articles": {
       "localizations": {
         "en": {
@@ -10507,6 +10527,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Now playing"
+          }
+        }
+      }
+    },
+    "player.open_pdf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open PDF"
           }
         }
       }

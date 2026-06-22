@@ -3,10 +3,12 @@ package com.calypsan.listenup.client.presentation.nowplaying
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.ContributorPickerType
@@ -25,6 +27,7 @@ import com.calypsan.listenup.client.playback.mapToPlaybackProgress
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +38,9 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -71,6 +77,7 @@ class NowPlayingViewModel(
     private val playbackController: PlaybackController,
     private val playbackPreferences: PlaybackPreferences,
     private val networkMonitor: NetworkMonitor,
+    private val documentRepository: DocumentRepository,
 ) : ViewModel() {
     private companion object {
         const val FADE_DURATION_MS = 3000L
@@ -83,6 +90,34 @@ class NowPlayingViewModel(
 
     private val overlayFlow = MutableStateFlow<NowPlayingOverlay>(NowPlayingOverlay.None)
     private val isExpandedFlow = MutableStateFlow(false)
+
+    private val _navActions = Channel<NowPlayingNavAction>(Channel.BUFFERED)
+
+    /** One-shot navigation events — the host collects these to trigger platform navigation. */
+    val navActions: Flow<NowPlayingNavAction> = _navActions.receiveAsFlow()
+
+    /**
+     * The id of the first PDF document for the currently-playing book, or null when the book has
+     * none. Switches automatically when the playing book changes via [flatMapLatest].
+     *
+     * Used to gate the "Open PDF" overflow menu item in [PlayerTopBar].
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val firstPdfDocId: StateFlow<String?> =
+        playbackManager.currentBookId
+            .flatMapLatest { bookId ->
+                if (bookId == null) {
+                    flowOf(null)
+                } else {
+                    documentRepository
+                        .observeDocuments(bookId)
+                        .map { docs -> docs.firstOrNull { it.format == "pdf" }?.id }
+                }
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = null,
+            )
 
     /** Reactive book metadata for the current book id. One-shot fetch on bookId change via flatMapLatest. */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -309,6 +344,30 @@ class NowPlayingViewModel(
     // === Book actions ===
 
     /**
+     * Open the first PDF document for the currently-playing book.
+     *
+     * Downloads the file if not already cached, then emits [NowPlayingNavAction.OpenDocumentViewer]
+     * with the local path. Emits nothing if there is no current book or no PDF document.
+     */
+    fun onOpenCurrentPdf() {
+        val bookId = playbackManager.currentBookId.value ?: return
+        val docId = firstPdfDocId.value ?: return
+        viewModelScope.launch {
+            when (val result = documentRepository.ensureLocal(bookId, docId)) {
+                is AppResult.Success -> {
+                    _navActions.trySend(NowPlayingNavAction.OpenDocumentViewer(result.data))
+                }
+
+                is AppResult.Failure -> {
+                    logger.error {
+                        "Failed to open PDF $docId for book $bookId: ${result.error.message}"
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * Close the book entirely - stops playback and clears state.
      */
     fun closeBook() {
@@ -468,4 +527,21 @@ class NowPlayingViewModel(
 
     /** Snapshot of the current book's chapters (non-reactive; for one-shot reads). */
     val chapters: List<Chapter> get() = playbackManager.chapters.value
+}
+
+/**
+ * One-shot navigation events emitted by [NowPlayingViewModel].
+ *
+ * Consumed once at the host entry point via [NowPlayingViewModel.navActions].
+ */
+sealed interface NowPlayingNavAction {
+    /**
+     * Open the in-app document viewer for the given local file.
+     *
+     * @param localPath Absolute path to the cached document file on disk, as returned
+     *   by [DocumentRepository.ensureLocal].
+     */
+    data class OpenDocumentViewer(
+        val localPath: String,
+    ) : NowPlayingNavAction
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,7 @@ import com.calypsan.listenup.client.features.shell.components.NavigationBarHeigh
 import com.calypsan.listenup.client.playback.ContributorPickerType
 import com.calypsan.listenup.client.playback.NowPlayingOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.SleepTimerState
 
@@ -51,11 +53,22 @@ fun NowPlayingHost(
     onNavigateToBook: (String) -> Unit,
     onNavigateToSeries: (String) -> Unit,
     onNavigateToContributor: (String) -> Unit,
+    onNavigateToDocument: (localPath: String) -> Unit,
     viewModel: NowPlayingViewModel,
     modifier: Modifier = Modifier,
 ) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
     val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val firstPdfDocId by viewModel.firstPdfDocId.collectAsStateWithLifecycle()
+
+    // Consume one-shot navigation events from the ViewModel.
+    LaunchedEffect(viewModel) {
+        viewModel.navActions.collect { action ->
+            when (action) {
+                is NowPlayingNavAction.OpenDocumentViewer -> onNavigateToDocument(action.localPath)
+            }
+        }
+    }
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
@@ -119,6 +132,8 @@ fun NowPlayingHost(
                     onShowAuthorPicker = { viewModel.showContributorPicker(ContributorPickerType.AUTHORS) },
                     onShowNarratorPicker = { viewModel.showContributorPicker(ContributorPickerType.NARRATORS) },
                     onCloseBook = viewModel::closeBook,
+                    hasPdf = firstPdfDocId != null,
+                    onOpenPdf = viewModel::onOpenCurrentPdf,
                     isTv = isTv,
                 )
             }

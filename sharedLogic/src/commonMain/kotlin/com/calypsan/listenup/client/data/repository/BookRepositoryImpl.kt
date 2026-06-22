@@ -183,15 +183,22 @@ internal class BookRepositoryImpl(
         }
 
     override fun observeBookListItems(): Flow<List<BookListItem>> =
-        bookDao
-            .observeAllWithContributors()
-            // conflate BEFORE the map: during an initial-population burst the book table is
-            // invalidated once per inserted book, and re-mapping the whole library (a BookListItem +
-            // a blocking ImageStorage.exists cover stat per book) on every one is O(n²) allocation
-            // that exhausts the heap → OOM. Conflate collapses a burst into a single re-map of the
-            // latest snapshot; the UI still converges to the correct final list.
-            .conflate()
-            .map { rows -> rows.map { it.toListItem(imageStorage) } }
+        combine(
+            bookDao
+                .observeAllWithContributors()
+                // conflate BEFORE the combine: during an initial-population burst the book table is
+                // invalidated once per inserted book, and re-mapping the whole library (a BookListItem +
+                // a blocking ImageStorage.exists cover stat per book) on every one is O(n²) allocation
+                // that exhausts the heap → OOM. Conflate collapses a burst into a single re-map of the
+                // latest snapshot; the UI still converges to the correct final list.
+                .conflate(),
+            bookDao.observeBookIdsWithDocuments(),
+        ) { rows, docIds ->
+            val docIdSet = docIds.toSet()
+            // toListItem's per-book cover stat is blocking I/O — kept off Dispatchers.Main via
+            // the flowOn below; do not move this mapping into a non-IO context.
+            rows.map { it.toListItem(imageStorage, hasDocuments = it.book.id.value in docIdSet) }
+        }
             // toListItem's per-book cover stat is blocking I/O — keep it off the collector
             // (Dispatchers.Main for the Library screen), or a large library freezes the UI thread.
             .flowOn(IODispatcher)

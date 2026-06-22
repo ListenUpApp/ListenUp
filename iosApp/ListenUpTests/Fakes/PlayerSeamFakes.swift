@@ -86,3 +86,10 @@ final class FakePlaybackPreparing: PlaybackPreparing, @unchecked Sendable {
     var result: PreparedPlayback?
     func prepare(bookId: String) async -> PreparedPlayback? { result }
 }
+
+final class FakeBookDocumentProviding: BookDocumentProviding, @unchecked Sendable {
+    var pdfDocId: String?
+    var localPath: String?
+    func firstPdfDocId(bookId: String) async -> String? { pdfDocId }
+    func ensureLocalPath(bookId: String, docId: String) async -> String? { localPath }
+}

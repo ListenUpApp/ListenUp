@@ -61,6 +61,21 @@ struct BookDetailView: View {
                     .presentationDragIndicator(.visible)
             }
         }
+        .fullScreenCover(item: Binding(
+            get: { observer?.documentToOpen },
+            set: { if $0 == nil { observer?.dismissReader() } }
+        )) { doc in
+            DocumentReaderView(document: doc, onDone: { observer?.dismissReader() })
+        }
+        .alert(
+            String(localized: "book.detail_document_viewer_coming_soon"),
+            isPresented: Binding(
+                get: { observer?.showComingSoon ?? false },
+                set: { if !$0 { observer?.dismissComingSoon() } }
+            )
+        ) {
+            Button(String(localized: "common.ok"), role: .cancel) { observer?.dismissComingSoon() }
+        }
         .task(id: bookId) {
             guard observer == nil else { return }
             let vm = deps.createBookDetailViewModel()
@@ -130,6 +145,17 @@ struct BookDetailView: View {
 
                 Divider()
 
+                if !observer.documents.isEmpty {
+                    SupplementaryMaterialsSection(
+                        documents: observer.documents,
+                        openingDocIds: observer.openingDocIds,
+                        tint: observer.tint,
+                        onOpen: { observer.openDocument(docId: $0) }
+                    )
+
+                    Divider()
+                }
+
                 detailsSection(observer)
             }
             .padding(.horizontal)
@@ -176,6 +202,17 @@ struct BookDetailView: View {
                 BookChaptersSection(chapters: observer.chapters, tint: observer.tint)
 
                 Divider()
+
+                if !observer.documents.isEmpty {
+                    SupplementaryMaterialsSection(
+                        documents: observer.documents,
+                        openingDocIds: observer.openingDocIds,
+                        tint: observer.tint,
+                        onOpen: { observer.openDocument(docId: $0) }
+                    )
+
+                    Divider()
+                }
 
                 detailsSection(observer)
             }

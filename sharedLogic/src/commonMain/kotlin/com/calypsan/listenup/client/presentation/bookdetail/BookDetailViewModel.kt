@@ -31,6 +31,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -157,6 +158,16 @@ class BookDetailViewModel(
             .filterNotNull()
             .flatMapLatest { id -> documentRepository.observeDocuments(BookId(id)) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Document ids whose bytes are currently being fetched by [onOpenDocument].
+     *
+     * A document is added before [DocumentRepository.ensureLocal] and removed once it
+     * resolves — on success, failure, or cancellation. Lets the UI show a per-row
+     * spinner; the open flow itself is unchanged.
+     */
+    private val _openingDocumentIds = MutableStateFlow<Set<String>>(emptySet())
+    val openingDocumentIds: StateFlow<Set<String>> = _openingDocumentIds.asStateFlow()
 
     /**
      * Apply [transform] to state only if it is currently [BookDetailUiState.Ready].
@@ -572,15 +583,20 @@ class BookDetailViewModel(
             return
         }
         viewModelScope.launch {
-            when (val result = documentRepository.ensureLocal(BookId(bookId), docId)) {
-                is AppResult.Success -> {
-                    _navActions.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
-                }
+            _openingDocumentIds.update { it + docId }
+            try {
+                when (val result = documentRepository.ensureLocal(BookId(bookId), docId)) {
+                    is AppResult.Success -> {
+                        _navActions.trySend(BookDetailNavAction.OpenDocumentViewer(result.data))
+                    }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to open document $docId for book $bookId: ${result.error.message}" }
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to open document $docId for book $bookId: ${result.error.message}" }
+                    }
                 }
+            } finally {
+                _openingDocumentIds.update { it - docId }
             }
         }
     }

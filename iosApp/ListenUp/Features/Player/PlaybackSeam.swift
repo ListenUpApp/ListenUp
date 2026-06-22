@@ -86,3 +86,19 @@ enum SleepTimingState: Sendable, Equatable {
 protocol BookCoverProviding: Sendable {
     func coverBlurHash(bookId: String) async -> String?
 }
+
+/// Provides supplementary document metadata and on-demand local paths for a book.
+/// Used by `PlayerCoordinator` to show the "Open PDF" menu item and to download
+/// the file before handing it to `DocumentReaderView`.
+protocol BookDocumentProviding: Sendable {
+    /// Returns the id of the first PDF document for the given book, or `nil` if none.
+    func firstPdfDocId(bookId: String) async -> String?
+    /// Downloads the document if absent and returns its absolute local path, or `nil` on failure.
+    func ensureLocalPath(bookId: String, docId: String) async -> String?
+}
+
+/// No-op conformer used as the default for tests that don't inject a real provider.
+struct NoDocumentProviding: BookDocumentProviding {
+    func firstPdfDocId(bookId: String) async -> String? { nil }
+    func ensureLocalPath(bookId: String, docId: String) async -> String? { nil }
+}

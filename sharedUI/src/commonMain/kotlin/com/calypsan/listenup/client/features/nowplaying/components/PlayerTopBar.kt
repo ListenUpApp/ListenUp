@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
@@ -48,6 +49,7 @@ import listenup.composeapp.generated.resources.player_go_to_series
 import listenup.composeapp.generated.resources.player_more_options
 import listenup.composeapp.generated.resources.player_now_playing_overline
 import listenup.composeapp.generated.resources.player_now_playing_wide
+import listenup.composeapp.generated.resources.player_open_pdf
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -74,6 +76,8 @@ import org.jetbrains.compose.resources.stringResource
  * @param onShowAuthorPicker Called when "Go to Author…" is selected and there are multiple authors.
  * @param onShowNarratorPicker Called when "Go to Narrator…" is selected and there are multiple narrators.
  * @param onCloseBook Called when "Close Book" is selected.
+ * @param hasPdf When true, shows the "Open PDF" menu item in the overflow menu.
+ * @param onOpenPdf Called when "Open PDF" is selected from the overflow menu.
  * @param wide When true, renders the desktop-style header with overline + title column and cast
  *   button instead of the compact centred label. Default false.
  * @param modifier Optional layout modifier.
@@ -89,6 +93,8 @@ fun PlayerTopBar(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    hasPdf: Boolean = false,
+    onOpenPdf: () -> Unit = {},
     wide: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -113,6 +119,8 @@ fun PlayerTopBar(
                 onShowAuthorPicker = onShowAuthorPicker,
                 onShowNarratorPicker = onShowNarratorPicker,
                 onCloseBook = onCloseBook,
+                hasPdf = hasPdf,
+                onOpenPdf = onOpenPdf,
             )
         }
     }
@@ -251,6 +259,8 @@ private fun OverflowMenu(
     onShowAuthorPicker: () -> Unit,
     onShowNarratorPicker: () -> Unit,
     onCloseBook: () -> Unit,
+    hasPdf: Boolean = false,
+    onOpenPdf: () -> Unit = {},
 ) {
     DropdownMenu(
         expanded = expanded,
@@ -265,6 +275,18 @@ private fun OverflowMenu(
             },
             leadingIcon = { Icon(Icons.Default.Book, contentDescription = null) },
         )
+
+        // Open PDF — only when the current book has a PDF document.
+        if (hasPdf) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.player_open_pdf)) },
+                leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
+                onClick = {
+                    onOpenPdf()
+                    onDismiss()
+                },
+            )
+        }
 
         // Go to Series — only when the book belongs to a series.
         if (state.seriesId != null) {

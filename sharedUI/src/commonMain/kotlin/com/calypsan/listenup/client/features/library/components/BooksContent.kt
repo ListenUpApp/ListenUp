@@ -395,6 +395,7 @@ private fun BookGrid(
                             duration = gridItem.book.formatDuration(),
                             progress = bookProgress[gridItem.book.id],
                             isFinished = bookIsFinished[gridItem.book.id] ?: false,
+                            hasDocuments = gridItem.book.hasDocuments,
                             isInSelectionMode = isInSelectionMode,
                             isSelected = bookId in selectedBookIds,
                             onLongPress =

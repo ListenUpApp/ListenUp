@@ -433,6 +433,19 @@ internal interface BookDao {
     )
     fun observeUnstartedCandidatesWithSeries(): Flow<List<DiscoveryBookWithSeries>>
 
+    /**
+     * Observe the distinct set of book ids that have at least one supplementary document.
+     *
+     * Used by [com.calypsan.listenup.client.data.repository.BookRepositoryImpl.observeBookListItems]
+     * to combine document presence into [com.calypsan.listenup.client.domain.model.BookListItem.hasDocuments].
+     * Re-emits whenever [book_documents] changes (a document is added or removed), so the
+     * library grid badge stays live without any additional polling.
+     *
+     * @return Flow emitting the distinct [bookId] strings of books that own at least one document.
+     */
+    @Query("SELECT DISTINCT bookId FROM book_documents")
+    fun observeBookIdsWithDocuments(): Flow<List<String>>
+
     /** All rows (including tombstones) with [revision][BookEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM books WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
