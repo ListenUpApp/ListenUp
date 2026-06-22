@@ -15,7 +15,12 @@ struct DocumentReaderView: View {
     @State private var goToPage: Int?
     @State private var scrubFraction: Double = 0
     @State private var showGrid = false
+    @State private var showSearch = false
+    @State private var highlightSelection: PDFSelection?
+    @State private var clearHighlight = false
+    @State private var search: PdfSearchController?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var hSize
 
     private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
 
@@ -24,22 +29,19 @@ struct DocumentReaderView: View {
             Color(.systemBackground).ignoresSafeArea()
 
             if let pdfDocument {
-                PDFKitView(
-                    document: pdfDocument,
-                    currentPageIndex: $currentPageIndex,
-                    goToPage: $goToPage
-                )
-                .ignoresSafeArea(edges: .bottom)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
-                        chromeVisible.toggle()
+                // On regular (iPad) show the persistent page rail beside the reader.
+                // On compact (iPhone, or iPad in narrow Split View) show the PDF full-width.
+                if hSize == .regular {
+                    HStack(spacing: 0) {
+                        PageRailView(
+                            document: pdfDocument,
+                            currentPageIndex: currentPageIndex,
+                            onSelect: { goToPage = $0 }
+                        )
+                        pdfView(document: pdfDocument)
                     }
-                }
-                .onChange(of: currentPageIndex) { _, newIndex in
-                    scrubFraction = pageCount > 1
-                        ? Double(newIndex) / Double(pageCount - 1)
-                        : 0
+                } else {
+                    pdfView(document: pdfDocument)
                 }
             } else if didAttemptLoad {
                 errorState
@@ -49,6 +51,7 @@ struct DocumentReaderView: View {
         }
         .task {
             pdfDocument = PDFDocument(url: document.url)
+            if let pdfDocument { search = PdfSearchController(document: pdfDocument) }
             didAttemptLoad = true
         }
         .safeAreaInset(edge: .top) {
@@ -70,6 +73,40 @@ struct DocumentReaderView: View {
                 )
             }
         }
+        .fullScreenCover(isPresented: $showSearch) {
+            if let search {
+                DocumentSearchView(
+                    controller: search,
+                    onSelect: { sel in highlightSelection = sel; showSearch = false },
+                    onClose: { search.cancel(); clearHighlight = true; showSearch = false }
+                )
+            }
+        }
+    }
+
+    // MARK: - PDF view
+
+    @ViewBuilder
+    private func pdfView(document: PDFDocument) -> some View {
+        PDFKitView(
+            document: document,
+            currentPageIndex: $currentPageIndex,
+            goToPage: $goToPage,
+            highlightSelection: $highlightSelection,
+            clearHighlight: $clearHighlight
+        )
+        .ignoresSafeArea(edges: .bottom)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                chromeVisible.toggle()
+            }
+        }
+        .onChange(of: currentPageIndex) { _, newIndex in
+            scrubFraction = pageCount > 1
+                ? Double(newIndex) / Double(pageCount - 1)
+                : 0
+        }
     }
 
     // MARK: - Top bar
@@ -80,10 +117,19 @@ struct DocumentReaderView: View {
                 .font(.body.weight(.semibold))
             Spacer()
             HStack(spacing: 8) {
-                Button { showGrid = true } label: {
-                    Image(systemName: "square.grid.2x2")
+                if search != nil {
+                    Button { showSearch = true } label: {
+                        Image(systemName: "magnifyingglass")
+                    }
+                    .accessibilityLabel(String(localized: "book.detail_document_search"))
                 }
-                .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
+                // The rail is the always-on equivalent on regular (iPad); hide the grid button there.
+                if hSize != .regular {
+                    Button { showGrid = true } label: {
+                        Image(systemName: "square.grid.2x2")
+                    }
+                    .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
+                }
                 Menu {
                     // placeholder — actions added in 3b
                 } label: {

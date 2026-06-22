@@ -2451,6 +2451,36 @@
         }
       }
     },
+    "book.detail_document_search": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search"
+          }
+        }
+      }
+    },
+    "book.detail_document_search_no_results": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No results"
+          }
+        }
+      }
+    },
+    "book.detail_document_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search in document"
+          }
+        }
+      }
+    },
     "book.detail_document_viewer_coming_soon": {
       "localizations": {
         "en": {
