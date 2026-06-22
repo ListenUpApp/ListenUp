@@ -31,6 +31,7 @@ import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.SqlTestDatabases
+import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -236,6 +237,7 @@ private suspend fun stageService(
             sessionConverter = SessionConverter(),
             listeningEventRepository = listeningEventRepo,
             statsBackfill = statsBackfill,
+            publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer(),
         )
     val service =
         ImportServiceImpl(

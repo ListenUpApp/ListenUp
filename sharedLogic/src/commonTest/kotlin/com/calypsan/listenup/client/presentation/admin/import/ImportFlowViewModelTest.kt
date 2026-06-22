@@ -125,7 +125,7 @@ class ImportFlowViewModelTest :
             ImportResult(
                 importedCount = 40,
                 sessionsImported = 38,
-                skippedCount = 2,
+                booksNotInLibrary = 2,
                 perUser = mapOf(UserId("lu-user-1") to 40),
             )
 

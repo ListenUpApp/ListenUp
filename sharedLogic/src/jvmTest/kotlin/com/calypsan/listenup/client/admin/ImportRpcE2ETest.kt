@@ -179,7 +179,7 @@ class ImportRpcE2ETest :
                             .shouldBeInstanceOf<AppResult.Success<ImportResult>>()
                             .data
                     applyResult.importedCount shouldBe 0
-                    applyResult.skippedCount shouldBe 0
+                    applyResult.booksNotInLibrary shouldBe 0
                 }
             } finally {
                 homeDir.toFile().deleteRecursively()

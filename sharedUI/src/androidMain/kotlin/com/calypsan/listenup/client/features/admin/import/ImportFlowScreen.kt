@@ -1116,36 +1116,40 @@ private fun DoneContent(
                 modifier = Modifier.weight(1f),
             )
         }
-        Spacer(Modifier.height(12.dp))
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.SkipNext,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(Res.string.import_skipped_books_title),
-                        style = MaterialTheme.typography.titleMedium,
+        // Only surfaced when a mapped user genuinely has history for books that aren't in this
+        // library — the honest "couldn't import" count. A clean import shows no scary skip box.
+        if (result.booksNotInLibrary > 0) {
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Outlined.SkipNext,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(Res.string.import_skipped_books_title),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            text = stringResource(Res.string.import_skipped_books_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Text(
-                        text = stringResource(Res.string.import_skipped_books_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = result.booksNotInLibrary.toString(),
+                        style = MaterialTheme.typography.headlineSmallEmphasized,
+                        fontWeight = FontWeight.ExtraBold,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Text(
-                    text = result.skippedCount.toString(),
-                    style = MaterialTheme.typography.headlineSmallEmphasized,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
         Spacer(Modifier.weight(1f))

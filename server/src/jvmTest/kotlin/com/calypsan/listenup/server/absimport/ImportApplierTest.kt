@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
@@ -110,6 +111,31 @@ class ImportApplierTest :
             }
         }
 
+        test("apply refreshes the public_profiles projection so the leaderboard, feed, and readers see imported stats") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}
+
+                    // The import backfills `user_stats`, but it must ALSO refresh the `public_profiles`
+                    // projection: the leaderboard reads that projection directly, and the activity-feed
+                    // and book-detail readers surfaces DROP any row whose user has no projection identity.
+                    // Without the refresh the projection row is absent until a server restart rebuilds it,
+                    // which is exactly the "leaderboard/feed/readers empty after import" regression.
+                    val profile =
+                        dbs.sql.publicProfilesQueries
+                            .selectById(LU_USER)
+                            .executeAsOneOrNull()
+                            .shouldNotBeNull()
+                    profile.books_finished shouldBe 1L
+                }
+            }
+        }
+
         test("re-apply is idempotent: sessions don't duplicate and stats are unchanged") {
             withSqlDatabase {
                 val dbs = this
@@ -167,7 +193,7 @@ class ImportApplierTest :
             }
         }
 
-        test("an unmapped ABS user's progress and an unresolved session are skipped and counted") {
+        test("a mapped user's book absent from the library counts as booksNotInLibrary; unmapped-user history does not") {
             withSqlDatabase {
                 val dbs = this
                 runTest {
@@ -177,12 +203,15 @@ class ImportApplierTest :
                     confirmSimonMapping(staged.paths, staged.importId)
                     val result = (applier.apply(staged.importId) {} as AppResult.Success).data
 
-                    // simon's two books import; the extra ABS user's one progress row is unmapped → skipped.
+                    // simon's two in-library books import; the extra ABS user is unmapped, so nothing is
+                    // imported for it — and, crucially, it does NOT inflate the "not in your library" count.
                     result.importedCount shouldBe 2
-                    // sessions: kings/mist/fidelity import; sess-unresolved's book never matched → skipped.
+                    // sessions: kings/mist/fidelity import; sess-unresolved (book-unmatched) is simon's own
+                    // session but its book isn't in the library → not imported.
                     result.sessionsImported shouldBe 3
-                    // 1 unmapped progress row + 1 unresolved session.
-                    result.skippedCount shouldBe 2
+                    // Exactly one distinct mapped-user book is absent from the library: `book-unmatched`.
+                    // The unmapped user's history is a deliberate exclusion, not a "not found".
+                    result.booksNotInLibrary shouldBe 1
                 }
             }
         }
@@ -412,6 +441,7 @@ private data class StagedImport(
     val listeningEventRepo: ListeningEventRepository,
     val statsBackfill: UserStatsBackfillService,
     val bookReads: BookReadsRepository,
+    val publicProfileMaintainer: PublicProfileMaintainer,
 )
 
 /**
@@ -448,6 +478,7 @@ private suspend fun stageAnalyzedImport(
     val listeningEventRepo =
         ListeningEventRepository(db = dbs.sql, bus = bus, registry = registry, userStatsUpdater = statsUpdater)
     val statsBackfill = UserStatsBackfillService(sql = dbs.sql, userStatsRepo = statsRepo)
+    val publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer()
 
     val analyzer =
         ImportAnalyzer(
@@ -460,7 +491,16 @@ private suspend fun stageAnalyzedImport(
             sql = dbs.sql,
         )
     analyzer.analyze(importId) {}
-    return StagedImport(paths, importId, repo, statsRepo, listeningEventRepo, statsBackfill, bookReads)
+    return StagedImport(
+        paths,
+        importId,
+        repo,
+        statsRepo,
+        listeningEventRepo,
+        statsBackfill,
+        bookReads,
+        publicProfileMaintainer,
+    )
 }
 
 private fun applierFor(
@@ -474,6 +514,7 @@ private fun applierFor(
         sessionConverter = SessionConverter(),
         listeningEventRepository = staged.listeningEventRepo,
         statsBackfill = staged.statsBackfill,
+        publicProfileMaintainer = staged.publicProfileMaintainer,
     )
 
 /** Reads back the listening-event ids stored for [userId] through the shared db. */
@@ -589,7 +630,8 @@ private fun seedApplierBooks(
 
 /**
  * Inserts an additional ABS user with one progress row, directly into the staged ABS sqlite. This
- * user is never mapped, so apply must skip its row (and count it in skippedCount).
+ * user is never mapped, so apply imports nothing for it — and, being a deliberate exclusion rather
+ * than a missing book, it must NOT inflate `booksNotInLibrary`.
  */
 private fun addUnmappedProgressUser(absDb: java.nio.file.Path) {
     java.sql.DriverManager.getConnection("jdbc:sqlite:${absDb.toAbsolutePath()}").use { conn ->

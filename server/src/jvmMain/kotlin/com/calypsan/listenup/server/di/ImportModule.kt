@@ -70,6 +70,7 @@ fun importModule(homeDir: Path): Module =
                 sessionConverter = get(),
                 listeningEventRepository = get(),
                 statsBackfill = get(),
+                publicProfileMaintainer = get(),
             )
         }
 
