@@ -242,6 +242,8 @@ One beautiful library.</string>
     <string name="book_detail_discard_progress">Discard Progress</string>
     <string name="book_detail_discard_progress_prompt">Discard your listening progress?</string>
     <string name="book_detail_document_meta">%1$s · %2$s</string>
+    <string name="book_detail_document_pages_back">Reading</string>
+    <string name="book_detail_document_pages_title">All Pages</string>
     <string name="book_detail_document_reader_controls_hint">p. %1$d of %2$d · tap to show controls</string>
     <string name="book_detail_document_reader_toggle_grid">Toggle grid view</string>
     <string name="book_detail_document_viewer_coming_soon">Viewer coming soon</string>

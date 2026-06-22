@@ -14,6 +14,7 @@ struct DocumentReaderView: View {
     @State private var chromeVisible = true
     @State private var goToPage: Int?
     @State private var scrubFraction: Double = 0
+    @State private var showGrid = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var pageCount: Int { pdfDocument?.pageCount ?? 0 }
@@ -59,6 +60,16 @@ struct DocumentReaderView: View {
         .overlay(alignment: .top) {
             if !chromeVisible, pageCount > 0 { folioHint }
         }
+        .fullScreenCover(isPresented: $showGrid) {
+            if let pdfDocument {
+                PageGridView(
+                    document: pdfDocument,
+                    currentPageIndex: currentPageIndex,
+                    onSelect: { idx in goToPage = idx; showGrid = false },
+                    onClose: { showGrid = false }
+                )
+            }
+        }
     }
 
     // MARK: - Top bar
@@ -69,10 +80,9 @@ struct DocumentReaderView: View {
                 .font(.body.weight(.semibold))
             Spacer()
             HStack(spacing: 8) {
-                Button(action: {}) {
+                Button { showGrid = true } label: {
                     Image(systemName: "square.grid.2x2")
                 }
-                .disabled(true)
                 .accessibilityLabel(String(localized: "book.detail_document_reader_toggle_grid"))
                 Menu {
                     // placeholder — actions added in 3b

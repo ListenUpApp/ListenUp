@@ -2411,6 +2411,26 @@
         }
       }
     },
+    "book.detail_document_pages_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading"
+          }
+        }
+      }
+    },
+    "book.detail_document_pages_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All Pages"
+          }
+        }
+      }
+    },
     "book.detail_document_reader_controls_hint": {
       "localizations": {
         "en": {
