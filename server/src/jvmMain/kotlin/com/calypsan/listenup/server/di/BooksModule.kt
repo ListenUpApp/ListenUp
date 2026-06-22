@@ -34,6 +34,7 @@ import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.cover.CoverStorage
+import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
@@ -318,6 +319,7 @@ private fun Module.coverAndPersisterBindings(
             parser = get<EmbeddedMetadataParser>(),
         )
     }
+    single { DocumentFileLocator(get<ListenUpDatabase>()) }
 
     single {
         BookPersister(

@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.BookServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.cover.CoverResponder
+import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.RateLimitBuckets
 import com.calypsan.listenup.server.plugins.toHttpStatus
@@ -36,6 +37,7 @@ import io.ktor.server.resources.get
 import io.ktor.server.resources.patch
 import io.ktor.server.resources.put
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get as routingGet
 import io.ktor.utils.io.toByteArray
@@ -90,6 +92,7 @@ internal fun Route.bookRoutes(
     bookService: BookService,
     coverResponder: CoverResponder,
     accessPolicy: BookAccessPolicy,
+    documentFileLocator: DocumentFileLocator,
 ) {
     get<BookResources.Detail> { res ->
         when (val result = call.scoped(bookService).getBook(res.id)) {
@@ -108,6 +111,10 @@ internal fun Route.bookRoutes(
     routingGet("/api/v1/covers/{id}") {
         val id = call.parameters["id"] ?: return@routingGet call.respond(HttpStatusCode.BadRequest)
         call.respondGatedCover(BookId(id), accessPolicy, coverResponder)
+    }
+
+    get<BookResources.Document> { res ->
+        call.respondGatedDocument(res.id, res.docId, accessPolicy, documentFileLocator)
     }
 
     put<BookResources.Cover> { res ->
@@ -269,4 +276,35 @@ private suspend fun ApplicationCall.respondGatedCover(
         return
     }
     coverResponder.respondCover(this, bookId)
+}
+
+/**
+ * Serves the access-gated bytes of book [bookId]'s supplementary document [docId]. Mirrors
+ * [respondGatedCover]: a book the caller can't reach — or a missing document row/file —
+ * answers 404, never 403, so it can't be used to probe a private book's existence. The
+ * document `hash` is the strong `ETag`; a matching `If-None-Match` short-circuits to 304.
+ * Otherwise `respondFile` streams the bytes, cooperating with the `PartialContent` plugin
+ * (installed at the application level) for byte-range/resume.
+ */
+private suspend fun ApplicationCall.respondGatedDocument(
+    bookId: BookId,
+    docId: String,
+    accessPolicy: BookAccessPolicy,
+    locator: DocumentFileLocator,
+) {
+    val p = userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
+    if (!accessPolicy.canAccess(p.userId.value, p.role, bookId.value)) {
+        respond(HttpStatusCode.NotFound)
+        return
+    }
+    val location = locator.locate(bookId.value, docId) ?: return respond(HttpStatusCode.NotFound)
+    val etag = "\"${location.hash}\""
+    if (request.headers[HttpHeaders.IfNoneMatch] == etag) {
+        respond(HttpStatusCode.NotModified)
+        return
+    }
+    val file = java.io.File(location.path.toString())
+    if (!file.isFile) return respond(HttpStatusCode.NotFound)
+    response.headers.append(HttpHeaders.ETag, etag)
+    respondFile(file)
 }
