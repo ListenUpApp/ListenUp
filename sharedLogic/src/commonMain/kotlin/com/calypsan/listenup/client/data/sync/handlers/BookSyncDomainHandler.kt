@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookDocumentEntity
 import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.local.db.BookGenreCrossRef
 import com.calypsan.listenup.client.data.local.db.BookSeriesCrossRef
 import com.calypsan.listenup.client.data.local.db.GenreEntity
@@ -67,6 +68,10 @@ internal class BookSyncDomainHandler(
     private val transactionRunner: TransactionRunner,
     private val imageStorage: ImageStorage,
     registry: ClientSyncDomainRegistry,
+    // Optional: only the production graph (and the cache-GC test) supply it. When absent,
+    // document-cache garbage collection is skipped — harmless for the many seam tests that
+    // never write document cache files. See [applyDocuments].
+    private val documentStorage: DocumentStorage? = null,
 ) : SyncDomainHandler<BookSyncPayload>,
     AccessFilteredSyncHandler {
     override val domainName: String = "books"
@@ -292,6 +297,19 @@ internal class BookSyncDomainHandler(
         bookId: String,
         documents: List<BookDocumentPayload>,
     ) {
+        val newIds = documents.mapTo(mutableSetOf()) { it.id }
+
+        // Capture the rows about to be replaced so their now-orphaned cache files can be
+        // collected. Document UUIDs are minted fresh on every server rescan, so a re-scan
+        // rotates every id — without this GC the `{documents}/{bookId}/` cache grows without
+        // bound as `{old-uuid}.{ext}` files are stranded on disk (issue #699).
+        val staleDocs =
+            if (documentStorage == null) {
+                emptyList()
+            } else {
+                database.bookDocumentDao().getForBook(bookId).filter { it.id !in newIds }
+            }
+
         database.bookDocumentDao().deleteForBook(bookId)
         database.bookDocumentDao().upsertAll(
             documents.map { doc ->
@@ -306,6 +324,10 @@ internal class BookSyncDomainHandler(
                 )
             },
         )
+
+        // Best-effort cache GC — a failed delete must not fail the sync write (mirrors the
+        // cover-file cleanup in [upsertAggregate]).
+        staleDocs.forEach { documentStorage?.deleteCached(bookId, it.id, it.format) }
     }
 
     /**
