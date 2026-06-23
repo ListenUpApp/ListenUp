@@ -1,0 +1,4 @@
+headers = argon2.h
+package = libargon2
+compilerOpts.linux = -I/usr/include
+linkerOpts.linux = -L/usr/lib -largon2 -lpthread --allow-shlib-undefined
