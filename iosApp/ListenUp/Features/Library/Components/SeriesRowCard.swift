@@ -4,24 +4,21 @@ import SwiftUI
 /// Standalone series row card for the iPhone Series list: an overlapping cover stack,
 /// name + meta, a progress affordance, and a chevron — its own rounded surface.
 struct SeriesRowCard: View {
-    let series: SeriesWithBooks
+    let series: SeriesRow
     let progress: SeriesProgressState
 
-    private var seriesId: String { series.series.idString }
-    private var books: [BookListItem] { Array(series.books) }
     private var meta: String {
-        let count = books.count
-        let author = books.first?.authors.first?.name
+        let count = series.bookCount
         let booksText = "\(count) \(count == 1 ? String(localized: "common.book") : String(localized: "common.books"))"
-        return author.map { "\(booksText) · \($0)" } ?? booksText
+        return series.authorName.map { "\(booksText) · \($0)" } ?? booksText
     }
 
     var body: some View {
-        NavigationLink(value: SeriesDestination(id: seriesId)) {
+        NavigationLink(value: SeriesDestination(id: series.id)) {
             HStack(spacing: 16) {
-                CoverStack(books: books, size: 76, peek: 17)
+                CoverStack(covers: series.covers, size: 76, peek: 17)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(series.series.name)
+                    Text(series.name)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(1)
@@ -42,6 +39,6 @@ struct SeriesRowCard: View {
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(series.series.name)
+        .accessibilityLabel(series.name)
     }
 }

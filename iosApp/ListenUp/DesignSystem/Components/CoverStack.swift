@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A single cover's image source, decoupled from any Kotlin type so `CoverStack` is
 /// reusable and previewable in plain Swift.
-struct CoverArt: Identifiable {
+struct CoverArt: Identifiable, Equatable, Hashable {
     let id: String
     let coverPath: String?
     let blurHash: String?

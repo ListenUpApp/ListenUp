@@ -11,7 +11,7 @@ import UIKit
 /// - Alphabet scrubber when sorted by name
 /// - Empty state when no series
 struct SeriesContent: View {
-    let seriesList: [SeriesWithBooks]
+    let seriesList: [SeriesRow]
     let seriesProgress: [String: SeriesProgressState]
     let sortState: SortState?
     let onCategorySelected: (SortCategory) -> Void
@@ -125,13 +125,9 @@ struct SeriesContent: View {
 
     private var iPhoneList: some View {
         LazyVStack(spacing: 12) {
-            ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
-                let seriesId = seriesWithBooks.series.idString
-                SeriesRowCard(
-                    series: seriesWithBooks,
-                    progress: progressFor(seriesId: seriesId, series: seriesWithBooks)
-                )
-                .id("series-\(seriesId)")
+            ForEach(seriesList) { row in
+                SeriesRowCard(series: row, progress: progressFor(row))
+                    .id("series-\(row.id)")
             }
         }
         .padding(.horizontal, 16)
@@ -144,13 +140,9 @@ struct SeriesContent: View {
         // grid stays right across full-screen iPad, Split View, and Stage Manager widths.
         let columns = [GridItem(.adaptive(minimum: 260), spacing: 22)]
         return LazyVGrid(columns: columns, spacing: 22) {
-            ForEach(Array(seriesList.enumerated()), id: \.offset) { _, seriesWithBooks in
-                let seriesId = seriesWithBooks.series.idString
-                SeriesGridCard(
-                    series: seriesWithBooks,
-                    progress: progressFor(seriesId: seriesId, series: seriesWithBooks)
-                )
-                .id("series-\(seriesId)")
+            ForEach(seriesList) { row in
+                SeriesGridCard(series: row, progress: progressFor(row))
+                    .id("series-\(row.id)")
             }
         }
         .padding(.horizontal, horizontalMargin)
@@ -158,34 +150,19 @@ struct SeriesContent: View {
 
     // MARK: - Helpers
 
-    private func progressFor(seriesId: String, series: SeriesWithBooks) -> SeriesProgressState {
-        seriesProgress[seriesId] ?? SeriesProgressState(finishedCount: 0, totalCount: Int(series.books.count))
+    private func progressFor(_ row: SeriesRow) -> SeriesProgressState {
+        seriesProgress[row.id] ?? SeriesProgressState(finishedCount: 0, totalCount: row.bookCount)
     }
 
     private var shouldShowAlphabetIndex: Bool {
         sortState?.category == .name
     }
 
-    /// Builds alphabet index mapping letters to first series ID for that letter.
+    /// Alphabet index (letter → first series id), only when sorted by name. Pure logic lives in
+    /// `seriesAlphabetIndex` over the native `SeriesRow`, so the scrubber never re-bridges.
     private func buildAlphabetIndex() -> [(letter: String, firstId: String)] {
         guard sortState?.category == .name else { return [] }
-
-        var index: [(letter: String, firstId: String)] = []
-        var seenLetters: Set<String> = []
-
-        for seriesWithBooks in seriesList {
-            let name = seriesWithBooks.series.name
-            guard let firstChar = name.first else { continue }
-            let letter = firstChar.isLetter ? String(firstChar).uppercased() : "#"
-
-            if !seenLetters.contains(letter) {
-                seenLetters.insert(letter)
-                let seriesId = seriesWithBooks.series.idString
-                index.append((letter: letter, firstId: "series-\(seriesId)"))
-            }
-        }
-
-        return index
+        return seriesAlphabetIndex(from: seriesList)
     }
 
     // MARK: - Empty State

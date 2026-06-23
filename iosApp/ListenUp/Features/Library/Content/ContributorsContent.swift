@@ -5,8 +5,8 @@ import UIKit
 /// The merged Contributors Library tab: a segmented Authors|Narrators control over a
 /// sorted, letter-grouped contributor list (with alphabet scrubber on name sort).
 struct ContributorsContent: View {
-    let authors: [ContributorWithBookCount]
-    let narrators: [ContributorWithBookCount]
+    let authors: [ContributorRow]
+    let narrators: [ContributorRow]
     let authorsSortState: SortState?
     let narratorsSortState: SortState?
     let onAuthorsCategorySelected: (SortCategory) -> Void
@@ -27,7 +27,7 @@ struct ContributorsContent: View {
     private let sortCategories: [SortCategory] = [.name, .bookCount]
 
     // Active-segment selectors
-    private var list: [ContributorWithBookCount] { segment == .authors ? authors : narrators }
+    private var list: [ContributorRow] { segment == .authors ? authors : narrators }
     private var sortState: SortState? { segment == .authors ? authorsSortState : narratorsSortState }
     private var roleKind: RoleChip.Kind { segment == .authors ? .author : .narrator }
     private var isNameSort: Bool { sortState?.category == .name }
@@ -65,7 +65,7 @@ struct ContributorsContent: View {
 
     private var singleColumnList: some View {
         let groups = isNameSort
-            ? ContributorLetterGrouping.group(list, key: { $0.contributor.name })
+            ? ContributorLetterGrouping.group(list, key: { $0.name })
             : [ContributorLetterGrouping.Group(letter: "", items: list)]
         // Scrubber letters come from the same `groups` the headers render, so the two
         // can never drift, and the list is only grouped once per render.
@@ -82,7 +82,7 @@ struct ContributorsContent: View {
                                 .id("letter-\(group.letter)")
                                 .padding(.horizontal)
                         }
-                        FieldGroup(group.items, id: \.contributorIdString, separatorInset: 78) { person in
+                        FieldGroup(group.items, id: \.id, separatorInset: 78) { person in
                             PersonRow(contributor: person, kind: roleKind)
                         }
                         .padding(.horizontal)
@@ -121,7 +121,7 @@ struct ContributorsContent: View {
 
     private func multiColumnList(columns: Int) -> some View {
         let groups = isNameSort
-            ? ContributorLetterGrouping.group(list, key: { $0.contributor.name })
+            ? ContributorLetterGrouping.group(list, key: { $0.name })
             : [ContributorLetterGrouping.Group(letter: "", items: list)]
         let columnGroups: [[ContributorLetterGrouping.Group]] = isNameSort
             ? ContributorColumns.balancedColumns(groups, weight: { $0.items.count }, columns: columns)
@@ -150,7 +150,7 @@ struct ContributorsContent: View {
                 if isNameSort {
                     LetterHeader(letter: group.letter)
                 }
-                FieldGroup(group.items, id: \.contributorIdString, separatorInset: 78) { person in
+                FieldGroup(group.items, id: \.id, separatorInset: 78) { person in
                     PersonRow(contributor: person, kind: roleKind)
                 }
             }
@@ -195,8 +195,4 @@ struct ContributorsContent: View {
             ))
         )
     }
-}
-
-private extension ContributorWithBookCount {
-    var contributorIdString: String { contributor.idString }
 }
