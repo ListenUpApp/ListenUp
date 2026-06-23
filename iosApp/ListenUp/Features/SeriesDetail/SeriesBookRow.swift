@@ -1,11 +1,10 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// One book in the Series-detail "Books in Series" list. Cover + completion badge,
 /// sequence eyebrow, title, an in-progress bar or metadata line, and a play/pause
 /// button. The whole row navigates to the book; the button toggles playback.
 struct SeriesBookRow: View {
-    let book: BookListItem
+    let book: BookRow
     let sequence: String?
     let progress: Float?
     let isFinished: Bool

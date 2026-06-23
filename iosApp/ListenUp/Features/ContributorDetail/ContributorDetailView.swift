@@ -224,11 +224,11 @@ struct ContributorDetailView: View {
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     LazyHStack(spacing: 16) {
-                        ForEach(Array(section.previewBooks), id: \.idString) { book in
-                            NavigationLink(value: BookDestination(id: book.idString)) {
+                        ForEach(section.books) { book in
+                            NavigationLink(value: BookDestination(id: book.id)) {
                                 WrittenCard(
                                     book: book,
-                                    progress: observer.bookProgress[book.idString]
+                                    progress: observer.bookProgress[book.id]
                                 )
                             }
                             .buttonStyle(.plain)
@@ -253,7 +253,7 @@ struct ContributorDetailView: View {
                     columns: [GridItem(.adaptive(minimum: 165), spacing: 12)],
                     spacing: 12
                 ) {
-                    ForEach(Array(observer.series.enumerated()), id: \.offset) { _, series in
+                    ForEach(observer.series) { series in
                         SeriesMiniCard(series: series)
                     }
                 }

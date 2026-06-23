@@ -12,10 +12,10 @@ final class ContributorDetailObserver {
     private(set) var isLoading: Bool = true
     private(set) var error: String?
     private(set) var contributor: Contributor?
-    private(set) var roleSections: [RoleSection] = []
+    private(set) var roleSections: [RoleSectionRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
-    private(set) var series: [SeriesWithBooks] = []
+    private(set) var series: [SeriesRow] = []
     private(set) var totalDuration: String = ""
     private(set) var bookCount: Int = 0
     private(set) var roles: [RoleChip.Kind] = []
@@ -86,10 +86,10 @@ final class ContributorDetailObserver {
             isLoading = false
             error = nil
             contributor = r.contributor
-            roleSections = Array(r.roleSections)
+            roleSections = r.roleSections.map { RoleSectionRow($0) }
             bookProgress = mapProgress(r.bookProgress)
             isDeleting = r.isDeleting
-            series = Array(r.series)
+            series = r.series.map { SeriesRow($0) }
             totalDuration = r.formatTotalDuration()
             bookCount = Int(r.bookCount)
             roles = r.roleSections.map { roleKind(for: $0.role) }
