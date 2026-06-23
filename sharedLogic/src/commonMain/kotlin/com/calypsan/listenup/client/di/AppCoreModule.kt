@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.auth.AuthFailureObserver
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
@@ -37,13 +38,16 @@ val appCoreModule: Module =
 
         // Application-scoped CoroutineScope for long-lived background operations.
         // Used by sync and playback tasks that span the app's lifetime.
-        // SupervisorJob ensures child failures don't cancel siblings.
+        // SupervisorJob ensures child failures don't cancel siblings; the
+        // appCoroutineExceptionHandler keeps an uncaught failure in a fire-and-forget
+        // launch (e.g. the realtime RPC socket dropping) from terminating the process
+        // on Kotlin/Native — it logs loudly instead. See [appCoroutineExceptionHandler].
         single<CoroutineScope>(
             qualifier =
                 named(APP_SCOPE),
         ) {
             CoroutineScope(
-                SupervisorJob() + Dispatchers.Default,
+                SupervisorJob() + Dispatchers.Default + appCoroutineExceptionHandler,
             )
         }
 

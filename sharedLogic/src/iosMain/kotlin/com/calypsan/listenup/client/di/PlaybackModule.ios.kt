@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadEnqueuer
@@ -40,9 +41,11 @@ val iosPlaybackModule: Module =
         // Platform capability flag: iOS supports download and playback.
         single(qualifier = named("playbackAvailable")) { true }
 
-        // Playback-scoped coroutine scope
+        // Playback-scoped coroutine scope. The appCoroutineExceptionHandler keeps an uncaught
+        // failure in a fire-and-forget playback launch (e.g. a best-effort background download
+        // throwing) from terminating the process on Kotlin/Native — it logs loudly instead.
         single(qualifier = named(PLAYBACK_SCOPE)) {
-            CoroutineScope(SupervisorJob() + IODispatcher)
+            CoroutineScope(SupervisorJob() + IODispatcher + appCoroutineExceptionHandler)
         }
 
         // Device ID for listening events
