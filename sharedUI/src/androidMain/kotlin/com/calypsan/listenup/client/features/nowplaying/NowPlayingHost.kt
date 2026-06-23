@@ -191,7 +191,12 @@ fun NowPlayingHost(
                         .align(Alignment.BottomCenter)
                         .padding(bottom = bottomPadding)
                         .onSizeChanged { size ->
-                            onBarFootprintChanged(with(density) { size.height.toDp() })
+                            // Only report the bar's resting footprint. A visible snackbar lifts the
+                            // bar (snackbarPadding) — reporting that would reflow every detail screen
+                            // up for the snackbar's duration, so we skip those measurements.
+                            if (!isSnackbarVisible) {
+                                onBarFootprintChanged(with(density) { size.height.toDp() })
+                            }
                         },
             )
         }
