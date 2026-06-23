@@ -114,13 +114,7 @@ struct EditProfileView: View {
     private func avatarPreview(_ observer: EditProfileObserver) -> some View {
         switch observer.stagedAvatar {
         case .image(let data):
-            if let uiImage = UIImage(data: data) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                UserAvatarView(user: observer.user, size: 104)
-            }
+            StagedAvatarPreview(data: data, user: observer.user, size: 104)
         case .reverted, .none:
             // Reverted → initials; None → the user's current avatar (initials today).
             UserAvatarView(user: observer.user, size: 104)
@@ -268,5 +262,38 @@ private struct ProfileEditSection<Content: View>: View {
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// Renders a just-picked avatar image, decoded OFF the main thread. Decoding full-resolution
+/// PhotosPicker bytes synchronously in `body` (as `avatarPreview` used to via `UIImage(data:)`)
+/// hitched the sheet on every render. Shows the user's current avatar until the decode lands.
+private struct StagedAvatarPreview: View {
+    let data: Data
+    let user: User_?
+    let size: CGFloat
+
+    @State private var decoded: UIImage?
+
+    var body: some View {
+        Group {
+            if let decoded {
+                Image(uiImage: decoded)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                UserAvatarView(user: user, size: size)
+            }
+        }
+        // Keyed on byte count (O(1)) rather than the whole multi-MB Data; re-decodes when a new
+        // image is picked, and the decode is cancelled if the view goes away.
+        .task(id: data.count) {
+            decoded = await Self.decode(data)
+        }
+    }
+
+    /// `nonisolated async` ⇒ the decode runs on the cooperative pool, never the main actor.
+    private nonisolated static func decode(_ data: Data) async -> UIImage? {
+        UIImage(data: data)
     }
 }

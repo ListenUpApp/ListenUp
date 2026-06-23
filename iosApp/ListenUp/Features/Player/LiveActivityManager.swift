@@ -31,9 +31,23 @@ final class LiveActivityManager {
         }
         endActivity()
 
-        coverWriter?.write(
-            bookId: snapshot.bookId, coverPath: snapshot.coverPath, blurHash: snapshot.coverBlurHash
-        )
+        // Render + persist the cover thumbnail OFF the main thread (ImageIO decode, BlurHash
+        // render, JPEG encode, disk write), THEN request the activity so its cover file is ready.
+        // Doing this synchronously on the main actor hitched every playback start.
+        let writer = coverWriter
+        let bookId = snapshot.bookId
+        let coverPath = snapshot.coverPath
+        let blurHash = snapshot.coverBlurHash
+        Task { [weak self] in
+            _ = await Task.detached {
+                writer?.write(bookId: bookId, coverPath: coverPath, blurHash: blurHash)
+            }.value
+            self?.requestActivity(snapshot)
+        }
+    }
+
+    /// Request the Live Activity. Split out of `start` so the cover write can finish off-main first.
+    private func requestActivity(_ snapshot: LiveActivitySnapshot) {
         do {
             activity = try Activity.request(
                 attributes: LiveActivityContentMapper.attributes(from: snapshot),

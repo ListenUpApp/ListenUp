@@ -166,13 +166,19 @@ struct ImportWizardView: View {
     private func handlePickResult(_ result: Result<URL, Error>) {
         switch result {
         case .success(let url):
-            do {
-                let fileSource = try ImportFileSourceBridge.makeFileSource(from: url)
-                observer?.start(fileSource: fileSource)
-            } catch let error as ImportFilePickError {
-                pickError = error.message
-            } catch {
-                pickError = String(localized: "import.upload_failed")
+            Task {
+                do {
+                    // Read + bridge the (multi-MB) backup OFF the main thread; doing it
+                    // synchronously in the .fileImporter callback froze the UI on large backups.
+                    let fileSource = try await Task.detached {
+                        try ImportFileSourceBridge.makeFileSource(from: url)
+                    }.value
+                    observer?.start(fileSource: fileSource)
+                } catch let error as ImportFilePickError {
+                    pickError = error.message
+                } catch {
+                    pickError = String(localized: "import.upload_failed")
+                }
             }
         case .failure:
             // User cancelled the picker, or it failed — stay on the intro silently.
