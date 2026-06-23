@@ -1,10 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import androidx.sqlite.execSQL
 import com.calypsan.listenup.client.data.local.images.JvmStoragePaths
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_14_15
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_15_16
@@ -60,53 +57,3 @@ internal actual val platformDatabaseModule: Module =
                 .build()
         }
     }
-
-/**
- * Room callback that ensures FTS5 tables exist.
- *
- * FTS tables cannot be declared as Room entities, so they are created via callback.
- * Using onOpen ensures tables exist on both fresh installs and upgrades.
- */
-private class FtsTableCallback : RoomDatabase.Callback() {
-    override fun onOpen(connection: SQLiteConnection) {
-        super.onOpen(connection)
-
-        connection.execSQL(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS books_fts USING fts5(
-                bookId,
-                title,
-                subtitle,
-                description,
-                author,
-                narrator,
-                seriesName,
-                genres,
-                tokenize='porter'
-            )
-            """.trimIndent(),
-        )
-
-        connection.execSQL(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS contributors_fts USING fts5(
-                contributorId,
-                name,
-                description,
-                tokenize='porter'
-            )
-            """.trimIndent(),
-        )
-
-        connection.execSQL(
-            """
-            CREATE VIRTUAL TABLE IF NOT EXISTS series_fts USING fts5(
-                seriesId,
-                name,
-                description,
-                tokenize='porter'
-            )
-            """.trimIndent(),
-        )
-    }
-}
