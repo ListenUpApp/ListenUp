@@ -44,7 +44,7 @@ final class SeriesDetailObserver {
     /// observer (which needs live KMP state). A never-started series (`!hasStarted`) reads
     /// "Start Book N" / "Start Listening" rather than "Continue", even though a [resumeTarget]
     /// (the first book) always exists.
-    static func continueLabel(
+    nonisolated static func continueLabel(
         hasBooks: Bool,
         resumeTargetIsNil: Bool,
         hasStarted: Bool,
