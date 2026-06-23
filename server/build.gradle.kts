@@ -110,8 +110,7 @@ kotlin {
                 implementation(libs.ktor.server.partial.content)
                 implementation(libs.ktor.server.auto.head.response)
 
-                // Ktor plugins (auth, rate limit)
-                implementation(libs.ktor.server.auth.jwt)
+                // Ktor plugins (call-id, rate limit)
                 implementation(libs.ktor.server.call.id)
                 implementation(libs.ktor.server.rate.limit)
 
@@ -163,6 +162,9 @@ kotlin {
                 // production :server artifact depends on :contract alone.
                 implementation(projects.sharedLogic)
                 implementation(libs.ktor.server.test.host)
+                // Test-only: com.auth0 JWT lib (via ktor-server-auth-jwt) — an independent oracle that
+                // forges adversarial tokens to cross-check the hand-rolled HS256 verifier. Not in production.
+                implementation(libs.ktor.server.auth.jwt)
                 implementation(libs.ktor.client.content.negotiation)
                 implementation(libs.kotest.runner.junit5)
                 implementation(libs.kotest.assertions.core)
