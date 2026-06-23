@@ -61,7 +61,8 @@ import com.calypsan.listenup.client.features.bookdetail.components.ChapterListIt
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
-import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
+import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
+import com.calypsan.listenup.client.presentation.bookdetail.audioFormatSummary
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
@@ -466,7 +467,7 @@ fun BookDetailContent(
  * A plain [BookDetailTopBar] is hoisted above the scroll; the [LazyColumn] then carries, in order:
  * offline + scan advisories, the centered [CompactHero], a centered [StatsRow], the grouped
  * frameless [AboutSection] (description + Genres + Tags), the connected [PrimaryActionsSection],
- * the frameless [CreditsSection], readers, and chapters.
+ * the frameless [DetailsSection], readers, and chapters.
  */
 @Suppress("LongParameterList", "LongMethod")
 @Composable
@@ -692,10 +693,14 @@ private fun ImmersiveBookDetail(
                 }
             }
 
-            // Credits — every contributor role grouped by role; anchored at the bottom of the page.
+            // Details — publisher / published / language / format, then contributor credits.
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                CreditsSection(
+                DetailsSection(
+                    publisher = book.publisher,
+                    publishYear = book.publishYear,
+                    language = book.language,
+                    audioFormat = audioFormatSummary(book.audioFiles),
                     credits = book.allContributors,
                     onContributorClick = onContributorClick,
                     modifier = screenPadding.padding(top = 8.dp),

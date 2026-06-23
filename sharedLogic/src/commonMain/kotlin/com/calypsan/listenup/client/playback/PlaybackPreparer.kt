@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
+import com.calypsan.listenup.client.data.local.db.toAudioFile
 import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
@@ -159,7 +160,7 @@ class PlaybackPreparer internal constructor(
         logAudioFileDiagnostics(bookId, audioFiles)
 
         // 5. Build PlaybackTimeline — offline-first via signed RPC URLs
-        val domainAudioFiles = audioFileEntities.map { it.toDomain() }
+        val domainAudioFiles = audioFileEntities.map { it.toAudioFile() }
         val timeline = buildTimeline(bookId, domainAudioFiles, serverUrl) ?: return null
 
         // Load chapters for this book
@@ -412,21 +413,6 @@ class PlaybackPreparer internal constructor(
 }
 
 // ========== Type Conversions ==========
-
-/**
- * Convert an [AudioFileEntity] to the domain [AudioFile], carrying the
- * [AudioFileEntity.index] ordering field.
- */
-private fun AudioFileEntity.toDomain(): AudioFile =
-    AudioFile(
-        id = id,
-        index = index,
-        filename = filename,
-        format = format,
-        codec = codec,
-        duration = duration,
-        size = size,
-    )
 
 /** Convert an [AudioFileEntity] to the API-shaped [AudioFileResponse] for diagnostic logging. */
 private fun AudioFileEntity.toAudioFileResponse(): AudioFileResponse =

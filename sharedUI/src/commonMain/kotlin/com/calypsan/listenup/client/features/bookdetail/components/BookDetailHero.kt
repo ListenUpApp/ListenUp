@@ -159,17 +159,6 @@ fun CompactHero(
             )
         }
 
-        // Series — tappable chips, one per membership (Mistborn · Book 1, The Cosmere · Book 3)
-        if (series.isNotEmpty()) {
-            SeriesChips(
-                series = series,
-                onSeriesClick = onSeriesClick,
-                contentColor = MaterialTheme.colorScheme.onSurface,
-                centered = true,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            )
-        }
-
         // Author — up to two names individually tappable; folds to "{lead}, N other authors" beyond
         if (authors.isNotEmpty()) {
             ClickableContributorLine(
@@ -206,6 +195,17 @@ fun CompactHero(
                 foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
                 overflowTextRes = Res.string.book_detail_other_narrators,
                 onOverflowClick = { onShowCast(CastRole.Narrators) },
+            )
+        }
+
+        // Series — tappable chips, one per membership (Mistborn · Book 1, The Cosmere · Book 3)
+        if (series.isNotEmpty()) {
+            SeriesChips(
+                series = series,
+                onSeriesClick = onSeriesClick,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                centered = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
             )
         }
     }
@@ -359,6 +359,15 @@ fun WideHeroBand(
                         )
                     }
 
+                    // Author · narrator row
+                    WideContributorRow(
+                        authors = authors,
+                        narrators = narrators,
+                        onContributorClick = onContributorClick,
+                        onShowCast = onShowCast,
+                        modifier = Modifier.padding(top = 14.dp),
+                    )
+
                     // Series — tappable chips, one per membership; hidden when empty
                     if (series.isNotEmpty()) {
                         SeriesChips(
@@ -369,15 +378,6 @@ fun WideHeroBand(
                             modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
                         )
                     }
-
-                    // Author · narrator row
-                    WideContributorRow(
-                        authors = authors,
-                        narrators = narrators,
-                        onContributorClick = onContributorClick,
-                        onShowCast = onShowCast,
-                        modifier = Modifier.padding(top = 14.dp),
-                    )
                 }
             }
         }
@@ -416,6 +416,11 @@ private fun HeroClassification(
         if (!genre.isNullOrBlank()) {
             Text(
                 text = genre.uppercase(),
+                style = MaterialTheme.typography.labelMedium,
+                color = classificationColor,
+            )
+            Text(
+                text = "•",
                 style = MaterialTheme.typography.labelMedium,
                 color = classificationColor,
             )

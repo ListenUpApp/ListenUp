@@ -264,7 +264,9 @@ One beautiful library.</string>
     <string name="book_detail_facet_tags">Tags</string>
     <string name="book_detail_find_metadata">Find Metadata</string>
     <string name="book_detail_finished">Finished</string>
+    <string name="book_detail_format">Format</string>
     <string name="book_detail_full_cast">Full cast</string>
+    <string name="book_detail_language">Language</string>
     <string name="book_detail_length">Length</string>
     <string name="book_detail_mark_as_finished">Mark as Finished</string>
     <string name="book_detail_mark_as_finished_prompt">Mark as finished?</string>
@@ -282,6 +284,7 @@ One beautiful library.</string>
     <string name="book_detail_play">Play</string>
     <string name="book_detail_preparing_on_server">Preparing on server…</string>
     <string name="book_detail_progresspercent">%1$s%</string>
+    <string name="book_detail_published">Published</string>
     <string name="book_detail_publisher">Publisher</string>
     <string name="book_detail_queued">Queued...</string>
     <string name="book_detail_read_less">Read less</string>

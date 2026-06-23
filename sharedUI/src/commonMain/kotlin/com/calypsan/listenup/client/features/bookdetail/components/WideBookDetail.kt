@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
+import com.calypsan.listenup.client.presentation.bookdetail.audioFormatSummary
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_show_all_chapters
 import org.jetbrains.compose.resources.stringResource
@@ -289,8 +290,9 @@ private fun WideBodyColumns(
 }
 
 /**
- * Left column of the wide body: the grouped About card (description + Credits grid + Genres + Tags)
- * and, beneath it, the connected Play + Download action group.
+ * Left column of the wide body: the grouped About card (description + Genres + Tags), a
+ * [DetailsSection] (publisher / published / language / format + credits), and the connected
+ * Play + Download action group.
  */
 @Suppress("LongParameterList")
 @Composable
@@ -316,7 +318,7 @@ private fun WideLeftColumn(
     val book = state.book
 
     Column(modifier = modifier) {
-        // About — description + Credits grid + Genres + Tags, framed in a surfaceContainerLow card.
+        // About — description + Genres + Tags, framed in a surfaceContainerLow card.
         AboutSection(
             description = state.descriptionText,
             genres = state.genresList,
@@ -329,16 +331,21 @@ private fun WideLeftColumn(
             onGenreClick = null,
             onTagClick = { tag -> onTagClick(tag.id) },
             modifier = Modifier.fillMaxWidth(),
-            creditsSlot = {
-                CreditsSection(
-                    credits = book.allContributors,
-                    onContributorClick = onContributorClick,
-                    showHeader = false,
-                )
-            },
+            creditsSlot = null,
         )
 
-        // Primary actions — connected Play + Download group beneath the About card.
+        // Details — publisher / published / language / format, then contributor credits.
+        DetailsSection(
+            publisher = book.publisher,
+            publishYear = book.publishYear,
+            language = book.language,
+            audioFormat = audioFormatSummary(book.audioFiles),
+            credits = book.allContributors,
+            onContributorClick = onContributorClick,
+            modifier = Modifier.padding(top = 16.dp),
+        )
+
+        // Primary actions — connected Play + Download group beneath the Details section.
         if (showPlaybackActions) {
             PrimaryActionsSection(
                 downloadStatus = downloadStatus,
