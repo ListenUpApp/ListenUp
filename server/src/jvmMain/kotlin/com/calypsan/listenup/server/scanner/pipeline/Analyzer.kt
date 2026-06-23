@@ -23,6 +23,7 @@ import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.scanner.inference.AbsTitleParser
 import com.calypsan.listenup.server.scanner.inference.FolderShape
 import com.calypsan.listenup.server.scanner.inference.ParsedTitle
+import com.calypsan.listenup.server.scanner.inference.SeriesSuffixMatcher
 import com.calypsan.listenup.server.scanner.inference.TrackInference
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
@@ -339,21 +340,28 @@ internal class Analyzer(
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
         val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
-        val (strippedTitle, titleAbridged) = parseAbridgedFromTitle(rawTitle)
+        val (abridgedStripped, titleAbridged) = parseAbridgedFromTitle(rawTitle)
+        // Strip a strict trailing series suffix the tag/album baked into the title (", Book 6",
+        // "(Series, Book Two)", ": Series, Book 3"). Conservative — leaves prose series names alone.
+        val cleanedTitle = SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
 
         // An explicit subtitle (metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the
         // gated folder " - " split) always wins; only when none exists do we derive one from the
         // title string. Applied uniformly to whatever source pickTitle chose.
+        // Discard an explicit subtitle that is really the series (a mistagged SUBTITLE/TIT3), so the
+        // real subtitle can be split out of the title below.
         val explicitSubtitle =
-            metadata?.subtitle
-                ?: embedded?.tags?.subtitle
-                ?: sidecar?.subtitle
-                ?: parsed.subtitle
+            (
+                metadata?.subtitle
+                    ?: embedded?.tags?.subtitle
+                    ?: sidecar?.subtitle
+                    ?: parsed.subtitle
+            )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it) }
         val (title, subtitle) =
             if (explicitSubtitle != null) {
-                strippedTitle to explicitSubtitle
+                cleanedTitle to explicitSubtitle
             } else {
-                TitleSubtitleSplitter.split(strippedTitle)
+                TitleSubtitleSplitter.split(cleanedTitle)
             }
 
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
