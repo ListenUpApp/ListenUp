@@ -40,6 +40,19 @@ interface ImageRepository {
     suspend fun downloadBookCover(bookId: BookId): AppResult<Boolean>
 
     /**
+     * Best-effort: ensure a book's cover is cached on local disk for offline use.
+     *
+     * Returns immediately; the download runs on the repository's app scope, so it survives the
+     * caller leaving composition. No-op if the cover already exists locally. Failures are logged
+     * and dropped — the next view or sync retries. Used by cover components to lazily persist a
+     * cover the first time it is streamed from the server, so it stays available offline
+     * independent of the image loader's evictable cache.
+     *
+     * @param bookId Unique identifier for the book
+     */
+    fun ensureBookCoverCached(bookId: BookId)
+
+    /**
      * Upload book cover to the server.
      *
      * @param bookId Unique identifier for the book

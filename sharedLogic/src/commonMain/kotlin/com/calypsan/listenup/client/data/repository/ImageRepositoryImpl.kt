@@ -37,6 +37,10 @@ internal class ImageRepositoryImpl(
 
     override suspend fun downloadBookCover(bookId: BookId): AppResult<Boolean> = imageDownloader.downloadCover(bookId)
 
+    override fun ensureBookCoverCached(bookId: BookId) {
+        appScope.launch { downloadBookCover(bookId) }
+    }
+
     override suspend fun saveBookCoverStaging(
         bookId: BookId,
         imageData: ByteArray,
