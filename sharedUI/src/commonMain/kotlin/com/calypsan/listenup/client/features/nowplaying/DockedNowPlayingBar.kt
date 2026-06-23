@@ -50,10 +50,13 @@ import listenup.composeapp.generated.resources.player_skip_back_10s
 import listenup.composeapp.generated.resources.player_skip_forward_30s
 import org.jetbrains.compose.resources.stringResource
 
+/** Height of the docked mini-player bar rendered on TV, Desktop, and Tablet. */
+internal val DockedNowPlayingBarHeight = 96.dp
+
 /**
  * Docked mini-player bar for TV, Desktop, and Tablet form factors.
  *
- * A full-width bar (~96dp tall, [surfaceContainerLow] background, large rounded corners)
+ * A full-width bar ([DockedNowPlayingBarHeight] tall, [surfaceContainerLow] background, large rounded corners)
  * with three flex regions:
  * - LEFT: 60dp cover + book title / chapter info
  * - CENTRE: transport controls (replay-10 / play-pause FAB / forward-30) above a
@@ -147,7 +150,7 @@ private fun ActiveDockedContent(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(96.dp)
+                .height(DockedNowPlayingBarHeight)
                 .padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

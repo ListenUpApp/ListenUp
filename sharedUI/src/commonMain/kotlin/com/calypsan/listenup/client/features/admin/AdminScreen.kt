@@ -34,7 +34,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -181,7 +181,7 @@ fun AdminScreen(
         }
     }
 
-    Scaffold(
+    ListenUpScaffold(
         modifier = modifier,
         topBar = {
             ColorBlockHero(
@@ -368,7 +368,7 @@ private fun AdminContent(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
                 ServerSettingsSection(
@@ -440,7 +440,7 @@ private fun AdminTwoPaneContent(
         LazyColumn(
             modifier = Modifier.weight(1.1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
                 ServerSettingsSection(
@@ -470,7 +470,7 @@ private fun AdminTwoPaneContent(
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
                 ManagementSection(

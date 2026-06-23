@@ -19,7 +19,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.LocalDeviceContext
@@ -55,6 +57,7 @@ fun NowPlayingHost(
     onNavigateToContributor: (String) -> Unit,
     onNavigateToDocument: (localPath: String) -> Unit,
     viewModel: NowPlayingViewModel,
+    onBarFootprintChanged: (Dp) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
@@ -186,7 +189,15 @@ fun NowPlayingHost(
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = bottomPadding),
+                        .padding(bottom = bottomPadding)
+                        .onSizeChanged { size ->
+                            // Only report the bar's resting footprint. A visible snackbar lifts the
+                            // bar (snackbarPadding) — reporting that would reflow every detail screen
+                            // up for the snackbar's duration, so we skip those measurements.
+                            if (!isSnackbarVisible) {
+                                onBarFootprintChanged(with(density) { size.height.toDp() })
+                            }
+                        },
             )
         }
 

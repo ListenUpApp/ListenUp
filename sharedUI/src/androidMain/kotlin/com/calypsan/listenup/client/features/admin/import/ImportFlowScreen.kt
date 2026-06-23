@@ -41,7 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,8 +58,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.calypsan.listenup.client.playback.NowPlayingState
-import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.AbsItemRef
 import com.calypsan.listenup.api.dto.imports.AbsUserMatch
@@ -144,9 +142,6 @@ import org.koin.compose.viewmodel.koinViewModel
 
 private val CONTENT_MAX_WIDTH = 560.dp
 
-// Extra bottom clearance when the floating mini-player pill is visible on detail routes.
-private val MiniPlayerClearance = 88.dp
-
 // Zero-based wizard step index for each progress phase, mapped onto the 4-step tracker.
 private const val STEP_UPLOAD = 0
 private const val STEP_REVIEW = 1
@@ -170,17 +165,8 @@ private const val STEP_DONE = 3
 fun ImportFlowScreen(
     onNavigateBack: () -> Unit,
     viewModel: ImportFlowViewModel = koinViewModel(),
-    nowPlayingViewModel: NowPlayingViewModel = koinViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
-    val miniPlayerBottomPadding =
-        if (nowPlayingScreenState.state is NowPlayingState.Active) {
-            MiniPlayerClearance
-        } else {
-            0
-                .dp
-        }
 
     // The file picker is declared here (at the screen level) so the composable lifecycle
     // that wires the ActivityResult launcher is stable across all phases. It is only
@@ -192,13 +178,12 @@ fun ImportFlowScreen(
             }
         }
 
-    Scaffold { paddingValues ->
+    ListenUpScaffold { paddingValues ->
         Column(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(bottom = miniPlayerBottomPadding),
+                    .padding(paddingValues),
         ) {
             FlowHero(state = uiState, onBack = onNavigateBack)
             CenteredColumn {

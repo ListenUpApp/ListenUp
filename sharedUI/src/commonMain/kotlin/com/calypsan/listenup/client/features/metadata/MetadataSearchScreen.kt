@@ -26,7 +26,7 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,7 +88,7 @@ fun MetadataSearchScreen(
     val searchError = (state.loadState as? SearchLoadState.Failed)?.message
     val searchResults = (state.loadState as? SearchLoadState.Loaded)?.results.orEmpty()
 
-    Scaffold(
+    ListenUpScaffold(
         topBar = {
             ColorBlockHero(
                 title = stringResource(Res.string.metadata_find_on_audible),
