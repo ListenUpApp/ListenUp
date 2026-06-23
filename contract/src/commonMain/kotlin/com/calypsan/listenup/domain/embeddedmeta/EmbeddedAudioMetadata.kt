@@ -23,4 +23,6 @@ data class EmbeddedAudioMetadata(
     val chapters: List<Chapter>,
     val chaptersSource: ChapterSource,
     val artwork: EmbeddedArtwork?,
+    /** Technical audio-stream info (codec/profile/spatial/bitrate/rate/channels) for the primary file; null when undetermined. */
+    val audioStream: AudioStreamInfo? = null,
 )
