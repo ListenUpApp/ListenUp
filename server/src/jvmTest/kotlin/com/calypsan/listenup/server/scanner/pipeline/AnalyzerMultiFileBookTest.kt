@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.scanner.audioLibrary
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -166,6 +167,40 @@ class AnalyzerMultiFileBookTest :
 
                     book.tracks.size shouldBe 2
                     book.tracks.all { (it.durationMs ?: 0L) > 0L } shouldBe true
+                }
+            }
+        }
+        test("single-file book keeps its title tag and does not inherit the album's series suffix") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    // Real single-file shape: the title tag is the (clean) book title; the album tag
+                    // appends the series ("…: Chaos Seeds, Book 3"). For a single-file book the title
+                    // tag wins, so that series suffix must not leak into the book title.
+                    val rel = "Aleron Kong/Chaos Seeds/Book 3 - The Land - Alliances"
+                    val file =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "The Land: Alliances: A LitRPG Saga")
+                                textFrame("TALB", "The Land: Alliances: A LitRPG Saga: Chaos Seeds, Book 3")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val p = fixture.root.writeAudio("$rel/book.mp3", file)
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files = listOf(trackEntry("$rel/book.mp3", Files.size(p))),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.title shouldNotContain "Chaos Seeds"
                 }
             }
         }

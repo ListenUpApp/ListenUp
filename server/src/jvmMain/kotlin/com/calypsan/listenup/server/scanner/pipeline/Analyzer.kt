@@ -470,19 +470,23 @@ internal class Analyzer(
     }
 
     /**
-     * The book title carried by embedded tags, matching Audiobookshelf precedence: the **album**
-     * tag is the book title (authoritative). The per-file `title` tag is the book title only for a
-     * single-file book; for a multi-file book it is the current track's chapter title, so it is
-     * ignored. Returns null when embedded tags carry no usable book title, letting [pickTitle] fall
-     * through to the folder.
+     * The book title carried by embedded tags:
+     *  - **Multi-file book:** the per-file `title` tag is the current track's *chapter* title, so it
+     *    is ignored; the **album** tag is the book title (authoritative, matching Audiobookshelf).
+     *  - **Single-file book:** the `title` tag *is* the book title and is usually cleaner than the
+     *    album (which often appends the series, e.g. `"…: Chaos Seeds, Book 3"`), so it wins; the
+     *    album is only a fallback when there is no title tag.
+     *
+     * Returns null when embedded tags carry no usable book title, letting [pickTitle] fall through
+     * to the folder.
      */
     private fun embeddedBookTitle(
         embedded: EmbeddedAudioMetadata?,
         multiFile: Boolean,
     ): String? {
         val tags = embedded?.tags ?: return null
-        tags.custom[AudioTags.ALBUM_KEY]?.takeUnless { it.isBlank() }?.let { return it }
-        return if (!multiFile) tags.title?.takeUnless { it.isBlank() } else null
+        val album = tags.custom[AudioTags.ALBUM_KEY]?.takeUnless { it.isBlank() }
+        return if (multiFile) album else tags.title?.takeUnless { it.isBlank() } ?: album
     }
 
     private fun pickAuthors(
