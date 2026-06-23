@@ -198,12 +198,8 @@ class AnalyzerMultiFileBookTest :
                             .single()
                             .getOrThrow()
 
-                    // TIT3 "Chaos Seeds, Book 3" is a series reference — discarded.
-                    // TitleSubtitleSplitter splits at the first ": ", giving:
-                    //   title = "The Land"
-                    //   subtitle = "Alliances: A LitRPG Saga"
-                    book.title shouldBe "The Land"
-                    book.subtitle shouldBe "Alliances: A LitRPG Saga"
+                    book.title shouldBe "The Land: Alliances"
+                    book.subtitle shouldBe "A LitRPG Saga"
                 }
             }
         }
