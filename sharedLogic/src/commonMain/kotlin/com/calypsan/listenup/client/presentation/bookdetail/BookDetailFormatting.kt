@@ -13,24 +13,38 @@ data class AudioFormat(
     val codec: String,
     val approxBitrateKbps: Int?,
 ) {
-    /** "AAC · ~125 kbps" when a bitrate is known, otherwise just the codec. The "~" marks the estimate. */
-    fun displayLabel(): String = if (approxBitrateKbps != null) "$codec · ~$approxBitrateKbps kbps" else codec
+    /**
+     * "AAC · ~125 kbps" when both are known, the codec alone when only it is known, "~125 kbps" when
+     * only the bitrate is known, and "" when neither is. Never an orphan bullet. The "~" marks the estimate.
+     */
+    fun displayLabel(): String =
+        when {
+            codec.isNotBlank() && approxBitrateKbps != null -> "$codec · ~$approxBitrateKbps kbps"
+            codec.isNotBlank() -> codec
+            approxBitrateKbps != null -> "~$approxBitrateKbps kbps"
+            else -> ""
+        }
 }
 
 /**
- * Derives a display [AudioFormat] from a book's audio files. The codec is the most common codec
- * across the files (upper-cased); the bitrate is an APPROXIMATE average — total bytes × 8 ÷ total
- * seconds ÷ 1000 — so the UI labels it with "~". Returns null when [files] is empty; the bitrate is
- * null (codec still shown) when total duration or size is non-positive.
+ * Derives a display [AudioFormat] from a book's audio files. The codec is the most common NON-BLANK
+ * codec across the files (upper-cased), so a real codec wins even when some files carry a blank one;
+ * it falls back to "" when every file is blank. The bitrate is an APPROXIMATE average — total bytes ×
+ * 8 ÷ total seconds ÷ 1000 — so the UI labels it with "~", and is null when total duration or size is
+ * non-positive. Returns null when [files] is empty or when there is nothing to show (blank codec AND
+ * no bitrate).
  */
 fun audioFormatSummary(files: List<AudioFile>): AudioFormat? {
     if (files.isEmpty()) return null
     val codec =
         files
-            .groupingBy { it.codec.uppercase() }
+            .map { it.codec.trim().uppercase() }
+            .filter { it.isNotBlank() }
+            .groupingBy { it }
             .eachCount()
             .maxByOrNull { it.value }
-            ?.key ?: return null
+            ?.key
+            ?: ""
     val totalBytes = files.sumOf { it.size }
     val totalMs = files.sumOf { it.duration }
     val bitrate =
@@ -39,6 +53,7 @@ fun audioFormatSummary(files: List<AudioFile>): AudioFormat? {
         } else {
             null
         }
+    if (codec.isBlank() && bitrate == null) return null
     return AudioFormat(codec = codec, approxBitrateKbps = bitrate)
 }
 

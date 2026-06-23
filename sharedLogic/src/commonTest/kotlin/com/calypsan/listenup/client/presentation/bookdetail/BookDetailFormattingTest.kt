@@ -36,6 +36,22 @@ class BookDetailFormattingTest :
             f?.codec shouldBe "AAC"
         }
 
+        test("audioFormatSummary shows bitrate alone when codec is blank") {
+            val f = audioFormatSummary(listOf(file("", 1_000_000, 60_000)))
+            f?.codec shouldBe ""
+            f?.approxBitrateKbps shouldBe 133
+            f?.displayLabel() shouldBe "~133 kbps"
+        }
+
+        test("audioFormatSummary returns null when codec blank and no bitrate") {
+            audioFormatSummary(listOf(file("", 1000, 0))) shouldBe null
+        }
+
+        test("audioFormatSummary prefers a real codec over blank entries") {
+            val f = audioFormatSummary(listOf(file("", 100, 1000), file("aac", 100, 1000)))
+            f?.codec shouldBe "AAC"
+        }
+
         test("languageDisplayName maps known codes and falls back to the upper-cased code") {
             languageDisplayName("en") shouldBe "English"
             languageDisplayName("EN") shouldBe "English"
