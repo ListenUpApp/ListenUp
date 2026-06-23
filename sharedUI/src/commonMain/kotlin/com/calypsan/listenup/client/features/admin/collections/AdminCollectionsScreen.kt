@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.FolderSpecial
 import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -346,6 +347,7 @@ private fun CollectionCard(
         Column(modifier = Modifier.padding(padDp)) {
             CollectionCardTopRow(
                 badgeSize = badgeSize,
+                isSystem = collection.isSystem,
                 isDeleting = isDeleting,
                 onDeleteClick = onDeleteClick,
             )
@@ -358,6 +360,7 @@ private fun CollectionCard(
 @Composable
 private fun CollectionCardTopRow(
     badgeSize: Dp,
+    isSystem: Boolean,
     isDeleting: Boolean,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -379,15 +382,27 @@ private fun CollectionCardTopRow(
             )
         }
 
-        if (isDeleting) {
-            ListenUpLoadingIndicatorSmall()
-        } else {
-            TonalIconTile(
-                icon = Icons.Outlined.Delete,
-                size = DELETE_TILE_SIZE_DP.dp,
-                danger = true,
-                modifier = Modifier.clickable(onClick = onDeleteClick),
-            )
+        when {
+            isSystem -> {
+                TonalIconTile(
+                    icon = Icons.Outlined.Lock,
+                    size = DELETE_TILE_SIZE_DP.dp,
+                    danger = false,
+                )
+            }
+
+            isDeleting -> {
+                ListenUpLoadingIndicatorSmall()
+            }
+
+            else -> {
+                TonalIconTile(
+                    icon = Icons.Outlined.Delete,
+                    size = DELETE_TILE_SIZE_DP.dp,
+                    danger = true,
+                    modifier = Modifier.clickable(onClick = onDeleteClick),
+                )
+            }
         }
     }
 }
