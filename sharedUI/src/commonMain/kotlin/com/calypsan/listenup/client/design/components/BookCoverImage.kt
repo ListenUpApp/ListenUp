@@ -171,6 +171,9 @@ private fun rememberCoverRequest(
                             .diskCacheKey(cacheKey)
                             .build()
                     } else {
+                        // No durable file yet — kick off a background download so this streamed
+                        // cover is persisted on disk for offline use, then stream from the server now.
+                        imageRepository.ensureBookCoverCached(BookId(bookId))
                         serverCoverRequest(context, bookId, serverConfig, authSession, localPath, cacheKey)
                     }
                 }
