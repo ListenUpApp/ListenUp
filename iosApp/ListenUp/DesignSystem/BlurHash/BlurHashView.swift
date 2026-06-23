@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// SwiftUI view that displays a decoded BlurHash placeholder.
 ///
@@ -31,20 +32,43 @@ struct BlurHashView: View {
         self.punch = punch
     }
 
+    /// Decoded blur, produced OFF the main thread by [decode]. Decoding a BlurHash is a
+    /// CPU-heavy per-pixel cosine loop; doing it synchronously in `body` (as this view used
+    /// to) re-ran on every render for every visible cell, so a fast list/grid scroll — e.g.
+    /// dragging the alphabet scrubber over a large library — saturated the main thread and
+    /// froze the app.
+    @State private var decoded: UIImage?
+
     var body: some View {
-        if let blurHash,
-           let uiImage = UIImage(blurHash: blurHash, size: size, punch: punch) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-        } else {
-            // Fallback gradient for missing/invalid blurHash
-            LinearGradient(
-                colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+        Group {
+            if let decoded {
+                Image(uiImage: decoded)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                // Shown for a missing/invalid BlurHash and until the off-main decode lands.
+                LinearGradient(
+                    colors: [Color.gray.opacity(0.3), Color.gray.opacity(0.2)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
         }
+        // Re-decodes only when the hash/size/punch actually change, and is cancelled when the
+        // cell scrolls away — so a scrub never piles synchronous decodes onto the main thread.
+        .task(id: decodeKey) {
+            decoded = await Self.decode(blurHash: blurHash, size: size, punch: punch)
+        }
+    }
+
+    /// Identity for [body]'s `.task`: the inputs that determine the decoded image.
+    private var decodeKey: String { "\(blurHash ?? "")|\(Int(size.width))x\(Int(size.height))|\(punch)" }
+
+    /// `nonisolated async` ⇒ runs on the cooperative pool, never the main actor, so the
+    /// expensive decode stays off the main thread. Returns `nil` for a missing/invalid hash.
+    private nonisolated static func decode(blurHash: String?, size: CGSize, punch: Float) async -> UIImage? {
+        guard let blurHash else { return nil }
+        return UIImage(blurHash: blurHash, size: size, punch: punch)
     }
 }
 

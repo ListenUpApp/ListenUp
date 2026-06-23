@@ -48,14 +48,20 @@ struct ContributorAvatar: View {
         self.initialsFontSize = fontSize
     }
 
+    /// The on-disk avatar, read + decoded OFF the main thread by [loadImage]. Reading/decoding
+    /// a file image synchronously in `body` (as this view used to) blocks the main thread on
+    /// every render for every visible row, which freezes the app during a fast Contributors
+    /// scroll — the same hazard that froze the cover grid. Until it loads, the BlurHash or
+    /// initials fallback shows.
+    @State private var fileImage: UIImage?
+
     var body: some View {
         ZStack {
             Circle()
                 .fill(avatarColor)
 
-            if let path = imagePath,
-               let uiImage = UIImage(contentsOfFile: path) {
-                Image(uiImage: uiImage)
+            if let fileImage {
+                Image(uiImage: fileImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .clipShape(Circle())
@@ -69,6 +75,17 @@ struct ContributorAvatar: View {
             }
         }
         .clipShape(Circle())
+        // Re-reads only when the path changes; cancelled when the row scrolls away.
+        .task(id: imagePath) {
+            fileImage = await Self.loadImage(path: imagePath)
+        }
+    }
+
+    /// `nonisolated async` ⇒ the disk read + image decode run on the cooperative pool, never
+    /// the main actor. Returns `nil` for a missing path or unreadable file.
+    private nonisolated static func loadImage(path: String?) async -> UIImage? {
+        guard let path else { return nil }
+        return UIImage(contentsOfFile: path)
     }
 
     // MARK: - Private
