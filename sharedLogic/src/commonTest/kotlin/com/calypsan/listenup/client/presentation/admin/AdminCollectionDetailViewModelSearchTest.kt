@@ -9,6 +9,10 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionShare
+import com.calypsan.listenup.client.domain.model.SearchFacets
+import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.model.SearchHitType
+import com.calypsan.listenup.client.domain.model.SearchResult
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -21,11 +25,14 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.core.error.ErrorBus
+import app.cash.turbine.test
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -34,20 +41,22 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * Tests for [AdminCollectionDetailViewModel] (Collections-2a).
+ * Tests for the book search-and-add flow on [AdminCollectionDetailViewModel].
  *
- * The collection, its book ids, and its shares are observed reactively from
- * [CollectionRepository]; rename / remove-book / share / revoke-share dispatch to the
- * repository, with failures surfacing on [ErrorBus] plus a transient `error`.
+ * Verifies:
+ *  - [openAddBooks] is a no-op for system collections.
+ *  - [onBookQueryChange] debounces and excludes books already in the collection.
+ *  - [addBookFromSearch] dispatches [CollectionRepository.addBook] and drops the hit on success.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-class AdminCollectionDetailViewModelTest :
+class AdminCollectionDetailViewModelSearchTest :
     FunSpec({
         val dispatcher = StandardTestDispatcher()
         beforeSpec { Dispatchers.setMain(dispatcher) }
@@ -56,18 +65,18 @@ class AdminCollectionDetailViewModelTest :
         fun collection(
             id: String = "c1",
             name: String = "Favorites",
+            isSystem: Boolean = false,
         ) = Collection(
             id = id,
             name = name,
             ownerId = "owner1",
             isInbox = false,
-            isSystem = false,
+            isSystem = isSystem,
             bookCount = 0,
             callerPermission = SharePermission.Write,
             isOwner = true,
         )
 
-        // Builds a BookWithContributors with a single author for hydration tests.
         fun bookWith(
             id: String,
             title: String,
@@ -110,19 +119,39 @@ class AdminCollectionDetailViewModelTest :
             )
         }
 
-        class Fixture {
+        fun searchHit(
+            id: String,
+            name: String = "Book $id",
+        ) = SearchHit(
+            id = id,
+            type = SearchHitType.BOOK,
+            name = name,
+        )
+
+        fun searchResult(vararg hits: SearchHit) =
+            SearchResult(
+                query = "dune",
+                total = hits.size,
+                tookMs = 1L,
+                hits = hits.toList(),
+                facets = SearchFacets(),
+            )
+
+        class Fixture(
+            systemCollection: Boolean = false,
+        ) {
             val repo: CollectionRepository = mock()
             val adminRepo: AdminRepository = mock()
             val userRepo: UserRepository = mock()
             val bookDao: BookDao = mock()
             val searchRepo: SearchRepository = mock()
             val imageStorage: ImageStorage = mock()
-            val collectionsFlow = MutableStateFlow(listOf(collection()))
+            val errorBus = ErrorBus()
+            val collectionsFlow = MutableStateFlow(listOf(collection(isSystem = systemCollection)))
             val booksFlow = MutableStateFlow<List<String>>(emptyList())
             val sharesFlow = MutableStateFlow<List<CollectionShare>>(emptyList())
 
             init {
-                // Default: no hydrated books (overridden per-test for hydration cases).
                 every { bookDao.observeByIdsWithContributors(any()) } returns flowOf(emptyList())
                 every { imageStorage.exists(any()) } returns false
                 every { imageStorage.getCoverPath(any()) } returns ""
@@ -140,160 +169,182 @@ class AdminCollectionDetailViewModelTest :
                     bookDao,
                     searchRepo,
                     imageStorage,
-                    ErrorBus(),
+                    errorBus,
                 )
             }
         }
 
-        test("Ready emitted with collection, books, and shares") {
+        test("openAddBooks is a no-op for system collections") {
+            runTest(dispatcher) {
+                val f = Fixture(systemCollection = true)
+                val vm = f.build()
+                advanceUntilIdle()
+
+                vm.openAddBooks()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.showAddBooks shouldBe false
+            }
+        }
+
+        test("openAddBooks sets showAddBooks for non-system collections") {
+            runTest(dispatcher) {
+                val f = Fixture(systemCollection = false)
+                val vm = f.build()
+                advanceUntilIdle()
+
+                vm.openAddBooks()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.showAddBooks shouldBe true
+            }
+        }
+
+        test("book search excludes books already in the collection") {
             runTest(dispatcher) {
                 val f = Fixture()
-                f.booksFlow.value = listOf("b1", "b2")
+                // Seed the collection with book "b-member" already in it
+                f.booksFlow.value = listOf("b-member")
                 every { f.bookDao.observeByIdsWithContributors(any()) } returns
-                    flowOf(
-                        listOf(
-                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
-                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
-                        ),
+                    flowOf(listOf(bookWith(id = "b-member", title = "Dune", author = "Frank Herbert")))
+                val vm = f.build()
+                advanceUntilIdle()
+
+                // Search returns two hits: one that's a member, one that's not
+                everySuspend {
+                    f.searchRepo.search(
+                        query = "dune",
+                        types = listOf(SearchHitType.BOOK),
+                        limit = 20,
                     )
-                f.sharesFlow.value = listOf(CollectionShare("s1", "c1", "u1", SharePermission.Read))
-                val vm = f.build()
+                } returns searchResult(searchHit("b-member", "Dune"), searchHit("b-new", "Dune Messiah"))
+
+                vm.openAddBooks()
+                vm.onBookQueryChange("dune")
+                // Advance past the 300ms debounce
+                advanceTimeBy(301L)
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.collection.id shouldBe "c1"
-                ready.books.map { it.id } shouldBe listOf("b1", "b2")
-                ready.shares.map { it.userId } shouldBe listOf("u1")
+                // Only the non-member hit should appear
+                ready.bookResults.map { it.id } shouldBe listOf("b-new")
+                ready.isSearchingBooks shouldBe false
             }
         }
 
-        test("Ready hydrates collection book ids into CollectionBookItems via BookDao") {
+        test("book search failure surfaces on errorBus and collapses results to empty") {
             runTest(dispatcher) {
                 val f = Fixture()
-                f.booksFlow.value = listOf("b1", "b2")
-                every { f.bookDao.observeByIdsWithContributors(any()) } returns
-                    flowOf(
-                        listOf(
-                            bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson"),
-                            bookWith(id = "b2", title = "Mistborn", author = "Brandon Sanderson"),
-                        ),
+                everySuspend {
+                    f.searchRepo.search(
+                        query = "dune",
+                        types = listOf(SearchHitType.BOOK),
+                        limit = 20,
                     )
+                } throws Exception("Network error")
                 val vm = f.build()
                 advanceUntilIdle()
 
+                f.errorBus.errors.test {
+                    vm.openAddBooks()
+                    vm.onBookQueryChange("dune")
+                    advanceTimeBy(301L)
+                    advanceUntilIdle()
+
+                    // The failure is surfaced — not swallowed as "no results".
+                    awaitItem()
+                    cancelAndIgnoreRemainingEvents()
+                }
+
                 val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.books.map { it.id } shouldBe listOf("b1", "b2")
-                val first = ready.books.first { it.id == "b1" }
-                first.title shouldBe "The Way of Kings"
-                first.author shouldBe "Brandon Sanderson"
-                first.durationMs shouldBe 3_600_000L
+                ready.bookResults shouldBe emptyList()
+                ready.isSearchingBooks shouldBe false
             }
         }
 
-        test("collection ids with no Room row are omitted from the hydrated books") {
+        test("addBookFromSearch dispatches addBook and drops the hit on success") {
             runTest(dispatcher) {
                 val f = Fixture()
-                f.booksFlow.value = listOf("b1", "b2")
-                // Only b1 has synced into Room; b2 is a collection id with no Room row yet.
-                every { f.bookDao.observeByIdsWithContributors(any()) } returns
-                    flowOf(listOf(bookWith(id = "b1", title = "The Way of Kings", author = "Brandon Sanderson")))
+                f.booksFlow.value = listOf("b-existing")
+                everySuspend {
+                    f.searchRepo.search(
+                        query = "dune",
+                        types = listOf(SearchHitType.BOOK),
+                        limit = 20,
+                    )
+                } returns searchResult(searchHit("b-new", "Dune Messiah"))
+                everySuspend { f.repo.addBook("c1", "b-new") } returns AppResult.Success(Unit)
+
                 val vm = f.build()
                 advanceUntilIdle()
 
-                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                // The collection still knows about both ids…
-                ready.collection.id shouldBe "c1"
-                // …but only the hydrated row appears in the books list.
-                ready.books.map { it.id } shouldBe listOf("b1")
+                vm.openAddBooks()
+                vm.onBookQueryChange("dune")
+                advanceTimeBy(301L)
+                advanceUntilIdle()
+
+                // Confirm the hit is present before adding
+                val before = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                before.bookResults.map { it.id } shouldBe listOf("b-new")
+
+                vm.addBookFromSearch("b-new")
+                advanceUntilIdle()
+
+                // Hit should be removed from results
+                val after = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                after.bookResults.map { it.id } shouldBe emptyList()
+
+                // And the repo method was called
+                verifySuspend { f.repo.addBook("c1", "b-new") }
             }
         }
 
-        test("missing collection yields Error") {
+        test("addBookFromSearch surfaces error on failure") {
             runTest(dispatcher) {
                 val f = Fixture()
-                f.collectionsFlow.value = emptyList()
-                val vm = f.build()
-                advanceUntilIdle()
-                vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Error>()
-            }
-        }
+                everySuspend { f.repo.addBook("c1", "b-fail") } returns
+                    AppResult.Failure(ValidationError(message = "book not found"))
 
-        test("saveName dispatches rename and sets saveSuccess") {
-            runTest(dispatcher) {
-                val f = Fixture()
-                everySuspend { f.repo.rename("c1", "Renamed") } returns AppResult.Success(collection(name = "Renamed"))
                 val vm = f.build()
                 advanceUntilIdle()
-                vm.updateName("Renamed")
-                vm.saveName()
+
+                vm.addBookFromSearch("b-fail")
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.saveSuccess shouldBe true
-                ready.isSaving shouldBe false
+                ready.error shouldBe "book not found"
             }
         }
 
-        test("saveName failure surfaces a transient error") {
+        test("closeAddBooks resets search state") {
             runTest(dispatcher) {
                 val f = Fixture()
-                everySuspend { f.repo.rename(any(), any()) } returns
-                    AppResult.Failure(ValidationError(message = "name taken"))
+                everySuspend {
+                    f.searchRepo.search(
+                        query = "dune",
+                        types = listOf(SearchHitType.BOOK),
+                        limit = 20,
+                    )
+                } returns searchResult(searchHit("b-new", "Dune Messiah"))
+
                 val vm = f.build()
                 advanceUntilIdle()
-                vm.updateName("Renamed")
-                vm.saveName()
+
+                vm.openAddBooks()
+                vm.onBookQueryChange("dune")
+                advanceTimeBy(301L)
+                advanceUntilIdle()
+
+                vm.closeAddBooks()
                 advanceUntilIdle()
 
                 val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.error shouldBe "name taken"
-                ready.isSaving shouldBe false
-            }
-        }
-
-        test("removeBook dispatches and clears the overlay") {
-            runTest(dispatcher) {
-                val f = Fixture()
-                f.booksFlow.value = listOf("b1")
-                everySuspend { f.repo.removeBook("c1", "b1") } returns AppResult.Success(Unit)
-                val vm = f.build()
-                advanceUntilIdle()
-                vm.removeBook("b1")
-                advanceUntilIdle()
-
-                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.removingBookId shouldBe null
-            }
-        }
-
-        test("revokeShare dispatches and clears the overlay") {
-            runTest(dispatcher) {
-                val f = Fixture()
-                f.sharesFlow.value = listOf(CollectionShare("s1", "c1", "u1", SharePermission.Read))
-                everySuspend { f.repo.revokeShare("c1", "u1") } returns AppResult.Success(Unit)
-                val vm = f.build()
-                advanceUntilIdle()
-                vm.revokeShare("u1")
-                advanceUntilIdle()
-
-                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.removingShareUserId shouldBe null
-            }
-        }
-
-        test("shareWithUser dispatches share at read permission and closes the sheet") {
-            runTest(dispatcher) {
-                val f = Fixture()
-                everySuspend { f.repo.share("c1", "u2", SharePermission.Read) } returns
-                    AppResult.Success(CollectionShare("s2", "c1", "u2", SharePermission.Read))
-                val vm = f.build()
-                advanceUntilIdle()
-                vm.shareWithUser("u2")
-                advanceUntilIdle()
-
-                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
-                ready.isSharing shouldBe false
-                ready.showAddMemberSheet shouldBe false
+                ready.showAddBooks shouldBe false
+                ready.bookQuery shouldBe ""
+                ready.bookResults shouldBe emptyList()
+                ready.isSearchingBooks shouldBe false
             }
         }
     })
