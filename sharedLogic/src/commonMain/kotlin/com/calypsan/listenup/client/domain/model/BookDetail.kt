@@ -46,6 +46,8 @@ data class BookDetail(
     val tags: List<Tag> = emptyList(),
     val hasScanWarning: Boolean = false,
     val moods: List<Mood> = emptyList(),
+    /** Audio files for this book; hydrated only for the detail view. Used for the format summary. */
+    val audioFiles: List<AudioFile> = emptyList(),
 ) : BookSummaryFields {
     /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
     val idString: String get() = id.value

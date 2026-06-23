@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookListItem
@@ -77,6 +78,22 @@ internal class BookEntityMapper {
             updatedAt = Timestamp(payload.updatedAt),
         )
 }
+
+/**
+ * Convert an [AudioFileEntity] to the domain [AudioFile].
+ *
+ * Single canonical mapper — used by both [BookWithContributors.toDetail] and [PlaybackPreparer].
+ */
+internal fun AudioFileEntity.toAudioFile(): AudioFile =
+    AudioFile(
+        id = id,
+        index = index,
+        filename = filename,
+        format = format,
+        codec = codec,
+        duration = duration,
+        size = size,
+    )
 
 private const val ROLE_AUTHOR = "author"
 private const val ROLE_NARRATOR = "narrator"
@@ -174,6 +191,7 @@ internal fun BookWithContributors.toDetail(
     genres: List<Genre>,
     tags: List<Tag>,
     moods: List<Mood>,
+    audioFiles: List<AudioFile> = emptyList(),
 ): BookDetail {
     val contributorsById = contributors.associateBy { it.id }
 
@@ -235,5 +253,6 @@ internal fun BookWithContributors.toDetail(
         tags = tags,
         hasScanWarning = book.hasScanWarning,
         moods = moods,
+        audioFiles = audioFiles,
     )
 }

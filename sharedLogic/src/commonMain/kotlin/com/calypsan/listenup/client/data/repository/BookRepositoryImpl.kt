@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.local.db.toAudioFile
 import com.calypsan.listenup.client.data.local.db.toDetail
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
@@ -253,7 +254,8 @@ internal class BookRepositoryImpl(
             joinSources.tagRepository.observeTagsForBook(id),
             joinSources.moodRepository.observeMoodsForBook(id),
         ) { row, genres, tags, moods ->
-            row?.toDetail(imageStorage, genres, tags, moods)
+            val audioFiles = if (row != null) audioFileDao.getForBook(id).map { it.toAudioFile() } else emptyList()
+            row?.toDetail(imageStorage, genres, tags, moods, audioFiles)
         }.onEach { detail ->
             if (detail == null && !attemptedFetch && networkMonitor.isOnline()) {
                 attemptedFetch = true
@@ -290,7 +292,8 @@ internal class BookRepositoryImpl(
         val genres = joinSources.genreRepository.observeGenresForBook(id).first()
         val tags = joinSources.tagRepository.observeTagsForBook(id).first()
         val moods = joinSources.moodRepository.observeMoodsForBook(id).first()
-        return row.toDetail(imageStorage, genres, tags, moods)
+        val audioFiles = audioFileDao.getForBook(id).map { it.toAudioFile() }
+        return row.toDetail(imageStorage, genres, tags, moods, audioFiles)
     }
 
     /**
