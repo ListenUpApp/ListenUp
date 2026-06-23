@@ -8,7 +8,7 @@ import SwiftUI
 final class LibraryObserver {
     // MARK: - Flattened state
 
-    private(set) var books: [BookListItem] = []
+    private(set) var books: [BookRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var booksSortState: SortState?
     private(set) var series: [SeriesWithBooks] = []
@@ -87,7 +87,7 @@ final class LibraryObserver {
         case .loaded(let l):
             isLoading = false
             errorMessage = nil
-            books = Array(l.books)
+            books = l.books.map { BookRow($0) }
             bookProgress = mapProgress(l.bookProgress)
             booksSortState = l.booksSortState
             series = Array(l.series)

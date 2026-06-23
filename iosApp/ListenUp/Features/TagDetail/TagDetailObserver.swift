@@ -17,7 +17,7 @@ enum TagDetailPhase: Equatable {
 struct TagDetailSnapshot: Equatable {
     var phase: TagDetailPhase = .loading
     var tagName: String = ""
-    var books: [BookListItem] = []
+    var books: [BookRow] = []
 
     var bookCount: Int { books.count }
 
@@ -36,7 +36,7 @@ struct TagDetailSnapshot: Equatable {
             return TagDetailSnapshot(
                 phase: .ready,
                 tagName: r.tagName,
-                books: Array(r.books)
+                books: r.books.map { BookRow($0) }
             )
         case .error(let errorState):
             return TagDetailSnapshot(phase: .error(errorState.message), tagName: "")
@@ -51,7 +51,7 @@ struct TagDetailSnapshot: Equatable {
 final class TagDetailObserver {
     private(set) var phase: TagDetailPhase = .loading
     private(set) var tagName: String = ""
-    private(set) var books: [BookListItem] = []
+    private(set) var books: [BookRow] = []
 
     var bookCount: Int { books.count }
 

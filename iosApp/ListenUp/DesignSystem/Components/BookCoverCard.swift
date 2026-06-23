@@ -1,5 +1,4 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// Displays a book cover with title and author below.
 ///
@@ -11,10 +10,10 @@ import SwiftUI
 /// - Title and author (single line, truncated)
 /// - Optional progress bar at bottom of cover
 struct BookCoverCard: View {
-    let book: BookListItem
+    let book: BookRow
     let progress: Float?
 
-    init(book: BookListItem, progress: Float? = nil) {
+    init(book: BookRow, progress: Float? = nil) {
         self.book = book
         self.progress = progress
     }
