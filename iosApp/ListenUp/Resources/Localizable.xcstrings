@@ -21,6 +21,26 @@
         }
       }
     },
+    "admin.add_books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add books"
+          }
+        }
+      }
+    },
+    "admin.add_books_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search books…"
+          }
+        }
+      }
+    },
     "admin.add_folder": {
       "localizations": {
         "en": {

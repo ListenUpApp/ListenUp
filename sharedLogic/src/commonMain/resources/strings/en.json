@@ -839,6 +839,8 @@
   "admin": {
     "1_day": "1 day",
     "add_folder": "Add Folder",
+    "add_books": "Add books",
+    "add_books_search_placeholder": "Search books…",
     "add_genre": "Add Genre",
     "add_member": "Add Member",
     "add_members_to_share_this": "Add members to share this collection",

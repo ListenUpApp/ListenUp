@@ -2,6 +2,8 @@
 <resources>
     <string name="admin_1_day">1 day</string>
     <string name="admin_access_level">Access level</string>
+    <string name="admin_add_books">Add books</string>
+    <string name="admin_add_books_search_placeholder">Search books…</string>
     <string name="admin_add_folder">Add Folder</string>
     <string name="admin_add_genre">Add Genre</string>
     <string name="admin_add_member">Add Member</string>
