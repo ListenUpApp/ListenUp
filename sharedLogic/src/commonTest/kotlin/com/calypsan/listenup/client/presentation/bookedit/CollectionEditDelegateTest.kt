@@ -142,4 +142,31 @@ class CollectionEditDelegateTest :
                     .map { it.id } shouldContainExactly listOf("c2")
             }
         }
+
+        test("loadCollections excludes system collections from allCollections") {
+            runTest {
+                val fixture = Fixture()
+                val systemCollection =
+                    Collection(
+                        id = "all-books",
+                        name = "All Books",
+                        ownerId = "system",
+                        isInbox = false,
+                        isSystem = true,
+                        bookCount = 100,
+                        callerPermission = SharePermission.Write,
+                        isOwner = false,
+                    )
+                every { fixture.collectionRepository.observeCollections() } returns
+                    flowOf(listOf(systemCollection, collection("c1", "Favorites")))
+                every { fixture.collectionRepository.observeBookCollectionIds(any()) } returns flowOf(emptyList())
+                val delegate = fixture.build(this)
+
+                delegate.loadCollections("book-1")
+                advanceUntilIdle()
+
+                fixture.state.value.allCollections
+                    .map { it.id } shouldContainExactly listOf("c1")
+            }
+        }
     })
