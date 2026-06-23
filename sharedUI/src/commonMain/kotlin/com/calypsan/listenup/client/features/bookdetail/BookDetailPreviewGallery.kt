@@ -36,7 +36,8 @@ import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeade
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
-import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
+import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
+import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
@@ -171,7 +172,7 @@ fun BookDetailPreviewGallery() {
             StatsSection()
             GenresVsTagsSection()
             AboutSectionGallery()
-            CreditsSectionGallery()
+            DetailsSectionGallery()
             ActionsSection()
             OfflineSection()
             BadgesSection()
@@ -324,16 +325,18 @@ private fun AboutSectionGallery() {
         onGenreClick = {},
         onTagClick = {},
         modifier = horizontalGutter(),
-        creditsSlot = {
-            CreditsSection(credits = mockCredits, onContributorClick = {}, showHeader = false)
-        },
+        creditsSlot = null,
     )
 }
 
 @Composable
-private fun CreditsSectionGallery() {
-    GalleryLabel("Credits — same-role contributors grouped into one row")
-    CreditsSection(
+private fun DetailsSectionGallery() {
+    GalleryLabel("Details — publisher / published / language / format + credits")
+    DetailsSection(
+        publisher = "Tor Books",
+        publishYear = MOCK_YEAR,
+        language = "en",
+        audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
         credits = mockCredits,
         onContributorClick = {},
         modifier = horizontalGutter(),

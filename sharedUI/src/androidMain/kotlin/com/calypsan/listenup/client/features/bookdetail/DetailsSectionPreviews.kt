@@ -7,7 +7,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.features.bookdetail.components.CreditsSection
+import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
+import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 
 private val PREVIEW_CREDITS =
     listOf(
@@ -29,27 +30,33 @@ private fun PreviewTheme(
 
 // Same-role contributors group into one row (the two narrators share a "Narrators" row).
 
-@Preview(name = "CreditsSection · light", widthDp = 412, heightDp = 500)
+@Preview(name = "DetailsSection · light", widthDp = 412, heightDp = 600)
 @Composable
-private fun CreditsSectionLight() {
+private fun DetailsSectionLight() {
     PreviewTheme(dark = false) {
-        CreditsSection(
+        DetailsSection(
+            publisher = "Tor Books",
+            publishYear = 2010,
+            language = "en",
+            audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
             credits = PREVIEW_CREDITS,
             onContributorClick = {},
-            showHeader = true,
             modifier = Modifier.padding(16.dp),
         )
     }
 }
 
-@Preview(name = "CreditsSection · dark", widthDp = 412, heightDp = 500)
+@Preview(name = "DetailsSection · dark", widthDp = 412, heightDp = 600)
 @Composable
-private fun CreditsSectionDark() {
+private fun DetailsSectionDark() {
     PreviewTheme(dark = true) {
-        CreditsSection(
+        DetailsSection(
+            publisher = "Tor Books",
+            publishYear = 2010,
+            language = "en",
+            audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
             credits = PREVIEW_CREDITS,
             onContributorClick = {},
-            showHeader = true,
             modifier = Modifier.padding(16.dp),
         )
     }

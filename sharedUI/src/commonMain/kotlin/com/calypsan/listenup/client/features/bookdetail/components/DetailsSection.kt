@@ -20,48 +20,61 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.model.BookContributor
+import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 import com.calypsan.listenup.client.presentation.bookdetail.CreditRoleGroup
 import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
+import com.calypsan.listenup.client.presentation.bookdetail.languageDisplayName
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.book_detail_credits
+import listenup.composeapp.generated.resources.book_detail_details
+import listenup.composeapp.generated.resources.book_detail_format
+import listenup.composeapp.generated.resources.book_detail_language
+import listenup.composeapp.generated.resources.book_detail_published
+import listenup.composeapp.generated.resources.book_detail_publisher
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Credits section listing every contributor role for a book as a divided list.
- *
- * Contributors sharing a role are grouped into a single row — a fourteen-narrator book shows one
- * "Narrators" row with the names comma-joined and wrapping, not fourteen rows. Each name stays
- * individually tappable, routing to its contributor detail screen via [onContributorClick]. A
- * contributor with no roles is grouped under a generic "Contributor" label so it is never dropped.
- *
- * Each row: the (wrapping) names on the left, the role label on the right, with `outlineVariant`
- * dividers between rows.
- *
- * When [showHeader] is true a "Credits" heading matching the app's section-heading style is rendered
- * above the content. Pass `showHeader = false` when an enclosing section already labels the slot.
- *
- * Renders nothing when [credits] is empty.
- *
- * @param credits            All contributors for this book.
- * @param onContributorClick Called with the contributor id when a name is tapped.
- * @param modifier           Modifier for the outermost container.
- * @param showHeader         Whether to render a standalone "Credits" section heading.
+ * Book "Details" section: formal metadata rows (publisher, published year, language, audio format)
+ * followed by the contributor credits grouped by role. Renders nothing when there is neither
+ * metadata nor credits. Each metadata row mirrors the credit-row style: value on the left, dim
+ * label on the right.
  */
 @Composable
-fun CreditsSection(
+fun DetailsSection(
+    publisher: String?,
+    publishYear: Int?,
+    language: String?,
+    audioFormat: AudioFormat?,
     credits: List<BookContributor>,
     onContributorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
-    showHeader: Boolean = true,
 ) {
-    if (credits.isEmpty()) return
-
-    val groups = groupContributorsByRole(credits)
+    val hasMetadata =
+        !publisher.isNullOrBlank() || publishYear != null || !language.isNullOrBlank() || audioFormat != null
+    if (!hasMetadata && credits.isEmpty()) return
 
     Column(modifier = modifier.fillMaxWidth()) {
-        if (showHeader) {
-            CreditsSectionHeader()
+        Text(
+            text = stringResource(Res.string.book_detail_details),
+            style = MaterialTheme.typography.titleLarge.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
+        if (!publisher.isNullOrBlank()) {
+            MetadataRow(value = publisher, label = stringResource(Res.string.book_detail_publisher))
         }
+        if (publishYear != null) {
+            MetadataRow(value = publishYear.toString(), label = stringResource(Res.string.book_detail_published))
+        }
+        if (!language.isNullOrBlank()) {
+            MetadataRow(value = languageDisplayName(language), label = stringResource(Res.string.book_detail_language))
+        }
+        if (audioFormat != null) {
+            MetadataRow(value = audioFormat.displayLabel(), label = stringResource(Res.string.book_detail_format))
+        }
+        if (hasMetadata && credits.isNotEmpty()) {
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        }
+        val groups = groupContributorsByRole(credits)
         groups.forEachIndexed { index, group ->
             CreditRow(group = group, onContributorClick = onContributorClick)
             if (index < groups.lastIndex) {
@@ -71,19 +84,25 @@ fun CreditsSection(
     }
 }
 
-/** Section heading — matches AboutSection / ChaptersSection heading style. */
+/** A metadata row: emphasis value on the left, dim label on the right — matching [CreditRow]. */
 @Composable
-private fun CreditsSectionHeader(modifier: Modifier = Modifier) {
-    Text(
-        text = stringResource(Res.string.book_detail_credits),
-        style =
-            MaterialTheme.typography.titleLarge.copy(
-                fontFamily = DisplayFontFamily,
-                fontWeight = FontWeight.SemiBold,
-            ),
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier.padding(bottom = 12.dp),
-    )
+private fun MetadataRow(value: String, label: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().padding(vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /**
