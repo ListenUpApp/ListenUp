@@ -100,6 +100,7 @@ import listenup.composeapp.generated.resources.admin_no_books_in_this_collection
 import listenup.composeapp.generated.resources.admin_no_users_available
 import listenup.composeapp.generated.resources.admin_remove_book
 import listenup.composeapp.generated.resources.admin_remove_member
+import listenup.composeapp.generated.resources.admin_system_collection_locked
 import listenup.composeapp.generated.resources.admin_the_book_will_not_be
 import listenup.composeapp.generated.resources.admin_the_display_name_for_this
 import listenup.composeapp.generated.resources.admin_they_will_no_longer_have
@@ -531,10 +532,15 @@ private fun NameSection(
                 value = state.editedName,
                 onValueChange = onNameChange,
                 label = stringResource(Res.string.admin_collection_name),
-                enabled = !state.isSaving,
-                supportingText = stringResource(Res.string.admin_the_display_name_for_this),
+                enabled = !state.isSaving && !state.collection.isSystem,
+                supportingText =
+                    if (state.collection.isSystem) {
+                        stringResource(Res.string.admin_system_collection_locked)
+                    } else {
+                        stringResource(Res.string.admin_the_display_name_for_this)
+                    },
             )
-            if (state.isDirty) {
+            if (state.isDirty && !state.collection.isSystem) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onSaveClick, enabled = !state.isSaving) {
                         if (state.isSaving) {

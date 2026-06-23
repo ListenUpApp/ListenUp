@@ -1511,6 +1511,16 @@
         }
       }
     },
+    "admin.system_collection_locked": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System collection — can't be renamed."
+          }
+        }
+      }
+    },
     "admin.tap_to_create_your_first": {
       "localizations": {
         "en": {
