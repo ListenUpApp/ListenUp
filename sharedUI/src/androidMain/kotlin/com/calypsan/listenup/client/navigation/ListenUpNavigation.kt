@@ -68,6 +68,7 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
+import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
@@ -92,11 +93,12 @@ import com.calypsan.listenup.client.navigation.entries.shellEntry
 private val logger = KotlinLogging.logger {}
 
 /**
- * Initial mini-player clearance used before the bar reports its first measurement. Sized to a
- * typical floating bar plus its bottom padding so detail screens never overlap on the very first
- * frame; replaced by the real measured footprint once [NowPlayingHost] reports it.
+ * Initial mini-player clearance used before the bar reports its first measurement. Tracks
+ * [DockedNowPlayingBarHeight] so the desktop/tablet docked bar (which doesn't self-report its
+ * footprint yet) and the phone floating bar share the same seed value. Replaced by the real
+ * measured footprint once [NowPlayingHost] reports it.
  */
-private val DefaultNowPlayingFootprint = 96.dp
+private val DefaultNowPlayingFootprint = DockedNowPlayingBarHeight
 
 /**
  * Root navigation composable for ListenUp Android app.
