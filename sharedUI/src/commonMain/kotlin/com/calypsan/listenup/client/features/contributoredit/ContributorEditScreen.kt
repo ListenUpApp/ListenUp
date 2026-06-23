@@ -392,7 +392,6 @@ private fun ArtistStudioContent(
         } else {
             SingleColumnCardsLayout(state = state, onEvent = onEvent)
         }
-
     }
 }
 
