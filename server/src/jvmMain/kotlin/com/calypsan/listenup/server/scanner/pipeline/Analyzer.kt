@@ -162,6 +162,10 @@ internal class Analyzer(
                             discNumber = embDisc ?: info.discNumber,
                             trackSource = if (embTrack != null) TrackNumberSource.METADATA else info.trackSource,
                             discSource = if (embDisc != null) TrackNumberSource.METADATA else info.discSource,
+                            // Per-track length for multi-file books, so the mapper can sum the book's
+                            // total duration and give each file its real length (parsed is null for
+                            // single-file books, where the book-level embedded duration suffices).
+                            durationMs = parsed?.durationMs,
                         )
                     // Capture the full parse result so synthesis can reuse it without re-parsing.
                     if (multiTrack) perTrackMetadata[entry] = parsed
@@ -452,16 +456,34 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
-    ): String =
-        precedence.order.firstNotNullOfOrNull { source ->
+    ): String {
+        val multiFile = candidate.files.count { it.fileType == FileType.AUDIO } > 1
+        return precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
                 MetadataPrecedenceSource.ABS_METADATA -> metadata?.title?.takeUnless { it.isBlank() }
-                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.title?.takeUnless { it.isBlank() }
+                MetadataPrecedenceSource.EMBEDDED -> embeddedBookTitle(embedded, multiFile)
                 MetadataPrecedenceSource.SIDECAR -> sidecar?.title?.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.FILENAME -> parsed.title.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.FOLDER -> shape.titleFolder.takeUnless { it.isBlank() }
             }
         } ?: candidate.rootRelPath
+    }
+
+    /**
+     * The book title carried by embedded tags, matching Audiobookshelf precedence: the **album**
+     * tag is the book title (authoritative). The per-file `title` tag is the book title only for a
+     * single-file book; for a multi-file book it is the current track's chapter title, so it is
+     * ignored. Returns null when embedded tags carry no usable book title, letting [pickTitle] fall
+     * through to the folder.
+     */
+    private fun embeddedBookTitle(
+        embedded: EmbeddedAudioMetadata?,
+        multiFile: Boolean,
+    ): String? {
+        val tags = embedded?.tags ?: return null
+        tags.custom[AudioTags.ALBUM_KEY]?.takeUnless { it.isBlank() }?.let { return it }
+        return if (!multiFile) tags.title?.takeUnless { it.isBlank() } else null
+    }
 
     private fun pickAuthors(
         shape: FolderShape,

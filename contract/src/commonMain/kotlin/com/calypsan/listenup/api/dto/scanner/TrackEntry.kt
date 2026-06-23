@@ -7,6 +7,11 @@ import kotlinx.serialization.Serializable
  * One audio file in playback order, with its derived position metadata.
  * Phase 2 only fills track/disc from filename or parent folder; embedded-tag
  * sources land in Phase 3 and use [TrackNumberSource.METADATA].
+ *
+ * [durationMs] is the track's own playable length, parsed from embedded metadata
+ * for multi-file books (where it is needed to sum the book's total duration and to
+ * give each `book_audio_files` row its real length). It is `null` for single-file
+ * books, where the book-level embedded duration already equals the one file's length.
  */
 @Serializable
 data class TrackEntry(
@@ -16,6 +21,7 @@ data class TrackEntry(
     val discNumber: Int? = null,
     val trackSource: TrackNumberSource? = null,
     val discSource: TrackNumberSource? = null,
+    val durationMs: Long? = null,
 )
 
 /**

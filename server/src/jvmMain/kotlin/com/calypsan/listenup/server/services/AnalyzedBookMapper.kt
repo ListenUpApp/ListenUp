@@ -34,13 +34,11 @@ import kotlin.time.Clock
  *    track's [com.calypsan.listenup.api.dto.scanner.FileEntry].
  *  - `chapters` map to chapter rows (`duration = endMs - startMs`).
  *
- * **Duration caveat.** The Scanner's [AnalyzedBook] carries no per-track
- * duration — `TrackEntry` wraps only a `FileEntry` (path/size/inode), and
- * `codec` is not surfaced anywhere. The single authoritative duration is
- * `embedded.durationMs`, produced by the parser for the *primary* audio file
- * only (spec §3 non-goal: multi-file books parse the first file). So
- * `totalDuration` and the first audio file's `duration` carry that value;
- * non-primary files get `0L`; `codec` is left blank.
+ * **Duration.** Each [com.calypsan.listenup.api.dto.scanner.TrackEntry] carries its own
+ * `durationMs` (parsed per-track for multi-file books by the Analyzer). Every
+ * `book_audio_files` row gets its track's duration, and `totalDuration` is their sum.
+ * Single-file books leave `TrackEntry.durationMs` null, so both the one file's duration
+ * and `totalDuration` fall back to the book-level `embedded.durationMs`. `codec` is left blank.
  *
  * `cover` is left null — cover hashing is a later task; the substrate-owned
  * `revision` / `updatedAt` / `createdAt` placeholders are overwritten by
@@ -70,7 +68,13 @@ class AnalyzedBookMapper(
     ): BookSyncPayload {
         val candidate = analyzed.candidate
         val inode = candidate.files.firstOrNull()?.inode
-        val totalDuration = analyzed.embedded?.durationMs ?: 0L
+        // Sum the per-track durations (multi-file books); fall back to the book-level
+        // embedded duration for single-file books, where TrackEntry.durationMs is null.
+        val totalDuration =
+            analyzed.tracks
+                .sumOf { it.durationMs ?: 0L }
+                .takeIf { it > 0L }
+                ?: (analyzed.embedded?.durationMs ?: 0L)
         return BookSyncPayload(
             id = bookId.value,
             libraryId = libraryId,
@@ -166,7 +170,7 @@ class AnalyzedBookMapper(
                 filename = track.file.name,
                 format = track.file.ext,
                 codec = "",
-                duration = if (index == 0) primaryDuration else 0L,
+                duration = track.durationMs ?: if (index == 0) primaryDuration else 0L,
                 size = track.file.size,
             )
         }
