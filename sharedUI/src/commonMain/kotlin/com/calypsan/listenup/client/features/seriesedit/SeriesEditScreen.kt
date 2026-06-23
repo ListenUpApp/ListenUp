@@ -125,7 +125,6 @@ fun SeriesEditScreen(
     }
 
     ListenUpScaffold(
-        containerColor = MaterialTheme.colorScheme.surface,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         floatingActionButton = {
             if (!state.isLoading) {

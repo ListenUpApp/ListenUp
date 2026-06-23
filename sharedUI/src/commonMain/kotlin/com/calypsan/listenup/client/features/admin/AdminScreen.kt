@@ -368,7 +368,7 @@ private fun AdminContent(
                     .fillMaxSize()
                     .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
                 ServerSettingsSection(
@@ -440,7 +440,7 @@ private fun AdminTwoPaneContent(
         LazyColumn(
             modifier = Modifier.weight(1.1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
                 ServerSettingsSection(
@@ -470,7 +470,7 @@ private fun AdminTwoPaneContent(
         LazyColumn(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 24.dp),
         ) {
             item {
                 ManagementSection(
