@@ -6,17 +6,10 @@ import com.password4j.types.Argon2
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * Argon2id password hashing wrapper. Pins parameters in one place; exposes
- * suspend functions that wrap the blocking, CPU-bound hash on Dispatchers.Default.
- *
- * Encoded output is the standard PHC string format
- * (`$argon2id$v=19$m=65536,t=3,p=4$...`).
- */
-class PasswordHasher(
-    private val argon2: Argon2Function = DEFAULT,
-) {
-    suspend fun hash(plaintext: CharSequence): String =
+actual class PasswordHasher actual constructor() {
+    private val argon2: Argon2Function = DEFAULT
+
+    actual suspend fun hash(plaintext: CharSequence): String =
         withContext(Dispatchers.Default) {
             Password
                 .hash(plaintext)
@@ -25,10 +18,7 @@ class PasswordHasher(
                 .result
         }
 
-    suspend fun verify(
-        plaintext: CharSequence,
-        encoded: String,
-    ): Boolean =
+    actual suspend fun verify(plaintext: CharSequence, encoded: String): Boolean =
         withContext(Dispatchers.Default) {
             Password.check(plaintext, encoded).with(argon2)
         }
