@@ -25,6 +25,11 @@ kotlin {
     iosSimulatorArm64()
     macosArm64()
 
+    // linuxX64 — used by the native :server build (the Kotlin/Native server port). :contract is the
+    // shared source of truth both sides read, so it must publish a linuxX64 artifact for the server's
+    // commonMain to reference contract types (DTOs, @Rpc interfaces, AppError) on native.
+    linuxX64()
+
     applyDefaultHierarchyTemplate()
 
     sourceSets {
