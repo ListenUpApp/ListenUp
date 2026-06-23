@@ -19,6 +19,10 @@ struct ContributorsContent: View {
     @State private var segment: Segment = .authors
     @State private var isScrolling = false
     @State private var scrollTarget: String?
+    /// Available list width, read non-intrusively (see [listBody]) to drive the responsive
+    /// column count. Read via `onGeometryChange` rather than a greedy `GeometryReader`, which
+    /// as a `VStack` sibling starved the Authors/Narrators `Picker` of height (it vanished).
+    @State private var listWidth: CGFloat = 0
 
     private let sortCategories: [SortCategory] = [.name, .bookCount]
 
@@ -48,16 +52,15 @@ struct ContributorsContent: View {
     }
 
     private var listBody: some View {
-        GeometryReader { geo in
-            let columns = ContributorColumns.columnCount(availableWidth: geo.size.width)
-            Group {
-                if columns <= 1 {
-                    singleColumnList
-                } else {
-                    multiColumnList(columns: columns)
-                }
+        let columns = ContributorColumns.columnCount(availableWidth: listWidth)
+        return Group {
+            if columns <= 1 {
+                singleColumnList
+            } else {
+                multiColumnList(columns: columns)
             }
         }
+        .onGeometryChange(for: CGFloat.self, of: { $0.size.width }, action: { listWidth = $0 })
     }
 
     private var singleColumnList: some View {
