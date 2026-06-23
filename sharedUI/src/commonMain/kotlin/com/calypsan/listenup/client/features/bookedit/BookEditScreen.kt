@@ -13,11 +13,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Save
-import com.calypsan.listenup.client.design.components.ListenUpExtendedFab
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import com.calypsan.listenup.client.design.components.ListenUpButton
+import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -101,17 +102,23 @@ fun BookEditScreen(
         showUnsavedChangesDialog = true
     }
 
-    Scaffold(
+    ListenUpScaffold(
         containerColor = MaterialTheme.colorScheme.surface,
-        floatingActionButton = {
+        bottomBar = {
             if (!state.isLoading) {
-                ListenUpExtendedFab(
-                    onClick = { viewModel.onEvent(BookEditUiEvent.Save) },
-                    icon = Icons.Default.Save,
-                    text = if (state.isSaving) "Saving..." else "Save Changes",
-                    enabled = state.hasChanges && !state.isSaving,
-                    isLoading = state.isSaving,
-                )
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 3.dp,
+                ) {
+                    ListenUpButton(
+                        text = if (state.isSaving) "Saving..." else "Save Changes",
+                        onClick = { viewModel.onEvent(BookEditUiEvent.Save) },
+                        enabled = state.hasChanges && !state.isSaving,
+                        isLoading = state.isSaving,
+                        leadingIcon = Icons.Default.Save,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
             }
         },
     ) { paddingValues ->
@@ -161,7 +168,7 @@ fun BookEditScreen(
                                 onBackClick()
                             }
                         },
-                        modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding()),
+                        modifier = Modifier.padding(paddingValues),
                     )
                 }
             }
@@ -248,8 +255,6 @@ private fun BookEditContent(
             SingleColumnCardsLayout(state = state, onEvent = onEvent)
         }
 
-        // Bottom spacing for FAB
-        Spacer(modifier = Modifier.height(88.dp))
     }
 }
 
