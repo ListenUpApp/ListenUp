@@ -566,6 +566,10 @@ class BookDetailViewModel(
         updateReady { it.copy(shelfError = null) }
     }
 
+    fun clearCollectionError() {
+        updateReady { it.copy(collectionError = null) }
+    }
+
     fun showShelfPicker() {
         updateReady { it.copy(showShelfPicker = true) }
     }
