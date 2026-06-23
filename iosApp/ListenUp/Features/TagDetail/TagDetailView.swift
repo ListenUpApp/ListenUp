@@ -74,8 +74,8 @@ struct TagDetailView: View {
                     columns: [GridItem(.adaptive(minimum: 150), spacing: 16)],
                     spacing: 20
                 ) {
-                    ForEach(Array(observer.books), id: \.idString) { book in
-                        NavigationLink(value: BookDestination(id: book.idString)) {
+                    ForEach(observer.books) { book in
+                        NavigationLink(value: BookDestination(id: book.id)) {
                             BookCoverCard(book: book, progress: nil)
                         }
                         .buttonStyle(.plain)

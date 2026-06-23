@@ -11,7 +11,7 @@ import UIKit
 /// - Pull-to-refresh
 /// - Loading, empty, and error states
 struct BooksContent: View {
-    let books: [BookListItem]
+    let books: [BookRow]
     let bookProgress: [String: Float]
     let sortState: SortState?
     let isLoading: Bool
@@ -25,7 +25,7 @@ struct BooksContent: View {
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
-    @State private var sections: [(letter: Character, books: [BookListItem])] = []
+    @State private var sections: [(letter: Character, books: [BookRow])] = []
 
     private var layout: BooksLayout {
         BooksLayout.forRegularWidth(horizontalSizeClass == .regular)
@@ -79,9 +79,9 @@ struct BooksContent: View {
 
                             // Books grid
                             LazyVGrid(columns: columns, spacing: layout.gridSpacing) {
-                                ForEach(section.books, id: \.idString) { book in
-                                    NavigationLink(value: BookDestination(id: book.idString)) {
-                                        BookCoverCard(book: book, progress: bookProgress[book.idString])
+                                ForEach(section.books) { book in
+                                    NavigationLink(value: BookDestination(id: book.id)) {
+                                        BookCoverCard(book: book, progress: bookProgress[book.id])
                                     }
                                     .buttonStyle(.plain)
                                 }
@@ -142,7 +142,7 @@ struct BooksContent: View {
                 }
             }
             .onChange(of: books, initial: true) { _, _ in
-                sections = buildSections(books: books)
+                sections = bookSections(from: books)
             }
         }
     }
@@ -179,22 +179,6 @@ struct BooksContent: View {
     /// Only show alphabet index when sorted by title
     private var shouldShowAlphabetIndex: Bool {
         sortState?.category == .title
-    }
-
-    /// Groups books into alphabetically sorted sections.
-    private func buildSections(books: [BookListItem]) -> [(letter: Character, books: [BookListItem])] {
-        let grouped = Dictionary(grouping: books) { book -> Character in
-            guard let first = book.title.first?.uppercased().first else { return "#" }
-            return first.isLetter ? first : "#"
-        }
-
-        return grouped.keys
-            .sorted { lhs, rhs in
-                if !lhs.isLetter && rhs.isLetter { return true }
-                if lhs.isLetter && !rhs.isLetter { return false }
-                return lhs < rhs
-            }
-            .map { (letter: $0, books: grouped[$0] ?? []) }
     }
 
     // MARK: - Loading State

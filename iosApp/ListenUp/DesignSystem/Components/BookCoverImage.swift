@@ -40,6 +40,14 @@ struct BookCoverImage: View {
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
 
+    /// Convenience initializer from a native `BookRow` (the Library grid's value type).
+    init(book: BookRow) {
+        self.bookId = book.id
+        self.coverPath = book.coverPath
+        self.blurHash = book.coverBlurHash
+        self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
+    }
+
     /// Convenience initializer from a BookDetail
     init(book: BookDetail) {
         self.bookId = book.idString
