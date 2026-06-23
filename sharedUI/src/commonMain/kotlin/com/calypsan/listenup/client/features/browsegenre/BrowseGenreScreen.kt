@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -116,6 +117,7 @@ fun BrowseGenreScreen(
                     onSelectGenre = { viewModel.selectGenre(it) },
                     onBookClick = onBookClick,
                     topPadding = innerPadding.calculateTopPadding(),
+                    bottomPadding = innerPadding.calculateBottomPadding(),
                 )
             }
         }
@@ -184,6 +186,7 @@ private fun BrowseGenreReadyContent(
     onSelectGenre: (GenreId) -> Unit,
     onBookClick: (BookId) -> Unit,
     topPadding: androidx.compose.ui.unit.Dp,
+    bottomPadding: androidx.compose.ui.unit.Dp,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(top = topPadding),
@@ -194,7 +197,10 @@ private fun BrowseGenreReadyContent(
             if (state.genres.isEmpty()) {
                 EmptyGenresMessage()
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = bottomPadding),
+                ) {
                     items(state.genres, key = { it.id }) { genre ->
                         GenreRow(
                             genre = genre,
@@ -208,7 +214,11 @@ private fun BrowseGenreReadyContent(
 
         if (state.selectedGenreId != null) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                BookListForGenre(books = state.books, onBookClick = onBookClick)
+                BookListForGenre(
+                    books = state.books,
+                    onBookClick = onBookClick,
+                    bottomPadding = bottomPadding,
+                )
             }
         }
     }
@@ -256,6 +266,7 @@ private fun GenreRow(
 private fun BookListForGenre(
     books: List<BookId>,
     onBookClick: (BookId) -> Unit,
+    bottomPadding: androidx.compose.ui.unit.Dp,
 ) {
     if (books.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -267,7 +278,10 @@ private fun BookListForGenre(
         }
         return
     }
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = bottomPadding),
+    ) {
         items(books, key = { it.value }) { bookId ->
             Row(
                 modifier =
