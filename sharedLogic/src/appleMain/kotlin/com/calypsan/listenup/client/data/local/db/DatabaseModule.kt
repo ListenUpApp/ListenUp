@@ -48,6 +48,9 @@ internal actual val platformDatabaseModule: Module =
                     name = dbFile,
                 ).setDriver(BundledSQLiteDriver())
                 .setQueryCoroutineContext(Dispatchers.Default)
+                // Without this the FTS5 search tables are never created on Apple platforms,
+                // so every search and FTS rebuild fails with `no such table: books_fts`.
+                .addCallback(FtsTableCallback())
                 .addMigrations(
                     MIGRATION_14_15,
                     MIGRATION_15_16,
