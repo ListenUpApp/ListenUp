@@ -755,6 +755,7 @@ class BookEditViewModelTest :
                 name = name,
                 ownerId = "admin-1",
                 isInbox = false,
+                isSystem = false,
                 bookCount = 0,
                 callerPermission = SharePermission.Write,
                 isOwner = true,

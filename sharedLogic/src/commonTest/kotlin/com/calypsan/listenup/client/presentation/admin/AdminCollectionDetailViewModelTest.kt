@@ -60,6 +60,7 @@ class AdminCollectionDetailViewModelTest :
             name = name,
             ownerId = "owner1",
             isInbox = false,
+            isSystem = false,
             bookCount = 0,
             callerPermission = SharePermission.Write,
             isOwner = true,

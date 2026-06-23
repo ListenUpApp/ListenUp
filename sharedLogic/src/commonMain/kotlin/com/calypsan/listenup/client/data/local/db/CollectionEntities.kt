@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
@@ -34,6 +35,8 @@ internal data class CollectionEntity(
     val name: String,
     /** Whether this is the user's auto-created inbox collection (not deletable). */
     val isInbox: Boolean,
+    /** Whether this is a server-managed system collection (All Books or Inbox) — not renameable/deletable. */
+    @ColumnInfo(defaultValue = "0") val isSystem: Boolean = false,
     /** Monotonic server revision, advanced on every committed change. */
     val revision: Long = 0,
     /** Epoch ms tombstone; null when the collection is live. */

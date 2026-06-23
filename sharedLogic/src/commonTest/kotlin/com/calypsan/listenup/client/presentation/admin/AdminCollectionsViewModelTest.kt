@@ -49,6 +49,7 @@ class AdminCollectionsViewModelTest :
             name = name,
             ownerId = "owner1",
             isInbox = false,
+            isSystem = false,
             bookCount = bookCount,
             callerPermission = SharePermission.Write,
             isOwner = true,
