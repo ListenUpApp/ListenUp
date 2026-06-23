@@ -33,10 +33,10 @@ import listenup.composeapp.generated.resources.book_detail_publisher
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Book "Details" section: formal metadata rows (publisher, published year, language, audio format)
- * followed by the contributor credits grouped by role. Renders nothing when there is neither
- * metadata nor credits. Each metadata row mirrors the credit-row style: value on the left, dim
- * label on the right.
+ * Book "Details" section: the contributor credits grouped by role, followed by the formal metadata
+ * rows (publisher, published year, language, audio format). Renders nothing when there is neither
+ * credits nor metadata. A divider sits between every consecutive row. Each metadata row mirrors the
+ * credit-row style: value on the left, dim label on the right.
  */
 @Composable
 fun DetailsSection(
@@ -48,9 +48,43 @@ fun DetailsSection(
     onContributorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val hasMetadata =
-        !publisher.isNullOrBlank() || publishYear != null || !language.isNullOrBlank() || audioFormat != null
-    if (!hasMetadata && credits.isEmpty()) return
+    val rows: List<@Composable () -> Unit> =
+        buildList {
+            // Contributors first (role-grouped), then the formal metadata rows.
+            groupContributorsByRole(credits).forEach { group ->
+                add { CreditRow(group = group, onContributorClick = onContributorClick) }
+            }
+            if (!publisher.isNullOrBlank()) {
+                add {
+                    MetadataRow(value = publisher, label = stringResource(Res.string.book_detail_publisher))
+                }
+            }
+            if (publishYear != null) {
+                add {
+                    MetadataRow(
+                        value = publishYear.toString(),
+                        label = stringResource(Res.string.book_detail_published),
+                    )
+                }
+            }
+            if (!language.isNullOrBlank()) {
+                add {
+                    MetadataRow(
+                        value = languageDisplayName(language),
+                        label = stringResource(Res.string.book_detail_language),
+                    )
+                }
+            }
+            if (audioFormat != null) {
+                add {
+                    MetadataRow(
+                        value = audioFormat.displayLabel(),
+                        label = stringResource(Res.string.book_detail_format),
+                    )
+                }
+            }
+        }
+    if (rows.isEmpty()) return
 
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
@@ -63,25 +97,9 @@ fun DetailsSection(
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp),
         )
-        if (!publisher.isNullOrBlank()) {
-            MetadataRow(value = publisher, label = stringResource(Res.string.book_detail_publisher))
-        }
-        if (publishYear != null) {
-            MetadataRow(value = publishYear.toString(), label = stringResource(Res.string.book_detail_published))
-        }
-        if (!language.isNullOrBlank()) {
-            MetadataRow(value = languageDisplayName(language), label = stringResource(Res.string.book_detail_language))
-        }
-        if (audioFormat != null) {
-            MetadataRow(value = audioFormat.displayLabel(), label = stringResource(Res.string.book_detail_format))
-        }
-        if (hasMetadata && credits.isNotEmpty()) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        }
-        val groups = groupContributorsByRole(credits)
-        groups.forEachIndexed { index, group ->
-            CreditRow(group = group, onContributorClick = onContributorClick)
-            if (index < groups.lastIndex) {
+        rows.forEachIndexed { index, row ->
+            row()
+            if (index < rows.lastIndex) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
