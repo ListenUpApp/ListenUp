@@ -294,15 +294,20 @@ internal class CollectionServiceImpl(
 
         if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 
+        // System collections (ALL_BOOKS, INBOX) are managed by the server — setBookCollections must
+        // never add or remove them. Exclude system ids from both sides of the diff so only NORMAL
+        // collection memberships are affected by this replace-set operation.
+        val systemIds = collectionRepo.systemCollectionIds()
+
         // Validate every distinct target up front — exists and live — before mutating:
         // a tombstoned target would otherwise be silently resurrected by upsert, and a
         // bad id would surface as an opaque FK violation mid-transaction.
-        val targetIds = collectionIds.map { it.value }.toSet()
+        val targetIds = collectionIds.map { it.value }.toSet() - systemIds
         for (targetId in targetIds) {
             collectionRepo.findById(targetId) ?: return AppResult.Failure(CollectionError.NotFound())
         }
 
-        val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet()
+        val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet() - systemIds
         val added = targetIds - current
         val removed = current - targetIds
 

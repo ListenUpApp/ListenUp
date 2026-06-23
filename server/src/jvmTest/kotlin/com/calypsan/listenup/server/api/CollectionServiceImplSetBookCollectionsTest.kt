@@ -221,6 +221,52 @@ class CollectionServiceImplSetBookCollectionsTest :
             }
         }
 
+        test("setBookCollections preserves ALL_BOOKS membership when it is not in the target set") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestBook("book1")
+                runTest {
+                    val (service, _) = makeHarness(db)
+                    val admin = service.actAs("admin", UserRole.ADMIN)
+
+                    // Seed ALL_BOOKS system collection and add the book to it.
+                    val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksId = allBooks.data.id
+
+                    admin.addBookToCollection(allBooksId, BookId("book1")) shouldBe AppResult.Success(Unit)
+
+                    // Precondition: book is in ALL_BOOKS.
+                    admin.listCollectionBooks(allBooksId).let {
+                        require(it is AppResult.Success)
+                        it.data shouldBe listOf(BookId("book1"))
+                    }
+
+                    // Create a NORMAL collection and set the book's collections to [normal only].
+                    // ALL_BOOKS is deliberately NOT included in the target set.
+                    val normal = admin.createCollection("test-library", "Normal")
+                    require(normal is AppResult.Success)
+                    val normalId = normal.data.id
+
+                    admin.setBookCollections(BookId("book1"), listOf(normalId)) shouldBe AppResult.Success(Unit)
+
+                    // The book must still be in ALL_BOOKS — system memberships are never touched.
+                    admin.listCollectionBooks(allBooksId).let {
+                        require(it is AppResult.Success)
+                        it.data shouldBe listOf(BookId("book1"))
+                    }
+
+                    // The book must also be in the NORMAL collection.
+                    admin.listCollectionBooks(normalId).let {
+                        require(it is AppResult.Success)
+                        it.data shouldBe listOf(BookId("book1"))
+                    }
+                }
+            }
+        }
+
         test("setBookCollections emits AccessChanged to members of added AND removed collections") {
             withSqlDatabase {
                 val db = this
