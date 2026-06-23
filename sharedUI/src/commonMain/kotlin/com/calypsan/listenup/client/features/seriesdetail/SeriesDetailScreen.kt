@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -94,10 +95,8 @@ fun SeriesDetailScreen(
 
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    // The color hero bleeds edge-to-edge behind the status bar (the system clock sits on the
-    // color block, matching the design); HeroNavRow re-insets the floating back/edit controls
-    // below the status bar. ListenUpScaffold reserves the mini-player footprint at the bottom.
-    ListenUpScaffold { paddingValues ->
+    // Immersive: let the color hero bleed behind the status bar (HeroNavRow self-insets its controls).
+    ListenUpScaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { paddingValues ->
         Box(
             modifier =
                 Modifier

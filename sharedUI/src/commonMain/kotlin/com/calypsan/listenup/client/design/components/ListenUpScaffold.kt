@@ -27,6 +27,10 @@ import androidx.compose.ui.graphics.Color
  *
  * The bottom is owned entirely by the spacer; [androidx.compose.material3.Scaffold]'s
  * `contentWindowInsets` is restricted to top + horizontal so nothing is double-counted.
+ *
+ * @param contentWindowInsets Non-bottom insets applied to content; defaults to status bar +
+ *   horizontal. Immersive screens whose hero bleeds behind the status bar pass
+ *   `WindowInsets(0, 0, 0, 0)`. The bottom is always managed by the mini-player + nav-bar spacer.
  */
 @Composable
 fun ListenUpScaffold(
@@ -37,6 +41,8 @@ fun ListenUpScaffold(
     floatingActionButtonPosition: FabPosition = FabPosition.End,
     snackbarHost: @Composable () -> Unit = {},
     containerColor: Color = MaterialTheme.colorScheme.surface,
+    contentWindowInsets: WindowInsets =
+        WindowInsets.systemBars.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
     content: @Composable (PaddingValues) -> Unit,
 ) {
     // max-per-side: when the player is active its footprint already includes the nav bar, so it
@@ -56,8 +62,7 @@ fun ListenUpScaffold(
         floatingActionButtonPosition = floatingActionButtonPosition,
         snackbarHost = snackbarHost,
         containerColor = containerColor,
-        contentWindowInsets = WindowInsets.systemBars
-            .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+        contentWindowInsets = contentWindowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
         content = content,
     )
 }
