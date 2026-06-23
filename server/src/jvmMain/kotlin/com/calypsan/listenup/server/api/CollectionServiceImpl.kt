@@ -198,6 +198,8 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) {
@@ -215,8 +217,9 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-        val collection = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
-        if (collection.isInbox) return AppResult.Failure(CollectionError.InboxNotDeletable())
+        if (collectionRepo.findById(id.value) == null) return AppResult.Failure(CollectionError.NotFound())
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
         // Cascade: tombstone the membership rows, every active grant, then the collection. Each is
         // a suspend repo call that opens its own SQLDelight transaction, so they run sequentially

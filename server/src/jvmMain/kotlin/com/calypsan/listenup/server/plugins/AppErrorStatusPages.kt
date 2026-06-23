@@ -600,7 +600,7 @@ private fun CollectionError.toHttpStatus(): HttpStatusCode =
         is CollectionError.UserNotFound -> HttpStatusCode.NotFound
         is CollectionError.Forbidden -> HttpStatusCode.Forbidden
         is CollectionError.InvalidInput -> HttpStatusCode.BadRequest
-        is CollectionError.InboxNotDeletable -> HttpStatusCode.BadRequest
+        is CollectionError.SystemCollectionReadOnly -> HttpStatusCode.BadRequest
         is CollectionError.SelfShare -> HttpStatusCode.BadRequest
         is CollectionError.AlreadyShared -> HttpStatusCode.BadRequest
     }
@@ -612,7 +612,7 @@ private fun CollectionError.withCorrelationId(id: String?): CollectionError =
         is CollectionError.UserNotFound -> copy(correlationId = id)
         is CollectionError.Forbidden -> copy(correlationId = id)
         is CollectionError.InvalidInput -> copy(correlationId = id)
-        is CollectionError.InboxNotDeletable -> copy(correlationId = id)
+        is CollectionError.SystemCollectionReadOnly -> copy(correlationId = id)
         is CollectionError.SelfShare -> copy(correlationId = id)
         is CollectionError.AlreadyShared -> copy(correlationId = id)
     }

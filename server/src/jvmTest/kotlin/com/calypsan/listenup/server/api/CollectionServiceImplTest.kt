@@ -265,7 +265,7 @@ class CollectionServiceImplTest :
                     collectionRepo.setType("inbox1", "INBOX")
                     val inboxDelete = service.deleteCollection(CollectionId("inbox1"))
                     require(inboxDelete is AppResult.Failure)
-                    inboxDelete.error.shouldBeInstanceOf<CollectionError.InboxNotDeletable>()
+                    inboxDelete.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
                 }
             }
         }
@@ -671,7 +671,7 @@ class CollectionServiceImplTest :
                     // The owning admin cannot delete the inbox: it's a protected system collection.
                     val deleteAttempt = service.actAs("admin", UserRole.ADMIN).deleteCollection(inbox.data.id)
                     require(deleteAttempt is AppResult.Failure)
-                    deleteAttempt.error.shouldBeInstanceOf<CollectionError.InboxNotDeletable>()
+                    deleteAttempt.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
                 }
             }
         }
