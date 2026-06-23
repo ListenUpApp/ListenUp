@@ -9,44 +9,53 @@ package com.calypsan.listenup.server.scanner.inference
  * touched. No confident match -> the input is returned unchanged.
  */
 internal object SeriesSuffixMatcher {
+    // Cardinal number: a digit run, or an English word one..twenty. Kept as a word list so [NUM]
+    // interpolates as a short raw string (a single inline literal would exceed the line-length limit).
+    private val WORD_NUMBERS =
+        listOf(
+            "one",
+            "two",
+            "three",
+            "four",
+            "five",
+            "six",
+            "seven",
+            "eight",
+            "nine",
+            "ten",
+            "eleven",
+            "twelve",
+            "thirteen",
+            "fourteen",
+            "fifteen",
+            "sixteen",
+            "seventeen",
+            "eighteen",
+            "nineteen",
+            "twenty",
+        )
+    private val NUM = """(?:\d+|${WORD_NUMBERS.joinToString("|")})"""
 
-    // Matches a cardinal number written as a digit or as English words one..twenty.
-    private const val NUM =
-        "(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten" +
-            "|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty)"
+    // Series-position keyword: Book, Vol, Vol., Volume, Part.
+    private const val LABEL = """(?:book|vol\.?|volume|part)"""
 
-    // Matches the series-position keyword: Book, Vol, Vol., Volume, Part.
-    private const val LABEL = "(?:book|vol\\.?|volume|part)"
-
-    // Trailing suffix forms recognised:
-    //
-    //   Form A — colon-prefixed: ": <series name>, Book N" at end of title
-    //            (handles "Title: Series, Book N" → "Title")
-    //   Form B — bare comma: ", Book N" or ", Volume N"
-    //            (handles "Title, Book 6" → "Title")
-    //   Form C — parenthesised: "(<anything>, Book N)" or "(<anything> #N)"
-    //            (handles "Title (Series, Book One)" and "Title (Series #4)" → "Title")
-    //
-    // Forms are tried longest-match first by alternation ordering so that Form A
-    // (which consumes more characters) wins over Form B when both could match.
+    // Trailing suffix forms, tried longest-match first by alternation order so the colon form
+    // (which consumes more) wins over the bare-comma form when both could match:
+    //   Form A — colon-prefixed:  ": <series>, Book N"   ("Title: Series, Book N" -> "Title")
+    //   Form B — bare comma:      ", Book N" / ", Volume N"
+    //   Form C — parenthesised:   "(<...>, Book N)" / "(<...> #N)"
     private val trailingSuffix =
         Regex(
-            // Form A: strip ":<ws>series-name, LABEL NUM" from the end
-            "\\s*(?::\\s*[^:]+,\\s*$LABEL\\s+$NUM" +
-                // Form B: strip ", LABEL NUM" from the end
-                "|,\\s*$LABEL\\s+$NUM" +
-                // Form C: strip "(<...>, LABEL NUM)" or "(<...> #NUM)" from the end
-                "|\\([^)]*(?:$LABEL\\s+$NUM|#\\s*$NUM)\\))\\s*\$",
+            """\s*(?::\s*[^:]+,\s*$LABEL\s+$NUM|,\s*$LABEL\s+$NUM|\([^)]*(?:$LABEL\s+$NUM|#\s*$NUM)\))\s*$""",
             RegexOption.IGNORE_CASE,
         )
 
-    // A string that IS a series reference (rather than a real title).
-    // Matches, optionally wrapped in parens:
-    //   - bare "LABEL NUM" (e.g. "Book 3", "Volume 14")
-    //   - "<series name>, LABEL NUM" (e.g. "Chaos Seeds, Book 3")
+    // A standalone string that IS a series reference (rather than a real title), optionally in parens:
+    //   - bare "LABEL NUM" ("Book 3", "Volume 14")
+    //   - "<series name>, LABEL NUM" ("Chaos Seeds, Book 3")
     private val seriesReference =
         Regex(
-            "^\\(?\\s*(?:[^,()]+,\\s*)?$LABEL\\s+$NUM\\s*\\)?\$",
+            """^\(?\s*(?:[^,()]+,\s*)?$LABEL\s+$NUM\s*\)?$""",
             RegexOption.IGNORE_CASE,
         )
 

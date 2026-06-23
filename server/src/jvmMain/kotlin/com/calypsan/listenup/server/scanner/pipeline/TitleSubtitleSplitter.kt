@@ -26,6 +26,7 @@ package com.calypsan.listenup.server.scanner.pipeline
  */
 object TitleSubtitleSplitter {
     private val colonSpace = Regex("""^(.+?): (.+)$""")
+
     // Greedy title so the split lands at the LAST ": A/An/The …" segment.
     private val descriptiveTail =
         Regex("""^(.+):\s+((?:A|An|The)\s+\S.*)$""", RegexOption.IGNORE_CASE)
