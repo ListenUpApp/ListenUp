@@ -65,9 +65,9 @@ struct SeriesContent: View {
             }
             .onChange(of: scrollTarget) { _, newTarget in
                 if let target = newTarget {
-                    withAnimation(.easeOut(duration: 0.25)) {
-                        proxy.scrollTo(target, anchor: .top)
-                    }
+                    // Instant jump, NOT animated: animating a scrollTo across a large lazy list
+                    // freezes the main thread on every scrubber letter-change (#alphabet-scrubber-hang).
+                    proxy.scrollTo(target, anchor: .top)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                         scrollTarget = nil
                     }
