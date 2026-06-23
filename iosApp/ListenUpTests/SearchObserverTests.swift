@@ -52,17 +52,17 @@ struct SearchObserverTests {
         #expect(SearchScope.books.toggles(from: [.book]).isEmpty)
     }
 
-    // MARK: - Grouping
+    // MARK: - Grouping (over native SearchRow)
 
-    @Test func groupsSplitHitsByType() {
-        let hits = [
-            hit("b1", .book),
-            hit("p1", .contributor),
-            hit("s1", .series),
-            hit("t1", .tag),
-            hit("b2", .book)
+    @Test func groupsSplitRowsByKind() {
+        let rows = [
+            row("b1", .book),
+            row("p1", .person),
+            row("s1", .series),
+            row("t1", .tag),
+            row("b2", .book)
         ]
-        let groups = SearchHitGroups.group(hits)
+        let groups = SearchHitGroups.group(rows)
         #expect(groups.books.map(\.id) == ["b1", "b2"])
         #expect(groups.people.map(\.id) == ["p1"])
         #expect(groups.series.map(\.id) == ["s1"])
@@ -70,16 +70,16 @@ struct SearchObserverTests {
     }
 
     @Test func groupingDeDupesById() {
-        let groups = SearchHitGroups.group([hit("b1", .book), hit("b1", .book), hit("b2", .book)])
+        let groups = SearchHitGroups.group([row("b1", .book), row("b1", .book), row("b2", .book)])
         #expect(groups.books.map(\.id) == ["b1", "b2"])
     }
 
     @Test func groupingPreservesRelevanceOrder() {
-        let groups = SearchHitGroups.group([hit("b3", .book), hit("b1", .book), hit("b2", .book)])
+        let groups = SearchHitGroups.group([row("b3", .book), row("b1", .book), row("b2", .book)])
         #expect(groups.books.map(\.id) == ["b3", "b1", "b2"])
     }
 
-    @Test func emptyHitsProduceEmptyGroups() {
+    @Test func emptyRowsProduceEmptyGroups() {
         #expect(SearchHitGroups.group([]).isEmpty)
     }
 
@@ -92,31 +92,31 @@ struct SearchObserverTests {
     }
 
     @Test func groupUnderCapShowsNoSeeAll() {
-        let hits = [hit("b1", .book), hit("b2", .book)]
-        let capped = CappedGroup(hits, cap: SearchDisplayCap.books, type: .book)
+        let rows = [row("b1", .book), row("b2", .book)]
+        let capped = CappedGroup(rows, cap: SearchDisplayCap.books, type: .book)
         #expect(capped.hits.count == 2)
         #expect(capped.totalCount == 2)
         #expect(capped.seeAllType == nil)
     }
 
     @Test func groupOverCapTruncatesAndOffersSeeAll() {
-        let hits = (1...10).map { hit("b\($0)", .book) }
-        let capped = CappedGroup(hits, cap: SearchDisplayCap.books, type: .book)
+        let rows = (1...10).map { row("b\($0)", .book) }
+        let capped = CappedGroup(rows, cap: SearchDisplayCap.books, type: .book)
         #expect(capped.hits.count == SearchDisplayCap.books)
         #expect(capped.totalCount == 10)
         #expect(capped.seeAllType == .book)
     }
 
     @Test func groupExactlyAtCapShowsNoSeeAll() {
-        let hits = (1...SearchDisplayCap.series).map { hit("s\($0)", .series) }
-        let capped = CappedGroup(hits, cap: SearchDisplayCap.series, type: .series)
+        let rows = (1...SearchDisplayCap.series).map { row("s\($0)", .series) }
+        let capped = CappedGroup(rows, cap: SearchDisplayCap.series, type: .series)
         #expect(capped.hits.count == SearchDisplayCap.series)
         #expect(capped.seeAllType == nil)
     }
 
     @Test func cappedGroupAccessorsPreserveOrderAndType() {
-        let books = (1...6).map { hit("b\($0)", .book) }
-        let people = (1...6).map { hit("p\($0)", .contributor) }
+        let books = (1...6).map { row("b\($0)", .book) }
+        let people = (1...6).map { row("p\($0)", .person) }
         let groups = SearchHitGroups.group(books + people)
         #expect(groups.cappedBooks.hits.map(\.id) == ["b1", "b2", "b3", "b4"])
         #expect(groups.cappedBooks.seeAllType == .book)
@@ -134,23 +134,7 @@ struct SearchObserverTests {
 
     // MARK: - Helpers
 
-    private func hit(_ id: String, _ type: SearchHitType) -> SearchHit {
-        SearchHit(
-            id: id,
-            type: type,
-            name: "Name \(id)",
-            subtitle: nil,
-            author: nil,
-            narrator: nil,
-            seriesName: nil,
-            duration: nil,
-            bookCount: nil,
-            genreSlugs: nil,
-            tags: nil,
-            coverPath: nil,
-            coverHash: nil,
-            score: 0,
-            highlight: nil
-        )
+    private func row(_ id: String, _ kind: SearchRowKind) -> SearchRow {
+        SearchRow(id: id, kind: kind, name: "Name \(id)", subtitle: nil, author: nil, coverPath: nil)
     }
 }

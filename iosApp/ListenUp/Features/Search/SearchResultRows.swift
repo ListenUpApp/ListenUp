@@ -1,28 +1,21 @@
 import SwiftUI
 @preconcurrency import Shared
 
-// Row views for each search-hit kind. Pure presentation over a `SearchHit`; the tap
+// Row views for each search-hit kind. Pure presentation over a native `SearchRow`; the tap
 // closure lets the row work in both the compact list and the regular-width columns.
 
 /// A book hit: cover thumbnail + title + "author · duration" subtitle.
 struct SearchBookRow: View {
-    let hit: SearchHit
+    let row: SearchRow
     let onTap: () -> Void
-
-    private var subtitle: String? {
-        [hit.author, hit.formatDuration()]
-            .compactMap { $0 }
-            .joined(separator: " · ")
-            .nilIfEmpty
-    }
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                BookCoverImage(bookId: hit.id, coverPath: hit.coverPath, blurHash: nil)
+                BookCoverImage(bookId: row.id, coverPath: row.coverPath, blurHash: nil)
                     .frame(width: 52, height: 52)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
-                SearchRowText(title: hit.name, subtitle: subtitle)
+                SearchRowText(title: row.name, subtitle: row.subtitle)
             }
         }
         .buttonStyle(.plain)
@@ -31,24 +24,15 @@ struct SearchBookRow: View {
 
 /// A person hit: circular initials avatar + name + role + book count.
 struct SearchPersonRow: View {
-    let hit: SearchHit
+    let row: SearchRow
     let onTap: () -> Void
-
-    private var subtitle: String? {
-        var parts: [String] = []
-        if let role = hit.subtitle?.nilIfEmpty { parts.append(role) }
-        if let count = hit.bookCount?.intValue {
-            parts.append(String(format: String(localized: "search.count_books"), String(count)))
-        }
-        return parts.joined(separator: " · ").nilIfEmpty
-    }
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                ContributorAvatar(name: hit.name, imagePath: hit.coverPath, id: hit.id, streamsContributorPhoto: true)
+                ContributorAvatar(name: row.name, imagePath: row.coverPath, id: row.id, streamsContributorPhoto: true)
                     .frame(width: 52, height: 52)
-                SearchRowText(title: hit.name, subtitle: subtitle)
+                SearchRowText(title: row.name, subtitle: row.subtitle)
             }
         }
         .buttonStyle(.plain)
@@ -57,17 +41,8 @@ struct SearchPersonRow: View {
 
 /// A series hit: SF Symbol tile + name + "author · N books".
 struct SearchSeriesRow: View {
-    let hit: SearchHit
+    let row: SearchRow
     let onTap: () -> Void
-
-    private var subtitle: String? {
-        var parts: [String] = []
-        if let author = hit.author?.nilIfEmpty { parts.append(author) }
-        if let count = hit.bookCount?.intValue {
-            parts.append(String(format: String(localized: "search.count_books"), String(count)))
-        }
-        return parts.joined(separator: " · ").nilIfEmpty
-    }
 
     var body: some View {
         Button(action: onTap) {
@@ -80,7 +55,7 @@ struct SearchSeriesRow: View {
                             .font(.title3)
                             .foregroundStyle(Color.luTint)
                     }
-                SearchRowText(title: hit.name, subtitle: subtitle)
+                SearchRowText(title: row.name, subtitle: row.subtitle)
             }
         }
         .buttonStyle(.plain)
@@ -111,12 +86,12 @@ private struct SearchRowText: View {
 
 /// A wrapped row of tag capsules; tapping a capsule selects that tag hit.
 struct SearchTagsFlow: View {
-    let tags: [SearchHit]
-    let onTap: (SearchHit) -> Void
+    let tags: [SearchRow]
+    let onTap: (SearchRow) -> Void
 
     var body: some View {
         FlowLayout(spacing: 8) {
-            ForEach(tags, id: \.id) { tag in
+            ForEach(tags) { tag in
                 Button { onTap(tag) } label: {
                     Text(tag.name)
                         .font(.subheadline)
@@ -129,8 +104,4 @@ struct SearchTagsFlow: View {
             }
         }
     }
-}
-
-private extension String {
-    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

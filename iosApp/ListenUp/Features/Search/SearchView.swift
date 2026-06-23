@@ -81,9 +81,9 @@ struct SearchView: View {
     @ViewBuilder
     private func results(_ observer: SearchObserver) -> some View {
         if horizontalSizeClass == .regular {
-            SearchResultsPad(groups: observer.groups, onTap: { observer.selectHit($0) }, onSeeAll: showSeeAll)
+            SearchResultsPad(groups: observer.groups, onTap: { observer.selectRow($0) }, onSeeAll: showSeeAll)
         } else {
-            SearchResultsList(groups: observer.groups, onTap: { observer.selectHit($0) }, onSeeAll: showSeeAll)
+            SearchResultsList(groups: observer.groups, onTap: { observer.selectRow($0) }, onSeeAll: showSeeAll)
         }
     }
 

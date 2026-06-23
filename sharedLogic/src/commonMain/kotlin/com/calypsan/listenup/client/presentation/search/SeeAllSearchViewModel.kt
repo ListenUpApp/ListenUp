@@ -116,13 +116,23 @@ class SeeAllSearchViewModel(
         request.value = Request(query = query, type = type)
     }
 
-    fun onResultClicked(hit: SearchHit) {
+    fun onResultClicked(hit: SearchHit) = onResultSelected(hit.id, hit.type)
+
+    /**
+     * Navigate to the entity identified by [id] + [type]. The iOS native-row search path calls this
+     * directly — its `SearchRow` carries no Kotlin `SearchHit` — and [onResultClicked] delegates here,
+     * so the id+type → [SearchNavAction] mapping lives in exactly one place.
+     */
+    fun onResultSelected(
+        id: String,
+        type: SearchHitType,
+    ) {
         val action =
-            when (hit.type) {
-                SearchHitType.BOOK -> SearchNavAction.NavigateToBook(hit.id)
-                SearchHitType.CONTRIBUTOR -> SearchNavAction.NavigateToContributor(hit.id)
-                SearchHitType.SERIES -> SearchNavAction.NavigateToSeries(hit.id)
-                SearchHitType.TAG -> SearchNavAction.NavigateToTag(hit.id)
+            when (type) {
+                SearchHitType.BOOK -> SearchNavAction.NavigateToBook(id)
+                SearchHitType.CONTRIBUTOR -> SearchNavAction.NavigateToContributor(id)
+                SearchHitType.SERIES -> SearchNavAction.NavigateToSeries(id)
+                SearchHitType.TAG -> SearchNavAction.NavigateToTag(id)
             }
         navChannel.trySend(action)
     }
