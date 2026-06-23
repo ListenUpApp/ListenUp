@@ -265,6 +265,12 @@ internal class SyncRepositoryImpl(
      * Completed must not strand the user on the populating screen (see [recoverFromScanStreamEnd]).
      */
     private suspend fun observeScanProgressResiliently() {
+        // A relaunched client whose library is already populated has effectively finished its initial
+        // population. Pre-latch the gate so a later folder-triggered (or watcher) scan this session can't
+        // be mistaken for the initial scan and flash "Building your library" over a usable library.
+        if (shouldPreLatchInitialScanGate(hasCompletedInitialScan, bookDao.count())) {
+            hasCompletedInitialScan = true
+        }
         while (true) {
             // Gate on a live connection. Offline, the scanner RPC stream throws "RpcClient was
             // cancelled" the instant it's subscribed (no network wait), so an unconditional re-subscribe
@@ -513,6 +519,21 @@ internal fun mergeRecentBooks(
  */
 internal fun scanResultHasChanges(result: ScanResultSummary): Boolean =
     result.added > 0 || result.modified > 0 || result.removed > 0 || result.moved > 0
+
+/**
+ * Whether the in-session initial-population latch should be pre-set from an already-populated library.
+ *
+ * `hasCompletedInitialScan` starts `false` every session and only latches when a scan completes that
+ * session. A relaunched client whose Room already holds books has effectively finished its initial
+ * population, so a later folder-triggered (or watcher) scan must NOT be mistaken for the initial scan
+ * and re-arm the "Building your library" gate over an already-usable library. Pre-latch only when the
+ * gate hasn't already fired ([alreadyLatched] false) and the library is non-empty; a genuine first run
+ * (empty library) still shows the gate for the real initial scan.
+ */
+internal fun shouldPreLatchInitialScanGate(
+    alreadyLatched: Boolean,
+    libraryBookCount: Int,
+): Boolean = !alreadyLatched && libraryBookCount > 0
 
 /**
  * Never-stranded recovery for the initial-population gate when the scan-progress stream terminates

@@ -664,4 +664,25 @@ class SyncRepositoryScanProgressTest :
                 ),
             ) shouldBe false
         }
+
+        // ── Initial-population pre-latch ───────────────────────────────────────────────────────────
+        //
+        // The "Building your library" flash while browsing: `hasCompletedInitialScan` starts false every
+        // session and only latches via a scan that completes THIS session. On a relaunched client whose
+        // library is already populated, the next scan (e.g. a folder add/remove) was mistaken for the
+        // initial scan and re-armed the populating gate — flashing "Building your library" over an
+        // already-usable library. Pre-latching from an already-populated library fixes it: only a genuine
+        // first run (empty library) shows the gate.
+
+        test("pre-latches the initial-scan gate when the library is already populated") {
+            shouldPreLatchInitialScanGate(alreadyLatched = false, libraryBookCount = 1150) shouldBe true
+        }
+
+        test("does not pre-latch on a genuine first run with an empty library") {
+            shouldPreLatchInitialScanGate(alreadyLatched = false, libraryBookCount = 0) shouldBe false
+        }
+
+        test("does not pre-latch again once the gate has already latched this session") {
+            shouldPreLatchInitialScanGate(alreadyLatched = true, libraryBookCount = 1150) shouldBe false
+        }
     })
