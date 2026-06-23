@@ -142,10 +142,14 @@ internal class SyncRepositoryImpl(
         // rows past the cursor; handleCursorStale runs catchUpAll + reseeds the firehose, landing the
         // imported progress live. (forceFullResync stays the right tool for a server *restore*, where
         // the whole DB diverges and the digest genuinely differs at the cursor.)
-        when (val started = startEngineForCurrentUser()) {
-            is AppResult.Success -> suspendRunCatching { syncEngine.handleCursorStale() }
-            is AppResult.Failure -> started
-        }
+        //
+        // Driven through [refreshListeningHistoryDetached] so the catch-up runs on the app-scoped
+        // [scope], not the import wizard's viewModelScope that fires this — see that function's KDoc.
+        refreshListeningHistoryDetached(
+            scope = scope,
+            ensureStarted = ::startEngineForCurrentUser,
+            recover = syncEngine::handleCursorStale,
+        )
 
     override suspend fun forceFullResync(): AppResult<Unit> =
         when (val started = startEngineForCurrentUser()) {
@@ -544,3 +548,34 @@ internal suspend fun recoverFromScanStreamEnd(
     setScanning(false)
     markInitialScanComplete()
 }
+
+/**
+ * Ensure the engine is up via [ensureStarted], then run the post-import [recover] catch-up on
+ * [scope] — the app-scoped sync scope — **not** the caller's context, and join it.
+ *
+ * `refreshListeningHistory` is fired from the ABS import wizard's `viewModelScope`, which is
+ * cancelled the instant the wizard is dismissed — and the wizard shows "Done" before this catch-up
+ * finishes draining the firehose-suppressed imported positions into Room. Running [recover] in the
+ * caller's context let a dismissal cancel it mid-drain: the imported history never landed (and
+ * [SyncEngine.handleCursorStale]'s SSE reconnect never ran, leaving the firehose down) until a
+ * later, app-scoped sync trigger. Launched on [scope] the catch-up completes regardless of the
+ * wizard's lifecycle; the `join()` keeps the awaitable contract for callers that aren't transient.
+ *
+ * Extracted as a top-level function — like [recoverFromScanStreamEnd] — so it is testable with
+ * recording lambdas, no [SyncEngine] mock required.
+ */
+internal suspend fun refreshListeningHistoryDetached(
+    scope: CoroutineScope,
+    ensureStarted: suspend () -> AppResult<Unit>,
+    recover: suspend () -> Unit,
+): AppResult<Unit> =
+    when (val started = ensureStarted()) {
+        is AppResult.Success -> {
+            scope.launch { suspendRunCatching { recover() } }.join()
+            AppResult.Success(Unit)
+        }
+
+        is AppResult.Failure -> {
+            started
+        }
+    }
