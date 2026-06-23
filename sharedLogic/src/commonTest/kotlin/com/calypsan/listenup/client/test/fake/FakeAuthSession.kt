@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 class FakeAuthSession(
     userId: String? = "u1",
     authState: AuthState = AuthState.Authenticated(UserId(userId ?: "u1"), SessionId("session")),
+    private val onClearAuthTokens: () -> Unit = {},
 ) : AuthSession {
     override val authState: StateFlow<AuthState> = MutableStateFlow(authState)
 
@@ -53,7 +54,7 @@ class FakeAuthSession(
 
     override suspend fun updateAccessToken(token: AccessToken) = Unit
 
-    override suspend fun clearAuthTokens() = Unit
+    override suspend fun clearAuthTokens() = onClearAuthTokens()
 
     override suspend fun isAuthenticated(): Boolean = true
 

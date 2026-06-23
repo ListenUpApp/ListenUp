@@ -64,7 +64,13 @@ internal class ReconnectionSupervisor(
                     // collectLatest cancels the running recovery loop the moment we become Connected.
                     // Gating on the Boolean (not the raw ConnectionState) means the SSE client's
                     // Connecting<->Disconnected backoff flapping does NOT keep restarting the loop.
-                    if (!connected) recoveryLoop()
+                    try {
+                        if (!connected) recoveryLoop()
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Reconnection recovery failed; supervisor continues" }
+                    }
                 }
         }
     }
