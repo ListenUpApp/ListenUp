@@ -1,10 +1,11 @@
 import SwiftUI
 @preconcurrency import Shared
+import UIKit
 
 /// Circular avatar displaying user initials or image.
 ///
 /// Shows:
-/// - User's uploaded avatar image if available
+/// - User's uploaded avatar image, downloaded + persisted to disk on first appearance
 /// - Colored circle with initials as fallback
 /// - Gray placeholder when user is nil
 struct UserAvatarView: View {
@@ -16,13 +17,46 @@ struct UserAvatarView: View {
         self.size = size
     }
 
+    /// The user's image avatar, read off the main thread by [loadAvatar] — downloading + persisting
+    /// it on first appearance so it renders now and survives offline. Until it lands (or for an
+    /// auto/initials avatar), the initials fallback shows.
+    @State private var avatarImage: UIImage?
+
     var body: some View {
-        if let user {
-            // TODO: Support user.hasImageAvatar with AsyncImage when server URL is available
-            initialsAvatar(for: user)
-        } else {
-            placeholderAvatar
+        Group {
+            if let avatarImage {
+                Image(uiImage: avatarImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+            } else if let user {
+                initialsAvatar(for: user)
+            } else {
+                placeholderAvatar
+            }
         }
+        .task(id: user?.idString) {
+            // Read the Sendable primitives on the main actor; only the String id crosses into the
+            // nonisolated loader (the Kotlin `User_` isn't Sendable).
+            guard let user, user.hasImageAvatar else {
+                avatarImage = nil
+                return
+            }
+            avatarImage = await Self.loadAvatar(userId: user.idString)
+        }
+    }
+
+    /// `nonisolated async` ⇒ the download, disk read, and decode run off the main actor. Persists
+    /// the image avatar to the durable store on first appearance (no-op once cached) and loads it;
+    /// returns nil if no avatar is available. `downloadUserAvatar` saves on success.
+    private nonisolated static func loadAvatar(userId: String) async -> UIImage? {
+        let repository = Dependencies.shared.imageRepository
+        if !repository.userAvatarExists(userId: userId) {
+            _ = try? await repository.downloadUserAvatar(userId: userId, forceRefresh: false)
+        }
+        guard repository.userAvatarExists(userId: userId) else { return nil }
+        return UIImage(contentsOfFile: repository.getUserAvatarPath(userId: userId))
     }
 
     // MARK: - Private Views

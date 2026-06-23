@@ -20,6 +20,12 @@ enum CoverImageRequest {
 
         guard let bookId, !bookId.isEmpty else { return nil }
 
+        // No durable file yet — kick off a background download so this streamed cover is
+        // persisted to disk for offline use, independent of Nuke's evictable cache. Fire-and-forget
+        // on the repository's app scope; no-op once the cover exists locally. (Mirrors the Compose
+        // BookCoverImage server fallback.)
+        KoinHelper.shared.ensureBookCoverCached(bookId: bookId)
+
         guard let base = (try? await KoinHelper.shared.activeServerUrl()), !base.isEmpty,
               let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
         else { return nil }

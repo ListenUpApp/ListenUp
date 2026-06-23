@@ -25,7 +25,8 @@ struct PersonRow: View {
                     imagePath: contributor.contributor.imagePath,
                     blurHash: contributor.contributor.imageBlurHash,
                     id: contributorId,
-                    fontSize: 16
+                    fontSize: 16,
+                    streamsContributorPhoto: true
                 )
                 .frame(width: 50, height: 50)
 

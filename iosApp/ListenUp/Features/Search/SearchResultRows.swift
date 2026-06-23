@@ -46,7 +46,7 @@ struct SearchPersonRow: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                ContributorAvatar(name: hit.name, imagePath: hit.coverPath, id: hit.id)
+                ContributorAvatar(name: hit.name, imagePath: hit.coverPath, id: hit.id, streamsContributorPhoto: true)
                     .frame(width: 52, height: 52)
                 SearchRowText(title: hit.name, subtitle: subtitle)
             }

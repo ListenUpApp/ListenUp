@@ -17,7 +17,9 @@ import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
+import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.core.BookId
 
 /**
  * iOS-specific Koin initialization.
@@ -311,6 +313,20 @@ object KoinHelper : KoinComponent {
     fun getImageStorage(): ImageStorage {
         val instance: ImageStorage by inject()
         return instance
+    }
+
+    fun getImageRepository(): ImageRepository {
+        val instance: ImageRepository by inject()
+        return instance
+    }
+
+    /**
+     * String-keyed [ImageRepository.ensureBookCoverCached] for the Swift boundary, where the
+     * [BookId] value class isn't constructible. Mirrors the existing String-based book-id surface
+     * the iOS app uses everywhere ([com.calypsan.listenup.client.domain.model.BookListItem.idString]).
+     */
+    fun ensureBookCoverCached(bookId: String) {
+        getImageRepository().ensureBookCoverCached(BookId(bookId))
     }
 
     fun getDownloadService(): DownloadService {
