@@ -53,6 +53,30 @@ interface ImageRepository {
     fun ensureBookCoverCached(bookId: BookId)
 
     /**
+     * Best-effort: ensure a contributor's image is cached on local disk for offline use.
+     *
+     * Fire-and-forget analogue of [ensureBookCoverCached] for contributor photos. Returns
+     * immediately; the download runs on the repository's app scope and is a no-op if the image
+     * already exists locally. Used by contributor image components to lazily persist a photo the
+     * first time it is streamed from the server.
+     *
+     * @param contributorId Unique identifier for the contributor
+     */
+    fun ensureContributorImageCached(contributorId: String)
+
+    /**
+     * Best-effort: ensure a user's avatar is cached on local disk for offline use.
+     *
+     * Fire-and-forget analogue of [ensureBookCoverCached] for user avatars. Returns immediately;
+     * the download runs on the repository's app scope and is a no-op if the avatar already exists
+     * locally. Lets avatars shown in feeds/leaderboards persist (and render the real photo rather
+     * than initials) without first visiting the user's profile.
+     *
+     * @param userId Unique identifier for the user
+     */
+    fun ensureUserAvatarCached(userId: String)
+
+    /**
      * Upload book cover to the server.
      *
      * @param bookId Unique identifier for the book

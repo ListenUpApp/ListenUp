@@ -41,6 +41,14 @@ internal class ImageRepositoryImpl(
         appScope.launch { downloadBookCover(bookId) }
     }
 
+    override fun ensureContributorImageCached(contributorId: String) {
+        appScope.launch { imageDownloader.downloadContributorImage(contributorId) }
+    }
+
+    override fun ensureUserAvatarCached(userId: String) {
+        appScope.launch { imageDownloader.downloadUserAvatar(userId, forceRefresh = false) }
+    }
+
     override suspend fun saveBookCoverStaging(
         bookId: BookId,
         imageData: ByteArray,
