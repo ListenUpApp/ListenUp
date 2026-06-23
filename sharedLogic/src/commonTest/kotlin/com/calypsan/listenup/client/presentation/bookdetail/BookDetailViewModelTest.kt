@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.Reachability
@@ -106,6 +107,7 @@ class BookDetailViewModelTest :
             val playbackPositionRepository: PlaybackPositionRepository = mock()
             val userRepository: UserRepository = mock()
             val shelfRepository: ShelfRepository = mock()
+            val collectionRepository: CollectionRepository = mock()
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
             val documentRepository: DocumentRepository = mock()
@@ -120,6 +122,7 @@ class BookDetailViewModelTest :
                 every { tagRepository.observeAll() } returns flowOf(emptyList())
                 every { userRepository.observeIsAdmin() } returns flowOf(false)
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
+                every { collectionRepository.observeCollections() } returns flowOf(emptyList())
             }
 
             fun build(): BookDetailViewModel =
@@ -129,6 +132,7 @@ class BookDetailViewModelTest :
                     playbackPositionRepository = playbackPositionRepository,
                     userRepository = userRepository,
                     shelfRepository = shelfRepository,
+                    collectionRepository = collectionRepository,
                     addBooksToShelfUseCase = addBooksToShelfUseCase,
                     createShelfUseCase = createShelfUseCase,
                     errorBus = ErrorBus(),

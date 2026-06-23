@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Chapter
+import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -14,6 +15,7 @@ import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -53,6 +55,7 @@ private val logger = KotlinLogging.logger {}
  * Uses reactive flows with [flatMapLatest] to automatically switch observers
  * when navigating between books, eliminating manual Job cancellation.
  */
+@Suppress("LongParameterList") // DI constructor: each param is a distinct domain responsibility.
 @OptIn(ExperimentalCoroutinesApi::class)
 class BookDetailViewModel(
     private val bookRepository: BookRepository,
@@ -60,6 +63,7 @@ class BookDetailViewModel(
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val userRepository: UserRepository,
     private val shelfRepository: ShelfRepository,
+    private val collectionRepository: CollectionRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
     private val errorBus: ErrorBus,
@@ -135,6 +139,13 @@ class BookDetailViewModel(
                     flowOf(emptyList())
                 }
             }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Non-system collections an admin can file this book into (system collections are implicit). */
+    val collections: StateFlow<List<Collection>> =
+        collectionRepository
+            .observeCollections()
+            .map { all -> all.filterNot { it.isSystem } }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
      * The caller's own shelves that currently contain the loaded book, alphabetical.
@@ -563,6 +574,33 @@ class BookDetailViewModel(
         updateReady { it.copy(showShelfPicker = false) }
     }
 
+    fun showCollectionPicker() {
+        updateReady { it.copy(showCollectionPicker = true) }
+    }
+
+    fun hideCollectionPicker() {
+        updateReady { it.copy(showCollectionPicker = false) }
+    }
+
+    /** Add this book to [collectionId] (additive — never affects the book's All Books membership). */
+    fun addBookToCollection(collectionId: String) {
+        val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
+        viewModelScope.launch {
+            updateReady { it.copy(isAddingToCollection = true) }
+            when (val result = collectionRepository.addBook(collectionId, bookId)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
+                    logger.info { "Added book $bookId to collection $collectionId" }
+                }
+
+                is AppResult.Failure -> {
+                    updateReady { it.copy(isAddingToCollection = false, collectionError = result.message) }
+                    logger.error { "Failed to add book $bookId to collection $collectionId: ${result.message}" }
+                }
+            }
+        }
+    }
+
     /**
      * Handle a tap on a supplementary document row.
      *
@@ -654,6 +692,9 @@ sealed interface BookDetailUiState {
         val showShelfPicker: Boolean = false,
         val isAddingToShelf: Boolean = false,
         val shelfError: String? = null,
+        val showCollectionPicker: Boolean = false,
+        val isAddingToCollection: Boolean = false,
+        val collectionError: String? = null,
         val downloadStatus: BookDownloadStatus = BookDownloadStatus.NotDownloaded(""), // overwritten before emit; "" id never observed
         val isPlaybackAvailable: Boolean = true,
         val canPlay: Boolean = true,
