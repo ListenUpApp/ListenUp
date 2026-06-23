@@ -2,10 +2,13 @@ package com.calypsan.listenup.client.data.auth
 
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.domain.model.AuthState
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.SecureStorage
@@ -92,6 +95,36 @@ class AuthFailureObserverTest :
                     errorBus.emit(AuthError.SessionExpired())
 
                     store.authState.value shouldBe before
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        // Regression: a throwing clearAuthTokens (e.g. a locked Keychain) must not kill the
+        // collector. Before the guard, the first throw terminated the collector (soft-logout
+        // permanently broke) and, on Kotlin/Native, the unhandled exception killed the process.
+        test("a throwing clearAuthTokens does not kill the observer; a later error still logs out") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    var clearCalls = 0
+                    val session =
+                        FakeAuthSession(
+                            authState = AuthState.Authenticated(UserId("u1"), SessionId("session")),
+                            onClearAuthTokens = {
+                                clearCalls++
+                                if (clearCalls == 1) throw RuntimeException("Keychain locked on first attempt")
+                            },
+                        )
+
+                    AuthFailureObserver(errorBus, session, scope)
+                    errorBus.emit(AuthError.SessionExpired()) // 1st: clearAuthTokens throws → guard must absorb
+                    errorBus.emit(AuthError.SessionExpired()) // 2nd: only reached if the collector survived
+
+                    // Reaching the second clear proves the collector kept running past the first throw.
+                    clearCalls shouldBe 2
                 } finally {
                     scope.cancel()
                 }

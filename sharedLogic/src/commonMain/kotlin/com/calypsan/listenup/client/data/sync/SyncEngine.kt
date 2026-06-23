@@ -461,7 +461,15 @@ internal class SyncEngine(
         frameCollectorJob =
             scope.launch {
                 sseClient.frames.collect { frame ->
-                    dispatcher.handle(frame)
+                    // Guard per frame so one bad event logs and the firehose collector keeps
+                    // running, rather than dying (sync stops) or killing the process on K/N.
+                    try {
+                        dispatcher.handle(frame)
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "SSE frame handling failed; firehose collector continues" }
+                    }
                 }
             }
     }
@@ -550,7 +558,15 @@ internal class SyncEngine(
                     queue
                         .observeQueueDepth()
                         .onStart { ready.complete(Unit) }
-                        .collect { depth -> state.setQueueDepth(depth) }
+                        .collect { depth ->
+                            try {
+                                state.setQueueDepth(depth)
+                            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                logger.warn(e) { "Queue-depth observer failed; engine continues" }
+                            }
+                        }
                 }
             ready.await()
         }
@@ -561,7 +577,15 @@ internal class SyncEngine(
                     queue
                         .observeFailureCount()
                         .onStart { ready.complete(Unit) }
-                        .collect { count -> state.setFailureCount(count) }
+                        .collect { count ->
+                            try {
+                                state.setFailureCount(count)
+                            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                logger.warn(e) { "Failure-count observer failed; engine continues" }
+                            }
+                        }
                 }
             ready.await()
         }

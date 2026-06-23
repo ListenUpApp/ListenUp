@@ -59,27 +59,56 @@ class ConnectionCoordinator internal constructor(
 
     /** Start the observers. Call once at app start. */
     fun start() {
+        observeActiveUrl()
+        observeNetworkRegain()
+        observeFirehoseReconnect()
+    }
+
+    /** Re-key connections when the active server URL's host changes. */
+    private fun observeActiveUrl() {
         scope.launch {
             var lastHost = serverConfig.getActiveUrl()?.let(::hostKey)
             serverConfig.activeUrl.collect { url ->
-                val host = url?.let(::hostKey) ?: return@collect
-                if (host != lastHost) {
-                    logger.info { "Active URL host changed ($lastHost -> $host); invalidating connections" }
-                    lastHost = host
-                    invalidator.invalidateAll()
+                // Guard per item so a transient failure (e.g. invalidateAll) logs and the observer
+                // keeps collecting, rather than dying and (on Kotlin/Native) killing the process.
+                try {
+                    val host = url?.let(::hostKey) ?: return@collect
+                    if (host != lastHost) {
+                        logger.info { "Active URL host changed ($lastHost -> $host); invalidating connections" }
+                        lastHost = host
+                        invalidator.invalidateAll()
+                    }
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Active-URL observer failed; coordinator continues" }
                 }
             }
         }
+    }
+
+    /** Re-evaluate the reachable server URL when the network comes back. */
+    private fun observeNetworkRegain() {
         scope.launch {
             var wasOnline = networkMonitor.isOnline()
             networkMonitor.isOnlineFlow.collect { online ->
-                if (online && !wasOnline) {
-                    logger.info { "Network regained; re-evaluating reachable server URL" }
-                    reevaluate()
+                try {
+                    if (online && !wasOnline) {
+                        logger.info { "Network regained; re-evaluating reachable server URL" }
+                        reevaluate()
+                    }
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Network-regain re-evaluation failed; coordinator continues" }
                 }
                 wasOnline = online
             }
         }
+    }
+
+    /** Sweep stale RPC proxy caches on a firehose reconnect to the same server. */
+    private fun observeFirehoseReconnect() {
         scope.launch {
             // A firehose reconnect to the SAME server (host:port unchanged, so the URL observer
             // above never fires) leaves every cached kotlinx.rpc proxy bound to the prior, now-dead
@@ -90,12 +119,18 @@ class ConnectionCoordinator internal constructor(
             var hasConnectedOnce = false
             engineState.observe().collect { snapshot ->
                 val connected = snapshot.connection is ConnectionState.Connected
-                if (connected && !wasConnected) {
-                    if (hasConnectedOnce) {
-                        logger.info { "Firehose reconnected; invalidating stale RPC proxy caches" }
-                        invalidator.invalidateAll()
+                try {
+                    if (connected && !wasConnected) {
+                        if (hasConnectedOnce) {
+                            logger.info { "Firehose reconnected; invalidating stale RPC proxy caches" }
+                            invalidator.invalidateAll()
+                        }
+                        hasConnectedOnce = true
                     }
-                    hasConnectedOnce = true
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Firehose-reconnect cache sweep failed; coordinator continues" }
                 }
                 wasConnected = connected
             }

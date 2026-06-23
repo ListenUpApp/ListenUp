@@ -34,9 +34,19 @@ internal class AuthFailureObserver(
     init {
         scope.launch {
             errorBus.errors.collect { error ->
-                if (error.invalidatesSession() && authSession.authState.value is AuthState.Authenticated) {
-                    logger.info { "Session-invalidating auth error (${error.code}); soft-logout → login" }
-                    authSession.clearAuthTokens()
+                // Guard per item so a transient failure (e.g. clearAuthTokens hitting a locked
+                // Keychain) logs and the observer KEEPS COLLECTING — instead of the collector dying
+                // (permanently breaking soft-logout) and, on Kotlin/Native, killing the process.
+                // Re-throw CancellationException so structured cancellation still works.
+                try {
+                    if (error.invalidatesSession() && authSession.authState.value is AuthState.Authenticated) {
+                        logger.info { "Session-invalidating auth error (${error.code}); soft-logout → login" }
+                        authSession.clearAuthTokens()
+                    }
+                } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Soft-logout handling failed for auth error ${error.code}; observer continues" }
                 }
             }
         }
