@@ -181,6 +181,39 @@ class CollectionContractTest :
 
         // ── CollectionSummary ─────────────────────────────────────────────────
 
+        test("CollectionSummary round-trips with isSystem true") {
+            val original =
+                CollectionSummary(
+                    id = CollectionId("col-sys"),
+                    name = "All Books",
+                    ownerId = UserId("system"),
+                    isInbox = false,
+                    isSystem = true,
+                    bookCount = 3L,
+                    callerPermission = SharePermission.Write,
+                    isOwner = true,
+                )
+            val decoded = json.decodeFromString<CollectionSummary>(json.encodeToString(original))
+            decoded shouldBe original
+        }
+
+        test("CollectionSyncPayload round-trips with isSystem true") {
+            val original =
+                CollectionSyncPayload(
+                    id = "col-sys",
+                    libraryId = "lib-1",
+                    ownerId = "system",
+                    name = "All Books",
+                    isInbox = false,
+                    isSystem = true,
+                    revision = 1L,
+                    updatedAt = 1730000000000L,
+                    deletedAt = null,
+                )
+            val decoded = json.decodeFromString<CollectionSyncPayload>(json.encodeToString(original))
+            decoded shouldBe original
+        }
+
         test("CollectionSummary round-trips as owner") {
             val original =
                 CollectionSummary(

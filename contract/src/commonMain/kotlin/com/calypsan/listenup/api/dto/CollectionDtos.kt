@@ -54,6 +54,8 @@ data class CollectionSummary(
     @SerialName("ownerId") val ownerId: UserId,
     /** Whether this is the user's auto-created inbox collection. */
     @SerialName("isInbox") val isInbox: Boolean,
+    /** Whether this is a server-managed system collection (All Books or Inbox) — read-only in the UI. */
+    @SerialName("isSystem") val isSystem: Boolean = false,
     /** Number of live books currently in this collection (no tombstones). */
     @SerialName("bookCount") val bookCount: Long,
     /** Effective permission of the authenticated caller on this collection. */

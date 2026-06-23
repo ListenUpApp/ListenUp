@@ -26,6 +26,8 @@ data class CollectionSyncPayload(
     @SerialName("name") val name: String,
     /** Whether this is the user's auto-created inbox collection. Inbox collections are not deletable. */
     @SerialName("isInbox") val isInbox: Boolean = false,
+    /** Whether this is a server-managed system collection (ALL_BOOKS or INBOX). Read-only in the UI. */
+    @SerialName("isSystem") val isSystem: Boolean = false,
     /** Sync revision counter — bumped on every write. */
     @SerialName("revision") val revision: Long,
     /** Epoch millis of the last server-side write. */
