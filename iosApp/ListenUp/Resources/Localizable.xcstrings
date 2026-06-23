@@ -2631,12 +2631,32 @@
         }
       }
     },
+    "book.detail_format": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Format"
+          }
+        }
+      }
+    },
     "book.detail_full_cast": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Full cast"
+          }
+        }
+      }
+    },
+    "book.detail_language": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Language"
           }
         }
       }
@@ -2807,6 +2827,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@%"
+          }
+        }
+      }
+    },
+    "book.detail_published": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Published"
           }
         }
       }
