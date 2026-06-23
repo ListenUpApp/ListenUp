@@ -10,6 +10,8 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
@@ -30,6 +32,7 @@ import platform.Foundation.create
 import platform.Security.SecItemAdd
 import platform.Security.SecItemCopyMatching
 import platform.Security.SecItemDelete
+import platform.Security.errSecDuplicateItem
 import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccessible
@@ -64,6 +67,16 @@ private const val KEYCHAIN_INSTALL_FLAG_KEY = "com.calypsan.listenup.keychain_in
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class AppleSecureStorage : SecureStorage {
     private val serviceName = "com.calypsan.listenup"
+
+    /**
+     * Serializes every Keychain operation. [save] is a non-atomic delete-then-add, so two
+     * concurrent saves of the same key used to interleave (A.delete, B.delete, A.add → ok,
+     * B.add → `errSecDuplicateItem`). The resulting [SecurityException] was thrown from a
+     * coroutine with no handler, which on Kotlin/Native **terminates the process** — crashing
+     * the app at launch, since startup fires several concurrent writes to the same keys
+     * (e.g. `active_url`). The lock makes each delete-then-add atomic; last writer wins.
+     */
+    private val mutex = Mutex()
 
     init {
         clearKeychainOnFreshInstall()
@@ -104,123 +117,134 @@ class AppleSecureStorage : SecureStorage {
         key: String,
         value: String,
     ) = withContext(IODispatcher) {
-        logger.debug { "Keychain save started: $key" }
-        val startMark = TimeSource.Monotonic.markNow()
+        mutex.withLock {
+            logger.debug { "Keychain save started: $key" }
+            val startMark = TimeSource.Monotonic.markNow()
 
-        val bytes = value.encodeToByteArray()
-        val data = bytes.toNSData()
+            val bytes = value.encodeToByteArray()
+            val data = bytes.toNSData()
 
-        // Delete existing item first
-        val deleteQuery =
-            CFDictionaryCreateMutable(
-                null,
-                4,
-                kCFTypeDictionaryKeyCallBacks.ptr,
-                kCFTypeDictionaryValueCallBacks.ptr,
-            )!!
-        CFDictionarySetValue(deleteQuery, kSecClass, kSecClassGenericPassword)
-        CFDictionarySetValue(deleteQuery, kSecAttrService, CFBridgingRetain(serviceName))
-        CFDictionarySetValue(deleteQuery, kSecAttrAccount, CFBridgingRetain(key))
+            // Delete existing item first
+            val deleteQuery =
+                CFDictionaryCreateMutable(
+                    null,
+                    4,
+                    kCFTypeDictionaryKeyCallBacks.ptr,
+                    kCFTypeDictionaryValueCallBacks.ptr,
+                )!!
+            CFDictionarySetValue(deleteQuery, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(deleteQuery, kSecAttrService, CFBridgingRetain(serviceName))
+            CFDictionarySetValue(deleteQuery, kSecAttrAccount, CFBridgingRetain(key))
 
-        SecItemDelete(deleteQuery)
+            SecItemDelete(deleteQuery)
 
-        // Add new item
-        val addQuery =
-            CFDictionaryCreateMutable(
-                null,
-                6,
-                kCFTypeDictionaryKeyCallBacks.ptr,
-                kCFTypeDictionaryValueCallBacks.ptr,
-            )!!
-        CFDictionarySetValue(addQuery, kSecClass, kSecClassGenericPassword)
-        CFDictionarySetValue(addQuery, kSecAttrService, CFBridgingRetain(serviceName))
-        CFDictionarySetValue(addQuery, kSecAttrAccount, CFBridgingRetain(key))
-        CFDictionarySetValue(addQuery, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
-        CFDictionarySetValue(addQuery, kSecValueData, CFBridgingRetain(data))
+            // Add new item
+            val addQuery =
+                CFDictionaryCreateMutable(
+                    null,
+                    6,
+                    kCFTypeDictionaryKeyCallBacks.ptr,
+                    kCFTypeDictionaryValueCallBacks.ptr,
+                )!!
+            CFDictionarySetValue(addQuery, kSecClass, kSecClassGenericPassword)
+            CFDictionarySetValue(addQuery, kSecAttrService, CFBridgingRetain(serviceName))
+            CFDictionarySetValue(addQuery, kSecAttrAccount, CFBridgingRetain(key))
+            CFDictionarySetValue(addQuery, kSecAttrAccessible, kSecAttrAccessibleAfterFirstUnlock)
+            CFDictionarySetValue(addQuery, kSecValueData, CFBridgingRetain(data))
 
-        val status = SecItemAdd(addQuery, null)
-        val elapsed = startMark.elapsedNow()
-        logger.debug { "Keychain save completed: $key ($elapsed, status=$status)" }
+            val status = SecItemAdd(addQuery, null)
+            val elapsed = startMark.elapsedNow()
+            logger.debug { "Keychain save completed: $key ($elapsed, status=$status)" }
 
-        if (status != errSecSuccess) {
-            throw SecurityException("Failed to save to keychain: $status")
+            // `errSecDuplicateItem` means the item already exists — under the [mutex] the
+            // delete-then-add can't race into it, but accept it defensively so no Keychain
+            // duplicate can ever crash the app via an unhandled coroutine exception.
+            if (status != errSecSuccess && status != errSecDuplicateItem) {
+                throw SecurityException("Failed to save to keychain: $status")
+            }
         }
     }
 
     override suspend fun read(key: String): String? =
         withContext(IODispatcher) {
-            val query =
-                CFDictionaryCreateMutable(
-                    null,
-                    5,
-                    kCFTypeDictionaryKeyCallBacks.ptr,
-                    kCFTypeDictionaryValueCallBacks.ptr,
-                )!!
-            CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
-            CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
-            CFDictionarySetValue(query, kSecAttrAccount, CFBridgingRetain(key))
-            CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
-            CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
+            mutex.withLock {
+                val query =
+                    CFDictionaryCreateMutable(
+                        null,
+                        5,
+                        kCFTypeDictionaryKeyCallBacks.ptr,
+                        kCFTypeDictionaryValueCallBacks.ptr,
+                    )!!
+                CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
+                CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
+                CFDictionarySetValue(query, kSecAttrAccount, CFBridgingRetain(key))
+                CFDictionarySetValue(query, kSecReturnData, kCFBooleanTrue)
+                CFDictionarySetValue(query, kSecMatchLimit, kSecMatchLimitOne)
 
-            memScoped {
-                val result = alloc<CFTypeRefVar>()
-                val status = SecItemCopyMatching(query, result.ptr)
+                memScoped {
+                    val result = alloc<CFTypeRefVar>()
+                    val status = SecItemCopyMatching(query, result.ptr)
 
-                if (status == errSecSuccess) {
-                    // Bridge the CFTypeRef to NSData using toll-free bridging
-                    // result.value is CFTypeRef? which bridges to NSObject?
-                    result.value?.let { cfData ->
-                        val nativePtr = cfData.rawValue
-                        val data = kotlinx.cinterop.interpretObjCPointerOrNull<NSData>(nativePtr)
-                        return@withContext data?.let {
-                            NSString.create(it, NSUTF8StringEncoding)?.toString()
+                    if (status == errSecSuccess) {
+                        // Bridge the CFTypeRef to NSData using toll-free bridging
+                        // result.value is CFTypeRef? which bridges to NSObject?
+                        result.value?.let { cfData ->
+                            val nativePtr = cfData.rawValue
+                            val data = kotlinx.cinterop.interpretObjCPointerOrNull<NSData>(nativePtr)
+                            return@withContext data?.let {
+                                NSString.create(it, NSUTF8StringEncoding)?.toString()
+                            }
                         }
+                        return@withContext null
                     }
-                    return@withContext null
-                }
 
-                if (status == errSecItemNotFound) {
-                    return@withContext null
-                }
+                    if (status == errSecItemNotFound) {
+                        return@withContext null
+                    }
 
-                throw SecurityException("Failed to read from keychain: $status")
+                    throw SecurityException("Failed to read from keychain: $status")
+                }
             }
         }
 
     override suspend fun delete(key: String) =
         withContext(IODispatcher) {
-            val query =
-                CFDictionaryCreateMutable(
-                    null,
-                    3,
-                    kCFTypeDictionaryKeyCallBacks.ptr,
-                    kCFTypeDictionaryValueCallBacks.ptr,
-                )!!
-            CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
-            CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
-            CFDictionarySetValue(query, kSecAttrAccount, CFBridgingRetain(key))
+            mutex.withLock {
+                val query =
+                    CFDictionaryCreateMutable(
+                        null,
+                        3,
+                        kCFTypeDictionaryKeyCallBacks.ptr,
+                        kCFTypeDictionaryValueCallBacks.ptr,
+                    )!!
+                CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
+                CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
+                CFDictionarySetValue(query, kSecAttrAccount, CFBridgingRetain(key))
 
-            val status = SecItemDelete(query)
-            if (status != errSecSuccess && status != errSecItemNotFound) {
-                throw SecurityException("Failed to delete from keychain: $status")
+                val status = SecItemDelete(query)
+                if (status != errSecSuccess && status != errSecItemNotFound) {
+                    throw SecurityException("Failed to delete from keychain: $status")
+                }
             }
         }
 
     override suspend fun clear() =
         withContext(IODispatcher) {
-            val query =
-                CFDictionaryCreateMutable(
-                    null,
-                    2,
-                    kCFTypeDictionaryKeyCallBacks.ptr,
-                    kCFTypeDictionaryValueCallBacks.ptr,
-                )!!
-            CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
-            CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
+            mutex.withLock {
+                val query =
+                    CFDictionaryCreateMutable(
+                        null,
+                        2,
+                        kCFTypeDictionaryKeyCallBacks.ptr,
+                        kCFTypeDictionaryValueCallBacks.ptr,
+                    )!!
+                CFDictionarySetValue(query, kSecClass, kSecClassGenericPassword)
+                CFDictionarySetValue(query, kSecAttrService, CFBridgingRetain(serviceName))
 
-            val status = SecItemDelete(query)
-            if (status != errSecSuccess && status != errSecItemNotFound) {
-                throw SecurityException("Failed to clear keychain: $status")
+                val status = SecItemDelete(query)
+                if (status != errSecSuccess && status != errSecItemNotFound) {
+                    throw SecurityException("Failed to clear keychain: $status")
+                }
             }
         }
 }
