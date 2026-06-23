@@ -6,10 +6,18 @@ import io.kotest.matchers.shouldBe
 class AudioSpecificConfigTest :
     FunSpec({
         // Pack AOT(5) | freqIdx(4) | chanCfg(4) MSB-first into bytes.
-        fun asc(aot: Int, freqIdx: Int, chan: Int): ByteArray {
+        fun asc(
+            aot: Int,
+            freqIdx: Int,
+            chan: Int,
+        ): ByteArray {
             var v = 0L
             var n = 0
-            fun put(value: Int, bits: Int) {
+
+            fun put(
+                value: Int,
+                bits: Int,
+            ) {
                 v = (v shl bits) or value.toLong()
                 n += bits
             }
@@ -22,8 +30,8 @@ class AudioSpecificConfigTest :
             put(freqIdx, 4)
             put(chan, 4)
             val totalBytes = (n + 7) / 8
-            v = v shl (totalBytes * 8 - n)
-            return ByteArray(totalBytes) { i -> ((v ushr ((totalBytes - 1 - i) * 8)) and 0xFF).toByte() }
+            v = v shl totalBytes * 8 - n
+            return ByteArray(totalBytes) { i -> ((v ushr (totalBytes - 1 - i) * 8) and 0xFF).toByte() }
         }
 
         test("AAC-LC (AOT 2), 44100 Hz, stereo") {

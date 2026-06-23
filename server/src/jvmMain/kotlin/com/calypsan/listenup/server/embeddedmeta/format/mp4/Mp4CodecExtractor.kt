@@ -51,6 +51,11 @@ internal object Mp4CodecExtractor {
     ): AudioStreamInfo? {
         val entry = findAudioSampleEntry(moovBytes, moov) ?: return null
 
+        // Guard: reject a truncated AudioSampleEntry (corrupt or fuzz input) rather than
+        // reading out-of-bounds. The full header must be present before we read channels,
+        // sampleRate, or any child codec box.
+        if (entry.dataSize < SAMPLE_ENTRY_HEADER) return null
+
         val entryChannels = readBeUInt16(moovBytes, entry.dataOffset + CHANNELCOUNT_OFFSET)
         val entryRate = readBeUInt16(moovBytes, entry.dataOffset + SAMPLERATE_OFFSET)
         val codecBoxesStart = entry.dataOffset + SAMPLE_ENTRY_HEADER

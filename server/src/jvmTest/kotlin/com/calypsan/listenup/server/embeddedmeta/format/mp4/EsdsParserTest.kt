@@ -5,11 +5,18 @@ import io.kotest.matchers.shouldBe
 
 class EsdsParserTest :
     FunSpec({
-        fun descr(tag: Int, body: ByteArray) = byteArrayOf(tag.toByte(), body.size.toByte()) + body
-        fun intBE(v: Int) =
-            byteArrayOf((v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
+        fun descr(
+            tag: Int,
+            body: ByteArray,
+        ) = byteArrayOf(tag.toByte(), body.size.toByte()) + body
 
-        fun esds(oti: Int, avgBitrate: Int, asc: ByteArray): ByteArray {
+        fun intBE(v: Int) = byteArrayOf((v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte())
+
+        fun esds(
+            oti: Int,
+            avgBitrate: Int,
+            asc: ByteArray,
+        ): ByteArray {
             val dsi = descr(0x05, asc)
             val dcdBody =
                 byteArrayOf(oti.toByte(), 0x15) + // objectTypeIndication, streamType/upstream/reserved

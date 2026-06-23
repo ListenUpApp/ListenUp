@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 /** Minimal MSB-first bit reader over a byte array, for AudioSpecificConfig decoding. */
-internal class BitReader(private val bytes: ByteArray) {
+internal class BitReader(
+    private val bytes: ByteArray,
+) {
     private var bitPos = 0
 
     /** Read [count] bits (0..32) MSB-first as an unsigned Int. Returns 0 past EOF. */

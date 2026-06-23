@@ -10,8 +10,15 @@ private const val TAG_ES = 0x03
 private const val TAG_DECODER_CONFIG = 0x04
 private const val TAG_DECODER_SPECIFIC = 0x05
 
-/** Parse an MP4 `esds` box payload (FullBox header + ES_Descriptor tree). Best-effort; null fields on absence. */
-@Suppress("ReturnCount")
+/**
+ * Parse an MP4 `esds` box payload (FullBox header + ES_Descriptor tree). Best-effort; null fields on absence.
+ *
+ * MagicNumber suppressed: descriptor field widths (7-bit expandable-size mask
+ * 0x7F, continue-bit 0x80, 4-byte FullBox prefix, ES_ID skip 3, bitrate skip 4)
+ * and the big-endian byte-assembly shift widths (24/16/8) are fixed by
+ * ISO/IEC 14496-1 §7.2 (ES_Descriptor, DecoderConfigDescriptor).
+ */
+@Suppress("ReturnCount", "MagicNumber")
 internal fun parseEsds(payload: ByteArray): EsdsInfo {
     var p = 4 // skip FullBox version+flags
 
@@ -26,11 +33,11 @@ internal fun parseEsds(payload: ByteArray): EsdsInfo {
         return size
     }
 
-    if (p >= payload.size || (payload[p].toInt() and 0xFF) != TAG_ES) return EsdsInfo(null, null, null)
+    if (p >= payload.size || payload[p].toInt() and 0xFF != TAG_ES) return EsdsInfo(null, null, null)
     p++
     readLen()
     p += 3 // ES_ID(2) + flags(1)
-    if (p >= payload.size || (payload[p].toInt() and 0xFF) != TAG_DECODER_CONFIG) return EsdsInfo(null, null, null)
+    if (p >= payload.size || payload[p].toInt() and 0xFF != TAG_DECODER_CONFIG) return EsdsInfo(null, null, null)
     p++
     readLen()
     if (p >= payload.size) return EsdsInfo(null, null, null)
@@ -44,7 +51,7 @@ internal fun parseEsds(payload: ByteArray): EsdsInfo {
             ((payload[p + 2].toInt() and 0xFF) shl 8) or (payload[p + 3].toInt() and 0xFF)
     p += 4
     var asc: ByteArray? = null
-    if (p < payload.size && (payload[p].toInt() and 0xFF) == TAG_DECODER_SPECIFIC) {
+    if (p < payload.size && payload[p].toInt() and 0xFF == TAG_DECODER_SPECIFIC) {
         p++
         val len = readLen()
         if (p + len <= payload.size) asc = payload.copyOfRange(p, p + len)

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.server.embeddedmeta.fixtures.ac4Entry
+import com.calypsan.listenup.server.embeddedmeta.fixtures.atom
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildAudioMoov
 import com.calypsan.listenup.server.embeddedmeta.fixtures.ec3Entry
 import com.calypsan.listenup.server.embeddedmeta.fixtures.mp4aEntry
@@ -101,5 +102,15 @@ class Mp4CodecExtractorTest :
         test("buildAudioMoov produces a self-consistent, walkable moov") {
             val moov = buildAudioMoov(mp4aEntry(channels = 2, sampleRate = 44100))
             AtomWalker.findPath(moov, "moov") shouldNotBe null
+        }
+
+        test("audio sample entry shorter than 28 bytes yields null (no out-of-bounds read)") {
+            // Build a 'mp4a' box with only 4 bytes of payload — well under the
+            // 28-byte AudioSampleEntry header minimum. The extractor must return null
+            // rather than reading out-of-bounds.
+            val truncatedEntry = atom("mp4a", byteArrayOf(0x00, 0x01, 0x02, 0x03))
+            val moov = buildAudioMoov(truncatedEntry)
+
+            extract(moov).shouldBeNull()
         }
     })

@@ -12,7 +12,14 @@ private val SAMPLE_RATE_TABLE =
 private const val EXPLICIT_FREQ_INDEX = 15
 private const val AOT_ESCAPE = 31
 
-/** Decode the AAC AudioSpecificConfig prefix: AOT, sample rate, channel count. */
+/**
+ * Decode the AAC AudioSpecificConfig prefix: AOT, sample rate, channel count.
+ *
+ * MagicNumber suppressed: field widths (5-bit AOT, 6-bit escape extension,
+ * 4-bit frequency index, 24-bit explicit rate, 4-bit channel config) and the
+ * escape offset (32) are fixed by ISO/IEC 14496-3 §1.6.5.1.
+ */
+@Suppress("MagicNumber")
 internal fun decodeAudioSpecificConfig(asc: ByteArray): AscInfo {
     val r = BitReader(asc)
     var aot = r.readBits(5)
