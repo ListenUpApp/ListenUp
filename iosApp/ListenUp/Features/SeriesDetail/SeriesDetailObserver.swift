@@ -25,14 +25,37 @@ final class SeriesDetailObserver {
     /// The book the Continue CTA will start, with its sequence (for the title).
     private var resumeBook: BookListItem? { books.first { $0.idString == resumeTarget } }
 
-    /// Continue-CTA label, derived from resume state.
+    /// True once the user has any progress in the series — at least one in-progress book
+    /// ([bookProgress] holds in-progress books only) or at least one finished book. When false
+    /// the [resumeTarget] is merely the first book, so the CTA must read "Start", not "Continue".
+    private var hasStarted: Bool { !bookProgress.isEmpty || finishedCount > 0 }
+
+    /// Continue-CTA label, derived from resume + progress state.
     var continueButtonTitle: String {
-        if books.isEmpty { return String(localized: "series.start_listening") }
-        if resumeTarget == nil { return String(localized: "series.listen_again") }
-        if let seq = resumeBook?.series.first?.sequence, !seq.isEmpty {
-            return String(format: String(localized: "series.continue_book"), seq)
+        Self.continueLabel(
+            hasBooks: !books.isEmpty,
+            resumeTargetIsNil: resumeTarget == nil,
+            hasStarted: hasStarted,
+            sequence: resumeBook?.series.first?.sequence
+        )
+    }
+
+    /// Pure CTA-label decision, extracted so it is unit-testable without constructing the
+    /// observer (which needs live KMP state). A never-started series (`!hasStarted`) reads
+    /// "Start Book N" / "Start Listening" rather than "Continue", even though a [resumeTarget]
+    /// (the first book) always exists.
+    nonisolated static func continueLabel(
+        hasBooks: Bool,
+        resumeTargetIsNil: Bool,
+        hasStarted: Bool,
+        sequence: String?
+    ) -> String {
+        if !hasBooks { return String(localized: "series.start_listening") }
+        if resumeTargetIsNil { return String(localized: "series.listen_again") }
+        if let seq = sequence, !seq.isEmpty {
+            return String(format: String(localized: hasStarted ? "series.continue_book" : "series.start_book"), seq)
         }
-        return String(localized: "series.continue")
+        return String(localized: hasStarted ? "series.continue" : "series.start_listening")
     }
 
     /// True when `bookId` is the actively-playing book.
