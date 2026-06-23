@@ -141,6 +141,26 @@ class EditProfileViewModelTest :
             }
         }
 
+        test("state emits Ready (not stuck on Loading) when user has no name or tagline") {
+            runTest {
+                // Regression: a user whose first/last name and tagline are all null seeds a
+                // FormState equal to the initial FormState(). The old code mutated formFlow to
+                // that identical value and waited for a re-emission that StateFlow conflated
+                // away — leaving the Edit Profile screen stuck on the Loading spinner forever.
+                val user = createUser(firstName = null, lastName = null, tagline = null)
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
+                ready.firstName shouldBe ""
+                ready.lastName shouldBe ""
+                ready.tagline shouldBe ""
+                ready.isDirty shouldBe false
+            }
+        }
+
         test("Ready reflects cached avatar path when avatar is an image") {
             runTest {
                 val user = createUser(avatarType = "image", avatarValue = "avatar.jpg")

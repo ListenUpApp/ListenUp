@@ -138,38 +138,43 @@ class EditProfileViewModel(
                 EditProfileUiState.Error("No user data available")
             } else {
                 // Seed the form exactly once from the first non-null user so that
-                // re-emissions from Room don't overwrite edits already in progress.
-                if (!formInitialized) {
-                    formInitialized = true
-                    formFlow.value =
+                // re-emissions from Room don't overwrite edits already in progress, then
+                // build Ready from the seeded values in the same pass. We must NOT seed and
+                // return Loading awaiting a re-emission: when the user has no name/tagline the
+                // seeded FormState equals the initial FormState(), StateFlow conflates the
+                // identical assignment away, no re-emission arrives, and the screen is stuck
+                // on the spinner forever.
+                val effectiveForm =
+                    if (!formInitialized) {
+                        formInitialized = true
                         FormState(
                             firstName = user.firstName ?: "",
                             lastName = user.lastName ?: "",
                             tagline = user.tagline ?: "",
-                        )
-                    // Return Loading briefly — the next emission will carry the seeded form.
-                    return@combine EditProfileUiState.Loading
-                }
+                        ).also { formFlow.value = it }
+                    } else {
+                        form
+                    }
 
                 val isDirty =
-                    form.firstName != (user.firstName ?: "") ||
-                        form.lastName != (user.lastName ?: "") ||
-                        form.tagline != (user.tagline ?: "") ||
-                        form.currentPassword.isNotEmpty() ||
-                        form.newPassword.isNotEmpty() ||
-                        form.confirmPassword.isNotEmpty() ||
-                        form.avatarChange != AvatarChange.None
+                    effectiveForm.firstName != (user.firstName ?: "") ||
+                        effectiveForm.lastName != (user.lastName ?: "") ||
+                        effectiveForm.tagline != (user.tagline ?: "") ||
+                        effectiveForm.currentPassword.isNotEmpty() ||
+                        effectiveForm.newPassword.isNotEmpty() ||
+                        effectiveForm.confirmPassword.isNotEmpty() ||
+                        effectiveForm.avatarChange != AvatarChange.None
 
                 EditProfileUiState.Ready(
                     user = user,
                     localAvatarPath = resolveLocalAvatarPath(user),
-                    firstName = form.firstName,
-                    lastName = form.lastName,
-                    tagline = form.tagline,
-                    currentPassword = form.currentPassword,
-                    newPassword = form.newPassword,
-                    confirmPassword = form.confirmPassword,
-                    avatarChange = form.avatarChange,
+                    firstName = effectiveForm.firstName,
+                    lastName = effectiveForm.lastName,
+                    tagline = effectiveForm.tagline,
+                    currentPassword = effectiveForm.currentPassword,
+                    newPassword = effectiveForm.newPassword,
+                    confirmPassword = effectiveForm.confirmPassword,
+                    avatarChange = effectiveForm.avatarChange,
                     isDirty = isDirty,
                     isSaving = isSaving,
                 )
