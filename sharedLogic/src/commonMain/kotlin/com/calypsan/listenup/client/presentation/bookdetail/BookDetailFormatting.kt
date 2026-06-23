@@ -35,7 +35,7 @@ fun audioFormatSummary(files: List<AudioFile>): AudioFormat? {
     val totalMs = files.sumOf { it.duration }
     val bitrate =
         if (totalMs > 0 && totalBytes > 0) {
-            ((totalBytes * 8.0) / (totalMs / 1000.0) / 1000.0).roundToInt()
+            (totalBytes * 8.0 / (totalMs / 1000.0) / 1000.0).roundToInt()
         } else {
             null
         }
