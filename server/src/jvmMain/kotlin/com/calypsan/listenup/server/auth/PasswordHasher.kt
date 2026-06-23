@@ -18,7 +18,10 @@ actual class PasswordHasher actual constructor() {
                 .result
         }
 
-    actual suspend fun verify(plaintext: CharSequence, encoded: String): Boolean =
+    actual suspend fun verify(
+        plaintext: CharSequence,
+        encoded: String,
+    ): Boolean =
         withContext(Dispatchers.Default) {
             Password.check(plaintext, encoded).with(argon2)
         }

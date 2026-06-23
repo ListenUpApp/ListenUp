@@ -83,7 +83,9 @@ data class JwtConfiguration(
                 nbf = nowSec,
                 exp = expSec,
             )
-        val signingInput = "$HEADER_B64.${b64(JSON.encodeToString(JwtPayload.serializer(), payload).encodeToByteArray())}"
+        val signingInput = "$HEADER_B64.${b64(
+            JSON.encodeToString(JwtPayload.serializer(), payload).encodeToByteArray(),
+        )}"
         return "$signingInput.${b64(sign(signingInput))}"
     }
 
@@ -122,10 +124,15 @@ data class JwtConfiguration(
 
     private fun b64(bytes: ByteArray): String = URL_NO_PAD.encode(bytes)
 
-    private fun decodeB64OrReject(s: String, reason: String): ByteArray =
-        runCatching { URL_NO_PAD.decode(s) }.getOrElse { throw JwtVerificationException(reason, it) }
+    private fun decodeB64OrReject(
+        s: String,
+        reason: String,
+    ): ByteArray = runCatching { URL_NO_PAD.decode(s) }.getOrElse { throw JwtVerificationException(reason, it) }
 
-    private fun constantTimeEquals(a: ByteArray, b: ByteArray): Boolean {
+    private fun constantTimeEquals(
+        a: ByteArray,
+        b: ByteArray,
+    ): Boolean {
         if (a.size != b.size) return false
         var diff = 0
         for (i in a.indices) diff = diff or (a[i].toInt() xor b[i].toInt())
@@ -137,6 +144,10 @@ data class JwtConfiguration(
         private val DEFAULT_ACCESS_TOKEN_TTL: Duration = 15.minutes
         private val URL_NO_PAD = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
         private val HEADER_B64 = URL_NO_PAD.encode("""{"alg":"HS256","typ":"JWT"}""".encodeToByteArray())
-        private val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = false }
+        private val JSON =
+            Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = false
+            }
     }
 }

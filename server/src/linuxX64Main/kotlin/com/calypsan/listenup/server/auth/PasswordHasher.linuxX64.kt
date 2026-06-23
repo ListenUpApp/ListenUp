@@ -27,17 +27,23 @@ actual class PasswordHasher actual constructor() {
                         ITERATIONS.convert(),
                         MEMORY_KIB.convert(),
                         PARALLELISM.convert(),
-                        pwd.refTo(0), pwd.size.convert(),
-                        salt.refTo(0), salt.size.convert(),
+                        pwd.refTo(0),
+                        pwd.size.convert(),
+                        salt.refTo(0),
+                        salt.size.convert(),
                         OUTPUT_LENGTH.convert(),
-                        out, encodedLen.convert(),
+                        out,
+                        encodedLen.convert(),
                     )
                 check(rc == 0) { "argon2id_hash_encoded failed rc=$rc" }
                 out.toKString()
             }
         }
 
-    actual suspend fun verify(plaintext: CharSequence, encoded: String): Boolean =
+    actual suspend fun verify(
+        plaintext: CharSequence,
+        encoded: String,
+    ): Boolean =
         withContext(Dispatchers.Default) {
             val pwd = plaintext.toString().encodeToByteArray()
             // `encoded` is @CString in the generated binding (auto String→C string); pass directly.

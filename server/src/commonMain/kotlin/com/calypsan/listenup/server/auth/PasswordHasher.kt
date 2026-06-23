@@ -10,5 +10,8 @@ package com.calypsan.listenup.server.auth
 expect class PasswordHasher() {
     suspend fun hash(plaintext: CharSequence): String
 
-    suspend fun verify(plaintext: CharSequence, encoded: String): Boolean
+    suspend fun verify(
+        plaintext: CharSequence,
+        encoded: String,
+    ): Boolean
 }
