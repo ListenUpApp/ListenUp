@@ -43,5 +43,11 @@ data class AudioTags(
          *  comment tag (ID3v2 COMM, MP4 `©cmt`, Vorbis COMMENT). The Analyzer uses it
          *  as the `description` fallback, matching the Go reference. */
         const val COMMENT_KEY: String = "comment"
+
+        /** The [custom] map key under which every format reader stores the album tag
+         *  (ID3 `TALB`, MP4 `©alb`, ID3v1 album). For a multi-file audiobook the album is
+         *  the **book** title (the per-file [title] tag is the chapter title), so the Analyzer
+         *  treats it as the authoritative book title — matching Audiobookshelf. */
+        const val ALBUM_KEY: String = "album"
     }
 }

@@ -245,7 +245,7 @@ class AnalyzedBookMapperTest :
                 )
         }
 
-        test("should assign embedded duration only to the primary track when multiple tracks are present") {
+        test("should assign each track its own duration and sum them for the book total when multiple tracks are present") {
             val firstFile =
                 FileEntry(
                     relPath = "books/x/01.m4b",
@@ -275,7 +275,13 @@ class AnalyzedBookMapperTest :
                             files = listOf(firstFile, secondFile),
                         ),
                     title = "X",
-                    tracks = listOf(TrackEntry(file = firstFile), TrackEntry(file = secondFile)),
+                    tracks =
+                        listOf(
+                            TrackEntry(file = firstFile, durationMs = 12_345L),
+                            TrackEntry(file = secondFile, durationMs = 67_890L),
+                        ),
+                    // Primary-only embedded duration is no longer the source of truth for a
+                    // multi-file book; per-track durations are.
                     embedded = embeddedMeta(durationMs = 12_345L),
                 )
 
@@ -289,8 +295,19 @@ class AnalyzedBookMapperTest :
             audioFiles[0].size shouldBe 1024L
             audioFiles[1].index shouldBe 1
             audioFiles[1].filename shouldBe "02.m4b"
-            audioFiles[1].duration shouldBe 0L
+            audioFiles[1].duration shouldBe 67_890L
             audioFiles[1].size shouldBe 2048L
+
+            val payload =
+                mapper.toBookSyncPayload(
+                    bookId = BookId("b-x"),
+                    libraryId = LibraryId("lib-1"),
+                    folderId = FolderId("folder-1"),
+                    analyzed = analyzed,
+                    resolvedContributors = emptyList(),
+                    resolvedSeries = emptyList(),
+                )
+            payload.totalDuration shouldBe 12_345L + 67_890L
         }
 
         test("should compute chapter duration as end minus start") {
