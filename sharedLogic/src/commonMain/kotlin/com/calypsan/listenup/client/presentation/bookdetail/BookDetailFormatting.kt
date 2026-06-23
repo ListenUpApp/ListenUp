@@ -26,7 +26,11 @@ data class AudioFormat(
 fun audioFormatSummary(files: List<AudioFile>): AudioFormat? {
     if (files.isEmpty()) return null
     val codec =
-        files.groupingBy { it.codec.uppercase() }.eachCount().maxByOrNull { it.value }?.key ?: return null
+        files
+            .groupingBy { it.codec.uppercase() }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key ?: return null
     val totalBytes = files.sumOf { it.size }
     val totalMs = files.sumOf { it.duration }
     val bitrate =
@@ -46,9 +50,24 @@ fun languageDisplayName(code: String): String {
 
 private val LANGUAGE_NAMES: Map<String, String> =
     mapOf(
-        "en" to "English", "es" to "Spanish", "fr" to "French", "de" to "German",
-        "it" to "Italian", "pt" to "Portuguese", "nl" to "Dutch", "ru" to "Russian",
-        "ja" to "Japanese", "zh" to "Chinese", "ko" to "Korean", "pl" to "Polish",
-        "sv" to "Swedish", "da" to "Danish", "no" to "Norwegian", "fi" to "Finnish",
-        "cs" to "Czech", "tr" to "Turkish", "ar" to "Arabic", "hi" to "Hindi",
+        "en" to "English",
+        "es" to "Spanish",
+        "fr" to "French",
+        "de" to "German",
+        "it" to "Italian",
+        "pt" to "Portuguese",
+        "nl" to "Dutch",
+        "ru" to "Russian",
+        "ja" to "Japanese",
+        "zh" to "Chinese",
+        "ko" to "Korean",
+        "pl" to "Polish",
+        "sv" to "Swedish",
+        "da" to "Danish",
+        "no" to "Norwegian",
+        "fi" to "Finnish",
+        "cs" to "Czech",
+        "tr" to "Turkish",
+        "ar" to "Arabic",
+        "hi" to "Hindi",
     )

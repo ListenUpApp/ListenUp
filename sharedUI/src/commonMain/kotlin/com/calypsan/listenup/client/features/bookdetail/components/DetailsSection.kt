@@ -55,7 +55,11 @@ fun DetailsSection(
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = stringResource(Res.string.book_detail_details),
-            style = MaterialTheme.typography.titleLarge.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.SemiBold),
+            style =
+                MaterialTheme.typography.titleLarge.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                ),
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp),
         )
@@ -86,7 +90,11 @@ fun DetailsSection(
 
 /** A metadata row: emphasis value on the left, dim label on the right — matching [CreditRow]. */
 @Composable
-private fun MetadataRow(value: String, label: String, modifier: Modifier = Modifier) {
+private fun MetadataRow(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
     Row(
         modifier = modifier.fillMaxWidth().padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),

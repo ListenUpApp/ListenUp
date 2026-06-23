@@ -6,8 +6,11 @@ import io.kotest.matchers.shouldBe
 
 class BookDetailFormattingTest :
     FunSpec({
-        fun file(codec: String, size: Long, duration: Long) =
-            AudioFile(id = "x", index = 0, filename = "f.$codec", format = codec, codec = codec, duration = duration, size = size)
+        fun file(
+            codec: String,
+            size: Long,
+            duration: Long,
+        ) = AudioFile(id = "x", index = 0, filename = "f.$codec", format = codec, codec = codec, duration = duration, size = size)
 
         test("audioFormatSummary derives codec (upper-cased) and approx bitrate") {
             // 1,000,000 bytes over 60,000 ms → 1_000_000*8 / 60 / 1000 ≈ 133 kbps
