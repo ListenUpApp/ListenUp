@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
@@ -56,6 +57,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.design.components.ProvideNowPlayingInsets
+import com.calypsan.listenup.client.design.components.latchFootprint
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.features.connect.ServerSelectScreen
@@ -63,6 +66,7 @@ import com.calypsan.listenup.client.features.connect.ServerSetupScreen
 import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
+import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
@@ -86,6 +90,13 @@ import com.calypsan.listenup.client.navigation.entries.shelfEntries
 import com.calypsan.listenup.client.navigation.entries.shellEntry
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Initial mini-player clearance used before the bar reports its first measurement. Sized to a
+ * typical floating bar plus its bottom padding so detail screens never overlap on the very first
+ * frame; replaced by the real measured footprint once [NowPlayingHost] reports it.
+ */
+private val DefaultNowPlayingFootprint = 96.dp
 
 /**
  * Root navigation composable for ListenUp Android app.
@@ -520,6 +531,15 @@ private fun AuthenticatedNavigation(
     // ViewModels for shortcut action handling
     val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
 
+    // Mini-player clearance: the bar is the producer of its own footprint, the detail screens
+    // are the consumers via LocalNowPlayingInsets. The bar is "visible" (and thus reserves space)
+    // only while a book is Active and the full-screen player is collapsed. We latch the measured
+    // footprint so transient zero sizes during the slide-out animation don't collapse the inset.
+    val nowPlayingScreenState by nowPlayingViewModel.screenState.collectAsStateWithLifecycle()
+    val barVisible =
+        nowPlayingScreenState.state is NowPlayingState.Active && !nowPlayingScreenState.isExpanded
+    var latchedFootprint by remember { mutableStateOf(DefaultNowPlayingFootprint) }
+
     // AppStartupViewModel holds the library-setup check result across Activity re-creations.
     // This prevents the loading screen from reappearing on every config change or short
     // foreground resume. The ViewModel lives in the Activity's ViewModelStore, so it is only
@@ -572,61 +592,69 @@ private fun AuthenticatedNavigation(
         onSelectShellDestination = { currentShellDestination = it },
     )
 
-    // Wrap navigation with NowPlayingHost for persistent mini player
-    CompositionLocalProvider(
-        LocalSnackbarHostState provides snackbarHostState,
-        LocalDeviceContext provides koinInject<DeviceContext>(),
-    ) {
-        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-            NavDisplay(
-                backStack = backStack,
-                entryDecorators =
-                    listOf(
-                        rememberSaveableStateHolderNavEntryDecorator(),
-                        rememberViewModelStoreNavEntryDecorator(),
-                    ),
-                // Only handle back if we're not at root - let system handle back-to-home
-                onBack = {
-                    if (backStack.size > 1) {
-                        backStack.removeAt(backStack.lastIndex)
-                    }
-                    // When size == 1, don't pop - allows system back-to-home animation
-                },
-                // Global slide transitions for all navigation
-                transitionSpec = {
-                    slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
-                },
-                popTransitionSpec = {
-                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
-                },
-                predictivePopTransitionSpec = {
-                    slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
-                },
-                entryProvider =
-                    authenticatedNavEntries(
-                        backStack = backStack,
-                        // Deferred reads: the entry content reads these inside the Shell composable so
-                        // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
-                        currentShellDestination = { currentShellDestination },
-                        onShellDestinationChange = { currentShellDestination = it },
-                        nowPlayingViewModel = nowPlayingViewModel,
-                        readiness = { readiness },
-                        onSignOut = onSignOut,
-                        startupViewModel = startupViewModel,
-                        scope = scope,
-                        syncRepository = syncRepository,
-                        profileRefreshKey = profileRefreshKey,
-                        onProfileRefreshed = { profileRefreshKey++ },
-                    ),
-            )
+    // Wrap navigation with NowPlayingHost for persistent mini player.
+    // ProvideNowPlayingInsets publishes the mini-player clearance to every detail screen below,
+    // so NavDisplay content can pad itself clear of the floating bar (the bar measures itself inside
+    // AuthenticatedNavOverlays and latches its footprint back up here).
+    ProvideNowPlayingInsets(barVisible = barVisible, latchedFootprint = latchedFootprint) {
+        CompositionLocalProvider(
+            LocalSnackbarHostState provides snackbarHostState,
+            LocalDeviceContext provides koinInject<DeviceContext>(),
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+                NavDisplay(
+                    backStack = backStack,
+                    entryDecorators =
+                        listOf(
+                            rememberSaveableStateHolderNavEntryDecorator(),
+                            rememberViewModelStoreNavEntryDecorator(),
+                        ),
+                    // Only handle back if we're not at root - let system handle back-to-home
+                    onBack = {
+                        if (backStack.size > 1) {
+                            backStack.removeAt(backStack.lastIndex)
+                        }
+                        // When size == 1, don't pop - allows system back-to-home animation
+                    },
+                    // Global slide transitions for all navigation
+                    transitionSpec = {
+                        slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
+                    },
+                    popTransitionSpec = {
+                        slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                    },
+                    predictivePopTransitionSpec = {
+                        slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
+                    },
+                    entryProvider =
+                        authenticatedNavEntries(
+                            backStack = backStack,
+                            // Deferred reads: the entry content reads these inside the Shell composable so
+                            // tab/readiness changes recompose it (NavDisplay won't re-invoke the builder).
+                            currentShellDestination = { currentShellDestination },
+                            onShellDestinationChange = { currentShellDestination = it },
+                            nowPlayingViewModel = nowPlayingViewModel,
+                            readiness = { readiness },
+                            onSignOut = onSignOut,
+                            startupViewModel = startupViewModel,
+                            scope = scope,
+                            syncRepository = syncRepository,
+                            profileRefreshKey = profileRefreshKey,
+                            onProfileRefreshed = { profileRefreshKey++ },
+                        ),
+                )
 
-            AuthenticatedNavOverlays(
-                backStack = backStack,
-                snackbarHostState = snackbarHostState,
-                nowPlayingViewModel = nowPlayingViewModel,
-                readiness = readiness,
-                onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
-            )
+                AuthenticatedNavOverlays(
+                    backStack = backStack,
+                    snackbarHostState = snackbarHostState,
+                    nowPlayingViewModel = nowPlayingViewModel,
+                    readiness = readiness,
+                    onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
+                    onBarFootprintChanged = { measured ->
+                        latchedFootprint = latchFootprint(latchedFootprint, measured, barVisible)
+                    },
+                )
+            }
         }
     }
 }
@@ -689,6 +717,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
     nowPlayingViewModel: NowPlayingViewModel,
     readiness: LibraryReadiness,
     onRetryLibrarySetupCheck: () -> Unit,
+    onBarFootprintChanged: (Dp) -> Unit,
 ) {
     // Now Playing overlay - persistent across all navigation
     // Position adjusts based on whether bottom nav is visible (Shell vs detail screens)
@@ -711,6 +740,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
             backStack.add(DocumentViewer(localPath))
         },
         viewModel = nowPlayingViewModel,
+        onBarFootprintChanged = onBarFootprintChanged,
     )
 
     // App-wide snackbar - positioned at bottom, mini player animates up when visible
