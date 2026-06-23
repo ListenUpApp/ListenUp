@@ -11,12 +11,12 @@ final class LibraryObserver {
     private(set) var books: [BookRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var booksSortState: SortState?
-    private(set) var series: [SeriesWithBooks] = []
+    private(set) var series: [SeriesRow] = []
     private(set) var seriesProgress: [String: SeriesProgressState] = [:]
     private(set) var seriesSortState: SortState?
-    private(set) var authors: [ContributorWithBookCount] = []
+    private(set) var authors: [ContributorRow] = []
     private(set) var authorsSortState: SortState?
-    private(set) var narrators: [ContributorWithBookCount] = []
+    private(set) var narrators: [ContributorRow] = []
     private(set) var narratorsSortState: SortState?
     private(set) var isLoading: Bool = true
     private(set) var isEmpty: Bool = false
@@ -90,12 +90,12 @@ final class LibraryObserver {
             books = l.books.map { BookRow($0) }
             bookProgress = mapProgress(l.bookProgress)
             booksSortState = l.booksSortState
-            series = Array(l.series)
+            series = l.series.map { SeriesRow($0) }
             seriesProgress = mapSeriesProgress(l.seriesProgress)
             seriesSortState = l.seriesSortState
-            authors = Array(l.authors)
+            authors = l.authors.map { ContributorRow($0) }
             authorsSortState = l.authorsSortState
-            narrators = Array(l.narrators)
+            narrators = l.narrators.map { ContributorRow($0) }
             narratorsSortState = l.narratorsSortState
             isEmpty = l.isEmpty
             isSyncing = l.isSyncing

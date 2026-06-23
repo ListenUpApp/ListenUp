@@ -4,25 +4,22 @@ import SwiftUI
 /// Series grid card for the iPad Series list: a centered cover stack over name + meta
 /// + progress, on its own rounded surface.
 struct SeriesGridCard: View {
-    let series: SeriesWithBooks
+    let series: SeriesRow
     let progress: SeriesProgressState
 
-    private var seriesId: String { series.series.idString }
-    private var books: [BookListItem] { Array(series.books) }
     private var meta: String {
-        let count = books.count
-        let author = books.first?.authors.first?.name
+        let count = series.bookCount
         let booksText = "\(count) \(count == 1 ? String(localized: "common.book") : String(localized: "common.books"))"
-        return author.map { "\(booksText) · \($0)" } ?? booksText
+        return series.authorName.map { "\(booksText) · \($0)" } ?? booksText
     }
 
     var body: some View {
-        NavigationLink(value: SeriesDestination(id: seriesId)) {
+        NavigationLink(value: SeriesDestination(id: series.id)) {
             VStack(alignment: .leading, spacing: 16) {
-                CoverStack(books: books, size: 112, peek: 26, maxCovers: 5)
+                CoverStack(covers: series.covers, size: 112, peek: 26, maxCovers: 5)
                     .frame(maxWidth: .infinity, alignment: .center)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(series.series.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
+                    Text(series.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
                     Text(meta).font(.footnote).foregroundStyle(Color.luLabel2).lineLimit(1)
                 }
                 SeriesProgressBadge(state: progress)
@@ -34,6 +31,6 @@ struct SeriesGridCard: View {
         }
         .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(series.series.name)
+        .accessibilityLabel(series.name)
     }
 }

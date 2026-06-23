@@ -4,13 +4,12 @@ import SwiftUI
 /// One contributor in the Contributors list: avatar, name over a role chip + book count,
 /// and a chevron. Rendered inside a `FieldGroup`, so it carries padding but no surface.
 struct PersonRow: View {
-    let contributor: ContributorWithBookCount
+    let contributor: ContributorRow
     let kind: RoleChip.Kind
 
-    private var contributorId: String { contributor.contributor.idString }
-    private var name: String { contributor.contributor.name }
+    private var name: String { contributor.name }
     private var bookCountLabel: String {
-        let count = Int(contributor.bookCount)
+        let count = contributor.bookCount
         let format = count == 1
             ? String(localized: "common.book_count")
             : String(localized: "common.books_count")
@@ -18,13 +17,13 @@ struct PersonRow: View {
     }
 
     var body: some View {
-        NavigationLink(value: ContributorDestination(id: contributorId)) {
+        NavigationLink(value: ContributorDestination(id: contributor.id)) {
             HStack(spacing: 14) {
                 ContributorAvatar(
                     name: name,
-                    imagePath: contributor.contributor.imagePath,
-                    blurHash: contributor.contributor.imageBlurHash,
-                    id: contributorId,
+                    imagePath: nil,
+                    blurHash: contributor.imageBlurHash,
+                    id: contributor.id,
                     fontSize: 16,
                     streamsContributorPhoto: true
                 )
