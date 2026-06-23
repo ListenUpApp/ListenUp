@@ -41,4 +41,42 @@ class ImageRepositoryImplTest :
                 verifySuspend { imageDownloader.downloadCover(BookId("book-1")) }
             }
         }
+
+        test("ensureContributorImageCached launches a durable contributor-image download on the app scope") {
+            runTest {
+                val imageDownloader: ImageDownloaderContract = mock()
+                everySuspend { imageDownloader.downloadContributorImage(any()) } returns AppResult.Success(true)
+                val repo =
+                    ImageRepositoryImpl(
+                        imageDownloader = imageDownloader,
+                        imageStorage = mock(),
+                        imageApi = mock(),
+                        appScope = this,
+                    )
+
+                repo.ensureContributorImageCached("contrib-1")
+                advanceUntilIdle()
+
+                verifySuspend { imageDownloader.downloadContributorImage("contrib-1") }
+            }
+        }
+
+        test("ensureUserAvatarCached launches a durable avatar download on the app scope") {
+            runTest {
+                val imageDownloader: ImageDownloaderContract = mock()
+                everySuspend { imageDownloader.downloadUserAvatar(any(), any()) } returns AppResult.Success(true)
+                val repo =
+                    ImageRepositoryImpl(
+                        imageDownloader = imageDownloader,
+                        imageStorage = mock(),
+                        imageApi = mock(),
+                        appScope = this,
+                    )
+
+                repo.ensureUserAvatarCached("user-1")
+                advanceUntilIdle()
+
+                verifySuspend { imageDownloader.downloadUserAvatar("user-1", forceRefresh = false) }
+            }
+        }
     })

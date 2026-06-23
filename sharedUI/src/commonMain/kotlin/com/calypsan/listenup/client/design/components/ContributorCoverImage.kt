@@ -95,6 +95,9 @@ fun ContributorCoverImage(
                         .diskCacheKey(contributorCacheKey(contributorId, imagePath))
                         .build()
                 } else {
+                    // No durable file yet — kick off a background download so this streamed
+                    // contributor photo is persisted on disk for offline use, then stream now.
+                    imageRepository.ensureContributorImageCached(contributorId)
                     val baseUrl = serverConfig.getActiveUrl()?.value
                     val token = authSession.getAccessToken()?.value
                     logger.debug {
