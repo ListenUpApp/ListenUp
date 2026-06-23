@@ -32,16 +32,21 @@ val LocalNowPlayingInsets: ProvidableCompositionLocal<WindowInsets> =
  * The bottom clearance the mini-player requires, in dp. The bar's measured footprint when
  * it is visible, otherwise zero — so the space is reclaimed the instant playback stops.
  */
-fun nowPlayingClearance(barVisible: Boolean, latchedFootprint: Dp): Dp =
-    if (barVisible) latchedFootprint else 0.dp
+fun nowPlayingClearance(
+    barVisible: Boolean,
+    latchedFootprint: Dp,
+): Dp = if (barVisible) latchedFootprint else 0.dp
 
 /**
  * Latches the bar's full footprint. We only adopt a fresh measurement while the bar is
  * visible and non-empty; transient zero/partial sizes emitted as the bar animates out are
  * ignored, so the value stays stable for the next appearance.
  */
-fun latchFootprint(current: Dp, measured: Dp, barVisible: Boolean): Dp =
-    if (barVisible && measured > 0.dp) measured else current
+fun latchFootprint(
+    current: Dp,
+    measured: Dp,
+    barVisible: Boolean,
+): Dp = if (barVisible && measured > 0.dp) measured else current
 
 /**
  * Publishes the animated mini-player inset to descendants via [LocalNowPlayingInsets].
@@ -58,10 +63,11 @@ fun ProvideNowPlayingInsets(
     val target = nowPlayingClearance(barVisible, latchedFootprint)
     val animated by animateDpAsState(
         targetValue = target,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioLowBouncy,
-            stiffness = Spring.StiffnessMediumLow,
-        ),
+        animationSpec =
+            spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
         label = "nowPlayingInset",
     )
     CompositionLocalProvider(
