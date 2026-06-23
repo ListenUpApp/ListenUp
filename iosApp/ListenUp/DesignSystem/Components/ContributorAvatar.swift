@@ -1,3 +1,4 @@
+import NukeUI
 import SwiftUI
 @preconcurrency import Shared
 import UIKit
@@ -30,22 +31,38 @@ struct ContributorAvatar: View {
     /// Font size for initials (auto-calculated based on frame if not specified)
     var initialsFontSize: CGFloat = 16
 
-    /// Convenience initializer from a Contributor object
+    /// When true, `id` is a contributor id whose photo is streamed from the server (and lazily
+    /// persisted to disk) via [ContributorPhotoLayer]. False for the generic uses of this avatar
+    /// — admin user rows (where `id` is a *user* id) and the contributor-edit picked-file preview —
+    /// which keep the local-file/initials behaviour.
+    var streamsContributorPhoto: Bool = false
+
+    /// Convenience initializer from a Contributor object — streams + persists the server photo.
     init(contributor: Contributor, fontSize: CGFloat = 16) {
         self.name = contributor.name
         self.imagePath = contributor.imagePath
         self.blurHash = contributor.imageBlurHash
         self.id = contributor.idString
         self.initialsFontSize = fontSize
+        self.streamsContributorPhoto = true
     }
 
-    /// Direct initializer for custom sources
-    init(name: String, imagePath: String?, blurHash: String? = nil, id: String, fontSize: CGFloat = 16) {
+    /// Direct initializer for custom sources. Set `streamsContributorPhoto` when `id` is a
+    /// contributor id whose server photo should render and be cached for offline use.
+    init(
+        name: String,
+        imagePath: String?,
+        blurHash: String? = nil,
+        id: String,
+        fontSize: CGFloat = 16,
+        streamsContributorPhoto: Bool = false
+    ) {
         self.name = name
         self.imagePath = imagePath
         self.blurHash = blurHash
         self.id = id
         self.initialsFontSize = fontSize
+        self.streamsContributorPhoto = streamsContributorPhoto
     }
 
     /// The on-disk avatar, read + decoded OFF the main thread by [loadImage]. Reading/decoding
@@ -73,10 +90,20 @@ struct ContributorAvatar: View {
                     .font(.system(size: initialsFontSize, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
             }
+
+            // Streamed contributor photo, layered over the BlurHash/initials placeholder. Nuke
+            // owns the off-main decode + caching (scroll-safe, like the cover grid).
+            if streamsContributorPhoto {
+                ContributorPhotoLayer(contributorId: id)
+                    .clipShape(Circle())
+            }
         }
         .clipShape(Circle())
-        // Re-reads only when the path changes; cancelled when the row scrolls away.
+        // Re-reads only when the path changes; cancelled when the row scrolls away. Skipped when
+        // streaming — [ContributorPhotoLayer] owns the image, and `imagePath` is not a durable
+        // on-disk path there.
         .task(id: imagePath) {
+            guard !streamsContributorPhoto else { return }
             fileImage = await Self.loadImage(path: imagePath)
         }
     }
@@ -106,6 +133,51 @@ struct ContributorAvatar: View {
         let hash = id.hashValue
         let hue = Double(abs(hash) % 360) / 360.0
         return Color(hue: hue, saturation: 0.5, brightness: 0.7)
+    }
+}
+
+// MARK: - Contributor photo layer
+
+/// Streams a contributor's photo (durable local file → authenticated server URL) via Nuke,
+/// fading in over whatever placeholder [ContributorAvatar] draws beneath it. Building the request
+/// also lazily persists the photo to disk for offline use. Transparent until the image resolves,
+/// so the BlurHash/initials placeholder shows through.
+private struct ContributorPhotoLayer: View {
+    let contributorId: String
+
+    @Environment(\.displayScale) private var displayScale
+    @State private var request: ImageRequest?
+    @State private var targetMaxPixels: CGFloat = 0
+
+    var body: some View {
+        LazyImage(request: request) { state in
+            if let image = state.image {
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .transition(.opacity)
+            }
+        }
+        .onGeometryChange(for: CGSize.self) { proxy in proxy.size } action: { size in
+            let pixels = (max(size.width, size.height) * displayScale).rounded()
+            if pixels > 0, pixels != targetMaxPixels {
+                targetMaxPixels = pixels
+            }
+        }
+        // Cancelled when the row scrolls away; re-resolves only when id/size change.
+        .task(id: TaskKey(contributorId: contributorId, targetPixels: targetMaxPixels)) {
+            guard targetMaxPixels > 0 else { return }
+            request = await ContributorImageRequest.contributor(
+                contributorId: contributorId,
+                targetPixels: targetMaxPixels
+            )
+        }
+    }
+
+    /// Identity for the request-building task: any change re-resolves the photo source.
+    private struct TaskKey: Equatable {
+        let contributorId: String
+        let targetPixels: CGFloat
     }
 }
 
