@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.discovery
 
+import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,7 @@ private val logger = KotlinLogging.logger {}
  * - remote: Remote URL (optional)
  */
 internal class JmDnsDiscoveryService : ServerDiscoveryService {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + appCoroutineExceptionHandler)
     private val serversState = MutableStateFlow<Map<String, DiscoveredServer>>(emptyMap())
 
     private var jmdns: JmDNS? = null
