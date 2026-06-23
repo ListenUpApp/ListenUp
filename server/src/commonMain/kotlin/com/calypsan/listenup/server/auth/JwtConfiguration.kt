@@ -2,6 +2,9 @@
 
 package com.calypsan.listenup.server.auth
 
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.auth.UserRole
 import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.algorithms.HMAC
 import dev.whyoleg.cryptography.algorithms.SHA256
@@ -12,6 +15,13 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
+data class AccessTokenClaims(
+    val userId: UserId,
+    val sessionId: SessionId,
+    val role: UserRole,
+    val expiresAt: Long, // unix millis
+)
 
 class JwtVerificationException(
     message: String,
@@ -31,33 +41,17 @@ private data class JwtPayload(
 )
 
 /**
- * Raw claim bag returned by [HmacJwtCodec.verify]. Uses plain strings so the codec
- * stays in commonMain without a dependency on the `:contract` value-class wrappers.
- * Platform-specific wrappers (e.g. [JwtConfiguration] in jvmMain) convert to
- * strongly-typed domain values.
- */
-data class RawTokenClaims(
-    val sub: String,
-    val jti: String,
-    val role: String,
-    val expiresAtMs: Long,
-)
-
-/**
- * Multiplatform HS256 JWT issuer + verifier. Uses only stdlib, kotlinx.serialization,
- * and cryptography-kotlin — no JVM or `:contract` types — so it compiles for both
- * jvm() and linuxX64().
+ * Hand-rolled HS256 JWT issuer + verifier. Multiplatform: HMAC-SHA-256 via cryptography-kotlin,
+ * base64url via kotlin stdlib, JSON via kotlinx.serialization.
  *
- * - `sub` = user id, `jti` = session id, `role` = user role name. Claims kept minimal.
- * - Signing input is `base64url(header).base64url(payload)` per RFC 7515 (standard JWT).
- * - Signature comparison is constant-time to prevent timing attacks.
+ * `sub` = user id, `jti` = session id, `role` = user role. Claims kept minimal.
  */
-class HmacJwtCodec(
-    private val secret: String,
-    private val issuer: String,
-    private val audience: String,
-    private val accessTokenTtl: Duration = DEFAULT_ACCESS_TOKEN_TTL,
-    private val clock: Clock = Clock.System,
+data class JwtConfiguration(
+    val secret: String,
+    val issuer: String,
+    val audience: String,
+    val accessTokenTtl: Duration = DEFAULT_ACCESS_TOKEN_TTL,
+    val clock: Clock = Clock.System,
 ) {
     init {
         require(secret.encodeToByteArray().size >= MIN_SECRET_BYTES) {
@@ -72,9 +66,9 @@ class HmacJwtCodec(
             .decodeFromByteArrayBlocking(HMAC.Key.Format.RAW, secret.encodeToByteArray())
 
     fun issue(
-        userId: String,
-        sessionId: String,
-        role: String,
+        userId: UserId,
+        sessionId: SessionId,
+        role: UserRole,
     ): String {
         val nowSec = clock.now().epochSeconds
         val expSec = (clock.now() + accessTokenTtl).epochSeconds
@@ -82,9 +76,9 @@ class HmacJwtCodec(
             JwtPayload(
                 iss = issuer,
                 aud = audience,
-                sub = userId,
-                jti = sessionId,
-                role = role,
+                sub = userId.value,
+                jti = sessionId.value,
+                role = role.name,
                 iat = nowSec,
                 nbf = nowSec,
                 exp = expSec,
@@ -93,7 +87,7 @@ class HmacJwtCodec(
         return "$signingInput.${b64(sign(signingInput))}"
     }
 
-    fun verify(token: String): RawTokenClaims {
+    fun verify(token: String): AccessTokenClaims {
         val parts = token.split(".")
         if (parts.size != 3) throw JwtVerificationException("malformed token")
         val signingInput = "${parts[0]}.${parts[1]}"
@@ -112,12 +106,14 @@ class HmacJwtCodec(
         val nowSec = clock.now().epochSeconds
         if (nowSec >= exp) throw JwtVerificationException("token expired")
         payload.nbf?.let { if (nowSec < it) throw JwtVerificationException("token not yet valid") }
-        val role = payload.role ?: throw JwtVerificationException("missing or invalid role claim")
-        return RawTokenClaims(
-            sub = payload.sub ?: throw JwtVerificationException("missing sub"),
-            jti = payload.jti ?: throw JwtVerificationException("missing jti"),
+        val role =
+            runCatching { UserRole.valueOf(payload.role ?: error("missing role")) }
+                .getOrElse { throw JwtVerificationException("missing or invalid role claim", it) }
+        return AccessTokenClaims(
+            userId = UserId(payload.sub ?: throw JwtVerificationException("missing sub")),
+            sessionId = SessionId(payload.jti ?: throw JwtVerificationException("missing jti")),
             role = role,
-            expiresAtMs = exp * 1000,
+            expiresAt = exp * 1000,
         )
     }
 
@@ -137,10 +133,10 @@ class HmacJwtCodec(
     }
 
     companion object {
-        internal const val MIN_SECRET_BYTES = 32
+        private const val MIN_SECRET_BYTES = 32
         private val DEFAULT_ACCESS_TOKEN_TTL: Duration = 15.minutes
         private val URL_NO_PAD = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
-        internal val HEADER_B64 = URL_NO_PAD.encode("""{"alg":"HS256","typ":"JWT"}""".encodeToByteArray())
+        private val HEADER_B64 = URL_NO_PAD.encode("""{"alg":"HS256","typ":"JWT"}""".encodeToByteArray())
         private val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = false }
     }
 }

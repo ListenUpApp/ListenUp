@@ -76,6 +76,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
+                implementation(projects.contract)
                 // SQLDelight — shared runtime + coroutines extensions (both JVM + native)
                 implementation(libs.sqldelight.runtime)
                 implementation(libs.sqldelight.coroutines)
@@ -94,8 +95,6 @@ kotlin {
 
         val jvmMain by getting {
             dependencies {
-                implementation(projects.contract)
-
                 // Ktor server core + engine
                 implementation(libs.ktor.server.core)
                 implementation(libs.ktor.server.cio)
