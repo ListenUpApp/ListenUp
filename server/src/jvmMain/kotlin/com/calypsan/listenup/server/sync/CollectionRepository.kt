@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
 import com.calypsan.listenup.server.db.sqldelight.Collections
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -314,7 +315,7 @@ class CollectionRepository(
         return accessFilteredDigest(cursor, rows)
     }
 
-    /** Maps a generated [Collections] row to the wire [CollectionSyncPayload] (`isInbox` from `type`). */
+    /** Maps a generated [Collections] row to the wire [CollectionSyncPayload] (`isInbox`/`isSystem` from `type`). */
     private fun Collections.toSyncPayload(): CollectionSyncPayload =
         CollectionSyncPayload(
             id = id,
@@ -322,6 +323,7 @@ class CollectionRepository(
             ownerId = owner_id,
             name = name,
             isInbox = type == SYSTEM_TYPE_INBOX,
+            isSystem = type == SYSTEM_TYPE_INBOX || type == SYSTEM_TYPE_ALL_BOOKS,
             revision = revision,
             updatedAt = updated_at,
             deletedAt = deleted_at,

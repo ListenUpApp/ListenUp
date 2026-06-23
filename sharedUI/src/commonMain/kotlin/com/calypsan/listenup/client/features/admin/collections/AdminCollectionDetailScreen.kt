@@ -19,11 +19,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FolderSpecial
@@ -68,6 +70,7 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.ListenUpSearchField
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.SectionGroup
@@ -76,10 +79,13 @@ import com.calypsan.listenup.client.design.components.TonalIconTile
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
+import com.calypsan.listenup.client.domain.model.SearchHit
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
 import com.calypsan.listenup.client.presentation.admin.CollectionShareItem
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.admin_add_books
+import listenup.composeapp.generated.resources.admin_add_books_search_placeholder
 import listenup.composeapp.generated.resources.admin_add_member
 import listenup.composeapp.generated.resources.admin_add_members_to_share_this
 import listenup.composeapp.generated.resources.admin_administrator
@@ -94,6 +100,7 @@ import listenup.composeapp.generated.resources.admin_no_books_in_this_collection
 import listenup.composeapp.generated.resources.admin_no_users_available
 import listenup.composeapp.generated.resources.admin_remove_book
 import listenup.composeapp.generated.resources.admin_remove_member
+import listenup.composeapp.generated.resources.admin_system_collection_locked
 import listenup.composeapp.generated.resources.admin_the_book_will_not_be
 import listenup.composeapp.generated.resources.admin_the_display_name_for_this
 import listenup.composeapp.generated.resources.admin_they_will_no_longer_have
@@ -106,6 +113,7 @@ import listenup.composeapp.generated.resources.common_no_items
 import listenup.composeapp.generated.resources.common_not_found
 import listenup.composeapp.generated.resources.common_remove
 import listenup.composeapp.generated.resources.common_save_changes
+import listenup.composeapp.generated.resources.import_book_search_no_results
 import listenup.composeapp.generated.resources.library_collection
 import org.jetbrains.compose.resources.stringResource
 
@@ -188,6 +196,7 @@ fun AdminCollectionDetailScreen(
             onNameChange = viewModel::updateName,
             onSaveClick = viewModel::saveName,
             onRemoveBookClick = { bookToRemove = it },
+            onAddBooksClick = viewModel::openAddBooks,
             onAddMemberClick = viewModel::showAddMemberSheet,
             onRemoveMemberClick = { shareToRemove = it },
         )
@@ -202,6 +211,18 @@ fun AdminCollectionDetailScreen(
             users = ready.availableUsers,
             onDismiss = viewModel::hideAddMemberSheet,
             onUserSelected = viewModel::shareWithUser,
+        )
+    }
+
+    // Add books search sheet
+    (state as? AdminCollectionDetailUiState.Ready)?.takeIf { it.showAddBooks }?.let { ready ->
+        AddBooksToCollectionSheet(
+            query = ready.bookQuery,
+            results = ready.bookResults,
+            isSearching = ready.isSearchingBooks,
+            onQueryChange = viewModel::onBookQueryChange,
+            onBookSelected = viewModel::addBookFromSearch,
+            onDismiss = viewModel::closeAddBooks,
         )
     }
 
@@ -249,6 +270,7 @@ private fun DetailBody(
     onNameChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onRemoveBookClick: (CollectionBookItem) -> Unit,
+    onAddBooksClick: () -> Unit,
     onAddMemberClick: () -> Unit,
     onRemoveMemberClick: (CollectionShareItem) -> Unit,
 ) {
@@ -279,6 +301,7 @@ private fun DetailBody(
                     onNameChange = onNameChange,
                     onSaveClick = onSaveClick,
                     onRemoveBookClick = onRemoveBookClick,
+                    onAddBooksClick = onAddBooksClick,
                     onAddMemberClick = onAddMemberClick,
                     onRemoveMemberClick = onRemoveMemberClick,
                 )
@@ -290,6 +313,7 @@ private fun DetailBody(
                     onNameChange = onNameChange,
                     onSaveClick = onSaveClick,
                     onRemoveBookClick = onRemoveBookClick,
+                    onAddBooksClick = onAddBooksClick,
                     onAddMemberClick = onAddMemberClick,
                     onRemoveMemberClick = onRemoveMemberClick,
                 )
@@ -306,6 +330,7 @@ private fun NarrowDetailContent(
     onNameChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onRemoveBookClick: (CollectionBookItem) -> Unit,
+    onAddBooksClick: () -> Unit,
     onAddMemberClick: () -> Unit,
     onRemoveMemberClick: (CollectionShareItem) -> Unit,
 ) {
@@ -320,7 +345,12 @@ private fun NarrowDetailContent(
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = SECTION_SPACING_DP.dp)) {
                 NameSection(state = state, onNameChange = onNameChange, onSaveClick = onSaveClick)
                 Spacer(modifier = Modifier.height(SECTION_SPACING_DP.dp))
-                BooksSection(state = state, cols = BOOKS_COLS_NARROW, onRemoveBookClick = onRemoveBookClick)
+                BooksSection(
+                    state = state,
+                    cols = BOOKS_COLS_NARROW,
+                    onRemoveBookClick = onRemoveBookClick,
+                    onAddBooksClick = onAddBooksClick,
+                )
                 Spacer(modifier = Modifier.height(SECTION_SPACING_DP.dp))
                 MembersSection(
                     state = state,
@@ -341,6 +371,7 @@ private fun WideDetailContent(
     onNameChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     onRemoveBookClick: (CollectionBookItem) -> Unit,
+    onAddBooksClick: () -> Unit,
     onAddMemberClick: () -> Unit,
     onRemoveMemberClick: (CollectionShareItem) -> Unit,
 ) {
@@ -351,7 +382,12 @@ private fun WideDetailContent(
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                BooksSection(state = state, cols = BOOKS_COLS_WIDE, onRemoveBookClick = onRemoveBookClick)
+                BooksSection(
+                    state = state,
+                    cols = BOOKS_COLS_WIDE,
+                    onRemoveBookClick = onRemoveBookClick,
+                    onAddBooksClick = onAddBooksClick,
+                )
             }
             Column(
                 modifier =
@@ -496,10 +532,15 @@ private fun NameSection(
                 value = state.editedName,
                 onValueChange = onNameChange,
                 label = stringResource(Res.string.admin_collection_name),
-                enabled = !state.isSaving,
-                supportingText = stringResource(Res.string.admin_the_display_name_for_this),
+                enabled = !state.isSaving && !state.collection.isSystem,
+                supportingText =
+                    if (state.collection.isSystem) {
+                        stringResource(Res.string.admin_system_collection_locked)
+                    } else {
+                        stringResource(Res.string.admin_the_display_name_for_this)
+                    },
             )
-            if (state.isDirty) {
+            if (state.isDirty && !state.collection.isSystem) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onSaveClick, enabled = !state.isSaving) {
                         if (state.isSaving) {
@@ -519,6 +560,7 @@ private fun BooksSection(
     state: AdminCollectionDetailUiState.Ready,
     cols: Int,
     onRemoveBookClick: (CollectionBookItem) -> Unit,
+    onAddBooksClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SectionGroup(
@@ -526,6 +568,24 @@ private fun BooksSection(
         icon = Icons.AutoMirrored.Outlined.MenuBook,
         accent = MaterialTheme.colorScheme.tertiary,
         modifier = modifier,
+        trailing =
+            if (!state.collection.isSystem) {
+                {
+                    TextButton(onClick = onAddBooksClick) {
+                        Icon(
+                            imageVector = Icons.Outlined.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(ADD_ICON_SIZE_DP.dp),
+                        )
+                        Text(
+                            text = stringResource(Res.string.admin_add_books),
+                            modifier = Modifier.padding(start = 4.dp),
+                        )
+                    }
+                }
+            } else {
+                null
+            },
     ) {
         if (state.books.isEmpty()) {
             EmptyBooksPanel()
@@ -813,5 +873,69 @@ private fun AddMemberUserList(
             colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
             modifier = Modifier.clickable(enabled = !isSharing) { onUserSelected(user.id) },
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AddBooksToCollectionSheet(
+    query: String,
+    results: List<SearchHit>,
+    isSearching: Boolean,
+    onQueryChange: (String) -> Unit,
+    onBookSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = MaterialTheme.shapes.large,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp),
+        ) {
+            Text(
+                text = stringResource(Res.string.admin_add_books),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+            )
+            ListenUpSearchField(
+                value = query,
+                onValueChange = onQueryChange,
+                onSubmit = {},
+                placeholder = stringResource(Res.string.admin_add_books_search_placeholder),
+                isLoading = isSearching,
+                onClear = { onQueryChange("") },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+            if (query.isNotBlank() && results.isEmpty() && !isSearching) {
+                Text(
+                    text = stringResource(Res.string.import_book_search_no_results),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(EMPTY_PANEL_PADDING_DP.dp),
+                )
+            }
+            LazyColumn {
+                items(items = results, key = { it.id }) { hit ->
+                    ListItem(
+                        headlineContent = { Text(hit.name) },
+                        supportingContent = hit.author?.let { author -> { Text(author) } },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = stringResource(Res.string.admin_add_books),
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+                        modifier = Modifier.clickable { onBookSelected(hit.id) },
+                    )
+                }
+            }
+        }
     }
 }

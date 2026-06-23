@@ -53,6 +53,7 @@ import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.domain.model.mostSpecificGenre
+import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
@@ -240,7 +241,7 @@ private fun BookDetailReadyContent(
         },
         onDiscardProgressClick = { viewModel.discardProgress() },
         onAddToShelfClick = { viewModel.showShelfPicker() },
-        onAddToCollectionClick = { /* TODO: Implement */ },
+        onAddToCollectionClick = { viewModel.showCollectionPicker() },
         onShareClick = {
             scope.launch {
                 val result = instanceRepository.getInstance()
@@ -323,10 +324,29 @@ private fun BookDetailReadyContent(
         )
     }
 
+    if (state.showCollectionPicker) {
+        val collections by viewModel.collections.collectAsStateWithLifecycle()
+
+        CollectionPickerSheet(
+            collections = collections,
+            selectedBookCount = 1,
+            onCollectionSelected = { collectionId -> viewModel.addBookToCollection(collectionId) },
+            onDismiss = { viewModel.hideCollectionPicker() },
+            isLoading = state.isAddingToCollection,
+        )
+    }
+
     state.shelfError?.let { error ->
         LaunchedEffect(error) {
             snackbarHostState.showSnackbar(error)
             viewModel.clearShelfError()
+        }
+    }
+
+    state.collectionError?.let { error ->
+        LaunchedEffect(error) {
+            snackbarHostState.showSnackbar(error)
+            viewModel.clearCollectionError()
         }
     }
 }

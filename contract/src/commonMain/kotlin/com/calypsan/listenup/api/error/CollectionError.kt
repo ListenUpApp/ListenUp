@@ -18,7 +18,7 @@ import kotlinx.serialization.Serializable
  * HTTP status mapping (wired in `AppErrorStatusPages.kt`):
  * - [NotFound] / [BookNotFound] / [UserNotFound] → 404
  * - [Forbidden] → 403
- * - [InvalidInput] / [InboxNotDeletable] / [SelfShare] / [AlreadyShared] → 400
+ * - [InvalidInput] / [SystemCollectionReadOnly] / [SelfShare] / [AlreadyShared] → 400
  */
 @Serializable
 sealed interface CollectionError : AppError {
@@ -54,17 +54,19 @@ sealed interface CollectionError : AppError {
     }
 
     /**
-     * The caller attempted to delete the inbox collection.
-     * The inbox is a system collection created automatically per user and cannot be deleted.
+     * The caller attempted to rename or delete a system collection.
+     *
+     * `ALL_BOOKS` and `INBOX` are server-managed system collections (created automatically
+     * per library, owned by the `"system"` sentinel) and may not be renamed or deleted.
      */
     @Serializable
-    @SerialName("CollectionError.InboxNotDeletable")
-    data class InboxNotDeletable(
+    @SerialName("CollectionError.SystemCollectionReadOnly")
+    data class SystemCollectionReadOnly(
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
     ) : CollectionError {
-        override val message: String = "The inbox can't be deleted."
-        override val code: String = "COLLECTION_INBOX_NOT_DELETABLE"
+        override val message: String = "System collections can't be renamed or deleted."
+        override val code: String = "COLLECTION_SYSTEM_READ_ONLY"
         override val isRetryable: Boolean = false
     }
 

@@ -60,7 +60,7 @@ class CollectionEditDelegate(
         ) { all, currentIds ->
             all to currentIds
         }.onEach { (all, currentIds) ->
-            val available = all.map { EditableCollection(id = it.id, name = it.name) }
+            val available = all.filterNot { it.isSystem }.map { EditableCollection(id = it.id, name = it.name) }
             val current = available.filter { it.id in currentIds }
 
             if (originalCollectionIds == null) {

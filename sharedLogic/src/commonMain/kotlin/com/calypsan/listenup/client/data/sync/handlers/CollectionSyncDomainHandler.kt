@@ -101,6 +101,7 @@ internal class CollectionSyncDomainHandler(
                 ownerId = payload.ownerId,
                 name = payload.name,
                 isInbox = payload.isInbox,
+                isSystem = payload.isSystem,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
                 updatedAt = payload.updatedAt,

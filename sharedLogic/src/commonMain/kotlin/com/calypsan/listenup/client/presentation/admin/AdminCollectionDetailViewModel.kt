@@ -9,15 +9,20 @@ import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.CollectionShare
+import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,6 +30,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+
+private const val BOOK_SEARCH_DEBOUNCE_MS = 300L
+private const val BOOK_SEARCH_LIMIT = 20
 
 /**
  * ViewModel for the admin collection detail screen.
@@ -38,12 +46,14 @@ private val logger = KotlinLogging.logger {}
  * "Available users to share with" is fetched on demand from [AdminRepository] and
  * filtered against the already-shared recipients and the current user.
  */
+@Suppress("LongParameterList")
 class AdminCollectionDetailViewModel internal constructor(
     private val collectionId: String,
     private val collectionRepository: CollectionRepository,
     private val adminRepository: AdminRepository,
     private val userRepository: UserRepository,
     private val bookDao: BookDao,
+    private val searchRepository: SearchRepository,
     private val imageStorage: ImageStorage,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
@@ -200,6 +210,90 @@ class AdminCollectionDetailViewModel internal constructor(
         }
     }
 
+    private var bookSearchJob: Job? = null
+
+    /** Open the "add books" search sheet. No-op for system collections (their membership is implicit). */
+    fun openAddBooks() {
+        val ready = state.value as? AdminCollectionDetailUiState.Ready ?: return
+        if (ready.collection.isSystem) return
+        updateReady { it.copy(showAddBooks = true) }
+    }
+
+    /** Close the "add books" search sheet and reset all search state. */
+    fun closeAddBooks() {
+        bookSearchJob?.cancel()
+        updateReady {
+            it.copy(
+                showAddBooks = false,
+                bookQuery = "",
+                bookResults = emptyList(),
+                isSearchingBooks = false,
+            )
+        }
+    }
+
+    /**
+     * Debounced book-title search; excludes books already in this collection.
+     *
+     * Uses an imperative `Job + delay + cancel-previous` debounce deliberately: this VM mutates a
+     * [MutableStateFlow] imperatively via [updateReady] (unlike [SearchViewModel]'s `stateIn` +
+     * `.debounce()` flow pipeline), so the debounce lives in the launched job, not in the state flow.
+     * A backend search failure is surfaced (logged + emitted to [errorBus]) rather than swallowed, so
+     * it isn't indistinguishable from "no results"; results then collapse to empty.
+     */
+    fun onBookQueryChange(query: String) {
+        updateReady { it.copy(bookQuery = query) }
+        bookSearchJob?.cancel()
+        if (query.isBlank()) {
+            updateReady { it.copy(bookResults = emptyList(), isSearchingBooks = false) }
+            return
+        }
+        bookSearchJob =
+            viewModelScope.launch {
+                delay(BOOK_SEARCH_DEBOUNCE_MS)
+                updateReady { it.copy(isSearchingBooks = true) }
+                val memberIds =
+                    (state.value as? AdminCollectionDetailUiState.Ready)
+                        ?.books
+                        ?.map { it.id }
+                        ?.toSet()
+                        .orEmpty()
+                val hits =
+                    try {
+                        searchRepository
+                            .search(query = query, types = listOf(SearchHitType.BOOK), limit = BOOK_SEARCH_LIMIT)
+                            .hits
+                            .filter { it.id !in memberIds }
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (
+                        @Suppress("TooGenericExceptionCaught") e: Exception,
+                    ) {
+                        logger.error { "Book search failed for '$query'" }
+                        @Suppress("DEPRECATION")
+                        errorBus.emit(ErrorMapper.map(e))
+                        emptyList()
+                    }
+                updateReady { it.copy(bookResults = hits, isSearchingBooks = false) }
+            }
+    }
+
+    /** Add the searched book to this collection (additive — never touches All Books). */
+    fun addBookFromSearch(bookId: String) {
+        viewModelScope.launch {
+            when (val result = collectionRepository.addBook(collectionId, bookId)) {
+                is AppResult.Success -> {
+                    updateReady { it.copy(bookResults = it.bookResults.filterNot { h -> h.id == bookId }) }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    updateReady { it.copy(error = result.error.message) }
+                }
+            }
+        }
+    }
+
     /** Load users available to share with: all users minus existing recipients and the current user. */
     fun loadUsersForSharing() {
         val ready = state.value as? AdminCollectionDetailUiState.Ready ?: return
@@ -324,6 +418,10 @@ sealed interface AdminCollectionDetailUiState {
         val removingShareUserId: String? = null,
         val isLoadingUsers: Boolean = false,
         val availableUsers: List<AdminUserInfo> = emptyList(),
+        val showAddBooks: Boolean = false,
+        val bookQuery: String = "",
+        val bookResults: List<SearchHit> = emptyList(),
+        val isSearchingBooks: Boolean = false,
     ) : AdminCollectionDetailUiState {
         /** True when [editedName] (trimmed) differs from the collection's canonical name. */
         val isDirty: Boolean

@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
+import app.cash.turbine.test
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -20,6 +21,7 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +118,7 @@ class LibraryActionsViewModelTest :
                 name = name,
                 ownerId = "user-1",
                 isInbox = false,
+                isSystem = false,
                 bookCount = bookCount,
                 callerPermission = SharePermission.Write,
                 isOwner = true,
@@ -474,6 +477,36 @@ class LibraryActionsViewModelTest :
 
                 // Then - loading should be false after completion
                 (viewModel.isAddingToShelf.value) shouldBe false
+            }
+        }
+
+        // ========== System Collection Filtering Tests ==========
+
+        test("collections excludes system collections from the picker") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val systemCollection =
+                    Collection(
+                        id = "all-books",
+                        name = "All Books",
+                        ownerId = "system",
+                        isInbox = false,
+                        isSystem = true,
+                        bookCount = 42,
+                        callerPermission = SharePermission.Write,
+                        isOwner = false,
+                    )
+                val normalCollection = createCollection(id = "my-col", name = "My Collection")
+                fixture.collectionsFlow.value = listOf(systemCollection, normalCollection)
+                val viewModel = fixture.build()
+
+                // Then - only the non-system collection appears
+                viewModel.collections.test {
+                    skipItems(1) // initialValue = emptyList()
+                    awaitItem().map { it.id } shouldContainExactly listOf("my-col")
+                    cancelAndIgnoreRemainingEvents()
+                }
             }
         }
     })

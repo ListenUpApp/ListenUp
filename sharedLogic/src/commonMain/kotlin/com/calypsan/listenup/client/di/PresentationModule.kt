@@ -171,6 +171,7 @@ val adminPresentationModule =
                 adminRepository = get(),
                 userRepository = get(),
                 bookDao = get(),
+                searchRepository = get(),
                 imageStorage = get(),
                 errorBus = get(),
             )
@@ -301,6 +302,7 @@ val bookPresentationModule =
                 playbackPositionRepository = get(),
                 userRepository = get(),
                 shelfRepository = get(),
+                collectionRepository = get(),
                 addBooksToShelfUseCase = get(),
                 createShelfUseCase = get(),
                 errorBus = get(),

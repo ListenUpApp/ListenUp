@@ -2,6 +2,8 @@
 <resources>
     <string name="admin_1_day">1 day</string>
     <string name="admin_access_level">Access level</string>
+    <string name="admin_add_books">Add books</string>
+    <string name="admin_add_books_search_placeholder">Search books…</string>
     <string name="admin_add_folder">Add Folder</string>
     <string name="admin_add_genre">Add Genre</string>
     <string name="admin_add_member">Add Member</string>
@@ -149,6 +151,7 @@
     <string name="admin_share_this_link_with_invitename">Share this link with %1$s:</string>
     <string name="admin_share_your_audiobook_library_with">Share your audiobook library with others</string>
     <string name="admin_significantly_increases_backup_size">Significantly increases backup size</string>
+    <string name="admin_system_collection_locked">System collection — can\'t be renamed.</string>
     <string name="admin_tap_to_create_your_first">Tap + to create your first genre</string>
     <string name="admin_the_book_will_not_be">The book will not be deleted from your library.</string>
     <string name="admin_the_display_name_for_this">The display name for this collection</string>

@@ -198,6 +198,8 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
         val trimmed = name.trim()
         if (trimmed.isEmpty() || trimmed.length > MAX_NAME_LENGTH) {
@@ -215,8 +217,9 @@ internal class CollectionServiceImpl(
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
 
-        val collection = collectionRepo.findById(id.value) ?: return AppResult.Failure(CollectionError.NotFound())
-        if (collection.isInbox) return AppResult.Failure(CollectionError.InboxNotDeletable())
+        if (collectionRepo.findById(id.value) == null) return AppResult.Failure(CollectionError.NotFound())
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
         // Cascade: tombstone the membership rows, every active grant, then the collection. Each is
         // a suspend repo call that opens its own SQLDelight transaction, so they run sequentially
@@ -294,15 +297,20 @@ internal class CollectionServiceImpl(
 
         if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 
+        // System collections (ALL_BOOKS, INBOX) are managed by the server — setBookCollections must
+        // never add or remove them. Exclude system ids from both sides of the diff so only NORMAL
+        // collection memberships are affected by this replace-set operation.
+        val systemIds = collectionRepo.systemCollectionIds()
+
         // Validate every distinct target up front — exists and live — before mutating:
         // a tombstoned target would otherwise be silently resurrected by upsert, and a
         // bad id would surface as an opaque FK violation mid-transaction.
-        val targetIds = collectionIds.map { it.value }.toSet()
+        val targetIds = collectionIds.map { it.value }.toSet() - systemIds
         for (targetId in targetIds) {
             collectionRepo.findById(targetId) ?: return AppResult.Failure(CollectionError.NotFound())
         }
 
-        val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet()
+        val current = collectionBookRepo.findCollectionIdsForBook(bookId.value).toSet() - systemIds
         val added = targetIds - current
         val removed = current - targetIds
 
@@ -740,6 +748,7 @@ internal class CollectionServiceImpl(
             name = collection.name,
             ownerId = UserId(collection.ownerId),
             isInbox = collection.isInbox,
+            isSystem = collection.isSystem,
             bookCount = collectionBookRepo.countLiveForCollection(collection.id),
             callerPermission = verdict.permission,
             isOwner = verdict.isOwner,
@@ -760,6 +769,7 @@ internal class CollectionServiceImpl(
                 name = collection.name,
                 ownerId = UserId(collection.ownerId),
                 isInbox = collection.isInbox,
+                isSystem = true,
                 bookCount = collectionBookRepo.countLiveForCollection(collection.id),
                 callerPermission = SharePermission.Write,
                 isOwner = true,

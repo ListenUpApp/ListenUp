@@ -96,6 +96,7 @@ class LibraryActionsViewModel(
     val collections: StateFlow<List<Collection>> =
         collectionRepository
             .observeCollections()
+            .map { all -> all.filterNot { it.isSystem } }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),

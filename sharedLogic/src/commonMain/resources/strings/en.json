@@ -842,6 +842,8 @@
   "admin": {
     "1_day": "1 day",
     "add_folder": "Add Folder",
+    "add_books": "Add books",
+    "add_books_search_placeholder": "Search books…",
     "add_genre": "Add Genre",
     "add_member": "Add Member",
     "add_members_to_share_this": "Add members to share this collection",
@@ -979,6 +981,7 @@
     "share_this_link_with_invitename": "Share this link with %1$s:",
     "share_your_audiobook_library_with": "Share your audiobook library with others",
     "significantly_increases_backup_size": "Significantly increases backup size",
+    "system_collection_locked": "System collection — can't be renamed.",
     "tap_to_create_your_first": "Tap + to create your first genre",
     "the_book_will_not_be": "The book will not be deleted from your library.",
     "the_display_name_for_this": "The display name for this collection",
