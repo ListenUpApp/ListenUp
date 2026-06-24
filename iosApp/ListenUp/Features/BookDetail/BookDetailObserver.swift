@@ -88,6 +88,7 @@ final class BookDetailObserver {
     private(set) var isAdmin: Bool = false
     private(set) var showCollectionPicker: Bool = false
     private(set) var isAddingToCollection: Bool = false
+    private(set) var collectionError: String?
     private(set) var allCollections: [CollectionRow] = []
     private(set) var startedAtMs: Int64?
     private(set) var isMarkingComplete: Bool = false
@@ -232,6 +233,8 @@ final class BookDetailObserver {
     func openCollectionPicker() { viewModel.showCollectionPicker() }
     func closeCollectionPicker() { viewModel.hideCollectionPicker() }
     func addToCollection(collectionId: String) { viewModel.addBookToCollection(collectionId: collectionId) }
+    func createCollectionAndAdd(name: String) { viewModel.createCollectionAndAddBook(name: name) }
+    func clearCollectionError() { viewModel.clearCollectionError() }
 
     // MARK: - Documents
 
@@ -288,6 +291,7 @@ final class BookDetailObserver {
             isAdmin = r.isAdmin
             showCollectionPicker = r.showCollectionPicker
             isAddingToCollection = r.isAddingToCollection
+            collectionError = r.collectionError
             startedAtMs = r.startedAtMs?.int64Value
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress

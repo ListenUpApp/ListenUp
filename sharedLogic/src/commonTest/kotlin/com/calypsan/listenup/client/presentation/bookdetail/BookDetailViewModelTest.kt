@@ -1122,6 +1122,130 @@ class BookDetailViewModelTest :
             }
         }
 
+        // ========== Collection Creation Tests ==========
+
+        fun collection(
+            id: String = "col-1",
+            name: String = "New Collection",
+        ): com.calypsan.listenup.client.domain.model.Collection =
+            com.calypsan.listenup.client.domain.model.Collection(
+                id = id,
+                name = name,
+                ownerId = "owner-1",
+                isInbox = false,
+                isSystem = false,
+                bookCount = 0,
+                callerPermission = com.calypsan.listenup.api.dto.SharePermission.Write,
+                isOwner = true,
+            )
+
+        test("createCollectionAndAddBook creates the collection, adds the book, and closes the picker") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                val newCollection = collection(id = "col-1", name = "New Collection")
+                everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
+                    AppResult.Success(newCollection)
+                everySuspend { fixture.collectionRepository.addBook("col-1", "book-1") } returns
+                    AppResult.Success(Unit)
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    viewModel.showCollectionPicker()
+                    advanceUntilIdle()
+                    (states.expectMostRecentItem() as BookDetailUiState.Ready).showCollectionPicker shouldBe true
+
+                    // When
+                    viewModel.createCollectionAndAddBook("New Collection")
+                    advanceUntilIdle()
+
+                    // Then — collection created, book added, picker closed
+                    verifySuspend { fixture.collectionRepository.create("test-library", "New Collection") }
+                    verifySuspend { fixture.collectionRepository.addBook("col-1", "book-1") }
+                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    ready.showCollectionPicker shouldBe false
+                    ready.isAddingToCollection shouldBe false
+                    ready.collectionError shouldBe null
+                    states.cancel()
+                }
+            }
+        }
+
+        test("createCollectionAndAddBook sets collectionError and keeps the picker open on create failure") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
+                    AppResult.Failure(InternalError(debugInfo = "boom"))
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    viewModel.showCollectionPicker()
+                    advanceUntilIdle()
+
+                    // When
+                    viewModel.createCollectionAndAddBook("New Collection")
+                    advanceUntilIdle()
+
+                    // Then — addBook never called, picker stays open, error surfaced
+                    verifySuspend(VerifyMode.exactly(0)) { fixture.collectionRepository.addBook(any(), any()) }
+                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    ready.showCollectionPicker shouldBe true
+                    ready.isAddingToCollection shouldBe false
+                    ready.collectionError.shouldNotBeNull()
+                    states.cancel()
+                }
+            }
+        }
+
+        test("createCollectionAndAddBook sets collectionError and keeps the picker open on add failure") {
+            runTest {
+                val fixture = createTestFixture()
+                val book = TestData.bookDetail(id = "book-1")
+                every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
+                everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
+                val newCollection = collection(id = "col-1", name = "New Collection")
+                everySuspend { fixture.collectionRepository.create("test-library", "New Collection") } returns
+                    AppResult.Success(newCollection)
+                everySuspend { fixture.collectionRepository.addBook("col-1", "book-1") } returns
+                    AppResult.Failure(InternalError(debugInfo = "boom"))
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val states = viewModel.state.testIn(backgroundScope)
+                    states.awaitItem() // initial Loading
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    viewModel.showCollectionPicker()
+                    advanceUntilIdle()
+
+                    // When
+                    viewModel.createCollectionAndAddBook("New Collection")
+                    advanceUntilIdle()
+
+                    // Then — collection was created but add failed; picker stays open, error surfaced
+                    verifySuspend { fixture.collectionRepository.addBook("col-1", "book-1") }
+                    val ready = states.expectMostRecentItem() as BookDetailUiState.Ready
+                    ready.showCollectionPicker shouldBe true
+                    ready.isAddingToCollection shouldBe false
+                    ready.collectionError.shouldNotBeNull()
+                    states.cancel()
+                }
+            }
+        }
+
         test("openingDocumentIds clears the docId when the pdf download fails") {
             runTest {
                 val fixture = createTestFixture()

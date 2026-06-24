@@ -41,9 +41,13 @@ struct BookDetailView: View {
             }
         }
         .sheet(isPresented: collectionPickerBinding) {
-            if let observer {
+            // Collections are admin-managed — guard the sheet content on isAdmin as
+            // defense-in-depth, so it can't render for a non-admin even if the
+            // presentation state ever leaks true.
+            if let observer, observer.isAdmin {
                 CollectionPickerSheet(observer: observer) {
                     observer.closeCollectionPicker()
+                    observer.clearCollectionError()
                 }
             }
         }
@@ -355,10 +359,13 @@ struct BookDetailView: View {
 
     private var collectionPickerBinding: Binding<Bool> {
         Binding(
-            get: { observer?.showCollectionPicker ?? false },
+            // Admin-only: the get returns false for non-admins, so the picker can never
+            // present even if showCollectionPicker leaks true (defense-in-depth).
+            get: { (observer?.isAdmin ?? false) && (observer?.showCollectionPicker ?? false) },
             set: { isPresented in
                 if !isPresented {
                     observer?.closeCollectionPicker()
+                    observer?.clearCollectionError()
                 }
             }
         )

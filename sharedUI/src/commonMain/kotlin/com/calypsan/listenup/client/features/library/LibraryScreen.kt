@@ -336,14 +336,17 @@ private fun LibraryLoadedContent(
         }
     }
 
-    // Collection picker sheet
-    if (showCollectionPicker) {
+    // Collection picker sheet. Collections are admin-managed — gate the picker
+    // presentation on isAdmin as defense-in-depth. The multi-select flow adds existing
+    // collections only; inline create lives on the Book Detail picker (canCreate = false here).
+    if (showCollectionPicker && isAdmin) {
         CollectionPickerSheet(
             collections = collections,
             selectedBookCount = selectedBookIds.size,
             onCollectionSelected = { collectionId ->
                 actionsViewModel.addSelectedToCollection(collectionId)
             },
+            onCreateAndAddToCollection = {},
             onDismiss = { showCollectionPicker = false },
             isLoading = isAddingToCollection,
         )

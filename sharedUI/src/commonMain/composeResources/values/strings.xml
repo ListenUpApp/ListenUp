@@ -285,6 +285,7 @@ One beautiful library.</string>
     <string name="book_detail_narrated_by">Narrated by</string>
     <string name="book_detail_narrated_by_prefix">Narrated by </string>
     <string name="book_detail_narrated_by_value">Narrated by %1$s</string>
+    <string name="book_detail_new_collection">New Collection</string>
     <string name="book_detail_new_shelf">New Shelf</string>
     <string name="book_detail_no_collections">No collections yet</string>
     <string name="book_detail_offline_body">Streaming is unavailable. Downloaded books still play.</string>
@@ -402,6 +403,7 @@ One beautiful library.</string>
     <string name="common_clear_date">Clear date</string>
     <string name="common_clear_search">Clear search</string>
     <string name="common_clear_selection">Clear selection</string>
+    <string name="common_collection_name_hint">e.g., Staff Picks, Sci-Fi, New Releases...</string>
     <string name="common_collections">Collections</string>
     <string name="common_completed">Completed</string>
     <string name="common_continue">Continue</string>
@@ -916,11 +918,13 @@ One beautiful library.</string>
     <string name="library_books">Books</string>
     <string name="library_browse_by_genre">Browse by genre</string>
     <string name="library_collection">Collection</string>
+    <string name="library_collection_name">Collection Name</string>
     <string name="library_contributors">Contributors</string>
     <string name="library_contributors_empty">No contributors yet</string>
     <string name="library_count_unit">%1$d %2$s</string>
     <string name="library_create_a_collection_in_the">Create a collection in the Admin section first</string>
     <string name="library_create_add">Create &amp; Add</string>
+    <string name="library_create_new_collection">Create New Collection</string>
     <string name="library_create_new_shelf">Create New Shelf</string>
     <string name="library_empty_description">Books you add to your server will appear here</string>
     <string name="library_empty_tab_description">%1$s will appear here when you have audiobooks in your library</string>
