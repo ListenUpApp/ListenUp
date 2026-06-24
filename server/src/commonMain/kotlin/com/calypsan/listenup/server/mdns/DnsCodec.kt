@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.mdns
 
-import java.io.ByteArrayOutputStream
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 
 /**
  * Minimal DNS wire-format codec for advertise-only mDNS (RFC 1035 / 6762 / 6763).
@@ -57,15 +58,15 @@ object DnsCodec {
 
     /** Encode a domain name as length-prefixed ASCII labels terminated by a zero byte. */
     fun encodeName(name: String): ByteArray {
-        val out = ByteArrayOutputStream()
+        val out = Buffer()
         for (label in name.split('.')) {
             val bytes = label.encodeToByteArray()
             require(bytes.size <= MAX_LABEL_LENGTH) { "DNS label too long: $label" }
-            out.write(bytes.size)
-            out.write(bytes)
+            out.writeByte(bytes.size.toByte())
+            out.write(bytes, 0, bytes.size)
         }
-        out.write(0)
-        return out.toByteArray()
+        out.writeByte(0)
+        return out.readByteArray()
     }
 
     /**
@@ -83,7 +84,7 @@ object DnsCodec {
         val instanceFqdn = "${service.instanceName}.${MdnsServiceInfo.SERVICE_TYPE}"
         val hostFqdn = "${service.hostLabel}.${MdnsServiceInfo.LOCAL}"
 
-        val records = ByteArrayOutputStream()
+        val records = Buffer()
         record(records, MdnsServiceInfo.SERVICE_TYPE, TYPE_PTR, CLASS_IN, ttlSeconds, encodeName(instanceFqdn))
         record(
             records,
@@ -94,40 +95,42 @@ object DnsCodec {
             encodeName(MdnsServiceInfo.SERVICE_TYPE),
         )
         val srv =
-            ByteArrayOutputStream()
+            Buffer()
                 .apply {
                     writeU16(this, 0) // priority
                     writeU16(this, 0) // weight
                     writeU16(this, service.port)
-                    write(encodeName(hostFqdn))
-                }.toByteArray()
+                    val hostName = encodeName(hostFqdn)
+                    write(hostName, 0, hostName.size)
+                }.readByteArray()
         record(records, instanceFqdn, TYPE_SRV, CLASS_IN or FLUSH, ttlSeconds, srv)
         val txt =
-            ByteArrayOutputStream()
+            Buffer()
                 .apply {
                     if (service.txt.isEmpty()) {
-                        write(0) // a single empty string per RFC 6763 §6.1 when no keys
+                        writeByte(0) // a single empty string per RFC 6763 §6.1 when no keys
                     } else {
                         for ((k, v) in service.txt) {
                             val kv = "$k=$v".encodeToByteArray()
                             require(kv.size <= MAX_TXT_STRING) { "TXT string too long: $k=$v" }
-                            write(kv.size)
-                            write(kv)
+                            writeByte(kv.size.toByte())
+                            write(kv, 0, kv.size)
                         }
                     }
-                }.toByteArray()
+                }.readByteArray()
         record(records, instanceFqdn, TYPE_TXT, CLASS_IN or FLUSH, ttlSeconds, txt)
         record(records, hostFqdn, TYPE_A, CLASS_IN or FLUSH, ttlSeconds, ipv4)
 
-        val out = ByteArrayOutputStream()
+        val out = Buffer()
         writeU16(out, 0) // ID (0 for mDNS)
         writeU16(out, FLAGS_RESPONSE)
         writeU16(out, 0) // QDCOUNT
         writeU16(out, ANSWER_COUNT)
         writeU16(out, 0) // NSCOUNT
         writeU16(out, 0) // ARCOUNT
-        out.write(records.toByteArray())
-        return out.toByteArray()
+        val recordBytes = records.readByteArray()
+        out.write(recordBytes, 0, recordBytes.size)
+        return out.readByteArray()
     }
 
     /**
@@ -155,7 +158,7 @@ object DnsCodec {
                 }
                 if (len and COMPRESSION_MASK != 0) return names // compression pointer — bail, not our query
                 if (pos + 1 + len > packet.size) return names
-                labels += String(packet, pos + 1, len, Charsets.US_ASCII)
+                labels += packet.decodeToString(pos + 1, pos + 1 + len)
                 pos += 1 + len
             }
             if (labels.isNotEmpty()) names += labels.joinToString(".").lowercase()
@@ -171,36 +174,37 @@ object DnsCodec {
         }
 
     private fun record(
-        out: ByteArrayOutputStream,
+        out: Buffer,
         name: String,
         type: Int,
         klass: Int,
         ttlSeconds: Int,
         rdata: ByteArray,
     ) {
-        out.write(encodeName(name))
+        val nameBytes = encodeName(name)
+        out.write(nameBytes, 0, nameBytes.size)
         writeU16(out, type)
         writeU16(out, klass)
         writeU32(out, ttlSeconds.toLong())
         writeU16(out, rdata.size)
-        out.write(rdata)
+        out.write(rdata, 0, rdata.size)
     }
 
     private fun writeU16(
-        out: ByteArrayOutputStream,
+        out: Buffer,
         value: Int,
     ) {
-        out.write((value ushr SHIFT_8) and BYTE_MASK)
-        out.write(value and BYTE_MASK)
+        out.writeByte(((value ushr SHIFT_8) and BYTE_MASK).toByte())
+        out.writeByte((value and BYTE_MASK).toByte())
     }
 
     private fun writeU32(
-        out: ByteArrayOutputStream,
+        out: Buffer,
         value: Long,
     ) {
-        out.write(((value ushr SHIFT_24) and BYTE_MASK.toLong()).toInt())
-        out.write(((value ushr SHIFT_16) and BYTE_MASK.toLong()).toInt())
-        out.write(((value ushr SHIFT_8) and BYTE_MASK.toLong()).toInt())
-        out.write((value and BYTE_MASK.toLong()).toInt())
+        out.writeByte(((value ushr SHIFT_24) and BYTE_MASK.toLong()).toByte())
+        out.writeByte(((value ushr SHIFT_16) and BYTE_MASK.toLong()).toByte())
+        out.writeByte(((value ushr SHIFT_8) and BYTE_MASK.toLong()).toByte())
+        out.writeByte((value and BYTE_MASK.toLong()).toByte())
     }
 }

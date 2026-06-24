@@ -30,7 +30,7 @@ fun buildMdnsTxt(
         )
     val remote = remoteUrl?.trim()
     if (!remote.isNullOrBlank()) {
-        if ("remote=$remote".toByteArray(Charsets.UTF_8).size <= MAX_TXT_OCTETS) {
+        if ("remote=$remote".encodeToByteArray().size <= MAX_TXT_OCTETS) {
             txt["remote"] = remote
         } else {
             log.warn { "mDNS remote URL exceeds the 255-octet TXT limit; omitting remote= from advertisement" }
