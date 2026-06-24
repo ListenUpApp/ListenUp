@@ -295,6 +295,13 @@ object KoinHelper : KoinComponent {
         return viewModel
     }
 
+    fun getContributorMetadataViewModel():
+        com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel {
+        val viewModel:
+            com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel by inject()
+        return viewModel
+    }
+
     fun getPlaybackProgressReporter(): PlaybackProgressReporter {
         val instance: PlaybackProgressReporter by inject()
         return instance
