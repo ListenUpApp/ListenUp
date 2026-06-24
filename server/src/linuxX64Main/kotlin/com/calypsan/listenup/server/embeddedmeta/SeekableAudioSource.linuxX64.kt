@@ -6,6 +6,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
+import kotlinx.io.EOFException
+import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import platform.posix.O_RDONLY
 import platform.posix.SEEK_CUR
@@ -27,7 +29,7 @@ private class PosixFileSource(
     path: Path,
 ) : SeekableAudioSource {
     private val fd: Int =
-        open(path.toString(), O_RDONLY).also { check(it >= 0) { "open failed: $path" } }
+        open(path.toString(), O_RDONLY).also { if (it < 0) throw IOException("open failed: $path") }
 
     override val length: Long =
         run {
@@ -59,7 +61,7 @@ private class PosixFileSource(
                 buf.usePinned { pinned ->
                     read(fd, pinned.addressOf(offset), (count - offset).convert()).toInt()
                 }
-            if (n <= 0) error("EOF after $offset of $count bytes")
+            if (n <= 0) throw EOFException("EOF after $offset of $count bytes")
             offset += n
         }
         return buf
