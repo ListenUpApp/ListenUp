@@ -243,6 +243,10 @@ private fun HeroSection() {
             onShowCast = { castRole = it },
             progress = MOCK_PROGRESS,
             timeRemaining = MOCK_TIME_REMAINING,
+            rating = MOCK_RATING,
+            duration = MOCK_DURATION_MS,
+            year = MOCK_YEAR,
+            addedAt = MOCK_ADDED_AT_MS,
             modifier = Modifier.padding(horizontal = 16.dp),
         )
     }

@@ -37,6 +37,11 @@ enum class StatChipTone {
 
 /**
  * Row of stat chips showing rating, duration, year, and date added.
+ *
+ * @param onHeroBand When true, the chips are recoloured to read on the wide hero's
+ *   [MaterialTheme.colorScheme.primaryContainer] band — content in `onPrimaryContainer` tones, the
+ *   accent "Added" chip a `primary` fill — instead of the default surface-background styling used by
+ *   the compact layout's StatsRow.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -47,6 +52,7 @@ fun StatsRow(
     addedAt: Long? = null,
     modifier: Modifier = Modifier,
     horizontalArrangement: Arrangement.Horizontal = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    onHeroBand: Boolean = false,
 ) {
     FlowRow(
         modifier = modifier.fillMaxWidth(),
@@ -59,18 +65,21 @@ fun StatsRow(
                 icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },
                 text = formatAddedDate(timestamp),
                 tone = StatChipTone.Tertiary,
+                onHeroBand = onHeroBand,
             )
         }
 
         StatChip(
             icon = { Icon(Icons.Default.AccessTime, null, Modifier.size(16.dp)) },
             text = formatDuration(duration),
+            onHeroBand = onHeroBand,
         )
 
         year?.takeIf { it > 0 }?.let { y ->
             StatChip(
                 icon = { Icon(Icons.Default.CalendarMonth, null, Modifier.size(16.dp)) },
                 text = y.toString(),
+                onHeroBand = onHeroBand,
             )
         }
 
@@ -78,6 +87,7 @@ fun StatsRow(
             StatChip(
                 icon = { Icon(Icons.Default.Star, null, Modifier.size(16.dp)) },
                 text = ((r * 10).toInt() / 10.0).toString(),
+                onHeroBand = onHeroBand,
             )
         }
     }
@@ -85,22 +95,57 @@ fun StatsRow(
 
 /**
  * Individual stat chip with icon and text.
+ *
+ * @param onHeroBand When true, the chip is coloured for the wide hero's `primaryContainer` band: the
+ *   accent ([StatChipTone.Tertiary]) chip becomes a solid `primary` fill (the lead chip), the neutral
+ *   chips a faint `onPrimaryContainer` wash — both legible against the colour band. When false (the
+ *   default, used by the compact layout) the chip keeps its surface-background styling.
  */
 @Composable
 fun StatChip(
     icon: @Composable () -> Unit,
     text: String,
     tone: StatChipTone = StatChipTone.Surface,
+    onHeroBand: Boolean = false,
 ) {
+    // On the colour band: the accent (Tertiary) chip leads with a solid primary fill; neutral chips
+    // read as a faint onPrimaryContainer wash so they sit quietly on the band. Off the band (compact
+    // layout) the chips keep their surface-background styling.
     val containerColor =
         when (tone) {
-            StatChipTone.Surface -> MaterialTheme.colorScheme.surfaceContainerHigh
-            StatChipTone.Tertiary -> MaterialTheme.colorScheme.tertiaryContainer
+            StatChipTone.Surface -> {
+                if (onHeroBand) {
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                }
+            }
+
+            StatChipTone.Tertiary -> {
+                if (onHeroBand) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.tertiaryContainer
+                }
+            }
         }
     val contentColor =
         when (tone) {
-            StatChipTone.Surface -> MaterialTheme.colorScheme.onSurface
-            StatChipTone.Tertiary -> MaterialTheme.colorScheme.onTertiaryContainer
+            StatChipTone.Surface -> {
+                if (onHeroBand) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                }
+            }
+
+            StatChipTone.Tertiary -> {
+                if (onHeroBand) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onTertiaryContainer
+                }
+            }
         }
     Surface(
         shape = RoundedCornerShape(20.dp),
