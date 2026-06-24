@@ -14,6 +14,7 @@ struct ContributorDetailView: View {
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: ContributorDetailObserver?
     @State private var showEdit = false
+    @State private var showFindOnAudible = false
 
     private var isRegular: Bool { hSize == .regular }
 
@@ -36,6 +37,14 @@ struct ContributorDetailView: View {
                             showEdit = true
                         } label: {
                             Label(String(localized: "common.edit"), systemImage: "pencil")
+                        }
+                        Button {
+                            showFindOnAudible = true
+                        } label: {
+                            Label(
+                                String(localized: "contributor.find_on_audible"),
+                                systemImage: "sparkle.magnifyingglass"
+                            )
                         }
                         Button(role: .destructive, action: {
                             observer?.onDeleteContributor()
@@ -67,6 +76,9 @@ struct ContributorDetailView: View {
         }
         .sheet(isPresented: $showEdit) {
             ContributorEditView(contributorId: contributorId)
+        }
+        .sheet(isPresented: $showFindOnAudible) {
+            ContributorMetadataView(contributorId: contributorId)
         }
         .task(id: contributorId) {
             let vm = deps.createContributorDetailViewModel()
