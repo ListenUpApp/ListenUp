@@ -391,24 +391,33 @@ class SeriesDetailViewModelTest :
 
         // ========== Progress, finished count, resume target, author ==========
 
-        test("seriesAuthor is derived from the first book's primary author") {
+        test("seriesAuthors aggregates the unique authors across every book, deduped by id in first-appearance order") {
             runTest {
                 val fixture = createFixture()
                 val series = createSeries()
-                val book =
-                    createBook(id = "book-1").copy(
-                        authors = listOf(BookContributor(id = "a1", name = "Brandon Sanderson", roles = listOf("Author"))),
-                    )
+                // Wheel of Time shape: Jordan writes the early books, Sanderson joins later; the
+                // co-authored book lists both. The aggregate must keep first-appearance order and
+                // drop the duplicate Jordan entry — not collapse to just the first book's author.
+                val jordan = BookContributor(id = "a-jordan", name = "Robert Jordan", roles = listOf("Author"))
+                val sanderson = BookContributor(id = "a-sanderson", name = "Brandon Sanderson", roles = listOf("Author"))
+                val book1 = createBook(id = "book-1", seriesSequence = "1").copy(authors = listOf(jordan))
+                val book2 = createBook(id = "book-2", seriesSequence = "2").copy(authors = listOf(jordan))
+                val book3 =
+                    createBook(id = "book-3", seriesSequence = "3").copy(authors = listOf(jordan, sanderson))
                 val viewModel = fixture.build()
                 backgroundScope.launch { viewModel.state.collect { } }
 
                 viewModel.loadSeries("series-1")
                 fixture.seriesFlow.value =
-                    createSeriesWithBooks(series = series, books = listOf(book), bookSequences = mapOf("book-1" to "1"))
+                    createSeriesWithBooks(
+                        series = series,
+                        books = listOf(book1, book2, book3),
+                        bookSequences = mapOf("book-1" to "1", "book-2" to "2", "book-3" to "3"),
+                    )
                 advanceUntilIdle()
 
                 val state = viewModel.state.value.shouldBeInstanceOf<SeriesDetailUiState.Ready>()
-                state.seriesAuthor shouldBe "Brandon Sanderson"
+                state.seriesAuthors shouldBe listOf(jordan, sanderson)
             }
         }
 

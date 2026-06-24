@@ -44,6 +44,9 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,11 +64,17 @@ import com.calypsan.listenup.client.design.components.FannedDeckCover
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.domain.model.BookListItem
+import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
+import com.calypsan.listenup.client.features.contributors.FullCastSheet
+import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailUiState
 import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_authors
+import listenup.composeapp.generated.resources.book_detail_cast_count_authors
+import listenup.composeapp.generated.resources.book_detail_other_authors
 import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.series_books_in_series
 import listenup.composeapp.generated.resources.series_book_position
@@ -89,11 +98,15 @@ fun SeriesDetailScreen(
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
     onEditClick: (String) -> Unit,
+    onContributorClick: (String) -> Unit,
     viewModel: SeriesDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(seriesId) { viewModel.loadSeries(seriesId) }
 
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // The series-authors roster sheet, opened from the folded "{lead}, N other authors" hero line.
+    var showAuthorsSheet by remember { mutableStateOf(false) }
 
     // Immersive: let the color hero bleed behind the status bar (HeroNavRow self-insets its controls).
     ListenUpScaffold(contentWindowInsets = WindowInsets(0, 0, 0, 0)) { paddingValues ->
@@ -122,9 +135,33 @@ fun SeriesDetailScreen(
                             WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND,
                         )
                     if (wide) {
-                        WideSeriesDetailContent(current, onBackClick, onBookClick) { onEditClick(seriesId) }
+                        WideSeriesDetailContent(
+                            state = current,
+                            onBackClick = onBackClick,
+                            onBookClick = onBookClick,
+                            onContributorClick = onContributorClick,
+                            onShowAuthors = { showAuthorsSheet = true },
+                            onEditClick = { onEditClick(seriesId) },
+                        )
                     } else {
-                        NarrowSeriesDetailContent(current, onBackClick, onBookClick) { onEditClick(seriesId) }
+                        NarrowSeriesDetailContent(
+                            state = current,
+                            onBackClick = onBackClick,
+                            onBookClick = onBookClick,
+                            onContributorClick = onContributorClick,
+                            onShowAuthors = { showAuthorsSheet = true },
+                            onEditClick = { onEditClick(seriesId) },
+                        )
+                    }
+
+                    if (showAuthorsSheet && current.seriesAuthors.isNotEmpty()) {
+                        FullCastSheet(
+                            title = stringResource(Res.string.book_detail_authors),
+                            countText = stringResource(Res.string.book_detail_cast_count_authors, current.seriesAuthors.size),
+                            contributors = current.seriesAuthors,
+                            onContributorClick = onContributorClick,
+                            onDismiss = { showAuthorsSheet = false },
+                        )
                     }
                 }
             }
@@ -139,6 +176,8 @@ private fun NarrowSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onContributorClick: (String) -> Unit,
+    onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
 ) {
     LazyVerticalGrid(
@@ -151,6 +190,8 @@ private fun NarrowSeriesDetailContent(
             SeriesColorHero(
                 state = state,
                 onBackClick = onBackClick,
+                onContributorClick = onContributorClick,
+                onShowAuthors = onShowAuthors,
                 onEditClick = onEditClick,
             )
         }
@@ -183,6 +224,8 @@ private fun WideSeriesDetailContent(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
     onBookClick: (String) -> Unit,
+    onContributorClick: (String) -> Unit,
+    onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
 ) {
     Row(
@@ -209,7 +252,7 @@ private fun WideSeriesDetailContent(
             ) {
                 HeroActionRow(onBackClick = onBackClick, onEditClick = onEditClick)
                 Spacer(Modifier.height(8.dp))
-                HeroBody(state)
+                HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
                 Spacer(Modifier.height(24.dp))
                 ContinueButton(state = state, onBookClick = onBookClick, modifier = Modifier.fillMaxWidth())
             }
@@ -249,6 +292,8 @@ private fun WideSeriesDetailContent(
 private fun SeriesColorHero(
     state: SeriesDetailUiState.Ready,
     onBackClick: () -> Unit,
+    onContributorClick: (String) -> Unit,
+    onShowAuthors: () -> Unit,
     onEditClick: () -> Unit,
 ) {
     Box(
@@ -288,7 +333,7 @@ private fun SeriesColorHero(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                HeroBody(state)
+                HeroBody(state = state, onContributorClick = onContributorClick, onShowAuthors = onShowAuthors)
             }
         }
     }
@@ -314,9 +359,13 @@ private val BlobShape =
         bottomStartPercent = 54,
     )
 
-/** Deck + overline + title + author + stat row. Shared by both layouts. */
+/** Deck + overline + title + authors + stat row. Shared by both layouts. */
 @Composable
-private fun HeroBody(state: SeriesDetailUiState.Ready) {
+private fun HeroBody(
+    state: SeriesDetailUiState.Ready,
+    onContributorClick: (String) -> Unit,
+    onShowAuthors: () -> Unit,
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         FannedDeck(
             covers = state.books.map { it.toDeckCover() },
@@ -339,12 +388,20 @@ private fun HeroBody(state: SeriesDetailUiState.Ready) {
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
-        state.seriesAuthor?.let { author ->
+        // Authors — up to two names individually tappable; folds to "{lead}, N other authors"
+        // beyond that, opening the full authors roster sheet. Mirrors the Book Detail hero.
+        if (state.seriesAuthors.isNotEmpty()) {
             Spacer(Modifier.height(10.dp))
-            Text(
-                text = author,
+            ClickableContributorLine(
+                contributors = state.seriesAuthors,
+                onContributorClick = onContributorClick,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                nameColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                separatorColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                modifier = Modifier.fillMaxWidth(),
+                foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
+                overflowTextRes = Res.string.book_detail_other_authors,
+                onOverflowClick = onShowAuthors,
             )
         }
         Spacer(Modifier.height(20.dp))
