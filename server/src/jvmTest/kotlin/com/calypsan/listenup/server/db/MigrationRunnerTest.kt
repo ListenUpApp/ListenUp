@@ -7,9 +7,11 @@ import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import javax.sql.DataSource
 
-private fun freshDataSource(): DataSource {
+/** Returns a (dbPath, DataSource) pair for a fresh temp-file SQLite database. */
+private fun freshDb(): Pair<String, DataSource> {
     val tmp = Files.createTempFile("listenup-runner-test-", ".db").toFile().apply { deleteOnExit() }
-    return fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
+    val path = tmp.absolutePath
+    return path to fileBackedTestDataSource("jdbc:sqlite:$path")
 }
 
 private fun DataSource.tableExists(name: String): Boolean =
@@ -56,44 +58,44 @@ class MigrationRunnerTest :
         val m2 = Migration(2, "second", "ck2", "CREATE TABLE b (y INTEGER);")
 
         test("a fresh database applies all migrations and reports the latest version") {
-            val ds = freshDataSource()
-            val version = MigrationRunner(ds, listOf(m1, m2)).migrate()
+            val (path, ds) = freshDb()
+            val version = MigrationRunner(path, listOf(m1, m2)).migrate()
             version shouldBe "2"
             ds.tableExists("a") shouldBe true
             ds.tableExists("b") shouldBe true
         }
 
         test("a second run is a no-op and applies only newly-added migrations") {
-            val ds = freshDataSource()
-            MigrationRunner(ds, listOf(m1)).migrate() shouldBe "1"
+            val (path, ds) = freshDb()
+            MigrationRunner(path, listOf(m1)).migrate() shouldBe "1"
             ds.tableExists("b") shouldBe false
-            MigrationRunner(ds, listOf(m1, m2)).migrate() shouldBe "2"
+            MigrationRunner(path, listOf(m1, m2)).migrate() shouldBe "2"
             ds.tableExists("b") shouldBe true
         }
 
         test("migrate(upTo) applies only migrations at or below the target version") {
-            val ds = freshDataSource()
-            MigrationRunner(ds, listOf(m1, m2)).migrate(upTo = 1) shouldBe "1"
+            val (path, ds) = freshDb()
+            MigrationRunner(path, listOf(m1, m2)).migrate(upTo = 1) shouldBe "1"
             ds.tableExists("b") shouldBe false
         }
 
         test("an edited (checksum-changed) applied migration fails loudly") {
-            val ds = freshDataSource()
-            MigrationRunner(ds, listOf(m1)).migrate()
+            val (path, _) = freshDb()
+            MigrationRunner(path, listOf(m1)).migrate()
             val tampered = m1.copy(checksum = "DIFFERENT")
             shouldThrow<IllegalStateException> {
-                MigrationRunner(ds, listOf(tampered)).migrate()
+                MigrationRunner(path, listOf(tampered)).migrate()
             }
         }
 
         test("currentSchemaVersion is null on an unmigrated database") {
-            val ds = freshDataSource()
-            MigrationRunner(ds, emptyList()).currentSchemaVersion() shouldBe null
+            val (path, _) = freshDb()
+            MigrationRunner(path, emptyList()).currentSchemaVersion() shouldBe null
         }
 
         test("the runner reproduces the Flyway golden schema exactly (all migrations)") {
-            val ds = freshDataSource()
-            MigrationRunner(ds).migrate() shouldBe MigrationCatalog.all.maxOf { it.version }.toString()
+            val (path, ds) = freshDb()
+            MigrationRunner(path).migrate() shouldBe MigrationCatalog.all.maxOf { it.version }.toString()
             val golden =
                 checkNotNull(this::class.java.getResource("/golden/schema-current.txt")).readText().trim()
             dumpSchema(ds).trim() shouldBe golden

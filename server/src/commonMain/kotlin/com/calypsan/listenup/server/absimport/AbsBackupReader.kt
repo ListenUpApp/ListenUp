@@ -2,22 +2,21 @@
 
 package com.calypsan.listenup.server.absimport
 
-import java.nio.file.Path
-import java.sql.Connection
-import java.sql.DriverManager
-import java.sql.ResultSet
-import java.sql.SQLException
+import com.calypsan.listenup.server.db.SqlAdminConnection
+import com.calypsan.listenup.server.db.SqlBinder
+import com.calypsan.listenup.server.db.SqlRow
+import com.calypsan.listenup.server.db.openAdminConnection
 import kotlin.time.Instant
 
 /**
- * Reads an extracted Audiobookshelf `absdatabase.sqlite` on a throwaway **read-only** JDBC
- * connection — never the app's own database. The connection is opened with `?mode=ro` so the file
- * cannot be mutated, and every query is a static `SELECT` built from [AbsSchema] constants (no
+ * Reads an extracted Audiobookshelf `absdatabase.sqlite` on a throwaway **read-only**
+ * [SqlAdminConnection] — never the app's own database. The connection is opened read-only so the
+ * file cannot be mutated, and every query is a static `SELECT` built from [AbsSchema] constants (no
  * user-supplied SQL), reading users, audiobook items, and listening progress.
  *
- * Blocking JDBC: callers invoke this from `withContext(Dispatchers.IO)`. All JDBC faults — a
- * malformed file, a non-ABS database, a missing table — surface as [AbsReadException], never a raw
- * `SQLException`, so the analyzer can map them to a typed `AppError`.
+ * Callers invoke this from `withContext(Dispatchers.IO)`. All faults — a malformed file, a non-ABS
+ * database, a missing table — surface as [AbsReadException], never a raw exception, so the analyzer
+ * can map them to a typed `AppError`.
  *
  * Usage:
  * ```
@@ -37,30 +36,29 @@ internal class AbsBackupReader {
      * Opens the ABS database read-only and returns a [Handle] for typed reads. The caller owns the
      * handle and must `close()` it (use `.use { }`).
      */
-    fun open(absDbPath: Path): Handle {
-        val url = "jdbc:sqlite:file:${absDbPath.toAbsolutePath()}?mode=ro"
-        val connection =
+    fun open(absDbPath: String): Handle {
+        val conn =
             try {
-                DriverManager.getConnection(url)
-            } catch (e: SQLException) {
+                openAdminConnection(absDbPath, readOnly = true)
+            } catch (e: Throwable) {
                 throw AbsReadException("Failed to open ABS database at $absDbPath", e)
             }
-        return Handle(connection)
+        return Handle(conn)
     }
 
     /** A live read-only session over an ABS database. Reads are blocking; close when done. */
-    class Handle internal constructor(private val connection: Connection) : AutoCloseable {
+    class Handle internal constructor(private val conn: SqlAdminConnection) : AutoCloseable {
         /** Non-guest ABS users with their identity fields. */
         fun users(): List<AbsUser> {
             val sql =
                 "SELECT ${AbsSchema.USER_ID}, ${AbsSchema.USER_USERNAME}, ${AbsSchema.USER_EMAIL} " +
                     "FROM ${AbsSchema.USERS} " +
                     "WHERE ${AbsSchema.USER_TYPE} IS NULL OR ${AbsSchema.USER_TYPE} != ?"
-            return query(sql, { it.setString(1, AbsSchema.USER_TYPE_GUEST) }) { rs ->
+            return read(sql, { bindString(1, AbsSchema.USER_TYPE_GUEST) }) { row ->
                 AbsUser(
-                    id = rs.getString(AbsSchema.USER_ID),
-                    username = rs.getString(AbsSchema.USER_USERNAME).orEmpty(),
-                    email = rs.getString(AbsSchema.USER_EMAIL),
+                    id = row.getString(AbsSchema.USER_ID)!!,
+                    username = row.getString(AbsSchema.USER_USERNAME).orEmpty(),
+                    email = row.getString(AbsSchema.USER_EMAIL),
                 )
             }
         }
@@ -79,14 +77,14 @@ internal class AbsBackupReader {
                     "FROM ${AbsSchema.LIBRARY_ITEMS} li " +
                     "JOIN ${AbsSchema.BOOKS} b ON li.${AbsSchema.LIBRARY_ITEM_MEDIA_ID} = b.${AbsSchema.BOOK_ID} " +
                     "WHERE li.${AbsSchema.LIBRARY_ITEM_MEDIA_TYPE} = ?"
-            return query(sql, { it.setString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { rs ->
+            return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
                 AbsItem(
-                    id = rs.getString("bookId"),
-                    title = rs.getString("title").orEmpty(),
-                    asin = rs.getString("asin")?.ifBlank { null },
-                    isbn = rs.getString("isbn")?.ifBlank { null },
-                    authorName = rs.getString("authorName")?.ifBlank { null },
-                    relPath = rs.getString("relPath")?.ifBlank { null },
+                    id = row.getString("bookId")!!,
+                    title = row.getString("title").orEmpty(),
+                    asin = row.getString("asin")?.ifBlank { null },
+                    isbn = row.getString("isbn")?.ifBlank { null },
+                    authorName = row.getString("authorName")?.ifBlank { null },
+                    relPath = row.getString("relPath")?.ifBlank { null },
                 )
             }
         }
@@ -102,16 +100,16 @@ internal class AbsBackupReader {
                     "${AbsSchema.PROGRESS_UPDATED_AT} AS updatedAt " +
                     "FROM ${AbsSchema.MEDIA_PROGRESSES} " +
                     "WHERE ${AbsSchema.PROGRESS_MEDIA_ITEM_TYPE} = ?"
-            return query(sql, { it.setString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { rs ->
-                val currentTime = rs.getDouble("currentTime")
-                val duration = rs.getDouble("duration")
+            return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
+                val currentTime = row.getDouble("currentTime")
+                val duration = row.getDouble("duration")
                 AbsProgress(
-                    userId = rs.getString("userId"),
-                    itemId = rs.getString("itemId"),
+                    userId = row.getString("userId")!!,
+                    itemId = row.getString("itemId")!!,
                     currentTimeSeconds = currentTime,
-                    isFinished = rs.getBoolean("isFinished"),
+                    isFinished = row.getBoolean("isFinished"),
                     progress = if (duration > 0.0) (currentTime / duration).coerceIn(0.0, 1.0) else 0.0,
-                    lastUpdateMs = parseAbsTimestampMs(rs.getString("updatedAt")),
+                    lastUpdateMs = parseAbsTimestampMs(row.getString("updatedAt")),
                 )
             }
         }
@@ -134,46 +132,37 @@ internal class AbsBackupReader {
                     "${AbsSchema.SESSION_DEVICE} AS deviceLabel " +
                     "FROM ${AbsSchema.PLAYBACK_SESSIONS} " +
                     "WHERE ${AbsSchema.SESSION_MEDIA_ITEM_TYPE} = ?"
-            return query(sql, { it.setString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { rs ->
+            return read(sql, { bindString(1, AbsSchema.MEDIA_TYPE_BOOK) }) { row ->
                 AbsSession(
-                    id = rs.getString("id"),
-                    userId = rs.getString("userId"),
-                    itemId = rs.getString("itemId"),
-                    startPositionSeconds = rs.getDouble("startTime"),
-                    endPositionSeconds = rs.getDouble("currentTime"),
-                    timeListeningSeconds = rs.getDouble("timeListening"),
-                    startedAtMs = parseAbsTimestampMs(rs.getString("startedAt")),
+                    id = row.getString("id")!!,
+                    userId = row.getString("userId")!!,
+                    itemId = row.getString("itemId")!!,
+                    startPositionSeconds = row.getDouble("startTime"),
+                    endPositionSeconds = row.getDouble("currentTime"),
+                    timeListeningSeconds = row.getDouble("timeListening"),
+                    startedAtMs = parseAbsTimestampMs(row.getString("startedAt")),
                     playbackSpeed = DEFAULT_PLAYBACK_SPEED,
-                    deviceLabel = rs.getString("deviceLabel")?.ifBlank { null },
+                    deviceLabel = row.getString("deviceLabel")?.ifBlank { null },
                 )
             }
         }
 
         override fun close() {
             try {
-                connection.close()
-            } catch (e: SQLException) {
+                conn.close()
+            } catch (e: Throwable) {
                 throw AbsReadException("Failed to close ABS database", e)
             }
         }
 
-        private fun <T> query(
+        private fun <T> read(
             sql: String,
-            bind: (java.sql.PreparedStatement) -> Unit,
-            map: (ResultSet) -> T,
+            bind: SqlBinder.() -> Unit = {},
+            map: (SqlRow) -> T,
         ): List<T> =
             try {
-                connection.prepareStatement(sql).use { statement ->
-                    bind(statement)
-                    statement.executeQuery().use { rs ->
-                        buildList {
-                            while (rs.next()) {
-                                add(map(rs))
-                            }
-                        }
-                    }
-                }
-            } catch (e: SQLException) {
+                conn.query(sql, bind, map)
+            } catch (e: Throwable) {
                 throw AbsReadException("Failed to read ABS database", e)
             }
     }

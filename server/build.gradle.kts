@@ -37,6 +37,9 @@ kotlin {
                 val libargon2 by creating {
                     defFile(project.file("src/nativeInterop/cinterop/libargon2.def"))
                 }
+                val sqlite3 by creating {
+                    defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+                }
             }
         }
     }
@@ -250,8 +253,9 @@ val generateMigrationCatalog by tasks.registering {
     }
 }
 
-kotlin.sourceSets["jvmMain"].kotlin.srcDir(generatedMigrationsDir)
+kotlin.sourceSets["commonMain"].kotlin.srcDir(generatedMigrationsDir)
 tasks.named("compileKotlinJvm") { dependsOn(generateMigrationCatalog) }
+tasks.named("compileKotlinLinuxX64") { dependsOn(generateMigrationCatalog) }
 
 // KMP jvm-target compilations — the `application` plugin and the JavaExec helper tasks below
 // run against these rather than the absent java-plugin `main`/`test` SourceSets.

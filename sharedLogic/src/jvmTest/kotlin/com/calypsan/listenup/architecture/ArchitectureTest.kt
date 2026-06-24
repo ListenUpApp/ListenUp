@@ -87,7 +87,11 @@ class ArchitectureTest :
         test("no :server symbols are imported outside the :server module") {
             projectScope
                 .files
-                .filter { "/server/src/jvmMain/" !in it.path && "/server/src/jvmTest/" !in it.path }
+                // Exempt the ENTIRE :server module (all source sets). :server is now multiplatform
+                // (commonMain + linuxX64Main, since the Kotlin/Native port) — server code legitimately
+                // imports other server symbols across packages. The rule's intent is preserved: code in
+                // OTHER modules still must not import `com.calypsan.listenup.server.*`.
+                .filter { "/server/src/" !in it.path }
                 // C3 e2e fixture intentionally drives the real `:server` testApplication
                 // in-process. Confined to `:sharedLogic:jvmTest` so production code is
                 // unaffected; the fixture is the documented seam.

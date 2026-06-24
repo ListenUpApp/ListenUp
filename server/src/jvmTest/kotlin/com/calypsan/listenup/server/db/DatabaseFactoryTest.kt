@@ -14,15 +14,15 @@ class DatabaseFactoryTest :
                 // Migrations ran — the runner tracks a non-null applied schema version.
                 handle.currentSchemaVersion() shouldNotBe null
 
-                // The migrated schema includes the users + sessions tables, readable through the data source.
+                // The migrated schema includes the users + sessions tables, readable through the admin connection.
                 val tables =
-                    handle.dataSourceForTest().connection.use { conn ->
-                        conn.createStatement().use { stmt ->
-                            stmt
-                                .executeQuery(
-                                    "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')",
-                                ).use { rs -> generateSequence { if (rs.next()) rs.getString(1) else null }.toSet() }
-                        }
+                    openAdminConnection(handle.dbPath, readOnly = true).use { conn ->
+                        conn
+                            .query(
+                                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')",
+                            ) { row -> row.getString("name") }
+                            .filterNotNull()
+                            .toSet()
                     }
                 tables shouldBe setOf("users", "sessions")
             } finally {

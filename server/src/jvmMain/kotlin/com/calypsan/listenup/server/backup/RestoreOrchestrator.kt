@@ -70,7 +70,7 @@ class RestoreOrchestrator(
                 Files.createDirectories(paths.rollbackDir)
                 val rollbackDb = paths.rollbackDir.resolve("listenup.db")
                 Files.deleteIfExists(rollbackDb)
-                dbHandle.vacuumInto(rollbackDb)
+                dbHandle.vacuumInto(rollbackDb.toAbsolutePath().toString())
                 val rollbackCovers = copyDirAside(paths.coversDir, paths.rollbackDir.resolve("covers"))
                 val rollbackAvatars = copyDirAside(paths.avatarsDir, paths.rollbackDir.resolve("avatars"))
 

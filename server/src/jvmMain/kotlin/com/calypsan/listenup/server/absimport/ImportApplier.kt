@@ -84,7 +84,7 @@ class ImportApplier internal constructor(
             try {
                 val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
                 val (progress, sessions) =
-                    reader.open(paths.absDbFor(importId.value)).use { handle ->
+                    reader.open(paths.absDbFor(importId.value).toAbsolutePath().toString()).use { handle ->
                         handle.progress() to handle.playbackSessions()
                     }
 

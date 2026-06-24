@@ -9,6 +9,6 @@ import app.cash.sqldelight.db.SqlDriver
  * The factory does NOT call [Schema.create] — [MigrationRunner] owns the schema and has
  * already applied migrations before the SQLDelight driver is first used.
  */
-expect class DriverFactory {
+expect class DriverFactory() {
     fun createDriver(dbPath: String): SqlDriver
 }
