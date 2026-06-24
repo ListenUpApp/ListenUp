@@ -2731,6 +2731,16 @@
         }
       }
     },
+    "book.detail_mark_as_complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as Complete"
+          }
+        }
+      }
+    },
     "book.detail_mark_as_finished": {
       "localizations": {
         "en": {
@@ -2751,12 +2761,32 @@
         }
       }
     },
+    "book.detail_mark_as_not_started": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mark as Not Started"
+          }
+        }
+      }
+    },
     "book.detail_mark_as_read": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Mark as Read"
+          }
+        }
+      }
+    },
+    "book.detail_mark_not_started_prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear your progress and mark this as not started?"
           }
         }
       }

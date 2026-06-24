@@ -243,7 +243,6 @@ final class BookDetailObserver {
 
     // MARK: - Progress
 
-    func restart() { viewModel.restartBook() }
     func discardProgress() { viewModel.discardProgress() }
 
     func markFinished() {

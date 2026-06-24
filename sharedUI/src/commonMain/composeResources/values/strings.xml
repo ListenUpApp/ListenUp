@@ -274,9 +274,12 @@ One beautiful library.</string>
     <string name="book_detail_full_cast">Full cast</string>
     <string name="book_detail_language">Language</string>
     <string name="book_detail_length">Length</string>
+    <string name="book_detail_mark_as_complete">Mark as Complete</string>
     <string name="book_detail_mark_as_finished">Mark as Finished</string>
     <string name="book_detail_mark_as_finished_prompt">Mark as finished?</string>
+    <string name="book_detail_mark_as_not_started">Mark as Not Started</string>
     <string name="book_detail_mark_as_read">Mark as Read</string>
+    <string name="book_detail_mark_not_started_prompt">Clear your progress and mark this as not started?</string>
     <string name="book_detail_mood">Moods</string>
     <string name="book_detail_more_options">More options</string>
     <string name="book_detail_narrated_by">Narrated by</string>

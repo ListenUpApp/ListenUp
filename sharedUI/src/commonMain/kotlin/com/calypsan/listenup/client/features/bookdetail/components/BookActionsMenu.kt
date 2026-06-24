@@ -7,7 +7,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -22,14 +21,15 @@ import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
 import listenup.composeapp.generated.resources.common_delete_name
-import listenup.composeapp.generated.resources.book_detail_discard_progress
 import listenup.composeapp.generated.resources.book_detail_edit_book
 import listenup.composeapp.generated.resources.book_detail_find_metadata
+import listenup.composeapp.generated.resources.book_detail_mark_as_complete
+import listenup.composeapp.generated.resources.book_detail_mark_as_not_started
 import listenup.composeapp.generated.resources.common_share
 
 /**
  * Dropdown menu for book actions.
- * Shows Edit, Find Metadata, Mark Complete, Discard Progress, Add to Shelf.
+ * Shows Edit, Find Metadata, Mark as Complete, Mark as Not Started, Add to Shelf.
  * Delete is shown only for admin users.
  *
  * @param expanded Whether the menu is currently showing
@@ -39,8 +39,8 @@ import listenup.composeapp.generated.resources.common_share
  * @param isAdmin Whether the current user is an admin
  * @param onEditClick Called when Edit Book is clicked
  * @param onFindMetadataClick Called when Find Metadata is clicked
- * @param onMarkCompleteClick Called when Mark as Complete/Not Started is clicked
- * @param onDiscardProgressClick Called when Discard Progress is clicked
+ * @param onMarkCompleteClick Called when Mark as Complete is clicked (shown only when not complete)
+ * @param onMarkNotStartedClick Called when Mark as Not Started is clicked (shown when there is progress or it is complete)
  * @param onAddToShelfClick Called when Add to Shelf is clicked
  * @param onAddToCollectionClick Called when Add to Collection is clicked (admin only)
  * @param onDeleteClick Called when Delete Book is clicked (admin only)
@@ -56,7 +56,7 @@ fun BookActionsMenu(
     onEditClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
-    onDiscardProgressClick: () -> Unit,
+    onMarkNotStartedClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -92,36 +92,31 @@ fun BookActionsMenu(
 
         HorizontalDivider()
 
-        // Mark as Complete / Not Started
-        DropdownMenuItem(
-            text = {
-                Text(if (isComplete) "Mark as Not Started" else "Mark as Complete")
-            },
-            leadingIcon = {
-                Icon(
-                    imageVector =
-                        if (isComplete) {
-                            Icons.Default.RadioButtonUnchecked
-                        } else {
-                            Icons.Default.CheckCircle
-                        },
-                    contentDescription = null,
-                )
-            },
-            onClick = onMarkCompleteClick,
-        )
-
-        // Discard Progress (only when there is progress to discard)
-        if (hasProgress) {
+        // Mark as Complete (only when not already complete)
+        if (!isComplete) {
             DropdownMenuItem(
-                text = { Text(stringResource(Res.string.book_detail_discard_progress)) },
+                text = { Text(stringResource(Res.string.book_detail_mark_as_complete)) },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.RestartAlt,
+                        imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
                     )
                 },
-                onClick = onDiscardProgressClick,
+                onClick = onMarkCompleteClick,
+            )
+        }
+
+        // Mark as Not Started (whenever there is progress or it is complete — i.e. something to clear)
+        if (hasProgress || isComplete) {
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.book_detail_mark_as_not_started)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.RadioButtonUnchecked,
+                        contentDescription = null,
+                    )
+                },
+                onClick = onMarkNotStartedClick,
             )
         }
 

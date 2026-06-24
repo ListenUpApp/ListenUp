@@ -231,14 +231,8 @@ private fun BookDetailReadyContent(
         onBackClick = onBackClick,
         onEditClick = { onEditClick(bookId) },
         onFindMetadataClick = onFindMetadataClick,
-        onMarkCompleteClick = {
-            if (state.isComplete) {
-                viewModel.restartBook() // "Mark as Not Started" = restart
-            } else {
-                showMarkCompleteDialog = true
-            }
-        },
-        onDiscardProgressClick = { viewModel.discardProgress() },
+        onMarkCompleteClick = { showMarkCompleteDialog = true },
+        onMarkNotStartedClick = { viewModel.discardProgress() },
         onAddToShelfClick = { viewModel.showShelfPicker() },
         onAddToCollectionClick = { viewModel.showCollectionPicker() },
         onShareClick = {
@@ -371,7 +365,7 @@ fun BookDetailContent(
     onEditClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
-    onDiscardProgressClick: () -> Unit,
+    onMarkNotStartedClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -417,7 +411,7 @@ fun BookDetailContent(
             onEditClick = onEditClick,
             onFindMetadataClick = onFindMetadataClick,
             onMarkCompleteClick = onMarkCompleteClick,
-            onDiscardProgressClick = onDiscardProgressClick,
+            onMarkNotStartedClick = onMarkNotStartedClick,
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
@@ -453,7 +447,7 @@ fun BookDetailContent(
             onEditClick = onEditClick,
             onFindMetadataClick = onFindMetadataClick,
             onMarkCompleteClick = onMarkCompleteClick,
-            onDiscardProgressClick = onDiscardProgressClick,
+            onMarkNotStartedClick = onMarkNotStartedClick,
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
@@ -505,7 +499,7 @@ private fun ImmersiveBookDetail(
     onEditClick: () -> Unit,
     onFindMetadataClick: () -> Unit,
     onMarkCompleteClick: () -> Unit,
-    onDiscardProgressClick: () -> Unit,
+    onMarkNotStartedClick: () -> Unit,
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
@@ -546,7 +540,7 @@ private fun ImmersiveBookDetail(
             onEditClick = onEditClick,
             onFindMetadataClick = onFindMetadataClick,
             onMarkCompleteClick = onMarkCompleteClick,
-            onDiscardProgressClick = onDiscardProgressClick,
+            onMarkNotStartedClick = onMarkNotStartedClick,
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
