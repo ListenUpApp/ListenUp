@@ -57,4 +57,57 @@ class BookDetailFormattingTest :
             languageDisplayName("EN") shouldBe "English"
             languageDisplayName("xx") shouldBe "XX"
         }
+
+        test("audioFormatIdentity maps spatial atmos to Dolby Atmos regardless of codec") {
+            audioFormatIdentity("ac4", null, "atmos") shouldBe "Dolby Atmos"
+            audioFormatIdentity("eac3", null, "ATMOS") shouldBe "Dolby Atmos"
+        }
+
+        test("audioFormatIdentity maps AAC by profile") {
+            audioFormatIdentity("aac", "xhe", null) shouldBe "xHE-AAC"
+            audioFormatIdentity("aac", "hev2", null) shouldBe "HE-AAC v2"
+            audioFormatIdentity("aac", "he", null) shouldBe "HE-AAC"
+            audioFormatIdentity("aac", "lc", null) shouldBe "AAC"
+            audioFormatIdentity("aac", null, null) shouldBe "AAC"
+        }
+
+        test("audioFormatIdentity maps known codecs and upper-cases unknowns") {
+            audioFormatIdentity("ac4", null, null) shouldBe "AC-4"
+            audioFormatIdentity("eac3", null, null) shouldBe "E-AC-3"
+            audioFormatIdentity("mp3", null, null) shouldBe "MP3"
+            audioFormatIdentity("flac", null, null) shouldBe "FLAC"
+            audioFormatIdentity("opus", null, null) shouldBe "Opus"
+            audioFormatIdentity("alac", null, null) shouldBe "ALAC"
+            audioFormatIdentity("vorbis", null, null) shouldBe "Vorbis"
+            audioFormatIdentity("dts", null, null) shouldBe "DTS"
+        }
+
+        test("audioFormatIdentity is null when codec blank and not spatial") {
+            audioFormatIdentity("", null, null) shouldBe null
+            audioFormatIdentity("  ", null, "") shouldBe null
+        }
+
+        test("bitrateLabel formats bits per second as kbps, null when absent or non-positive") {
+            bitrateLabel(320_000) shouldBe "320 kbps"
+            bitrateLabel(128_000) shouldBe "128 kbps"
+            bitrateLabel(null) shouldBe null
+            bitrateLabel(0) shouldBe null
+        }
+
+        test("sampleRateLabel formats hertz as kHz") {
+            sampleRateLabel(48_000) shouldBe "48 kHz"
+            sampleRateLabel(44_100) shouldBe "44.1 kHz"
+            sampleRateLabel(null) shouldBe null
+            sampleRateLabel(0) shouldBe null
+        }
+
+        test("channelsLabel names common layouts, else N ch") {
+            channelsLabel(1) shouldBe "Mono"
+            channelsLabel(2) shouldBe "Stereo"
+            channelsLabel(6) shouldBe "5.1"
+            channelsLabel(8) shouldBe "7.1"
+            channelsLabel(3) shouldBe "3 ch"
+            channelsLabel(null) shouldBe null
+            channelsLabel(0) shouldBe null
+        }
     })

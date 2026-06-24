@@ -63,6 +63,64 @@ fun languageDisplayName(code: String): String {
     return LANGUAGE_NAMES[key] ?: code.trim().uppercase()
 }
 
+/**
+ * Human-readable audio-format identity for the Book Detail "Format" row. Spatial audio wins
+ * (`spatial == "atmos"` → "Dolby Atmos"); otherwise the codec maps to a friendly name, with AAC
+ * refined by its profile token. Unknown codecs are upper-cased; returns null when there's nothing
+ * to show (blank codec and not spatial).
+ */
+fun audioFormatIdentity(
+    codec: String,
+    codecProfile: String?,
+    spatial: String?,
+): String? {
+    if (spatial?.trim()?.lowercase() == "atmos") return "Dolby Atmos"
+    val c = codec.trim().lowercase()
+    if (c.isBlank()) return null
+    return when (c) {
+        "aac" ->
+            when (codecProfile?.trim()?.lowercase()) {
+                "xhe" -> "xHE-AAC"
+                "hev2" -> "HE-AAC v2"
+                "he" -> "HE-AAC"
+                else -> "AAC"
+            }
+        "ac4" -> "AC-4"
+        "eac3" -> "E-AC-3"
+        "mp3" -> "MP3"
+        "flac" -> "FLAC"
+        "opus" -> "Opus"
+        "alac" -> "ALAC"
+        "vorbis" -> "Vorbis"
+        else -> codec.trim().uppercase()
+    }
+}
+
+/** Exact bitrate label — "320 kbps" from bits/sec; null when absent or non-positive. */
+fun bitrateLabel(bitrate: Int?): String? {
+    if (bitrate == null || bitrate <= 0) return null
+    return "${(bitrate / 1000.0).roundToInt()} kbps"
+}
+
+/** Sample-rate label — "48 kHz" / "44.1 kHz" from hertz; null when absent or non-positive. */
+fun sampleRateLabel(sampleRate: Int?): String? {
+    if (sampleRate == null || sampleRate <= 0) return null
+    val khz = sampleRate / 1000.0
+    val text = if (khz == khz.toInt().toDouble()) khz.toInt().toString() else khz.toString()
+    return "$text kHz"
+}
+
+/** Channel-count label — Mono/Stereo/5.1/7.1, else "N ch"; null when absent or non-positive. */
+fun channelsLabel(channels: Int?): String? =
+    when {
+        channels == null || channels <= 0 -> null
+        channels == 1 -> "Mono"
+        channels == 2 -> "Stereo"
+        channels == 6 -> "5.1"
+        channels == 8 -> "7.1"
+        else -> "$channels ch"
+    }
+
 private val LANGUAGE_NAMES: Map<String, String> =
     mapOf(
         "en" to "English",
