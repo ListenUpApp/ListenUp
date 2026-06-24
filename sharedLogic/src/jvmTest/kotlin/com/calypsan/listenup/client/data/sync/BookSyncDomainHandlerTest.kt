@@ -59,6 +59,42 @@ class BookSyncDomainHandlerTest :
             }
         }
 
+        test("Created event persists the audio-stream fields from the payload") {
+            withTestHandler { handler, db ->
+                val payload =
+                    bookPayload(
+                        id = "b1",
+                        audioFiles =
+                            listOf(
+                                BookAudioFilePayload(
+                                    id = "af1",
+                                    index = 0,
+                                    filename = "01.m4b",
+                                    format = "m4b",
+                                    codec = "ac4",
+                                    duration = 100L,
+                                    size = 1024L,
+                                    codecProfile = null,
+                                    spatial = "atmos",
+                                    bitrate = 320_000,
+                                    sampleRate = 48_000,
+                                    channels = 2,
+                                ),
+                            ),
+                    )
+                handler
+                    .onEvent(created(payload), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val row = db.audioFileDao().getForBook("b1").single()
+                row.spatial shouldBe "atmos"
+                row.bitrate shouldBe 320_000
+                row.sampleRate shouldBe 48_000
+                row.channels shouldBe 2
+                row.codecProfile shouldBe null
+            }
+        }
+
         test("Updated event replaces book document rows wholesale, ordered by index") {
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1", documents = (1..4).map { document(it) })
