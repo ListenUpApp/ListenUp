@@ -5,6 +5,20 @@ import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import java.io.IOException
 
 /**
+ * Result of [MpegDurationCalculator.compute]: duration plus the technical
+ * stream parameters decoded from the first MPEG frame header.
+ *
+ * [durationMs] is 0 when no valid MPEG frame could be located. [bitrate],
+ * [sampleRate], and [channels] are null in that same case.
+ */
+internal data class MpegFrameInfo(
+    val durationMs: Long,
+    val bitrate: Int?,
+    val sampleRate: Int?,
+    val channels: Int?,
+)
+
+/**
  * Compute the audio duration of an MP3 file from its first MPEG frame header
  * and the size of the audio region.
  *
@@ -21,9 +35,9 @@ import java.io.IOException
  * 5. Fall back to CBR approximation when no VBR header is found:
  *    duration = audioBytes × 8 × 1000 / bitrate.
  *
- * Returns `0` if no MPEG frame can be located in the sniff window or the
- * frame header is invalid — the parser still surfaces tags successfully;
- * only duration is unknown.
+ * Returns [MpegFrameInfo.durationMs] of 0 if no MPEG frame can be located in
+ * the sniff window or the frame header is invalid — the parser still surfaces
+ * tags successfully; only duration and stream params are unknown.
  *
  * VBR header offsets (byte offset from start of frame header):
  * - Xing/Info: 4 + sideInfoSize, where sideInfoSize depends on MPEG version
@@ -45,29 +59,37 @@ internal object MpegDurationCalculator {
         source: SeekableAudioSource,
         audioStart: Long,
         hasV1Footer: Boolean,
-    ): Long {
-        if (audioStart < 0 || audioStart >= source.length) return 0
+    ): MpegFrameInfo {
+        val noFrame = MpegFrameInfo(durationMs = 0, bitrate = null, sampleRate = null, channels = null)
+        if (audioStart < 0 || audioStart >= source.length) return noFrame
         val sniffSize = minOf(SNIFF_WINDOW_BYTES.toLong(), source.length - audioStart).toInt()
-        if (sniffSize < 4) return 0
+        if (sniffSize < 4) return noFrame
         val prefix =
             try {
                 source.seek(audioStart)
                 source.readFully(sniffSize)
             } catch (_: IOException) {
-                return 0
+                return noFrame
             }
-        val syncInPrefix = locateMpegSync(prefix) ?: return 0
-        val frame = decodeFrameHeader(prefix, syncInPrefix) ?: return 0
+        val syncInPrefix = locateMpegSync(prefix) ?: return noFrame
+        val frame = decodeFrameHeader(prefix, syncInPrefix) ?: return noFrame
 
         // VBR path: check for Xing/Info or VBRI header in the sniff window.
-        vbrDurationMs(prefix, syncInPrefix, frame)?.let { return it }
-
-        // CBR fallback: estimate from audio-region byte count.
-        val syncFileOffset = audioStart + syncInPrefix
-        val footer = if (hasV1Footer) ID3V1_LEN.toLong() else 0L
-        val audioBytes = source.length - syncFileOffset - footer
-        if (audioBytes <= 0) return 0
-        return audioBytes * 8 * 1000 / frame.bitrate
+        val durationMs =
+            vbrDurationMs(prefix, syncInPrefix, frame) ?: run {
+                // CBR fallback: estimate from audio-region byte count.
+                val syncFileOffset = audioStart + syncInPrefix
+                val footer = if (hasV1Footer) ID3V1_LEN.toLong() else 0L
+                val audioBytes = source.length - syncFileOffset - footer
+                if (audioBytes <= 0) return noFrame
+                audioBytes * 8 * 1000 / frame.bitrate
+            }
+        return MpegFrameInfo(
+            durationMs = durationMs,
+            bitrate = frame.bitrate,
+            sampleRate = frame.sampleRate,
+            channels = frame.channels,
+        )
     }
 
     /**
@@ -134,6 +156,8 @@ internal object MpegDurationCalculator {
         /** Size of the MPEG side-information region in bytes. Used to locate
          *  the Xing/Info VBR header, which immediately follows the side info. */
         val sideInfoSize: Int,
+        /** Channel count: 1 for mono (channel mode 3), 2 for all stereo families. */
+        val channels: Int,
     )
 
     private fun decodeFrameHeader(
@@ -156,7 +180,7 @@ internal object MpegDurationCalculator {
 
         // MPEG version: bits 20..19. 0b11=MPEG-1, 0b10=MPEG-2, 0b00=MPEG-2.5.
         val mpegVersion = (header ushr 19) and 0x3
-        // Channel mode: bits 7..6. 0b11=Mono, else stereo-family.
+        // Channel mode: bits 7..6. 0b11=Mono, else stereo-family (stereo/JS/dual-channel).
         val channelMode = (header ushr 6) and 0x3
         val isMono = channelMode == 3
         // Side-information size per ISO 11172-3 §2.4.3.1:
@@ -175,7 +199,12 @@ internal object MpegDurationCalculator {
                 else -> 9 // MPEG-2/2.5 mono
             }
 
-        return FrameHeader(bitrate = bitrate, sampleRate = sampleRate, sideInfoSize = sideInfoSize)
+        return FrameHeader(
+            bitrate = bitrate,
+            sampleRate = sampleRate,
+            sideInfoSize = sideInfoSize,
+            channels = if (isMono) 1 else 2,
+        )
     }
 
     private fun locateMpegSync(bytes: ByteArray): Int? {
