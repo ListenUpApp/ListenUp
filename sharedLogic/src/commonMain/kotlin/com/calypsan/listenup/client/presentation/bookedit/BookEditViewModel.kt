@@ -60,9 +60,9 @@ class BookEditViewModel(
     private val imageStagingRepository: ImageStagingRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    // Use traditional pattern for mutable state shared with delegates
-    private val _state = MutableStateFlow(BookEditUiState())
-    val state: StateFlow<BookEditUiState> = _state
+    // Use explicit backing field for mutable state shared with delegates
+    val state: StateFlow<BookEditUiState>
+        field = MutableStateFlow(BookEditUiState())
 
     private val _navActions = Channel<BookEditNavAction>(Channel.BUFFERED)
     val navActions: Flow<BookEditNavAction> = _navActions.receiveAsFlow()
@@ -73,7 +73,7 @@ class BookEditViewModel(
     // Delegates for focused editing operations
     private val contributorDelegate =
         ContributorEditDelegate(
-            state = _state,
+            state = state,
             contributorRepository = contributorRepository,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
@@ -81,7 +81,7 @@ class BookEditViewModel(
 
     private val seriesDelegate =
         SeriesEditDelegate(
-            state = _state,
+            state = state,
             seriesRepository = seriesRepository,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
@@ -89,14 +89,14 @@ class BookEditViewModel(
 
     private val genreTagDelegate =
         GenreTagEditDelegate(
-            state = _state,
+            state = state,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
         )
 
     private val collectionDelegate =
         CollectionEditDelegate(
-            state = _state,
+            state = state,
             collectionRepository = collectionRepository,
             scope = viewModelScope,
             onChangesMade = ::updateHasChanges,
@@ -104,7 +104,7 @@ class BookEditViewModel(
 
     private val coverDelegate =
         CoverUploadDelegate(
-            state = _state,
+            state = state,
             imageStagingRepository = imageStagingRepository,
             scope = viewModelScope,
             errorBus = errorBus,
@@ -116,7 +116,7 @@ class BookEditViewModel(
         // hides it for members.
         viewModelScope.launch {
             userRepository.observeIsAdmin().collect { isAdmin ->
-                _state.update { it.copy(isAdmin = isAdmin) }
+                state.update { it.copy(isAdmin = isAdmin) }
             }
         }
     }
@@ -134,7 +134,7 @@ class BookEditViewModel(
         // Reactive, so it runs alongside the one-shot use-case load below.
         collectionDelegate.loadCollections(bookId)
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, bookId = bookId) }
+            state.update { it.copy(isLoading = true, bookId = bookId) }
 
             when (val result = loadBookForEditUseCase(bookId)) {
                 is AppResult.Success -> {
@@ -155,7 +155,7 @@ class BookEditViewModel(
                         contributorDelegate.setupRoleSearch(role)
                     }
 
-                    _state.update {
+                    state.update {
                         it.copy(
                             isLoading = false,
                             coverPath = editData.coverPath,
@@ -191,7 +191,7 @@ class BookEditViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    _state.update { it.copy(isLoading = false, error = result.message) }
+                    state.update { it.copy(isLoading = false, error = result.message) }
                 }
             }
         }
@@ -205,58 +205,58 @@ class BookEditViewModel(
         when (event) {
             // Metadata changes - handled directly
             is BookEditUiEvent.TitleChanged -> {
-                _state.update { it.copy(title = event.title) }
+                state.update { it.copy(title = event.title) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.SortTitleChanged -> {
-                _state.update { it.copy(sortTitle = event.sortTitle) }
+                state.update { it.copy(sortTitle = event.sortTitle) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.SubtitleChanged -> {
-                _state.update { it.copy(subtitle = event.subtitle) }
+                state.update { it.copy(subtitle = event.subtitle) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.DescriptionChanged -> {
-                _state.update { it.copy(description = event.description) }
+                state.update { it.copy(description = event.description) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.PublishYearChanged -> {
                 val filtered = event.year.filter { it.isDigit() }.take(4)
-                _state.update { it.copy(publishYear = filtered) }
+                state.update { it.copy(publishYear = filtered) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.PublisherChanged -> {
-                _state.update { it.copy(publisher = event.publisher) }
+                state.update { it.copy(publisher = event.publisher) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.LanguageChanged -> {
-                _state.update { it.copy(language = event.code) }
+                state.update { it.copy(language = event.code) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.IsbnChanged -> {
-                _state.update { it.copy(isbn = event.isbn) }
+                state.update { it.copy(isbn = event.isbn) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.AsinChanged -> {
-                _state.update { it.copy(asin = event.asin) }
+                state.update { it.copy(asin = event.asin) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.AbridgedChanged -> {
-                _state.update { it.copy(abridged = event.abridged) }
+                state.update { it.copy(abridged = event.abridged) }
                 updateHasChanges()
             }
 
             is BookEditUiEvent.AddedAtChanged -> {
-                _state.update { it.copy(addedAt = event.epochMillis) }
+                state.update { it.copy(addedAt = event.epochMillis) }
                 updateHasChanges()
             }
 
@@ -389,7 +389,7 @@ class BookEditViewModel(
             }
 
             is BookEditUiEvent.DismissError -> {
-                _state.update { it.copy(error = null) }
+                state.update { it.copy(error = null) }
             }
         }
     }
@@ -416,7 +416,7 @@ class BookEditViewModel(
      */
     private fun updateHasChanges() {
         val original = originalState ?: return
-        val current = _state.value
+        val current = state.value
 
         val currentMetadata = current.toMetadata()
         val hasChanges =
@@ -429,7 +429,7 @@ class BookEditViewModel(
                 collectionDelegate.hasChanges() ||
                 current.pendingCoverData != null
 
-        _state.update { it.copy(hasChanges = hasChanges) }
+        state.update { it.copy(hasChanges = hasChanges) }
     }
 
     /**
@@ -442,7 +442,7 @@ class BookEditViewModel(
      */
     private fun saveChanges() {
         val original = originalState ?: return
-        val current = _state.value
+        val current = state.value
 
         if (!current.hasChanges) {
             _navActions.trySend(BookEditNavAction.NavigateBack)
@@ -450,7 +450,7 @@ class BookEditViewModel(
         }
 
         viewModelScope.launch {
-            _state.update { it.copy(isSaving = true, error = null) }
+            state.update { it.copy(isSaving = true, error = null) }
 
             val updateRequest = current.toUpdateRequest()
 
@@ -462,13 +462,13 @@ class BookEditViewModel(
                         if (collectionDelegate.hasChanges()) saveCollections(current) else null
                     if (collectionsResult is AppResult.Failure) {
                         errorBus.emit(collectionsResult.error)
-                        _state.update {
+                        state.update {
                             it.copy(isSaving = false, error = collectionsResult.message)
                         }
                         return@launch
                     }
 
-                    _state.update {
+                    state.update {
                         it.copy(
                             isSaving = false,
                             hasChanges = false,
@@ -482,7 +482,7 @@ class BookEditViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    _state.update {
+                    state.update {
                         it.copy(isSaving = false, error = result.message)
                     }
                 }

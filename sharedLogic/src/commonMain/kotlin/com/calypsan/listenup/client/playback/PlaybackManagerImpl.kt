@@ -78,45 +78,45 @@ internal class PlaybackManagerImpl(
             bookSyncDomainHandler = bookSyncDomainHandler,
         )
 
-    private val _currentBookId = MutableStateFlow<BookId?>(null)
-    override val currentBookId: StateFlow<BookId?> = _currentBookId
+    override val currentBookId: StateFlow<BookId?>
+        field = MutableStateFlow<BookId?>(null)
 
     /** String version of currentBookId for Swift/SKIE (value classes dont bridge to flows) */
-    private val _currentBookIdString = MutableStateFlow<String?>(null)
-    val currentBookIdString: StateFlow<String?> = _currentBookIdString
+    val currentBookIdString: StateFlow<String?>
+        field = MutableStateFlow<String?>(null)
 
-    private val _currentTimeline = MutableStateFlow<PlaybackTimeline?>(null)
-    override val currentTimeline: StateFlow<PlaybackTimeline?> = _currentTimeline
+    override val currentTimeline: StateFlow<PlaybackTimeline?>
+        field = MutableStateFlow<PlaybackTimeline?>(null)
 
-    private val _isPlaying = MutableStateFlow(false)
-    override val isPlaying: StateFlow<Boolean> = _isPlaying
+    override val isPlaying: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
-    private val _currentPositionMs = MutableStateFlow(0L)
-    override val currentPositionMs: StateFlow<Long> = _currentPositionMs
+    override val currentPositionMs: StateFlow<Long>
+        field = MutableStateFlow(0L)
 
-    private val _totalDurationMs = MutableStateFlow(0L)
-    override val totalDurationMs: StateFlow<Long> = _totalDurationMs
+    override val totalDurationMs: StateFlow<Long>
+        field = MutableStateFlow(0L)
 
-    private val _playbackSpeed = MutableStateFlow(1.0f)
-    override val playbackSpeed: StateFlow<Float> = _playbackSpeed
+    override val playbackSpeed: StateFlow<Float>
+        field = MutableStateFlow(1.0f)
 
     // Error state for displaying playback errors to the user
     // Null means no error, non-null means error to display
-    private val _playbackError = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
-    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?> = _playbackError
+    override val playbackError: StateFlow<PlaybackManager.PlaybackErrorUiState?>
+        field = MutableStateFlow<PlaybackManager.PlaybackErrorUiState?>(null)
 
-    private val _isBuffering = MutableStateFlow(false)
-    override val isBuffering: StateFlow<Boolean> = _isBuffering
+    override val isBuffering: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
-    private val _playbackState = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
-    override val playbackState: StateFlow<PlaybackState> = _playbackState
+    override val playbackState: StateFlow<PlaybackState>
+        field = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
 
     // Chapter state for notification and UI
-    private val _chapters = MutableStateFlow<List<Chapter>>(emptyList())
-    override val chapters: StateFlow<List<Chapter>> = _chapters
+    override val chapters: StateFlow<List<Chapter>>
+        field = MutableStateFlow<List<Chapter>>(emptyList())
 
-    private val _currentChapter = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
-    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?> = _currentChapter
+    override val currentChapter: StateFlow<PlaybackManager.ChapterInfo?>
+        field = MutableStateFlow<PlaybackManager.ChapterInfo?>(null)
 
     // Tracks the coroutine that observes AudioPlayer state/position on Desktop/Apple.
     // Cancelled by clearPlayback so observations don't outlive a playback session.
@@ -127,8 +127,8 @@ internal class PlaybackManagerImpl(
 
     /** Set the current book ID — call this only when playback is confirmed to proceed. */
     override fun activateBook(bookId: BookId) {
-        _currentBookId.value = bookId
-        _currentBookIdString.value = bookId.value
+        currentBookId.value = bookId
+        currentBookIdString.value = bookId.value
     }
 
     /**
@@ -146,10 +146,10 @@ internal class PlaybackManagerImpl(
     override suspend fun prepareForPlayback(bookId: BookId): PlaybackManager.PrepareResult? {
         val prepared = preparer.prepare(bookId) ?: return null
 
-        _currentTimeline.value = prepared.timeline
+        currentTimeline.value = prepared.timeline
         // Note: currentBookId is set by caller after reachability checks pass
-        _totalDurationMs.value = prepared.timeline.totalDurationMs
-        _chapters.value = prepared.chapters
+        totalDurationMs.value = prepared.timeline.totalDurationMs
+        chapters.value = prepared.chapters
 
         return PlaybackManager.PrepareResult(
             timeline = prepared.timeline,
@@ -206,13 +206,13 @@ internal class PlaybackManagerImpl(
 
         // Set speed before seeking/playing
         player.setSpeed(resumeSpeed)
-        _playbackSpeed.value = resumeSpeed
+        playbackSpeed.value = resumeSpeed
 
         // Resume from saved position
         if (resumePositionMs > 0) {
             player.seekTo(resumePositionMs)
         }
-        _currentPositionMs.value = resumePositionMs
+        currentPositionMs.value = resumePositionMs
 
         // Bridge player state and position back to PlaybackManager.
         // Both child launches are parented to playerObservationJob so a single
@@ -243,7 +243,7 @@ internal class PlaybackManagerImpl(
                         // and Android (via PlaybackStateWriter.setPlaybackState from
                         // MediaControllerHolder.Player.Listener) flow through one path.
                         if (playbackState is PlaybackState.Error) {
-                            _playbackError.value =
+                            playbackError.value =
                                 PlaybackManager.PlaybackErrorUiState(
                                     message = playbackState.message ?: "Playback failed.",
                                     isRecoverable = playbackState.isRecoverable,
@@ -286,7 +286,7 @@ internal class PlaybackManagerImpl(
      * own AudioPlayer.state observation in startPlayback).
      */
     override fun setPlaying(playing: Boolean) {
-        _isPlaying.value = playing
+        isPlaying.value = playing
     }
 
     /**
@@ -295,7 +295,7 @@ internal class PlaybackManagerImpl(
      * own AudioPlayer.state observation in startPlayback).
      */
     override fun setBuffering(buffering: Boolean) {
-        _isBuffering.value = buffering
+        isBuffering.value = buffering
     }
 
     /**
@@ -311,10 +311,10 @@ internal class PlaybackManagerImpl(
      * resolve as soon as the player recovers.
      */
     override fun setPlaybackState(state: PlaybackState) {
-        _playbackState.value = state
+        playbackState.value = state
         when (state) {
             PlaybackState.Playing -> {
-                _playbackError.value = null
+                playbackError.value = null
                 currentBookId.value?.let { activeBookId ->
                     reporter.onPlaybackStarted(
                         activeBookId,
@@ -344,7 +344,7 @@ internal class PlaybackManagerImpl(
      * PlaybackManager's own AudioPlayer.state observation in startPlayback).
      */
     override fun updatePosition(positionMs: Long) {
-        _currentPositionMs.value = positionMs
+        currentPositionMs.value = positionMs
         updateCurrentChapter(positionMs)
     }
 
@@ -355,7 +355,7 @@ internal class PlaybackManagerImpl(
      * startPlayback).
      */
     override fun updateSpeed(speed: Float) {
-        _playbackSpeed.value = speed
+        playbackSpeed.value = speed
     }
 
     /**
@@ -368,7 +368,7 @@ internal class PlaybackManagerImpl(
     override fun onSpeedChanged(speed: Float) {
         val bookId = currentBookId.value ?: return
         val positionMs = currentPositionMs.value
-        _playbackSpeed.value = speed
+        playbackSpeed.value = speed
         reporter.onSpeedChanged(bookId, positionMs, speed)
     }
 
@@ -381,7 +381,7 @@ internal class PlaybackManagerImpl(
     override fun onSpeedReset(defaultSpeed: Float) {
         val bookId = currentBookId.value ?: return
         val positionMs = currentPositionMs.value
-        _playbackSpeed.value = defaultSpeed
+        playbackSpeed.value = defaultSpeed
         reporter.onSpeedReset(bookId, positionMs, defaultSpeed)
     }
 
@@ -392,18 +392,18 @@ internal class PlaybackManagerImpl(
     override fun clearPlayback() {
         playerObservationJob?.cancel()
         playerObservationJob = null
-        _currentBookId.value = null
-        _currentBookIdString.value = null
-        _currentTimeline.value = null
-        _chapters.value = emptyList()
-        _currentChapter.value = null
-        _isPlaying.value = false
-        _currentPositionMs.value = 0L
-        _totalDurationMs.value = 0L
-        _playbackSpeed.value = 1.0f
-        _playbackError.value = null
-        _isBuffering.value = false
-        _playbackState.value = PlaybackState.Idle
+        currentBookId.value = null
+        currentBookIdString.value = null
+        currentTimeline.value = null
+        chapters.value = emptyList()
+        currentChapter.value = null
+        isPlaying.value = false
+        currentPositionMs.value = 0L
+        totalDurationMs.value = 0L
+        playbackSpeed.value = 1.0f
+        playbackError.value = null
+        isBuffering.value = false
+        playbackState.value = PlaybackState.Idle
     }
 
     /**
@@ -414,7 +414,7 @@ internal class PlaybackManagerImpl(
         message: String,
         isRecoverable: Boolean,
     ) {
-        _playbackError.value =
+        playbackError.value =
             PlaybackManager.PlaybackErrorUiState(
                 message = message,
                 isRecoverable = isRecoverable,
@@ -429,7 +429,7 @@ internal class PlaybackManagerImpl(
      * Called when user dismisses the error or error condition is resolved.
      */
     fun clearError() {
-        _playbackError.value = null
+        playbackError.value = null
     }
 
     /**
@@ -437,9 +437,9 @@ internal class PlaybackManagerImpl(
      * Called from updatePosition() to track chapter changes.
      */
     internal fun updateCurrentChapter(positionMs: Long) {
-        val chapterList = _chapters.value
+        val chapterList = chapters.value
         if (chapterList.isEmpty()) {
-            _currentChapter.value = null
+            currentChapter.value = null
             return
         }
 
@@ -466,12 +466,12 @@ internal class PlaybackManagerImpl(
             )
 
         // Only trigger notification update on chapter change
-        if (newChapter.index != _currentChapter.value?.index) {
-            _currentChapter.value = newChapter
+        if (newChapter.index != currentChapter.value?.index) {
+            currentChapter.value = newChapter
             onChapterChanged?.invoke(newChapter)
         } else {
             // Update remaining time without triggering notification
-            _currentChapter.value = newChapter
+            currentChapter.value = newChapter
         }
     }
 

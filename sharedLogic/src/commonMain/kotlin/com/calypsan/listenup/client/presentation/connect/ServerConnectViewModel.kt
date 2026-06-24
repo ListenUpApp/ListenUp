@@ -15,7 +15,6 @@ import io.ktor.http.Url
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -37,8 +36,8 @@ class ServerConnectViewModel(
     private val instanceRepository: InstanceRepository,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<ServerConnectUiState>(ServerConnectUiState.Idle)
-    val state: StateFlow<ServerConnectUiState> = _state.asStateFlow()
+    val state: StateFlow<ServerConnectUiState>
+        field = MutableStateFlow<ServerConnectUiState>(ServerConnectUiState.Idle)
 
     /**
      * Submit a URL for validation and server verification.
@@ -52,7 +51,7 @@ class ServerConnectViewModel(
 
         val validationError = validateUrl(url)
         if (validationError != null) {
-            _state.value = ServerConnectUiState.Error(validationError)
+            state.value = ServerConnectUiState.Error(validationError)
             return
         }
 
@@ -61,9 +60,9 @@ class ServerConnectViewModel(
         // viewModelScope — down mid-flight, so on viewModelScope the activation would cancel itself
         // before completing, stranding the app on the "Checking server" spinner.
         appScope.launch {
-            _state.value = ServerConnectUiState.Verifying
+            state.value = ServerConnectUiState.Verifying
 
-            _state.value =
+            state.value =
                 when (val result = instanceRepository.verifyServer(url)) {
                     is AppResult.Success -> {
                         serverConfig.setServerUrl(ServerUrl(result.data.verifiedUrl))
@@ -79,8 +78,8 @@ class ServerConnectViewModel(
 
     /** Clear any error state so the user can retry. */
     fun clearError() {
-        if (_state.value is ServerConnectUiState.Error) {
-            _state.value = ServerConnectUiState.Idle
+        if (state.value is ServerConnectUiState.Error) {
+            state.value = ServerConnectUiState.Idle
         }
     }
 

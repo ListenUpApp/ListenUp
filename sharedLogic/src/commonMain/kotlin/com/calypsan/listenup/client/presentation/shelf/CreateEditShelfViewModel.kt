@@ -14,7 +14,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -39,8 +38,8 @@ class CreateEditShelfViewModel(
     private val shelfRepository: ShelfRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<CreateEditShelfUiState>(CreateEditShelfUiState.Idle)
-    val state: StateFlow<CreateEditShelfUiState> = _state.asStateFlow()
+    val state: StateFlow<CreateEditShelfUiState>
+        field = MutableStateFlow<CreateEditShelfUiState>(CreateEditShelfUiState.Idle)
 
     private val _navActions = Channel<CreateEditShelfNavAction>(Channel.BUFFERED)
     val navActions: Flow<CreateEditShelfNavAction> = _navActions.receiveAsFlow()
@@ -50,16 +49,16 @@ class CreateEditShelfViewModel(
     /** Prepare for creating a new shelf. */
     fun initCreate() {
         editingShelfId = null
-        _state.value = CreateEditShelfUiState.Idle
+        state.value = CreateEditShelfUiState.Idle
     }
 
     /** Prepare for editing an existing shelf by id. Fetches the current data. */
     fun initEdit(shelfId: String) {
         editingShelfId = shelfId
         viewModelScope.launch {
-            _state.value = CreateEditShelfUiState.LoadingExisting
+            state.value = CreateEditShelfUiState.LoadingExisting
 
-            _state.value =
+            state.value =
                 try {
                     val shelf = shelfRepository.getById(shelfId)
                     if (shelf != null) {
@@ -92,7 +91,7 @@ class CreateEditShelfViewModel(
         isPrivate: Boolean,
     ) {
         viewModelScope.launch {
-            _state.value = CreateEditShelfUiState.Saving
+            state.value = CreateEditShelfUiState.Saving
             val editingId = editingShelfId
             val trimmedDescription = description.takeIf { it.isNotEmpty() }
 
@@ -119,7 +118,7 @@ class CreateEditShelfViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    _state.value = CreateEditShelfUiState.Error(result.message)
+                    state.value = CreateEditShelfUiState.Error(result.message)
                 }
             }
         }
@@ -130,7 +129,7 @@ class CreateEditShelfViewModel(
         val shelfId = editingShelfId ?: return
 
         viewModelScope.launch {
-            _state.value = CreateEditShelfUiState.Saving
+            state.value = CreateEditShelfUiState.Saving
 
             when (val result = deleteShelfUseCase(shelfId)) {
                 is AppResult.Success -> {
@@ -139,7 +138,7 @@ class CreateEditShelfViewModel(
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
-                    _state.value = CreateEditShelfUiState.Error(result.message)
+                    state.value = CreateEditShelfUiState.Error(result.message)
                 }
             }
         }
@@ -147,8 +146,8 @@ class CreateEditShelfViewModel(
 
     /** Dismiss any error and return to [CreateEditShelfUiState.Idle]. */
     fun dismissError() {
-        if (_state.value is CreateEditShelfUiState.Error) {
-            _state.value = CreateEditShelfUiState.Idle
+        if (state.value is CreateEditShelfUiState.Error) {
+            state.value = CreateEditShelfUiState.Idle
         }
     }
 }

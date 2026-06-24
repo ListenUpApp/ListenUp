@@ -15,7 +15,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -78,8 +77,8 @@ class AppStartupViewModel(
     private val profileRepository: ProfileRepository,
     private val syncRepository: SyncRepository,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(AppStartupState())
-    val state: StateFlow<AppStartupState> = _state.asStateFlow()
+    val state: StateFlow<AppStartupState>
+        field = MutableStateFlow(AppStartupState())
 
     /**
      * The single authoritative readiness state the navigation layer consumes via one `when`,
@@ -96,7 +95,7 @@ class AppStartupViewModel(
      */
     val readiness: StateFlow<LibraryReadiness> =
         combine(
-            _state,
+            state,
             syncRepository.isServerScanning,
             syncRepository.scanProgress,
         ) { s, scanning, progress ->
@@ -136,11 +135,11 @@ class AppStartupViewModel(
                 .collect { authenticated ->
                     if (authenticated) {
                         logger.info { "AppStartupViewModel: authenticated — running library-setup check" }
-                        _state.value = AppStartupState(isChecking = true)
+                        state.value = AppStartupState(isChecking = true)
                         runLibrarySetupCheck()
                     } else {
                         logger.debug { "AppStartupViewModel: not authenticated — no library-setup check" }
-                        _state.value = AppStartupState(isChecking = false)
+                        state.value = AppStartupState(isChecking = false)
                     }
                 }
         }
@@ -150,7 +149,7 @@ class AppStartupViewModel(
 
     /** Call from MainActivity.onPause to record when the app left the foreground. */
     fun onAppBackgrounded() {
-        _state.value = _state.value.copy(backgroundedAtMs = currentEpochMilliseconds())
+        state.value = state.value.copy(backgroundedAtMs = currentEpochMilliseconds())
     }
 
     /**
@@ -161,11 +160,11 @@ class AppStartupViewModel(
      * screen again. Short resumes skip the check entirely.
      */
     fun onAppForegrounded() {
-        val backgroundedAt = _state.value.backgroundedAtMs ?: return
+        val backgroundedAt = state.value.backgroundedAtMs ?: return
         val elapsed = currentEpochMilliseconds() - backgroundedAt
         if (elapsed >= BACKGROUND_THRESHOLD_MS) {
             logger.info { "App was backgrounded for ${elapsed}ms (>= threshold) — re-checking library setup" }
-            _state.value = AppStartupState(isChecking = true)
+            state.value = AppStartupState(isChecking = true)
             runLibrarySetupCheck()
         } else {
             logger.debug { "App resumed after ${elapsed}ms — skipping library setup re-check" }
@@ -180,8 +179,8 @@ class AppStartupViewModel(
      * top of the shell forever after setup. Call from the setup-complete callback.
      */
     fun onLibrarySetupComplete() {
-        _state.value =
-            _state.value.copy(
+        state.value =
+            state.value.copy(
                 isChecking = false,
                 needsLibrarySetup = false,
                 setupCheckFailed = false,
@@ -191,7 +190,7 @@ class AppStartupViewModel(
 
     /** Re-run the library-setup check after a transient failure (the retry the nav layer offers). */
     fun retryLibrarySetupCheck() {
-        _state.value = AppStartupState(isChecking = true)
+        state.value = AppStartupState(isChecking = true)
         runLibrarySetupCheck()
     }
 
@@ -224,8 +223,8 @@ class AppStartupViewModel(
                         "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
                             "skipping library-setup check"
                     }
-                    _state.value =
-                        _state.value.copy(
+                    state.value =
+                        state.value.copy(
                             isChecking = false,
                             needsLibrarySetup = false,
                             setupCheckFailed = false,
@@ -253,8 +252,8 @@ class AppStartupViewModel(
         when (result) {
             is AppResult.Success -> {
                 logger.info { "AppStartupViewModel: library needsSetup=${result.data.needsSetup}" }
-                _state.value =
-                    _state.value.copy(
+                state.value =
+                    state.value.copy(
                         isChecking = false,
                         needsLibrarySetup = result.data.needsSetup,
                         setupCheckFailed = false,
@@ -278,8 +277,8 @@ class AppStartupViewModel(
         val hasLocal = runCatching { syncRepository.hasLocalLibrary() }.getOrDefault(false)
         if (hasLocal) {
             logger.info { "library check failed but a local library exists — opening offline" }
-            _state.value =
-                _state.value.copy(
+            state.value =
+                state.value.copy(
                     isChecking = false,
                     needsLibrarySetup = false,
                     setupCheckFailed = false,
@@ -287,8 +286,8 @@ class AppStartupViewModel(
                 )
         } else {
             logger.warn { "library check failed and no local library — surfacing retryable error" }
-            _state.value =
-                _state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
+            state.value =
+                state.value.copy(isChecking = false, setupCheckFailed = true, checkResolved = true)
         }
     }
 }

@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.domain.usecase.auth.RegisterUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -27,8 +26,8 @@ private val logger = KotlinLogging.logger {}
 class RegisterViewModel(
     private val registerUseCase: RegisterUseCase,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
-    val state: StateFlow<RegisterUiState> = _state.asStateFlow()
+    val state: StateFlow<RegisterUiState>
+        field = MutableStateFlow<RegisterUiState>(RegisterUiState.Idle)
 
     fun onRegisterSubmit(
         email: String,
@@ -37,8 +36,8 @@ class RegisterViewModel(
         lastName: String,
     ) {
         viewModelScope.launch {
-            _state.value = RegisterUiState.Loading
-            _state.value =
+            state.value = RegisterUiState.Loading
+            state.value =
                 when (val result = registerUseCase(email, password, firstName, lastName)) {
                     is AppResult.Success -> {
                         logger.info { "Registration succeeded with outcome=${result.data}" }
@@ -54,7 +53,7 @@ class RegisterViewModel(
     }
 
     fun clearError() {
-        _state.value = RegisterUiState.Idle
+        state.value = RegisterUiState.Idle
     }
 }
 

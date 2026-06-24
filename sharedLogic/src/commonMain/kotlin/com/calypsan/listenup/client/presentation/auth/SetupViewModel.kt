@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.usecase.auth.SetupUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -27,8 +26,8 @@ class SetupViewModel(
     private val setupUseCase: SetupUseCase,
     private val authSession: AuthSession,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<SetupUiState>(SetupUiState.Idle)
-    val state: StateFlow<SetupUiState> = _state.asStateFlow()
+    val state: StateFlow<SetupUiState>
+        field = MutableStateFlow<SetupUiState>(SetupUiState.Idle)
 
     fun onSetupSubmit(
         firstName: String,
@@ -38,14 +37,14 @@ class SetupViewModel(
         passwordConfirm: String,
     ) {
         if (password != passwordConfirm) {
-            _state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.PASSWORD_CONFIRM))
+            state.value = SetupUiState.Error(SetupErrorType.ValidationError(SetupField.PASSWORD_CONFIRM))
             return
         }
 
         viewModelScope.launch {
-            _state.value = SetupUiState.Loading
+            state.value = SetupUiState.Loading
             val result = setupUseCase(email, password, firstName, lastName)
-            _state.value =
+            state.value =
                 when (result) {
                     is AppResult.Success -> SetupUiState.Success
                     is AppResult.Failure -> handleFailure(result.error)
@@ -71,8 +70,8 @@ class SetupViewModel(
     }
 
     fun clearError() {
-        if (_state.value is SetupUiState.Error) {
-            _state.value = SetupUiState.Idle
+        if (state.value is SetupUiState.Error) {
+            state.value = SetupUiState.Idle
         }
     }
 }

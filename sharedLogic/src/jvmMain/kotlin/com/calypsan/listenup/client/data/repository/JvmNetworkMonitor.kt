@@ -14,7 +14,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -52,18 +51,18 @@ class JvmNetworkMonitor(
             }
         }
 
-    private val _isOnlineFlow = MutableStateFlow(true) // Optimistic default
-    override val isOnlineFlow: StateFlow<Boolean> = _isOnlineFlow.asStateFlow()
+    override val isOnlineFlow: StateFlow<Boolean>
+        field = MutableStateFlow(true) // Optimistic default
 
     // Desktop networks are always considered unmetered (WiFi/Ethernet)
-    private val _isOnUnmeteredNetworkFlow = MutableStateFlow(true)
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = _isOnUnmeteredNetworkFlow.asStateFlow()
+    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
     init {
         startHealthCheckLoop()
     }
 
-    override fun isOnline(): Boolean = _isOnlineFlow.value
+    override fun isOnline(): Boolean = isOnlineFlow.value
 
     private fun startHealthCheckLoop() {
         scope.launch {
@@ -79,7 +78,7 @@ class JvmNetworkMonitor(
 
         if (serverUrl == null) {
             // No server configured - assume online (optimistic)
-            _isOnlineFlow.value = true
+            isOnlineFlow.value = true
             return
         }
 
@@ -92,9 +91,9 @@ class JvmNetworkMonitor(
                 false
             }
 
-        if (_isOnlineFlow.value != isReachable) {
+        if (isOnlineFlow.value != isReachable) {
             logger.info { "Network state changed: online=$isReachable" }
-            _isOnlineFlow.value = isReachable
+            isOnlineFlow.value = isReachable
         }
     }
 }

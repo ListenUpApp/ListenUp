@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -115,11 +114,11 @@ internal class SyncRepositoryImpl(
                 initialValue = SyncState.Idle,
             )
 
-    private val _isServerScanning = MutableStateFlow(false)
-    override val isServerScanning: StateFlow<Boolean> = _isServerScanning.asStateFlow()
+    override val isServerScanning: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
-    private val _scanProgress = MutableStateFlow<ScanProgressState?>(null)
-    override val scanProgress: StateFlow<ScanProgressState?> = _scanProgress.asStateFlow()
+    override val scanProgress: StateFlow<ScanProgressState?>
+        field = MutableStateFlow<ScanProgressState?>(null)
 
     override suspend fun sync(): AppResult<Unit> = startEngineForCurrentUser()
 
@@ -281,14 +280,14 @@ internal class SyncRepositoryImpl(
             collectScanProgressUntilStreamEnds()
             recoverFromScanStreamEnd(
                 isInitialScanComplete = { hasCompletedInitialScan },
-                isScanning = { _isServerScanning.value },
+                isScanning = { isServerScanning.value },
                 confirmScanFinished = { isInitialScanFinishedOnServer() },
                 reconcile = {
                     syncEngine.handleCursorStale()
                     refreshSearchIndex()
                 },
-                setScanning = { _isServerScanning.value = it },
-                setProgress = { _scanProgress.value = it },
+                setScanning = { isServerScanning.value = it },
+                setProgress = { scanProgress.value = it },
                 markInitialScanComplete = { hasCompletedInitialScan = true },
             )
             delay(SCAN_STREAM_RESUBSCRIBE_DELAY_MS)
@@ -306,8 +305,8 @@ internal class SyncRepositoryImpl(
                     applyScanEvent(
                         event = event,
                         isInitialScanComplete = { hasCompletedInitialScan },
-                        setScanning = { _isServerScanning.value = it },
-                        setProgress = { _scanProgress.value = it },
+                        setScanning = { isServerScanning.value = it },
+                        setProgress = { scanProgress.value = it },
                         markInitialScanComplete = { hasCompletedInitialScan = true },
                         // Awaited, not fire-and-forget: the initial populating gate must stay up
                         // until this reconcile actually lands the books in Room (see applyScanEvent).
@@ -323,7 +322,7 @@ internal class SyncRepositoryImpl(
                         nowMs = { currentEpochMilliseconds() },
                         getStartedAt = { scanStartedAtMs },
                         setStartedAt = { scanStartedAtMs = it },
-                        getProgress = { _scanProgress.value },
+                        getProgress = { scanProgress.value },
                     )
                 }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
@@ -350,8 +349,8 @@ internal class SyncRepositoryImpl(
 
     /** Never-stranded reset: a dropped progress stream must not leave the shell blocked. */
     private suspend fun resetScanObserver() {
-        _isServerScanning.value = false
-        _scanProgress.value = null
+        isServerScanning.value = false
+        scanProgress.value = null
         scanObserverMutex.withLock { scanObserverStarted = false }
     }
 

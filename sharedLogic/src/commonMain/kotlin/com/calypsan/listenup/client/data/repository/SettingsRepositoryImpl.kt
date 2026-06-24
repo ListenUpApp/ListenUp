@@ -11,8 +11,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -52,31 +50,31 @@ internal class SettingsRepositoryImpl(
     // Buffer of 1 ensures emit() doesn't suspend when no collectors are active.
     // This is appropriate for preference sync since we don't want settings changes
     // to block waiting for the sync layer.
-    private val _preferenceChanges = MutableSharedFlow<DomainPreferenceChangeEvent>(extraBufferCapacity = 1)
-    override val preferenceChanges: SharedFlow<DomainPreferenceChangeEvent> = _preferenceChanges.asSharedFlow()
+    override val preferenceChanges: SharedFlow<DomainPreferenceChangeEvent>
+        field = MutableSharedFlow<DomainPreferenceChangeEvent>(extraBufferCapacity = 1)
 
     // Reactive change-signal for the active URL; authoritative read remains getActiveUrl().
-    private val _activeUrl = MutableStateFlow<ServerUrl?>(null)
-    override val activeUrl: StateFlow<ServerUrl?> = _activeUrl.asStateFlow()
+    override val activeUrl: StateFlow<ServerUrl?>
+        field = MutableStateFlow<ServerUrl?>(null)
 
     // Local preferences StateFlows (device-specific, NOT synced)
-    private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
-    override val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+    override val themeMode: StateFlow<ThemeMode>
+        field = MutableStateFlow(ThemeMode.SYSTEM)
 
-    private val _dynamicColorsEnabled = MutableStateFlow(true)
-    override val dynamicColorsEnabled: StateFlow<Boolean> = _dynamicColorsEnabled.asStateFlow()
+    override val dynamicColorsEnabled: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
-    private val _autoRewindEnabled = MutableStateFlow(true)
-    override val autoRewindEnabled: StateFlow<Boolean> = _autoRewindEnabled.asStateFlow()
+    override val autoRewindEnabled: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
-    private val _wifiOnlyDownloads = MutableStateFlow(true)
-    override val wifiOnlyDownloads: StateFlow<Boolean> = _wifiOnlyDownloads.asStateFlow()
+    override val wifiOnlyDownloads: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
-    private val _autoRemoveFinished = MutableStateFlow(false)
-    override val autoRemoveFinished: StateFlow<Boolean> = _autoRemoveFinished.asStateFlow()
+    override val autoRemoveFinished: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
-    private val _hapticFeedbackEnabled = MutableStateFlow(true)
-    override val hapticFeedbackEnabled: StateFlow<Boolean> = _hapticFeedbackEnabled.asStateFlow()
+    override val hapticFeedbackEnabled: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
     companion object {
         private const val KEY_SERVER_URL = "server_url"
@@ -120,7 +118,7 @@ internal class SettingsRepositoryImpl(
 
     /** Recompute and publish the active URL after a mutation. Authoritative source is [getActiveUrl]. */
     private suspend fun publishActiveUrl() {
-        _activeUrl.value = getActiveUrl()
+        activeUrl.value = getActiveUrl()
     }
 
     /**
@@ -317,52 +315,52 @@ internal class SettingsRepositoryImpl(
 
     override suspend fun setDefaultPlaybackSpeed(speed: Float) {
         secureStorage.save(KEY_DEFAULT_PLAYBACK_SPEED, speed.toString())
-        _preferenceChanges.emit(DomainPreferenceChangeEvent.PlaybackSpeedChanged(speed))
+        preferenceChanges.emit(DomainPreferenceChangeEvent.PlaybackSpeedChanged(speed))
     }
 
     // Local preferences (device-specific, NOT synced)
 
     override suspend fun initializeLocalPreferences() {
-        _themeMode.value = ThemeMode.fromString(secureStorage.read(KEY_THEME_MODE))
-        _dynamicColorsEnabled.value =
+        themeMode.value = ThemeMode.fromString(secureStorage.read(KEY_THEME_MODE))
+        dynamicColorsEnabled.value =
             secureStorage.read(KEY_DYNAMIC_COLORS)?.toBooleanStrictOrNull() ?: true
-        _autoRewindEnabled.value =
+        autoRewindEnabled.value =
             secureStorage.read(KEY_AUTO_REWIND)?.toBooleanStrictOrNull() ?: true
-        _wifiOnlyDownloads.value =
+        wifiOnlyDownloads.value =
             secureStorage.read(KEY_WIFI_ONLY_DOWNLOADS)?.toBooleanStrictOrNull() ?: true
-        _autoRemoveFinished.value =
+        autoRemoveFinished.value =
             secureStorage.read(KEY_AUTO_REMOVE_FINISHED)?.toBooleanStrictOrNull() ?: false
-        _hapticFeedbackEnabled.value =
+        hapticFeedbackEnabled.value =
             secureStorage.read(KEY_HAPTIC_FEEDBACK)?.toBooleanStrictOrNull() ?: true
     }
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         secureStorage.save(KEY_THEME_MODE, mode.toStorageString())
-        _themeMode.value = mode
+        themeMode.value = mode
     }
 
     override suspend fun setDynamicColorsEnabled(enabled: Boolean) {
         secureStorage.save(KEY_DYNAMIC_COLORS, enabled.toString())
-        _dynamicColorsEnabled.value = enabled
+        dynamicColorsEnabled.value = enabled
     }
 
     override suspend fun setAutoRewindEnabled(enabled: Boolean) {
         secureStorage.save(KEY_AUTO_REWIND, enabled.toString())
-        _autoRewindEnabled.value = enabled
+        autoRewindEnabled.value = enabled
     }
 
     override suspend fun setWifiOnlyDownloads(enabled: Boolean) {
         secureStorage.save(KEY_WIFI_ONLY_DOWNLOADS, enabled.toString())
-        _wifiOnlyDownloads.value = enabled
+        wifiOnlyDownloads.value = enabled
     }
 
     override suspend fun setAutoRemoveFinished(enabled: Boolean) {
         secureStorage.save(KEY_AUTO_REMOVE_FINISHED, enabled.toString())
-        _autoRemoveFinished.value = enabled
+        autoRemoveFinished.value = enabled
     }
 
     override suspend fun setHapticFeedbackEnabled(enabled: Boolean) {
         secureStorage.save(KEY_HAPTIC_FEEDBACK, enabled.toString())
-        _hapticFeedbackEnabled.value = enabled
+        hapticFeedbackEnabled.value = enabled
     }
 }
