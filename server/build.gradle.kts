@@ -37,6 +37,9 @@ kotlin {
                 val libargon2 by creating {
                     defFile(project.file("src/nativeInterop/cinterop/libargon2.def"))
                 }
+                val sqlite3 by creating {
+                    defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+                }
             }
         }
     }
