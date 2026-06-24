@@ -10,7 +10,9 @@ final class SeriesDetailObserver {
     private(set) var error: String?
     private(set) var seriesName: String = ""
     private(set) var seriesDescription: String?
-    private(set) var seriesAuthor: String?
+    /// Every author across the series' books, deduped server-side by id in first-appearance order.
+    /// Mapped to a native value type at the observer boundary so it never re-bridges in a `ForEach`.
+    private(set) var seriesAuthors: [SeriesAuthor] = []
     private(set) var coverPath: String?
     private(set) var totalDuration: String = ""
     private(set) var books: [BookRow] = []
@@ -113,7 +115,7 @@ final class SeriesDetailObserver {
             error = nil
             seriesName = r.seriesName
             seriesDescription = r.seriesDescription
-            seriesAuthor = r.seriesAuthor
+            seriesAuthors = r.seriesAuthors.map { SeriesAuthor(id: $0.id, name: $0.name) }
             coverPath = r.coverPath
             totalDuration = r.formatTotalDuration()
             books = r.books.map { BookRow($0, sequence: $0.series.first?.sequence) }
@@ -142,4 +144,12 @@ final class SeriesDetailObserver {
         return result
     }
 
+}
+
+/// A native, value-typed series author for SwiftUI. KMP `BookContributor` is SKIE-bridged and must
+/// never be fed into a `ForEach`/`List` (it re-bridges every diff), so it's mapped to this struct at
+/// the observer boundary. Mirrors `BookRow`/`CastMember`.
+struct SeriesAuthor: Identifiable, Hashable {
+    let id: String
+    let name: String
 }

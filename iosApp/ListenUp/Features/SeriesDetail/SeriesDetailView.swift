@@ -21,6 +21,11 @@ struct SeriesDetailView: View {
     @State private var observer: SeriesDetailObserver?
     @State private var reversed: Bool = false
     @State private var showEdit: Bool = false
+    @State private var showAuthors: Bool = false
+
+    /// Up to this many author names render inline as tappable chips; beyond it the hero collapses to
+    /// "{first} & N others" that opens the authors sheet. Matches Book Detail's inline limit.
+    private let inlineAuthorLimit = 2
 
     var body: some View {
         Group {
@@ -52,6 +57,12 @@ struct SeriesDetailView: View {
         }
         .sheet(isPresented: $showEdit) {
             SeriesEditView(seriesId: seriesId)
+        }
+        .sheet(isPresented: $showAuthors) {
+            SeriesAuthorsSheet(
+                authors: observer?.seriesAuthors ?? [],
+                onClose: { showAuthors = false }
+            )
         }
         .task(id: seriesId) {
             let vm = deps.createSeriesDetailViewModel()
@@ -145,13 +156,42 @@ struct SeriesDetailView: View {
             Text(observer.seriesName)
                 .font(.title.bold())
                 .multilineTextAlignment(.center)
-            if let author = observer.seriesAuthor {
-                Text(author)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
-            }
+            authorsLine(observer: observer)
         }
         .padding(.horizontal)
+    }
+
+    /// The series authors, mirroring Book Detail: up to `inlineAuthorLimit` tappable name chips, each
+    /// linking to its contributor page; beyond that a tappable "{first} & N others" summary that opens
+    /// the full authors sheet. Hidden when the series has no authors.
+    @ViewBuilder
+    private func authorsLine(observer: SeriesDetailObserver) -> some View {
+        let authors = observer.seriesAuthors
+        if authors.count > inlineAuthorLimit,
+           let summary = collapsedContributorSummary(names: authors.map(\.name), limit: inlineAuthorLimit) {
+            Button(action: { showAuthors = true }) {
+                Text(summary)
+                    .font(.callout)
+                    .foregroundStyle(Color.luTint)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text(String(localized: "book.detail_credits_hint")))
+        } else if !authors.isEmpty {
+            FlowLayout(spacing: 0, alignment: .center) {
+                ForEach(Array(authors.enumerated()), id: \.element.id) { index, author in
+                    HStack(spacing: 0) {
+                        if index > 0 {
+                            Text(", ").foregroundStyle(Color.luTint)
+                        }
+                        NavigationLink(value: ContributorDestination(id: author.id)) {
+                            Text(author.name).foregroundStyle(Color.luTint)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .font(.callout)
+        }
     }
 
     // MARK: - Stat strip

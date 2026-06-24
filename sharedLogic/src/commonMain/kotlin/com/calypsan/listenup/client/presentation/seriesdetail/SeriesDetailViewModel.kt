@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.seriesdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.model.Series
@@ -104,12 +105,13 @@ class SeriesDetailViewModel(
             seriesId = seriesId,
             seriesName = seriesWithBooks.series.name,
             seriesDescription = seriesWithBooks.series.description,
-            seriesAuthor =
+            // Every author across the whole series, deduped by id in first-appearance order, so a
+            // multi-author series (Wheel of Time) or anthology surfaces all of them — not just the
+            // first book's first author.
+            seriesAuthors =
                 books
-                    .firstOrNull()
-                    ?.authors
-                    ?.firstOrNull()
-                    ?.name,
+                    .flatMap { it.authors }
+                    .distinctBy { it.id },
             seriesNarrator =
                 books
                     .firstOrNull()
@@ -166,8 +168,12 @@ sealed interface SeriesDetailUiState {
         val seriesId: String,
         val seriesName: String,
         val seriesDescription: String?,
-        /** Primary author for the series, derived from its books. Null when unknown. */
-        val seriesAuthor: String?,
+        /**
+         * Every author across the series' books, deduped by id in first-appearance order.
+         * Empty when no book has an author. The UI shows a collapsed summary that opens a sheet
+         * listing all of them.
+         */
+        val seriesAuthors: List<BookContributor>,
         /** Primary narrator for the series, derived from its books. Null when unknown. */
         val seriesNarrator: String?,
         val coverPath: String?,

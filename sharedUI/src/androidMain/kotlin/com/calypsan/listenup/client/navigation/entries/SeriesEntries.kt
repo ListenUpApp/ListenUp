@@ -4,6 +4,7 @@ import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.client.navigation.BookDetail
+import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.SeriesEdit
 import com.calypsan.listenup.client.navigation.TagDetail
@@ -21,6 +22,9 @@ internal fun EntryProviderScope<NavKey>.seriesEntries(backStack: NavBackStack<Na
             },
             onEditClick = { seriesId ->
                 backStack.add(SeriesEdit(seriesId))
+            },
+            onContributorClick = { contributorId ->
+                backStack.add(ContributorDetail(contributorId))
             },
         )
     }
