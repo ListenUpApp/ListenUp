@@ -62,7 +62,7 @@ navigation3-multiplatform = "1.1.1"
 material3-adaptive-multiplatform = "1.2.0"
 
 # Quality Tool
-detekt = "1.23.8"
+detekt = "2.0.0-alpha.5"
 spotless = "8.7.0"
 ktlint = "1.8.0" # Used by Spotless plugin at runtime
 kover = "0.9.8"
@@ -202,7 +202,7 @@ ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4-android", version.ref = "androidx-compose-ui-test" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose-ui-test" }
-detekt-api = { module = "io.gitlab.arturbosch.detekt:detekt-api", version.ref = "detekt" }
+detekt-api = { module = "dev.detekt:detekt-api", version.ref = "detekt" }
 # Room (Database)
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -263,7 +263,7 @@ mokkery = { id = "dev.mokkery", version.ref = "mokkery" }
 # Swift Interop
 skie = { id = "co.touchlab.skie", version.ref = "skie" }
 # Quality Tools
-detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 kover = { id = "org.jetbrains.kotlinx.kover", version.ref = "kover" }
 # Server
