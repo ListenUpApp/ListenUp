@@ -46,6 +46,8 @@ final class PdfSearchController {
     // nonisolated(unsafe) is intentional: written once in setup() on the main actor before
     // any notification fires; read once in deinit after all strong references are gone.
     // No concurrent access is possible, so this is safe despite the annotation.
+    // (Plain `nonisolated` can't apply to this @Observable mutable stored property; the
+    //  "has no effect" warning is a known false-positive here.)
     nonisolated(unsafe) private var observerTokens: [NSObjectProtocol] = []
 
     /// Maximum number of search hits retained. Once reached, further matches are dropped
