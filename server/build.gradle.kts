@@ -20,11 +20,8 @@ version = "0.0.1"
 
 val isKtorDevelopment: Boolean = project.ext.has("development")
 
-// ktor-server-openapi → swagger-codegen drags in logback-classic transitively, which would
-// put a second SLF4J provider on the classpath alongside our minimal ListenUpLogProvider
-// backend (non-deterministic provider selection). Excluding it at the configuration level
-// keeps our provider the only one and keeps the logback jars out of the production artifact —
-// the whole point of this backend.
+// Keep logback-classic off the classpath so our minimal ListenUpLogProvider stays the sole
+// SLF4J provider (deterministic selection) and the logback jars never ship in the artifact.
 configurations.all {
     exclude(group = "ch.qos.logback")
 }
@@ -34,7 +31,15 @@ kotlin {
     jvmToolchain(21)
 
     jvm()
-    linuxX64()
+    linuxX64 {
+        compilations.getByName("main") {
+            cinterops {
+                val libargon2 by creating {
+                    defFile(project.file("src/nativeInterop/cinterop/libargon2.def"))
+                }
+            }
+        }
+    }
 
     // Mirror the `listenup.jvm` convention plugin: apply the project-wide compiler-args triple
     // to every compilation, set JVM_21 bytecode on the JVM target, and allow consuming the
@@ -71,9 +76,12 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
+                implementation(projects.contract)
                 // SQLDelight — shared runtime + coroutines extensions (both JVM + native)
                 implementation(libs.sqldelight.runtime)
                 implementation(libs.sqldelight.coroutines)
+                implementation(libs.cryptography.core)
+                implementation(libs.kotlinx.serialization.json)
             }
         }
 
@@ -81,13 +89,12 @@ kotlin {
             dependencies {
                 // SQLDelight native SQLite driver (SQLiter — dynamically links system libsqlite3)
                 implementation(libs.sqldelight.driver.native)
+                implementation(libs.cryptography.provider.openssl3.prebuilt)
             }
         }
 
         val jvmMain by getting {
             dependencies {
-                implementation(projects.contract)
-
                 // Ktor server core + engine
                 implementation(libs.ktor.server.core)
                 implementation(libs.ktor.server.cio)
@@ -103,12 +110,9 @@ kotlin {
                 implementation(libs.ktor.server.partial.content)
                 implementation(libs.ktor.server.auto.head.response)
 
-                // Ktor plugins (auth, rate limit, OpenAPI)
-                implementation(libs.ktor.server.auth.jwt)
+                // Ktor plugins (call-id, rate limit)
                 implementation(libs.ktor.server.call.id)
                 implementation(libs.ktor.server.rate.limit)
-                implementation(libs.ktor.server.openapi)
-                implementation(libs.ktor.server.swagger)
 
                 // Persistence
                 implementation(libs.sqlite.jdbc)
@@ -123,7 +127,6 @@ kotlin {
                 implementation(libs.password4j)
 
                 // Kotlin-native cryptography (HMAC for AudioUrlSigner)
-                implementation(libs.cryptography.core)
                 implementation(libs.cryptography.provider.jdk)
 
                 // Koin
@@ -159,6 +162,9 @@ kotlin {
                 // production :server artifact depends on :contract alone.
                 implementation(projects.sharedLogic)
                 implementation(libs.ktor.server.test.host)
+                // Test-only: com.auth0 JWT lib (via ktor-server-auth-jwt) — an independent oracle that
+                // forges adversarial tokens to cross-check the hand-rolled HS256 verifier. Not in production.
+                implementation(libs.ktor.server.auth.jwt)
                 implementation(libs.ktor.client.content.negotiation)
                 implementation(libs.kotest.runner.junit5)
                 implementation(libs.kotest.assertions.core)

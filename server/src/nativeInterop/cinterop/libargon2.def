@@ -1,0 +1,20 @@
+package = libargon2
+# Link the system libargon2 at executable-link time (Phase 6). Not needed for cinterop/compile.
+linkerOpts.linux = -largon2 -lpthread --allow-shlib-undefined
+---
+// Declare the two functions inline so cinterop uses Kotlin/Native's OWN bundled stdint/stddef
+// headers — never the system /usr/include. (`-I/usr/include` made K/N's clang pull the system
+// stdint.h, which on Ubuntu's multiarch layout #includes bits/libc-header-start.h from
+// /usr/include/x86_64-linux-gnu and fails. Inline decls are portable: identical on Arch + Ubuntu.)
+// Signatures match argon2.h exactly; the actual code lives in the linked libargon2.
+#include <stdint.h>
+#include <stddef.h>
+
+int argon2id_hash_encoded(const uint32_t t_cost, const uint32_t m_cost,
+                          const uint32_t parallelism,
+                          const void *pwd, const size_t pwdlen,
+                          const void *salt, const size_t saltlen,
+                          const size_t hashlen, char *encoded,
+                          const size_t encodedlen);
+
+int argon2id_verify(const char *encoded, const void *pwd, const size_t pwdlen);
