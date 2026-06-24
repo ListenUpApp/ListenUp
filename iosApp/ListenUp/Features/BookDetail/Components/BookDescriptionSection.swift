@@ -5,19 +5,16 @@ import SwiftUI
 /// facets — genres, tags, then moods.
 ///
 /// Reuses the shared `ExpandableText` for the blurb and `BookFacetChips` for each
-/// facet group. The three axes read distinctly (neutral genres, tinted tags, accent
+/// facet group. The three axes read distinctly (neutral genres, outlined tags, coral
 /// moods — see `BookFacetKind`) so the reader can tell *where it lives* from *its
 /// tropes* from *how it feels*. Each facet group is omitted when empty.
 ///
-/// Pure/presentational: it takes the description text, the three facet lists, and a
-/// `tint`.
+/// Pure/presentational: it takes the description text and the three facet lists.
 struct BookDescriptionSection: View {
     let description: String
     let genres: [String]
     let tags: [String]
     let moods: [String]
-    /// Per-book accent, derived from cover art.
-    let tint: Color
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -50,7 +47,7 @@ struct BookDescriptionSection: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
-            BookFacetChips(values: values, kind: kind, tint: tint)
+            BookFacetChips(values: values, kind: kind)
         }
     }
 }
@@ -66,8 +63,7 @@ struct BookDescriptionSection: View {
                 + "aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat.",
             genres: ["Fantasy", "Epic", "Adventure", "Coming of Age"],
             tags: ["Found Family", "Slow Burn", "Unreliable Narrator"],
-            moods: ["Dark", "Tense", "Atmospheric"],
-            tint: .red
+            moods: ["Dark", "Tense", "Atmospheric"]
         )
         .padding()
     }
@@ -78,8 +74,7 @@ struct BookDescriptionSection: View {
         description: "A short synopsis with no facets to show.",
         genres: [],
         tags: [],
-        moods: [],
-        tint: .listenUpOrange
+        moods: []
     )
     .padding()
 }

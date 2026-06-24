@@ -2,14 +2,14 @@ import SwiftUI
 
 /// Primary playback affordance for the redesigned Book Detail screen.
 ///
-/// A prominent tint-filled Resume/Play button beside the existing
-/// `DownloadButton`, with an optional "Ch. N · {chapter}" / "{time left}" line
-/// and a thin tinted progress track below. When the book is finished it shows a
-/// "Finished" badge in place of the remaining-time line.
+/// A prominent coral Resume/Play button beside the existing `DownloadButton`, with
+/// an optional "Ch. N · {chapter}" / "{time left}" line and a thin coral progress
+/// track below. When the book is finished it shows a "Finished" badge in place of
+/// the remaining-time line.
 ///
-/// Pure/presentational: it takes display values plus a `tint` and closures. The
-/// assembly screen wires `onResume` to `observer.play()` and the download
-/// closures to the observer's download actions.
+/// Pure/presentational: it takes display values and closures. The assembly screen
+/// wires `onResume` to `observer.play()` and the download closures to the observer's
+/// download actions.
 struct ResumeBar: View {
     /// Listen progress in 0...1, or `nil` when the book hasn't been started.
     let progress: Float?
@@ -20,8 +20,6 @@ struct ResumeBar: View {
     let currentChapterLabel: String?
     let downloadState: DownloadUIState
     let downloadProgress: Float
-    /// Per-book accent, derived from cover art.
-    let tint: Color
     let onResume: () -> Void
     let onDownload: () -> Void
     let onCancelDownload: () -> Void
@@ -54,7 +52,7 @@ struct ResumeBar: View {
     // MARK: - Resume button
 
     private var resumeButton: some View {
-        PrimaryButton(title: resumeTitle, icon: "play.fill", tint: tint, action: onResume)
+        PrimaryButton(title: resumeTitle, icon: "play.fill", action: onResume)
             .accessibilityLabel(resumeAccessibilityLabel)
     }
 
@@ -116,7 +114,7 @@ struct ResumeBar: View {
             Text(String(localized: "book.detail_finished"))
         }
         .font(.footnote.weight(.medium))
-        .foregroundStyle(tint)
+        .foregroundStyle(Color.listenUpOrange)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -125,9 +123,9 @@ struct ResumeBar: View {
     private func progressTrack(_ progress: Float) -> some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(tint.opacity(0.2))
+                Capsule().fill(Color.listenUpOrange.opacity(0.2))
                 Capsule()
-                    .fill(tint)
+                    .fill(Color.listenUpOrange)
                     .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
             }
         }
@@ -138,9 +136,9 @@ struct ResumeBar: View {
 
 // MARK: - Preview
 
-#Preview("Resume bar — tints") {
+#Preview("Resume bar — states") {
     VStack(spacing: 40) {
-        // In-progress, red tint.
+        // In-progress.
         ResumeBar(
             progress: 0.38,
             isComplete: false,
@@ -148,14 +146,13 @@ struct ResumeBar: View {
             currentChapterLabel: "Ch. 1 · A Game Begins",
             downloadState: .notDownloaded,
             downloadProgress: 0,
-            tint: .red,
             onResume: {},
             onDownload: {},
             onCancelDownload: {},
             onDeleteDownload: {}
         )
 
-        // Not started, coral tint.
+        // Not started.
         ResumeBar(
             progress: nil,
             isComplete: false,
@@ -163,14 +160,13 @@ struct ResumeBar: View {
             currentChapterLabel: nil,
             downloadState: .downloading,
             downloadProgress: 0.65,
-            tint: .listenUpOrange,
             onResume: {},
             onDownload: {},
             onCancelDownload: {},
             onDeleteDownload: {}
         )
 
-        // Finished, coral tint.
+        // Finished.
         ResumeBar(
             progress: 1.0,
             isComplete: true,
@@ -178,7 +174,6 @@ struct ResumeBar: View {
             currentChapterLabel: nil,
             downloadState: .completed,
             downloadProgress: 1,
-            tint: .listenUpOrange,
             onResume: {},
             onDownload: {},
             onCancelDownload: {},

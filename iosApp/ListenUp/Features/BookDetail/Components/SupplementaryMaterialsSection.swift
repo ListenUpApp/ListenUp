@@ -7,7 +7,6 @@ import SwiftUI
 struct SupplementaryMaterialsSection: View {
     let documents: [DocumentRow]
     let openingDocIds: Set<String>
-    let tint: Color
     let onOpen: (String) -> Void
 
     var body: some View {
@@ -25,9 +24,12 @@ struct SupplementaryMaterialsSection: View {
             HStack(spacing: 14) {
                 Image(systemName: documentFormatSymbol(doc.format))
                     .font(.title3)
-                    .foregroundStyle(tint)
+                    .foregroundStyle(Color.listenUpOrange)
                     .frame(width: 44, height: 44)
-                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .background(
+                        Color.listenUpOrange.opacity(0.14),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(documentBasename(doc.filename)).font(.body).foregroundStyle(.primary).lineLimit(1)

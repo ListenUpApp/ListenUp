@@ -83,8 +83,6 @@ final class BookDetailObserver {
 
     // MARK: - Curation & progress state
 
-    /// Per-book accent, derived from cover art. Coral until extraction resolves.
-    private(set) var tint: Color = .listenUpOrange
     private(set) var showShelfPicker: Bool = false
     private(set) var isAddingToShelf: Bool = false
     private(set) var shelfError: String?
@@ -105,7 +103,6 @@ final class BookDetailObserver {
     private let downloadService: DownloadService
     private let bridge = FlowBridge()
     private var observingDownloadForBookId: String?
-    private var tintForBookId: String?
 
     // Latest raw shelf inputs; `myShelves` is recomputed when either updates.
     private var allShelves: [ShelfRow] = []
@@ -262,23 +259,6 @@ final class BookDetailObserver {
         (start: startedAtMs ?? now, finish: now)
     }
 
-    // MARK: - Tint extraction
-
-    /// Resolve the per-book accent. Uses the synchronous cache when warm; otherwise
-    /// launches an off-actor decode and sets `tint` when it lands. Leaves coral on nil.
-    private func resolveTint(bookId: String, coverPath: String?) {
-        if let cached = CoverTintExtractor.shared.cached(bookId: bookId) {
-            tint = cached.color
-            return
-        }
-        Task { [weak self] in
-            guard let self else { return }
-            if let resolved = await CoverTintExtractor.shared.resolve(bookId: bookId, coverPath: coverPath) {
-                self.tint = resolved.color
-            }
-        }
-    }
-
     // MARK: - State mapping
 
     private func apply(_ state: BookDetailUiState) {
@@ -318,10 +298,6 @@ final class BookDetailObserver {
             if observingDownloadForBookId != r.book.idString {
                 observingDownloadForBookId = r.book.idString
                 observeDownloadStatus(bookId: r.book.idString)
-            }
-            if tintForBookId != r.book.idString {
-                tintForBookId = r.book.idString
-                resolveTint(bookId: r.book.idString, coverPath: r.book.coverPath)
             }
         case .error(let e):
             isLoading = false

@@ -60,7 +60,7 @@ struct ShelfPickerSheet: View {
                         if shelf.containsBook {
                             Image(systemName: "checkmark")
                                 .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(observer.tint)
+                                .foregroundStyle(Color.listenUpOrange)
                         }
                     }
                 }
@@ -94,13 +94,13 @@ struct ShelfPickerSheet: View {
 
                     Button(String(localized: "common.create"), action: createShelf)
                         .fontWeight(.semibold)
-                        .foregroundStyle(observer.tint)
+                        .foregroundStyle(Color.listenUpOrange)
                         .disabled(trimmedName.isEmpty || observer.isAddingToShelf)
                 }
             } else {
                 Button { isCreatingShelf = true } label: {
                     Label(String(localized: "book.detail_new_shelf"), systemImage: "plus")
-                        .foregroundStyle(observer.tint)
+                        .foregroundStyle(Color.listenUpOrange)
                 }
             }
         }

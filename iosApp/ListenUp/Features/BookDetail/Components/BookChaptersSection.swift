@@ -5,16 +5,14 @@ import SwiftUI
 /// full list, then flat display-only rows.
 ///
 /// Each row shows a tabular 1-based number, the title, and a pre-formatted
-/// duration. The currently-playing chapter (`chapter.isCurrent`) renders in
-/// `tint` with a `pause.fill` glyph and semibold weight; the rest stay neutral.
-/// Rows are plain content — never buttons or links — because this screen lists
-/// chapters, it does not navigate into them.
+/// duration. The currently-playing chapter (`chapter.isCurrent`) renders in coral
+/// with a `pause.fill` glyph and semibold weight; the rest stay neutral. Rows are
+/// plain content — never buttons or links — because this screen lists chapters, it
+/// does not navigate into them.
 ///
-/// Pure/presentational: it takes the chapters and a `tint`.
+/// Pure/presentational: it takes the chapters.
 struct BookChaptersSection: View {
     let chapters: [BookChapterRow]
-    /// Per-book accent, derived from cover art.
-    let tint: Color
 
     @State private var showAll = false
 
@@ -56,7 +54,7 @@ struct BookChaptersSection: View {
                         ? String(localized: "book.detail_show_less")
                         : String(format: String(localized: "book.detail_all_count"), chapters.count))
                         .font(.subheadline.weight(.medium))
-                        .foregroundStyle(tint)
+                        .foregroundStyle(Color.listenUpOrange)
                 }
             }
         }
@@ -69,7 +67,7 @@ struct BookChaptersSection: View {
             if chapter.isCurrent {
                 Image(systemName: "pause.fill")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(Color.listenUpOrange)
                     .frame(width: 24)
             } else {
                 Text("\(number)")
@@ -80,7 +78,7 @@ struct BookChaptersSection: View {
 
             Text(chapter.title)
                 .font(.subheadline.weight(chapter.isCurrent ? .semibold : .regular))
-                .foregroundStyle(chapter.isCurrent ? tint : .primary)
+                .foregroundStyle(chapter.isCurrent ? Color.listenUpOrange : .primary)
                 .lineLimit(1)
 
             Spacer(minLength: 12)
@@ -102,8 +100,7 @@ struct BookChaptersSection: View {
             BookChapterRow(id: "1", title: "Prologue", duration: "4:21", isCurrent: false),
             BookChapterRow(id: "2", title: "An Unexpected Party", duration: "38:02", isCurrent: true),
             BookChapterRow(id: "3", title: "Roast Mutton", duration: "29:14", isCurrent: false)
-        ],
-        tint: .red
+        ]
     )
     .padding()
 }

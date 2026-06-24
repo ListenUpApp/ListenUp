@@ -6,7 +6,6 @@ import SwiftUI
 /// Maps the book's KMP contributors into native `CastMember`s, then groups via `castGroups`.
 struct CastCreditsSheet: View {
     let book: BookDetail
-    let tint: Color
     let onClose: () -> Void
 
     private static let avatarHues: [Color] = [
