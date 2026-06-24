@@ -180,13 +180,12 @@ fun CompactNowPlaying(
 
             Spacer(Modifier.height(6.dp))
 
-            // Chapter line: "Chapter N · Title" or just "Chapter N".
+            // The chapter's own title, falling back to "Chapter N" only when it's genuinely
+            // untitled. No "Chapter N · " prefix — the title is often itself "Chapter N", which
+            // produced confusing duplicates like "Chapter 3 · Chapter 1" (offset by front-matter).
             val chapterLine =
-                if (!state.chapterTitle.isNullOrBlank()) {
-                    "Chapter ${state.chapterIndex + 1} · ${state.chapterTitle}"
-                } else {
-                    "Chapter ${state.chapterIndex + 1}"
-                }
+                state.chapterTitle?.takeIf { it.isNotBlank() }
+                    ?: "Chapter ${state.chapterIndex + 1}"
             Text(
                 text = chapterLine,
                 style = MaterialTheme.typography.titleSmall,

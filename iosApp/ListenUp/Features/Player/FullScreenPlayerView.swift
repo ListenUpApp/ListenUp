@@ -235,7 +235,11 @@ struct FullScreenPlayerView: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
 
-            Text("Ch. \(observer.chapterIndex + 1) · \(observer.chapterTitle ?? "")")
+            // The chapter's own title; fall back to "Chapter N" only when genuinely untitled.
+            // No "Ch. N · " prefix — the title is often itself "Chapter N", producing confusing
+            // duplicates like "Ch. 3 · Chapter 1" when front-matter offsets the numbering.
+            Text(observer.chapterTitle.flatMap { $0.isEmpty ? nil : $0 }
+                ?? "Chapter \(observer.chapterIndex + 1)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
