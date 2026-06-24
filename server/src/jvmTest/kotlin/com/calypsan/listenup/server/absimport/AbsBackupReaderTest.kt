@@ -15,7 +15,7 @@ class AbsBackupReaderTest :
             val absDb = Files.createTempDirectory("abs-reader-").resolve(AbsSchema.DB_FILENAME)
             buildSyntheticAbsDb(absDb)
 
-            AbsBackupReader().open(absDb).use { handle ->
+            AbsBackupReader().open(absDb.toAbsolutePath().toString()).use { handle ->
                 // Guests are excluded; root + user remain.
                 handle.users().map { it.username } shouldContainExactlyInAnyOrder listOf("root", "simon")
 
@@ -51,7 +51,7 @@ class AbsBackupReaderTest :
         test("in-progress lastUpdateMs survives the seconds-suffix ISO form") {
             val absDb = Files.createTempDirectory("abs-reader-").resolve(AbsSchema.DB_FILENAME)
             buildSyntheticAbsDb(absDb)
-            AbsBackupReader().open(absDb).use { handle ->
+            AbsBackupReader().open(absDb.toAbsolutePath().toString()).use { handle ->
                 val finished = handle.progress().first { it.itemId == "book-1" }
                 // finished row uses the space-separated SQLite datetime form (no T / Z)
                 finished.lastUpdateMs shouldBe 1_642_307_592_000L
@@ -62,7 +62,7 @@ class AbsBackupReaderTest :
             val absDb = Files.createTempDirectory("abs-sessions-").resolve(AbsSchema.DB_FILENAME)
             buildSyntheticAbsDb(absDb)
 
-            AbsBackupReader().open(absDb).use { handle ->
+            AbsBackupReader().open(absDb.toAbsolutePath().toString()).use { handle ->
                 val sessions = handle.playbackSessions()
                 // The podcast session is filtered out; only the book session surfaces.
                 sessions.none { it.itemId == "podcast-1" }.shouldBeTrue()
@@ -88,7 +88,7 @@ class AbsBackupReaderTest :
             // both the session (startedAt → stats minutes/streaks) and progress (sort key) paths.
             val absDb = Files.createTempDirectory("abs-offset-").resolve(AbsSchema.DB_FILENAME)
             buildSyntheticAbsDb(absDb)
-            AbsBackupReader().open(absDb).use { handle ->
+            AbsBackupReader().open(absDb.toAbsolutePath().toString()).use { handle ->
                 val sessionStartedAt = handle.playbackSessions().single { it.itemId == "book-1" }.startedAtMs
                 val progressUpdatedAt = handle.progress().first { it.itemId == "book-2" }.lastUpdateMs
                 // Both sit well after the epoch — the offset form no longer collapses to 1970.
@@ -102,7 +102,7 @@ class AbsBackupReaderTest :
             Files.write(bad, "not a database".toByteArray())
 
             shouldThrow<AbsBackupReader.AbsReadException> {
-                AbsBackupReader().open(bad).use { it.users() }
+                AbsBackupReader().open(bad.toAbsolutePath().toString()).use { it.users() }
             }
         }
 
@@ -111,7 +111,7 @@ class AbsBackupReaderTest :
             val empty = Files.createTempDirectory("abs-empty-").resolve(AbsSchema.DB_FILENAME)
             DriverManager.getConnection("jdbc:sqlite:${empty.toAbsolutePath()}").use { it.createStatement().use {} }
             shouldThrow<AbsBackupReader.AbsReadException> {
-                AbsBackupReader().open(empty).use { it.users() }
+                AbsBackupReader().open(empty.toAbsolutePath().toString()).use { it.users() }
             }.shouldNotBeNull()
         }
     })

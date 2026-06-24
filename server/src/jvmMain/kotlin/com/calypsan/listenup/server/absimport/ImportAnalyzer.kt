@@ -59,7 +59,7 @@ class ImportAnalyzer internal constructor(
             try {
                 onEvent(ImportEvent.Parsing)
                 val absData =
-                    reader.open(absDb).use { handle ->
+                    reader.open(absDb.toAbsolutePath().toString()).use { handle ->
                         AbsReadResult(
                             handle.users(),
                             handle.bookItems(),
