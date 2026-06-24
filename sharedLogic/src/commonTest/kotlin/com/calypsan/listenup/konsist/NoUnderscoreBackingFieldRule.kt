@@ -21,7 +21,9 @@ class NoUnderscoreBackingFieldRule :
         // ViewModelUsesStateInWhileSubscribedRule).
         val allowed = setOf("RestoreFromFileViewModel")
 
-        test("no production class uses the underscore Mutable(StateFlow|SharedFlow) backing pattern; use explicit `field =`") {
+        test(
+            "no production class uses the underscore Mutable(StateFlow|SharedFlow) backing pattern; use explicit `field =`",
+        ) {
             val offenders =
                 Konsist
                     .scopeFromProduction()
