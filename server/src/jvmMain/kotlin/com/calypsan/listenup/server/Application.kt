@@ -144,7 +144,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.rpc.krpc.ktor.server.Krpc
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
-import org.koin.ktor.plugin.Koin
+import org.koin.ktor.plugin.KoinIsolated
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -268,7 +268,11 @@ private fun Application.installDependencies(
     embeddedCoverCacheSize: Int,
     watchEnabled: Boolean,
 ) {
-    install(Koin) {
+    // KoinIsolated (not Koin): the DI graph is scoped to THIS Application instance instead of the
+    // process-global Koin context. Production runs one Application, so behaviour is unchanged — but
+    // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
+    // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
+    install(KoinIsolated) {
         val modules = mutableListOf(authModule(environment.config))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
