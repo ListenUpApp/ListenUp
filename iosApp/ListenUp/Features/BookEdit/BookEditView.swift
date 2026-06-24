@@ -147,7 +147,7 @@ struct BookEditView: View {
     private func contributorSection(
         title: String,
         empty: String,
-        contributors: [EditableContributor],
+        contributors: [EditableRelation],
         role: ContributorRole,
         observer: BookEditObserver
     ) -> some View {
@@ -157,11 +157,11 @@ struct BookEditView: View {
                 EmptyRelationHint(text: empty)
             } else {
                 ChipFlow {
-                    ForEach(contributors, id: \.name) { contributor in
+                    ForEach(contributors) { contributor in
                         RemovableChip(
-                            label: contributor.name,
+                            label: contributor.label,
                             roleKind: roleKind,
-                            removeLabel: String(format: String(localized: "common.remove_name"), contributor.name),
+                            removeLabel: String(format: String(localized: "common.remove_name"), contributor.label),
                             onRemove: { observer.removeContributor(contributor, role: role) }
                         )
                     }
@@ -177,11 +177,11 @@ struct BookEditView: View {
                 EmptyRelationHint(text: String(localized: "book.edit_no_series"))
             } else {
                 ChipFlow {
-                    ForEach(observer.series, id: \.name) { entry in
+                    ForEach(observer.series) { entry in
                         RemovableChip(
-                            label: BookEditFormatting.seriesLabel(name: entry.name, sequence: entry.sequence),
+                            label: entry.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), entry.name),
+                            removeLabel: String(format: String(localized: "common.remove_name"), entry.label),
                             onRemove: { observer.removeSeries(entry) }
                         )
                     }
@@ -197,11 +197,11 @@ struct BookEditView: View {
                 EmptyRelationHint(text: String(localized: "book.edit_no_genres"))
             } else {
                 ChipFlow {
-                    ForEach(observer.genres, id: \.id) { genre in
+                    ForEach(observer.genres) { genre in
                         RemovableChip(
-                            label: genre.name,
+                            label: genre.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), genre.name),
+                            removeLabel: String(format: String(localized: "common.remove_name"), genre.label),
                             onRemove: { observer.removeGenre(genre) }
                         )
                     }
@@ -217,12 +217,11 @@ struct BookEditView: View {
                 EmptyRelationHint(text: String(localized: "book.edit_no_tags"))
             } else {
                 ChipFlow {
-                    ForEach(observer.tags, id: \.id) { tag in
-                        let label = BookEditFormatting.tagLabel(slug: tag.slug)
+                    ForEach(observer.tags) { tag in
                         RemovableChip(
-                            label: label,
+                            label: tag.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), label),
+                            removeLabel: String(format: String(localized: "common.remove_name"), tag.label),
                             onRemove: { observer.removeTag(tag) }
                         )
                     }
@@ -238,12 +237,11 @@ struct BookEditView: View {
                 EmptyRelationHint(text: String(localized: "book.edit_no_moods"))
             } else {
                 ChipFlow {
-                    ForEach(observer.moods, id: \.id) { mood in
-                        let label = BookEditFormatting.tagLabel(slug: mood.slug)
+                    ForEach(observer.moods) { mood in
                         RemovableChip(
-                            label: label,
+                            label: mood.label,
                             roleKind: nil,
-                            removeLabel: String(format: String(localized: "common.remove_name"), label),
+                            removeLabel: String(format: String(localized: "common.remove_name"), mood.label),
                             onRemove: { observer.removeMood(mood) }
                         )
                     }
