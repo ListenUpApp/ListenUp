@@ -1,7 +1,7 @@
 package com.calypsan.listenup.detekt
 
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.test.lint
+import dev.detekt.api.Config
+import dev.detekt.test.lint
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
