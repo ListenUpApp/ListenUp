@@ -11,7 +11,6 @@ final class SeriesDetailObserver {
     private(set) var seriesName: String = ""
     private(set) var seriesDescription: String?
     private(set) var seriesAuthor: String?
-    private(set) var seriesNarrator: String?
     private(set) var coverPath: String?
     private(set) var totalDuration: String = ""
     private(set) var books: [BookRow] = []
@@ -115,7 +114,6 @@ final class SeriesDetailObserver {
             seriesName = r.seriesName
             seriesDescription = r.seriesDescription
             seriesAuthor = r.seriesAuthor
-            seriesNarrator = r.seriesNarrator
             coverPath = r.coverPath
             totalDuration = r.formatTotalDuration()
             books = r.books.map { BookRow($0, sequence: $0.series.first?.sequence) }

@@ -83,8 +83,6 @@ struct SeriesDetailView: View {
                     .padding(.top, 16)
                 statStripSection(observer: observer)
                     .padding(.vertical, 20)
-                continueButton(observer: observer)
-                    .padding(.horizontal)
                 if let description = observer.seriesDescription, !description.isEmpty {
                     ExpandableText(
                         title: String(localized: "common.about"),
@@ -92,8 +90,10 @@ struct SeriesDetailView: View {
                         lineLimit: 3
                     )
                     .padding(.horizontal)
-                    .padding(.top, 20)
                 }
+                continueButton(observer: observer)
+                    .padding(.horizontal)
+                    .padding(.top, 20)
                 booksSection(observer: observer)
                     .padding(.top, 20)
             }
@@ -109,15 +109,15 @@ struct SeriesDetailView: View {
                     heroSection(observer: observer)
                     statStripSection(observer: observer)
                         .padding(.vertical, 20)
-                    continueButton(observer: observer)
                     if let description = observer.seriesDescription, !description.isEmpty {
                         ExpandableText(
                             title: String(localized: "common.about"),
                             text: description,
                             lineLimit: 3
                         )
-                        .padding(.top, 20)
                     }
+                    continueButton(observer: observer)
+                        .padding(.top, 20)
                 }
                 .frame(width: 340, alignment: .top)
                 // Right column — books list
@@ -149,11 +149,6 @@ struct SeriesDetailView: View {
                 Text(author)
                     .font(.callout)
                     .foregroundStyle(.primary)
-            }
-            if let narrator = observer.seriesNarrator {
-                Text(verbatim: String(format: String(localized: "series.narrated_by"), narrator))
-                    .font(.subheadline)
-                    .foregroundStyle(Color.luLabel2)
             }
         }
         .padding(.horizontal)
