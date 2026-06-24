@@ -13,9 +13,11 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.ExperimentalTime
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
+/** The verified claims from a valid access token: the authenticated user, their session, role, and expiry. */
 data class AccessTokenClaims(
     val userId: UserId,
     val sessionId: SessionId,
@@ -23,21 +25,23 @@ data class AccessTokenClaims(
     val expiresAt: Long, // unix millis
 )
 
+/** Thrown when an access token fails verification — bad signature, malformed structure, or an invalid/expired claim. */
 class JwtVerificationException(
     message: String,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)
 
+/** The HS256 JWT payload — registered (`iss`/`aud`/`sub`/`jti`/`iat`/`nbf`/`exp`) plus the custom `role` claim. */
 @Serializable
 private data class JwtPayload(
-    val iss: String? = null,
-    val aud: String? = null,
-    val sub: String? = null,
-    val jti: String? = null,
-    val role: String? = null,
-    val iat: Long? = null,
-    val nbf: Long? = null,
-    val exp: Long? = null,
+    @SerialName("iss") val iss: String? = null,
+    @SerialName("aud") val aud: String? = null,
+    @SerialName("sub") val sub: String? = null,
+    @SerialName("jti") val jti: String? = null,
+    @SerialName("role") val role: String? = null,
+    @SerialName("iat") val iat: Long? = null,
+    @SerialName("nbf") val nbf: Long? = null,
+    @SerialName("exp") val exp: Long? = null,
 )
 
 /**
