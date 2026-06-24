@@ -3,18 +3,22 @@ import AVFoundation
 @testable import ListenUp
 @preconcurrency import Shared
 
-/// Polls `condition` until true or the timeout elapses. Replaces fixed `Task.sleep`
-/// waits so tests finish as soon as the async work completes and only fail if it
-/// genuinely never does — deterministic, no wall-clock floor.
+/// Polls `condition` until true or the timeout elapses.
 ///
-/// The ceiling is deliberately generous. A passing condition returns in milliseconds, so the
+/// **Prefer the fakes' `AsyncGate` waits** (`progress.waitForStarted(bookId:)`,
+/// `progress.waitForPositionUpdate(…)`, `engine.waitUntilPaused()`, etc.): they await the exact
+/// state transition by causality and have no wall-clock dependence, which is what de-flaked the
+/// engine/progress/sleep assertions under saturated CI. Anchor "playback has started" on the
+/// coordinator's own `waitForStarted` callback (emitted *after* `phase = .playing`), never on the
+/// `engine.play()` command — the latter races the coordinator's post-`play` phase write.
+/// This poll remains only for the few cases that observe the coordinator's own `@Observable`
+/// state set from internal `Task`s the fakes can't signal (e.g. `firstPdfDocId`,
+/// `documentToOpen`) — and for the bounded *negative* check in `stopSeversEngineObservation`.
+///
+/// The ceiling is deliberately generous: a passing condition returns in milliseconds, so the
 /// timeout is never paid on a green run — it is only ever reached when the awaited work
-/// genuinely never happens. The most async-heavy tests here (`play` → `Task` → engine;
-/// route-change / sleep-fired via `AsyncSequence` → `bridge.bind` → `Task`) hop through many
-/// suspension points, and on a contended 2-core CI runner the shared `@MainActor` is so
-/// saturated by parallel suites that those hops take far longer in wall-clock than the work
-/// itself — an 8 s cap intermittently elapsed before the chain drained. 30 s gives the
-/// saturated scheduler ample room without slowing healthy runs.
+/// genuinely never happens. 30 s gives a saturated scheduler ample room without slowing
+/// healthy runs.
 @MainActor
 func awaitUntil(
     timeout: Duration = .seconds(30),
@@ -92,7 +96,7 @@ struct PlayerCoordinatorWiringTests {
     @Test func playLoadsAndStartsEngineAtResumePosition() async throws {
         let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
         #expect(await engine.didPlay)
         #expect(await engine.lastRate == 1.5)
         #expect(progress.startedCalls.first?.0 == "book1")
@@ -120,10 +124,10 @@ struct SleepTimerFiringTests {
             preparer: preparer, progress: progress, sleep: sleep,
             engine: engine, coverProvider: FakeBookCoverProviding(), fadeStepDelay: .zero)
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
 
         sleep.emitFired()
-        await awaitUntil { await engine.didPause && sleep.fadeCompletedCount == 1 }
+        await sleep.waitForFadeCompleted()
 
         #expect(await engine.didPause)
         #expect(sleep.fadeCompletedCount == 1)
@@ -148,7 +152,7 @@ struct SaveCurrentPositionTests {
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
 
         await coordinator.saveCurrentPosition()
 
@@ -182,8 +186,9 @@ struct InterruptionPolicyTests {
 @Suite("Route change handling")
 @MainActor
 struct RouteChangeTests {
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine) {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
@@ -192,22 +197,22 @@ struct RouteChangeTests {
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
         )
         let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
-        return (coordinator, engine)
+        return (coordinator, engine, progress)
     }
 
     @Test func routeChangeOldDeviceUnavailablePauses() async {
-        let (coordinator, engine) = makeCoordinator()
+        let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
 
         NotificationCenter.default.post(
             name: AVAudioSession.routeChangeNotification, object: nil,
             userInfo: [AVAudioSessionRouteChangeReasonKey:
                 NSNumber(value: AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue)])
 
-        await awaitUntil { await engine.didPause }
+        await engine.waitUntilPaused()
         #expect(await engine.didPause)
     }
 
@@ -231,6 +236,7 @@ struct RouteChangePolicyTests {
 struct EndOfChapterTests {
     @Test func chapterChangeNotifiesSleepTiming() async throws {
         let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
         let sleep = FakeSleepTiming()
         let preparer = FakePlaybackPreparing()
         let chapters = [
@@ -244,14 +250,14 @@ struct EndOfChapterTests {
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 2000, startOffsetMs: 0)])
         )
         let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: FakeProgressReporting(), sleep: sleep,
+            preparer: preparer, progress: progress, sleep: sleep,
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
 
         // Position now in chapter 1 → engine emits a position past the chapter boundary.
         engine.emit(.position(ms: 1500, rate: 1.0))
-        await awaitUntil { sleep.chapterChanges.contains(1) }
+        await sleep.waitForChapterChange(to: 1)
 
         #expect(sleep.chapterChanges.contains(1))
     }
@@ -274,10 +280,10 @@ struct SeekPersistenceTests {
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
 
         coordinator.seekTo(positionMs: 30000)
-        await awaitUntil { progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 30000 } }
+        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 30000)
 
         #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 30000 })
     }
@@ -381,8 +387,9 @@ struct DocumentProviderTests {
 @Suite("Playback lifecycle")
 @MainActor
 struct PlaybackLifecycleTests {
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine) {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
@@ -391,22 +398,25 @@ struct PlaybackLifecycleTests {
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
         )
         let coordinator = PlayerCoordinator(
-            preparer: preparer, progress: FakeProgressReporting(), sleep: FakeSleepTiming(),
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
-        return (coordinator, engine)
+        return (coordinator, engine, progress)
     }
 
     /// A full play → pause → stop journey leaves the engine and `phase` consistent:
     /// playing after play, paused after toggle, torn down (and hidden) after stop.
     @Test func playPauseStopLeavesConsistentState() async throws {
-        let (coordinator, engine) = makeCoordinator()
+        let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        // Anchor on the coordinator's own "started" callback, not `engine.play()`: the
+        // coordinator sets `phase = .playing` *then* reports started, so awaiting the engine
+        // command would race the phase write and read `isPlaying` before it flips.
+        await progress.waitForStarted(bookId: "book1")
         #expect(coordinator.isPlaying)
         #expect(coordinator.isVisible)
 
         coordinator.togglePlayback()
-        await awaitUntil { await engine.didPause }
+        await engine.waitUntilPaused()
         #expect(coordinator.isPlaying == false)
 
         await coordinator.stop()
@@ -419,9 +429,9 @@ struct PlaybackLifecycleTests {
     /// it to `.error`; we poll briefly so a real leak is caught fast while a healthy run
     /// pays only a small bounded cost.
     @Test func stopSeversEngineObservation() async throws {
-        let (coordinator, engine) = makeCoordinator()
+        let (coordinator, engine, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
-        await awaitUntil { await engine.didPlay }
+        await progress.waitForStarted(bookId: "book1")
 
         await coordinator.stop()
         engine.emit(.failed(message: "late event after stop"))

@@ -18,6 +18,10 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// session is deactivated before the engine is released.
     private(set) var teardownOrder: [String] = []
 
+    /// Fires whenever a recorded command lands, so a test can `await` the exact
+    /// transition (e.g. play, pause) deterministically instead of polling the clock.
+    private let gate = AsyncGate()
+
     init() {
         var c: AsyncStream<AudioEngineEvent>.Continuation!
         events = AsyncStream { c = $0 }
@@ -28,13 +32,18 @@ actor FakePlaybackEngine: PlaybackEngine {
     nonisolated func emit(_ event: AudioEngineEvent) { continuation.yield(event) }
 
     func load(segments: [AudioSegment], startPositionMs: Int64) async {}
-    func play() async { didPlay = true }
-    func pause() async { didPause = true }
-    func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs }
-    func setRate(_ newRate: Float) async { lastRate = newRate }
-    func setVolume(_ volume: Float) async { lastVolume = volume }
-    func deactivateSession() async { didDeactivateSession = true; teardownOrder.append("deactivate") }
-    func release() async { didRelease = true; teardownOrder.append("release") }
+    func play() async { didPlay = true; gate.fire("play") }
+    func pause() async { didPause = true; gate.fire("pause") }
+    func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs; gate.fire("seek") }
+    func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
+    func setVolume(_ volume: Float) async { lastVolume = volume; gate.fire("setVolume") }
+    func deactivateSession() async {
+        didDeactivateSession = true; teardownOrder.append("deactivate"); gate.fire("deactivate")
+    }
+    func release() async { didRelease = true; teardownOrder.append("release"); gate.fire("release") }
+
+    /// Suspend until `pause()` has executed. Returns immediately if it already has.
+    func waitUntilPaused() async { await gate.wait(forKey: "pause") }
 }
 
 // MARK: - Task 2 seam fakes
@@ -47,12 +56,45 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     private(set) var finished: [(String, Int64)] = []
     private(set) var savedNow: [(String, Int64)] = []
 
-    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) { startedCalls.append((bookId, positionMs, speed)) }
-    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float) { pausedCalls.append((bookId, positionMs, speed)) }
-    func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) { positionUpdates.append((bookId, positionMs, speed)) }
-    func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) { speedChanges.append((bookId, positionMs, newSpeed)) }
-    func onBookFinished(bookId: String, finalPositionMs: Int64) { finished.append((bookId, finalPositionMs)) }
-    func savePositionNow(bookId: String, positionMs: Int64) async { savedNow.append((bookId, positionMs)) }
+    /// Fires on each recorded call. The coordinator drives this fake on the main actor and
+    /// tests await on the main actor — one isolation domain, so the gate needs no locking.
+    private let gate = AsyncGate()
+
+    func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
+        startedCalls.append((bookId, positionMs, speed)); gate.signal()
+    }
+    func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float) {
+        pausedCalls.append((bookId, positionMs, speed)); gate.signal()
+    }
+    func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
+        positionUpdates.append((bookId, positionMs, speed)); gate.signal()
+    }
+    func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
+        speedChanges.append((bookId, positionMs, newSpeed)); gate.signal()
+    }
+    func onBookFinished(bookId: String, finalPositionMs: Int64) {
+        finished.append((bookId, finalPositionMs)); gate.signal()
+    }
+    func savePositionNow(bookId: String, positionMs: Int64) async {
+        savedNow.append((bookId, positionMs)); gate.signal()
+    }
+
+    /// Suspend until playback has been reported started for `bookId`.
+    ///
+    /// This is the canonical "the coordinator has finished starting" anchor: the coordinator
+    /// sets `phase = .playing` and *then* calls `onPlaybackStarted`, so once this returns the
+    /// observable surface (`isPlaying`, `isVisible`, `phase.playingState`) is already consistent.
+    /// Anchoring on `engine.play()` instead would race the coordinator's post-`play` phase write.
+    func waitForStarted(bookId: String) async {
+        await gate.wait { [weak self] in self?.startedCalls.contains { $0.0 == bookId } ?? false }
+    }
+
+    /// Suspend until a position update for `bookId` at `positionMs` has been recorded.
+    func waitForPositionUpdate(bookId: String, positionMs: Int64) async {
+        await gate.wait { [weak self] in
+            self?.positionUpdates.contains { $0.0 == bookId && $0.1 == positionMs } ?? false
+        }
+    }
 }
 
 final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
@@ -63,6 +105,10 @@ final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
     private(set) var fadeCompletedCount = 0
     private(set) var chapterChanges: [Int] = []
 
+    /// Fires on fade-completed and chapter-change callbacks (both driven on the main actor),
+    /// so tests can await those exact transitions without polling.
+    private let gate = AsyncGate()
+
     init() {
         var sc: AsyncStream<SleepTimingState>.Continuation!
         stateStream = AsyncStream { sc = $0 }; stateContinuation = sc
@@ -70,11 +116,21 @@ final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
         fired = AsyncStream { fc = $0 }; firedContinuation = fc
     }
     func emitFired() { firedContinuation.yield(()) }
-    func onFadeCompleted() { fadeCompletedCount += 1 }
-    func onChapterChanged(newChapterIndex: Int) { chapterChanges.append(newChapterIndex) }
+    func onFadeCompleted() { fadeCompletedCount += 1; gate.signal() }
+    func onChapterChanged(newChapterIndex: Int) { chapterChanges.append(newChapterIndex); gate.signal() }
     func setDurationTimer(minutes: Int) {}
     func setEndOfChapterTimer() {}
     func cancelTimer() {}
+
+    /// Suspend until the fade-completed callback has fired exactly once.
+    func waitForFadeCompleted() async {
+        await gate.wait { [weak self] in (self?.fadeCompletedCount ?? 0) >= 1 }
+    }
+
+    /// Suspend until a chapter change to `index` has been recorded.
+    func waitForChapterChange(to index: Int) async {
+        await gate.wait { [weak self] in self?.chapterChanges.contains(index) ?? false }
+    }
 }
 
 final class FakeBookCoverProviding: BookCoverProviding, @unchecked Sendable {
