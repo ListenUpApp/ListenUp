@@ -4,10 +4,12 @@ import SwiftUI
 /// The folder-picker step of first-run library setup. The user browses the server's
 /// filesystem and chooses the folders that hold their audiobooks.
 ///
-/// Two row kinds are made visually unmistakable (the whole point of this screen):
-/// a folder with subfolders is **navigable** (chevron, tap drills in) and a leaf folder
-/// is **selectable** (checkmark, tap toggles inclusion). A parent that only contains
-/// subfolders can still be picked wholesale via the empty-state "Select this folder".
+/// **Every** folder is directly selectable: each row carries a trailing selection circle
+/// (tap to toggle inclusion) regardless of whether it has subfolders, mirroring the Android
+/// picker. A folder that has subfolders *also* shows a chevron and drills in when its body is
+/// tapped, so you can pick a parent wholesale or dive in to pick children — without ever
+/// hunting for a single action at the bottom of a long list. When the current folder has no
+/// subfolders at all, a lone "Select this folder" row lets you include it directly.
 ///
 /// The view owns no business logic — it binds the shared ``LibrarySetupViewModelWrapper``,
 /// which the setup coordinator (Task 5) constructs once and threads through the flow.
@@ -111,25 +113,22 @@ struct ChooseFoldersView: View {
     private var directorySection: some View {
         if viewModel.isLoadingDirectories {
             AuthFieldGroup { loadingRow }
+        } else if viewModel.directories.isEmpty {
+            // No subfolders here — the drill-in rows are gone, so offer to include this
+            // folder itself as a library root.
+            AuthFieldGroup { selectCurrentRow }
         } else {
+            // Every folder is directly selectable via its own row (see FolderRow); a parent
+            // that holds book subfolders is picked from this list without drilling in.
             AuthFieldGroup {
-                if viewModel.directories.isEmpty {
-                    noSubfoldersRow
-                } else {
-                    ForEach(Array(viewModel.directories.enumerated()), id: \.element.id) { _, item in
-                        FolderRow(
-                            item: item,
-                            isLast: false,
-                            onOpen: { viewModel.open(item.path) },
-                            onToggle: { viewModel.toggle(item.path) }
-                        )
-                    }
+                ForEach(Array(viewModel.directories.enumerated()), id: \.element.id) { index, item in
+                    FolderRow(
+                        item: item,
+                        isLast: index == viewModel.directories.count - 1,
+                        onOpen: { viewModel.open(item.path) },
+                        onToggle: { viewModel.toggle(item.path) }
+                    )
                 }
-                // Always offer to include the CURRENT folder itself as a library root. A folder
-                // with subfolders is otherwise navigable-only — so without this you can't select a
-                // parent that holds book subfolders (i.e. a normal audiobooks folder), which is the
-                // common case.
-                selectCurrentRow
             }
         }
     }
@@ -146,20 +145,7 @@ struct ChooseFoldersView: View {
         .padding(.horizontal, 14)
     }
 
-    /// Shown when the current folder has no subfolders: the drill-in rows are gone, but
-    /// `selectCurrentRow` below still lets the user pick this folder wholesale.
-    private var noSubfoldersRow: some View {
-        HStack {
-            Text(String(localized: "library_setup.no_subfolders"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .frame(minHeight: 56)
-        .padding(.horizontal, 14)
-    }
-
-    /// Always-available control to include the CURRENT folder as a library root — it toggles the
+    /// Control to include the CURRENT folder as a library root — it toggles the
     /// folder's selection (mirroring a leaf `FolderRow`'s checkmark). This is what lets a parent
     /// folder that holds book subfolders be chosen, instead of only empty leaf folders.
     private var selectCurrentRow: some View {
@@ -216,9 +202,10 @@ struct ChooseFoldersView: View {
 
 // MARK: - Folder row
 
-/// A single directory row. The trailing affordance is the delineation: a `chevron.right`
-/// for a navigable folder (has subfolders → tap drills in), or a selection circle for a
-/// leaf (tap toggles inclusion). The two never both appear.
+/// A single directory row with two independent tap targets, mirroring the Android picker:
+/// the **body** (tile + name) drills in when the folder has subfolders, otherwise toggles it;
+/// the trailing **selection circle** always toggles inclusion, so any folder can be chosen
+/// straight from the list. A `chevron.right` follows the circle on folders that can be opened.
 private struct FolderRow: View {
     let item: DirectoryItem
     let isLast: Bool
@@ -226,28 +213,49 @@ private struct FolderRow: View {
     let onToggle: () -> Void
 
     var body: some View {
-        Button(action: item.hasChildren ? onOpen : onToggle) {
-            HStack(spacing: 13) {
-                glyph
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Text(String(format: String(localized: "library_setup.item_count"), item.itemCount))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+        HStack(spacing: 13) {
+            // Primary tap target: drill into subfolders, or toggle a leaf folder.
+            Button(action: item.hasChildren ? onOpen : onToggle) {
+                HStack(spacing: 13) {
+                    glyph
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(item.name)
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Text(String(format: String(localized: "library_setup.item_count"), item.itemCount))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 8)
                 }
-                Spacer(minLength: 8)
-                trailing
+                .contentShape(Rectangle())
             }
-            .frame(minHeight: 60)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 6)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(
+                format: String(localized: "library_setup.folder_a11y_label"),
+                item.name, item.itemCount
+            ))
+            .accessibilityHint(item.hasChildren
+                ? String(localized: "library_setup.folder_opens_hint")
+                : selectHint)
+
+            // Always-present selection toggle — every folder is directly selectable.
+            CircularCheckToggle(isOn: item.isSelected, action: onToggle)
+                .accessibilityLabel(selectHint)
+
+            // Drill affordance for folders that have subfolders.
+            if item.hasChildren {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+                    .accessibilityHidden(true)
+            }
         }
-        .buttonStyle(.plain)
+        .frame(minHeight: 60)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
@@ -256,12 +264,6 @@ private struct FolderRow: View {
                     .padding(.leading, 67)
             }
         }
-        .accessibilityLabel(String(
-            format: String(localized: "library_setup.folder_a11y_label"),
-            item.name, item.itemCount
-        ))
-        .accessibilityHint(accessibilityHint)
-        .accessibilityAddTraits(item.isSelected ? .isSelected : [])
     }
 
     /// A coloured folder tile, mirroring `ServerRow`'s leading icon idiom.
@@ -275,26 +277,8 @@ private struct FolderRow: View {
             }
     }
 
-    @ViewBuilder
-    private var trailing: some View {
-        if item.hasChildren {
-            // Navigable: drill into subfolders. No selection control.
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        } else {
-            // Leaf: selectable. No chevron.
-            Image(systemName: item.isSelected ? "checkmark.circle.fill" : "circle")
-                .font(.title3)
-                .foregroundStyle(item.isSelected ? Color.listenUpOrange : .secondary)
-        }
-    }
-
-    private var accessibilityHint: String {
-        if item.hasChildren {
-            return String(localized: "library_setup.folder_opens_hint")
-        }
-        return item.isSelected
+    private var selectHint: String {
+        item.isSelected
             ? String(localized: "library_setup.folder_deselect_hint")
             : String(localized: "library_setup.folder_select_hint")
     }
