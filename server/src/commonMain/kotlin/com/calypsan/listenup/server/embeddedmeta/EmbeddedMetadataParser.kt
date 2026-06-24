@@ -3,12 +3,12 @@ package com.calypsan.listenup.server.embeddedmeta
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.io.IOException
 import kotlinx.io.files.Path
-import java.io.IOException
 import kotlin.text.HexFormat
 
 /**
@@ -35,7 +35,7 @@ internal open class EmbeddedMetadataParser(
     private val sourceFactory: (Path) -> SeekableAudioSource = ::defaultSeekableSource,
 ) {
     open suspend fun parse(path: Path): AppResult<EmbeddedAudioMetadata> =
-        withContext(Dispatchers.IO) {
+        withContext(fileIoDispatcher) {
             val source =
                 try {
                     sourceFactory(path)

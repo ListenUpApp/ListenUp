@@ -9,8 +9,8 @@ import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import com.calypsan.listenup.server.embeddedmeta.emptyAudioTags
-import java.io.IOException
 import kotlinx.coroutines.CancellationException
+import kotlinx.io.IOException
 
 /**
  * Parses MP4 / M4A / M4B audiobook metadata.

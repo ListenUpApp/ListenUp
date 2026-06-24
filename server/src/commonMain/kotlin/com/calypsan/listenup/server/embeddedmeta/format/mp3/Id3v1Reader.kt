@@ -2,6 +2,7 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
+import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
 
 /**
  * Reads the legacy 128-byte ID3v1 footer when no ID3v2 tag is present.
@@ -63,7 +64,7 @@ internal object Id3v1Reader {
         while (end > offset && (bytes[end - 1] == 0.toByte() || bytes[end - 1] == 0x20.toByte())) {
             end--
         }
-        return String(bytes, offset, end - offset, Charsets.ISO_8859_1)
+        return TextDecoding.decodeLatin1(bytes, offset, end - offset)
     }
 
     private const val ID3V1_LEN = 128

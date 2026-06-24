@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.domain.embeddedmeta.AudioStreamInfo
+import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
 
 /**
  * Extracts [AudioStreamInfo] (codec, profile, spatial flag, bitrate, sample
@@ -127,7 +128,7 @@ internal object Mp4CodecExtractor {
         val hdlr = AtomWalker.findChild(moovBytes, mdia.dataOffset, mdia.end, "hdlr") ?: return false
         // hdlr FullBox: version+flags(4) + pre_defined(4) + handler_type(4).
         if (hdlr.dataOffset + 12 > hdlr.end) return false
-        return String(moovBytes, hdlr.dataOffset + 8, 4, Charsets.ISO_8859_1) == "soun"
+        return TextDecoding.decodeLatin1(moovBytes, hdlr.dataOffset + 8, 4) == "soun"
     }
 
     /** Read the first sample entry box from `trak → mdia → minf → stbl → stsd`. */

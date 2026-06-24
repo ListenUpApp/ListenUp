@@ -2,7 +2,8 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
-import java.io.IOException
+import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
+import kotlinx.io.IOException
 
 /**
  * Result of [MpegDurationCalculator.compute]: duration plus the technical
@@ -118,7 +119,7 @@ internal object MpegDurationCalculator {
     ): Long? {
         val xingOffset = syncOffset + 4 + frame.sideInfoSize
         if (xingOffset + 12 > prefix.size) return null
-        val tag = String(prefix, xingOffset, 4, Charsets.ISO_8859_1)
+        val tag = TextDecoding.decodeLatin1(prefix, xingOffset, 4)
         if (tag != "Xing" && tag != "Info") return null
         val flags = readInt32BE(prefix, xingOffset + 4)
         // Bit 0: frames field is present.
@@ -143,7 +144,7 @@ internal object MpegDurationCalculator {
     ): Long? {
         val vbriOffset = syncOffset + 32
         if (vbriOffset + 18 > prefix.size) return null
-        val tag = String(prefix, vbriOffset, 4, Charsets.ISO_8859_1)
+        val tag = TextDecoding.decodeLatin1(prefix, vbriOffset, 4)
         if (tag != "VBRI") return null
         val frameCount = readInt32BE(prefix, vbriOffset + 14).toLong()
         if (frameCount <= 0) return null

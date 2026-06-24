@@ -2,6 +2,7 @@
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
 
 /**
  * Lightweight MP4 atom (box) walker over an in-memory byte slice.
@@ -71,7 +72,7 @@ internal object AtomWalker {
             throw AtomParseException(offset, "atom header (need 8 bytes, have ${end - offset})")
         }
         val size32 = readBeInt32(bytes, offset)
-        val type = String(bytes, offset + 4, 4, Charsets.ISO_8859_1)
+        val type = TextDecoding.decodeLatin1(bytes, offset + 4, 4)
         val (size, extended) =
             when (size32) {
                 1 -> {
@@ -206,7 +207,7 @@ internal object AtomWalker {
                     ((headerBytes[1].toLong() and 0xFFL) shl 16) or
                     ((headerBytes[2].toLong() and 0xFFL) shl 8) or
                     (headerBytes[3].toLong() and 0xFFL)
-            val atomType = String(headerBytes, 4, 4, Charsets.ISO_8859_1)
+            val atomType = TextDecoding.decodeLatin1(headerBytes, 4, 4)
             val (size, headerSize) =
                 when (size32) {
                     1L -> {
