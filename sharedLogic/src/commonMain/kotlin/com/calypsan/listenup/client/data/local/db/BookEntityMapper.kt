@@ -93,6 +93,11 @@ internal fun AudioFileEntity.toAudioFile(): AudioFile =
         codec = codec,
         duration = duration,
         size = size,
+        codecProfile = codecProfile,
+        spatial = spatial,
+        bitrate = bitrate,
+        sampleRate = sampleRate,
+        channels = channels,
     )
 
 private const val ROLE_AUTHOR = "author"

@@ -215,4 +215,32 @@ class BookEntityMapperTest :
                 .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
                 .hasScanWarning shouldBe false
         }
+
+        test("toAudioFile carries the audio-stream fields") {
+            val entity =
+                AudioFileEntity(
+                    bookId = BookId("b1"),
+                    index = 0,
+                    id = "af1",
+                    filename = "01.m4b",
+                    format = "m4b",
+                    codec = "ac4",
+                    duration = 100L,
+                    size = 1024L,
+                    codecProfile = null,
+                    spatial = "atmos",
+                    bitrate = 320_000,
+                    sampleRate = 48_000,
+                    channels = 2,
+                )
+
+            val domain = entity.toAudioFile()
+
+            domain.codec shouldBe "ac4"
+            domain.spatial shouldBe "atmos"
+            domain.bitrate shouldBe 320_000
+            domain.sampleRate shouldBe 48_000
+            domain.channels shouldBe 2
+            domain.codecProfile shouldBe null
+        }
     })
