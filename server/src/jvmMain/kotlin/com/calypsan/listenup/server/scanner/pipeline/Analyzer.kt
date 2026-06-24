@@ -283,7 +283,7 @@ internal class Analyzer(
             candidate.files.firstOrNull {
                 it.fileType == FileType.METADATA && it.name.equals("metadata.json", ignoreCase = true)
             } ?: return null
-        return metadataReader.read(rootPath.resolve(sidecar.relPath))
+        return metadataReader.read(kotlinx.io.files.Path(rootPath.resolve(sidecar.relPath).toString()))
     }
 
     /**
@@ -318,7 +318,7 @@ internal class Analyzer(
         file: FileEntry,
     ): SidecarMetadata? =
         try {
-            parser.parse(rootPath.resolve(file.relPath))
+            parser.parse(kotlinx.io.files.Path(rootPath.resolve(file.relPath).toString()))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {

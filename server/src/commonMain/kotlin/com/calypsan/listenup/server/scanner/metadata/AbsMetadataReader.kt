@@ -2,14 +2,15 @@ package com.calypsan.listenup.server.scanner.metadata
 
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.external.abs.AbsMetadata
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.io.readText
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
-import java.nio.file.Files
-import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -31,10 +32,10 @@ internal class AbsMetadataReader(
     private val json: Json,
 ) {
     suspend fun read(file: Path): AbsMetadata? =
-        withContext(Dispatchers.IO) {
+        withContext(fileIoDispatcher) {
             runCatching {
-                if (!Files.isRegularFile(file)) return@runCatching null
-                val raw = Files.readString(file, Charsets.UTF_8)
+                if (SystemFileSystem.metadataOrNull(file)?.isRegularFile != true) return@runCatching null
+                val raw = file.readText()
                 val element = json.parseToJsonElement(raw)
                 val flattened =
                     (element as? JsonObject)?.get("metadata")?.let { it as? JsonObject } ?: element

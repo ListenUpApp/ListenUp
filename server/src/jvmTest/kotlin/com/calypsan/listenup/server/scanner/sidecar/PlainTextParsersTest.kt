@@ -12,13 +12,14 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeText
+import kotlinx.io.files.Path as IoPath
 
 class PlainTextParsersTest :
     FunSpec({
 
-        fun fixture(name: String): Path {
+        fun fixture(name: String): IoPath {
             val url = checkNotNull(PlainTextParsersTest::class.java.classLoader.getResource("sidecar/$name"))
-            return Path.of(url.toURI())
+            return IoPath(Path.of(url.toURI()).toString())
         }
 
         context("ReaderTxtParser") {
@@ -49,7 +50,7 @@ class PlainTextParsersTest :
 
                             """.trimIndent()
                         Files.write(tmp, bom + body.toByteArray())
-                        val md = parser.parse(tmp)
+                        val md = parser.parse(IoPath(tmp.toString()))
 
                         md.shouldNotBeNull()
                         md.contributors shouldHaveSize 2
@@ -103,7 +104,7 @@ class PlainTextParsersTest :
                     val tmp = Files.createTempFile("desc-empty", ".txt")
                     try {
                         tmp.writeText("")
-                        parser.parse(tmp).shouldBeNull()
+                        parser.parse(IoPath(tmp.toString())).shouldBeNull()
                     } finally {
                         tmp.deleteIfExists()
                     }

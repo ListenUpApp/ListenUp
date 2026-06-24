@@ -12,6 +12,7 @@ import java.nio.file.Files
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.writeText
+import kotlinx.io.files.Path as IoPath
 
 class AbsMetadataReaderTest :
     FunSpec({
@@ -37,7 +38,7 @@ class AbsMetadataReaderTest :
                         """.trimIndent(),
                     )
 
-                    val md = reader.read(file)
+                    val md = reader.read(IoPath(file.toString()))
 
                     md.shouldNotBeNull()
                     md.title shouldBe "The Way of Kings"
@@ -60,7 +61,7 @@ class AbsMetadataReaderTest :
                     val file = tmp / "metadata.json"
                     file.writeText("""{"metadata":{"title":"Legacy Title","authors":["Author"]}}""")
 
-                    val md = reader.read(file)
+                    val md = reader.read(IoPath(file.toString()))
 
                     md.shouldNotBeNull()
                     md.title shouldBe "Legacy Title"
@@ -78,7 +79,7 @@ class AbsMetadataReaderTest :
                     val file = tmp / "metadata.json"
                     file.writeText("{this is not valid json")
 
-                    reader.read(file).shouldBeNull()
+                    reader.read(IoPath(file.toString())).shouldBeNull()
                 } finally {
                     tmp.toFile().deleteRecursively()
                 }
@@ -89,7 +90,7 @@ class AbsMetadataReaderTest :
             runTest {
                 val tmp = Files.createTempDirectory("listenup-md-")
                 try {
-                    reader.read(tmp / "nope.json").shouldBeNull()
+                    reader.read(IoPath((tmp / "nope.json").toString())).shouldBeNull()
                 } finally {
                     tmp.toFile().deleteRecursively()
                 }
@@ -101,7 +102,7 @@ class AbsMetadataReaderTest :
                 val tmp = Files.createTempDirectory("listenup-md-")
                 try {
                     (tmp / "sub").createDirectories()
-                    reader.read(tmp / "sub").shouldBeNull()
+                    reader.read(IoPath((tmp / "sub").toString())).shouldBeNull()
                 } finally {
                     tmp.toFile().deleteRecursively()
                 }
