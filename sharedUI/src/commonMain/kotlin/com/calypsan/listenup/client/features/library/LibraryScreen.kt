@@ -287,8 +287,10 @@ private fun LibraryLoadedContent(
                         SeriesContent(
                             series = state.series,
                             sortState = state.seriesSortState,
+                            ignoreArticles = state.ignoreTitleArticles,
                             onCategorySelected = { onEvent(LibraryUiEvent.SeriesCategoryChanged(it)) },
                             onDirectionToggle = { onEvent(LibraryUiEvent.SeriesDirectionToggled) },
+                            onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
                             onSeriesClick = onSeriesClick,
                         )
 

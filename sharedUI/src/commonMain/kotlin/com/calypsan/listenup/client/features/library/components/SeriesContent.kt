@@ -34,6 +34,7 @@ import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
+import com.calypsan.listenup.client.util.sortableTitle
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -49,8 +50,10 @@ import listenup.composeapp.generated.resources.library_empty_tab_description
  *
  * @param series List of series with their books
  * @param sortState Current sort state (category + direction)
+ * @param ignoreArticles Whether leading articles (A / An / The) are ignored when sorting by name
  * @param onCategorySelected Called when user selects a new category
  * @param onDirectionToggle Called when user toggles sort direction
+ * @param onToggleIgnoreArticles Called when the "Title sort" toggle is tapped (article-aware name sort)
  * @param onSeriesClick Callback when a series is clicked (passes series ID)
  * @param modifier Optional modifier
  */
@@ -58,8 +61,10 @@ import listenup.composeapp.generated.resources.library_empty_tab_description
 fun SeriesContent(
     series: List<SeriesWithBooks>,
     sortState: SortState,
+    ignoreArticles: Boolean,
     onCategorySelected: (SortCategory) -> Unit,
     onDirectionToggle: () -> Unit,
+    onToggleIgnoreArticles: () -> Unit,
     onSeriesClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -67,90 +72,103 @@ fun SeriesContent(
         if (series.isEmpty()) {
             SeriesEmptyState()
         } else {
-            val gridState = rememberLazyGridState()
-            val scope = rememberCoroutineScope()
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Mirrors the Books tab: the "Title sort" toggle flips article-aware name sorting.
+                LibrarySortBar(
+                    count = series.size,
+                    unit = "series",
+                    ignoreArticles = ignoreArticles,
+                    onToggleArticles = onToggleIgnoreArticles,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                )
 
-            // Build alphabet index for name-based sort
-            val alphabetIndex =
-                remember(series, sortState) {
-                    if (sortState.category == SortCategory.NAME) {
-                        AlphabetIndex.build(series) { it.series.name }
-                    } else {
-                        null
+                Box(modifier = Modifier.fillMaxSize()) {
+                    val gridState = rememberLazyGridState()
+                    val scope = rememberCoroutineScope()
+
+                    // Alphabet index for name sort — article-aware so "The Wandering Inn" files under W.
+                    val alphabetIndex =
+                        remember(series, sortState, ignoreArticles) {
+                            if (sortState.category == SortCategory.NAME) {
+                                AlphabetIndex.build(series) { it.series.name.sortableTitle(ignoreArticles) }
+                            } else {
+                                null
+                            }
+                        }
+
+                    val isScrolling by remember {
+                        derivedStateOf { gridState.isScrollInProgress }
+                    }
+
+                    // Track scroll direction for button visibility
+                    var previousScrollOffset by remember { mutableIntStateOf(0) }
+                    val showSortButton by remember {
+                        derivedStateOf {
+                            val firstVisible = gridState.firstVisibleItemIndex
+                            val currentOffset = gridState.firstVisibleItemScrollOffset
+
+                            val isAtTop = firstVisible == 0 && currentOffset < 50
+                            val isScrollingUp = currentOffset < previousScrollOffset
+
+                            previousScrollOffset = currentOffset
+                            isAtTop || isScrollingUp || !gridState.isScrollInProgress
+                        }
+                    }
+
+                    LazyVerticalGrid(
+                        state = gridState,
+                        columns = GridCells.Adaptive(minSize = 200.dp),
+                        contentPadding =
+                            PaddingValues(
+                                start = 16.dp,
+                                end = 16.dp,
+                                top = 48.dp,
+                                bottom = 16.dp,
+                            ),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        items(
+                            items = series,
+                            key = { it.series.id.value },
+                        ) { seriesWithBooks ->
+                            SeriesCard(
+                                seriesWithBooks = seriesWithBooks,
+                                onClick = { onSeriesClick(seriesWithBooks.series.id.value) },
+                            )
+                        }
+                    }
+
+                    // Sort split button
+                    SortSplitButton(
+                        state = sortState,
+                        categories = SortCategory.seriesCategories,
+                        onCategorySelected = onCategorySelected,
+                        onDirectionToggle = onDirectionToggle,
+                        visible = showSortButton,
+                        modifier =
+                            Modifier
+                                .align(Alignment.TopStart)
+                                .padding(start = 16.dp, top = 8.dp),
+                    )
+
+                    // Alphabet scrollbar (only for name sort)
+                    // Anchored to TopEnd so it stays fixed relative to content start
+                    if (alphabetIndex != null) {
+                        AlphabetScrollbar(
+                            alphabetIndex = alphabetIndex,
+                            onLetterSelected = { index ->
+                                scope.launch { gridState.scrollToItem(index) }
+                            },
+                            isScrolling = isScrolling,
+                            modifier =
+                                Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(top = 56.dp, end = 4.dp, bottom = 0.dp),
+                        )
                     }
                 }
-
-            val isScrolling by remember {
-                derivedStateOf { gridState.isScrollInProgress }
-            }
-
-            // Track scroll direction for button visibility
-            var previousScrollOffset by remember { mutableIntStateOf(0) }
-            val showSortButton by remember {
-                derivedStateOf {
-                    val firstVisible = gridState.firstVisibleItemIndex
-                    val currentOffset = gridState.firstVisibleItemScrollOffset
-
-                    val isAtTop = firstVisible == 0 && currentOffset < 50
-                    val isScrollingUp = currentOffset < previousScrollOffset
-
-                    previousScrollOffset = currentOffset
-                    isAtTop || isScrollingUp || !gridState.isScrollInProgress
-                }
-            }
-
-            LazyVerticalGrid(
-                state = gridState,
-                columns = GridCells.Adaptive(minSize = 200.dp),
-                contentPadding =
-                    PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 48.dp,
-                        bottom = 16.dp,
-                    ),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                items(
-                    items = series,
-                    key = { it.series.id.value },
-                ) { seriesWithBooks ->
-                    SeriesCard(
-                        seriesWithBooks = seriesWithBooks,
-                        onClick = { onSeriesClick(seriesWithBooks.series.id.value) },
-                    )
-                }
-            }
-
-            // Sort split button
-            SortSplitButton(
-                state = sortState,
-                categories = SortCategory.seriesCategories,
-                onCategorySelected = onCategorySelected,
-                onDirectionToggle = onDirectionToggle,
-                visible = showSortButton,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 16.dp, top = 8.dp),
-            )
-
-            // Alphabet scrollbar (only for name sort)
-            // Anchored to TopEnd so it stays fixed relative to content start
-            if (alphabetIndex != null) {
-                AlphabetScrollbar(
-                    alphabetIndex = alphabetIndex,
-                    onLetterSelected = { index ->
-                        scope.launch { gridState.scrollToItem(index) }
-                    },
-                    isScrolling = isScrolling,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 56.dp, end = 4.dp, bottom = 0.dp),
-                )
             }
         }
     }
