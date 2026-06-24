@@ -608,6 +608,26 @@ private fun ImmersiveBookDetail(
                 )
             }
 
+            // Primary actions — connected Play + Download group, kept above the description so the
+            // primary action is reachable without scrolling past the synopsis.
+            if (showPlaybackActions) {
+                item {
+                    PrimaryActionsSection(
+                        downloadStatus = downloadStatus,
+                        onPlayClick = onPlayClick,
+                        onDownloadClick = onDownloadClick,
+                        onCancelClick = onCancelClick,
+                        onDeleteClick = onDeleteClick,
+                        modifier = screenPadding.padding(top = 20.dp),
+                        isWaitingForWifi = isWaitingForWifi,
+                        playEnabled = canPlay,
+                        downloadEnabled = canDownload,
+                        onPlayDisabledClick = onPlayDisabledClick,
+                        showServerWarning = showServerWarning,
+                    )
+                }
+            }
+
             // About — description + Genres + Tags, frameless.
             item {
                 AboutSection(
@@ -624,25 +644,6 @@ private fun ImmersiveBookDetail(
                     creditsSlot = null,
                     modifier = screenPadding.padding(top = 24.dp),
                 )
-            }
-
-            // Primary actions — connected Play + Download group.
-            if (showPlaybackActions) {
-                item {
-                    PrimaryActionsSection(
-                        downloadStatus = downloadStatus,
-                        onPlayClick = onPlayClick,
-                        onDownloadClick = onDownloadClick,
-                        onCancelClick = onCancelClick,
-                        onDeleteClick = onDeleteClick,
-                        modifier = screenPadding.padding(vertical = 16.dp),
-                        isWaitingForWifi = isWaitingForWifi,
-                        playEnabled = canPlay,
-                        downloadEnabled = canDownload,
-                        onPlayDisabledClick = onPlayDisabledClick,
-                        showServerWarning = showServerWarning,
-                    )
-                }
             }
 
             // Readers — social reading activity.
