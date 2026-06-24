@@ -51,20 +51,20 @@ struct SeeAllSearchView: View {
                 systemImage: "exclamationmark.triangle",
                 description: Text(message)
             )
-        case .results(let hits):
-            results(hits) { observer.selectHit($0) }
+        case .results(let rows):
+            results(rows) { observer.selectRow($0) }
         }
     }
 
     @ViewBuilder
-    private func results(_ hits: [SearchHit], onTap: @escaping (SearchHit) -> Void) -> some View {
+    private func results(_ rows: [SearchRow], onTap: @escaping (SearchRow) -> Void) -> some View {
         switch destination.type {
         case .book:
-            SeeAllBookGrid(hits: hits, onTap: onTap)
+            SeeAllBookGrid(rows: rows, onTap: onTap)
         case .contributor:
-            SeeAllRowList(hits: hits) { hit in SearchPersonRow(hit: hit) { onTap(hit) } }
+            SeeAllRowList(rows: rows) { row in SearchPersonRow(row: row) { onTap(row) } }
         case .series:
-            SeeAllRowList(hits: hits) { hit in SearchSeriesRow(hit: hit) { onTap(hit) } }
+            SeeAllRowList(rows: rows) { row in SearchSeriesRow(row: row) { onTap(row) } }
         }
     }
 
@@ -86,16 +86,16 @@ struct SeeAllSearchView: View {
 /// (`GridItem(.adaptive)`), so it reads well at every size — phone, iPad, Split View — instead
 /// of a stretched single column.
 private struct SeeAllBookGrid: View {
-    let hits: [SearchHit]
-    let onTap: (SearchHit) -> Void
+    let rows: [SearchRow]
+    let onTap: (SearchRow) -> Void
 
     private let columns = [GridItem(.adaptive(minimum: 120), spacing: 16)]
 
     var body: some View {
         ScrollView {
             LazyVGrid(columns: columns, alignment: .leading, spacing: 20) {
-                ForEach(hits, id: \.id) { hit in
-                    Button { onTap(hit) } label: { SeeAllBookCard(hit: hit) }
+                ForEach(rows) { row in
+                    Button { onTap(row) } label: { SeeAllBookCard(row: row) }
                         .buttonStyle(.plain)
                 }
             }
@@ -106,19 +106,19 @@ private struct SeeAllBookGrid: View {
 
 /// A single cover card in the See-all books grid: cover + title + author.
 private struct SeeAllBookCard: View {
-    let hit: SearchHit
+    let row: SearchRow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            BookCoverImage(bookId: hit.id, coverPath: hit.coverPath, blurHash: nil)
+            BookCoverImage(bookId: row.id, coverPath: row.coverPath, blurHash: nil)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
-            Text(hit.name)
+            Text(row.name)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
                 .lineLimit(2)
-            if let author = hit.author, !author.isEmpty {
+            if let author = row.author, !author.isEmpty {
                 Text(author)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -131,11 +131,11 @@ private struct SeeAllBookCard: View {
 /// A readable-width `List` of icon-led rows (People / Series). Constrained so it never
 /// stretches edge-to-edge on iPad — a comfortable reading column on regular width.
 private struct SeeAllRowList<Row: View>: View {
-    let hits: [SearchHit]
-    @ViewBuilder let row: (SearchHit) -> Row
+    let rows: [SearchRow]
+    @ViewBuilder let row: (SearchRow) -> Row
 
     var body: some View {
-        List(hits, id: \.id) { hit in row(hit) }
+        List(rows) { row($0) }
             .listStyle(.plain)
             .frame(maxWidth: 700)
             .frame(maxWidth: .infinity)

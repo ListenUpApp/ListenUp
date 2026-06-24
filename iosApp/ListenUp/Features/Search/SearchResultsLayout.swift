@@ -11,19 +11,19 @@ import SwiftUI
 /// Compact layout: one grouped `List`, a section per non-empty kind.
 struct SearchResultsList: View {
     let groups: SearchHitGroups
-    let onTap: (SearchHit) -> Void
+    let onTap: (SearchRow) -> Void
     let onSeeAll: (SearchSeeAllType) -> Void
 
     var body: some View {
         List {
             section(SearchSectionTitle.books, groups.cappedBooks) { hit in
-                SearchBookRow(hit: hit) { onTap(hit) }
+                SearchBookRow(row: hit) { onTap(hit) }
             }
             section(SearchSectionTitle.people, groups.cappedPeople) { hit in
-                SearchPersonRow(hit: hit) { onTap(hit) }
+                SearchPersonRow(row: hit) { onTap(hit) }
             }
             section(SearchSectionTitle.series, groups.cappedSeries) { hit in
-                SearchSeriesRow(hit: hit) { onTap(hit) }
+                SearchSeriesRow(row: hit) { onTap(hit) }
             }
             if !groups.tags.isEmpty {
                 Section(SearchSectionTitle.tags(groups.tags.count)) {
@@ -38,7 +38,7 @@ struct SearchResultsList: View {
     private func section(
         _ title: (Int) -> String,
         _ group: CappedGroup,
-        @ViewBuilder row: @escaping (SearchHit) -> some View
+        @ViewBuilder row: @escaping (SearchRow) -> some View
     ) -> some View {
         if !group.hits.isEmpty {
             Section {
@@ -60,7 +60,7 @@ struct SearchResultsList: View {
 /// across full-screen iPad, Split View, and Stage Manager — not just at one breakpoint.
 struct SearchResultsPad: View {
     let groups: SearchHitGroups
-    let onTap: (SearchHit) -> Void
+    let onTap: (SearchRow) -> Void
     let onSeeAll: (SearchSeeAllType) -> Void
 
     private let coverColumns = [GridItem(.adaptive(minimum: 140), spacing: 20)]
@@ -99,7 +99,7 @@ struct SearchResultsPad: View {
             )
             LazyVGrid(columns: coverColumns, alignment: .leading, spacing: 20) {
                 ForEach(group.hits, id: \.id) { hit in
-                    Button { onTap(hit) } label: { SearchBookCard(hit: hit) }
+                    Button { onTap(hit) } label: { SearchBookCard(row: hit) }
                         .buttonStyle(.plain)
                 }
             }
@@ -109,10 +109,10 @@ struct SearchResultsPad: View {
     private var peopleAndSeriesColumn: some View {
         VStack(alignment: .leading, spacing: 24) {
             railSection(groups.cappedPeople, title: SearchSectionTitle.people) { hit in
-                SearchPersonRow(hit: hit) { onTap(hit) }
+                SearchPersonRow(row: hit) { onTap(hit) }
             }
             railSection(groups.cappedSeries, title: SearchSectionTitle.series) { hit in
-                SearchSeriesRow(hit: hit) { onTap(hit) }
+                SearchSeriesRow(row: hit) { onTap(hit) }
             }
         }
     }
@@ -121,7 +121,7 @@ struct SearchResultsPad: View {
     private func railSection(
         _ group: CappedGroup,
         title: (Int) -> String,
-        @ViewBuilder row: @escaping (SearchHit) -> some View
+        @ViewBuilder row: @escaping (SearchRow) -> some View
     ) -> some View {
         if !group.hits.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
@@ -138,19 +138,19 @@ struct SearchResultsPad: View {
 
 /// A vertical book card for the iPad cover grid: cover + title + author.
 private struct SearchBookCard: View {
-    let hit: SearchHit
+    let row: SearchRow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            BookCoverImage(bookId: hit.id, coverPath: hit.coverPath, blurHash: nil)
+            BookCoverImage(bookId: row.id, coverPath: row.coverPath, blurHash: nil)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
-            Text(hit.name)
+            Text(row.name)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
                 .lineLimit(2)
-            if let author = hit.author, !author.isEmpty {
+            if let author = row.author, !author.isEmpty {
                 Text(author)
                     .font(.caption)
                     .foregroundStyle(.secondary)

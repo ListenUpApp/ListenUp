@@ -51,10 +51,11 @@ final class SearchObserver {
         }
     }
 
-    /// A hit was tapped — let the VM emit the matching `SearchNavAction`, which we
-    /// drain back into `pendingNavigation`.
-    func selectHit(_ hit: SearchHit) {
-        viewModel.onResultClicked(hit: hit)
+    /// A row was tapped — let the VM emit the matching `SearchNavAction` (from id + kind), which
+    /// we drain back into `pendingNavigation`. The native `SearchRow` carries no Kotlin object, so
+    /// nav goes through the VM by id + type rather than the whole hit.
+    func selectRow(_ row: SearchRow) {
+        viewModel.onResultSelected(id: row.id, type: row.kind.hitType)
     }
 
     // MARK: - State mapping
@@ -71,7 +72,7 @@ final class SearchObserver {
         case .searching:
             phase = .searching
         case .results(let results):
-            groups = SearchHitGroups.group(results.result.hits)
+            groups = SearchHitGroups.group(results.result.hits.map { SearchRow($0) })
             phase = groups.isEmpty ? .empty : .results
         case .error(let error):
             phase = .error(error.message)

@@ -34,8 +34,8 @@ final class SeeAllSearchObserver {
         viewModel.load(query: query, type: type.hitType)
     }
 
-    func selectHit(_ hit: SearchHit) {
-        viewModel.onResultClicked(hit: hit)
+    func selectRow(_ row: SearchRow) {
+        viewModel.onResultSelected(id: row.id, type: row.kind.hitType)
     }
 
     // MARK: - State mapping
@@ -47,7 +47,7 @@ final class SeeAllSearchObserver {
         case .loading:
             phase = .loading
         case .results(let results):
-            phase = results.hits.isEmpty ? .empty : .results(results.hits)
+            phase = results.hits.isEmpty ? .empty : .results(results.hits.map { SearchRow($0) })
         case .error(let error):
             phase = .error(error.message)
         }
@@ -67,7 +67,7 @@ final class SeeAllSearchObserver {
 enum SeeAllPhase: Equatable {
     case idle
     case loading
-    case results([SearchHit])
+    case results([SearchRow])
     case empty
     case error(String)
 }
