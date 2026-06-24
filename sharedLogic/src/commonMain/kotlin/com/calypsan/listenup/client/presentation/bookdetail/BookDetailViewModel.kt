@@ -606,6 +606,42 @@ class BookDetailViewModel(
     }
 
     /**
+     * Create a new collection and add the current book to it.
+     *
+     * Admin-only: the Add-to-Collection picker is already admin-gated, so this create
+     * affordance inherits that gating. The new collection is scoped to the loaded book's
+     * library.
+     */
+    fun createCollectionAndAddBook(name: String) {
+        val book = (state.value as? BookDetailUiState.Ready)?.book ?: return
+        val bookId = book.id.value
+        viewModelScope.launch {
+            updateReady { it.copy(isAddingToCollection = true) }
+            when (val result = collectionRepository.create(book.libraryId.value, name)) {
+                is AppResult.Success -> {
+                    val collection = result.data
+                    when (val addResult = collectionRepository.addBook(collection.id, bookId)) {
+                        is AppResult.Success -> {
+                            updateReady { it.copy(isAddingToCollection = false, showCollectionPicker = false) }
+                            logger.info { "Created collection '${collection.name}' and added book $bookId" }
+                        }
+
+                        is AppResult.Failure -> {
+                            updateReady { it.copy(isAddingToCollection = false, collectionError = addResult.message) }
+                            logger.error { "Created collection but failed to add book $bookId: ${addResult.message}" }
+                        }
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    updateReady { it.copy(isAddingToCollection = false, collectionError = result.message) }
+                    logger.error { "Failed to create collection '$name': ${result.message}" }
+                }
+            }
+        }
+    }
+
+    /**
      * Handle a tap on a supplementary document row.
      *
      * For PDF documents: downloads (if not already cached) then emits

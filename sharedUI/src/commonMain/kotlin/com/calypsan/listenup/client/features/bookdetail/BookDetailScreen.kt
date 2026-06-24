@@ -317,15 +317,19 @@ private fun BookDetailReadyContent(
         )
     }
 
-    if (state.showCollectionPicker) {
+    // Collections are admin-managed — gate the picker presentation on isAdmin as
+    // defense-in-depth, so it can't render for a non-admin even if showCollectionPicker leaks true.
+    if (state.showCollectionPicker && state.isAdmin) {
         val collections by viewModel.collections.collectAsStateWithLifecycle()
 
         CollectionPickerSheet(
             collections = collections,
             selectedBookCount = 1,
             onCollectionSelected = { collectionId -> viewModel.addBookToCollection(collectionId) },
+            onCreateAndAddToCollection = { name -> viewModel.createCollectionAndAddBook(name) },
             onDismiss = { viewModel.hideCollectionPicker() },
             isLoading = state.isAddingToCollection,
+            canCreate = state.isAdmin,
         )
     }
 

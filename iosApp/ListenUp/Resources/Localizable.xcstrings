@@ -2841,6 +2841,16 @@
         }
       }
     },
+    "book.detail_new_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Collection"
+          }
+        }
+      }
+    },
     "book.detail_new_shelf": {
       "localizations": {
         "en": {
@@ -4007,6 +4017,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Clear selection"
+          }
+        }
+      }
+    },
+    "common.collection_name_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g., Staff Picks, Sci-Fi, New Releases..."
           }
         }
       }
@@ -9151,6 +9171,16 @@
         }
       }
     },
+    "library.collection_name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collection Name"
+          }
+        }
+      }
+    },
     "library.contributors": {
       "localizations": {
         "en": {
@@ -9197,6 +9227,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Create & Add"
+          }
+        }
+      }
+    },
+    "library.create_new_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create New Collection"
           }
         }
       }
