@@ -63,6 +63,7 @@ internal class SyncEngine(
     private var enqueueDrainJob: Job? = null
     private var queueDepthJob: Job? = null
     private var failureCountJob: Job? = null
+    private var reconnectRefreshJob: Job? = null
 
     // Serializes drain waves so concurrent triggers (connection-up + enqueue +
     // retry) coalesce into one wave at a time. drain() reads from the DAO and
@@ -126,8 +127,9 @@ internal class SyncEngine(
      *    [runStart] is in flight (catch-up, suspended `ready.await()` inside
      *    `ensure*` setup, `sseClient.connect()`). It does NOT tear down the
      *    long-running collectors — `frameCollectorJob`, `connectionUpDrainJob`,
-     *    `enqueueDrainJob`, `queueDepthJob`, `failureCountJob` are launched
-     *    into [scope], not as children of `engineJob`, so they survive the
+     *    `enqueueDrainJob`, `queueDepthJob`, `failureCountJob`,
+     *    `reconnectRefreshJob` are launched into [scope], not as children of
+     *    `engineJob`, so they survive the
      *    cancellation. That's intentional: they're user-agnostic (the queue
      *    is wiped on user change via `clearForUserChange`, dispatcher and
      *    sseClient are singletons), so leaving them in place avoids a
@@ -205,6 +207,9 @@ internal class SyncEngine(
         // replayed value at subscribe time gets dropped, and there's nothing
         // after it).
         ensureDrainScheduling()
+        // Step 5b: refresh the Discover surfaces on every reconnect. Subscribed before connect so
+        // the initial start-connect is the dropped first edge (start already primed + reconciled).
+        ensureReconnectRefresh()
         // Step 6: forward queue-depth and failure-count observers into
         // SyncEngineState so the diagnostics surface reflects reality. Without
         // this wire-up `pendingQueueDepth` / `pendingFailureCount` stay stuck
@@ -270,6 +275,8 @@ internal class SyncEngine(
         queueDepthJob = null
         failureCountJob?.cancel()
         failureCountJob = null
+        reconnectRefreshJob?.cancel()
+        reconnectRefreshJob = null
         sseClient.disconnect()
     }
 
@@ -457,6 +464,7 @@ internal class SyncEngine(
             val enqueue = enqueueDrainJob
             val depth = queueDepthJob
             val failure = failureCountJob
+            val reconnectRefresh = reconnectRefreshJob
             engineJob = null
             currentUser = null
             currentUserStarted = false
@@ -465,12 +473,14 @@ internal class SyncEngine(
             enqueueDrainJob = null
             queueDepthJob = null
             failureCountJob = null
+            reconnectRefreshJob = null
             engine?.cancelAndJoin()
             collector?.cancelAndJoin()
             connectionUp?.cancelAndJoin()
             enqueue?.cancelAndJoin()
             depth?.cancelAndJoin()
             failure?.cancelAndJoin()
+            reconnectRefresh?.cancelAndJoin()
             sseClient.disconnect()
         }
     }
@@ -553,6 +563,56 @@ internal class SyncEngine(
                         .collect { runDrain() }
                 }
             ready.await()
+        }
+    }
+
+    /**
+     * Refresh the Discover surfaces on every reconnect — NOT the initial start-connect.
+     *
+     * The offline→online path ([ReconnectionSupervisor] → [SseClient.reconnectNow]) only resumes the
+     * SSE stream; without this the activity feed and leaderboard stay stale until the server happens
+     * to emit a `CursorStale`. On each reconnect edge we deterministically prime the activity feed
+     * into Room (UI-independent), ping presence so currently-listening re-fetches, and run the
+     * digest-gated [SyncReconciler.reconcileAll] (refreshing `public_profiles` → the leaderboard).
+     *
+     * Subscribed before [SseClient.connect] and [drop]ping the first Connected, so the initial
+     * start-connect (already covered by [runStart]'s prime + reconcile) does not double-fire.
+     */
+    private suspend fun ensureReconnectRefresh() {
+        if (reconnectRefreshJob?.isActive == true) return
+        val ready = CompletableDeferred<Unit>()
+        reconnectRefreshJob =
+            scope.launch {
+                state
+                    .observe()
+                    .onSubscription { ready.complete(Unit) }
+                    .map { it.connection is ConnectionState.Connected }
+                    .distinctUntilChanged()
+                    .filter { it }
+                    .drop(1) // skip the initial start-connect; runStart already primed + reconciled
+                    .collect { runReconnectRefresh() }
+            }
+        ready.await()
+    }
+
+    private suspend fun runReconnectRefresh() {
+        // Presence ping is a non-throwing tryEmit. The two suspend actions are guarded independently
+        // so one failure neither tears down the collector nor starves the other. Cancellation always
+        // propagates.
+        presenceRefreshSignal.ping()
+        try {
+            primeActivityFeed()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Reconnect activity-feed prime failed; continuing" }
+        }
+        try {
+            reconciler.reconcileAll()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Reconnect reconcile failed; continuing" }
         }
     }
 
