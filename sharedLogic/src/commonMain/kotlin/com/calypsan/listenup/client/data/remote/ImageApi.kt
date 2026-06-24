@@ -95,8 +95,8 @@ internal class ImageApi(
      * Returns raw image bytes which can be saved to local storage
      * via ImageStorage. Returns failure if image doesn't exist (404).
      *
-     * Endpoint: GET /api/v1/contributors/{contributorId}/image
-     * Auth: Not required (public access)
+     * Endpoint: GET /api/v1/contributors/{contributorId}/photo
+     * Auth: Required (Bearer token) — served inside the JWT scope by `MetadataImageRoutes`.
      * Response: image/jpeg (raw bytes)
      *
      * @param contributorId Unique identifier for the contributor
@@ -105,7 +105,7 @@ internal class ImageApi(
     override suspend fun downloadContributorImage(contributorId: String): AppResult<ByteArray> =
         suspendRunCatching {
             val client = clientFactory.getClient()
-            client.get("/api/v1/contributors/$contributorId/image").body<ByteArray>()
+            client.get("/api/v1/contributors/$contributorId/photo").body<ByteArray>()
         }
 
     /**

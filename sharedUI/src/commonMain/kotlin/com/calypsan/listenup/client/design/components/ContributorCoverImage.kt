@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.design.components
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
@@ -48,26 +47,17 @@ fun ContributorCoverImage(
 ) {
     val context = LocalPlatformContext.current
 
-    // Fast path: imagePath provided means the file exists locally.
-    val syncRequest =
-        remember(contributorId, imagePath) {
-            imagePath?.let {
-                ImageRequest
-                    .Builder(context)
-                    .data(it)
-                    .memoryCacheKey(contributorCacheKey(contributorId, imagePath))
-                    .diskCacheKey(contributorCacheKey(contributorId, imagePath))
-                    .build()
-            }
-        }
-
-    // Slow path: no imagePath, need async resolution (check disk, fallback to server)
-    val asyncRequest by produceState<ImageRequest?>(
+    // [imagePath] is the server's content-addressed *relative* path (e.g. "contributors/<sha>.jpg")
+    // or null — it is NOT a locally loadable source, only a cache-busting version key. We always
+    // resolve the bytes ourselves: the locally cached file when present, otherwise the server
+    // `/photo` stream (kicking off a background cache for offline use). Handing the relative path
+    // straight to Coil was the bug that left scraped contributor photos blank.
+    val imageRequest by produceState<ImageRequest?>(
         initialValue = null,
         key1 = contributorId,
         key2 = imagePath,
     ) {
-        if (imagePath != null || contributorId.isBlank()) return@produceState
+        if (contributorId.isBlank()) return@produceState
 
         val imageRepository: ImageRepository =
             org.koin.core.context.GlobalContext
@@ -84,51 +74,42 @@ fun ContributorCoverImage(
 
         value =
             withContext(IODispatcher) {
-                val localPath = imageRepository.getContributorImagePath(contributorId)
-                val exists = imageRepository.contributorImageExists(contributorId)
-
-                if (exists) {
+                val builder =
                     ImageRequest
                         .Builder(context)
-                        .data(localPath)
                         .memoryCacheKey(contributorCacheKey(contributorId, imagePath))
                         .diskCacheKey(contributorCacheKey(contributorId, imagePath))
-                        .build()
+
+                val localPath = imageRepository.getContributorImagePath(contributorId)
+                if (imageRepository.contributorImageExists(contributorId)) {
+                    builder.data(localPath).build()
                 } else {
-                    // No durable file yet — kick off a background download so this streamed
-                    // contributor photo is persisted on disk for offline use, then stream now.
+                    // No durable file yet — kick off a background download so the photo persists for
+                    // offline use, then stream it now from the server with the auth token.
                     imageRepository.ensureContributorImageCached(contributorId)
                     val baseUrl = serverConfig.getActiveUrl()?.value
-                    val token = authSession.getAccessToken()?.value
-                    logger.debug {
-                        "ContributorCoverImage: fallback id=$contributorId " +
-                            "url=$baseUrl/api/v1/contributors/$contributorId/photo"
-                    }
                     if (baseUrl != null) {
-                        ImageRequest
-                            .Builder(context)
-                            .data("$baseUrl/api/v1/contributors/$contributorId/photo")
-                            .apply {
-                                if (token != null) {
-                                    httpHeaders(
-                                        NetworkHeaders
-                                            .Builder()
-                                            .set("Authorization", "Bearer $token")
-                                            .build(),
-                                    )
-                                }
-                            }.build()
+                        val token = authSession.getAccessToken()?.value
+                        logger.debug {
+                            "ContributorCoverImage: streaming id=$contributorId " +
+                                "url=$baseUrl/api/v1/contributors/$contributorId/photo"
+                        }
+                        builder.data("$baseUrl/api/v1/contributors/$contributorId/photo")
+                        if (token != null) {
+                            builder.httpHeaders(
+                                NetworkHeaders
+                                    .Builder()
+                                    .set("Authorization", "Bearer $token")
+                                    .build(),
+                            )
+                        }
+                        builder.build()
                     } else {
-                        ImageRequest
-                            .Builder(context)
-                            .data(localPath)
-                            .build()
+                        builder.data(localPath).build()
                     }
                 }
             }
     }
-
-    val imageRequest = syncRequest ?: asyncRequest
 
     imageRequest?.let {
         AsyncImage(
