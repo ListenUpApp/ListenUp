@@ -3181,6 +3181,46 @@
         }
       }
     },
+    "book.edit_add_author": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add author…"
+          }
+        }
+      }
+    },
+    "book.edit_add_genre": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add genre…"
+          }
+        }
+      }
+    },
+    "book.edit_add_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add mood…"
+          }
+        }
+      }
+    },
+    "book.edit_add_narrator": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add narrator…"
+          }
+        }
+      }
+    },
     "book.edit_add_role": {
       "localizations": {
         "en": {
@@ -3191,12 +3231,32 @@
         }
       }
     },
+    "book.edit_add_series": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add series…"
+          }
+        }
+      }
+    },
     "book.edit_add_subtitle": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "+ Add subtitle"
+          }
+        }
+      }
+    },
+    "book.edit_add_tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add tag…"
           }
         }
       }
@@ -3377,6 +3437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No genres yet."
+          }
+        }
+      }
+    },
+    "book.edit_no_matches": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matches."
           }
         }
       }

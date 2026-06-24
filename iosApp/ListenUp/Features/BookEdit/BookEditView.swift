@@ -2,12 +2,9 @@ import SwiftUI
 @preconcurrency import Shared
 
 /// Presented sheet for editing a book: cover, the core metadata fields, and the
-/// relational sections (authors, narrators, series, genres, tags) with display +
-/// remove. Bound to `BookEditViewModel` via `BookEditObserver`.
-///
-/// Add-pickers (searchable sub-sheets to attach a new contributor / series / genre /
-/// tag) are intentionally deferred — this slice lands the core fields, the cover, and
-/// display/remove of existing relations. See the task report for the follow-up.
+/// relational sections (authors, narrators, series, genres, tags, moods) with display,
+/// remove, and inline search-and-add pickers. Bound to `BookEditViewModel` via
+/// `BookEditObserver`.
 struct BookEditView: View {
     let bookId: String
 
@@ -152,6 +149,7 @@ struct BookEditView: View {
         observer: BookEditObserver
     ) -> some View {
         let roleKind: RoleChip.Kind = role == .author ? .author : .narrator
+        let isAuthor = role == .author
         return EditSection(title: title) {
             if contributors.isEmpty {
                 EmptyRelationHint(text: empty)
@@ -167,6 +165,16 @@ struct BookEditView: View {
                     }
                 }
             }
+            RelationSearchField(
+                placeholder: String(localized: isAuthor ? "book.edit_add_author" : "book.edit_add_narrator"),
+                query: isAuthor ? observer.authorQuery : observer.narratorQuery,
+                results: isAuthor ? observer.authorResults : observer.narratorResults,
+                isLoading: isAuthor ? observer.authorSearching : observer.narratorSearching,
+                allowsCreate: true,
+                onQueryChange: { observer.setContributorQuery($0, role: role) },
+                onSelect: { observer.selectContributorResult($0, role: role) },
+                onCreate: { observer.enterContributor($0, role: role) }
+            )
         }
     }
 
@@ -187,6 +195,16 @@ struct BookEditView: View {
                     }
                 }
             }
+            RelationSearchField(
+                placeholder: String(localized: "book.edit_add_series"),
+                query: observer.seriesQuery,
+                results: observer.seriesResults,
+                isLoading: observer.seriesSearching,
+                allowsCreate: true,
+                onQueryChange: { observer.setSeriesQuery($0) },
+                onSelect: { observer.selectSeriesResult($0) },
+                onCreate: { observer.enterSeries($0) }
+            )
         }
     }
 
@@ -207,6 +225,16 @@ struct BookEditView: View {
                     }
                 }
             }
+            RelationSearchField(
+                placeholder: String(localized: "book.edit_add_genre"),
+                query: observer.genreQuery,
+                results: observer.genreResults,
+                isLoading: false,
+                allowsCreate: false,
+                onQueryChange: { observer.setGenreQuery($0) },
+                onSelect: { observer.selectGenreResult($0) },
+                onCreate: nil
+            )
         }
     }
 
@@ -227,6 +255,16 @@ struct BookEditView: View {
                     }
                 }
             }
+            RelationSearchField(
+                placeholder: String(localized: "book.edit_add_tag"),
+                query: observer.tagQuery,
+                results: observer.tagResults,
+                isLoading: observer.tagSearching,
+                allowsCreate: true,
+                onQueryChange: { observer.setTagQuery($0) },
+                onSelect: { observer.selectTagResult($0) },
+                onCreate: { observer.enterTag($0) }
+            )
         }
     }
 
@@ -247,6 +285,16 @@ struct BookEditView: View {
                     }
                 }
             }
+            RelationSearchField(
+                placeholder: String(localized: "book.edit_add_mood"),
+                query: observer.moodQuery,
+                results: observer.moodResults,
+                isLoading: observer.moodSearching,
+                allowsCreate: true,
+                onQueryChange: { observer.setMoodQuery($0) },
+                onSelect: { observer.selectMoodResult($0) },
+                onCreate: { observer.enterMood($0) }
+            )
         }
     }
 
@@ -273,6 +321,28 @@ enum BookEditFormatting {
             .map { $0.prefix(1).uppercased() + $0.dropFirst() }
             .joined(separator: " ")
     }
+
+    /// "1 book" / "%d books" subtitle for a contributor or series search result. `nil` when the
+    /// count is zero so the result row renders without a meaningless "0 books" line.
+    static func bookCountSubtitle(_ count: Int) -> String? {
+        guard count > 0 else { return nil }
+        let format = count == 1 ? String(localized: "common.book_count") : String(localized: "common.books_count")
+        return String(format: format, count)
+    }
+
+    /// A genre's parent-path context for the result subtitle, mirroring the shared
+    /// `EditableGenre.parentPath`: "/fiction/fantasy/epic-fantasy" → "Fiction > Fantasy". `nil`
+    /// for a top-level genre with no parent.
+    static func genreParentPath(_ path: String) -> String? {
+        let segments = path
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            .split(separator: "/", omittingEmptySubsequences: true)
+        guard segments.count > 1 else { return nil }
+        return segments
+            .dropLast()
+            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
+            .joined(separator: " > ")
+    }
 }
 
 // MARK: - Section chrome
@@ -290,7 +360,7 @@ private struct EditSection<Content: View>: View {
                 .foregroundStyle(Color.luLabel2)
                 .textCase(.uppercase)
                 .padding(.leading, 4)
-            VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
                 content()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
