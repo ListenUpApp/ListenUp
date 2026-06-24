@@ -92,7 +92,9 @@ data class BookSeriesPayload(
  *
  * `index` mirrors the on-disk order so multi-file books play correctly.
  * `format` and `codec` are informational source-file metadata surfaced to the
- * playback pipeline.
+ * playback pipeline. The optional audio-stream fields (`codecProfile`, `spatial`,
+ * `bitrate`, `sampleRate`, `channels`) default to null for back-compat with
+ * payloads produced by older server versions.
  */
 @Serializable
 @SerialName("BookAudioFilePayload")
@@ -104,6 +106,16 @@ data class BookAudioFilePayload(
     val codec: String,
     val duration: Long,
     val size: Long,
+    /** AAC profile token (`lc`/`he`/`hev2`/`xhe`); null for non-AAC or when undetermined. */
+    val codecProfile: String? = null,
+    /** Spatial-audio marker (e.g. `atmos`); null when not spatial. */
+    val spatial: String? = null,
+    /** Average bitrate in bits/sec; null when undetermined. */
+    val bitrate: Int? = null,
+    /** Sample rate in Hz; null when undetermined. */
+    val sampleRate: Int? = null,
+    /** Channel count; null when undetermined. */
+    val channels: Int? = null,
 )
 
 /**
