@@ -22,7 +22,7 @@ import app.cash.sqldelight.db.SqlPreparedStatement
 class SwappableSqlDriver(
     initial: SqlDriver,
 ) : SqlDriver {
-    @Volatile
+    @kotlin.concurrent.Volatile
     private var delegate: SqlDriver = initial
 
     /** Hard-closes the live driver ahead of an [installUnderlying] — the recoverable pre-swap close. */
