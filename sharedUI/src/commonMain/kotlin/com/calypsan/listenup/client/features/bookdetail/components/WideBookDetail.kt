@@ -309,6 +309,24 @@ private fun WideLeftColumn(
     val book = state.book
 
     Column(modifier = modifier) {
+        // Primary actions — connected Play + Download group, kept above the description so the
+        // primary action is reachable without scrolling on short foldable inner displays.
+        if (showPlaybackActions) {
+            PrimaryActionsSection(
+                downloadStatus = downloadStatus,
+                onPlayClick = onPlayClick,
+                onDownloadClick = onDownloadClick,
+                onCancelClick = onCancelClick,
+                onDeleteClick = onDeleteClick,
+                modifier = Modifier.padding(bottom = 16.dp),
+                isWaitingForWifi = isWaitingForWifi,
+                playEnabled = playEnabled,
+                downloadEnabled = downloadEnabled,
+                onPlayDisabledClick = onPlayDisabledClick,
+                showServerWarning = showServerWarning,
+            )
+        }
+
         // About — description + Genres + Tags, framed in a surfaceContainerLow card.
         AboutSection(
             description = state.descriptionText,
@@ -335,23 +353,6 @@ private fun WideLeftColumn(
             onContributorClick = onContributorClick,
             modifier = Modifier.padding(top = 16.dp),
         )
-
-        // Primary actions — connected Play + Download group beneath the Details section.
-        if (showPlaybackActions) {
-            PrimaryActionsSection(
-                downloadStatus = downloadStatus,
-                onPlayClick = onPlayClick,
-                onDownloadClick = onDownloadClick,
-                onCancelClick = onCancelClick,
-                onDeleteClick = onDeleteClick,
-                modifier = Modifier.padding(top = 16.dp),
-                isWaitingForWifi = isWaitingForWifi,
-                playEnabled = playEnabled,
-                downloadEnabled = downloadEnabled,
-                onPlayDisabledClick = onPlayDisabledClick,
-                showServerWarning = showServerWarning,
-            )
-        }
     }
 }
 

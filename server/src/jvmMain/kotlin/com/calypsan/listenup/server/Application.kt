@@ -433,6 +433,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
     val avatarImageStore by inject<ImageStore>()
+    val publicProfileMaintainer by inject<PublicProfileMaintainer>()
     val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
 
@@ -503,7 +504,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             genreRoutes(genreService, bookAccessPolicy)
             collectionRoutes(collectionService)
             collectionAdminRoutes(collectionService)
-            profileRoutes(sql, avatarImageStore)
+            profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
         }

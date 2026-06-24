@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -232,11 +233,12 @@ private fun WideSeriesDetailContent(
         modifier = Modifier.fillMaxSize().padding(20.dp),
         horizontalArrangement = Arrangement.spacedBy(20.dp),
     ) {
-        // Left: color-blocked hero panel with the Continue action pinned at the bottom.
+        // Left: color-blocked hero panel with the Continue action pinned at the bottom. A proportional
+        // width (not a fixed 420 dp) leaves the book grid real room on foldable inner displays.
         Box(
             modifier =
                 Modifier
-                    .width(420.dp)
+                    .weight(0.4f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(28.dp))
                     .background(MaterialTheme.colorScheme.primaryContainer),
@@ -258,19 +260,20 @@ private fun WideSeriesDetailContent(
             }
         }
 
-        // Right: numbered "Books in series" as a two-column grid.
+        // Right: "Books in series" as a cover-card grid that flows with width (2 columns on a
+        // foldable, more on desktop) — reads as a shelf rather than crushing the horizontal rows.
         LazyVerticalGrid(
-            columns = GridCells.Fixed(2),
+            columns = GridCells.Adaptive(minSize = 156.dp),
             contentPadding = PaddingValues(4.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.weight(1f).fillMaxHeight(),
+            modifier = Modifier.weight(0.6f).fillMaxHeight(),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 BooksSectionHeader(count = state.books.size, modifier = Modifier.padding(bottom = 4.dp))
             }
             itemsIndexed(state.books, key = { _, b -> b.id.value }) { index, book ->
-                SeriesBookRow(
+                SeriesBookCard(
                     book = book,
                     positionLabel = book.seriesSequence ?: (index + 1).toString(),
                     finished = book.id in state.finishedBookIds,
@@ -660,6 +663,139 @@ private fun BookRowAction(
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+    }
+}
+
+/**
+ * Vertical cover card for a book in the wide series grid — the grid analogue of [SeriesBookRow].
+ *
+ * Cover (with a finished check or now-playing badge overlay), the "Book N" position label, the
+ * title, and a progress bar or duration. Designed to flow in a [GridCells.Adaptive] grid so the
+ * series reads as a shelf at expanded widths rather than crushing the horizontal rows.
+ */
+@Composable
+private fun SeriesBookCard(
+    book: BookListItem,
+    positionLabel: String,
+    finished: Boolean,
+    progress: Float?,
+    highlighted: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val cardColor =
+        if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
+    val titleColor =
+        if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(cardColor)
+                .clickable(onClick = onClick)
+                .padding(10.dp),
+    ) {
+        SeriesBookCardCover(book = book, finished = finished, highlighted = highlighted)
+
+        Spacer(Modifier.height(10.dp))
+
+        Text(
+            text = stringResource(Res.string.series_book_position, positionLabel),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = book.title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = titleColor,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(6.dp))
+        SeriesBookCardFooter(book = book, progress = progress, finished = finished, highlighted = highlighted)
+    }
+}
+
+/** Square cover for [SeriesBookCard] with a finished-check or now-playing badge overlay. */
+@Composable
+private fun SeriesBookCardCover(
+    book: BookListItem,
+    finished: Boolean,
+    highlighted: Boolean,
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        BookCoverImage(
+            bookId = book.id.value,
+            coverPath = book.coverPath,
+            coverHash = book.coverHash,
+            contentDescription = book.title,
+            title = book.title,
+            author = book.authors.firstOrNull()?.name,
+            modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)),
+        )
+        if (finished || highlighted) {
+            val badgeBg =
+                if (finished) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primary
+            val badgeTint =
+                if (finished) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimary
+            Box(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(6.dp)
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(badgeBg),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = if (finished) Icons.Default.Check else Icons.Default.GraphicEq,
+                    contentDescription = null,
+                    tint = badgeTint,
+                    modifier = Modifier.size(17.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Progress bar + percentage, or a plain duration line, for [SeriesBookCard]. */
+@Composable
+private fun SeriesBookCardFooter(
+    book: BookListItem,
+    progress: Float?,
+    finished: Boolean,
+    highlighted: Boolean,
+) {
+    val subColor =
+        if (highlighted) {
+            MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    if (progress != null) {
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = stringResource(Res.string.series_progress_duration, (progress * 100).toInt(), book.formatDuration()),
+            style = MaterialTheme.typography.labelMedium,
+            color = subColor,
+            maxLines = 1,
+        )
+    } else {
+        Text(
+            text = if (finished) "${book.formatDuration()} · Finished" else book.formatDuration(),
+            style = MaterialTheme.typography.bodyMedium,
+            color = subColor,
+            maxLines = 1,
+        )
     }
 }
 
