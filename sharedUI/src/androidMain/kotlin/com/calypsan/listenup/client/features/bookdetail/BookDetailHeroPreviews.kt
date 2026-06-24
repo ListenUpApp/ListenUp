@@ -23,6 +23,10 @@ private const val PREVIEW_SUBTITLE = "The Final Empire"
 private const val PREVIEW_BOOK_ID = "preview-book"
 private const val PREVIEW_TIME_REMAINING = "21h 30m left"
 private const val PREVIEW_PROGRESS = 0.4f
+private const val PREVIEW_RATING = 4.8
+private const val PREVIEW_DURATION_MS = 24L * 3600 * 1000 + 41L * 60 * 1000
+private const val PREVIEW_YEAR = 2006
+private const val PREVIEW_ADDED_AT_MS = 1_704_067_200_000L
 
 @Composable
 private fun PreviewTheme(
@@ -97,6 +101,10 @@ private fun WideHeroBandPreviewBody() {
         onShowCast = {},
         progress = PREVIEW_PROGRESS,
         timeRemaining = PREVIEW_TIME_REMAINING,
+        rating = PREVIEW_RATING,
+        duration = PREVIEW_DURATION_MS,
+        year = PREVIEW_YEAR,
+        addedAt = PREVIEW_ADDED_AT_MS,
     )
 }
 

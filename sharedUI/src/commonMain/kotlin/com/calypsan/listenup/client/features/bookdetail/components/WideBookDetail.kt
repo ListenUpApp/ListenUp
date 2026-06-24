@@ -143,7 +143,8 @@ fun WideBookDetail(
                 modifier = screenPadding.padding(vertical = 8.dp),
             )
 
-            // Identity — full-width color band: title, independent subtitle, series chips, talent.
+            // Identity — full-width color band: title, independent subtitle, series chips, talent,
+            // and the stat chips as the last element of the identity column (per the design).
             WideHeroBand(
                 coverPath = book.coverPath,
                 coverHash = book.coverHash,
@@ -160,20 +161,11 @@ fun WideBookDetail(
                 onShowCast = { castRole = it },
                 progress = state.progress,
                 timeRemaining = state.timeRemainingFormatted,
-                modifier = screenPadding.padding(top = 8.dp),
-            )
-
-            // Stats — rating, duration, year, date added.
-            StatsRow(
                 rating = state.rating,
                 duration = book.duration,
                 year = state.year,
                 addedAt = state.addedAt,
-                modifier =
-                    screenPadding
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
+                modifier = screenPadding.padding(top = 8.dp),
             )
 
             // Two-column body.

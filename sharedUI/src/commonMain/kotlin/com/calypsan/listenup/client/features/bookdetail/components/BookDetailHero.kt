@@ -240,6 +240,10 @@ fun CompactHero(
  *   open the full-cast overlay for that role
  * @param progress Playback progress from 0.0 to 1.0; null hides the [ProgressOverlay]
  * @param timeRemaining Formatted time remaining (e.g. "21h 30m left"); null hides the label
+ * @param rating Average rating (0–5); null/≤0 hides the rating stat chip
+ * @param duration Total duration in milliseconds, shown as the duration stat chip
+ * @param year Publication year; null/≤0 hides the year stat chip
+ * @param addedAt Epoch millis the book was added; null hides the lead "Added" accent stat chip
  * @param modifier Optional layout modifier
  */
 @Suppress("LongParameterList")
@@ -260,6 +264,10 @@ fun WideHeroBand(
     onShowCast: (CastRole) -> Unit,
     progress: Float?,
     timeRemaining: String?,
+    rating: Double?,
+    duration: Long,
+    year: Int?,
+    addedAt: Long?,
     modifier: Modifier = Modifier,
 ) {
     Surface(
@@ -320,67 +328,123 @@ fun WideHeroBand(
                 }
 
                 // Identity column
-                Column(
+                WideHeroIdentity(
+                    title = title,
+                    genre = genre,
+                    abridged = abridged,
+                    subtitle = subtitle,
+                    series = series,
+                    authors = authors,
+                    narrators = narrators,
+                    onContributorClick = onContributorClick,
+                    onSeriesClick = onSeriesClick,
+                    onShowCast = onShowCast,
+                    rating = rating,
+                    duration = duration,
+                    year = year,
+                    addedAt = addedAt,
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    // Classification — most-specific genre label beside the Abridged/Unabridged flag
-                    HeroClassification(
-                        genre = genre,
-                        abridged = abridged,
-                        classificationColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
-                        centered = false,
-                    )
-
-                    // Title — large display, max 2 lines
-                    Text(
-                        text = title,
-                        style =
-                            MaterialTheme.typography.displaySmall.copy(
-                                fontFamily = DisplayFontFamily,
-                                fontWeight = FontWeight.Bold,
-                            ),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-
-                    // Subtitle — an independent quiet, italic line; hidden when null/blank
-                    if (!subtitle.isNullOrBlank()) {
-                        Text(
-                            text = subtitle,
-                            style =
-                                MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Medium,
-                                    fontStyle = FontStyle.Italic,
-                                ),
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
-                        )
-                    }
-
-                    // Author · narrator row
-                    WideContributorRow(
-                        authors = authors,
-                        narrators = narrators,
-                        onContributorClick = onContributorClick,
-                        onShowCast = onShowCast,
-                        modifier = Modifier.padding(top = 14.dp),
-                    )
-
-                    // Series — tappable chips, one per membership; hidden when empty
-                    if (series.isNotEmpty()) {
-                        SeriesChips(
-                            series = series,
-                            onSeriesClick = onSeriesClick,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            centered = false,
-                            modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
-                        )
-                    }
-                }
+                )
             }
         }
+    }
+}
+
+/**
+ * The identity text column inside [WideHeroBand]: classification flag, title, optional subtitle,
+ * the author · narrator row, optional series chips, and — as the last element, matching the design —
+ * the [StatsRow] recoloured to read on the colour band. Extracted so [WideHeroBand] stays within the
+ * method-length budget.
+ */
+@Suppress("LongParameterList")
+@Composable
+private fun WideHeroIdentity(
+    title: String,
+    genre: String?,
+    abridged: Boolean,
+    subtitle: String?,
+    series: List<BookSeries>,
+    authors: List<BookContributor>,
+    narrators: List<BookContributor>,
+    onContributorClick: (contributorId: String) -> Unit,
+    onSeriesClick: (seriesId: String) -> Unit,
+    onShowCast: (CastRole) -> Unit,
+    rating: Double?,
+    duration: Long,
+    year: Int?,
+    addedAt: Long?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // Classification — most-specific genre label beside the Abridged/Unabridged flag
+        HeroClassification(
+            genre = genre,
+            abridged = abridged,
+            classificationColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
+            centered = false,
+        )
+
+        // Title — large display, max 2 lines
+        Text(
+            text = title,
+            style =
+                MaterialTheme.typography.displaySmall.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Bold,
+                ),
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp),
+        )
+
+        // Subtitle — an independent quiet, italic line; hidden when null/blank
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Medium,
+                        fontStyle = FontStyle.Italic,
+                    ),
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+            )
+        }
+
+        // Author · narrator row
+        WideContributorRow(
+            authors = authors,
+            narrators = narrators,
+            onContributorClick = onContributorClick,
+            onShowCast = onShowCast,
+            modifier = Modifier.padding(top = 14.dp),
+        )
+
+        // Series — tappable chips, one per membership; hidden when empty
+        if (series.isNotEmpty()) {
+            SeriesChips(
+                series = series,
+                onSeriesClick = onSeriesClick,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                centered = false,
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp),
+            )
+        }
+
+        // Stats — Added (accent) · Duration · Year · Rating, last in the identity column and
+        // recoloured to read on the colour band, per the design.
+        StatsRow(
+            rating = rating,
+            duration = duration,
+            year = year,
+            addedAt = addedAt,
+            modifier = Modifier.fillMaxWidth().padding(top = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
+            onHeroBand = true,
+        )
     }
 }
 
