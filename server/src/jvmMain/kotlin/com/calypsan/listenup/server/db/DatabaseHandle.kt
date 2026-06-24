@@ -57,10 +57,10 @@ class DatabaseHandle(
     }
 
     /** Runs migrations forward against the current (possibly just-swapped) db file. Returns the post-migration version. */
-    fun migrate(): String? = MigrationRunner(dataSource).migrate()
+    fun migrate(): String? = MigrationRunner(dbFilePath.toAbsolutePath().toString()).migrate()
 
     /** The applied schema version, or null on a fresh/empty db. */
-    fun currentSchemaVersion(): String? = MigrationRunner(dataSource).currentSchemaVersion()
+    fun currentSchemaVersion(): String? = MigrationRunner(dbFilePath.toAbsolutePath().toString()).currentSchemaVersion()
 
     /**
      * Terminal shutdown — closes the SQLDelight driver and the migration data source; nothing reopens.

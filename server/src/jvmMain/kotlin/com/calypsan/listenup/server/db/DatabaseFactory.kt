@@ -30,7 +30,7 @@ object DatabaseFactory {
         val dbFile = Path.of(config.jdbcUrl.removePrefix("jdbc:sqlite:"))
         val dataSource = SwappableDataSource(buildDataSource(config))
 
-        MigrationRunner(dataSource).migrate()
+        MigrationRunner(dbFile.toString()).migrate()
 
         val sqlDriver = SwappableSqlDriver(DriverFactory().createDriver(dbFile.toString()))
         return DatabaseHandle(

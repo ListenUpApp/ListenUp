@@ -31,17 +31,18 @@ import kotlinx.coroutines.test.runTest
 class SyncableTableBackfillMigrationTest :
     FunSpec({
 
-        /** A non-pooled SQLite datasource over a temp-file database, deleted on JVM exit. */
-        fun freshDataSource(): DataSource {
+        /** Returns (dbPath, DataSource) for a fresh temp-file SQLite database. */
+        fun freshDb(): Pair<String, DataSource> {
             val tmp = Files.createTempFile("listenup-backfill-test-", ".db").toFile().apply { deleteOnExit() }
-            return fileBackedTestDataSource("jdbc:sqlite:${tmp.absolutePath}")
+            val path = tmp.absolutePath
+            return path to fileBackedTestDataSource("jdbc:sqlite:$path")
         }
 
-        // Migrates [dataSource] up to [target] (inclusive); null migrates to latest.
+        // Migrates the database at [dbPath] up to [target] (inclusive); null migrates to latest.
         fun migrateTo(
-            dataSource: DataSource,
+            dbPath: String,
             target: Int?,
-        ) = MigrationRunner(dataSource).migrate(upTo = target)
+        ) = MigrationRunner(dbPath).migrate(upTo = target)
 
         fun Connection.exec(sql: String) = createStatement().use { it.execute(sql) }
 
@@ -61,10 +62,10 @@ class SyncableTableBackfillMigrationTest :
             }
 
         test("V13/V14 backfill draws revisions from the global counter and advances it past them") {
-            val ds = freshDataSource()
+            val (path, ds) = freshDb()
 
             // 1. Partially migrate to V12 — the schema before B1's syncable promotion.
-            migrateTo(ds, target = 12)
+            migrateTo(path, target = 12)
 
             // 2. Insert rows at the V12 schema: more contributors than series, and
             //    advance the global counter so it holds a realistic non-zero value
@@ -92,7 +93,7 @@ class SyncableTableBackfillMigrationTest :
             counterBeforeBackfill shouldBe 5L
 
             // 3. Run the remaining migrations — V13 then V14 apply the backfill.
-            migrateTo(ds, target = null)
+            migrateTo(path, target = null)
 
             val contributorRevisions: List<Long>
             val seriesRevisions: List<Long>
@@ -124,9 +125,9 @@ class SyncableTableBackfillMigrationTest :
 
         test("the delivery invariant: a post-migration write lands above every backfilled revision") {
             val tmp = Files.createTempFile("listenup-backfill-test-", ".db").toFile().apply { deleteOnExit() }
-            val jdbcUrl = "jdbc:sqlite:${tmp.absolutePath}"
-            val ds = fileBackedTestDataSource(jdbcUrl)
-            migrateTo(ds, target = 12)
+            val path = tmp.absolutePath
+            val ds = fileBackedTestDataSource("jdbc:sqlite:$path")
+            migrateTo(path, target = 12)
 
             ds.connection.use { conn ->
                 conn.autoCommit = false // own the transaction; the non-pooled source hands out autoCommit=true
@@ -140,7 +141,7 @@ class SyncableTableBackfillMigrationTest :
                 conn.commit()
             }
 
-            migrateTo(ds, target = null)
+            migrateTo(path, target = null)
 
             val maxBackfilledRevision: Long
             ds.connection.use { conn ->
