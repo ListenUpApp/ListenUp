@@ -165,4 +165,77 @@ class SeriesRepositoryTest :
                 }
             }
         }
+
+        // ── resolveOrCreateAll (batch) ────────────────────────────────────────────
+
+        test("resolveOrCreateAll resolves pre-existing and brand-new names to correct ids") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val existingId = repo.resolveOrCreate("The Stormlight Archive")
+
+                    val map = repo.resolveOrCreateAll(listOf("The Stormlight Archive", "Mistborn"))
+
+                    map[normalizeForDedup("The Stormlight Archive")] shouldBe existingId
+                    val newKey = normalizeForDedup("Mistborn")
+                    map[newKey].shouldNotBeNull()
+                    map[newKey] shouldBe repo.resolveOrCreate("Mistborn")
+                }
+            }
+        }
+
+        test("resolveOrCreateAll dedups case/whitespace exactly like resolveOrCreate") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val map =
+                        repo.resolveOrCreateAll(
+                            listOf("The Stormlight Archive", "  the   STORMLIGHT archive "),
+                        )
+                    map.values.toSet().size shouldBe 1
+                    map.values.first() shouldBe repo.resolveOrCreate("The Stormlight Archive")
+                    repo.listLiveIds().size shouldBe 1
+                }
+            }
+        }
+
+        test("resolveOrCreateAll emits one Created per genuinely-new series") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = SeriesRepository(db = sql, bus = bus, registry = SyncRegistry())
+                runTest {
+                    repo.resolveOrCreate("Pre Existing Series")
+
+                    val events = mutableListOf<SyncEvent<SeriesSyncPayload>>()
+                    val collector =
+                        async {
+                            @Suppress("UNCHECKED_CAST")
+                            bus.subscribe().collect { events += it.event as SyncEvent<SeriesSyncPayload> }
+                        }
+                    advanceUntilIdle()
+
+                    repo.resolveOrCreateAll(listOf("Pre Existing Series", "New Series A", "New Series B"))
+                    advanceUntilIdle()
+                    collector.cancel()
+
+                    // The bus replays the original "Pre Existing Series" Created; the batch must NOT
+                    // re-emit it (exactly one) while emitting one Created per genuinely-new series.
+                    val createdNames = events.filterIsInstance<SyncEvent.Created<SeriesSyncPayload>>().map { it.payload.name }
+                    createdNames.toSet() shouldBe setOf("Pre Existing Series", "New Series A", "New Series B")
+                    createdNames.count { it == "Pre Existing Series" } shouldBe 1
+                    createdNames.count { it == "New Series A" } shouldBe 1
+                    createdNames.count { it == "New Series B" } shouldBe 1
+                }
+            }
+        }
+
+        test("resolveOrCreateAll on empty input is a no-op returning an empty map") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.resolveOrCreateAll(emptyList()) shouldBe emptyMap()
+                    repo.listLiveIds() shouldBe emptySet()
+                }
+            }
+        }
     })

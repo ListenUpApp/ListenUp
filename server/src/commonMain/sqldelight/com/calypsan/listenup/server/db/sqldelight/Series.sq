@@ -42,6 +42,12 @@ SELECT * FROM book_series WHERE id IN :ids;
 selectByNormalizedName:
 SELECT * FROM book_series WHERE normalized_name = :normalized_name;
 
+-- Batch dedup lookup: resolveOrCreateAll resolves a whole scan's series in one query.
+-- Projects (normalized_name, id) so the caller builds the dedup-key → id map without
+-- re-reading every column.
+selectByNormalizedNames:
+SELECT normalized_name, id FROM book_series WHERE normalized_name IN :normalized_names;
+
 -- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
 -- cover images whose series still exists.
 selectLiveIds:

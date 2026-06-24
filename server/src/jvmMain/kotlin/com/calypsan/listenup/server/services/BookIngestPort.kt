@@ -4,8 +4,10 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.SeriesId
 
 /**
  * The narrow slice of [BookRepository] that [BookPersister] depends on.
@@ -38,6 +40,11 @@ interface BookIngestPort {
      * The two cases are mutually exclusive: a held book must NOT join ALL_BOOKS (doing so
      * would expose it to every member via the ALL_BOOKS grant); a non-held book must NOT
      * join INBOX (it would be quarantined unnecessarily).
+     *
+     * [contributorIds] / [seriesIds] are the scan-wide pre-resolved dedup-key → id maps the
+     * orchestrator builds ONCE before the persist loop (see [BookRepository.upsertFromAnalyzed]),
+     * collapsing the per-book contributor/series `resolveOrCreate` transaction storm into a single
+     * bulk lookup. Null means "resolve each name per-call" — the path single-book callers use.
      */
     suspend fun resolveOrInsert(
         libraryId: LibraryId,
@@ -45,7 +52,23 @@ interface BookIngestPort {
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
         systemCollectionId: String? = null,
+        contributorIds: Map<String, ContributorId>? = null,
+        seriesIds: Map<String, SeriesId>? = null,
     ): AppResult<IngestOutcome>
+
+    /**
+     * Batch-resolve every contributor and series referenced by [books] to a stable id, ONCE,
+     * before the per-book persist loop — collapsing the per-book `resolveOrCreate` transaction
+     * storm (a SELECT, plus a create txn for each new name, per contributor/series per book) into
+     * one bulk SELECT per catalogue. The returned dedup-key → id maps are threaded back into each
+     * [resolveOrInsert] call ([contributorIds] / [seriesIds]); a book's contributor/series id is
+     * looked up from them by recomputing the same dedup key.
+     *
+     * The default returns empty maps — single-book callers and orchestration fakes fall back to
+     * per-call resolution inside [resolveOrInsert]. [BookRepository] overrides it to do the real
+     * bulk resolve through the contributor/series catalogues.
+     */
+    suspend fun resolveScanIdentities(books: Collection<AnalyzedBook>): ScanIdentityMaps = ScanIdentityMaps()
 
     /**
      * Soft-delete library books absent from [seenPaths]; see [BookRepository.softDeleteAbsentByPaths].
@@ -75,6 +98,17 @@ interface BookIngestPort {
         rootRelPath: String,
     )
 }
+
+/**
+ * The scan-wide pre-resolved identity maps [BookPersister] threads through every per-book
+ * [BookIngestPort.resolveOrInsert] call. [contributors] is keyed by the contributor dedup key,
+ * [series] by the series normalized key — exactly the keys [BookRepository.upsertFromAnalyzed]
+ * recomputes to look an id up, so a book's contributors/series resolve without a per-call SELECT.
+ */
+data class ScanIdentityMaps(
+    val contributors: Map<String, ContributorId> = emptyMap(),
+    val series: Map<String, SeriesId> = emptyMap(),
+)
 
 /**
  * Cover bytes extracted from an [AnalyzedBook] before the DB upsert, ready to

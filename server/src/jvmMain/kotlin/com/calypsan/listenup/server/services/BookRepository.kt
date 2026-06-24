@@ -434,12 +434,27 @@ class BookRepository(
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
         systemCollectionId: String?,
+        contributorIds: Map<String, ContributorId>?,
+        seriesIds: Map<String, SeriesId>?,
     ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
 
+        // The three identity branches differ only in the resolved BookId and the wasNew flag; the
+        // aggregate write (and its threaded pre-resolved id maps) is identical, so close over it once.
+        suspend fun write(bookId: BookId): AppResult<BookSyncPayload> =
+            upsertFromAnalyzed(
+                bookId,
+                libraryId,
+                folderId,
+                analyzed,
+                pendingCover,
+                systemCollectionId,
+                contributorIds,
+                seriesIds,
+            )
+
         bookFinder.findByPath(libraryId, rootRelPath)?.let { existing ->
-            return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
-                .map { IngestOutcome(existing, wasNew = false) }
+            return write(existing).map { IngestOutcome(existing, wasNew = false) }
         }
 
         analyzed.candidate.files
@@ -449,14 +464,29 @@ class BookRepository(
                 bookFinder.findByInode(libraryId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
-                    return upsertFromAnalyzed(existing, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
-                        .map { IngestOutcome(existing, wasNew = false) }
+                    return write(existing).map { IngestOutcome(existing, wasNew = false) }
                 }
             }
 
         val newId = BookId(UUID.randomUUID().toString())
-        return upsertFromAnalyzed(newId, libraryId, folderId, analyzed, pendingCover, systemCollectionId)
-            .map { IngestOutcome(newId, wasNew = true) }
+        return write(newId).map { IngestOutcome(newId, wasNew = true) }
+    }
+
+    /**
+     * Batch-resolves every contributor and series across [books] to a stable id in two bulk
+     * lookups (one per catalogue), run ONCE before the persist loop. The identities are built with
+     * the SAME [analyzedBookMapper] `buildContributors`/`buildSeries` that [upsertFromAnalyzed]
+     * uses, so every key in the returned maps matches what the per-book lookup recomputes — no book
+     * falls through to a per-call `resolveOrCreate`.
+     */
+    override suspend fun resolveScanIdentities(books: Collection<AnalyzedBook>): ScanIdentityMaps {
+        val contributorIdentities =
+            books.flatMap { analyzedBookMapper.buildContributors(it) }.map { it.name to it.sortName }
+        val seriesNames = books.flatMap { analyzedBookMapper.buildSeries(it) }.map { it.name }
+        return ScanIdentityMaps(
+            contributors = contributorRepository.resolveOrCreateAll(contributorIdentities),
+            series = seriesRepository.resolveOrCreateAll(seriesNames),
+        )
     }
 
     /**
@@ -565,14 +595,25 @@ class BookRepository(
         analyzed: AnalyzedBook,
         pendingCover: PendingCover? = null,
         systemCollectionId: String? = null,
+        contributorIds: Map<String, ContributorId>? = null,
+        seriesIds: Map<String, SeriesId>? = null,
     ): AppResult<BookSyncPayload> {
         val resolvedContributors =
             analyzedBookMapper.buildContributors(analyzed).map { c ->
-                c.copy(id = contributorRepository.resolveOrCreate(c.name, c.sortName).value)
+                // Prefer the scan-wide pre-resolved map (one bulk lookup before the persist loop);
+                // fall back to a per-call resolveOrCreate for single-book callers (metadata apply).
+                // The map key MUST match ContributorRepository's dedup key exactly.
+                val id =
+                    contributorIds?.get(contributorDedupKey(c.name, c.sortName))?.value
+                        ?: contributorRepository.resolveOrCreate(c.name, c.sortName).value
+                c.copy(id = id)
             }
         val resolvedSeries =
             analyzedBookMapper.buildSeries(analyzed).map { s ->
-                s.copy(id = seriesRepository.resolveOrCreate(s.name).value)
+                val id =
+                    seriesIds?.get(normalizeForDedup(s.name))?.value
+                        ?: seriesRepository.resolveOrCreate(s.name).value
+                s.copy(id = id)
             }
         val payload =
             analyzedBookMapper.toBookSyncPayload(

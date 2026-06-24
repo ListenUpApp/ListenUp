@@ -183,6 +183,48 @@ class SeriesRepository(
         return id
     }
 
+    /**
+     * Batch counterpart to [resolveOrCreate]: resolves a whole scan's series in one pass.
+     *
+     * The per-book [resolveOrCreate] storm — one SELECT (and a create txn for each new name) per
+     * series per book — collapses to a single bulk SELECT here, run ONCE before the persist loop.
+     * Given the full collection of series [names] for the scan (duplicates allowed), this:
+     *
+     *  1. computes each name's dedup key exactly as [resolveOrCreate] does — `normalizeForDedup(name)`;
+     *  2. SELECTs every existing row whose key is in the unique-key set in **one** query
+     *     ([selectByNormalizedNames], chunked under SQLite's variable limit);
+     *  3. creates the missing keys through the same [resolveOrCreate] (which bumps the domain
+     *     revision and publishes the identical `SyncEvent.Created`), so a brand-new series' sync
+     *     semantics are byte-identical to the single-resolution path.
+     *
+     * @return a `Map<normalizedKey, SeriesId>` keyed by [normalizeForDedup] — callers look an id up
+     *   by recomputing that key for each book's series. Every supplied name's key is present.
+     */
+    suspend fun resolveOrCreateAll(names: Collection<String>): Map<String, SeriesId> {
+        if (names.isEmpty()) return emptyMap()
+        // Normalized key → a representative display name. First writer wins, matching
+        // resolveOrCreate's first-casing-wins semantics for the create path.
+        val byKey = LinkedHashMap<String, String>()
+        for (name in names) {
+            byKey.putIfAbsent(normalizeForDedup(name), name)
+        }
+
+        // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.
+        val existing =
+            suspendTransaction(db) {
+                byKey.keys
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMap { chunk -> db.seriesQueries.selectByNormalizedNames(chunk).executeAsList() }
+                    .associate { it.normalized_name to SeriesId(it.id) }
+            }
+
+        val resolved = LinkedHashMap<String, SeriesId>(byKey.size)
+        for ((key, name) in byKey) {
+            resolved[key] = existing[key] ?: resolveOrCreate(name)
+        }
+        return resolved
+    }
+
     /** Reads a series by raw id outside substrate orchestration — test/diagnostic use. */
     suspend fun findById(idStr: String): SeriesSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
 

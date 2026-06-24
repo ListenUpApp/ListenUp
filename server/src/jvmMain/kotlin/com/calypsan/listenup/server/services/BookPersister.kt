@@ -198,11 +198,24 @@ class BookPersister internal constructor(
         // 100% for the whole persist. We emit PERSISTING progress so the same bar advances 0→100% again
         // under a "Saving library" label. [toPersist] is the count of books actually written
         // (Added/Modified/Moved); Removed changes are tombstones, not persisted books.
-        val toPersist =
-            result.changes.count {
-                it is ChangeEventDto.Added || it is ChangeEventDto.Modified ||
-                    it is ChangeEventDto.Moved
+        val changedBooks =
+            result.changes.mapNotNull { change ->
+                when (change) {
+                    is ChangeEventDto.Added -> coverBearing(change.book)
+                    is ChangeEventDto.Modified -> coverBearing(change.book)
+                    is ChangeEventDto.Moved -> coverBearing(change.book)
+                    is ChangeEventDto.Removed -> null
+                }
             }
+        val toPersist = changedBooks.size
+
+        // Resolve every contributor and series across the whole scan to a stable id ONCE, before the
+        // per-book loop — collapsing the per-book resolveOrCreate transaction storm (a SELECT, plus a
+        // create txn per new name, per contributor/series per book) into one bulk SELECT per catalogue.
+        // The returned dedup-key → id maps thread into each persistOne so a book's contributors/series
+        // resolve from memory, not the database. Brand-new names still create + emit identically.
+        val identityMaps = ingest.resolveScanIdentities(changedBooks)
+
         val persistProgressStride = maxOf(1, toPersist / PERSIST_PROGRESS_TICKS)
         var processed = 0
 
@@ -226,7 +239,7 @@ class BookPersister internal constructor(
         suspend fun persistCounted(book: AnalyzedBook) {
             val bookId =
                 try {
-                    persistOne(book, libraryId, folderId, scanRoot, systemCollectionId)
+                    persistOne(book, libraryId, folderId, scanRoot, systemCollectionId, identityMaps)
                 } catch (e: OutOfMemoryError) {
                     failed++
                     throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
@@ -351,10 +364,22 @@ class BookPersister internal constructor(
         folderId: FolderId,
         scanRoot: JPath,
         systemCollectionId: String?,
+        identityMaps: ScanIdentityMaps,
     ): BookId? =
         try {
             val pending = extractPendingCover(analyzed, scanRoot)
-            when (val r = ingest.resolveOrInsert(libraryId, folderId, analyzed, pending, systemCollectionId)) {
+            when (
+                val r =
+                    ingest.resolveOrInsert(
+                        libraryId,
+                        folderId,
+                        analyzed,
+                        pending,
+                        systemCollectionId,
+                        identityMaps.contributors,
+                        identityMaps.series,
+                    )
+            ) {
                 is AppResult.Success -> {
                     r.data.bookId
                 }

@@ -122,6 +122,45 @@ class BookPersisterTest :
             }
         }
 
+        test("resolveScanIdentities is called once before the loop with exactly the changed cover-bearing books") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    // "a" unchanged (in books, not in changes); "b" Added; "c" Modified; "d" Removed.
+                    val coverBearingB =
+                        analyzedBook("b").copy(
+                            cover = CoverSource.Embedded(EmbeddedArtwork(mime = "image/jpeg", bytes = byteArrayOf(9))),
+                        )
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("a"), coverBearingB, analyzedBook("c")),
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Added(coverBearingB.withoutArtwork()),
+                                    ChangeEventDto.Modified(analyzedBook("c"), previousRootRelPath = "c"),
+                                    ChangeEventDto.Removed("d"),
+                                ),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    // Batch identity resolution runs exactly once, before any per-book persist.
+                    fake.resolveScanIdentitiesCalls shouldHaveSize 1
+                    // It covers exactly the to-persist (Added/Modified/Moved) books — not "a" (unchanged)
+                    // nor "d" (Removed) — and uses the cover-bearing copies (matching what persist writes).
+                    val batchPaths = fake.resolveScanIdentitiesCalls.single().map { it.candidate.rootRelPath }
+                    batchPaths shouldContainExactly listOf("b", "c")
+                    fake.resolveScanIdentitiesCalls
+                        .single()
+                        .first { it.candidate.rootRelPath == "b" }
+                        .cover shouldBe
+                        coverBearingB.cover
+                }
+            }
+        }
+
         test("one failing book doesn't kill the rest") {
             withSqlDatabase {
                 runTest {
@@ -545,12 +584,22 @@ private class FakeBookIngest(
     /** Whether [FirehoseSuppressed] was in the coroutine context for each [softDeleteAbsentByPaths], in call order. */
     val softDeleteAbsentByPathsSuppressed = mutableListOf<Boolean>()
 
+    /** The book collections passed to each [resolveScanIdentities] call, in call order. */
+    val resolveScanIdentitiesCalls = mutableListOf<Collection<AnalyzedBook>>()
+
+    override suspend fun resolveScanIdentities(books: Collection<AnalyzedBook>): ScanIdentityMaps {
+        resolveScanIdentitiesCalls += books
+        return ScanIdentityMaps()
+    }
+
     override suspend fun resolveOrInsert(
         libraryId: LibraryId,
         folderId: com.calypsan.listenup.core.FolderId,
         analyzed: AnalyzedBook,
         pendingCover: PendingCover?,
         systemCollectionId: String?,
+        contributorIds: Map<String, com.calypsan.listenup.core.ContributorId>?,
+        seriesIds: Map<String, com.calypsan.listenup.core.SeriesId>?,
     ): AppResult<IngestOutcome> {
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath

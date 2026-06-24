@@ -240,6 +240,54 @@ class ContributorRepository(
         return id
     }
 
+    /**
+     * Batch counterpart to [resolveOrCreate]: resolves a whole scan's contributors in one pass.
+     *
+     * The per-book [resolveOrCreate] storm — one SELECT (and a create txn for each new name) per
+     * contributor per book — collapses to a single bulk SELECT here, run ONCE before the persist
+     * loop. Given the full collection of `(name, sortName?)` identities for the scan (duplicates
+     * allowed), this:
+     *
+     *  1. computes each identity's dedup key exactly as [resolveOrCreate] does — `contributorDedupKey(name,
+     *     sortName ?: SortKeys.sortName(name, null))` — so the same person buckets identically;
+     *  2. SELECTs every existing row whose key is in the unique-key set in **one** query
+     *     ([selectByNormalizedNames], chunked under SQLite's variable limit);
+     *  3. creates the missing keys through the same [resolveOrCreate] (which bumps the domain
+     *     revision and publishes the identical `SyncEvent.Created`), so a brand-new contributor's
+     *     sync semantics are byte-identical to the single-resolution path.
+     *
+     * @return a `Map<dedupKey, ContributorId>` keyed by [contributorDedupKey] — callers look an
+     *   id up by recomputing that key for each book's contributors. Every supplied identity's key
+     *   is present in the result.
+     */
+    suspend fun resolveOrCreateAll(identities: Collection<Pair<String, String?>>): Map<String, ContributorId> {
+        if (identities.isEmpty()) return emptyMap()
+        // Dedup-key → a representative (name, derivedSortName) for that bucket. First writer wins on
+        // collision, matching resolveOrCreate's first-display-name-wins semantics for the create path.
+        val byKey = LinkedHashMap<String, Pair<String, String>>()
+        for ((name, sortName) in identities) {
+            val derivedSortName = sortName ?: SortKeys.sortName(name, null)
+            val key = contributorDedupKey(name, derivedSortName)
+            byKey.putIfAbsent(key, name to derivedSortName)
+        }
+
+        // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.
+        val existing =
+            suspendTransaction(db) {
+                byKey.keys
+                    .chunked(SQLITE_IN_CHUNK)
+                    .flatMap { chunk -> db.contributorsQueries.selectByNormalizedNames(chunk).executeAsList() }
+                    .associate { it.normalized_name to ContributorId(it.id) }
+            }
+
+        val resolved = LinkedHashMap<String, ContributorId>(byKey.size)
+        for ((key, identity) in byKey) {
+            val id = existing[key] ?: resolveOrCreate(identity.first, identity.second)
+            resolved[key] = id
+        }
+        return resolved
+    }
+
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */
     suspend fun findById(idStr: String): ContributorSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
 
