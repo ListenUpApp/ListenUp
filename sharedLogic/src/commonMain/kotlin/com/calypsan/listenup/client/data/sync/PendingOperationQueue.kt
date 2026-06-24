@@ -5,7 +5,6 @@ import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,7 +57,6 @@ internal data class DrainOutcome(
  * and a backoff timer it owns after a drain wave reports retryable failures
  * via [DrainOutcome].
  */
-@OptIn(ExperimentalUuidApi::class)
 internal class PendingOperationQueue(
     private val dao: PendingOperationV2Dao,
     private val sender: PendingOperationSender,

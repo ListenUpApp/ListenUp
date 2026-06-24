@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
@@ -81,7 +80,7 @@ sealed interface UserProfileUiState {
  *
  * The header never blocks on shelves: a shelf failure renders an empty shelf list, not an error.
  */
-@OptIn(ExperimentalCoroutinesApi::class, ExperimentalUuidApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class UserProfileViewModel internal constructor(
     private val publicProfileDao: PublicProfileDao,
     private val shelfRepository: ShelfRepository,
@@ -305,7 +304,6 @@ class UserProfileViewModel internal constructor(
  * Stable, per-user avatar background as a hex string, mirroring the UI-layer palette in
  * `design/components/UserAvatar.kt` so generated colors stay consistent app-wide.
  */
-@OptIn(ExperimentalUuidApi::class)
 fun stableAvatarColorHex(userId: String): String {
     val index =
         try {
