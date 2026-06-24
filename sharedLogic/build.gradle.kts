@@ -40,8 +40,6 @@ kotlin {
             isStatic = true
             binaryOption("bundleId", "com.calypsan.listenup.shared")
 
-            // Export Koin so it's accessible from Swift
-            export(libs.koin.core)
             export(projects.contract)
         }
     }
@@ -51,9 +49,32 @@ kotlin {
 
     applyDefaultHierarchyTemplate()
 
-    // TODO: Enable Native Swift Export when Gradle API is available
-    // Swift Export is experimental in Kotlin 2.3.0-Beta2 but not yet exposed in Gradle plugin
-    // For now, we'll use traditional framework export which still works great
+    // Native Swift Export — runs alongside the SKIE-driven ObjC framework above. This is a
+    // build-only verification surface (Stage 1 of the SKIE→Swift Export cutover); SKIE still
+    // drives the shipping iOS app. `flattenPackage` strips the long package prefix off the
+    // generated Swift names so callers write `Book`, not `Com_calypsan_listenup…Book`.
+    @OptIn(org.jetbrains.kotlin.gradle.swiftexport.ExperimentalSwiftExportDsl::class)
+    swiftExport {
+        moduleName = "Shared"
+        flattenPackage = "com.calypsan.listenup"
+    }
+
+    // Opt-ins required for the Swift Export bridge to compile the generated Kotlin glue.
+    // Each names an experimental API that some exported (or transitively reachable) declaration
+    // touches; without the opt-in the generated bridge source fails to compile.
+    compilerOptions {
+        optIn.addAll(
+            "kotlin.ExperimentalStdlibApi",
+            "kotlin.time.ExperimentalTime",
+            "kotlinx.cinterop.BetaInteropApi",
+            "kotlinx.coroutines.InternalCoroutinesApi",
+            "io.ktor.util.InternalAPI",
+            "io.ktor.utils.io.InternalAPI",
+            "org.koin.core.annotation.KoinInternalApi",
+            "kotlinx.io.InternalIoApi",
+            "kotlinx.io.unsafe.UnsafeIoApi",
+        )
+    }
 
     sourceSets {
         // Default hierarchy template provides: commonMain -> nativeMain -> appleMain -> {iosMain, macosMain}
@@ -79,7 +100,11 @@ kotlin {
             implementation(libs.kotlinx.io.core)
             implementation(libs.atomicfu)
 
-            api(libs.koin.core)
+            // `implementation`, not `api`: Koin's `Module` type must not reach the public
+            // export surface. A public `Module` val drags `ParametersHolder.initialize(
+            // MutableList<…>)` into the Swift Export bridge and double-emits the
+            // `kotlin.collections.MutableList` LLVM global, crashing the native link.
+            implementation(libs.koin.core)
             implementation(libs.kotlin.logging)
 
             implementation(libs.androidx.lifecycle.viewmodelCompose)
@@ -163,6 +188,17 @@ tasks.named<Test>("jvmTest") {
 // Define Room Schema location (optional but good practice)
 room {
     schemaDirectory("$projectDir/schemas")
+}
+
+// Exclude stately-concurrent-collections from every configuration.
+// stately-concurrent-collections (pulled transitively by koin-core) ships a
+// ConcurrentMutableList that implements MutableList, causing Swift Export to crash with
+// "Global 'ktypew:kotlin.collections.MutableList' already exists" when two klibs each
+// register the MutableList type descriptor. Koin uses Stately only on older Kotlin/Native
+// targets; Kotlin 2.4.0's own atomics make it redundant, and the symbols are never needed
+// at runtime on this Kotlin version.
+configurations.all {
+    exclude(group = "co.touchlab", module = "stately-concurrent-collections")
 }
 
 // Wire KSP for Room - platform-specific targets only
