@@ -15,7 +15,6 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlin.time.TimeSource
 import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
 
@@ -34,8 +33,8 @@ internal class AuthSessionStore(
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
 ) : AuthSession {
-    private val _authState = MutableStateFlow<DomainAuthState>(DomainAuthState.Initializing)
-    override val authState: StateFlow<DomainAuthState> = _authState.asStateFlow()
+    override val authState: StateFlow<DomainAuthState>
+        field = MutableStateFlow<DomainAuthState>(DomainAuthState.Initializing)
 
     override suspend fun saveAuthTokens(
         access: AccessToken,
@@ -48,7 +47,7 @@ internal class AuthSessionStore(
         secureStorage.save(KEY_SESSION_ID, sessionId)
         secureStorage.save(KEY_USER_ID, userId)
 
-        _authState.value = DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
+        authState.value = DomainAuthState.Authenticated(UserId(userId), SessionId(sessionId))
     }
 
     override suspend fun getAccessToken(): AccessToken? = secureStorage.read(KEY_ACCESS_TOKEN)?.let { AccessToken(it) }
@@ -75,7 +74,7 @@ internal class AuthSessionStore(
         secureStorage.delete(KEY_SESSION_ID)
         secureStorage.delete(KEY_USER_ID)
 
-        _authState.value = DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+        authState.value = DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
     }
 
     override suspend fun isAuthenticated(): Boolean = getAccessToken() != null
@@ -85,7 +84,7 @@ internal class AuthSessionStore(
      * network call; invalid tokens surface later as 401s and trigger re-auth.
      */
     override suspend fun initializeAuthState() {
-        _authState.value = deriveAuthState()
+        authState.value = deriveAuthState()
     }
 
     private suspend fun deriveAuthState(): DomainAuthState {
@@ -128,7 +127,7 @@ internal class AuthSessionStore(
     override suspend fun checkServerStatus(): DomainAuthState {
         logger.info { "checkServerStatus: Starting" }
         val startMark = TimeSource.Monotonic.markNow()
-        _authState.value = DomainAuthState.CheckingServer
+        authState.value = DomainAuthState.CheckingServer
 
         return when (val result = instanceRepository.getServerInfo(forceRefresh = true)) {
             is AppResult.Success -> {
@@ -142,14 +141,14 @@ internal class AuthSessionStore(
                     } else {
                         DomainAuthState.NeedsLogin(openRegistration = openRegistration)
                     }
-                _authState.value = newState
+                authState.value = newState
                 newState
             }
 
             is AppResult.Failure -> {
                 logger.info { "checkServerStatus: getServerInfo failed (${startMark.elapsedNow()}): ${result.message}" }
                 val cachedOpenRegistration = getCachedOpenRegistration()
-                _authState.value = DomainAuthState.NeedsLogin(openRegistration = cachedOpenRegistration)
+                authState.value = DomainAuthState.NeedsLogin(openRegistration = cachedOpenRegistration)
                 DomainAuthState.NeedsLogin(openRegistration = cachedOpenRegistration)
             }
         }
@@ -159,15 +158,15 @@ internal class AuthSessionStore(
         secureStorage.read(KEY_OPEN_REGISTRATION)?.toBooleanStrictOrNull() ?: false
 
     override suspend fun refreshOpenRegistration() {
-        val currentState = _authState.value
+        val currentState = authState.value
         if (currentState !is DomainAuthState.NeedsLogin) return
 
         when (val result = instanceRepository.getServerInfo(forceRefresh = true)) {
             is AppResult.Success -> {
                 val openRegistration = result.data.registrationPolicy != RegistrationPolicy.CLOSED
                 secureStorage.save(KEY_OPEN_REGISTRATION, openRegistration.toString())
-                if (_authState.value is DomainAuthState.NeedsLogin) {
-                    _authState.value = DomainAuthState.NeedsLogin(openRegistration = openRegistration)
+                if (authState.value is DomainAuthState.NeedsLogin) {
+                    authState.value = DomainAuthState.NeedsLogin(openRegistration = openRegistration)
                 }
             }
 
@@ -184,7 +183,7 @@ internal class AuthSessionStore(
         secureStorage.save(KEY_PENDING_USER_ID, userId)
         secureStorage.save(KEY_PENDING_EMAIL, email)
 
-        _authState.value =
+        authState.value =
             DomainAuthState.PendingApproval(
                 userId = UserId(userId),
                 email = email,
@@ -204,7 +203,7 @@ internal class AuthSessionStore(
         // user is never stranded on the pending screen (e.g. tapping Cancel). Navigation is
         // AuthState-driven, so flip the state here rather than relying on a screen-level callback.
         // Callers that delete the server URL too (disconnect) re-derive state immediately after.
-        _authState.value = DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+        authState.value = DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
     }
 
     private companion object {

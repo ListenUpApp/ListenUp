@@ -10,7 +10,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import com.calypsan.listenup.client.core.Failure
 
 private val logger = KotlinLogging.logger {}
@@ -33,8 +32,8 @@ internal class CoverDownloadWorker(
     private val coverDownloadDao: CoverDownloadDao,
     private val imageDownloader: ImageDownloaderContract,
 ) {
-    private val _isProcessing = MutableStateFlow(false)
-    val isProcessing: StateFlow<Boolean> = _isProcessing.asStateFlow()
+    val isProcessing: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
     /** Remaining tasks (pending + retryable failed). */
     val remainingCount: Flow<Int> = coverDownloadDao.observeRemainingCount()
@@ -65,12 +64,12 @@ internal class CoverDownloadWorker(
      */
     @Suppress("NestedBlockDepth")
     suspend fun processQueue() {
-        if (_isProcessing.value) {
+        if (isProcessing.value) {
             logger.debug { "Cover download worker already processing, skipping" }
             return
         }
 
-        _isProcessing.value = true
+        isProcessing.value = true
         logger.info { "Cover download worker started" }
 
         try {
@@ -131,7 +130,7 @@ internal class CoverDownloadWorker(
 
             logger.info { "Cover download worker finished: $processedCount covers processed" }
         } finally {
-            _isProcessing.value = false
+            isProcessing.value = false
         }
     }
 

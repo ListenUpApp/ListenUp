@@ -12,7 +12,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
@@ -39,8 +38,8 @@ open class ProgressTracker(
     private val positionRepository: PlaybackPositionRepository,
     private val scope: CoroutineScope,
 ) {
-    private val _sessionState = MutableStateFlow<SessionState>(SessionState.Idle)
-    val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
+    val sessionState: StateFlow<SessionState>
+        field = MutableStateFlow<SessionState>(SessionState.Idle)
 
     /**
      * Called when playback starts/resumes.
@@ -51,7 +50,7 @@ open class ProgressTracker(
         speed: Float,
     ) {
         val now = Clock.System.now().toEpochMilliseconds()
-        _sessionState.value =
+        sessionState.value =
             SessionState.Active(
                 bookId = bookId,
                 playbackStartPositionMs = positionMs,
@@ -97,8 +96,8 @@ open class ProgressTracker(
         val now = Clock.System.now().toEpochMilliseconds()
 
         // Atomic transition: Active(matching bookId) -> Paused; else no-op
-        val priorState = _sessionState.value // capture for transition logging
-        _sessionState.update { current ->
+        val priorState = sessionState.value // capture for transition logging
+        sessionState.update { current ->
             if (current is SessionState.Active && current.bookId == bookId) {
                 SessionState.Paused(
                     bookId = current.bookId,
@@ -195,7 +194,7 @@ open class ProgressTracker(
         newSpeed: Float,
     ) {
         // Update session speed atomically if active/paused for this book
-        _sessionState.update { current ->
+        sessionState.update { current ->
             when {
                 current is SessionState.Active && current.bookId == bookId -> current.copy(speed = newSpeed)
                 current is SessionState.Paused && current.bookId == bookId -> current.copy(speed = newSpeed)
@@ -227,7 +226,7 @@ open class ProgressTracker(
         defaultSpeed: Float,
     ) {
         // Update session speed atomically if active/paused for this book
-        _sessionState.update { current ->
+        sessionState.update { current ->
             when {
                 current is SessionState.Active && current.bookId == bookId -> current.copy(speed = defaultSpeed)
                 current is SessionState.Paused && current.bookId == bookId -> current.copy(speed = defaultSpeed)
@@ -258,7 +257,7 @@ open class ProgressTracker(
         positionMs: Long,
     ) {
         val speed =
-            when (val s = _sessionState.value) {
+            when (val s = sessionState.value) {
                 is SessionState.Active -> s.speed
                 is SessionState.Paused -> s.speed
                 SessionState.Idle -> 1.0f
@@ -294,7 +293,7 @@ open class ProgressTracker(
         bookId: BookId,
         finalPositionMs: Long,
     ) {
-        _sessionState.update { _ -> SessionState.Idle }
+        sessionState.update { _ -> SessionState.Idle }
 
         scope.launch {
             logger.info { "Book finished: ${bookId.value}, finalPosition=$finalPositionMs" }
@@ -356,7 +355,7 @@ open class ProgressTracker(
      * Returns 1.0 if no active session.
      */
     fun getCurrentSpeed(): Float =
-        when (val s = _sessionState.value) {
+        when (val s = sessionState.value) {
             is SessionState.Active -> s.speed
             is SessionState.Paused -> s.speed
             SessionState.Idle -> 1.0f
