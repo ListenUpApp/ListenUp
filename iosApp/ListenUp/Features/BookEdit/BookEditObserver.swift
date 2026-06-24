@@ -29,13 +29,23 @@ final class BookEditObserver {
     private(set) var coverHash: String?
     private(set) var isUploadingCover: Bool = false
 
-    // Relations
-    private(set) var authors: [EditableContributor] = []
-    private(set) var narrators: [EditableContributor] = []
-    private(set) var series: [EditableSeries] = []
-    private(set) var genres: [EditableGenre] = []
-    private(set) var tags: [EditableTag] = []
-    private(set) var moods: [EditableMood] = []
+    // Relations — native projections fed to the views. No bridged Kotlin object ever reaches a
+    // ForEach (it would re-bridge on every diff); the mapping happens once in `apply`.
+    private(set) var authors: [EditableRelation] = []
+    private(set) var narrators: [EditableRelation] = []
+    private(set) var series: [EditableRelation] = []
+    private(set) var genres: [EditableRelation] = []
+    private(set) var tags: [EditableRelation] = []
+    private(set) var moods: [EditableRelation] = []
+
+    // Raw Kotlin lists retained for the id→object lookup when a chip's remove button is tapped.
+    // Held off the SwiftUI diff path (never iterated by a ForEach), so they don't re-bridge.
+    private var rawAuthors: [EditableContributor] = []
+    private var rawNarrators: [EditableContributor] = []
+    private var rawSeries: [EditableSeries] = []
+    private var rawGenres: [EditableGenre] = []
+    private var rawTags: [EditableTag] = []
+    private var rawMoods: [EditableMood] = []
 
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
@@ -77,19 +87,25 @@ final class BookEditObserver {
 
     // MARK: - Relation remove intents
 
-    func removeContributor(_ contributor: EditableContributor, role: ContributorRole) {
+    func removeContributor(_ relation: EditableRelation, role: ContributorRole) {
+        let raw = role == .author ? rawAuthors : rawNarrators
+        guard let contributor = raw.first(where: { $0.name == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveContributor(contributor: contributor, role: role))
     }
-    func removeSeries(_ value: EditableSeries) {
+    func removeSeries(_ relation: EditableRelation) {
+        guard let value = rawSeries.first(where: { $0.name == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveSeries(series: value))
     }
-    func removeGenre(_ value: EditableGenre) {
+    func removeGenre(_ relation: EditableRelation) {
+        guard let value = rawGenres.first(where: { $0.id == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveGenre(genre: value))
     }
-    func removeTag(_ value: EditableTag) {
+    func removeTag(_ relation: EditableRelation) {
+        guard let value = rawTags.first(where: { $0.id == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveTag(tag: value))
     }
-    func removeMood(_ value: EditableMood) {
+    func removeMood(_ relation: EditableRelation) {
+        guard let value = rawMoods.first(where: { $0.id == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveMood(mood: value))
     }
 
@@ -112,12 +128,18 @@ final class BookEditObserver {
         displayCoverPath = state.displayCoverPath
         coverHash = state.coverHash
         isUploadingCover = state.isUploadingCover
-        authors = state.authors
-        narrators = state.narrators
-        series = state.series
-        genres = state.genres
-        tags = state.tags
-        moods = state.moods
+        rawAuthors = state.authors
+        rawNarrators = state.narrators
+        rawSeries = state.series
+        rawGenres = state.genres
+        rawTags = state.tags
+        rawMoods = state.moods
+        authors = state.authors.map { EditableRelation.contributor(name: $0.name) }
+        narrators = state.narrators.map { EditableRelation.contributor(name: $0.name) }
+        series = state.series.map { EditableRelation.series(name: $0.name, sequence: $0.sequence) }
+        genres = state.genres.map { EditableRelation.genre(id: $0.id, name: $0.name) }
+        tags = state.tags.map { EditableRelation.tag(id: $0.id, slug: $0.slug) }
+        moods = state.moods.map { EditableRelation.mood(id: $0.id, slug: $0.slug) }
         hasChanges = state.hasChanges
         isSaving = state.isSaving
         error = state.error

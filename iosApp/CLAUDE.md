@@ -64,6 +64,14 @@ before any non-trivial iOS work.
 8. **Observation, not Combine.** `@Observable`/`@Bindable`; no `ObservableObject`/`@Published`
    in new code. Bridge Kotlin `Flow`/suspend → Swift `async`/`AsyncSequence` via SKIE
    (`FlowBridge` is the established helper).
+   - **Never feed SKIE-bridged Kotlin objects into a `ForEach`/`List`/`LazyVGrid`/`LazyVStack`.**
+     Map them to a **native Swift value type at the `@Observable` observer boundary** (in `apply`)
+     and feed those structs to the view. Every SwiftUI diff/layout/`scrollTo` re-reads a bridged
+     object's properties across the Kotlin boundary — re-bridging per diff (`toKStringFromUtf16`)
+     froze the library grid on large data. Precedents: `BookRow`, `SeriesRow`, `ContributorRow`,
+     `SearchRow`, `RoleSectionRow`, `EditableRelation`. If the observer still needs the raw Kotlin
+     object (e.g. for an id→object lookup on a remove/tap action), keep it as private observer
+     state, off the diff path — never in the `ForEach`.
 9. **Native, type-safe navigation.** `NavigationStack` + value-typed routes; sheets,
    `presentationDetents`, and inspectors over ported screens.
 10. **Errors the iOS way.** The shared typed `AppError` crosses the boundary, but iOS maps

@@ -37,4 +37,36 @@ struct BookEditObserverTests {
     @Test func tagLabelDropsEmptySegments() {
         #expect(BookEditFormatting.tagLabel(slug: "slow--burn") == "Slow Burn")
     }
+
+    // MARK: - EditableRelation projections (which field becomes the id vs the label)
+
+    @Test func contributorRelationKeysByNameAndLabelsByName() {
+        let row = EditableRelation.contributor(name: "Patrick Rothfuss")
+        #expect(row.id == "Patrick Rothfuss")
+        #expect(row.label == "Patrick Rothfuss")
+    }
+
+    @Test func seriesRelationKeysByNameAndFoldsSequenceIntoLabel() {
+        let row = EditableRelation.series(name: "Mistborn", sequence: "3.5")
+        #expect(row.id == "Mistborn")
+        #expect(row.label == "Mistborn · 3.5")
+    }
+
+    @Test func genreRelationKeysByIdAndLabelsByName() {
+        let row = EditableRelation.genre(id: "genre-7", name: "Epic Fantasy")
+        #expect(row.id == "genre-7")
+        #expect(row.label == "Epic Fantasy")
+    }
+
+    @Test func tagRelationKeysByIdAndTitleCasesSlug() {
+        let row = EditableRelation.tag(id: "tag-42", slug: "found-family")
+        #expect(row.id == "tag-42")
+        #expect(row.label == "Found Family")
+    }
+
+    @Test func moodRelationKeysByIdAndTitleCasesSlug() {
+        let row = EditableRelation.mood(id: "mood-9", slug: "slow-burn")
+        #expect(row.id == "mood-9")
+        #expect(row.label == "Slow Burn")
+    }
 }
