@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.db
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
+import kotlinx.io.files.Path
 
 /**
  * Pins [DataDirLock] — the single-instance guard that stops two servers from sharing one data home
@@ -13,8 +14,8 @@ class DataDirLockTest :
 
         test("a second lock on the same data home is rejected while the first is held") {
             val home = Files.createTempDirectory("datadir-lock-")
-            val first = DataDirLock.forDataHome(home)
-            val second = DataDirLock.forDataHome(home)
+            val first = DataDirLock.forDataHome(Path(home.toString()))
+            val second = DataDirLock.forDataHome(Path(home.toString()))
 
             first.tryAcquire() shouldBe true
             second.tryAcquire() shouldBe false // the home is already locked — fail, don't clobber
@@ -28,8 +29,8 @@ class DataDirLockTest :
         test("locks on different data homes don't interfere") {
             val homeA = Files.createTempDirectory("datadir-lock-a-")
             val homeB = Files.createTempDirectory("datadir-lock-b-")
-            val a = DataDirLock.forDataHome(homeA)
-            val b = DataDirLock.forDataHome(homeB)
+            val a = DataDirLock.forDataHome(Path(homeA.toString()))
+            val b = DataDirLock.forDataHome(Path(homeB.toString()))
 
             a.tryAcquire() shouldBe true
             b.tryAcquire() shouldBe true // independent homes → independent locks
@@ -40,7 +41,7 @@ class DataDirLockTest :
 
         test("close is idempotent and a closed lock can be re-acquired") {
             val home = Files.createTempDirectory("datadir-lock-reuse-")
-            val lock = DataDirLock.forDataHome(home)
+            val lock = DataDirLock.forDataHome(Path(home.toString()))
 
             lock.tryAcquire() shouldBe true
             lock.close()

@@ -147,6 +147,7 @@ import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.KoinIsolated
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.io.files.Path as DataDirPath
 
 private val logger = KotlinLogging.logger {}
 
@@ -572,7 +573,8 @@ private fun Application.acquireDataDirLockIfEnabled(homeDir: Path) {
             ?.getString()
             ?.toBooleanStrictOrNull() ?: false
     if (!enabled) return
-    val lock = DataDirLock.forDataHome(homeDir)
+    // java.nio path → kotlinx-io; transitional until Application.kt moves to commonMain (Phase 5)
+    val lock = DataDirLock.forDataHome(DataDirPath(homeDir.toString()))
     check(lock.tryAcquire()) {
         "Another ListenUp server is already using the data directory $homeDir. Stop it before " +
             "starting another instance, or point this one at a different LISTENUP_HOME."
