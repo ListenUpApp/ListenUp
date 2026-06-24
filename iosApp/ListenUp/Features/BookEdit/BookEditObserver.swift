@@ -5,10 +5,10 @@ import SwiftUI
 /// properties and dispatching edits as `BookEditUiEvent`s. `NavigateBack` flips
 /// `didFinish` so the sheet dismisses.
 ///
-/// The relational lists (contributors, series, genres, tags) are exposed as the
-/// shared Kotlin `Editable*` domain types directly — they cross the SKIE seam as
-/// value types the SwiftUI rows render and key on. Display + remove is wired here;
-/// the searchable add-pickers are intentionally out of scope for this slice.
+/// The relational lists (contributors, series, genres, tags, moods) are mapped to native
+/// `EditableRelation` chips and `RelationSearchResult` rows at the observer boundary — no
+/// SKIE-bridged Kotlin object ever reaches a `ForEach`. Both display+remove and the
+/// search-and-add pickers are wired here.
 @Observable
 @MainActor
 final class BookEditObserver {
@@ -47,6 +47,37 @@ final class BookEditObserver {
     private var rawTags: [EditableTag] = []
     private var rawMoods: [EditableMood] = []
 
+    // Add-picker search sub-state — native projections fed to the result rows. Queries are echoed
+    // from shared state so the field stays the single source of truth across re-emits.
+    private(set) var authorQuery: String = ""
+    private(set) var narratorQuery: String = ""
+    private(set) var seriesQuery: String = ""
+    private(set) var genreQuery: String = ""
+    private(set) var tagQuery: String = ""
+    private(set) var moodQuery: String = ""
+
+    private(set) var authorResults: [RelationSearchResult] = []
+    private(set) var narratorResults: [RelationSearchResult] = []
+    private(set) var seriesResults: [RelationSearchResult] = []
+    private(set) var genreResults: [RelationSearchResult] = []
+    private(set) var tagResults: [RelationSearchResult] = []
+    private(set) var moodResults: [RelationSearchResult] = []
+
+    private(set) var authorSearching: Bool = false
+    private(set) var narratorSearching: Bool = false
+    private(set) var seriesSearching: Bool = false
+    private(set) var tagSearching: Bool = false
+    private(set) var moodSearching: Bool = false
+
+    // Raw search results retained for the id→object lookup when a result row is tapped, off the
+    // diff path (never iterated by a ForEach) so they don't re-bridge.
+    private var rawSeriesResults: [SeriesSearchResult] = []
+    private var rawAuthorResults: [ContributorSearchResult] = []
+    private var rawNarratorResults: [ContributorSearchResult] = []
+    private var rawGenreResults: [EditableGenre] = []
+    private var rawTagResults: [EditableTag] = []
+    private var rawMoodResults: [EditableMood] = []
+
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
     private(set) var error: String?
@@ -63,7 +94,14 @@ final class BookEditObserver {
 
     deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
 
-    func loadBook(bookId: String) { viewModel.loadBook(bookId: bookId) }
+    func loadBook(bookId: String) {
+        viewModel.loadBook(bookId: bookId)
+        // Ensure the NARRATOR search flow exists even when the book has no narrators yet. The
+        // shared VM only sets up per-role search for roles visible at load (AUTHOR always, plus
+        // any role with existing contributors), so without this a narrator add-field would be
+        // inert. `AddRoleSection` is idempotent (guarded by `containsKey` in the delegate).
+        viewModel.onEvent(event: BookEditUiEventAddRoleSection(role: .narrator))
+    }
 
     // MARK: - Field intents
 
@@ -109,6 +147,66 @@ final class BookEditObserver {
         viewModel.onEvent(event: BookEditUiEventRemoveMood(mood: value))
     }
 
+    // MARK: - Relation add intents
+
+    // Contributors (per role) — search, select an existing result, or enter a new name.
+    func setContributorQuery(_ value: String, role: ContributorRole) {
+        viewModel.onEvent(event: BookEditUiEventRoleSearchQueryChanged(role: role, query: value))
+    }
+    func selectContributorResult(_ result: RelationSearchResult, role: ContributorRole) {
+        let raw = role == .author ? rawAuthorResults : rawNarratorResults
+        guard let match = raw.first(where: { $0.id == result.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventRoleContributorSelected(role: role, result: match))
+    }
+    func enterContributor(_ name: String, role: ContributorRole) {
+        viewModel.onEvent(event: BookEditUiEventRoleContributorEntered(role: role, name: name))
+    }
+
+    // Series — search, select an existing result, or enter a new name.
+    func setSeriesQuery(_ value: String) {
+        viewModel.onEvent(event: BookEditUiEventSeriesSearchQueryChanged(query: value))
+    }
+    func selectSeriesResult(_ result: RelationSearchResult) {
+        guard let match = rawSeriesResults.first(where: { $0.id == result.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventSeriesSelected(result: match))
+    }
+    func enterSeries(_ name: String) {
+        viewModel.onEvent(event: BookEditUiEventSeriesEntered(name: name))
+    }
+
+    // Genres — select an existing genre only (no free-text creation).
+    func setGenreQuery(_ value: String) {
+        viewModel.onEvent(event: BookEditUiEventGenreSearchQueryChanged(query: value))
+    }
+    func selectGenreResult(_ result: RelationSearchResult) {
+        guard let match = rawGenreResults.first(where: { $0.id == result.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventGenreSelected(genre: match))
+    }
+
+    // Tags — search, select an existing tag, or create a new one.
+    func setTagQuery(_ value: String) {
+        viewModel.onEvent(event: BookEditUiEventTagSearchQueryChanged(query: value))
+    }
+    func selectTagResult(_ result: RelationSearchResult) {
+        guard let match = rawTagResults.first(where: { $0.id == result.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventTagSelected(tag: match))
+    }
+    func enterTag(_ name: String) {
+        viewModel.onEvent(event: BookEditUiEventTagEntered(name: name))
+    }
+
+    // Moods — search, select an existing mood, or create a new one.
+    func setMoodQuery(_ value: String) {
+        viewModel.onEvent(event: BookEditUiEventMoodSearchQueryChanged(query: value))
+    }
+    func selectMoodResult(_ result: RelationSearchResult) {
+        guard let match = rawMoodResults.first(where: { $0.id == result.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventMoodSelected(mood: match))
+    }
+    func enterMood(_ name: String) {
+        viewModel.onEvent(event: BookEditUiEventMoodEntered(name: name))
+    }
+
     // MARK: - Actions
 
     func onSave() { viewModel.onEvent(event: BookEditUiEventSave.shared) }
@@ -140,9 +238,70 @@ final class BookEditObserver {
         genres = state.genres.map { EditableRelation.genre(id: $0.id, name: $0.name) }
         tags = state.tags.map { EditableRelation.tag(id: $0.id, slug: $0.slug) }
         moods = state.moods.map { EditableRelation.mood(id: $0.id, slug: $0.slug) }
+        applySearchState(state)
         hasChanges = state.hasChanges
         isSaving = state.isSaving
         error = state.error
+    }
+
+    /// Maps the add-picker search sub-state (per-role contributor, series, genre, tag, mood) from
+    /// the shared `BookEditUiState` into native value types, off the SwiftUI diff path.
+    private func applySearchState(_ state: BookEditUiState) {
+        // Contributors — per-role maps keyed by ContributorRole.
+        authorQuery = state.roleSearchQueries[.author] ?? ""
+        narratorQuery = state.roleSearchQueries[.narrator] ?? ""
+        authorSearching = (state.roleSearchLoading[.author])?.boolValue ?? false
+        narratorSearching = (state.roleSearchLoading[.narrator])?.boolValue ?? false
+        rawAuthorResults = state.roleSearchResults[.author] ?? []
+        rawNarratorResults = state.roleSearchResults[.narrator] ?? []
+        authorResults = rawAuthorResults.map(Self.contributorResult)
+        narratorResults = rawNarratorResults.map(Self.contributorResult)
+
+        // Series.
+        seriesQuery = state.seriesSearchQuery
+        seriesSearching = state.seriesSearchLoading
+        rawSeriesResults = state.seriesSearchResults
+        seriesResults = rawSeriesResults.map(Self.seriesResult)
+
+        // Genres (select-only — no loading flag in shared state, filtered locally).
+        genreQuery = state.genreSearchQuery
+        rawGenreResults = state.genreSearchResults
+        genreResults = rawGenreResults.map(Self.genreResult)
+
+        // Tags.
+        tagQuery = state.tagSearchQuery
+        tagSearching = state.tagSearchLoading || state.tagCreating
+        rawTagResults = state.tagSearchResults
+        tagResults = rawTagResults.map { Self.slugResult(id: $0.id, slug: $0.slug) }
+
+        // Moods.
+        moodQuery = state.moodSearchQuery
+        moodSearching = state.moodSearchLoading || state.moodCreating
+        rawMoodResults = state.moodSearchResults
+        moodResults = rawMoodResults.map { Self.slugResult(id: $0.id, slug: $0.slug) }
+    }
+
+    // MARK: - Result projections (pure, off the diff path)
+
+    private static func contributorResult(_ result: ContributorSearchResult) -> RelationSearchResult {
+        RelationSearchResult(
+            id: result.id,
+            name: result.name,
+            subtitle: BookEditFormatting.bookCountSubtitle(Int(result.bookCount))
+        )
+    }
+    private static func seriesResult(_ result: SeriesSearchResult) -> RelationSearchResult {
+        RelationSearchResult(
+            id: result.id,
+            name: result.name,
+            subtitle: BookEditFormatting.bookCountSubtitle(Int(result.bookCount))
+        )
+    }
+    private static func genreResult(_ genre: EditableGenre) -> RelationSearchResult {
+        RelationSearchResult(id: genre.id, name: genre.name, subtitle: BookEditFormatting.genreParentPath(genre.path))
+    }
+    private static func slugResult(id: String, slug: String) -> RelationSearchResult {
+        RelationSearchResult(id: id, name: BookEditFormatting.tagLabel(slug: slug), subtitle: nil)
     }
 
     private func applyNav(_ action: BookEditNavAction) {

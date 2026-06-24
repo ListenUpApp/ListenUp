@@ -45,3 +45,21 @@ extension EditableRelation {
         EditableRelation(id: id, label: BookEditFormatting.tagLabel(slug: slug))
     }
 }
+
+/// A native, value-typed projection of one add-picker search result (a contributor, series,
+/// genre, tag, or mood the user can attach to the book).
+///
+/// **Why this exists (the same SKIE no-bridged-`ForEach` convention as `EditableRelation`).** The
+/// add-pickers' live results arrive as SKIE-bridged Kotlin types (`ContributorSearchResult`,
+/// `SeriesSearchResult`, `EditableGenre/Tag/Mood`). Feeding those into the results `ForEach` would
+/// re-bridge their properties on every diff. `BookEditObserver` maps them to `RelationSearchResult`
+/// once in `apply`; the result rows diff cheap Swift values. The `id` is the same key the observer
+/// uses to look the Kotlin object back up when a result row is tapped.
+struct RelationSearchResult: Identifiable, Equatable, Hashable {
+    /// The lookup key the observer uses to resolve the underlying Kotlin object on selection.
+    let id: String
+    /// The primary display name shown in the result row.
+    let name: String
+    /// Optional secondary line (e.g. "3 books" for a contributor/series, a genre's parent path).
+    let subtitle: String?
+}

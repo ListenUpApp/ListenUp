@@ -69,4 +69,30 @@ struct BookEditObserverTests {
         #expect(row.id == "mood-9")
         #expect(row.label == "Slow Burn")
     }
+
+    // MARK: - Add-picker result subtitles
+
+    @Test func bookCountSubtitleIsNilForZero() {
+        #expect(BookEditFormatting.bookCountSubtitle(0) == nil)
+    }
+
+    @Test func bookCountSubtitleSingularForOne() {
+        #expect(BookEditFormatting.bookCountSubtitle(1) == "1 book")
+    }
+
+    @Test func bookCountSubtitlePluralForMany() {
+        #expect(BookEditFormatting.bookCountSubtitle(7) == "7 books")
+    }
+
+    @Test func genreParentPathDropsLeafAndTitleCases() {
+        #expect(BookEditFormatting.genreParentPath("/fiction/fantasy/epic-fantasy") == "Fiction > Fantasy")
+    }
+
+    @Test func genreParentPathIsNilForTopLevel() {
+        #expect(BookEditFormatting.genreParentPath("/fiction") == nil)
+    }
+
+    @Test func genreParentPathHandlesNoLeadingSlash() {
+        #expect(BookEditFormatting.genreParentPath("fiction/fantasy") == "Fiction")
+    }
 }
