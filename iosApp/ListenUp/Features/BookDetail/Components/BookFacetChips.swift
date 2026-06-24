@@ -10,9 +10,9 @@ import SwiftUI
 /// - ``tag`` — *the tropes inside it* (e.g. "Found Family"). A neutral *outlined*
 ///   chip — border, transparent fill, no icon — distinct from the genre's solid fill
 ///   and the mood's accent.
-/// - ``mood`` — *how it feels* to read (e.g. "Tense", "Atmospheric"). An
-///   accent-tinted chip that leans on the per-book cover accent, with a leading
-///   `sparkles` symbol — the most expressive of the three.
+/// - ``mood`` — *how it feels* to read (e.g. "Tense", "Atmospheric"). A
+///   coral-accented chip with a leading `sparkles` symbol — the most expressive
+///   of the three.
 ///
 /// The styling contract (icon vs. no-icon, accent vs. neutral, outlined vs. filled) is
 /// exposed as pure properties so it can be pinned by unit tests without constructing SwiftUI views.
@@ -31,7 +31,7 @@ enum BookFacetKind: CaseIterable, Hashable {
         }
     }
 
-    /// Whether the chip leans on the per-book cover accent. Only moods do now;
+    /// Whether the chip leans on the coral action accent. Only moods do now;
     /// tags are a neutral outlined facet.
     var usesAccent: Bool {
         switch self {
@@ -63,17 +63,14 @@ enum BookFacetKind: CaseIterable, Hashable {
 ///
 /// Reuses the shared ``FlowLayout`` so the chips wrap responsively to the available
 /// width. The ``BookFacetKind`` switches the styling: neutral fill for genres, a
-/// secondary-tinted chip with a leading symbol for tags, and an accent-tinted chip
-/// (off the per-book `tint`) with a leading symbol for moods. Each chip respects
-/// Dynamic Type and labels itself sensibly for VoiceOver; the leading symbols are
-/// decorative.
+/// neutral outlined chip for tags, and a coral-accented chip with a leading symbol
+/// for moods. Each chip respects Dynamic Type and labels itself sensibly for
+/// VoiceOver; the leading symbols are decorative.
 ///
-/// Pure/presentational: it takes the values, the `kind`, and the per-book `tint`.
+/// Pure/presentational: it takes the values and the `kind`.
 struct BookFacetChips: View {
     let values: [String]
     let kind: BookFacetKind
-    /// Per-book accent, derived from cover art. Used by the tag/mood axes.
-    let tint: Color
 
     var body: some View {
         FlowLayout(spacing: 8) {
@@ -108,14 +105,14 @@ struct BookFacetChips: View {
         .accessibilityLabel(kind.accessibilityLabel(for: value))
     }
 
-    /// Capsule fill: neutral system fill for genres, accent-tinted for tag/mood.
+    /// Capsule fill: neutral system fill for genres, coral-accented for moods.
     private var background: Color {
-        kind.usesAccent ? tint.opacity(0.15) : .luFill
+        kind.usesAccent ? Color.listenUpOrange.opacity(0.15) : .luFill
     }
 
-    /// Chip foreground: accent for moods, primary label for outlined tags, secondary for genres.
+    /// Chip foreground: coral for moods, primary label for outlined tags, secondary for genres.
     private var foreground: Color {
-        if kind.usesAccent { return tint }
+        if kind.usesAccent { return .listenUpOrange }
         return kind.isOutlined ? .primary : .luLabel2
     }
 }
@@ -127,18 +124,15 @@ struct BookFacetChips: View {
         VStack(alignment: .leading, spacing: 16) {
             BookFacetChips(
                 values: ["Epic Fantasy", "Political", "Adventure"],
-                kind: .genre,
-                tint: .red
+                kind: .genre
             )
             BookFacetChips(
                 values: ["Found Family", "Slow Burn", "Unreliable Narrator"],
-                kind: .tag,
-                tint: .red
+                kind: .tag
             )
             BookFacetChips(
                 values: ["Dark", "Epic", "Gritty", "Tense", "Atmospheric"],
-                kind: .mood,
-                tint: .red
+                kind: .mood
             )
         }
         .padding()

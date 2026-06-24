@@ -4,17 +4,15 @@ import SwiftUI
 /// screen: "Add to Shelf" and "Mark as Finished".
 ///
 /// Two subtle outlined pills — a hairline `separator`-toned border with a
-/// `tint`-colored leading SF Symbol. The finish pill presents a native
+/// coral-colored leading SF Symbol. The finish pill presents a native
 /// `.confirmationDialog` before committing, disables itself while a mark is in
 /// flight, and collapses to a quiet, filled "Finished" state once the book is
 /// complete.
 ///
-/// Pure/presentational: it takes display flags plus a `tint` and two closures.
-/// The assembly screen wires `onAddToShelf` → `observer.openShelfPicker()` and
-/// `onMarkFinished` → `observer.markFinished()`.
+/// Pure/presentational: it takes display flags and two closures. The assembly screen
+/// wires `onAddToShelf` → `observer.openShelfPicker()` and `onMarkFinished` →
+/// `observer.markFinished()`.
 struct BookActionPills: View {
-    /// Per-book accent, derived from cover art.
-    let tint: Color
     let isComplete: Bool
     let isMarkingComplete: Bool
     let onAddToShelf: () -> Void
@@ -37,7 +35,6 @@ struct BookActionPills: View {
         IconLabelButton(
             icon: "bookmark",
             title: String(localized: "book.detail_add_to_shelf"),
-            tint: tint,
             action: onAddToShelf
         )
     }
@@ -54,7 +51,7 @@ struct BookActionPills: View {
     }
 
     private var markFinishedButton: some View {
-        IconLabelButton(icon: "checkmark", title: String(localized: "book.detail_mark_as_finished"), tint: tint) {
+        IconLabelButton(icon: "checkmark", title: String(localized: "book.detail_mark_as_finished")) {
             showFinishConfirmation = true
         }
         .disabled(isMarkingComplete)
@@ -74,7 +71,7 @@ struct BookActionPills: View {
         pillLabel(
             systemImage: "checkmark.circle.fill",
             title: String(localized: "book.detail_finished"),
-            iconColor: tint,
+            iconColor: .listenUpOrange,
             titleColor: .secondary
         )
         .opacity(0.7)
@@ -110,27 +107,24 @@ struct BookActionPills: View {
 
 #Preview("Action pills — states") {
     VStack(spacing: 28) {
-        // Default — red tint.
+        // Default.
         BookActionPills(
-            tint: .red,
             isComplete: false,
             isMarkingComplete: false,
             onAddToShelf: {},
             onMarkFinished: {}
         )
 
-        // Marking in progress — coral tint, finish pill disabled.
+        // Marking in progress — finish pill disabled.
         BookActionPills(
-            tint: .listenUpOrange,
             isComplete: false,
             isMarkingComplete: true,
             onAddToShelf: {},
             onMarkFinished: {}
         )
 
-        // Finished — coral tint, quiet finished state.
+        // Finished — quiet finished state.
         BookActionPills(
-            tint: .listenUpOrange,
             isComplete: true,
             isMarkingComplete: false,
             onAddToShelf: {},

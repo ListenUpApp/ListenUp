@@ -3,14 +3,14 @@ import SwiftUI
 
 /// Centered hero for the redesigned Book Detail screen.
 ///
-/// Renders the cover, an optional tappable series pill (tinted with the per-book
-/// accent), the title, author line, a tappable "Narrated by …" line, and a
-/// secondary foot line ("{N} chapters · {duration} · {year}", omitting any
-/// absent segment).
+/// Renders the cover, an optional tappable series pill, the title, author line, a
+/// tappable "Narrated by …" line, and a secondary foot line ("{N} chapters ·
+/// {duration} · {year}", omitting any absent segment). Interactive accents use the
+/// app's coral action tint.
 ///
-/// Pure/presentational: it takes display values plus a `tint` and navigates via
-/// value-typed routes (`SeriesDestination`, `ContributorDestination`). The
-/// assembly screen wires it to `BookDetailObserver`.
+/// Pure/presentational: it takes display values and navigates via value-typed routes
+/// (`SeriesDestination`, `ContributorDestination`). The assembly screen wires it to
+/// `BookDetailObserver`.
 struct BookDetailHero: View {
     /// The book, used only to resolve the series-pill navigation target.
     let book: BookDetail?
@@ -29,8 +29,6 @@ struct BookDetailHero: View {
     let chapterCount: Int
     let duration: String
     let year: Int?
-    /// Per-book accent, derived from cover art.
-    let tint: Color
     /// Opens the Cast & Credits sheet when a category collapses past the inline limit.
     let onOpenCast: () -> Void
 
@@ -91,8 +89,8 @@ struct BookDetailHero: View {
             }
             .padding(.horizontal, 13)
             .padding(.vertical, 6)
-            .foregroundStyle(tint)
-            .background(tint.opacity(0.12), in: Capsule())
+            .foregroundStyle(Color.listenUpOrange)
+            .background(Color.listenUpOrange.opacity(0.12), in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(String(format: String(localized: "book.detail_series_pill_a11y"), series)))
@@ -148,7 +146,7 @@ struct BookDetailHero: View {
             line += prefixRun
         }
         var summaryRun = AttributedString(summary)
-        summaryRun.foregroundColor = tint
+        summaryRun.foregroundColor = .listenUpOrange
         line += summaryRun
         return Button(action: onOpenCast) {
             Text(line)
@@ -170,10 +168,10 @@ struct BookDetailHero: View {
             ForEach(Array(contributors.enumerated()), id: \.element.id) { index, contributor in
                 HStack(spacing: 0) {
                     if index > 0 {
-                        Text(", ").foregroundStyle(tint)
+                        Text(", ").foregroundStyle(Color.listenUpOrange)
                     }
                     NavigationLink(value: ContributorDestination(id: contributor.id)) {
-                        Text(contributor.name).foregroundStyle(tint)
+                        Text(contributor.name).foregroundStyle(Color.listenUpOrange)
                     }
                     .buttonStyle(.plain)
                 }
@@ -212,9 +210,9 @@ struct BookDetailHero: View {
 
 // MARK: - Preview
 
-#Preview("Hero — tints") {
+#Preview("Hero") {
     // Kotlin objects can't be constructed in previews, so `book` is nil and the
-    // narrator chips fall back to the plain text path; both tints are shown.
+    // narrator chips fall back to the plain text path.
     ScrollView {
         VStack(spacing: 40) {
             BookDetailHero(
@@ -228,7 +226,6 @@ struct BookDetailHero: View {
                 chapterCount: 23,
                 duration: "33h 50m",
                 year: 2003,
-                tint: .red,
                 onOpenCast: {}
             )
 
@@ -243,7 +240,6 @@ struct BookDetailHero: View {
                 chapterCount: 0,
                 duration: "45h 30m",
                 year: nil,
-                tint: .listenUpOrange,
                 onOpenCast: {}
             )
         }

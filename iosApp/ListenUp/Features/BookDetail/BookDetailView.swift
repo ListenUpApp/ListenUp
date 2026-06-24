@@ -3,9 +3,9 @@ import SwiftUI
 
 /// Book detail screen — the native, redesigned assembly.
 ///
-/// Wires the per-book accent (`observer.tint`) through a centered hero, a resume
-/// bar, two secondary action pills, and the description / chapters / details
-/// sections. iPhone stacks everything; iPad splits into a fixed left rail
+/// An atmospheric blurred-cover backdrop (`CoverBackdrop`) sits behind a centered
+/// hero, a resume bar, two secondary action pills, and the description / chapters /
+/// details sections. iPhone stacks everything; iPad splits into a fixed left rail
 /// (hero + resume + pills) beside a flexible right column (description, chapters,
 /// details). All state comes from `BookDetailObserver`; the overflow menu offers
 /// Restart and Discard Progress.
@@ -13,7 +13,6 @@ struct BookDetailView: View {
     let bookId: String
 
     @Environment(\.dependencies) private var deps
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: BookDetailObserver?
 
@@ -56,7 +55,7 @@ struct BookDetailView: View {
         }
         .sheet(isPresented: $showCast) {
             if let observer, let book = observer.book {
-                CastCreditsSheet(book: book, tint: observer.tint) { showCast = false }
+                CastCreditsSheet(book: book) { showCast = false }
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
@@ -94,15 +93,22 @@ struct BookDetailView: View {
     @ViewBuilder
     private func content(_ observer: BookDetailObserver) -> some View {
         ScrollView {
-            Group {
-                if hSize == .regular {
-                    regularContent(observer)
-                } else {
-                    compactContent(observer)
+            ZStack(alignment: .top) {
+                CoverBackdrop(
+                    bookId: observer.book?.idString,
+                    coverPath: observer.coverPath,
+                    blurHash: observer.coverBlurHash
+                )
+
+                Group {
+                    if hSize == .regular {
+                        regularContent(observer)
+                    } else {
+                        compactContent(observer)
+                    }
                 }
+                .padding(.bottom, 32)
             }
-            .padding(.bottom, 32)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: observer.tint)
         }
     }
 
@@ -121,7 +127,6 @@ struct BookDetailView: View {
                 chapterCount: observer.chapters.count,
                 duration: observer.duration,
                 year: observer.year,
-                tint: observer.tint,
                 onOpenCast: { showCast = true }
             )
 
@@ -135,13 +140,12 @@ struct BookDetailView: View {
                     description: observer.bookDescription,
                     genres: observer.genres,
                     tags: observer.tags,
-                    moods: observer.moods,
-                    tint: observer.tint
+                    moods: observer.moods
                 )
 
                 Divider()
 
-                BookChaptersSection(chapters: observer.chapters, tint: observer.tint)
+                BookChaptersSection(chapters: observer.chapters)
 
                 Divider()
 
@@ -149,7 +153,6 @@ struct BookDetailView: View {
                     SupplementaryMaterialsSection(
                         documents: observer.documents,
                         openingDocIds: observer.openingDocIds,
-                        tint: observer.tint,
                         onOpen: { observer.openDocument(docId: $0) }
                     )
 
@@ -179,7 +182,6 @@ struct BookDetailView: View {
                     chapterCount: observer.chapters.count,
                     duration: observer.duration,
                     year: observer.year,
-                    tint: observer.tint,
                     onOpenCast: { showCast = true }
                 )
 
@@ -193,13 +195,12 @@ struct BookDetailView: View {
                     description: observer.bookDescription,
                     genres: observer.genres,
                     tags: observer.tags,
-                    moods: observer.moods,
-                    tint: observer.tint
+                    moods: observer.moods
                 )
 
                 Divider()
 
-                BookChaptersSection(chapters: observer.chapters, tint: observer.tint)
+                BookChaptersSection(chapters: observer.chapters)
 
                 Divider()
 
@@ -207,7 +208,6 @@ struct BookDetailView: View {
                     SupplementaryMaterialsSection(
                         documents: observer.documents,
                         openingDocIds: observer.openingDocIds,
-                        tint: observer.tint,
                         onOpen: { observer.openDocument(docId: $0) }
                     )
 
@@ -230,7 +230,6 @@ struct BookDetailView: View {
             currentChapterLabel: currentChapterLabel(observer),
             downloadState: observer.downloadState,
             downloadProgress: observer.downloadProgress,
-            tint: observer.tint,
             onResume: { observer.play() },
             onDownload: { observer.downloadBook() },
             onCancelDownload: { observer.cancelDownload() },
@@ -240,7 +239,6 @@ struct BookDetailView: View {
 
     private func actionPills(_ observer: BookDetailObserver) -> some View {
         BookActionPills(
-            tint: observer.tint,
             isComplete: observer.isComplete,
             isMarkingComplete: observer.isMarkingComplete,
             onAddToShelf: { observer.openShelfPicker() },
