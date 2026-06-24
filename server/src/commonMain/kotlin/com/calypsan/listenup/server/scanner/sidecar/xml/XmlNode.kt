@@ -16,8 +16,7 @@ internal class XmlElement(
 ) : XmlNode
 
 /** All descendant elements named [tag], in document order (excludes the receiver). DOM `getElementsByTagName`. */
-internal fun XmlElement.getElementsByTagName(tag: String): List<XmlElement> =
-    buildList { collectByTag(tag, this) }
+internal fun XmlElement.getElementsByTagName(tag: String): List<XmlElement> = buildList { collectByTag(tag, this) }
 
 private fun XmlElement.collectByTag(
     tag: String,
@@ -48,12 +47,15 @@ private fun XmlElement.appendDescendantText(sb: StringBuilder) {
 internal fun XmlElement.getAttribute(name: String): String = attributes[name] ?: ""
 
 /** Concatenated text of the DIRECT text-node children only (not nested elements). */
-internal fun XmlElement.directText(): String =
-    children.filterIsInstance<XmlText>().joinToString("") { it.value }
+internal fun XmlElement.directText(): String = children.filterIsInstance<XmlText>().joinToString("") { it.value }
 
 /** Trimmed text of the first `<tag>` descendant, or null when absent or blank. */
 internal fun XmlElement.firstText(tag: String): String? =
-    getElementsByTagName(tag).firstOrNull()?.textContent?.trim()?.ifBlank { null }
+    getElementsByTagName(tag)
+        .firstOrNull()
+        ?.textContent
+        ?.trim()
+        ?.ifBlank { null }
 
 /** Trimmed text of every `<tag>` descendant, blanks dropped. */
 internal fun XmlElement.allText(tag: String): List<String> =

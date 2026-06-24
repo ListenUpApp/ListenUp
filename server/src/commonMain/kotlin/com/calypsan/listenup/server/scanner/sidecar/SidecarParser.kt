@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 /**
  * Reads a metadata sidecar file into [SidecarMetadata]. Sidecars are read-only

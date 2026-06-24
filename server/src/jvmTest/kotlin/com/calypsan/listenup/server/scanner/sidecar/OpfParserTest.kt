@@ -10,13 +10,17 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 class OpfParserTest :
     FunSpec({
 
         val parser = OpfParser()
 
-        fun fixture(name: String): Path = Path.of(checkNotNull(OpfParserTest::class.java.classLoader.getResource("sidecar/$name")).toURI())
+        fun fixture(name: String): IoPath {
+            val resource = checkNotNull(OpfParserTest::class.java.classLoader.getResource("sidecar/$name"))
+            return IoPath(Path.of(resource.toURI()).toString())
+        }
 
         test("parses well-formed .opf") {
             runTest {
@@ -142,7 +146,7 @@ class OpfParserTest :
         }
     })
 
-private fun inlineOpf(date: String): Path {
+private fun inlineOpf(date: String): IoPath {
     val temp = kotlin.io.path.createTempFile(suffix = ".opf")
     temp.toFile().writeText(
         """
@@ -156,13 +160,13 @@ private fun inlineOpf(date: String): Path {
         """.trimIndent(),
     )
     temp.toFile().deleteOnExit()
-    return temp
+    return IoPath(temp.toString())
 }
 
 private fun inlineOpfWithSubtitle(
     title: String,
     subtitle: String,
-): Path {
+): IoPath {
     val temp = kotlin.io.path.createTempFile(suffix = ".opf")
     temp.toFile().writeText(
         """
@@ -176,10 +180,10 @@ private fun inlineOpfWithSubtitle(
         """.trimIndent(),
     )
     temp.toFile().deleteOnExit()
-    return temp
+    return IoPath(temp.toString())
 }
 
-private fun inlineOpfNoSubtitle(title: String): Path {
+private fun inlineOpfNoSubtitle(title: String): IoPath {
     val temp = kotlin.io.path.createTempFile(suffix = ".opf")
     temp.toFile().writeText(
         """
@@ -192,14 +196,14 @@ private fun inlineOpfNoSubtitle(title: String): Path {
         """.trimIndent(),
     )
     temp.toFile().deleteOnExit()
-    return temp
+    return IoPath(temp.toString())
 }
 
 private fun inlineOpfWithCalibreSeries(
     title: String,
     seriesName: String,
     seriesIndex: String,
-): Path {
+): IoPath {
     val temp = kotlin.io.path.createTempFile(suffix = ".opf")
     temp.toFile().writeText(
         """
@@ -214,10 +218,10 @@ private fun inlineOpfWithCalibreSeries(
         """.trimIndent(),
     )
     temp.toFile().deleteOnExit()
-    return temp
+    return IoPath(temp.toString())
 }
 
-private fun inlineOpfWithSeriesOnly(seriesName: String): Path {
+private fun inlineOpfWithSeriesOnly(seriesName: String): IoPath {
     val temp = kotlin.io.path.createTempFile(suffix = ".opf")
     temp.toFile().writeText(
         """
@@ -231,5 +235,5 @@ private fun inlineOpfWithSeriesOnly(seriesName: String): Path {
         """.trimIndent(),
     )
     temp.toFile().deleteOnExit()
-    return temp
+    return IoPath(temp.toString())
 }

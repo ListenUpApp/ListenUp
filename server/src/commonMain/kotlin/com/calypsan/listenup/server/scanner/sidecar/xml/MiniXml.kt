@@ -165,8 +165,7 @@ private class MiniXmlReader(
     private companion object {
         const val NUL = '\u0000'
 
-        fun isNameChar(c: Char): Boolean =
-            c.isLetterOrDigit() || c == '_' || c == '-' || c == '.' || c == ':'
+        fun isNameChar(c: Char): Boolean = c.isLetterOrDigit() || c == '_' || c == '-' || c == '.' || c == ':'
     }
 }
 
@@ -209,31 +208,62 @@ private fun decodeEntities(text: String): String {
 /** Resolves a single entity body (without `&`/`;`), or null when unrecognized. */
 private fun decodeEntity(entity: String): String? =
     when (entity) {
-        "amp" -> "&"
-        "lt" -> "<"
-        "gt" -> ">"
-        "quot" -> "\""
-        "apos" -> "'"
-        else ->
+        "amp" -> {
+            "&"
+        }
+
+        "lt" -> {
+            "<"
+        }
+
+        "gt" -> {
+            ">"
+        }
+
+        "quot" -> {
+            "\""
+        }
+
+        "apos" -> {
+            "'"
+        }
+
+        else -> {
             when {
-                entity.startsWith("#x") || entity.startsWith("#X") ->
+                entity.startsWith("#x") || entity.startsWith("#X") -> {
                     codePointToString(entity.substring(2).toIntOrNull(16))
-                entity.startsWith("#") ->
+                }
+
+                entity.startsWith("#") -> {
                     codePointToString(entity.substring(1).toIntOrNull())
-                else -> null
+                }
+
+                else -> {
+                    null
+                }
             }
+        }
     }
 
 /** Code point → String: BMP char, a surrogate pair for astral planes, or null if out of range / invalid. */
 private fun codePointToString(cp: Int?): String? =
     when {
-        cp == null -> null
-        cp in 0x0000..0xD7FF || cp in 0xE000..0xFFFF -> cp.toChar().toString()
+        cp == null -> {
+            null
+        }
+
+        cp in 0x0000..0xD7FF || cp in 0xE000..0xFFFF -> {
+            cp.toChar().toString()
+        }
+
         cp in 0x10000..0x10FFFF -> {
             val v = cp - 0x10000
             val high = (0xD800 + (v shr 10)).toChar()
             val low = (0xDC00 + (v and 0x3FF)).toChar()
             charArrayOf(high, low).concatToString()
         }
-        else -> null // negative, lone surrogate (D800..DFFF), or > U+10FFFF → pass &#…; through literally
+
+        else -> {
+            null
+        } // negative, lone surrogate (D800..DFFF), or > U+10FFFF → pass &#…; through literally
     }

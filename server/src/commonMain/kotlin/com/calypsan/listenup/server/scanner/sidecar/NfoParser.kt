@@ -1,10 +1,14 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.scanner.sidecar.xml.XmlElement
+import com.calypsan.listenup.server.scanner.sidecar.xml.allText
+import com.calypsan.listenup.server.scanner.sidecar.xml.directText
+import com.calypsan.listenup.server.scanner.sidecar.xml.firstText
+import com.calypsan.listenup.server.scanner.sidecar.xml.getElementsByTagName
+import com.calypsan.listenup.server.scanner.sidecar.xml.parseXml
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.w3c.dom.Element
-import org.w3c.dom.Node
-import java.nio.file.Path
-import kotlin.io.path.inputStream
+import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -34,11 +38,7 @@ internal class NfoParser : SidecarParser {
 
     override suspend fun parse(file: Path): SidecarMetadata? =
         try {
-            val doc =
-                file.inputStream().use { stream ->
-                    hardenedDocumentBuilderFactory().newDocumentBuilder().parse(stream)
-                }
-            val root = doc.documentElement ?: return null
+            val root = parseXml(file.readText())
             SidecarMetadata(
                 title = root.firstText("title"),
                 description = root.firstText("plot"),
@@ -63,20 +63,12 @@ internal class NfoParser : SidecarParser {
 /**
  * Names of every `<actor>` descendant, blanks dropped. Kodi `<actor>` is either
  * `<actor>Name</actor>` or `<actor><name>Name</name><role>…</role></actor>` —
- * the nested `<name>` child is preferred, falling back to the actor's own text.
+ * the nested `<name>` child is preferred, falling back to the actor's own direct text.
  */
-private fun Element.allActors(): List<String> =
-    getElementsByTagName("actor").let { nodes ->
-        (0 until nodes.length).mapNotNull { (nodes.item(it) as Element).actorName() }
-    }
+private fun XmlElement.allActors(): List<String> = getElementsByTagName("actor").mapNotNull { it.actorName() }
 
 /** The name of a single `<actor>` element — nested `<name>` child, else the element's own direct text. */
-private fun Element.actorName(): String? {
+private fun XmlElement.actorName(): String? {
     firstText("name")?.let { return it }
-    return childNodes
-        .let { children -> (0 until children.length).map { children.item(it) } }
-        .filter { it.nodeType == Node.TEXT_NODE }
-        .joinToString("") { it.textContent }
-        .trim()
-        .ifBlank { null }
+    return directText().trim().ifBlank { null }
 }

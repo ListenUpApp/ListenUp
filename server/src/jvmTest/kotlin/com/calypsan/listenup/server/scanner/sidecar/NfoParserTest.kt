@@ -9,13 +9,17 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 class NfoParserTest :
     FunSpec({
 
         val parser = NfoParser()
 
-        fun fixture(name: String): Path = Path.of(checkNotNull(NfoParserTest::class.java.classLoader.getResource("sidecar/$name")).toURI())
+        fun fixture(name: String): IoPath {
+            val resource = checkNotNull(NfoParserTest::class.java.classLoader.getResource("sidecar/$name"))
+            return IoPath(Path.of(resource.toURI()).toString())
+        }
 
         test("parses well-formed .nfo") {
             runTest {

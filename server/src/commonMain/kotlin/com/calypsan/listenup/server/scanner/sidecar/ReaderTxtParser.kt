@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
+import com.calypsan.listenup.server.io.readText
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.nio.file.Path
-import kotlin.io.path.readText
+import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -21,8 +21,8 @@ internal class ReaderTxtParser : SidecarParser {
         try {
             val names =
                 file
-                    .readText(Charsets.UTF_8)
-                    .removePrefix("\uFEFF") // strip UTF-8 BOM
+                    .readText()
+                    .removePrefix("﻿") // strip UTF-8 BOM
                     .lineSequence()
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }

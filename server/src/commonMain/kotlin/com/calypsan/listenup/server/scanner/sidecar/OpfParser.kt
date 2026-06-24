@@ -1,10 +1,15 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
+import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.scanner.sidecar.xml.XmlElement
+import com.calypsan.listenup.server.scanner.sidecar.xml.firstText
+import com.calypsan.listenup.server.scanner.sidecar.xml.getAttribute
+import com.calypsan.listenup.server.scanner.sidecar.xml.getElementsByTagName
+import com.calypsan.listenup.server.scanner.sidecar.xml.parseXml
+import com.calypsan.listenup.server.scanner.sidecar.xml.textContent
 import io.github.oshai.kotlinlogging.KotlinLogging
-import org.w3c.dom.Element
-import java.nio.file.Path
-import kotlin.io.path.inputStream
+import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -45,10 +50,10 @@ private val YEAR_PATTERN = Regex("""^\s*(\d{4})""")
  * [SidecarMetadata] carries no identifier field and the Analyzer does not
  * merge a sidecar identifier, so parsing it would be dead code.
  *
- * The parser is non-namespace-aware (see [hardenedDocumentBuilderFactory]) and
- * queries elements by their literal prefixed tag name (`dc:title`, …). It
- * therefore assumes the conventional `dc:` / `opf:` prefix bindings; an `.opf`
- * that bound the Dublin Core namespace to a different prefix would not parse.
+ * The parser is non-namespace-aware and queries elements by their literal
+ * prefixed tag name (`dc:title`, …). It therefore assumes the conventional
+ * `dc:` / `opf:` prefix bindings; an `.opf` that bound the Dublin Core
+ * namespace to a different prefix would not parse.
  */
 internal class OpfParser : SidecarParser {
     override val supportedFilenames: Set<String> = emptySet()
@@ -56,11 +61,7 @@ internal class OpfParser : SidecarParser {
 
     override suspend fun parse(file: Path): SidecarMetadata? =
         try {
-            val doc =
-                file.inputStream().use { stream ->
-                    hardenedDocumentBuilderFactory().newDocumentBuilder().parse(stream)
-                }
-            val root = doc.documentElement ?: return null
+            val root = parseXml(file.readText())
             SidecarMetadata(
                 title = root.firstText("dc:title"),
                 subtitle = root.firstText("dc:subtitle"),
@@ -109,26 +110,21 @@ internal class OpfParser : SidecarParser {
  * MARC relator code — `trl`, `edt`, … — is dropped rather than silently
  * mis-filed as an author.
  */
-private fun Element.creators(): List<SidecarContributor> =
-    getElementsByTagName("dc:creator").let { nodes ->
-        (0 until nodes.length).mapNotNull { index ->
-            val element = nodes.item(index) as Element
-            val name = element.textContent?.trim()?.ifBlank { null } ?: return@mapNotNull null
-            val role =
-                when (element.getAttribute("opf:role")) {
-                    "nrt" -> "narrator"
-                    "aut", "" -> "author"
-                    else -> return@mapNotNull null
-                }
-            SidecarContributor(name, role)
-        }
+private fun XmlElement.creators(): List<SidecarContributor> =
+    getElementsByTagName("dc:creator").mapNotNull { element ->
+        val name = element.textContent.trim().ifBlank { null } ?: return@mapNotNull null
+        val role =
+            when (element.getAttribute("opf:role")) {
+                "nrt" -> "narrator"
+                "aut", "" -> "author"
+                else -> return@mapNotNull null
+            }
+        SidecarContributor(name, role)
     }
 
 /** `content` of the first `<meta name="[name]">`, trimmed; null if absent or blank. */
-private fun Element.metaContent(name: String): String? {
-    val nodes = getElementsByTagName("meta")
-    for (i in 0 until nodes.length) {
-        val el = nodes.item(i) as Element
+private fun XmlElement.metaContent(name: String): String? {
+    for (el in getElementsByTagName("meta")) {
         if (el.getAttribute("name") == name) {
             return el.getAttribute("content").trim().ifBlank { null }
         }

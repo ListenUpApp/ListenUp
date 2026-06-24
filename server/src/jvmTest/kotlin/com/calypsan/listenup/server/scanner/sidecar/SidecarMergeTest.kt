@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Exercises the sidecar precedence tier through the real [Analyzer] path with
@@ -349,7 +350,7 @@ private class FakeNfoParser(
     override val supportedFilenames: Set<String> = emptySet()
     override val supportedExtensions: Set<String> = setOf("nfo")
 
-    override suspend fun parse(file: Path): SidecarMetadata = result
+    override suspend fun parse(file: IoPath): SidecarMetadata = result
 }
 
 /** Always throws — verifies the Analyzer defends against parser defects. */
@@ -357,7 +358,7 @@ private class ThrowingNfoParser : SidecarParser {
     override val supportedFilenames: Set<String> = emptySet()
     override val supportedExtensions: Set<String> = setOf("nfo")
 
-    override suspend fun parse(file: Path): SidecarMetadata = error("parser defect")
+    override suspend fun parse(file: IoPath): SidecarMetadata = error("parser defect")
 }
 
 private fun candidateOf(
