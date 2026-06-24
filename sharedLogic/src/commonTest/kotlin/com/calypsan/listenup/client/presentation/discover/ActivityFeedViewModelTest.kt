@@ -34,7 +34,6 @@ import kotlinx.coroutines.test.setMain
  * - Initial `Loading` state before the pipeline subscribes
  * - Reactive `Ready` emissions from the repository flow
  * - `Error` emission when the upstream flow throws
- * - Initial fetch gate: skip when Room already has activities, run when empty
  * - `refresh()` delegating to `FetchActivitiesUseCase`
  *
  * Uses Mokkery for mocking `ActivityRepository` and `FetchActivitiesUseCase`.
@@ -60,11 +59,10 @@ class ActivityFeedViewModelTest :
                 )
         }
 
-        fun createFixture(existingCount: Int = 0): TestFixture {
+        fun createFixture(): TestFixture {
             val fixture = TestFixture()
 
             every { fixture.activityRepository.observeRecent(any()) } returns fixture.activitiesFlow
-            everySuspend { fixture.activityRepository.count() } returns existingCount
             everySuspend { fixture.fetchActivitiesUseCase(any()) } returns AppResult.Success(0)
 
             return fixture
@@ -175,7 +173,6 @@ class ActivityFeedViewModelTest :
                     flow {
                         throw RuntimeException("boom")
                     }
-                everySuspend { fixture.activityRepository.count() } returns 0
                 everySuspend { fixture.fetchActivitiesUseCase(any()) } returns AppResult.Success(0)
 
                 // When
@@ -188,42 +185,12 @@ class ActivityFeedViewModelTest :
             }
         }
 
-        // ========== Initial Fetch Gate Tests ==========
-
-        test("fetchInitialActivitiesIfNeeded triggers fetch when count is zero") {
-            runTest {
-                // Given - Room is empty
-                val fixture = createFixture(existingCount = 0)
-
-                // When - init runs
-                fixture.build()
-                advanceUntilIdle()
-
-                // Then - use case invoked with the initial fetch size
-                verifySuspend { fixture.fetchActivitiesUseCase(INITIAL_FETCH_SIZE) }
-            }
-        }
-
-        test("fetchInitialActivitiesIfNeeded skips when count is positive") {
-            runTest {
-                // Given - Room already has activities
-                val fixture = createFixture(existingCount = 5)
-
-                // When - init runs
-                fixture.build()
-                advanceUntilIdle()
-
-                // Then - use case NOT invoked
-                verifySuspend(VerifyMode.not) { fixture.fetchActivitiesUseCase(any()) }
-            }
-        }
-
         // ========== Refresh Tests ==========
 
         test("refresh calls fetchActivitiesUseCase with INITIAL_FETCH_SIZE") {
             runTest {
-                // Given - Room already populated (prevent init fetch from confusing the verification)
-                val fixture = createFixture(existingCount = 5)
+                // Given - a built ViewModel
+                val fixture = createFixture()
                 val viewModel = fixture.build()
                 advanceUntilIdle()
 
@@ -240,8 +207,8 @@ class ActivityFeedViewModelTest :
 
         test("refresh signal ping re-fetches the feed head") {
             runTest {
-                // Given - Room already populated (suppress the init fetch so the ping is isolated)
-                val fixture = createFixture(existingCount = 5)
+                // Given - a built ViewModel subscribed to the refresh signal
+                val fixture = createFixture()
                 fixture.build()
                 advanceUntilIdle()
 

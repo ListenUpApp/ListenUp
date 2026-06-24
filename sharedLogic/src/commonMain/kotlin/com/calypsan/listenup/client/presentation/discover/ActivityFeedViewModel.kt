@@ -31,11 +31,11 @@ private const val MAX_ACTIVITIES = 100
  * ViewModel for the Activity Feed section on the Discover screen.
  *
  * Offline-first architecture:
- * - On first launch, fetches initial activities from the feed RPC and stores in Room
- * - UI observes Room Flow and automatically updates
- * - On each [ActivityRefreshSignal] ping (server nudge or firehose reconnect), re-fetches the
- *   feed head into Room — the Room observation then repaints the UI
- * - After initial fetch, works completely offline
+ * - The sync engine primes the feed head into Room on every online sync-start and reconnect, so
+ *   the feed is available offline without ever opening this screen.
+ * - UI observes the Room Flow and automatically updates.
+ * - On each [ActivityRefreshSignal] ping (live ActivityChanged nudge or CursorStale recovery),
+ *   re-fetches the feed head into Room — the Room observation then repaints the UI.
  *
  * @property activityRepository Repository for activity feed operations
  * @property fetchActivitiesUseCase Use case for fetching activities from the feed RPC
@@ -47,9 +47,9 @@ class ActivityFeedViewModel internal constructor(
     private val refreshSignal: ActivityRefreshSignal,
 ) : ViewModel() {
     init {
-        // Fetch initial activities if Room is empty
-        fetchInitialActivitiesIfNeeded()
-        // Re-fetch the feed head whenever the server signals a change; Room observation repaints.
+        // The feed is primed into Room by the sync engine on every online sync-start and reconnect
+        // (so it is available offline without opening this screen). Here we only react to live
+        // ActivityChanged nudges: re-fetch the feed head; the Room observation repaints.
         refreshSignal.signal
             .onEach { fetchActivitiesUseCase(limit = INITIAL_FETCH_SIZE) }
             .launchIn(viewModelScope)
@@ -73,24 +73,6 @@ class ActivityFeedViewModel internal constructor(
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
                 initialValue = ActivityFeedUiState.Loading,
             )
-
-    /**
-     * Fetch the feed head from the RPC into Room if the cache is empty.
-     * This ensures data is available on first launch before any ActivityChanged nudge arrives.
-     */
-    private fun fetchInitialActivitiesIfNeeded() {
-        viewModelScope.launch {
-            val existingCount = activityRepository.count()
-            if (existingCount > 0) {
-                logger.debug { "Room has $existingCount activities, skipping initial fetch" }
-                return@launch
-            }
-
-            logger.debug { "Room is empty, fetching the feed head from the RPC" }
-            fetchActivitiesUseCase(limit = INITIAL_FETCH_SIZE)
-            // Not fatal if it fails — Room shows the empty state and the next nudge/reconnect refills.
-        }
-    }
 
     /**
      * Refresh the feed from the RPC.
