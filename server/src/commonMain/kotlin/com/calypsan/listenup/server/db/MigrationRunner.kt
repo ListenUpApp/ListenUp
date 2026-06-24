@@ -54,7 +54,10 @@ internal class MigrationRunner(
         }
     }
 
-    private fun applyOne(conn: SqlAdminConnection, migration: Migration) {
+    private fun applyOne(
+        conn: SqlAdminConnection,
+        migration: Migration,
+    ) {
         try {
             conn.inTransaction {
                 for (statement in SqlStatementSplitter.split(migration.sql)) conn.execute(statement)

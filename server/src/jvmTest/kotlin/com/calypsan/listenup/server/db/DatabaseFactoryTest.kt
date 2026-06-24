@@ -17,9 +17,12 @@ class DatabaseFactoryTest :
                 // The migrated schema includes the users + sessions tables, readable through the admin connection.
                 val tables =
                     openAdminConnection(handle.dbPath, readOnly = true).use { conn ->
-                        conn.query(
-                            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')",
-                        ) { row -> row.getString("name") }.filterNotNull().toSet()
+                        conn
+                            .query(
+                                "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('users', 'sessions')",
+                            ) { row -> row.getString("name") }
+                            .filterNotNull()
+                            .toSet()
                     }
                 tables shouldBe setOf("users", "sessions")
             } finally {

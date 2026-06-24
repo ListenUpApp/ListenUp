@@ -11,7 +11,6 @@ import io.kotest.core.spec.style.FunSpec
 import io.ktor.server.config.MapApplicationConfig
 import org.koin.test.verify.verify
 import java.nio.file.Files
-import java.nio.file.Path
 
 /**
  * Verifies the auth Koin module's dependency graph statically — every
