@@ -33,22 +33,28 @@ struct ContributorsContent: View {
     private var isNameSort: Bool { sortState?.category == .name }
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("", selection: $segment) {
-                Text(String(localized: "library.authors")).tag(Segment.authors)
-                Text(String(localized: "library.narrators")).tag(Segment.narrators)
-            }
-            .pickerStyle(.segmented)
-            .padding(.horizontal)
-            .padding(.top, 8)
-            .sensoryFeedback(.selection, trigger: segment)
-
-            if list.isEmpty {
-                emptyState
-            } else {
-                listBody
-            }
+        // The Authors|Narrators picker and the contributor count live *inside* the scroll
+        // content (not in a wrapping `VStack`) so the `.safeAreaInset(edge: .top)` glass
+        // `LibraryChipRow` in `LibraryView` insets them below the header — the same shape
+        // Books/Series use. A `VStack` root let the glass row overlay the picker and crowd
+        // the count under the header (the bug this fixes).
+        if list.isEmpty {
+            emptyState
+        } else {
+            listBody
         }
+    }
+
+    /// The segmented Authors|Narrators switcher, rendered as the first scrolling element so it
+    /// always sits below the glass header and stays reachable even when a segment is empty.
+    private var segmentPicker: some View {
+        Picker("", selection: $segment) {
+            Text(String(localized: "library.authors")).tag(Segment.authors)
+            Text(String(localized: "library.narrators")).tag(Segment.narrators)
+        }
+        .pickerStyle(.segmented)
+        .padding(.top, 8)
+        .sensoryFeedback(.selection, trigger: segment)
     }
 
     private var listBody: some View {
@@ -74,6 +80,8 @@ struct ContributorsContent: View {
         return ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 12) {
+                    segmentPicker.padding(.horizontal)
+
                     sortRow.padding(.horizontal)
 
                     ForEach(groups, id: \.letter) { group in
@@ -130,6 +138,8 @@ struct ContributorsContent: View {
 
         return ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                segmentPicker.padding(.horizontal, 36)
+
                 sortRow.padding(.horizontal, 36)
                 HStack(alignment: .top, spacing: 24) {
                     ForEach(Array(columnGroups.enumerated()), id: \.offset) { _, columnGroup in
@@ -186,13 +196,26 @@ struct ContributorsContent: View {
     }
 
     private var emptyState: some View {
-        ContentUnavailableView(
-            String(localized: "library.contributors_empty"),
-            systemImage: segment == .authors ? "person.fill" : "waveform.circle.fill",
-            description: Text(String(
-                format: String(localized: "library.empty_tab_description"),
-                String(localized: segment == .authors ? "library.authors" : "library.narrators")
-            ))
-        )
+        // Keep the segment switcher above the empty placeholder so the user can always switch
+        // back to the populated segment — and put it inside a ScrollView so the glass header
+        // insets it, exactly like the populated lists.
+        ScrollView {
+            VStack(spacing: 24) {
+                segmentPicker.padding(.horizontal)
+
+                ContentUnavailableView(
+                    String(localized: "library.contributors_empty"),
+                    systemImage: segment == .authors ? "person.fill" : "waveform.circle.fill",
+                    description: Text(String(
+                        format: String(localized: "library.empty_tab_description"),
+                        String(localized: segment == .authors ? "library.authors" : "library.narrators")
+                    ))
+                )
+                .frame(maxWidth: .infinity, minHeight: 360)
+            }
+            .padding(.bottom, 100)
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color.luSurface)
     }
 }
