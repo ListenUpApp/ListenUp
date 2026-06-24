@@ -52,6 +52,12 @@ struct MetadataFindView: View {
             }
         }
         .onAppear { if queryDraft.isEmpty { queryDraft = observer.query } }
+        // The seeded query (title + author, from `initForBook`) arrives asynchronously over the
+        // flow bridge — usually AFTER `onAppear` — so adopt it when it lands, as long as the user
+        // hasn't typed anything yet. Without this the search field stays blank on first open.
+        .onChange(of: observer.query) { _, seeded in
+            if queryDraft.isEmpty { queryDraft = seeded }
+        }
     }
 
     @ViewBuilder

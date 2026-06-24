@@ -72,7 +72,11 @@ struct ImportReviewContent: View {
 
     private var warning: some View {
         Label(
-            String(format: String(localized: "import.review_users_unresolved_warning"), review.unresolvedCount),
+            // The localized format uses a `%@` slot (generated from `%s`); it must be fed a String,
+            // NOT a raw Int. Passing an Int makes `String(format:)` treat it as a pointer — Foundation
+            // logs a format mismatch and the warning fails to render, stalling the import terminal.
+            String(format: String(localized: "import.review_users_unresolved_warning"),
+                   String(review.unresolvedCount)),
             systemImage: "exclamationmark.triangle"
         )
         .font(.footnote)

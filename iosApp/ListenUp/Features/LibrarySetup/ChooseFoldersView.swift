@@ -245,13 +245,14 @@ private struct FolderRow: View {
             CircularCheckToggle(isOn: item.isSelected, action: onToggle)
                 .accessibilityLabel(selectHint)
 
-            // Drill affordance for folders that have subfolders.
-            if item.hasChildren {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
-                    .accessibilityHidden(true)
-            }
+            // Drill affordance — its slot is ALWAYS reserved (hidden, not removed, on leaf
+            // folders) so the selection dot sits in the same column on every row.
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.tertiary)
+                .frame(width: 12)
+                .opacity(item.hasChildren ? 1 : 0)
+                .accessibilityHidden(true)
         }
         .frame(minHeight: 60)
         .padding(.horizontal, 14)

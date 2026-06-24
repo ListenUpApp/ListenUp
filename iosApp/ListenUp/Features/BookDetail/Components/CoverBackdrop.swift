@@ -46,11 +46,18 @@ struct CoverBackdrop: View {
     }
 
     private var blurredArt: some View {
-        BookCoverImage(bookId: bookId, coverPath: coverPath, blurHash: blurHash)
-            .scaledToFill()
-            // Scale up so the blurred art over-fills the band and no hard cover edges show.
-            .scaleEffect(1.6)
-            .blur(radius: blurRadius, opaque: true)
+        // A flexible `Color.clear` sets the band's bounds (it accepts exactly the proposed
+        // width × `height`); the cover rides as a clipped overlay so its `scaledToFill` intrinsic
+        // size can NEVER leak into the layout. Clipping the image directly — its `scaledToFill`
+        // size is unbounded — is what stretched Book Detail past the iPhone width.
+        Color.clear
+            .overlay {
+                BookCoverImage(bookId: bookId, coverPath: coverPath, blurHash: blurHash)
+                    .scaledToFill()
+                    // Scale up so the blurred art over-fills the band and no hard cover edges show.
+                    .scaleEffect(1.6)
+                    .blur(radius: blurRadius, opaque: true)
+            }
             // Soften the saturated wash a touch and lift legibility for the hero on top.
             .overlay(scrim)
             // Dissolve the whole band into the system background top-to-bottom.
