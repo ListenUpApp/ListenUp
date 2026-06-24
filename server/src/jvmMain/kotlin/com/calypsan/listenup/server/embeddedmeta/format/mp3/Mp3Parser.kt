@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp3
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
+import com.calypsan.listenup.domain.embeddedmeta.AudioStreamInfo
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
@@ -52,21 +53,29 @@ internal class Mp3Parser : AudioFormatParser {
             val tagSize = id3v2?.tagSize ?: 0
             val chapters = id3v2?.chapters.orEmpty()
 
-            val durationMs =
+            val mpegInfo =
                 MpegDurationCalculator.compute(
                     source = source,
                     audioStart = tagSize.toLong(),
                     hasV1Footer = hasV1Footer,
                 )
+            val audioStream =
+                AudioStreamInfo(
+                    codec = "mp3",
+                    bitrate = mpegInfo.bitrate,
+                    sampleRate = mpegInfo.sampleRate,
+                    channels = mpegInfo.channels,
+                )
 
             AppResult.Success(
                 EmbeddedAudioMetadata(
                     format = AudioFormat.Mp3,
-                    durationMs = durationMs,
+                    durationMs = mpegInfo.durationMs,
                     tags = tags,
                     chapters = chapters,
                     chaptersSource = if (chapters.isNotEmpty()) ChapterSource.Id3v2Chap else ChapterSource.None,
                     artwork = id3v2?.artwork,
+                    audioStream = audioStream,
                 ),
             )
         } catch (e: IOException) {

@@ -6,9 +6,12 @@ import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.domain.embeddedmeta.AudioStreamInfo
 import com.calypsan.listenup.server.embeddedmeta.fixtures.NeroChapter
 import com.calypsan.listenup.server.embeddedmeta.fixtures.TextTrackChapter
+import com.calypsan.listenup.server.embeddedmeta.fixtures.ac4Entry
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp4File
+import com.calypsan.listenup.server.embeddedmeta.fixtures.mp4aEntry
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -432,6 +435,51 @@ class Mp4ParserTest :
             val result = runBlocking { parser.parse(byteSource(bytes)) }
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.tags.series shouldBe listOf(SeriesEntry("Real Series", "2"))
+        }
+
+        test("parse populates audioStream for an ac-4 (Atmos) track") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        audioTrack(sampleEntry = ac4Entry(channels = 2, sampleRate = 48000))
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.audioStream shouldBe
+                AudioStreamInfo(
+                    codec = "ac4",
+                    codecProfile = null,
+                    spatial = "atmos",
+                    bitrate = null,
+                    sampleRate = 48000,
+                    channels = 2,
+                )
+        }
+
+        test("parse populates audioStream with xhe-aac profile for mp4a AOT-42") {
+            val bytes =
+                buildMp4File {
+                    ftyp()
+                    moov {
+                        mvhd(timescale = 1000, durationInTimescale = 1000)
+                        audioTrack(
+                            sampleEntry =
+                                mp4aEntry(
+                                    channels = 2,
+                                    sampleRate = 44100,
+                                    ascAot = 42, // xHE-AAC
+                                    ascFreqIdx = 4, // 44100 Hz
+                                    ascChan = 2,
+                                ),
+                        )
+                    }
+                }
+            val result = runBlocking { parser.parse(byteSource(bytes)) }
+            require(result is AppResult.Success<EmbeddedAudioMetadata>)
+            result.data.audioStream?.codecProfile shouldBe "xhe"
         }
     })
 

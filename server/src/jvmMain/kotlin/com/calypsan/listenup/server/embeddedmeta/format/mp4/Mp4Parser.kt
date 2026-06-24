@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import com.calypsan.listenup.server.embeddedmeta.emptyAudioTags
 import java.io.IOException
+import kotlinx.coroutines.CancellationException
 
 /**
  * Parses MP4 / M4A / M4B audiobook metadata.
@@ -120,6 +121,15 @@ internal class Mp4Parser : AudioFormatParser {
 
         val chapterResult = extractMp4Chapters(moovBytes, moov, durationMs, source)
 
+        val audioStream =
+            try {
+                Mp4CodecExtractor.extract(moovBytes, moov)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null // codec extraction is best-effort; never fail the whole parse
+            }
+
         return AppResult.Success(
             EmbeddedAudioMetadata(
                 format = AudioFormat.Mp4,
@@ -128,6 +138,7 @@ internal class Mp4Parser : AudioFormatParser {
                 chapters = chapterResult.chapters,
                 chaptersSource = if (chapterResult.chapters.isEmpty()) ChapterSource.None else chapterResult.source,
                 artwork = artwork,
+                audioStream = audioStream,
             ),
         )
     }

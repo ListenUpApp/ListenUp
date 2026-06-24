@@ -6,11 +6,13 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
+import com.calypsan.listenup.server.embeddedmeta.ByteArraySeekableAudioSource
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import java.io.IOException
 
 class Mp3ParserTest :
@@ -278,6 +280,24 @@ class Mp3ParserTest :
             val result = parser.parse(byteSource(bytes))
             require(result is AppResult.Success<EmbeddedAudioMetadata>)
             result.data.tags.series shouldBe listOf(SeriesEntry("Real Series", "2"))
+        }
+
+        test("audioStream carries MP3 codec + bitrate/sampleRate/channels") {
+            val bytes =
+                buildMp3File {
+                    id3v2 { textFrame("TIT2", "T") }
+                    mpegFrames(durationSeconds = 30, bitrate = 64_000, sampleRate = 44_100)
+                }
+            val result = Mp3Parser().parse(ByteArraySeekableAudioSource(bytes))
+            result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
+            val a = (result as AppResult.Success).data.audioStream
+            // mpegFrameHeader encodes channel mode 0b00 (stereo) → 2 channels
+            a?.codec shouldBe "mp3"
+            a?.bitrate shouldBe 64_000
+            a?.sampleRate shouldBe 44_100
+            a?.channels shouldBe 2
+            a?.codecProfile shouldBe null
+            a?.spatial shouldBe null
         }
 
         test("TIT1 grouping is used as series when no dedicated series tag") {
