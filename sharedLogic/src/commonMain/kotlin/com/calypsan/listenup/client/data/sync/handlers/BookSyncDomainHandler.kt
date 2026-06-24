@@ -288,6 +288,11 @@ internal class BookSyncDomainHandler(
                     codec = file.codec,
                     duration = file.duration,
                     size = file.size,
+                    codecProfile = file.codecProfile,
+                    spatial = file.spatial,
+                    bitrate = file.bitrate,
+                    sampleRate = file.sampleRate,
+                    channels = file.channels,
                 )
             },
         )

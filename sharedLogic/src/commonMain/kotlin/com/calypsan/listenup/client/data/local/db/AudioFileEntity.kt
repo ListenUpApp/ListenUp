@@ -47,4 +47,9 @@ internal data class AudioFileEntity(
     val codec: String,
     val duration: Long,
     val size: Long,
+    val codecProfile: String? = null,
+    val spatial: String? = null,
+    val bitrate: Int? = null,
+    val sampleRate: Int? = null,
+    val channels: Int? = null,
 )
