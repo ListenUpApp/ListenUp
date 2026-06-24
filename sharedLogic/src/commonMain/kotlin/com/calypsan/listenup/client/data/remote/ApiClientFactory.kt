@@ -90,7 +90,7 @@ internal fun isAuthEndpoint(request: io.ktor.client.request.HttpRequestBuilder):
  * with live bearer-token machinery. All production call sites declare this type
  * so the DI graph can substitute a fake without touching the injection site.
  */
-interface ApiClientFactory : RemoteCache {
+internal interface ApiClientFactory : RemoteCache {
     /** Authenticated client for request/response API calls. */
     suspend fun getClient(): HttpClient
 
@@ -99,21 +99,48 @@ interface ApiClientFactory : RemoteCache {
 
     /** Unauthenticated streaming client for public SSE streams. */
     suspend fun getUnauthenticatedStreamingClient(): HttpClient
+
+    /**
+     * Eagerly create and cache the authenticated client without exposing it.
+     *
+     * Lets cross-module startup code prime the lazy client (so the first real request doesn't pay the
+     * construction cost) through the public [warmUpApiClient] seam without ever naming the Ktor
+     * [HttpClient] type — the reason this whole interface is `internal`. A public method naming
+     * `HttpClient` (or a public interface that does) drags the Ktor client bridge, with its
+     * untranslatable `HttpClientConfig<*>.() -> Unit` receiver, onto the Swift Export surface and
+     * fails the generated-bridge compile.
+     */
+    suspend fun warmUp()
 }
 
 /**
  * Creates the production [ApiClientFactory] from its dependencies.
  *
- * The concrete implementation ([KtorApiClientFactory]) is `internal`; this is the public seam for
- * constructing a real client outside `:sharedLogic` — used by full-stack end-to-end tests (e.g. the
- * `:server` auth E2E fixture) that wire a client against an in-process test server with test-specific
- * [ServerConfig] / [AuthSession]. Production code uses the Koin `networkModule` binding instead.
+ * `internal` (with [ApiClientFactory]) so the Ktor [HttpClient] never reaches the Swift Export
+ * surface. Cross-module end-to-end tests that need a real client (e.g. the `:server` auth E2E
+ * fixture) wire it through the public [clientApiClientFactoryTestModule] Koin seam in jvmMain
+ * instead of constructing the internal type directly. Production code uses the Koin `networkModule`
+ * binding.
  */
-fun createApiClientFactory(
+internal fun createApiClientFactory(
     serverConfig: ServerConfig,
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
 ): ApiClientFactory = KtorApiClientFactory(serverConfig, authSession, refreshAccessToken)
+
+/**
+ * Public seam to eagerly prime the authenticated HTTP client from outside `:sharedLogic`.
+ *
+ * Resolves the internal [ApiClientFactory] from Koin and calls [ApiClientFactory.warmUp], so the
+ * Android app's post-auth startup can warm the cache without naming the now-internal factory or its
+ * Ktor [HttpClient] (both kept off the Swift Export surface). Exposes no transport type.
+ */
+suspend fun warmUpApiClient() {
+    org.koin.mp.KoinPlatform
+        .getKoin()
+        .get<ApiClientFactory>()
+        .warmUp()
+}
 
 /**
  * Ktor-backed production [ApiClientFactory].
@@ -151,6 +178,10 @@ internal class KtorApiClientFactory(
         mutex.withLock {
             cachedClient ?: createClient().also { cachedClient = it }
         }
+
+    override suspend fun warmUp() {
+        getClient()
+    }
 
     /**
      * Create a streaming HTTP client for long-lived connections (SSE, WebSocket).
