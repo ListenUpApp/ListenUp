@@ -755,6 +755,41 @@ class LibraryViewModelTest :
             }
         }
 
+        test("series sorted by name ignores leading articles when enabled") {
+            runTest {
+                // "The Wandering Inn" must sort as "Wandering Inn" (under W, after Villains) — not under T.
+                val seriesList =
+                    listOf(
+                        SeriesWithBooks(
+                            series = createTestSeries(id = "1", name = "The Wandering Inn"),
+                            books = listOf(createDummyBook("w1"), createDummyBook("w2")),
+                            bookSequences = emptyMap(),
+                        ),
+                        SeriesWithBooks(
+                            series = createTestSeries(id = "2", name = "Villains Code"),
+                            books = listOf(createDummyBook("v1"), createDummyBook("v2")),
+                            bookSequences = emptyMap(),
+                        ),
+                        SeriesWithBooks(
+                            series = createTestSeries(id = "3", name = "Apple Saga"),
+                            books = listOf(createDummyBook("a1"), createDummyBook("a2")),
+                            bookSequences = emptyMap(),
+                        ),
+                    )
+                val fixture = createFixture()
+                everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
+                every { fixture.seriesRepository.observeAllWithBooks() } returns flowOf(seriesList)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                // Then - article stripped: Apple (A), Villains (V), The Wandering Inn (as Wandering, W)
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                loaded.series.map { it.series.name } shouldBe
+                    listOf("Apple Saga", "Villains Code", "The Wandering Inn")
+            }
+        }
+
         test("series sorted by book count descending") {
             runTest {
                 // Given - each series needs 2+ books to avoid filtering by hideSingleBookSeries

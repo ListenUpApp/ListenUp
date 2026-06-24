@@ -413,7 +413,7 @@ class LibraryViewModel(
         val sortedBooks = sortBooks(content.books, intent.booksSortState, intent.ignoreTitleArticles)
         val visibleSeries =
             if (intent.hideSingleBookSeries) content.series.filter { it.books.size > 1 } else content.series
-        val sortedSeries = sortSeries(visibleSeries, intent.seriesSortState)
+        val sortedSeries = sortSeries(visibleSeries, intent.seriesSortState, intent.ignoreTitleArticles)
         val sortedAuthors = sortContributors(content.authors, intent.authorsSortState)
         val sortedNarrators = sortContributors(content.narrators, intent.narratorsSortState)
         val seriesProgress =
@@ -579,13 +579,14 @@ class LibraryViewModel(
     private fun sortSeries(
         series: List<SeriesWithBooks>,
         state: SortState,
+        ignoreArticles: Boolean,
     ): List<SeriesWithBooks> {
         val isAsc = state.direction == SortDirection.ASCENDING
 
         return when (state.category) {
             SortCategory.NAME -> {
-                // Key: name lowercase — computed once per element.
-                val keyed = series.map { it to it.series.name.lowercase() }
+                // Key: article-aware sortable name (so "The Wandering Inn" files under W) — computed once.
+                val keyed = series.map { it to it.series.name.sortableTitle(ignoreArticles) }
                 val sorted = if (isAsc) keyed.sortedBy { it.second } else keyed.sortedByDescending { it.second }
                 sorted.map { it.first }
             }
@@ -604,7 +605,7 @@ class LibraryViewModel(
 
             // Default to name sort for unsupported categories
             else -> {
-                val keyed = series.map { it to it.series.name.lowercase() }
+                val keyed = series.map { it to it.series.name.sortableTitle(ignoreArticles) }
                 keyed.sortedBy { it.second }.map { it.first }
             }
         }
