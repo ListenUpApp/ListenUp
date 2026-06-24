@@ -525,6 +525,7 @@ One beautiful library.</string>
     <string name="contributor_birth_date">Birth Date</string>
     <string name="contributor_books_by_count">%1$d book by %2$s</string>
     <string name="contributor_books_by_s_count">%1$d books by %2$s</string>
+    <string name="contributor_born">Born %1$s</string>
     <string name="contributor_born_year">Born %1$s</string>
     <string name="contributor_change_match">Change Match</string>
     <string name="contributor_change_photo">Change photo</string>
@@ -534,6 +535,7 @@ One beautiful library.</string>
     <string name="contributor_current_image">Current image</string>
     <string name="contributor_dates">Dates</string>
     <string name="contributor_death_date">Death Date</string>
+    <string name="contributor_died">Died %1$s</string>
     <string name="contributor_download_metadata">Download Metadata</string>
     <string name="contributor_edit_bio">Bio</string>
     <string name="contributor_edit_bio_placeholder">Add a bio</string>
@@ -546,6 +548,7 @@ One beautiful library.</string>
     <string name="contributor_failed_to_load_profile">Failed to load profile</string>
     <string name="contributor_find_on_audible">Find on Audible</string>
     <string name="contributor_from_your_library_this_action">from your library. This action cannot be undone.</string>
+    <string name="contributor_life_span">%1$s – %2$s</string>
     <string name="contributor_links">Links</string>
     <string name="contributor_merge_body">This contributor\'s books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target\'s biography, image, and other details win.</string>
     <string name="contributor_merge_confirm">Merge</string>
