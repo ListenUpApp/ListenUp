@@ -158,6 +158,19 @@ struct UserProfileView: View {
             }
             .buttonStyle(.plain)
 
+            // Direct entry for admins — Administration is otherwise buried three layers deep
+            // (Profile → Settings → Administration). Gated on the signed-in user being an admin.
+            if userObserver.user?.isAdmin == true {
+                Divider().padding(.leading, 54)
+                NavigationLink(value: AdminDestination()) {
+                    actionRow(
+                        icon: "shield.lefthalf.filled",
+                        title: String(localized: "common.administration")
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+
             Divider().padding(.leading, 54)
 
             actionRow(icon: "arrow.down.circle", title: String(localized: "common.downloads"))
