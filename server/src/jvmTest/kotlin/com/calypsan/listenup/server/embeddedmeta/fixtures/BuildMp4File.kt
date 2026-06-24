@@ -123,10 +123,18 @@ internal class MoovBuilder internal constructor() {
     /**
      * Emit a minimal audio `trak`. The parser only reads the track ID and
      * optional `tref.chap` (which references a chapter text-track by id).
+     *
+     * When [sampleEntry] is non-null a real `mdia` tree is built:
+     * `mdia → hdlr("soun") + minf → stbl → stsd(entry_count=1, entry)`.
+     * The extractor requires this to navigate to the codec sample entry.
+     *
+     * When [sampleEntry] is null a zero-byte stub `mdia` is emitted — sufficient
+     * for tests that only exercise tags, chapters, or duration.
      */
     fun audioTrack(
         trackId: Int = 1,
         chapterTrackRef: Int? = null,
+        sampleEntry: ByteArray? = null,
     ) {
         val trakChildren = mutableListOf<ByteArray>()
         trakChildren += tkhd(trackId)
@@ -134,8 +142,19 @@ internal class MoovBuilder internal constructor() {
             val chapAtom = atom("chap", buildBigEndianIntList(listOf(chapterTrackRef)))
             trakChildren += atom("tref", chapAtom)
         }
-        // Minimal mdia stub — not inspected for the audio track in our tests.
-        trakChildren += atom("mdia", ByteArray(0))
+        trakChildren +=
+            if (sampleEntry != null) {
+                // Real mdia with hdlr "soun" + minf/stbl/stsd so the codec
+                // extractor can navigate to the sample entry.
+                val hdlr = audioHdlr()
+                val stsd = atom("stsd", byteArrayOf(0, 0, 0, 0) + be32(1) + sampleEntry)
+                val stbl = atom("stbl", stsd)
+                val minf = atom("minf", stbl)
+                atom("mdia", hdlr + minf)
+            } else {
+                // Zero-byte stub — sufficient when the test doesn't exercise the extractor.
+                atom("mdia", ByteArray(0))
+            }
         children += atom("trak", trakChildren.flatten())
     }
 
@@ -265,6 +284,17 @@ internal class MoovBuilder internal constructor() {
             patchedChildren[patch.trakIndex] = patchedTrak
         }
         return atom("moov", patchedChildren.flatten())
+    }
+
+    /**
+     * Emit an `hdlr` atom with `handler_type = "soun"` so the codec extractor
+     * identifies this track as an audio track.
+     *
+     * Layout: version+flags(4) + pre_defined(4) + handler_type(4) + reserved(12) + name(1).
+     */
+    private fun audioHdlr(): ByteArray {
+        val payload = ByteArray(8) + "soun".toByteArray(Charsets.US_ASCII) + ByteArray(13)
+        return atom("hdlr", payload)
     }
 
     private fun tkhd(trackId: Int): ByteArray {
@@ -563,6 +593,14 @@ private fun Buffer.writeBigEndianLong(value: Long) {
         writeByte(((value shr shift) and 0xFF).toByte())
     }
 }
+
+private fun be32(value: Int): ByteArray =
+    byteArrayOf(
+        ((value ushr 24) and 0xFF).toByte(),
+        ((value ushr 16) and 0xFF).toByte(),
+        ((value ushr 8) and 0xFF).toByte(),
+        (value and 0xFF).toByte(),
+    )
 
 private fun buildBigEndianIntList(values: List<Int>): ByteArray {
     val out = Buffer()
