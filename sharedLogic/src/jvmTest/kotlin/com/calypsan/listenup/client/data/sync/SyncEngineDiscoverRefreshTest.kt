@@ -84,9 +84,10 @@ class SyncEngineDiscoverRefreshTest :
 
         test("a reconnect (not the initial connect) primes the feed, pings presence, and reconciles") {
             runBlocking {
-                val scope = CoroutineScope(
-                    SupervisorJob() + Dispatchers.Default,
-                )
+                val scope =
+                    CoroutineScope(
+                        SupervisorJob() + Dispatchers.Default,
+                    )
                 val db = createInMemoryTestDatabase()
                 try {
                     val primeCount = AtomicInteger(0)
@@ -172,7 +173,8 @@ class SyncEngineDiscoverRefreshTest :
                     catchUp.fromZeroInvocations.get() shouldBe 2
                 } finally {
                     scope.cancel()
-                    scope.coroutineContext.job.children.forEach { it.join() }
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
                     db.close()
                 }
             }
