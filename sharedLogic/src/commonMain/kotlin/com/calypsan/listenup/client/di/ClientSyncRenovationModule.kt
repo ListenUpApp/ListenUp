@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
+import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -47,6 +48,7 @@ import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandle
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
@@ -341,6 +343,7 @@ val clientSyncRenovationModule =
         }
 
         single {
+            val fetchActivities: FetchActivitiesUseCase = get()
             SyncEngine(
                 registry = get(),
                 queue = get(),
@@ -353,6 +356,8 @@ val clientSyncRenovationModule =
                 presenceRefreshSignal = get(),
                 activityRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
+                // Prime / refresh the activity-feed Room cache on sync-start and reconnect, UI-independent.
+                primeActivityFeed = { fetchActivities(ACTIVITY_PRIME_LIMIT) },
             )
         }
 

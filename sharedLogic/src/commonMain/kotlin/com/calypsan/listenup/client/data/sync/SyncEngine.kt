@@ -22,6 +22,9 @@ import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
+/** How many feed items the engine pulls when priming the activity-feed Room cache. */
+internal const val ACTIVITY_PRIME_LIMIT = 50
+
 /**
  * Lifecycle composer for the client sync engine.
  *
@@ -52,6 +55,7 @@ internal class SyncEngine(
     private val presenceRefreshSignal: PresenceRefreshSignal,
     private val activityRefreshSignal: ActivityRefreshSignal,
     private val scope: CoroutineScope,
+    private val primeActivityFeed: suspend () -> Unit = {},
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
 ) {
     private var frameCollectorJob: Job? = null
@@ -186,6 +190,10 @@ internal class SyncEngine(
         queue.clearForUserChange(currentUserId)
         // Step 2: catch-up across all registered domains.
         catchUp.catchUpAll(registry)
+        // Step 2b: prime the activity feed into Room so it is available offline even if the user
+        // never opens Discover. Best-effort — offline at start must not abort the engine; the
+        // reconnect path and ActivityChanged nudges recover.
+        primeActivityFeedSafely()
         // Step 3: seed SSE resume cursor.
         sseClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.
@@ -212,6 +220,17 @@ internal class SyncEngine(
         // start() for the same user is a no-op. If any step above threw, this
         // line is never reached, the flag stays false, and start() retries.
         currentUserStarted = true
+    }
+
+    /** Invoke [primeActivityFeed], swallowing non-cancellation failures so priming never aborts a caller. */
+    private suspend fun primeActivityFeedSafely() {
+        try {
+            primeActivityFeed()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Activity-feed prime failed; continuing" }
+        }
     }
 
     fun stop() {
