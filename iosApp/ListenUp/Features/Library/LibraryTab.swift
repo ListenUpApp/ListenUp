@@ -6,7 +6,8 @@ import SwiftUI
 enum LibraryTab: String, CaseIterable, Identifiable {
     case books
     case series
-    case contributors
+    case authors
+    case narrators
 
     var id: String { rawValue }
 
@@ -14,7 +15,8 @@ enum LibraryTab: String, CaseIterable, Identifiable {
         switch self {
         case .books: String(localized: "library.books")
         case .series: String(localized: "common.series")
-        case .contributors: String(localized: "library.contributors")
+        case .authors: String(localized: "library.authors")
+        case .narrators: String(localized: "library.narrators")
         }
     }
 
@@ -22,7 +24,8 @@ enum LibraryTab: String, CaseIterable, Identifiable {
         switch self {
         case .books: "book.fill"
         case .series: "books.vertical.fill"
-        case .contributors: "person.2.fill"
+        case .authors: "person.fill"
+        case .narrators: "waveform.circle.fill"
         }
     }
 }
