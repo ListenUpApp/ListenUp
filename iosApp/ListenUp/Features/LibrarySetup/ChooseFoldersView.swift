@@ -111,18 +111,25 @@ struct ChooseFoldersView: View {
     private var directorySection: some View {
         if viewModel.isLoadingDirectories {
             AuthFieldGroup { loadingRow }
-        } else if viewModel.directories.isEmpty {
-            AuthFieldGroup { emptyRow }
         } else {
             AuthFieldGroup {
-                ForEach(Array(viewModel.directories.enumerated()), id: \.element.id) { index, item in
-                    FolderRow(
-                        item: item,
-                        isLast: index == viewModel.directories.count - 1,
-                        onOpen: { viewModel.open(item.path) },
-                        onToggle: { viewModel.toggle(item.path) }
-                    )
+                if viewModel.directories.isEmpty {
+                    noSubfoldersRow
+                } else {
+                    ForEach(Array(viewModel.directories.enumerated()), id: \.element.id) { _, item in
+                        FolderRow(
+                            item: item,
+                            isLast: false,
+                            onOpen: { viewModel.open(item.path) },
+                            onToggle: { viewModel.toggle(item.path) }
+                        )
+                    }
                 }
+                // Always offer to include the CURRENT folder itself as a library root. A folder
+                // with subfolders is otherwise navigable-only — so without this you can't select a
+                // parent that holds book subfolders (i.e. a normal audiobooks folder), which is the
+                // common case.
+                selectCurrentRow
             }
         }
     }
@@ -139,25 +146,41 @@ struct ChooseFoldersView: View {
         .padding(.horizontal, 14)
     }
 
-    /// No subfolders here — offer to select the current folder wholesale so a parent
-    /// without leaf children is still pickable.
-    private var emptyRow: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    /// Shown when the current folder has no subfolders: the drill-in rows are gone, but
+    /// `selectCurrentRow` below still lets the user pick this folder wholesale.
+    private var noSubfoldersRow: some View {
+        HStack {
             Text(String(localized: "library_setup.no_subfolders"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Button {
-                viewModel.selectCurrent()
-            } label: {
-                Label(String(localized: "library_setup.select_this_folder"), systemImage: "checkmark.circle")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(Color.listenUpOrange)
-            }
-            .buttonStyle(.plain)
+            Spacer()
         }
-        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .frame(minHeight: 56)
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+    }
+
+    /// Always-available control to include the CURRENT folder as a library root — it toggles the
+    /// folder's selection (mirroring a leaf `FolderRow`'s checkmark). This is what lets a parent
+    /// folder that holds book subfolders be chosen, instead of only empty leaf folders.
+    private var selectCurrentRow: some View {
+        let isCurrentSelected = viewModel.selectedPaths.contains(viewModel.currentPath)
+        return Button {
+            viewModel.toggle(viewModel.currentPath)
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: isCurrentSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isCurrentSelected ? Color.listenUpOrange : .secondary)
+                Text(String(localized: "library_setup.select_this_folder"))
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(isCurrentSelected ? Color.listenUpOrange : .primary)
+                Spacer()
+            }
+            .frame(minHeight: 56)
+            .padding(.horizontal, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Footer summary

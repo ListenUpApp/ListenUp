@@ -127,7 +127,7 @@ struct KotlinBookDocumentProviding: BookDocumentProviding {
         // `observeDocuments` is a Kotlin Flow; SKIE bridges it as an AsyncSequence.
         // Take the first emission — the Room store reflects the last sync, so one
         // read is sufficient here (the coordinator re-reads on each book load).
-        guard let docs = try? await repository.observeDocuments(bookId: bookId).first(where: { _ in true }) else {
+        guard let docs = await repository.observeDocuments(bookId: bookId).first(where: { _ in true }) else {
             return nil
         }
         // `BookDocument.format` is a plain Kotlin String; SKIE exposes it directly.

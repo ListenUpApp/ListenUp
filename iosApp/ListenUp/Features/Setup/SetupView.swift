@@ -71,6 +71,7 @@ struct SetupView: View {
             AppTextField(
                 placeholder: String(localized: "auth.last_name"),
                 text: $lastName,
+                icon: "person",
                 error: viewModel.validationField == .lastName
                     ? String(localized: "setup.error_last_name_required") : nil,
                 textContentType: .familyName,

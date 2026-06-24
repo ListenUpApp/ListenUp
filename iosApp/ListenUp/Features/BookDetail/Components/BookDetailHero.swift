@@ -141,9 +141,17 @@ struct BookDetailHero: View {
     /// A centered, tappable "{prefix}{first} & N others" line that opens the Cast sheet
     /// when a category has more contributors than the inline limit.
     private func collapsedLine(prefix: String?, summary: String) -> some View {
-        Button(action: onOpenCast) {
-            (prefix.map { Text($0).foregroundStyle(.secondary) } ?? Text(""))
-                + Text(summary).foregroundStyle(tint)
+        var line = AttributedString()
+        if let prefix {
+            var prefixRun = AttributedString(prefix)
+            prefixRun.foregroundColor = .secondary
+            line += prefixRun
+        }
+        var summaryRun = AttributedString(summary)
+        summaryRun.foregroundColor = tint
+        line += summaryRun
+        return Button(action: onOpenCast) {
+            Text(line)
         }
         .buttonStyle(.plain)
         .multilineTextAlignment(.center)
