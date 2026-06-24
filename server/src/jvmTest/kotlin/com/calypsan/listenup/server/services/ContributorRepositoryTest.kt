@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.server.scanner.pipeline.SortKeys
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -198,6 +199,101 @@ class ContributorRepositoryTest :
                     // but listLiveIds excludes it.
                     repo.findById(id.value).shouldNotBeNull()
                     repo.findById(id.value)?.deletedAt.shouldNotBeNull()
+                    repo.listLiveIds() shouldBe emptySet()
+                }
+            }
+        }
+
+        // ── resolveOrCreateAll (batch) ────────────────────────────────────────────
+
+        test("resolveOrCreateAll resolves pre-existing and brand-new names to correct ids") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    // Pre-create one contributor through the single path.
+                    val existingId = repo.resolveOrCreate("Brandon Sanderson", sortName = null)
+
+                    val map =
+                        repo.resolveOrCreateAll(
+                            listOf(
+                                "Brandon Sanderson" to null,
+                                "Ursula K. Le Guin" to null,
+                            ),
+                        )
+
+                    // The pre-existing name resolves to its original id (no new row).
+                    map[contributorDedupKey("Brandon Sanderson", SortKeys.sortName("Brandon Sanderson", null))] shouldBe
+                        existingId
+                    // The brand-new name resolves to a freshly created row that single-path lookup also finds.
+                    val newKey = contributorDedupKey("Ursula K. Le Guin", SortKeys.sortName("Ursula K. Le Guin", null))
+                    map[newKey].shouldNotBeNull()
+                    map[newKey] shouldBe repo.resolveOrCreate("Ursula K. Le Guin", sortName = null)
+                }
+            }
+        }
+
+        test("resolveOrCreateAll dedups case/whitespace exactly like resolveOrCreate") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val map =
+                        repo.resolveOrCreateAll(
+                            listOf(
+                                "Brandon Sanderson" to null,
+                                "  brandon   SANDERSON " to null,
+                                "Sanderson, Brandon" to "Sanderson, Brandon",
+                            ),
+                        )
+                    // All three identities share the one dedup bucket → one row → one id.
+                    map.values.toSet().size shouldBe 1
+                    map.values.first() shouldBe repo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    repo.listLiveIds().size shouldBe 1
+                }
+            }
+        }
+
+        test("resolveOrCreateAll emits one Created per genuinely-new contributor") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = ContributorRepository(db = sql, bus = bus, registry = SyncRegistry())
+                runTest {
+                    // Pre-existing row created BEFORE we start collecting events.
+                    repo.resolveOrCreate("Pre Existing", sortName = null)
+
+                    val events = mutableListOf<SyncEvent<ContributorSyncPayload>>()
+                    val collector =
+                        async {
+                            @Suppress("UNCHECKED_CAST")
+                            bus.subscribe().collect { events += it.event as SyncEvent<ContributorSyncPayload> }
+                        }
+                    advanceUntilIdle()
+
+                    repo.resolveOrCreateAll(
+                        listOf(
+                            "Pre Existing" to null, // already there → no event
+                            "New One" to null,
+                            "New Two" to null,
+                        ),
+                    )
+                    advanceUntilIdle()
+                    collector.cancel()
+
+                    // The bus replays the original "Pre Existing" Created; the batch must NOT re-emit it
+                    // (exactly one, the original) while emitting one Created per genuinely-new contributor.
+                    val createdNames = events.filterIsInstance<SyncEvent.Created<ContributorSyncPayload>>().map { it.payload.name }
+                    createdNames.toSet() shouldBe setOf("Pre Existing", "New One", "New Two")
+                    createdNames.count { it == "Pre Existing" } shouldBe 1
+                    createdNames.count { it == "New One" } shouldBe 1
+                    createdNames.count { it == "New Two" } shouldBe 1
+                }
+            }
+        }
+
+        test("resolveOrCreateAll on empty input is a no-op returning an empty map") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.resolveOrCreateAll(emptyList()) shouldBe emptyMap()
                     repo.listLiveIds() shouldBe emptySet()
                 }
             }
