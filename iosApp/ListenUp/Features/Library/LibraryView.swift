@@ -2,10 +2,10 @@ import SwiftUI
 @preconcurrency import Shared
 import UIKit
 
-/// Library screen displaying the user's audiobook collection with three tabs.
+/// Library screen displaying the user's audiobook collection with four tabs.
 ///
 /// Features:
-/// - Three swipeable tabs: Books, Series, Contributors
+/// - Four swipeable tabs: Books, Series, Authors, Narrators
 /// - Glass-styled chip row for tab selection
 /// - Each tab has its own sort controls and alphabet scrubber
 /// - Pull-to-refresh syncs all content
@@ -85,18 +85,25 @@ struct LibraryView: View {
             )
             .tag(LibraryTab.series)
 
-            // Contributors Tab (merged Authors + Narrators)
-            ContributorsContent(
-                authors: observer.authors,
-                narrators: observer.narrators,
-                authorsSortState: observer.authorsSortState,
-                narratorsSortState: observer.narratorsSortState,
-                onAuthorsCategorySelected: { observer.setAuthorsSortCategory($0) },
-                onAuthorsDirectionToggle: { observer.toggleAuthorsSortDirection() },
-                onNarratorsCategorySelected: { observer.setNarratorsSortCategory($0) },
-                onNarratorsDirectionToggle: { observer.toggleNarratorsSortDirection() }
+            // Authors Tab
+            ContributorListContent(
+                contributors: observer.authors,
+                sortState: observer.authorsSortState,
+                roleKind: .author,
+                onCategorySelected: { observer.setAuthorsSortCategory($0) },
+                onDirectionToggle: { observer.toggleAuthorsSortDirection() }
             )
-            .tag(LibraryTab.contributors)
+            .tag(LibraryTab.authors)
+
+            // Narrators Tab
+            ContributorListContent(
+                contributors: observer.narrators,
+                sortState: observer.narratorsSortState,
+                roleKind: .narrator,
+                onCategorySelected: { observer.setNarratorsSortCategory($0) },
+                onDirectionToggle: { observer.toggleNarratorsSortDirection() }
+            )
+            .tag(LibraryTab.narrators)
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .scrollContentBackground(.hidden)
