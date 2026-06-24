@@ -93,8 +93,21 @@ class LibraryLessOnboardingE2ETest :
                     addFolderResponse.status shouldBe HttpStatusCode.Created
 
                     // 5. Kick the live scan via the already-mounted orchestrator.
-                    val scanResponse = client.post("/api/v1/libraries/scan") { bearerAuth(adminToken) }
-                    scanResponse.status shouldBe HttpStatusCode.Accepted
+                    //    Library bootstrap — which registers the library with the orchestrator and warms
+                    //    its scanner bundle (Application.kt `scope.launch { bootstrapLibraries(...) }`) —
+                    //    runs ASYNCHRONOUSLY at startup. A scan triggered before that registration lands
+                    //    races it and returns 404 (the library isn't known to the orchestrator yet), so we
+                    //    poll the trigger until accepted. Registration is monotonic — once the bundle exists
+                    //    it stays — so this converges; only the startup-race 404 is tolerated, any other
+                    //    status fails fast. (In production the wizard runs long after boot, never racing.)
+                    withTimeout(SCAN_TRIGGER_TIMEOUT_MS) {
+                        while (true) {
+                            val scanResponse = client.post("/api/v1/libraries/scan") { bearerAuth(adminToken) }
+                            if (scanResponse.status == HttpStatusCode.Accepted) break
+                            scanResponse.status shouldBe HttpStatusCode.NotFound
+                            delay(POLL_INTERVAL_MS)
+                        }
+                    }
 
                     // 6. Await books on the always-loaded sync substrate. The scan is async,
                     //    so poll the books page until at least one book lands.
@@ -117,6 +130,7 @@ class LibraryLessOnboardingE2ETest :
         }
     })
 
+private const val SCAN_TRIGGER_TIMEOUT_MS = 15_000L
 private const val SCAN_AWAIT_TIMEOUT_MS = 20_000L
 private const val POLL_INTERVAL_MS = 100L
 
