@@ -15,6 +15,8 @@ struct BookDetailHero: View {
     /// The book, used only to resolve the series-pill navigation target.
     let book: BookDetail?
     let title: String
+    /// Optional book subtitle, shown under the title when present.
+    let subtitle: String?
     /// Pre-formatted series label (e.g. "A Song of Ice and Fire · Book 1").
     /// The series pill is omitted when this is `nil`.
     let series: String?
@@ -50,6 +52,14 @@ struct BookDetailHero: View {
                 .font(.title2.bold())
                 .multilineTextAlignment(.center)
                 .padding(.top, 12)
+
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+            }
 
             authorsLine
                 .padding(.top, 6)
@@ -202,6 +212,7 @@ struct BookDetailHero: View {
 
     private var accessibilitySummary: String {
         var parts: [String] = [title]
+        if let subtitle, !subtitle.isEmpty { parts.append(subtitle) }
         if !author.isEmpty { parts.append(author) }
         if !narratorsText.isEmpty {
             parts.append(String(format: String(localized: "book.detail_narrated_by_value"), narratorsText))
@@ -220,6 +231,7 @@ struct BookDetailHero: View {
             BookDetailHero(
                 book: nil,
                 title: "A Game of Thrones",
+                subtitle: "A Song of Ice and Fire, Book One",
                 series: "A Song of Ice and Fire · Book 1",
                 authors: [],
                 author: "George R.R. Martin",
@@ -235,6 +247,7 @@ struct BookDetailHero: View {
             BookDetailHero(
                 book: nil,
                 title: "The Way of Kings",
+                subtitle: nil,
                 series: nil,
                 authors: [],
                 author: "Brandon Sanderson",
