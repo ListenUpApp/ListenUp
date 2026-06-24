@@ -1,5 +1,4 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// The "Chapters" block on the redesigned Book Detail screen: a heading with a
 /// trailing "All {N}" control that toggles between a five-chapter preview and the
@@ -13,7 +12,7 @@ import SwiftUI
 ///
 /// Pure/presentational: it takes the chapters and a `tint`.
 struct BookChaptersSection: View {
-    let chapters: [ChapterUiModel]
+    let chapters: [BookChapterRow]
     /// Per-book accent, derived from cover art.
     let tint: Color
 
@@ -21,7 +20,7 @@ struct BookChaptersSection: View {
 
     private let previewCount = 5
 
-    private var visibleChapters: [ChapterUiModel] {
+    private var visibleChapters: [BookChapterRow] {
         showAll ? chapters : Array(chapters.prefix(previewCount))
     }
 
@@ -65,7 +64,7 @@ struct BookChaptersSection: View {
 
     // MARK: - Row
 
-    private func chapterRow(number: Int, chapter: ChapterUiModel) -> some View {
+    private func chapterRow(number: Int, chapter: BookChapterRow) -> some View {
         HStack(spacing: 12) {
             if chapter.isCurrent {
                 Image(systemName: "pause.fill")
@@ -97,9 +96,14 @@ struct BookChaptersSection: View {
 
 // MARK: - Preview
 
-#Preview("Chapters — empty (Kotlin model not previewable)") {
-    // `ChapterUiModel` is a Kotlin data class and can't be constructed in a
-    // SwiftUI preview, so this previews the empty-list path (header only).
-    BookChaptersSection(chapters: [], tint: .red)
-        .padding()
+#Preview("Chapters") {
+    BookChaptersSection(
+        chapters: [
+            BookChapterRow(id: "1", title: "Prologue", duration: "4:21", isCurrent: false),
+            BookChapterRow(id: "2", title: "An Unexpected Party", duration: "38:02", isCurrent: true),
+            BookChapterRow(id: "3", title: "Roast Mutton", duration: "29:14", isCurrent: false)
+        ],
+        tint: .red
+    )
+    .padding()
 }
