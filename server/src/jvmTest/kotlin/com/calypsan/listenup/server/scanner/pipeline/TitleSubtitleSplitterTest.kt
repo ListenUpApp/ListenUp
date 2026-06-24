@@ -13,6 +13,17 @@ class TitleSubtitleSplitterTest :
         test("non-greedy first colon — later colons stay in the subtitle") {
             TitleSubtitleSplitter.split("A: B: C") shouldBe ("A" to "B: C")
         }
+        test("descriptive tail: a multi-colon title splits at the last ': A/An/The …' segment") {
+            TitleSubtitleSplitter.split("The Land: Alliances: A LitRPG Saga") shouldBe
+                ("The Land: Alliances" to "A LitRPG Saga")
+        }
+        test("descriptive tail: a single-colon descriptive subtitle is unchanged") {
+            TitleSubtitleSplitter.split("Sapiens: A Brief History of Humankind") shouldBe
+                ("Sapiens" to "A Brief History of Humankind")
+        }
+        test("descriptive tail: a non-descriptive final segment falls back to the first-colon split") {
+            TitleSubtitleSplitter.split("It: Chapter Two") shouldBe ("It" to "Chapter Two")
+        }
         test("no colon-space returns the title whole") {
             TitleSubtitleSplitter.split("Mistborn") shouldBe ("Mistborn" to null)
         }

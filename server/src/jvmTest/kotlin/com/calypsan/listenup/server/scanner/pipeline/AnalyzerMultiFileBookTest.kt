@@ -170,6 +170,40 @@ class AnalyzerMultiFileBookTest :
                 }
             }
         }
+        test("single-file book: bogus series-subtitle discarded, real subtitle split from the title") {
+            audioLibrary {}.use { fixture ->
+                runTest {
+                    val rel = "Aleron Kong/Chaos Seeds/Book 3 - The Land - Alliances"
+                    val file =
+                        buildMp3File {
+                            id3v2(version = 4) {
+                                textFrame("TIT2", "The Land: Alliances: A LitRPG Saga")
+                                // The SUBTITLE tag wrongly carries the series (the real-world bug).
+                                textFrame("TIT3", "Chaos Seeds, Book 3")
+                            }
+                            mpegFrames(durationSeconds = 1)
+                        }
+                    val p = fixture.root.writeAudio("$rel/book.mp3", file)
+                    val candidate =
+                        CandidateBook(
+                            rootRelPath = rel,
+                            isFile = false,
+                            files = listOf(trackEntry("$rel/book.mp3", Files.size(p))),
+                        )
+
+                    val book =
+                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                            .analyze(flowOf(candidate))
+                            .toList()
+                            .single()
+                            .getOrThrow()
+
+                    book.title shouldBe "The Land: Alliances"
+                    book.subtitle shouldBe "A LitRPG Saga"
+                }
+            }
+        }
+
         test("single-file book keeps its title tag and does not inherit the album's series suffix") {
             audioLibrary {}.use { fixture ->
                 runTest {
