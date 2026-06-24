@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.embeddedmeta
 
-import java.io.IOException
+import kotlinx.io.EOFException
 
 /**
  * In-memory [SeekableAudioSource] over a fixed byte array — the test-only
@@ -33,7 +33,7 @@ internal class ByteArraySeekableAudioSource(
     }
 
     override fun readFully(count: Int): ByteArray {
-        if (pos + count > data.size) throw IOException("EOF")
+        if (pos + count > data.size) throw EOFException("EOF")
         val out = data.copyOfRange(pos.toInt(), (pos + count).toInt())
         pos += count
         return out

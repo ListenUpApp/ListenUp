@@ -53,23 +53,17 @@ internal fun Buffer.readSyncSafeInt(): Int {
 internal fun Buffer.readUtf16WithBom(byteCount: Int): String {
     require(byteCount >= 2) { "UTF-16 requires at least 2 bytes" }
     val raw = readByteArray(byteCount)
-    val (offset, charset) =
+    val (offset, bigEndian) =
         when {
             raw.size >= 2 && (raw[0].toInt() and BYTE_MASK) == UTF16_BOM_BE_HI &&
-                (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_BE_LO -> {
-                2 to Charsets.UTF_16BE
-            }
+                (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_BE_LO -> 2 to true
 
             raw.size >= 2 && (raw[0].toInt() and BYTE_MASK) == UTF16_BOM_LE_HI &&
-                (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_LE_LO -> {
-                2 to Charsets.UTF_16LE
-            }
+                (raw[1].toInt() and BYTE_MASK) == UTF16_BOM_LE_LO -> 2 to false
 
-            else -> {
-                0 to Charsets.UTF_16BE
-            }
+            else -> 0 to true
         }
-    return String(raw, offset, raw.size - offset, charset)
+    return TextDecoding.decodeUtf16(raw, offset, raw.size - offset, bigEndian = bigEndian)
 }
 
 /**
@@ -83,12 +77,12 @@ internal fun Buffer.readUtf8NullTerminated(): String {
         if (b == 0.toByte()) break
         bytes.add(b)
     }
-    return String(bytes.toByteArray(), Charsets.UTF_8)
+    return bytes.toByteArray().decodeToString()
 }
 
 /** Read a 1-byte-length-prefixed UTF-8 (Pascal) string. Used by Nero `chpl` atoms. */
 internal fun Buffer.readPString(): String {
     val len = readByte().toInt() and BYTE_MASK
     val bytes = readByteArray(len)
-    return String(bytes, Charsets.UTF_8)
+    return bytes.decodeToString()
 }

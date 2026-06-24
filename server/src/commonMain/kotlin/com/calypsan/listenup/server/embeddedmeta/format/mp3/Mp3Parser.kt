@@ -9,7 +9,7 @@ import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
-import java.io.IOException
+import kotlinx.io.IOException
 
 /**
  * Parses ID3v2 / ID3v1 tags + MPEG audio frame technical info from MP3 files.

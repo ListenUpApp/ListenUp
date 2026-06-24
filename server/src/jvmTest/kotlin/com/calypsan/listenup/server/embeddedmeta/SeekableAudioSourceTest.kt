@@ -1,8 +1,10 @@
 package com.calypsan.listenup.server.embeddedmeta
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
+import kotlinx.io.IOException
 
 class SeekableAudioSourceTest :
     FunSpec({
@@ -33,6 +35,13 @@ class SeekableAudioSourceTest :
             } finally {
                 tmp.delete()
             }
+        }
+
+        test("readFully past EOF throws a catchable kotlinx.io.IOException") {
+            // The parsers catch kotlinx.io.IOException; the JVM source throws EOFException (a subtype)
+            // and the native source must too — pin the contract so a short read can't crash a scan.
+            val src = ByteArraySeekableAudioSource(byteArrayOf(1, 2, 3, 4))
+            shouldThrow<IOException> { src.readFully(8) }
         }
     })
 

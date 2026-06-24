@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import kotlinx.io.IOException
 
 /**
  * Extracts chapter lists from MP4 files. Two encodings are supported:
@@ -66,7 +67,7 @@ internal object Mp4ChapterExtractor {
             if (p + titleLen > end) break
             val title =
                 if (titleLen > 0) {
-                    String(bytes, p, titleLen, Charsets.UTF_8)
+                    bytes.decodeToString(p, p + titleLen)
                 } else {
                     ""
                 }
@@ -186,12 +187,12 @@ internal object Mp4ChapterExtractor {
                 try {
                     source.seek(absOffset)
                     source.readFully(size)
-                } catch (_: java.io.IOException) {
+                } catch (_: IOException) {
                     continue
                 }
             val titleLen = ((sampleBytes[0].toInt() and 0xFF) shl 8) or (sampleBytes[1].toInt() and 0xFF)
             if (titleLen <= 0 || titleLen > size - 2) continue
-            val title = String(sampleBytes, 2, titleLen, Charsets.UTF_8)
+            val title = sampleBytes.decodeToString(2, 2 + titleLen)
             starts += sampleStartsMs[i] to title
         }
 

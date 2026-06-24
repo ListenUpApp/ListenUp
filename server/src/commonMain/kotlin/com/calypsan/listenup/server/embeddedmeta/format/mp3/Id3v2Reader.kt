@@ -6,6 +6,7 @@ import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.server.embeddedmeta.AudioTagsBuilder
 import com.calypsan.listenup.server.embeddedmeta.GenreSplitter
+import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
 
 /**
  * Reads ID3v2.3 / ID3v2.4 tags out of an in-memory MP3 byte slice.
@@ -86,7 +87,7 @@ internal object Id3v2Reader {
         while (offset + ID3V2_FRAME_HEADER_SIZE <= tagEnd) {
             // Padding indicator — first frame-id byte is 0
             if (bytes[offset] == 0.toByte()) break
-            val frameId = String(bytes, offset, 4, Charsets.ISO_8859_1)
+            val frameId = TextDecoding.decodeLatin1(bytes, offset, 4)
             val frameSize =
                 if (version == 4) {
                     decodeSyncSafe(bytes[offset + 4], bytes[offset + 5], bytes[offset + 6], bytes[offset + 7])
@@ -209,7 +210,7 @@ internal object Id3v2Reader {
         val comment = text.trimNulls()
         if (comment.isEmpty()) return
         // First COMM wins; never clobber an explicit comment already seen.
-        builder.custom.putIfAbsent(AudioTags.COMMENT_KEY, comment)
+        if (AudioTags.COMMENT_KEY !in builder.custom) builder.custom[AudioTags.COMMENT_KEY] = comment
     }
 
     private fun handleTxxx(
@@ -270,7 +271,7 @@ internal object Id3v2Reader {
         // Format: elementId\0 + startMs(4 BE) + endMs(4 BE) + startOffset(4) + endOffset(4) + subframes…
         val nullIdx = data.indexOf(0)
         if (nullIdx < 0) return null
-        val elementId = String(data, 0, nullIdx, Charsets.ISO_8859_1)
+        val elementId = TextDecoding.decodeLatin1(data, 0, nullIdx)
         val rest = data.copyOfRange(nullIdx + 1, data.size)
         if (rest.size < 16) return null
         val startMs = readBigEndian32(rest, 0).toLong() and 0xFFFFFFFFL
@@ -290,7 +291,7 @@ internal object Id3v2Reader {
         version: Int,
     ): String? {
         if (subframes.size < ID3V2_FRAME_HEADER_SIZE) return null
-        val subId = String(subframes, 0, 4, Charsets.ISO_8859_1)
+        val subId = TextDecoding.decodeLatin1(subframes, 0, 4)
         if (subId != "TIT2") return null
         val subSize =
             if (version == 4) {
@@ -324,7 +325,7 @@ internal object Id3v2Reader {
         var pos = 1
         // MIME type — always ISO-8859-1, single-byte null
         val mimeEnd = (pos until data.size).firstOrNull { data[it] == 0.toByte() } ?: return null
-        var mime = String(data, pos, mimeEnd - pos, Charsets.ISO_8859_1)
+        var mime = TextDecoding.decodeLatin1(data, pos, mimeEnd - pos)
         pos = mimeEnd + 1
         if (pos >= data.size) return null
         val pictureType = data[pos].toInt() and 0xFF
@@ -364,11 +365,11 @@ internal object Id3v2Reader {
         encoding: Byte,
     ): String =
         when (encoding) {
-            0.toByte() -> String(data, Charsets.ISO_8859_1)
+            0.toByte() -> TextDecoding.decodeLatin1(data)
             1.toByte() -> decodeUtf16WithBom(data)
-            2.toByte() -> String(data, Charsets.UTF_16BE)
-            3.toByte() -> String(data, Charsets.UTF_8)
-            else -> String(data, Charsets.ISO_8859_1)
+            2.toByte() -> TextDecoding.decodeUtf16(data, bigEndian = true)
+            3.toByte() -> data.decodeToString()
+            else -> TextDecoding.decodeLatin1(data)
         }
 
     private fun decodeUtf16WithBom(data: ByteArray): String {
@@ -376,9 +377,9 @@ internal object Id3v2Reader {
         val b0 = data[0].toInt() and 0xFF
         val b1 = data[1].toInt() and 0xFF
         return when {
-            b0 == 0xFE && b1 == 0xFF -> String(data, 2, data.size - 2, Charsets.UTF_16BE)
-            b0 == 0xFF && b1 == 0xFE -> String(data, 2, data.size - 2, Charsets.UTF_16LE)
-            else -> String(data, Charsets.UTF_16BE)
+            b0 == 0xFE && b1 == 0xFF -> TextDecoding.decodeUtf16(data, 2, data.size - 2, bigEndian = true)
+            b0 == 0xFF && b1 == 0xFE -> TextDecoding.decodeUtf16(data, 2, data.size - 2, bigEndian = false)
+            else -> TextDecoding.decodeUtf16(data, bigEndian = true)
         }
     }
 
