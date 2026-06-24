@@ -927,6 +927,15 @@ One beautiful library.</string>
     <string name="library_title_sort_toggle">Title sort</string>
     <string name="library_you_dont_have_any_shelves">You don\'t have any shelves yet</string>
     <string name="library_your_audiobooks_will_appear_here">Your audiobooks will appear here once the scan is complete</string>
+    <string name="library_scan_authors">Authors</string>
+    <string name="library_scan_books">Books</string>
+    <string name="library_scan_eta">about %1$d min left</string>
+    <string name="library_scan_hours">Hours</string>
+    <string name="library_scan_progress_a11y">Building your library, %1$d percent complete</string>
+    <string name="library_scan_subtitle_analyzing">Analyzing %1$d of %2$d files — your shelves are filling in.</string>
+    <string name="library_scan_subtitle_finishing">Finishing up — almost there.</string>
+    <string name="library_scan_subtitle_persisting">Saving your library — almost done.</string>
+    <string name="library_scan_subtitle_scanning">Scanning your folders…</string>
     <string name="library_setup_building_title">Building your library</string>
     <string name="library_setup_choose_audiobook_folders">Choose your audiobook folders</string>
     <string name="library_setup_choose_folders_subtitle">Select the folders on your server where your audiobooks are stored.</string>

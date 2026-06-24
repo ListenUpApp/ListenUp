@@ -13,6 +13,71 @@ enum LibraryReadinessPhase: Equatable {
     case checkFailed
 }
 
+/// Live initial-scan progress for the "Building your library" screen, flattened from the KMP
+/// ``ScanProgressState`` into a native value type **at the observer boundary** — SwiftUI must
+/// never diff bridged Kotlin objects (iosApp rule 8). `nil` (carried as the absence of this
+/// value) marks the brief indeterminate "finishing up" tail after the scan completes but before
+/// the books finish importing into Room.
+struct ScanProgress: Equatable {
+    /// Human phase label ("Discovering files", "Analyzing", "Saving library"…).
+    let phaseDisplay: String
+    /// The PERSISTING phase shows a "Saving N of M" count instead of a percentage/ETA.
+    let isPersisting: Bool
+    let filesDone: Int
+    let filesTotal: Int
+    /// 0…1 once the book total is known; `nil` during the indeterminate discovery phase.
+    let fraction: Double?
+    let books: Int
+    let authors: Int
+    let hours: Int
+    let currentFile: String?
+    let savingLabel: String
+    /// Epoch-ms the scan started, for client-side ETA; `0` when unknown (suppresses ETA).
+    let startedAtMs: Int64
+
+    init(
+        phaseDisplay: String,
+        isPersisting: Bool,
+        filesDone: Int,
+        filesTotal: Int,
+        fraction: Double?,
+        books: Int,
+        authors: Int,
+        hours: Int,
+        currentFile: String?,
+        savingLabel: String,
+        startedAtMs: Int64
+    ) {
+        self.phaseDisplay = phaseDisplay
+        self.isPersisting = isPersisting
+        self.filesDone = filesDone
+        self.filesTotal = filesTotal
+        self.fraction = fraction
+        self.books = books
+        self.authors = authors
+        self.hours = hours
+        self.currentFile = currentFile
+        self.savingLabel = savingLabel
+        self.startedAtMs = startedAtMs
+    }
+
+    init(from state: ScanProgressState) {
+        self.init(
+            phaseDisplay: state.phaseDisplayName,
+            isPersisting: state.phase == "persisting",
+            filesDone: Int(state.current),
+            filesTotal: Int(state.filesTotal),
+            fraction: state.progressFraction.map { Double($0.floatValue) },
+            books: Int(state.books),
+            authors: Int(state.authors),
+            hours: Int(state.hours),
+            currentFile: state.currentFile,
+            savingLabel: state.savingLabel,
+            startedAtMs: state.startedAtMs
+        )
+    }
+}
+
 /// Observes ``AppStartupViewModel/readiness`` — the single authoritative answer to "what
 /// should the authenticated app show right now?" — and exposes it as SwiftUI-native state.
 /// Thin over ``FlowBridge``. Drives the post-auth onboarding gate at the app root:
@@ -21,6 +86,10 @@ enum LibraryReadinessPhase: Equatable {
 @MainActor
 final class LibraryReadinessObserver {
     private(set) var phase: LibraryReadinessPhase = .checking
+
+    /// Live scan progress while `phase == .populating`; `nil` otherwise (and during the
+    /// indeterminate "finishing up" import tail).
+    private(set) var scanProgress: ScanProgress?
 
     private let appStartupViewModel: AppStartupViewModel
     private let bridge = FlowBridge()
@@ -47,14 +116,19 @@ final class LibraryReadinessObserver {
         switch onEnum(of: readiness) {
         case .checking:
             phase = .checking
+            scanProgress = nil
         case .needsSetup:
             phase = .needsSetup
-        case .populating:
+            scanProgress = nil
+        case .populating(let populating):
             phase = .populating
+            scanProgress = populating.progress.map { ScanProgress(from: $0) }
         case .ready:
             phase = .ready
+            scanProgress = nil
         case .checkFailed:
             phase = .checkFailed
+            scanProgress = nil
         }
     }
 }

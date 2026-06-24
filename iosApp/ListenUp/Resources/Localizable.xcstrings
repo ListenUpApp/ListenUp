@@ -9261,6 +9261,96 @@
         }
       }
     },
+    "library_scan.authors": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Authors"
+          }
+        }
+      }
+    },
+    "library_scan.books": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "library_scan.eta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "about %1$d min left"
+          }
+        }
+      }
+    },
+    "library_scan.hours": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hours"
+          }
+        }
+      }
+    },
+    "library_scan.progress_a11y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Building your library, %1$d percent complete"
+          }
+        }
+      }
+    },
+    "library_scan.subtitle_analyzing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyzing %1$d of %2$d files — your shelves are filling in."
+          }
+        }
+      }
+    },
+    "library_scan.subtitle_finishing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing up — almost there."
+          }
+        }
+      }
+    },
+    "library_scan.subtitle_persisting": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving your library — almost done."
+          }
+        }
+      }
+    },
+    "library_scan.subtitle_scanning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanning your folders…"
+          }
+        }
+      }
+    },
     "library_setup.building_title": {
       "localizations": {
         "en": {

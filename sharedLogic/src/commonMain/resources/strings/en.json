@@ -1287,6 +1287,17 @@
     "recently_matched": "Recently matched",
     "scanning": "SCANNING"
   },
+  "library_scan": {
+    "subtitle_analyzing": "Analyzing %1$d of %2$d files — your shelves are filling in.",
+    "subtitle_persisting": "Saving your library — almost done.",
+    "subtitle_scanning": "Scanning your folders…",
+    "subtitle_finishing": "Finishing up — almost there.",
+    "eta": "about %1$d min left",
+    "books": "Books",
+    "authors": "Authors",
+    "hours": "Hours",
+    "progress_a11y": "Building your library, %1$d percent complete"
+  },
   "genre": {
     "browse_title": "Browse by Genre",
     "include_subtree": "Include subtree",
