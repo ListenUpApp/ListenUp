@@ -22,13 +22,9 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.presentation.bookdetail.CreditRoleGroup
-import com.calypsan.listenup.client.presentation.bookdetail.audioFormatIdentity
-import com.calypsan.listenup.client.presentation.bookdetail.audioFormatSummary
-import com.calypsan.listenup.client.presentation.bookdetail.bitrateLabel
-import com.calypsan.listenup.client.presentation.bookdetail.channelsLabel
+import com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay
 import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
 import com.calypsan.listenup.client.presentation.bookdetail.languageDisplayName
-import com.calypsan.listenup.client.presentation.bookdetail.sampleRateLabel
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_bitrate
 import listenup.composeapp.generated.resources.book_detail_channels
@@ -58,13 +54,11 @@ fun DetailsSection(
     onContributorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val primary = audioFiles.firstOrNull()
-    val formatIdentity = primary?.let { audioFormatIdentity(it.codec, it.codecProfile, it.spatial) }
-    val bitrate =
-        bitrateLabel(primary?.bitrate)
-            ?: audioFormatSummary(audioFiles)?.approxBitrateKbps?.let { "~$it kbps" }
-    val sampleRate = sampleRateLabel(primary?.sampleRate)
-    val channels = channelsLabel(primary?.channels)
+    val audioFormat = audioFormatDisplay(audioFiles)
+    val format = audioFormat.format
+    val bitrate = audioFormat.bitrate
+    val sampleRate = audioFormat.sampleRate
+    val channels = audioFormat.channels
     val rows: List<@Composable () -> Unit> =
         buildList {
             // Contributors first (role-grouped), then the formal metadata rows.
@@ -92,9 +86,9 @@ fun DetailsSection(
                     )
                 }
             }
-            if (formatIdentity != null) {
+            if (format != null) {
                 add {
-                    MetadataRow(value = formatIdentity, label = stringResource(Res.string.book_detail_format))
+                    MetadataRow(value = format, label = stringResource(Res.string.book_detail_format))
                 }
             }
             if (bitrate != null) {
