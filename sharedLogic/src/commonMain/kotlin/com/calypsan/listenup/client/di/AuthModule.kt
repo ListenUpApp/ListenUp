@@ -44,7 +44,7 @@ import org.koin.dsl.module
  *    lives here because a successful claim calls `AuthSession.saveAuthTokens`,
  *    landing the user logged-in exactly like login does.
  */
-val clientAuthModule: Module
+internal val clientAuthModule: Module
     // Defined as a getter (not a backing field) so each access produces a fresh
     // [Module] with its own instance cache. Koin 4 caches singletons on the
     // `InstanceFactory` instances inside the [Module], not on the [Koin]

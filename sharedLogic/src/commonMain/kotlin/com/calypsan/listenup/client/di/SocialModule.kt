@@ -49,7 +49,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
  */
-val socialModule: Module =
+internal val socialModule: Module =
     module {
         // SessionApi for reading session operations
         single {

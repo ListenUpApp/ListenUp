@@ -15,7 +15,7 @@ import org.koin.dsl.module
  * bindings ([ServerConfig], [LibrarySync], [LibraryPreferences], [PlaybackPreferences],
  * [LocalPreferences]). All five are segregated views of the same singleton instance.
  */
-val settingsModule: Module =
+internal val settingsModule: Module =
     module {
         // AuthSession (tokens + AuthState flow) is provided by clientAuthModule.
         // SettingsRepositoryImpl depends on AuthSession, but AuthSessionStore (the

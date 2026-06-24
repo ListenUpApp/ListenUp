@@ -22,7 +22,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.ContributorDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.SeriesDao] — `persistenceModule`
  */
-val searchModule: Module =
+internal val searchModule: Module =
     module {
         // SearchApi for server-side search
         single<SearchApiContract> {

@@ -27,7 +27,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.TagDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookTagDao] — `persistenceModule`
  */
-val genreTagModule: Module =
+internal val genreTagModule: Module =
     module {
         // GenreRpcFactory — kotlinx.rpc proxy for the curator mutation surface.
         // Tree reads come from Room (via GenreDao); only mutations and the

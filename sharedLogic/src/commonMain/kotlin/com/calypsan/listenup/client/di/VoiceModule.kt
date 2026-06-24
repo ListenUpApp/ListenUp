@@ -7,7 +7,7 @@ import org.koin.dsl.module
  * Koin module for voice intent resolution.
  * Provides VoiceIntentResolver with all required repository dependencies.
  */
-val voiceModule =
+internal val voiceModule =
     module {
         single {
             VoiceIntentResolver(

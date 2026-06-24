@@ -6,9 +6,9 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.calypsan.listenup.client.di.desktopDownloadModule
 import com.calypsan.listenup.client.di.desktopPlaybackModule
+import com.calypsan.listenup.client.di.jvmPlaybackPresentationModule
+import com.calypsan.listenup.client.di.jvmSharedModules
 import com.calypsan.listenup.client.di.platformModule
-import com.calypsan.listenup.client.di.playbackPresentationModule
-import com.calypsan.listenup.client.di.sharedModules
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.desktop.di.desktopAppModule
 import com.calypsan.listenup.desktop.media.GlobalMediaKeyManager
@@ -25,11 +25,11 @@ fun main() {
     // Initialize Koin DI
     startKoin {
         modules(
-            sharedModules + // From :shared module
+            jvmSharedModules() + // From :shared module
                 platformModule + // From :composeApp desktopMain
                 desktopPlaybackModule + // PlaybackManager wiring from :sharedLogic
                 desktopDownloadModule + // DownloadEnqueuer wiring from :sharedLogic
-                playbackPresentationModule + // Shared playback VM bindings
+                jvmPlaybackPresentationModule() + // Shared playback VM bindings
                 desktopAppModule, // Desktop app specific
         )
     }

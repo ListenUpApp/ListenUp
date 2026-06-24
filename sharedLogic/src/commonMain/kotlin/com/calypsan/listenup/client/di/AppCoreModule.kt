@@ -19,7 +19,7 @@ private const val APP_SCOPE = "appScope"
  * the global error bus, deep-link routing, shortcut dispatch, and the
  * application-lifetime coroutine scope.
  */
-val appCoreModule: Module =
+internal val appCoreModule: Module =
     module {
         // Error bus — single instance shared by every emitter (data layer, ViewModels)
         // and the single subscriber (GlobalErrorSnackbar in AppShell).

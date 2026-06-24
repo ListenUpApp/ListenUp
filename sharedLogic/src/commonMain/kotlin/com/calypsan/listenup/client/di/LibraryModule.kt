@@ -50,7 +50,7 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.data.local.db.TransactionRunner] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.LibrarySync] — `settingsModule`
  */
-val libraryModule: Module =
+internal val libraryModule: Module =
     module {
         // Sync API uses ApiClientFactory to get authenticated HttpClient at call time
         // This avoids runBlocking during DI initialization (structured concurrency)

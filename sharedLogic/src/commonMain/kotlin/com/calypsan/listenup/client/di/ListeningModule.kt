@@ -28,7 +28,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
  *  - [com.calypsan.listenup.client.data.sync.PendingOperationQueue] — `clientSyncRenovationModule`
  */
-val listeningModule: Module =
+internal val listeningModule: Module =
     module {
         // StatsApi for listening statistics
         single {

@@ -16,7 +16,7 @@ import org.koin.dsl.module
  *
  * @param additionalModules macOS-specific modules to include
  */
-actual fun initializeKoin(additionalModules: List<Module>) {
+internal actual fun initializeKoin(additionalModules: List<Module>) {
     // Configure logging before anything else
     configureLogging()
 
@@ -35,7 +35,7 @@ actual fun getBaseUrl(): String = "http://localhost:8080"
  * macOS discovery module.
  * Uses Bonjour-based mDNS discovery (same as iOS — NSNetServiceBrowser).
  */
-actual val platformDiscoveryModule: Module =
+internal actual val platformDiscoveryModule: Module =
     module {
         single { AppleDiscoveryService() } bind ServerDiscoveryService::class
     }
@@ -44,7 +44,7 @@ actual val platformDiscoveryModule: Module =
  * macOS device detection module.
  * Always returns Desktop type.
  */
-actual val platformDeviceModule: Module =
+internal actual val platformDeviceModule: Module =
     module {
         single {
             com.calypsan.listenup.client.device
