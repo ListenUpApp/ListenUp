@@ -2221,6 +2221,16 @@
         }
       }
     },
+    "book.detail_bitrate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitrate"
+          }
+        }
+      }
+    },
     "book.detail_cancel_download": {
       "localizations": {
         "en": {
@@ -2307,6 +2317,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Production"
+          }
+        }
+      }
+    },
+    "book.detail_channels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Channels"
           }
         }
       }
@@ -3027,6 +3047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Retry download"
+          }
+        }
+      }
+    },
+    "book.detail_sample_rate": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sample rate"
           }
         }
       }

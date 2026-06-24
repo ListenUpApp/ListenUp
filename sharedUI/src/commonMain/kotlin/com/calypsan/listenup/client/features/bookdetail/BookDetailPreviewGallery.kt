@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.BookFacet
 import com.calypsan.listenup.client.design.components.FacetChipRow
+import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookSeries
@@ -37,7 +38,6 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.CountBadge
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
-import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
 import com.calypsan.listenup.client.features.bookdetail.components.PrimaryActionsSection
@@ -93,6 +93,23 @@ private val mockCredits =
             BookContributor(id = "trans-vega", name = "Isabel Vega", roles = listOf("Translator")),
             BookContributor(id = "ed-okafor", name = "Daniel Okafor", roles = listOf("Editor", "Foreword")),
         )
+
+private val mockAudioFiles =
+    listOf(
+        AudioFile(
+            id = "1",
+            index = 0,
+            filename = "01.m4b",
+            format = "m4b",
+            codec = "ac4",
+            duration = 3_600_000L,
+            size = 1_000_000L,
+            spatial = "atmos",
+            bitrate = 320_000,
+            sampleRate = 48_000,
+            channels = 6,
+        ),
+    )
 
 private val mockGenres = listOf("Fantasy", "Epic Fantasy", "Adventure", "Fiction")
 
@@ -336,7 +353,7 @@ private fun DetailsSectionGallery() {
         publisher = "Tor Books",
         publishYear = MOCK_YEAR,
         language = "en",
-        audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
+        audioFiles = mockAudioFiles,
         credits = mockCredits,
         onContributorClick = {},
         modifier = horizontalGutter(),

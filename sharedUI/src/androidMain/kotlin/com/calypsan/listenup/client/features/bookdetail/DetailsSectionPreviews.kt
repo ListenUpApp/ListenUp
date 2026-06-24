@@ -6,9 +6,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
+import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
-import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 
 private val PREVIEW_CREDITS =
     listOf(
@@ -18,6 +18,23 @@ private val PREVIEW_CREDITS =
         BookContributor(id = "c4", name = "Natalia Sylvester", roles = listOf("translator")),
         BookContributor(id = "c5", name = "Peter Ahlstrom", roles = listOf("editor")),
         BookContributor(id = "c6", name = "Bryce Moore", roles = listOf("foreword by")),
+    )
+
+private val PREVIEW_AUDIO_FILES =
+    listOf(
+        AudioFile(
+            id = "1",
+            index = 0,
+            filename = "01.m4b",
+            format = "m4b",
+            codec = "ac4",
+            duration = 3_600_000L,
+            size = 1_000_000L,
+            spatial = "atmos",
+            bitrate = 320_000,
+            sampleRate = 48_000,
+            channels = 6,
+        ),
     )
 
 @Composable
@@ -38,7 +55,7 @@ private fun DetailsSectionLight() {
             publisher = "Tor Books",
             publishYear = 2010,
             language = "en",
-            audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
+            audioFiles = PREVIEW_AUDIO_FILES,
             credits = PREVIEW_CREDITS,
             onContributorClick = {},
             modifier = Modifier.padding(16.dp),
@@ -54,7 +71,7 @@ private fun DetailsSectionDark() {
             publisher = "Tor Books",
             publishYear = 2010,
             language = "en",
-            audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
+            audioFiles = PREVIEW_AUDIO_FILES,
             credits = PREVIEW_CREDITS,
             onContributorClick = {},
             modifier = Modifier.padding(16.dp),

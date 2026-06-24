@@ -249,13 +249,18 @@ struct BookDetailView: View {
     }
 
     private func detailsSection(_ observer: BookDetailObserver) -> some View {
-        BookDetailsSection(
+        let audioFormat = observer.audioFormat
+        return BookDetailsSection(
             narrators: observer.narrators,
             lengthLabel: observer.duration,
             chapterCount: observer.chapters.count,
             publisher: observer.book?.publisher,
             released: observer.year.map(String.init),
             language: observer.book?.language,
+            format: audioFormat.format,
+            bitrate: audioFormat.bitrate,
+            sampleRate: audioFormat.sampleRate,
+            channels: audioFormat.channels,
             onOpenCast: { showCast = true }
         )
     }
