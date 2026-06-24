@@ -12,7 +12,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
@@ -30,8 +29,8 @@ class ShelfDetailViewModel(
     private val removeBookFromShelfUseCase: RemoveBookFromShelfUseCase,
     private val reorderShelfBooksUseCase: ReorderShelfBooksUseCase,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<ShelfDetailUiState>(ShelfDetailUiState.Idle)
-    val state: StateFlow<ShelfDetailUiState> = _state.asStateFlow()
+    val state: StateFlow<ShelfDetailUiState>
+        field = MutableStateFlow<ShelfDetailUiState>(ShelfDetailUiState.Idle)
 
     private val _snackbarMessages = Channel<String>(Channel.BUFFERED)
     val snackbarMessages: Flow<String> = _snackbarMessages.receiveAsFlow()
@@ -43,9 +42,9 @@ class ShelfDetailViewModel(
         currentShelfId = shelfId
 
         viewModelScope.launch {
-            _state.value = ShelfDetailUiState.Loading
+            state.value = ShelfDetailUiState.Loading
 
-            _state.value =
+            state.value =
                 when (val result = loadShelfDetailUseCase(shelfId)) {
                     is AppResult.Success -> {
                         val shelfDetail = result.data

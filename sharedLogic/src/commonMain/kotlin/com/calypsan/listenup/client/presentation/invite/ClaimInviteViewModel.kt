@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -25,8 +24,8 @@ class ClaimInviteViewModel(
     private val repository: InviteRepository,
     private val serverConfig: ServerConfig,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<ClaimInviteUiState>(ClaimInviteUiState.Idle)
-    val state: StateFlow<ClaimInviteUiState> = _state.asStateFlow()
+    val state: StateFlow<ClaimInviteUiState>
+        field = MutableStateFlow<ClaimInviteUiState>(ClaimInviteUiState.Idle)
 
     private var code: String? = null
 
@@ -62,8 +61,8 @@ class ClaimInviteViewModel(
     }
 
     private suspend fun lookUp(code: String) {
-        _state.value = ClaimInviteUiState.LookingUp
-        _state.value =
+        state.value = ClaimInviteUiState.LookingUp
+        state.value =
             when (val result = repository.lookupInvite(code)) {
                 is AppResult.Success -> ClaimInviteUiState.Preview(result.data)
                 is AppResult.Failure -> ClaimInviteUiState.Error(result.error.message)
@@ -76,8 +75,8 @@ class ClaimInviteViewModel(
     ) {
         val code = code ?: return
         viewModelScope.launch {
-            _state.value = ClaimInviteUiState.Submitting
-            _state.value =
+            state.value = ClaimInviteUiState.Submitting
+            state.value =
                 when (val result = repository.claimInvite(code, password, displayName)) {
                     is AppResult.Success -> ClaimInviteUiState.Claimed
                     is AppResult.Failure -> ClaimInviteUiState.Error(result.error.message)

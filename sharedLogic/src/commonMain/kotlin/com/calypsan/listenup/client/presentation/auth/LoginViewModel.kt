@@ -10,7 +10,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -24,16 +23,16 @@ import kotlinx.coroutines.launch
 class LoginViewModel(
     private val loginUseCase: LoginUseCase,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
-    val state: StateFlow<LoginUiState> = _state.asStateFlow()
+    val state: StateFlow<LoginUiState>
+        field = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
 
     fun onLoginSubmit(
         email: String,
         password: String,
     ) {
         viewModelScope.launch {
-            _state.value = LoginUiState.Loading
-            _state.value =
+            state.value = LoginUiState.Loading
+            state.value =
                 when (val result = loginUseCase(email, password)) {
                     is AppResult.Success -> LoginUiState.Success
                     is AppResult.Failure -> LoginUiState.Error(result.error.toLoginErrorType())
@@ -42,8 +41,8 @@ class LoginViewModel(
     }
 
     fun clearError() {
-        if (_state.value is LoginUiState.Error) {
-            _state.value = LoginUiState.Idle
+        if (state.value is LoginUiState.Error) {
+            state.value = LoginUiState.Idle
         }
     }
 }

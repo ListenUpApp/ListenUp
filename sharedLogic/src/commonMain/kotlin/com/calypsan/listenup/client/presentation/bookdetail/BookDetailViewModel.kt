@@ -33,7 +33,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emitAll
@@ -177,8 +176,8 @@ class BookDetailViewModel(
      * resolves — on success, failure, or cancellation. Lets the UI show a per-row
      * spinner; the open flow itself is unchanged.
      */
-    private val _openingDocumentIds = MutableStateFlow<Set<String>>(emptySet())
-    val openingDocumentIds: StateFlow<Set<String>> = _openingDocumentIds.asStateFlow()
+    val openingDocumentIds: StateFlow<Set<String>>
+        field = MutableStateFlow<Set<String>>(emptySet())
 
     /**
      * Apply [transform] to state only if it is currently [BookDetailUiState.Ready].
@@ -661,7 +660,7 @@ class BookDetailViewModel(
             return
         }
         viewModelScope.launch {
-            _openingDocumentIds.update { it + docId }
+            openingDocumentIds.update { it + docId }
             try {
                 when (val result = documentRepository.ensureLocal(BookId(bookId), docId)) {
                     is AppResult.Success -> {
@@ -674,7 +673,7 @@ class BookDetailViewModel(
                     }
                 }
             } finally {
-                _openingDocumentIds.update { it - docId }
+                openingDocumentIds.update { it - docId }
             }
         }
     }

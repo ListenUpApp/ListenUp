@@ -21,7 +21,6 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -241,8 +240,8 @@ class MetadataViewModel(
     private val tagRepository: TagRepository,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
-    val state: StateFlow<MetadataUiState> = _state.asStateFlow()
+    val state: StateFlow<MetadataUiState>
+        field = MutableStateFlow<MetadataUiState>(MetadataUiState.Idle())
 
     private val eventChannel = Channel<MetadataEvent>(Channel.BUFFERED)
     val events: Flow<MetadataEvent> = eventChannel.receiveAsFlow()
@@ -272,9 +271,9 @@ class MetadataViewModel(
                     append(author)
                 }
             }.trim()
-        _state.value =
+        state.value =
             MetadataUiState.Search(
-                region = _state.value.region,
+                region = state.value.region,
                 context =
                     BookContext(
                         bookId = bookId,
@@ -289,7 +288,7 @@ class MetadataViewModel(
 
     /** Update the search query while in the [MetadataUiState.Search] phase. */
     fun updateQuery(query: String) {
-        _state.update { current ->
+        state.update { current ->
             if (current is MetadataUiState.Search) current.copy(query = query) else current
         }
     }
@@ -299,14 +298,14 @@ class MetadataViewModel(
      * the new region; in search, re-run the query so results update without a manual re-submit.
      */
     fun changeRegion(region: AudibleRegion) {
-        _state.update { current ->
+        state.update { current ->
             when (current) {
                 is MetadataUiState.Idle -> current.copy(region = region)
                 is MetadataUiState.Search -> current.copy(region = region)
                 is MetadataUiState.Preview -> current.copy(region = region)
             }
         }
-        when (val current = _state.value) {
+        when (val current = state.value) {
             is MetadataUiState.Preview -> selectMatch(current.match)
 
             is MetadataUiState.Search -> search()
@@ -318,17 +317,17 @@ class MetadataViewModel(
 
     /** Execute an Audible search with the current query. */
     fun search() {
-        val current = _state.value as? MetadataUiState.Search ?: return
+        val current = state.value as? MetadataUiState.Search ?: return
         val query = current.query.trim()
         if (query.isBlank()) return
 
-        _state.value = current.copy(loadState = SearchLoadState.InFlight)
+        state.value = current.copy(loadState = SearchLoadState.InFlight)
 
         viewModelScope.launch {
             when (val result = metadataRepository.searchBooks(query, current.region)) {
                 is AppResult.Success -> {
                     val hits = result.data.hits
-                    _state.update { latest ->
+                    state.update { latest ->
                         if (latest is MetadataUiState.Search && latest.query.trim() == query) {
                             latest.copy(loadState = SearchLoadState.Loaded(hits))
                         } else {
@@ -340,7 +339,7 @@ class MetadataViewModel(
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
                     logger.error { "Metadata search failed: ${result.error.message}" }
-                    _state.update { latest ->
+                    state.update { latest ->
                         if (latest is MetadataUiState.Search && latest.query.trim() == query) {
                             latest.copy(loadState = SearchLoadState.Failed(result.error.message))
                         } else {
@@ -354,7 +353,7 @@ class MetadataViewModel(
 
     /** Select a match and transition to the preview phase. */
     fun selectMatch(result: MetadataBook) {
-        val current = _state.value
+        val current = state.value
         val baseSearchResults: List<MetadataBook>
         val query: String
         val region: AudibleRegion
@@ -381,7 +380,7 @@ class MetadataViewModel(
             }
         }
 
-        _state.value =
+        state.value =
             MetadataUiState.Preview(
                 region = region,
                 context = context,
@@ -396,8 +395,8 @@ class MetadataViewModel(
 
     /** Clear the current match selection and return to the search phase. */
     fun clearSelection() {
-        val current = _state.value as? MetadataUiState.Preview ?: return
-        _state.value =
+        val current = state.value as? MetadataUiState.Preview ?: return
+        state.value =
             MetadataUiState.Search(
                 region = current.region,
                 context = current.context,
@@ -453,7 +452,7 @@ class MetadataViewModel(
      * failure sets [PreviewLoadState.Ready.applyError] and stays in Ready.
      */
     fun applyMatch() {
-        val preview = _state.value as? MetadataUiState.Preview ?: return
+        val preview = state.value as? MetadataUiState.Preview ?: return
         val ready = preview.loadState as? PreviewLoadState.Ready ?: return
 
         updateReady { it.copy(isApplying = true, applyError = null) }
@@ -494,7 +493,7 @@ class MetadataViewModel(
      * never sent — only the ordinals to rename.
      */
     fun applyChapterNames() {
-        val preview = _state.value as? MetadataUiState.Preview ?: return
+        val preview = state.value as? MetadataUiState.Preview ?: return
         val ready = preview.loadState as? PreviewLoadState.Ready ?: return
         val available = ready.chapterSuggestion as? ChapterSuggestion.Available ?: return
         if (available.isApplying) return
@@ -591,7 +590,7 @@ class MetadataViewModel(
         region: AudibleRegion,
         transform: (ChapterSuggestion) -> ChapterSuggestion,
     ) {
-        _state.update { latest ->
+        state.update { latest ->
             val preview = latest.readyPreviewFor(asin, region) ?: return@update latest
             val ready = preview.loadState as PreviewLoadState.Ready
             preview.copy(loadState = ready.copy(chapterSuggestion = transform(ready.chapterSuggestion)))
@@ -640,7 +639,7 @@ class MetadataViewModel(
 
     /** Reset back to [MetadataUiState.Idle]. Call when dismissing the flow. */
     fun reset() {
-        _state.value = MetadataUiState.Idle(region = _state.value.region)
+        state.value = MetadataUiState.Idle(region = state.value.region)
     }
 
     private fun loadPreview(
@@ -673,7 +672,7 @@ class MetadataViewModel(
                         logger.info { "Using search result data as preview fallback" }
                         transitionToReady(match, match, previewNotFound = false, bookId = bookId, region = region)
                     } else {
-                        _state.update { latest ->
+                        state.update { latest ->
                             if (latest is MetadataUiState.Preview && latest.match.asin == match.asin) {
                                 latest.copy(
                                     loadState = PreviewLoadState.Failed(result.error.message),
@@ -706,7 +705,7 @@ class MetadataViewModel(
         val moodCandidates = unionCandidates(currentMoods, preview.moods)
         val tagCandidates = unionCandidates(currentTags, preview.tags)
 
-        _state.update { latest ->
+        state.update { latest ->
             if (latest !is MetadataUiState.Preview || latest.match.asin != match.asin) return@update latest
             val ready =
                 PreviewLoadState.Ready(
@@ -728,7 +727,7 @@ class MetadataViewModel(
     }
 
     private fun updateReady(transform: (PreviewLoadState.Ready) -> PreviewLoadState.Ready) {
-        _state.update { latest ->
+        state.update { latest ->
             if (latest is MetadataUiState.Preview && latest.loadState is PreviewLoadState.Ready) {
                 latest.copy(loadState = transform(latest.loadState))
             } else {

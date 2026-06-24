@@ -10,7 +10,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
@@ -36,8 +35,8 @@ class PendingApprovalViewModel(
     val userId: String,
     val email: String,
 ) : ViewModel() {
-    private val _state = MutableStateFlow<PendingApprovalUiState>(PendingApprovalUiState.Waiting)
-    val state: StateFlow<PendingApprovalUiState> = _state.asStateFlow()
+    val state: StateFlow<PendingApprovalUiState>
+        field = MutableStateFlow<PendingApprovalUiState>(PendingApprovalUiState.Waiting)
 
     private var sseJob: Job? = null
     private var pollJob: Job? = null
@@ -102,7 +101,7 @@ class PendingApprovalViewModel(
         when (status) {
             is StreamedRegistrationStatus.Approved -> {
                 logger.info { "Registration approved via SSE" }
-                _state.value = PendingApprovalUiState.Approved
+                state.value = PendingApprovalUiState.Approved
             }
 
             is StreamedRegistrationStatus.Denied -> {
@@ -111,7 +110,7 @@ class PendingApprovalViewModel(
             }
 
             is StreamedRegistrationStatus.Pending -> {
-                _state.value = PendingApprovalUiState.Waiting
+                state.value = PendingApprovalUiState.Waiting
             }
         }
     }
@@ -120,7 +119,7 @@ class PendingApprovalViewModel(
         // Surface the denial on-screen first. Clearing the pending registration here would flip
         // AuthState and unmount this screen before the message is ever seen — so the consumer shows
         // the denial, then calls [cancelRegistration] to clear it and return to login.
-        _state.value =
+        state.value =
             PendingApprovalUiState.Denied(
                 message ?: "Your registration was denied by an administrator.",
             )
