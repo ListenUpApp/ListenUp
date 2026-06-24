@@ -1,7 +1,8 @@
 package com.calypsan.listenup.server.mdns
 
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * Read-or-create the server's stable instance id, persisted in the `server_settings` KV table
@@ -11,8 +12,9 @@ import java.util.UUID
 class InstanceIdentity(
     private val settings: ServerSettingsRepository,
 ) {
+    @OptIn(ExperimentalUuidApi::class)
     suspend fun instanceId(): String =
-        settings.getValue(KEY) ?: UUID.randomUUID().toString().also { settings.setValue(KEY, it) }
+        settings.getValue(KEY) ?: Uuid.random().toString().also { settings.setValue(KEY, it) }
 
     private companion object {
         const val KEY = "instance_id"

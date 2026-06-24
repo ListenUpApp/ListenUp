@@ -18,27 +18,54 @@ private const val MDNS_PORT = 5353
 
 class MulticastMdnsResponderTest :
     FunSpec({
-        test("bindMulticastSocket pins the egress interface so sends leave via the joined NIC") {
-            // Deterministic guard (works on any host, incl. single-NIC CI): without setNetworkInterface,
-            // a multi-homed host sends every announcement out the OS default route instead of `nif`,
-            // and no LAN client on the other interfaces ever discovers us.
+        test("start pins the egress interface — announced packet is received on the joined NIC") {
+            // Deterministic guard (works on any host, incl. single-NIC CI): the MdnsSocketLayer seam
+            // must pin setNetworkInterface on every bound socket so that a multi-homed host sends each
+            // announcement out the NIC it joined — not the OS default route. If pinning is absent,
+            // a listener joined to a non-default NIC would receive nothing.
             val nif =
                 firstMulticastIpv4Interface()
                     ?: return@test // no multicast-capable interface here — nothing to assert
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
             val responder =
                 MulticastMdnsResponder(
-                    instanceName = "kotest-host",
+                    instanceName = "kotest-egress",
                     port = 8080,
-                    txtProvider = { linkedMapOf("id" to "x") },
-                    scope = CoroutineScope(Dispatchers.IO + SupervisorJob()),
+                    txtProvider = { linkedMapOf("id" to "egress-check") },
+                    scope = scope,
                 )
-
-            val socket = responder.bindMulticastSocket(nif)
+            val listener =
+                MulticastSocket(MDNS_PORT).apply {
+                    reuseAddress = true
+                    soTimeout = 4000
+                    joinGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif)
+                }
             try {
-                socket.networkInterface.name shouldBe nif.name
+                responder.start()
+                val received =
+                    withContext(Dispatchers.IO) {
+                        withTimeout(5000) {
+                            var hit: String? = null
+                            repeat(20) {
+                                val buf = ByteArray(2048)
+                                val pkt = DatagramPacket(buf, buf.size)
+                                runCatching { listener.receive(pkt) }.getOrNull() ?: return@repeat
+                                val text = String(pkt.data, 0, pkt.length, Charsets.US_ASCII)
+                                if ("egress-check" in text) {
+                                    hit = text
+                                    return@withTimeout hit
+                                }
+                            }
+                            hit
+                        }
+                    }
+                // Packet received on the NIC-joined listener → egress interface was pinned to this NIC.
+                (received != null) shouldBe true
             } finally {
-                runCatching { socket.leaveGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif) }
-                socket.close()
+                responder.stop()
+                runCatching { listener.leaveGroup(InetSocketAddress(InetAddress.getByName(MDNS_GROUP), MDNS_PORT), nif) }
+                listener.close()
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
             }
         }
 

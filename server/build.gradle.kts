@@ -85,6 +85,11 @@ kotlin {
                 implementation(libs.sqldelight.coroutines)
                 implementation(libs.cryptography.core)
                 implementation(libs.kotlinx.serialization.json)
+                // kotlinx-io — binary encoding for the mDNS codec (DnsCodec) and audiometa parser
+                implementation(libs.kotlinx.io.core)
+                implementation(libs.kotlinx.io.bytestring)
+                // kotlin-logging — structured logging (KMP: JVM + linuxX64)
+                implementation(libs.kotlin.logging)
             }
         }
 
@@ -142,12 +147,7 @@ kotlin {
                 implementation(libs.kotlinx.rpc.krpc.ktor.server)
                 implementation(libs.kotlinx.rpc.krpc.serialization.json)
 
-                // kotlinx-io — binary decoding for the audiometa parser package
-                implementation(libs.kotlinx.io.core)
-                implementation(libs.kotlinx.io.bytestring)
-
                 // Logging + Metrics
-                implementation(libs.kotlin.logging)
                 implementation(libs.kotlinx.coroutines.slf4j)
 
                 // Ktor HTTP client — used by AudibleClient to call the Audible catalog API.
