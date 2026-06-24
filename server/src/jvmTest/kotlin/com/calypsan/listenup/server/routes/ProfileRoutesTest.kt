@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec
@@ -26,6 +27,7 @@ import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
+import org.koin.ktor.ext.inject
 
 /**
  * Integration test for the avatar binary routes:
@@ -174,6 +176,48 @@ class ProfileRoutesTest :
                     // Unauthenticated GET must be rejected — expect 401.
                     val unauthResponse = client.get("/api/v1/avatars/$userId")
                     unauthResponse.status shouldBe HttpStatusCode.Unauthorized
+                }
+            } finally {
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("avatar upload refreshes the public-profile projection so the change syncs to clients") {
+            val homeDir = Files.createTempDirectory("listenup-profile-routes-projection-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val (token, userId) = client.setupRoot()
+
+                    client
+                        .post("/api/v1/profile/avatar") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append(
+                                            "file",
+                                            png,
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "image/png")
+                                                append(HttpHeaders.ContentDisposition, "filename=\"avatar.png\"")
+                                            },
+                                        )
+                                    },
+                                ),
+                            )
+                        }.status shouldBe HttpStatusCode.NoContent
+
+                    // The public_profiles projection is what every client syncs (the uploader reads its
+                    // own avatar back through it, and other devices receive it). It MUST reflect the new
+                    // avatar type, or the upload silently never propagates.
+                    val db by application.inject<ListenUpDatabase>()
+                    db.publicProfilesQueries
+                        .selectByIds(listOf(userId))
+                        .executeAsOneOrNull()
+                        ?.avatar_type shouldBe "image"
                 }
             } finally {
                 homeDir.toFile().deleteRecursively()

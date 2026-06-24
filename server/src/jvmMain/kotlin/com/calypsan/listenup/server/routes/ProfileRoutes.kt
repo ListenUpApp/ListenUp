@@ -4,6 +4,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
+import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -36,6 +37,7 @@ const val AVATAR_MAX_BYTES = 5L * 1024 * 1024 // 5 MiB
 fun Route.profileRoutes(
     sql: ListenUpDatabase,
     imageStore: ImageStore,
+    publicProfileMaintainer: PublicProfileMaintainer,
     clock: Clock = Clock.System,
 ) {
     post("/api/v1/profile/avatar") {
@@ -73,6 +75,10 @@ fun Route.profileRoutes(
                 id = userId,
             )
         }
+        // Rebuild the public_profiles projection so the new avatar propagates through the sync
+        // stream — both back to the uploader (its own UserAvatar reads the synced projection, not
+        // the users row) and out to other clients. Mirrors ProfileServiceImpl.updateMyProfile.
+        publicProfileMaintainer.refreshBestEffort(userId)
         call.respond(HttpStatusCode.NoContent)
     }
 
