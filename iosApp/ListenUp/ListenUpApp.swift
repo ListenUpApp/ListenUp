@@ -104,8 +104,11 @@ private struct RootView: View {
 
     /// Gate the authenticated window on library readiness. A first-run admin with no library
     /// (`needsSetup`) is routed into the setup wizard; on completion the readiness latch flips
-    /// to `ready` and the main app mounts. A returning user with a library is `ready` (or
-    /// `populating`/`checkFailed`) and goes straight to the app — setup is skipped.
+    /// to `populating` while the initial scan runs, then `ready` and the main app mounts. The
+    /// `populating` gate shows the "Building your library" screen instead of an empty shell —
+    /// it fires only for the **initial** population (a returning user with books in Room is
+    /// `ready` immediately; later background scans never re-arm it). A returning user goes
+    /// straight to the app — setup is skipped.
     @ViewBuilder
     private var authenticatedContent: some View {
         switch readiness.phase {
@@ -113,7 +116,9 @@ private struct RootView: View {
             LaunchScreen()
         case .needsSetup:
             LibrarySetupFlowCoordinator(onComplete: { readiness.onLibrarySetupComplete() })
-        case .populating, .ready, .checkFailed:
+        case .populating:
+            LibraryScanView(progress: readiness.scanProgress)
+        case .ready, .checkFailed:
             MainTabView()
         }
     }
@@ -131,4 +136,3 @@ private struct LaunchScreen: View {
         }
     }
 }
-
