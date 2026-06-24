@@ -8,7 +8,7 @@ import SwiftUI
 /// details sections. iPhone stacks everything; iPad splits into a fixed left rail
 /// (hero + resume + pills) beside a flexible right column (description, chapters,
 /// details). All state comes from `BookDetailObserver`; the overflow menu offers
-/// Restart and Discard Progress.
+/// Mark as Not Started.
 struct BookDetailView: View {
     let bookId: String
 
@@ -314,36 +314,25 @@ struct BookDetailView: View {
                     }
                 }
 
-                if observer?.startedAtMs != nil {
-                    Button {
-                        showRestartConfirmation = true
-                    } label: {
-                        Label(String(localized: "book.detail_restart"), systemImage: "arrow.counterclockwise")
-                    }
-
+                if observer?.startedAtMs != nil || observer?.isComplete == true {
                     Button(role: .destructive) {
                         showDiscardConfirmation = true
                     } label: {
-                        Label(String(localized: "book.detail_discard_progress"), systemImage: "trash")
+                        Label(
+                            String(localized: "book.detail_mark_as_not_started"),
+                            systemImage: "arrow.counterclockwise"
+                        )
                     }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
             .confirmationDialog(
-                String(localized: "book.detail_restart_prompt"),
-                isPresented: $showRestartConfirmation,
-                titleVisibility: .visible
-            ) {
-                Button(String(localized: "book.detail_restart")) { observer?.restart() }
-                Button(String(localized: "common.cancel"), role: .cancel) {}
-            }
-            .confirmationDialog(
-                String(localized: "book.detail_discard_progress_prompt"),
+                String(localized: "book.detail_mark_not_started_prompt"),
                 isPresented: $showDiscardConfirmation,
                 titleVisibility: .visible
             ) {
-                Button(String(localized: "book.detail_discard_progress"), role: .destructive) {
+                Button(String(localized: "book.detail_mark_as_not_started"), role: .destructive) {
                     observer?.discardProgress()
                 }
                 Button(String(localized: "common.cancel"), role: .cancel) {}
@@ -351,7 +340,6 @@ struct BookDetailView: View {
         }
     }
 
-    @State private var showRestartConfirmation = false
     @State private var showDiscardConfirmation = false
     @State private var showEdit = false
     @State private var showMetadataMatch = false
