@@ -1,12 +1,10 @@
 package com.calypsan.listenup.detekt
 
-import io.gitlab.arturbosch.detekt.api.CodeSmell
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.api.Debt
-import io.gitlab.arturbosch.detekt.api.Entity
-import io.gitlab.arturbosch.detekt.api.Issue
-import io.gitlab.arturbosch.detekt.api.Rule
-import io.gitlab.arturbosch.detekt.api.Severity
+import dev.detekt.api.Config
+import dev.detekt.api.Entity
+import dev.detekt.api.Finding
+import dev.detekt.api.Rule
+import dev.detekt.api.RuleName
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtNamedFunction
 import org.jetbrains.kotlin.psi.KtStringTemplateExpression
@@ -24,14 +22,11 @@ import org.jetbrains.kotlin.psi.psiUtil.getParentOfType
  */
 class NoHardcodedUiStringRule(
     config: Config,
-) : Rule(config) {
-    override val issue: Issue =
-        Issue(
-            id = "NoHardcodedUiString",
-            severity = Severity.Defect,
-            description = "User-facing UI strings must come from stringResource(Res.string.…), not literals.",
-            debt = Debt.FIVE_MINS,
-        )
+) : Rule(
+        config,
+        description = "User-facing UI strings must come from stringResource(Res.string.…), not literals.",
+    ) {
+    override val ruleName = RuleName("NoHardcodedUiString")
 
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
@@ -61,8 +56,7 @@ class NoHardcodedUiStringRule(
         // Dev-only demo code.
         if (argument.getParentOfType<KtNamedFunction>(strict = true)?.isInsidePreview() == true) return
         report(
-            CodeSmell(
-                issue,
+            Finding(
                 Entity.from(argument),
                 "Hardcoded $context string. Move it to en.json and use stringResource(Res.string.…).",
             ),
