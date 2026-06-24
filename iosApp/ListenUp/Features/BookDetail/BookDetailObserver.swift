@@ -13,6 +13,12 @@ struct ShelfRow: Identifiable, Equatable {
     let containsBook: Bool
 }
 
+/// A collection flattened for the collection-picker sheet (admin-only).
+struct CollectionRow: Identifiable, Equatable {
+    let id: String
+    let name: String
+}
+
 /// Observes `BookDetailViewModel` — flattens the sealed `BookDetailUiState` into
 /// flat `@Observable` properties, plus a download-status secondary flow. Thin over `FlowBridge`.
 @Observable
@@ -83,6 +89,10 @@ final class BookDetailObserver {
     private(set) var isAddingToShelf: Bool = false
     private(set) var shelfError: String?
     private(set) var myShelves: [ShelfRow] = []
+    private(set) var isAdmin: Bool = false
+    private(set) var showCollectionPicker: Bool = false
+    private(set) var isAddingToCollection: Bool = false
+    private(set) var allCollections: [CollectionRow] = []
     private(set) var startedAtMs: Int64?
     private(set) var isMarkingComplete: Bool = false
     private(set) var isDiscardingProgress: Bool = false
@@ -117,6 +127,9 @@ final class BookDetailObserver {
         bridge.bind(viewModel.shelvesContainingBook) { [weak self] shelves in
             self?.shelfIdsContainingBook = Set(shelves.map { $0.id })
             self?.recomputeShelfRows()
+        }
+        bridge.bind(viewModel.collections) { [weak self] collections in
+            self?.allCollections = collections.map { CollectionRow(id: $0.id, name: $0.name) }
         }
         bridge.bind(viewModel.documents) { [weak self] docs in
             self?.documents = docs.map { DocumentRow($0) }
@@ -219,6 +232,12 @@ final class BookDetailObserver {
     func createShelfAndAdd(name: String) { viewModel.createShelfAndAddBook(name: name) }
     func clearShelfError() { viewModel.clearShelfError() }
 
+    // MARK: - Collection picker (admin)
+
+    func openCollectionPicker() { viewModel.showCollectionPicker() }
+    func closeCollectionPicker() { viewModel.hideCollectionPicker() }
+    func addToCollection(collectionId: String) { viewModel.addBookToCollection(collectionId: collectionId) }
+
     // MARK: - Documents
 
     func openDocument(docId: String) { viewModel.onOpenDocument(docId: docId) }
@@ -289,6 +308,9 @@ final class BookDetailObserver {
             showShelfPicker = r.showShelfPicker
             isAddingToShelf = r.isAddingToShelf
             shelfError = r.shelfError
+            isAdmin = r.isAdmin
+            showCollectionPicker = r.showCollectionPicker
+            isAddingToCollection = r.isAddingToCollection
             startedAtMs = r.startedAtMs?.int64Value
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress

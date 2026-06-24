@@ -2371,6 +2371,16 @@
         }
       }
     },
+    "book.detail_collection_picker_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Collection"
+          }
+        }
+      }
+    },
     "book.detail_contributors_overflow": {
       "localizations": {
         "en": {
@@ -2807,6 +2817,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New Shelf"
+          }
+        }
+      }
+    },
+    "book.detail_no_collections": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No collections yet"
           }
         }
       }
