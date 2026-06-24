@@ -14,24 +14,20 @@ class DatabaseHandleTest :
                 DatabaseFactory.init(
                     DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile"),
                 )
-            handle.dataSourceForTest().connection.use { conn ->
-                conn.createStatement().use { stmt ->
-                    stmt.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)")
-                    stmt.execute("INSERT INTO t(v) VALUES ('hello')")
-                }
+            openAdminConnection(handle.dbPath, readOnly = false).use { conn ->
+                conn.execute("CREATE TABLE t(id INTEGER PRIMARY KEY, v TEXT)")
+                conn.execute("INSERT INTO t(v) VALUES ('hello')")
             }
             val snapshot = dir.resolve("snap.db")
-            handle.vacuumInto(snapshot)
+            handle.vacuumInto(snapshot.toAbsolutePath().toString())
             snapshot.exists() shouldBe true
 
-            // The driver + data source can be closed and reopened without corrupting the live db.
+            // The driver can be closed and reopened without corrupting the live db.
             handle.closePool()
             handle.reopenPool()
             val count =
-                handle.dataSourceForTest().connection.use { conn ->
-                    conn.createStatement().use { stmt ->
-                        stmt.executeQuery("SELECT count(*) FROM t").use { rs -> if (rs.next()) rs.getInt(1) else 0 }
-                    }
+                openAdminConnection(handle.dbPath, readOnly = false).use { conn ->
+                    conn.query("SELECT count(*) AS n FROM t") { row -> row.getInt("n") }.firstOrNull() ?: 0
                 }
             count shouldBe 1
             handle.close()

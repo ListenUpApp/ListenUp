@@ -3,6 +3,8 @@ package com.calypsan.listenup.server.backup
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.DatabaseHandle
+import com.calypsan.listenup.server.db.openAdminConnection
+import com.calypsan.listenup.server.testing.fileBackedTestDataSource
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -45,13 +47,11 @@ fun backupTestFixture(
             DatabaseConfig(jdbcUrl = "jdbc:sqlite:$dbFile"),
         )
 
-    // Seed a dummy row so the db isn't empty (raw JDBC; autoCommit connection from the non-pooled source).
-    handle.dataSourceForTest().connection.use { conn ->
-        conn.createStatement().use { stmt ->
-            stmt.execute("CREATE TABLE IF NOT EXISTS dummy_seed(id INTEGER PRIMARY KEY, v TEXT)")
-            stmt.execute("INSERT INTO dummy_seed(v) VALUES ('seed')")
-        }
-    }
+    // Seed a dummy row so the db isn't empty (admin connection, autocommit).
+    handle.execSql(
+        "CREATE TABLE IF NOT EXISTS dummy_seed(id INTEGER PRIMARY KEY, v TEXT)",
+        "INSERT INTO dummy_seed(v) VALUES ('seed')",
+    )
 
     val paths = BackupPaths(resolvedHomeDir)
 
@@ -75,25 +75,35 @@ fun backupTestFixture(
 }
 
 /**
- * Runs raw DDL/DML [statements] on the handle's data source over a single auto-commit JDBC connection.
- * Test seeding/mutation helper — the SQLDelight-free replacement for `transaction(handle.database) { exec … }`.
+ * Runs raw DDL/DML [statements] on the handle's db path via the admin connection.
+ * Test seeding/mutation helper.
  */
 fun DatabaseHandle.execSql(vararg statements: String) {
-    dataSourceForTest().connection.use { conn ->
-        conn.createStatement().use { stmt -> statements.forEach { stmt.execute(it) } }
+    openAdminConnection(dbPath, readOnly = false).use { conn ->
+        statements.forEach { conn.execute(it) }
     }
 }
 
-/** Runs a scalar-int [sql] query (e.g. `SELECT count(*) …`) on the handle's data source; 0 if no row. */
+/**
+ * Runs a scalar-int [sql] query (first column of first row) on the handle's db; 0 if no row.
+ * Uses a raw JDBC connection so aggregate column names like `count(*)` are accessed positionally.
+ */
 fun DatabaseHandle.queryScalarInt(sql: String): Int =
-    dataSourceForTest().connection.use { conn ->
-        conn.createStatement().executeQuery(sql).use { rs -> if (rs.next()) rs.getInt(1) else 0 }
+    fileBackedTestDataSource("jdbc:sqlite:$dbPath").connection.use { conn ->
+        conn.createStatement().executeQuery(sql).use { rs ->
+            if (rs.next()) rs.getInt(1) else 0
+        }
     }
 
-/** Runs a scalar-string [sql] query (first column of the first row) on the handle's data source; null if no row. */
+/**
+ * Runs a scalar-string [sql] query (first column of first row) on the handle's db; null if no row.
+ * Uses a raw JDBC connection for uniform first-column access.
+ */
 fun DatabaseHandle.queryScalarString(sql: String): String? =
-    dataSourceForTest().connection.use { conn ->
-        conn.createStatement().executeQuery(sql).use { rs -> if (rs.next()) rs.getString(1) else null }
+    fileBackedTestDataSource("jdbc:sqlite:$dbPath").connection.use { conn ->
+        conn.createStatement().executeQuery(sql).use { rs ->
+            if (rs.next()) rs.getString(1) else null
+        }
     }
 
 /**

@@ -14,7 +14,7 @@ import app.cash.sqldelight.db.SqlPreparedStatement
  * the restore orchestrator uses to free every SQLite file handle before swapping the db file in place,
  * then reopen on the swapped-in file.
  *
- * The [SqlDriver] twin of [SwappableDataSource]. No lock: between [closeUnderlying] and
+ * No lock: between [closeUnderlying] and
  * [installUnderlying] the delegate is a closed driver, so a concurrent query fails fast (a closed
  * driver can never serve stale data). A restore is a rare admin operation; failing a request during the
  * brief swap window is the honest, simple choice.

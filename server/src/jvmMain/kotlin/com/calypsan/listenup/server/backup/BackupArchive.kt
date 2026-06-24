@@ -57,7 +57,7 @@ class BackupArchive(
             val tmpDb = Files.createTempFile(paths.tmpDir, "db-", ".db")
             try {
                 onEvent(BackupEvent.DbSnapshotting)
-                dbHandle.vacuumInto(tmpDb)
+                dbHandle.vacuumInto(tmpDb.toAbsolutePath().toString())
                 val dbHash = sha256Of(tmpDb)
                 val dest = paths.archiveFor(id)
                 writeArchive(tmpDb, dbHash, includeImages, onEvent, dest)
