@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Book detail screen — the native, redesigned assembly.
 ///
-/// An atmospheric blurred-cover backdrop (`CoverBackdrop`) sits behind a centered
-/// hero, a resume bar, two secondary action pills, and the description / chapters /
+/// A centered hero (with a soft `CoverGlow` halo behind the cover) leads, followed by
+/// a resume bar, two secondary action pills, and the description / chapters /
 /// details sections. iPhone stacks everything; iPad splits into a fixed left rail
 /// (hero + resume + pills) beside a flexible right column (description, chapters,
 /// details). All state comes from `BookDetailObserver`; the overflow menu offers
@@ -100,22 +100,14 @@ struct BookDetailView: View {
     @ViewBuilder
     private func content(_ observer: BookDetailObserver) -> some View {
         ScrollView {
-            ZStack(alignment: .top) {
-                CoverBackdrop(
-                    bookId: observer.book?.idString,
-                    coverPath: observer.coverPath,
-                    blurHash: observer.coverBlurHash
-                )
-
-                Group {
-                    if hSize == .regular {
-                        regularContent(observer)
-                    } else {
-                        compactContent(observer)
-                    }
+            Group {
+                if hSize == .regular {
+                    regularContent(observer)
+                } else {
+                    compactContent(observer)
                 }
-                .padding(.bottom, 32)
             }
+            .padding(.bottom, 32)
         }
     }
 

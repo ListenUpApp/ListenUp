@@ -51,8 +51,6 @@ final class BookDetailObserver {
 
     var title: String { book?.title ?? "" }
     var authors: String { book?.authorNames ?? "" }
-    var coverPath: String? { book?.coverPath }
-    var coverBlurHash: String? { book?.coverBlurHash }
     var duration: String { book?.formatDuration() ?? "" }
     var durationMs: Int64 { book?.duration ?? 0 }
 
