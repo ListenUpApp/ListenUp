@@ -34,6 +34,8 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
 
 /**
  * Tests for [DiscoverViewModel].
@@ -130,6 +132,7 @@ class DiscoverViewModelTest :
             val authStateFlow = MutableStateFlow<AuthState>(AuthState.Initializing)
             val activeSessionsFlow = MutableStateFlow<List<ActiveSession>>(emptyList())
             val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
+            val errorBus = ErrorBus()
 
             fun build(): DiscoverViewModel =
                 DiscoverViewModel(
@@ -137,7 +140,7 @@ class DiscoverViewModelTest :
                     activeSessionRepository = activeSessionRepository,
                     authSession = authSession,
                     shelfRepository = shelfRepository,
-                    errorBus = ErrorBus(),
+                    errorBus = errorBus,
                 )
         }
 
@@ -333,6 +336,69 @@ class DiscoverViewModelTest :
                 // Then
                 val err = viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
                 err.message shouldBe "Failed to load discover shelves"
+            }
+        }
+
+        test("connectivity failure on discover shelves does NOT emit to the global errorBus") {
+            runTest {
+                // Given - offline: the discover RPC fails with a connectivity error
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+
+                // Subscribe to the bus BEFORE init runs (SharedFlow has no replay)
+                val emitted = mutableListOf<AppError>()
+                backgroundScope.launch { fixture.errorBus.errors.collect { emitted += it } }
+                advanceUntilIdle()
+
+                // When - init triggers loadDiscoverShelves
+                val viewModel = fixture.build().also { keepStateHot(it.discoverShelvesState) }
+                advanceUntilIdle()
+
+                // Then - no global snackbar flash; the section degrades to its local Error state
+                emitted shouldBe emptyList()
+                viewModel.discoverShelvesState.value.shouldBeInstanceOf<DiscoverShelvesUiState.Error>()
+            }
+        }
+
+        test("timeout failure on discover shelves does NOT emit to the global errorBus") {
+            runTest {
+                // Given - a connection timeout (the second connectivity subtype)
+                val fixture = createFixture()
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(TransportError.Timeout())
+
+                val emitted = mutableListOf<AppError>()
+                backgroundScope.launch { fixture.errorBus.errors.collect { emitted += it } }
+                advanceUntilIdle()
+
+                // When
+                fixture.build().also { keepStateHot(it.discoverShelvesState) }
+                advanceUntilIdle()
+
+                // Then - timeouts are suppressed from the global snackbar too
+                emitted shouldBe emptyList()
+            }
+        }
+
+        test("non-connectivity failure on discover shelves still emits to the global errorBus") {
+            runTest {
+                // Given - a genuine server error (not connectivity)
+                val fixture = createFixture()
+                val serverError = TransportError.Server5xx(statusCode = 500)
+                everySuspend { fixture.shelfRepository.discoverShelves() } returns
+                    AppResult.Failure(serverError)
+
+                val emitted = mutableListOf<AppError>()
+                backgroundScope.launch { fixture.errorBus.errors.collect { emitted += it } }
+                advanceUntilIdle()
+
+                // When
+                fixture.build().also { keepStateHot(it.discoverShelvesState) }
+                advanceUntilIdle()
+
+                // Then - real errors still surface globally
+                emitted shouldBe listOf(serverError)
             }
         }
 

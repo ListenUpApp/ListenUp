@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.presentation.discover
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
@@ -236,8 +238,15 @@ class DiscoverViewModel(
                 }
 
                 is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to load discover shelves: ${result.error.message}" }
+                    // Offline is an expected state on this background load, not a snackbar-worthy fault —
+                    // the section degrades to its local empty/error state. Only genuine (non-connectivity)
+                    // errors reach the global bus and the error log; connectivity misses are logged quietly.
+                    if (result.error.isConnectivityError()) {
+                        logger.debug { "Discover shelves unavailable offline: ${result.error.message}" }
+                    } else {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to load discover shelves: ${result.error.message}" }
+                    }
                     discoverShelvesState.value = DiscoverShelvesUiState.Error("Failed to load discover shelves")
                 }
             }
@@ -420,3 +429,10 @@ data class RecentlyAddedUiBook(
     val coverHash: String?,
     val createdAt: Long,
 )
+
+/**
+ * Connectivity faults (offline / timed-out) are expected states on a background load, not
+ * snackbar-worthy errors. Matched by typed subtype — never by `message` string.
+ */
+private fun AppError.isConnectivityError(): Boolean =
+    this is TransportError.NetworkUnavailable || this is TransportError.Timeout
