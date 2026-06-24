@@ -2,6 +2,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
@@ -14,12 +15,11 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
-import com.calypsan.listenup.client.data.remote.model.toEntity
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.model.ContributorRole
-import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -92,7 +92,7 @@ class PlaybackPreparer internal constructor(
     private val playbackRpcFactory: PlaybackRpcFactory,
     private val syncApi: SyncApiContract?,
     private val scope: CoroutineScope,
-    private val bookIngestPort: BookIngestPort,
+    private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
 ) {
     /**
      * Prepare playback for [bookId].
@@ -340,8 +340,11 @@ class PlaybackPreparer internal constructor(
 
     /**
      * Fetch book data from server and persist locally. Used as a fallback when
-     * local book data is incomplete. Writes book entity + audio-file junction
-     * rows atomically via [BookIngestPort.upsertWithAudioFiles].
+     * local book data is incomplete. Decodes the contract [BookSyncPayload] and writes the
+     * whole aggregate through the shared [bookSyncDomainHandler] — the same atomic path the
+     * RPC on-demand fetch ([com.calypsan.listenup.client.data.repository.BookRepositoryImpl]
+     * `fetchAndCacheBook`) uses, so the book + audio-file rows (incl. audio-stream fields)
+     * land identically with no parallel-mapping drift.
      *
      * Internal visibility allows [PlaybackManagerFallbackFetchAtomicityTest] to
      * invoke the method directly.
@@ -357,27 +360,13 @@ class PlaybackPreparer internal constructor(
 
         return when (val result = api.getBook(bookId.value)) {
             is AppResult.Success -> {
-                val bookResponse = result.data
-                logger.info { "Fetched book from server: ${bookResponse.title}" }
-
-                val entity = bookResponse.toEntity()
-                val audioFileRows =
-                    bookResponse.audioFiles.mapIndexed { idx, af ->
-                        AudioFileEntity(
-                            bookId = bookId,
-                            index = idx,
-                            id = af.id,
-                            filename = af.filename,
-                            format = af.format,
-                            codec = af.codec,
-                            duration = af.duration,
-                            size = af.size,
-                        )
-                    }
-
-                when (val writeResult = bookIngestPort.upsertWithAudioFiles(entity, audioFileRows)) {
+                val payload = result.data
+                logger.info { "Fetched book from server: ${payload.title}" }
+                when (val writeResult = bookSyncDomainHandler.onCatchUpItem(payload, isTombstone = false)) {
                     is AppResult.Success -> {
-                        logger.debug { "Saved fetched book + ${audioFileRows.size} audio files to local database" }
+                        logger.debug {
+                            "Saved fetched book ${bookId.value} + ${payload.audioFiles.size} audio files to local database"
+                        }
                         true
                     }
 

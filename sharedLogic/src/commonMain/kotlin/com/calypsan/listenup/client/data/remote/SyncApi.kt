@@ -289,16 +289,14 @@ internal class SyncApi(
      * Auth: Required
      *
      * @param bookId Book ID to fetch
-     * @return Result containing BookResponse (converted from SingleBookResponse) or error
+     * @return Result containing the book's [com.calypsan.listenup.api.sync.BookSyncPayload], or error
      */
-    override suspend fun getBook(
-        bookId: String,
-    ): AppResult<com.calypsan.listenup.client.data.remote.model.BookResponse> =
-        apiCall<com.calypsan.listenup.client.data.remote.model.SingleBookResponse>(
+    override suspend fun getBook(bookId: String): AppResult<com.calypsan.listenup.api.sync.BookSyncPayload> =
+        apiCall<com.calypsan.listenup.api.sync.BookSyncPayload>(
             errorMessage = "Failed to fetch book $bookId",
         ) {
             clientFactory.getClient().get("/api/v1/books/$bookId").body()
-        }.map { it.toBookResponse() }
+        }
 
     /**
      * Get listening events for initial sync.

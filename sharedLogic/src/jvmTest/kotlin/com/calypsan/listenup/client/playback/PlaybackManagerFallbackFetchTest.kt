@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -12,17 +15,11 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
-import com.calypsan.listenup.client.data.remote.model.BookResponse
-import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
-import com.calypsan.listenup.client.data.repository.BookIngestPort
-import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -39,11 +36,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.runTest
 
 /**
- * Verifies fallback-fetch populates the audio_files junction when local data
- * is missing. Seeds a book with NO audio files in the junction; mocks
- * syncApi.getBook to return a BookResponse with audio files; calls
- * prepareForPlayback; asserts the junction is populated after the fallback
- * runs.
+ * Verifies the playback REST fallback persists a complete book aggregate when local data is
+ * missing. Seeds a book with NO audio files in the junction; stubs `syncApi.getBook` to return the
+ * contract [BookSyncPayload] the Kotlin server actually emits; calls `prepareForPlayback`; asserts
+ * the junction is populated — INCLUDING the audio-stream fields (`codecProfile`/`spatial`/`bitrate`/
+ * `sampleRate`/`channels`) that #746 dropped on the stale `SingleBookResponse` path.
+ *
+ * Uses a real in-memory DB + a real [BookSyncDomainHandler] so it exercises the full decode →
+ * persist path the fallback now shares with the RPC on-demand fetch.
  */
 class PlaybackManagerFallbackFetchTest :
     FunSpec({
@@ -73,29 +73,40 @@ class PlaybackManagerFallbackFetchTest :
             )
         }
 
-        // Minimal-valid [BookResponse] factory. Only `id` and `audioFiles` matter for
-        // this test — everything else is defaulted so the test is insulated from
-        // future BookResponse field additions as long as they carry their own
-        // defaults. Mirrors the helper in [PlaybackManagerFallbackFetchAtomicityTest].
-        fun bookResponseWithAudioFiles(
+        // Minimal-valid [BookSyncPayload] (the wire type GET /api/v1/books/{id} returns). Only `id`
+        // and `audioFiles` matter here; everything else is a sensible constant.
+        fun bookPayloadWithAudioFiles(
             id: String,
-            audioFiles: List<AudioFileResponse>,
-        ): BookResponse =
-            BookResponse(
+            audioFiles: List<BookAudioFilePayload>,
+        ): BookSyncPayload =
+            BookSyncPayload(
                 id = id,
+                libraryId = LibraryId("test-library"),
+                folderId = FolderId("test-folder"),
                 title = "Fallback Test",
+                sortTitle = null,
                 subtitle = null,
-                coverImage = null,
-                totalDuration = 3_600_000L,
                 description = null,
-                genres = null,
                 publishYear = null,
-                seriesInfo = emptyList(),
-                chapters = emptyList(),
-                audioFiles = audioFiles,
+                publisher = null,
+                language = null,
+                isbn = null,
+                asin = null,
+                abridged = false,
+                explicit = false,
+                totalDuration = 3_600_000L,
+                cover = null,
+                rootRelPath = "books/fallback-test",
+                inode = null,
+                scannedAt = 1L,
                 contributors = emptyList(),
-                createdAt = "2024-01-01T00:00:00Z",
-                updatedAt = "2024-01-01T00:00:00Z",
+                series = emptyList(),
+                audioFiles = audioFiles,
+                chapters = emptyList(),
+                revision = 1L,
+                updatedAt = 1L,
+                createdAt = 1L,
+                deletedAt = null,
             )
 
         fun createPlaybackManager(
@@ -124,30 +135,15 @@ class PlaybackManagerFallbackFetchTest :
             // return null (no saved position), which exercises the fresh-playback path.
             val progressTracker = buildProgressTracker()
 
-            // Real BookRepositoryImpl backed by the same in-memory DB so that
-            // fetchBookFromServer's call to upsertWithAudioFiles actually writes
-            // to the DB and the junction assertion passes.
-            val txRunner = RoomTransactionRunner(db)
-            val bookIngestPort: BookIngestPort =
-                BookRepositoryImpl(
-                    bookDao = db.bookDao(),
-                    chapterDao = db.chapterDao(),
-                    audioFileDao = db.audioFileDao(),
-                    searchDao = db.searchDao(),
-                    transactionRunner = txRunner,
-                    imageStorage = imageStorage,
-                    joinSources = BookDetailJoinSources(mock(), mock(), mock()),
-                    // intentionally unstubbed — this test exercises upsertWithAudioFiles, not the RPC fallback paths
-                    networkMonitor = mock(),
-                    bookRpcFactory = mock(),
-                    bookSyncDomainHandler =
-                        BookSyncDomainHandler(
-                            database = db,
-                            mapper = BookEntityMapper(),
-                            transactionRunner = txRunner,
-                            imageStorage = stubImageStorage(),
-                            registry = ClientSyncDomainRegistry(),
-                        ),
+            // Real BookSyncDomainHandler backed by the same in-memory DB so the fallback's
+            // onCatchUpItem actually writes the aggregate and the junction assertion passes.
+            val bookSyncDomainHandler =
+                BookSyncDomainHandler(
+                    database = db,
+                    mapper = BookEntityMapper(),
+                    transactionRunner = RoomTransactionRunner(db),
+                    imageStorage = stubImageStorage(),
+                    registry = ClientSyncDomainRegistry(),
                 )
 
             return PlaybackManagerImpl(
@@ -165,11 +161,11 @@ class PlaybackManagerFallbackFetchTest :
                 playbackRpcFactory = testPlaybackRpcFactory("af-1", "af-2"),
                 syncApi = syncApi,
                 scope = CoroutineScope(Job()),
-                bookIngestPort = bookIngestPort,
+                bookSyncDomainHandler = bookSyncDomainHandler,
             )
         }
 
-        test("fallback fetch populates audio_files junction when local is empty") {
+        test("fallback fetch populates audio_files junction (incl. audio-stream fields) when local is empty") {
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
@@ -179,20 +175,27 @@ class PlaybackManagerFallbackFetchTest :
 
                     everySuspend { syncApi.getBook(any()) } returns
                         AppResult.Success(
-                            bookResponseWithAudioFiles(
+                            bookPayloadWithAudioFiles(
                                 id = "book-1",
                                 audioFiles =
                                     listOf(
-                                        AudioFileResponse(
+                                        BookAudioFilePayload(
                                             id = "af-1",
+                                            index = 0,
                                             filename = "chapter01.m4b",
                                             format = "m4b",
                                             codec = "aac",
                                             duration = 1_800_000L,
                                             size = 45_000_000L,
+                                            codecProfile = "lc",
+                                            spatial = "atmos",
+                                            bitrate = 128_000,
+                                            sampleRate = 44_100,
+                                            channels = 2,
                                         ),
-                                        AudioFileResponse(
+                                        BookAudioFilePayload(
                                             id = "af-2",
+                                            index = 1,
                                             filename = "chapter02.m4b",
                                             format = "m4b",
                                             codec = "aac",
@@ -207,11 +210,24 @@ class PlaybackManagerFallbackFetchTest :
 
                     playbackManager.prepareForPlayback(BookId("book-1"))
 
-                    // After fallback fetch, the junction should be populated.
+                    // After fallback fetch, the junction should be populated...
                     val rows = db.audioFileDao().getForBook("book-1")
                     rows.size shouldBe 2
                     rows.map { it.id } shouldBe listOf("af-1", "af-2")
                     rows.map { it.index } shouldBe listOf(0, 1)
+
+                    // ...and the audio-stream fields must survive the fallback write (the #746 fix).
+                    val first = rows.first { it.id == "af-1" }
+                    first.codecProfile shouldBe "lc"
+                    first.spatial shouldBe "atmos"
+                    first.bitrate shouldBe 128_000
+                    first.sampleRate shouldBe 44_100
+                    first.channels shouldBe 2
+
+                    // A file without stream metadata stays null — no spurious defaults.
+                    val second = rows.first { it.id == "af-2" }
+                    second.codecProfile shouldBe null
+                    second.bitrate shouldBe null
                 }
             } finally {
                 db.close()
