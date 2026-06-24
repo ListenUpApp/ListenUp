@@ -47,11 +47,12 @@ private fun stopGlobalKoinIfRunning() {
 /**
  * Bounds the **global** Koin context strictly within each spec — clean on entry, clean on exit.
  *
- * Two kinds of spec start the global Koin: server end-to-end specs boot Ktor's `install(Koin)` on
- * the global context (via `testApplication { module() }`), and some client specs start it through
- * `KoinTestRule`. If a stale context survives into the next spec, the next server boot **reuses that
- * stale context** and can't resolve server-only definitions, surfacing as a `NoDefinitionFoundException`
- * (e.g. for `BookAccessPolicy`) or a hung request — which made `ImportRpcE2ETest` flake on CI.
+ * **As of the server's switch to `install(KoinIsolated)`, the server no longer touches the global
+ * Koin context** — its DI graph is scoped to the `Application` instance, so the worst-offending race
+ * (a server spec's late async `stopKoin()` ripping the context out of the next spec → a
+ * `NoDefinitionFoundException` for `BookAccessPolicy`, the historical `ImportRpcE2ETest` CI flake) is
+ * eliminated at source. This listener stays for the remaining global-Koin starter — client specs that
+ * use `KoinTestRule` — and as a belt-and-braces guard so no stale context can leak across specs.
  *
  * Cleaning **before** each spec ([beforeSpec]) makes the suite order-independent. But that alone left
  * a window: a server spec's Koin is torn down **asynchronously** — Ktor's `install(Koin)` registers
