@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
+import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.AppleDownloadEnqueuer
 import com.calypsan.listenup.client.download.DownloadEnqueuer
@@ -132,7 +133,7 @@ val iosPlaybackModule: Module =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookIngestPort = get(),
+                bookSyncDomainHandler = get<BookSyncDomainHandler>(),
             )
         }
 
