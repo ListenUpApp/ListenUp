@@ -46,6 +46,35 @@ fun audioFormatSummary(files: List<AudioFile>): AudioFormat? {
     return AudioFormat(codec = codec, approxBitrateKbps = bitrate)
 }
 
+/**
+ * Pre-formatted audio-format strings for the Book Detail "Details" section, derived from a book's
+ * audio files (the primary/first file carries the specs). Each field is null when its datum is
+ * absent, so the UI can omit the corresponding row.
+ */
+data class AudioFormatDisplay(
+    val format: String?,
+    val bitrate: String?,
+    val sampleRate: String?,
+    val channels: String?,
+)
+
+/**
+ * Builds the [AudioFormatDisplay] for [files]: format identity and sample-rate/channels come from
+ * the primary (first) file; the bitrate prefers the primary file's exact value and falls back to
+ * the size÷duration estimate ("~N kbps") across all files.
+ */
+fun audioFormatDisplay(files: List<AudioFile>): AudioFormatDisplay {
+    val primary = files.firstOrNull()
+    return AudioFormatDisplay(
+        format = primary?.let { audioFormatIdentity(it.codec, it.codecProfile, it.spatial) },
+        bitrate =
+            bitrateLabel(primary?.bitrate)
+                ?: audioFormatSummary(files)?.approxBitrateKbps?.let { "~$it kbps" },
+        sampleRate = sampleRateLabel(primary?.sampleRate),
+        channels = channelsLabel(primary?.channels),
+    )
+}
+
 /** Maps an ISO 639-1 code (e.g. "en") to a display name, falling back to the upper-cased code. */
 fun languageDisplayName(code: String): String {
     val key = code.trim().lowercase()

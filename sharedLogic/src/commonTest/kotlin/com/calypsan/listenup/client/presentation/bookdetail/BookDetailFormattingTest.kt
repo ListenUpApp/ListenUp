@@ -49,6 +49,29 @@ class BookDetailFormattingTest :
             f?.codec shouldBe "AAC"
         }
 
+        test("audioFormatDisplay derives rows from the primary file; bitrate falls back to approx") {
+            val atmos =
+                audioFormatDisplay(
+                    listOf(
+                        file("ac4", 1_000_000, 60_000)
+                            .copy(spatial = "atmos", bitrate = 320_000, sampleRate = 48_000, channels = 6),
+                    ),
+                )
+            atmos.format shouldBe "Dolby Atmos"
+            atmos.bitrate shouldBe "320 kbps"
+            atmos.sampleRate shouldBe "48 kHz"
+            atmos.channels shouldBe "5.1"
+
+            // No exact bitrate → falls back to the size/duration approximation; no rate/channels.
+            val approx = audioFormatDisplay(listOf(file("aac", 1_000_000, 60_000)))
+            approx.format shouldBe "AAC"
+            approx.bitrate shouldBe "~133 kbps"
+            approx.sampleRate shouldBe null
+            approx.channels shouldBe null
+
+            audioFormatDisplay(emptyList()).format shouldBe null
+        }
+
         test("languageDisplayName maps known codes and falls back to the upper-cased code") {
             languageDisplayName("en") shouldBe "English"
             languageDisplayName("EN") shouldBe "English"
