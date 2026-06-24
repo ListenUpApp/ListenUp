@@ -135,7 +135,7 @@ struct SeriesDetailView: View {
 
     private func heroSection(observer: SeriesDetailObserver) -> some View {
         VStack(spacing: 8) {
-            CoverStack(books: observer.books, size: 150, peek: 34)
+            CoverStack(covers: observer.books.map(CoverArt.init(book:)), size: 150, peek: 34)
                 .accessibilityHidden(true)
             Text(String(localized: "series.eyebrow"))
                 .font(.caption.weight(.semibold))
@@ -209,17 +209,16 @@ struct SeriesDetailView: View {
         }
     }
 
-    private func booksList(books: [BookListItem], observer: SeriesDetailObserver) -> some View {
-        // `BookListItem` (SKIE-exported) isn't `Identifiable`, so key on its id string.
-        FieldGroup(books, id: \.idString, separatorInset: 76) { book in
-            NavigationLink(value: BookDestination(id: book.idString)) {
+    private func booksList(books: [BookRow], observer: SeriesDetailObserver) -> some View {
+        FieldGroup(books, id: \.id, separatorInset: 76) { book in
+            NavigationLink(value: BookDestination(id: book.id)) {
                 SeriesBookRow(
                     book: book,
-                    sequence: book.series.first?.sequence,
-                    progress: observer.progress(for: book.idString),
-                    isFinished: observer.isFinished(book.idString),
-                    isPlaying: observer.isPlaying(book.idString),
-                    onPlayTapped: { observer.playBook(book.idString) }
+                    sequence: book.sequence,
+                    progress: observer.progress(for: book.id),
+                    isFinished: observer.isFinished(book.id),
+                    isPlaying: observer.isPlaying(book.id),
+                    onPlayTapped: { observer.playBook(book.id) }
                 )
             }
             .buttonStyle(.plain)

@@ -20,6 +20,13 @@ struct CoverArt: Identifiable, Equatable, Hashable {
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
     }
+
+    /// Maps a native `BookRow` to its cover (no SKIE re-bridge).
+    init(book: BookRow) {
+        self.id = book.id
+        self.coverPath = book.coverPath
+        self.blurHash = book.coverBlurHash
+    }
 }
 
 /// Static overlapping cover deck — the clean-coral hero for series rows, grids, detail

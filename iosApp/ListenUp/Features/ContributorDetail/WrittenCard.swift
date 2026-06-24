@@ -1,10 +1,9 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// Fixed-width book card for a contributor's role carousel: cover (with an optional
 /// progress overlay), title, author, and duration.
 struct WrittenCard: View {
-    let book: BookListItem
+    let book: BookRow
     let progress: Float?
 
     private let width: CGFloat = 150
@@ -27,7 +26,7 @@ struct WrittenCard: View {
                 .foregroundStyle(.primary)
                 .lineLimit(1)
                 .padding(.top, 9)
-            Text(book.authors.first?.name ?? "")
+            Text(book.authorNames)
                 .font(.footnote)
                 .foregroundStyle(Color.luLabel2)
                 .lineLimit(1)

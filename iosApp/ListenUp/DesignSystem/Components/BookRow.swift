@@ -22,6 +22,11 @@ struct BookRow: Identifiable, Equatable, Hashable {
     let hasDocuments: Bool
     let coverPath: String?
     let coverBlurHash: String?
+    /// Total duration in ms — for cards that show it (e.g. the contributor/series book rows).
+    let duration: Int64
+    /// The book's sequence within a series, when shown in a series context (e.g. Series detail).
+    /// Nil in non-series contexts (Library grid, search), so it doesn't bloat those projections.
+    let sequence: String?
 
     init(
         id: String,
@@ -29,7 +34,9 @@ struct BookRow: Identifiable, Equatable, Hashable {
         authorNames: String,
         hasDocuments: Bool,
         coverPath: String?,
-        coverBlurHash: String?
+        coverBlurHash: String?,
+        duration: Int64 = 0,
+        sequence: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -37,17 +44,22 @@ struct BookRow: Identifiable, Equatable, Hashable {
         self.hasDocuments = hasDocuments
         self.coverPath = coverPath
         self.coverBlurHash = coverBlurHash
+        self.duration = duration
+        self.sequence = sequence
     }
 
     /// Snapshot a Kotlin `BookListItem` into native Swift values. Reads each bridged
     /// property exactly once — the whole point is that SwiftUI never reads them again.
-    init(_ item: BookListItem) {
+    /// `sequence` is series-context-specific, so it's passed in rather than read here.
+    init(_ item: BookListItem, sequence: String? = nil) {
         self.id = item.idString
         self.title = item.title
         self.authorNames = item.authorNames
         self.hasDocuments = item.hasDocuments
         self.coverPath = item.coverPath
         self.coverBlurHash = item.coverBlurHash
+        self.duration = item.duration
+        self.sequence = sequence
     }
 }
 

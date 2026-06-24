@@ -14,7 +14,7 @@ final class SeriesDetailObserver {
     private(set) var seriesNarrator: String?
     private(set) var coverPath: String?
     private(set) var totalDuration: String = ""
-    private(set) var books: [BookListItem] = []
+    private(set) var books: [BookRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var finishedBookIds: Set<String> = []
     private(set) var finishedCount: Int = 0
@@ -23,7 +23,7 @@ final class SeriesDetailObserver {
     var bookCount: Int { books.count }
 
     /// The book the Continue CTA will start, with its sequence (for the title).
-    private var resumeBook: BookListItem? { books.first { $0.idString == resumeTarget } }
+    private var resumeBook: BookRow? { books.first { $0.id == resumeTarget } }
 
     /// True once the user has any progress in the series — at least one in-progress book
     /// ([bookProgress] holds in-progress books only) or at least one finished book. When false
@@ -36,7 +36,7 @@ final class SeriesDetailObserver {
             hasBooks: !books.isEmpty,
             resumeTargetIsNil: resumeTarget == nil,
             hasStarted: hasStarted,
-            sequence: resumeBook?.series.first?.sequence
+            sequence: resumeBook?.sequence
         )
     }
 
@@ -118,7 +118,7 @@ final class SeriesDetailObserver {
             seriesNarrator = r.seriesNarrator
             coverPath = r.coverPath
             totalDuration = r.formatTotalDuration()
-            books = Array(r.books)
+            books = r.books.map { BookRow($0, sequence: $0.series.first?.sequence) }
             bookProgress = mapBookProgress(r.bookProgress)
             finishedBookIds = Set(r.finishedBookIds.map { String(describing: $0) })
             finishedCount = Int(r.finishedCount)

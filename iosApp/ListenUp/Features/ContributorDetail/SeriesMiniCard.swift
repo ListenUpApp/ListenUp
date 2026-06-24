@@ -1,20 +1,16 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// Compact series card for the contributor "Series" grid: an overlapping cover stack,
 /// the series name, and a book count, on a rounded surface. Navigates to the series.
 struct SeriesMiniCard: View {
-    let series: SeriesWithBooks
-
-    private var seriesId: String { series.series.idString }
-    private var books: [BookListItem] { Array(series.books) }
+    let series: SeriesRow
 
     var body: some View {
-        NavigationLink(value: SeriesDestination(id: seriesId)) {
+        NavigationLink(value: SeriesDestination(id: series.id)) {
             HStack(spacing: 13) {
-                CoverStack(books: books, size: 52, peek: 12, maxCovers: 3)
+                CoverStack(covers: series.covers, size: 52, peek: 12, maxCovers: 3)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(series.series.name)
+                    Text(series.name)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                         .lineLimit(2)
@@ -33,11 +29,11 @@ struct SeriesMiniCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(series.series.name)
+        .accessibilityLabel(series.name)
     }
 
     private var bookCountLabel: String {
-        let count = books.count
+        let count = series.bookCount
         let noun = count == 1 ? String(localized: "common.book") : String(localized: "common.books")
         return "\(count) \(noun)"
     }
