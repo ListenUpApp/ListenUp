@@ -22,8 +22,8 @@ androidx-core-splashscreen = "1.2.0"
 robolectric = "4.16.1"
 composeMultiplatform = "1.11.1"
 compose-material3 = "1.11.0-alpha07"
-kotlin = "2.3.20"
-ksp = "2.3.8"
+kotlin = "2.4.0"
+ksp = "2.3.9"
 mokkery = "3.3.0"
 ktor = "3.5.0"
 kotlinx-rpc = "0.11.0-grpc-188"
@@ -48,7 +48,7 @@ markdown-renderer = "0.41.0"
 aboutlibraries = "14.2.1"
 
 # Swift Interop
-skie = "0.10.12"
+skie = "0.10.13"
 
 # Desktop
 logback = "1.5.34"
