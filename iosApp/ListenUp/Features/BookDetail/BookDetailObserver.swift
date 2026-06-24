@@ -46,6 +46,15 @@ final class BookDetailObserver {
     var duration: String { book?.formatDuration() ?? "" }
     var durationMs: Int64 { book?.duration ?? 0 }
 
+    /// Pre-formatted audio-format display strings (Format / Bitrate / Sample rate / Channels),
+    /// derived from the book's primary audio file. Fields are nil when their datum is absent.
+    var audioFormat: AudioFormatDisplay {
+        guard let files = book?.audioFiles else {
+            return AudioFormatDisplay(format: nil, bitrate: nil, sampleRate: nil, channels: nil)
+        }
+        return BookDetailFormattingKt.audioFormatDisplay(files: files)
+    }
+
     // MARK: - Download state
 
     private(set) var downloadState: DownloadUIState = .notDownloaded

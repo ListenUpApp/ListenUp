@@ -22,6 +22,10 @@ struct BookDetailsSection: View {
     /// Pre-formatted release label (e.g. a year or date); `nil` when unknown.
     let released: String?
     let language: String?
+    let format: String?
+    let bitrate: String?
+    let sampleRate: String?
+    let channels: String?
     /// Opens the Cast & Credits sheet (from the "Credits" header link and the "Narrated by" row).
     let onOpenCast: () -> Void
 
@@ -75,6 +79,18 @@ struct BookDetailsSection: View {
         if let language, !language.isEmpty {
             result.append((String(localized: "common.language"), language, false))
         }
+        if let format, !format.isEmpty {
+            result.append((String(localized: "book.detail_format"), format, false))
+        }
+        if let bitrate, !bitrate.isEmpty {
+            result.append((String(localized: "book.detail_bitrate"), bitrate, false))
+        }
+        if let sampleRate, !sampleRate.isEmpty {
+            result.append((String(localized: "book.detail_sample_rate"), sampleRate, false))
+        }
+        if let channels, !channels.isEmpty {
+            result.append((String(localized: "book.detail_channels"), channels, false))
+        }
         return result
     }
 
@@ -127,6 +143,10 @@ struct BookDetailsSection: View {
         publisher: "Random House Audio",
         released: "2003",
         language: "English",
+        format: "Dolby Atmos",
+        bitrate: "320 kbps",
+        sampleRate: "48 kHz",
+        channels: "5.1",
         onOpenCast: {}
     )
     .padding()
@@ -140,6 +160,10 @@ struct BookDetailsSection: View {
         publisher: nil,
         released: nil,
         language: nil,
+        format: nil,
+        bitrate: nil,
+        sampleRate: nil,
+        channels: nil,
         onOpenCast: {}
     )
     .padding()
