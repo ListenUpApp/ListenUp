@@ -8,7 +8,7 @@ import UIKit
 struct ListenUpApp: App {
     init() {
         // Koin must be initialised before any UI (or observer) accesses it.
-        Koin_iosKt.startDependencyInjection()
+        KoinKt.startDependencyInjection()
         Log.info("ListenUp iOS app initialized")
         // Make the app's player available to the Live Activity intents.
         AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
