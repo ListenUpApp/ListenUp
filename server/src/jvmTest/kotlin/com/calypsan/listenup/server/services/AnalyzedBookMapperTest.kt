@@ -14,6 +14,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
+import com.calypsan.listenup.domain.embeddedmeta.AudioStreamInfo
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
@@ -437,6 +438,58 @@ class AnalyzedBookMapperTest :
             payload.inode shouldBe 999L
             payload.totalDuration shouldBe 7_777L
             payload.hasScanWarning shouldBe true
+        }
+
+        test("primary audio file carries embedded audioStream; secondary files do not") {
+            val f0 =
+                FileEntry(
+                    relPath = "b/01.m4b",
+                    name = "01.m4b",
+                    ext = "m4b",
+                    size = 1024L,
+                    mtimeMs = 0L,
+                    inode = 1L,
+                    fileType = FileType.AUDIO,
+                )
+            val f1 =
+                FileEntry(
+                    relPath = "b/02.m4b",
+                    name = "02.m4b",
+                    ext = "m4b",
+                    size = 2048L,
+                    mtimeMs = 0L,
+                    inode = 2L,
+                    fileType = FileType.AUDIO,
+                )
+            val analyzed =
+                AnalyzedBook(
+                    candidate = CandidateBook(rootRelPath = "b", isFile = false, files = listOf(f0, f1)),
+                    title = "B",
+                    tracks = listOf(TrackEntry(file = f0), TrackEntry(file = f1)),
+                    embedded =
+                        embeddedMeta(durationMs = 100L).copy(
+                            audioStream =
+                                AudioStreamInfo(
+                                    codec = "ac4",
+                                    codecProfile = null,
+                                    spatial = "atmos",
+                                    bitrate = 320000,
+                                    sampleRate = 48000,
+                                    channels = 2,
+                                ),
+                        ),
+                )
+
+            val audioFiles = mapper.buildAudioFiles(analyzed)
+
+            audioFiles[0].codec shouldBe "ac4"
+            audioFiles[0].spatial shouldBe "atmos"
+            audioFiles[0].bitrate shouldBe 320000
+            audioFiles[0].sampleRate shouldBe 48000
+            audioFiles[0].channels shouldBe 2
+            audioFiles[1].codec shouldBe ""
+            audioFiles[1].spatial shouldBe null
+            audioFiles[1].bitrate shouldBe null
         }
     })
 

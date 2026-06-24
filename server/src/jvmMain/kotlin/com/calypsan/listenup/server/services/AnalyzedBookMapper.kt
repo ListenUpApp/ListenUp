@@ -38,7 +38,11 @@ import kotlin.time.Clock
  * `durationMs` (parsed per-track for multi-file books by the Analyzer). Every
  * `book_audio_files` row gets its track's duration, and `totalDuration` is their sum.
  * Single-file books leave `TrackEntry.durationMs` null, so both the one file's duration
- * and `totalDuration` fall back to the book-level `embedded.durationMs`. `codec` is left blank.
+ * and `totalDuration` fall back to the book-level `embedded.durationMs`.
+ *
+ * **Audio stream.** The primary (first) file's `codec`/`codecProfile`/`spatial`/
+ * `bitrate`/`sampleRate`/`channels` come from `embedded.audioStream`; secondary
+ * files leave them null (multi-file per-track audio metadata is a non-goal).
  *
  * `cover` is left null — cover hashing is a later task; the substrate-owned
  * `revision` / `updatedAt` / `createdAt` placeholders are overwritten by
@@ -157,21 +161,35 @@ class AnalyzedBookMapper(
         }
 
     /**
-     * Builds the audio-file payloads for [analyzed]. Only the primary (first)
-     * audio file has an authoritative duration — see the duration caveat on
-     * the class doc.
+     * Builds the audio-file payloads for [analyzed]. Each track carries its own
+     * `durationMs` (multi-file books); single-file books fall back to the primary
+     * `embedded.durationMs` — see the duration note on the class doc. The
+     * primary file's `codec`/`codecProfile`/`spatial`/
+     * `bitrate`/`sampleRate`/`channels` come from `embedded.audioStream`;
+     * secondary files leave them null (multi-file per-track metadata is a
+     * non-goal).
      */
     fun buildAudioFiles(analyzed: AnalyzedBook): List<BookAudioFilePayload> {
         val primaryDuration = analyzed.embedded?.durationMs ?: 0L
+        val primaryStream = analyzed.embedded?.audioStream
         return analyzed.tracks.mapIndexed { index, track ->
+            // The scanner parses embedded metadata for the primary (first) file only — a
+            // documented non-goal for multi-file per-track metadata — so codec/profile/
+            // spatial/bitrate/sampleRate/channels are carried on index 0 and left null elsewhere.
+            val stream = if (index == 0) primaryStream else null
             BookAudioFilePayload(
                 id = "",
                 index = index,
                 filename = track.file.name,
                 format = track.file.ext,
-                codec = "",
+                codec = stream?.codec ?: "",
                 duration = track.durationMs ?: if (index == 0) primaryDuration else 0L,
                 size = track.file.size,
+                codecProfile = stream?.codecProfile,
+                spatial = stream?.spatial,
+                bitrate = stream?.bitrate,
+                sampleRate = stream?.sampleRate,
+                channels = stream?.channels,
             )
         }
     }
