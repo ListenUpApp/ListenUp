@@ -41,6 +41,13 @@ struct BookDetailView: View {
                 }
             }
         }
+        .sheet(isPresented: collectionPickerBinding) {
+            if let observer {
+                CollectionPickerSheet(observer: observer) {
+                    observer.closeCollectionPicker()
+                }
+            }
+        }
         .sheet(isPresented: $showEdit) {
             BookEditView(bookId: bookId)
         }
@@ -286,15 +293,34 @@ struct BookDetailView: View {
                 }
 
                 Button {
-                    showRestartConfirmation = true
+                    observer?.openShelfPicker()
                 } label: {
-                    Label(String(localized: "book.detail_restart"), systemImage: "arrow.counterclockwise")
+                    Label(String(localized: "book.detail_add_to_shelf"), systemImage: "text.badge.plus")
                 }
 
-                Button(role: .destructive) {
-                    showDiscardConfirmation = true
-                } label: {
-                    Label(String(localized: "book.detail_discard_progress"), systemImage: "trash")
+                if observer?.isAdmin == true {
+                    Button {
+                        observer?.openCollectionPicker()
+                    } label: {
+                        Label(
+                            String(localized: "book.detail_add_to_collection"),
+                            systemImage: "rectangle.stack.badge.plus"
+                        )
+                    }
+                }
+
+                if observer?.startedAtMs != nil {
+                    Button {
+                        showRestartConfirmation = true
+                    } label: {
+                        Label(String(localized: "book.detail_restart"), systemImage: "arrow.counterclockwise")
+                    }
+
+                    Button(role: .destructive) {
+                        showDiscardConfirmation = true
+                    } label: {
+                        Label(String(localized: "book.detail_discard_progress"), systemImage: "trash")
+                    }
                 }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -335,6 +361,19 @@ struct BookDetailView: View {
                 if !isPresented {
                     observer?.closeShelfPicker()
                     observer?.clearShelfError()
+                }
+            }
+        )
+    }
+
+    // MARK: - Collection picker presentation
+
+    private var collectionPickerBinding: Binding<Bool> {
+        Binding(
+            get: { observer?.showCollectionPicker ?? false },
+            set: { isPresented in
+                if !isPresented {
+                    observer?.closeCollectionPicker()
                 }
             }
         )

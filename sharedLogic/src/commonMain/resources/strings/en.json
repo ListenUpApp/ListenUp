@@ -251,6 +251,8 @@
     "detail_about_this_book": "About this book",
     "detail_add_to_collection": "Add to Collection",
     "detail_add_to_shelf": "Add to Shelf",
+    "detail_collection_picker_title": "Add to Collection",
+    "detail_no_collections": "No collections yet",
     "detail_cancel_download": "Cancel download",
     "detail_chapters": "Chapters",
     "detail_chapters_chaptercount": "Chapters (%1$s)",

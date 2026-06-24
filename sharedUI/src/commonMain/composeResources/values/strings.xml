@@ -236,6 +236,7 @@ One beautiful library.</string>
     <string name="book_detail_chapter_label">Ch. %1$d · %2$s</string>
     <string name="book_detail_chapters">Chapters</string>
     <string name="book_detail_chapters_chaptercount">Chapters (%1$s)</string>
+    <string name="book_detail_collection_picker_title">Add to Collection</string>
     <string name="book_detail_contributors_overflow">%1$s &amp; %2$d others</string>
     <string name="book_detail_credits">Credits</string>
     <string name="book_detail_credits_hint">Opens cast and credits</string>
@@ -280,6 +281,7 @@ One beautiful library.</string>
     <string name="book_detail_narrated_by_prefix">Narrated by </string>
     <string name="book_detail_narrated_by_value">Narrated by %1$s</string>
     <string name="book_detail_new_shelf">New Shelf</string>
+    <string name="book_detail_no_collections">No collections yet</string>
     <string name="book_detail_offline_body">Streaming is unavailable. Downloaded books still play.</string>
     <string name="book_detail_offline_title">Server offline</string>
     <string name="book_detail_other_authors">%1$s, %2$d other authors</string>
