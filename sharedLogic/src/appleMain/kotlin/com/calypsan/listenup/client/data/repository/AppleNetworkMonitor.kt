@@ -7,7 +7,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import platform.Network.nw_path_get_status
 import platform.Network.nw_path_is_expensive
 import platform.Network.nw_path_monitor_cancel
@@ -36,11 +35,11 @@ private val logger = KotlinLogging.logger {}
 class AppleNetworkMonitor : NetworkMonitor {
     private val pathMonitor: nw_path_monitor_t = nw_path_monitor_create()
 
-    private val _isOnlineFlow = MutableStateFlow(false)
-    override val isOnlineFlow: StateFlow<Boolean> = _isOnlineFlow.asStateFlow()
+    override val isOnlineFlow: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
-    private val _isOnUnmeteredNetworkFlow = MutableStateFlow(false)
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = _isOnUnmeteredNetworkFlow.asStateFlow()
+    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+        field = MutableStateFlow(false)
 
     init {
         logger.debug { "Initializing iOS network monitor" }
@@ -53,9 +52,9 @@ class AppleNetworkMonitor : NetworkMonitor {
 
                 logger.debug { "Network path updated: online=$isOnline, expensive=$isExpensive" }
 
-                _isOnlineFlow.value = isOnline
+                isOnlineFlow.value = isOnline
                 // Unmetered = online AND not expensive (WiFi/ethernet, not cellular)
-                _isOnUnmeteredNetworkFlow.value = isOnline && !isExpensive
+                isOnUnmeteredNetworkFlow.value = isOnline && !isExpensive
             }
         }
 
@@ -65,7 +64,7 @@ class AppleNetworkMonitor : NetworkMonitor {
         logger.info { "iOS network monitor started" }
     }
 
-    override fun isOnline(): Boolean = _isOnlineFlow.value
+    override fun isOnline(): Boolean = isOnlineFlow.value
 
     /**
      * Stop monitoring and release resources.

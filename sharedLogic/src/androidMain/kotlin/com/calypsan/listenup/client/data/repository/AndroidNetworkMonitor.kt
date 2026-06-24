@@ -9,7 +9,6 @@ import android.net.NetworkRequest
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Android implementation of [NetworkMonitor] using ConnectivityManager.
@@ -32,24 +31,24 @@ class AndroidNetworkMonitor(
         context.getSystemService(Context.CONNECTIVITY_SERVICE)
             as ConnectivityManager
 
-    private val _isOnlineFlow = MutableStateFlow(checkCurrentConnectivity())
-    override val isOnlineFlow: StateFlow<Boolean> = _isOnlineFlow.asStateFlow()
+    override val isOnlineFlow: StateFlow<Boolean>
+        field = MutableStateFlow(checkCurrentConnectivity())
 
-    private val _isOnUnmeteredNetworkFlow = MutableStateFlow(checkCurrentUnmetered())
-    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = _isOnUnmeteredNetworkFlow.asStateFlow()
+    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean>
+        field = MutableStateFlow(checkCurrentUnmetered())
 
     init {
         val networkCallback =
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    _isOnlineFlow.value = true
-                    _isOnUnmeteredNetworkFlow.value = checkCurrentUnmetered()
+                    isOnlineFlow.value = true
+                    isOnUnmeteredNetworkFlow.value = checkCurrentUnmetered()
                 }
 
                 override fun onLost(network: Network) {
                     // Re-check since there might be other networks available
-                    _isOnlineFlow.value = checkCurrentConnectivity()
-                    _isOnUnmeteredNetworkFlow.value = checkCurrentUnmetered()
+                    isOnlineFlow.value = checkCurrentConnectivity()
+                    isOnUnmeteredNetworkFlow.value = checkCurrentUnmetered()
                 }
 
                 override fun onCapabilitiesChanged(
@@ -63,13 +62,13 @@ class AndroidNetworkMonitor(
                             capabilities.hasCapability(
                                 NetworkCapabilities.NET_CAPABILITY_VALIDATED,
                             )
-                    _isOnlineFlow.value = hasInternet
+                    isOnlineFlow.value = hasInternet
 
                     // Check if network is unmetered (WiFi, ethernet, etc.)
                     val isUnmetered =
                         hasInternet &&
                             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                    _isOnUnmeteredNetworkFlow.value = isUnmetered
+                    isOnUnmeteredNetworkFlow.value = isUnmetered
                 }
             }
 
@@ -82,7 +81,7 @@ class AndroidNetworkMonitor(
         connectivityManager.registerNetworkCallback(request, networkCallback)
     }
 
-    override fun isOnline(): Boolean = _isOnlineFlow.value
+    override fun isOnline(): Boolean = isOnlineFlow.value
 
     /**
      * Check current connectivity state.
