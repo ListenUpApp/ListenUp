@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.presentation.admin.import
+package com.calypsan.listenup.client.presentation.admin.imports
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId

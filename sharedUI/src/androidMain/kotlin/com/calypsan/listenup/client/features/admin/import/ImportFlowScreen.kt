@@ -71,9 +71,9 @@ import com.calypsan.listenup.client.design.components.StatTileTone
 import com.calypsan.listenup.client.design.components.WizardStepTracker
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
-import com.calypsan.listenup.client.presentation.admin.import.BookSearchState
-import com.calypsan.listenup.client.presentation.admin.import.ImportFlowUiState
-import com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel
+import com.calypsan.listenup.client.presentation.admin.imports.BookSearchState
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
 import com.calypsan.listenup.client.util.DocumentPickerResult
 import com.calypsan.listenup.client.util.rememberABSBackupPicker
 import com.calypsan.listenup.core.AbsItemId

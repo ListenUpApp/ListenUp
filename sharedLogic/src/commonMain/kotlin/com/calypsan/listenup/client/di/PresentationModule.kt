@@ -26,7 +26,7 @@ private const val APP_SCOPE = "appScope"
 /**
  * Auth and connection ViewModels.
  */
-val authPresentationModule =
+internal val authPresentationModule =
     module {
         factory {
             ServerSelectViewModel(
@@ -110,7 +110,7 @@ val authPresentationModule =
 /**
  * Admin ViewModels.
  */
-val adminPresentationModule =
+internal val adminPresentationModule =
     module {
         single {
             AdminViewModel(
@@ -223,7 +223,7 @@ val adminPresentationModule =
         }
         // ImportFlowViewModel for the rebuilt single-screen ABS import flow
         factory {
-            com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel(
+            com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel(
                 importRepository = get(),
                 errorBus = get(),
                 syncRepository = get(),
@@ -236,7 +236,7 @@ val adminPresentationModule =
 /**
  * Library and core browsing ViewModels.
  */
-val libraryPresentationModule =
+internal val libraryPresentationModule =
     module {
         // Shared selection state - singleton so both ViewModels observe the same state
         single { LibrarySelectionManager() }
@@ -293,7 +293,7 @@ val libraryPresentationModule =
 /**
  * Book and content detail ViewModels.
  */
-val bookPresentationModule =
+internal val bookPresentationModule =
     module {
         factory {
             com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel(
@@ -346,7 +346,7 @@ val bookPresentationModule =
 /**
  * Series ViewModels.
  */
-val seriesPresentationModule =
+internal val seriesPresentationModule =
     module {
         factory {
             com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel(
@@ -371,7 +371,7 @@ val seriesPresentationModule =
 /**
  * Contributor ViewModels.
  */
-val contributorPresentationModule =
+internal val contributorPresentationModule =
     module {
         factory {
             com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel(
@@ -411,7 +411,7 @@ val contributorPresentationModule =
 /**
  * Discover and social ViewModels.
  */
-val discoverPresentationModule =
+internal val discoverPresentationModule =
     module {
         factory {
             com.calypsan.listenup.client.presentation.home.HomeViewModel(
@@ -447,7 +447,7 @@ val discoverPresentationModule =
 /**
  * Tag and shelf ViewModels.
  */
-val tagShelfPresentationModule =
+internal val tagShelfPresentationModule =
     module {
         factory {
             com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel(
@@ -476,7 +476,7 @@ val tagShelfPresentationModule =
 /**
  * User profile ViewModels.
  */
-val profilePresentationModule =
+internal val profilePresentationModule =
     module {
         // UserProfileViewModel for viewing user profiles
         factory {
@@ -501,7 +501,7 @@ val profilePresentationModule =
 /**
  * Settings and sync indicator ViewModels.
  */
-val settingsPresentationModule =
+internal val settingsPresentationModule =
     module {
         factory {
             SettingsViewModel(
@@ -535,7 +535,7 @@ val settingsPresentationModule =
 /**
  * App startup / navigation initialisation ViewModel.
  */
-val startupPresentationModule =
+internal val startupPresentationModule =
     module {
         factory {
             com.calypsan.listenup.client.presentation.startup.AppStartupViewModel(
@@ -551,7 +551,7 @@ val startupPresentationModule =
 /**
  * All presentation modules combined.
  */
-val allPresentationModules =
+internal val allPresentationModules =
     listOf(
         authPresentationModule,
         adminPresentationModule,

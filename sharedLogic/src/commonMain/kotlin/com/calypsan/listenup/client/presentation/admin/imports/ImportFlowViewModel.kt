@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.presentation.admin.import
+package com.calypsan.listenup.client.presentation.admin.imports
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
