@@ -67,13 +67,7 @@ fun audioFormatIdentity(
     val c = codec.trim().lowercase()
     if (c.isBlank()) return null
     return when (c) {
-        "aac" ->
-            when (codecProfile?.trim()?.lowercase()) {
-                "xhe" -> "xHE-AAC"
-                "hev2" -> "HE-AAC v2"
-                "he" -> "HE-AAC"
-                else -> "AAC"
-            }
+        "aac" -> aacProfileLabel(codecProfile)
         "ac4" -> "AC-4"
         "eac3" -> "E-AC-3"
         "mp3" -> "MP3"
@@ -84,6 +78,15 @@ fun audioFormatIdentity(
         else -> codec.trim().uppercase()
     }
 }
+
+/** AAC display name refined by its profile token (`xhe`/`hev2`/`he`); plain "AAC" otherwise. */
+private fun aacProfileLabel(codecProfile: String?): String =
+    when (codecProfile?.trim()?.lowercase()) {
+        "xhe" -> "xHE-AAC"
+        "hev2" -> "HE-AAC v2"
+        "he" -> "HE-AAC"
+        else -> "AAC"
+    }
 
 /** Exact bitrate label — "320 kbps" from bits/sec; null when absent or non-positive. */
 fun bitrateLabel(bitrate: Int?): String? {
@@ -99,14 +102,17 @@ fun sampleRateLabel(sampleRate: Int?): String? {
     return "$text kHz"
 }
 
+private const val CHANNELS_5_1 = 6
+private const val CHANNELS_7_1 = 8
+
 /** Channel-count label — Mono/Stereo/5.1/7.1, else "N ch"; null when absent or non-positive. */
 fun channelsLabel(channels: Int?): String? =
     when {
         channels == null || channels <= 0 -> null
         channels == 1 -> "Mono"
         channels == 2 -> "Stereo"
-        channels == 6 -> "5.1"
-        channels == 8 -> "7.1"
+        channels == CHANNELS_5_1 -> "5.1"
+        channels == CHANNELS_7_1 -> "7.1"
         else -> "$channels ch"
     }
 
