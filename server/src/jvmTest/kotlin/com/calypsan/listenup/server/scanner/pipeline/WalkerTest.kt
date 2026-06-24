@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 class WalkerTest :
     FunSpec({
@@ -28,7 +29,7 @@ class WalkerTest :
                 image("cover.jpg")
             }.use { fixture ->
                 runTest {
-                    val entries = walker.walk(fixture.root).toList()
+                    val entries = walker.walk(IoPath(fixture.root.toString())).toList()
                     entries.map { it.relPath } shouldContainExactlyInAnyOrder
                         listOf("track-01.mp3", "track-02.mp3", "cover.jpg")
                 }
@@ -43,7 +44,7 @@ class WalkerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val entries = walker.walk(fixture.root).toList()
+                    val entries = walker.walk(IoPath(fixture.root.toString())).toList()
                     val paths = entries.map { it.relPath }
                     paths shouldContainAll
                         listOf(
@@ -67,7 +68,7 @@ class WalkerTest :
                 audio("HiddenAuthor/buried.mp3") // should be skipped
             }.use { fixture ->
                 runTest {
-                    val entries = walker.walk(fixture.root).toList()
+                    val entries = walker.walk(IoPath(fixture.root.toString())).toList()
                     val paths = entries.map { it.relPath }
 
                     paths shouldContain "real-track.mp3"
@@ -78,7 +79,23 @@ class WalkerTest :
             }
         }
 
-        test("does not follow symlinks (cycles cannot crash the walk)") {
+        test("prunes an entire subtree several levels below a .ignore marker") {
+            audioLibrary {
+                audio("Top/keep.mp3")
+                ignore("Top/Hidden") // creates Top/Hidden/.ignore
+                audio("Top/Hidden/Deep/Deeper/buried.mp3") // pruned at Hidden's child
+            }.use { fixture ->
+                runTest {
+                    val paths = walker.walk(IoPath(fixture.root.toString())).toList().map { it.relPath }
+                    paths shouldContain "Top/keep.mp3"
+                    withClue("nothing under a .ignore-marked directory may surface") {
+                        paths.none { it.startsWith("Top/Hidden/") } shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("does not follow symlinks and emits the link as a single UNKNOWN leaf") {
             audioLibrary {
                 audio("real-track.mp3")
             }.use { fixture ->
@@ -87,11 +104,15 @@ class WalkerTest :
                 runCatching { Files.createSymbolicLink(loop, fixture.root) }
                     .getOrElse { return@use }
                 runTest {
-                    val entries = walker.walk(fixture.root).toList()
-                    entries.map { it.relPath } shouldContain "real-track.mp3"
-                    // The symlink itself isn't followed; if visitFile reports it,
-                    // it'd appear as `loop` with no extension — UNKNOWN type.
-                    entries.none { it.relPath.startsWith("loop/") } shouldBe true
+                    val entries = walker.walk(IoPath(fixture.root.toString())).toList()
+                    val paths = entries.map { it.relPath }
+                    paths shouldContain "real-track.mp3"
+                    // The symlink itself is reported once, as a leaf with no extension
+                    // (UNKNOWN), exactly as the old no-follow walkFileTree did...
+                    paths.count { it == "loop" } shouldBe 1
+                    entries.single { it.relPath == "loop" }.fileType shouldBe FileType.UNKNOWN
+                    // ...but it is never descended, so nothing appears beneath it.
+                    paths.none { it.startsWith("loop/") } shouldBe true
                 }
             }
         }
@@ -101,9 +122,8 @@ class WalkerTest :
                 audio("track.mp3")
             }.use { fixture ->
                 runTest {
-                    val entry = walker.walk(fixture.root).toList().single()
+                    val entry = walker.walk(IoPath(fixture.root.toString())).toList().single()
                     if (System.getProperty("os.name").lowercase().contains("windows")) {
-                        // Windows default filesystem doesn't expose fileKey.
                         entry.inode.shouldBeNull()
                     } else {
                         entry.inode.shouldNotBeNull()
@@ -121,7 +141,7 @@ class WalkerTest :
                 raw("README", contents = "")
             }.use { fixture ->
                 runTest {
-                    val byName = walker.walk(fixture.root).toList().associateBy { it.name }
+                    val byName = walker.walk(IoPath(fixture.root.toString())).toList().associateBy { it.name }
                     byName.getValue("track.mp3").fileType shouldBe FileType.AUDIO
                     byName.getValue("cover.png").fileType shouldBe FileType.IMAGE
                     byName.getValue("metadata.json").fileType shouldBe FileType.METADATA
@@ -135,7 +155,7 @@ class WalkerTest :
             runTest {
                 val notADir: Path = Files.createTempFile("listenup-not-a-dir-", ".txt")
                 try {
-                    walker.walk(notADir).toList() shouldBe emptyList()
+                    walker.walk(IoPath(notADir.toString())).toList() shouldBe emptyList()
                 } finally {
                     Files.deleteIfExists(notADir)
                 }
@@ -147,7 +167,7 @@ class WalkerTest :
                 audio("track.mp3", sizeBytes = 1024L)
             }.use { fixture ->
                 runTest {
-                    val entry = walker.walk(fixture.root).toList().single()
+                    val entry = walker.walk(IoPath(fixture.root.toString())).toList().single()
                     entry.size shouldBe 1024L
                     (entry.mtimeMs > 0L) shouldBe true
                 }

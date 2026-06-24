@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.scanner.inference
 
-import java.nio.file.Files
-import java.nio.file.Path
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * Files and directories the Walker must skip. The rules are sourced from
@@ -26,7 +26,8 @@ internal object SkipRules {
         )
 
     fun shouldSkip(path: Path): Boolean {
-        val name = path.fileName?.toString() ?: return false
+        val name = path.name
+        if (name.isEmpty()) return false
 
         // Dotfiles. ABS skips any path component starting with `.`; we apply the
         // rule per entry so the Walker can prune subtrees as it descends.
@@ -42,7 +43,7 @@ internal object SkipRules {
         // `.ignore` sentinel — presence of a `.ignore` sibling file marks the
         // containing directory (and everything beneath) as skipped.
         val parent = path.parent
-        if (parent != null && Files.exists(parent.resolve(".ignore"))) return true
+        if (parent != null && SystemFileSystem.exists(Path(parent, ".ignore"))) return true
 
         return false
     }

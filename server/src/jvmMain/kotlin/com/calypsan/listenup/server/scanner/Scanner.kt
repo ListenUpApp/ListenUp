@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import java.nio.file.Path
 import java.util.UUID
+import kotlinx.io.files.Path as IoPath
 
 private val logger = KotlinLogging.logger {}
 
@@ -95,10 +96,10 @@ internal class Scanner(
         // then aggregate into a single flat list for the pipeline.
         val allFiles =
             library.folders.flatMap { folder ->
-                val folderRoot = Path.of(folder.rootPath)
+                val rootPath = folder.rootPath ?: return@flatMap emptyList()
                 val walker = Walker()
                 walker
-                    .walk(folderRoot)
+                    .walk(IoPath(rootPath))
                     .toList()
             }
 
@@ -214,7 +215,7 @@ internal class Scanner(
                 ?: bookRoot
 
         val walker = Walker()
-        val rawFiles = walker.walk(bookRoot).toList()
+        val rawFiles = walker.walk(IoPath(bookRoot.toString())).toList()
         val prefix = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
         val rebasedFiles =
             rawFiles.map { entry ->

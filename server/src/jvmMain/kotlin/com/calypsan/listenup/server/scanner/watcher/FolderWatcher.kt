@@ -16,6 +16,7 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.io.files.Path as IoPath
 
 private val logger = KotlinLogging.logger {}
 
@@ -52,7 +53,7 @@ internal class FolderWatcher(
     private val libraryRoot: Path,
     private val scope: CoroutineScope,
     private val debouncer: StableSizeDebouncer = StableSizeDebouncer(),
-    private val skipRules: (Path) -> Boolean = SkipRules::shouldSkip,
+    private val skipRules: (Path) -> Boolean = { path -> SkipRules.shouldSkip(IoPath(path.toString())) },
     private val watcher: LowLevelDirectoryWatcher = RecursiveDirectoryWatcher(scope),
 ) {
     private val emissions = MutableSharedFlow<Path>(extraBufferCapacity = 64)
