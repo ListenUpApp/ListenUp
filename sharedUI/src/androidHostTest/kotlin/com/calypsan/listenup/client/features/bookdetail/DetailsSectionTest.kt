@@ -3,9 +3,9 @@ package com.calypsan.listenup.client.features.bookdetail
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
-import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -25,7 +25,22 @@ class DetailsSectionTest {
                 publisher = "Tor Books",
                 publishYear = 2021,
                 language = "en",
-                audioFormat = AudioFormat(codec = "AAC", approxBitrateKbps = 125),
+                audioFiles =
+                    listOf(
+                        AudioFile(
+                            id = "1",
+                            index = 0,
+                            filename = "01.m4b",
+                            format = "m4b",
+                            codec = "ac4",
+                            duration = 3_600_000L,
+                            size = 1_000_000L,
+                            spatial = "atmos",
+                            bitrate = 320_000,
+                            sampleRate = 48_000,
+                            channels = 6,
+                        ),
+                    ),
                 credits = listOf(BookContributor(id = "1", name = "Gre7g Luterman", roles = listOf("author"))),
                 onContributorClick = {},
             )
@@ -33,8 +48,12 @@ class DetailsSectionTest {
         composeRule.onNodeWithText("Tor Books").assertIsDisplayed()
         composeRule.onNodeWithText("2021").assertIsDisplayed()
         composeRule.onNodeWithText("English").assertIsDisplayed()
-        composeRule.onNodeWithText("AAC · ~125 kbps").assertIsDisplayed()
-        composeRule.onNodeWithText("Gre7g Luterman").assertIsDisplayed()
+        composeRule.onNodeWithText("Dolby Atmos").assertIsDisplayed()
+        composeRule.onNodeWithText("320 kbps").assertIsDisplayed()
+        composeRule.onNodeWithText("48 kHz").assertIsDisplayed()
+        // The bottom rows fall below the fixed test viewport; assert they're composed.
+        composeRule.onNodeWithText("5.1").assertExists()
+        composeRule.onNodeWithText("Gre7g Luterman").assertExists()
     }
 
     @Test
@@ -44,12 +63,15 @@ class DetailsSectionTest {
                 publisher = null,
                 publishYear = null,
                 language = null,
-                audioFormat = null,
+                audioFiles = emptyList(),
                 credits = listOf(BookContributor(id = "1", name = "Gre7g Luterman", roles = listOf("author"))),
                 onContributorClick = {},
             )
         }
         composeRule.onNodeWithText("Publisher").assertDoesNotExist()
+        composeRule.onNodeWithText("Bitrate").assertDoesNotExist()
+        composeRule.onNodeWithText("Sample rate").assertDoesNotExist()
+        composeRule.onNodeWithText("Channels").assertDoesNotExist()
         composeRule.onNodeWithText("Gre7g Luterman").assertIsDisplayed()
     }
 }

@@ -4,7 +4,8 @@ import com.calypsan.listenup.client.domain.model.AudioFile
 import kotlin.math.roundToInt
 
 /**
- * Audio-format summary shown in the Book Detail "Details" section.
+ * Audio-format summary derived from a book's files. Supplies the approximate-bitrate fallback for the
+ * Book Detail "Bitrate" row when per-file bitrate is unavailable.
  *
  * @property codec upper-cased codec, e.g. "AAC".
  * @property approxBitrateKbps approximate average bitrate in kbps, or null when it can't be derived.
@@ -12,19 +13,7 @@ import kotlin.math.roundToInt
 data class AudioFormat(
     val codec: String,
     val approxBitrateKbps: Int?,
-) {
-    /**
-     * "AAC · ~125 kbps" when both are known, the codec alone when only it is known, "~125 kbps" when
-     * only the bitrate is known, and "" when neither is. Never an orphan bullet. The "~" marks the estimate.
-     */
-    fun displayLabel(): String =
-        when {
-            codec.isNotBlank() && approxBitrateKbps != null -> "$codec · ~$approxBitrateKbps kbps"
-            codec.isNotBlank() -> codec
-            approxBitrateKbps != null -> "~$approxBitrateKbps kbps"
-            else -> ""
-        }
-}
+)
 
 /**
  * Derives a display [AudioFormat] from a book's audio files. The codec is the most common NON-BLANK

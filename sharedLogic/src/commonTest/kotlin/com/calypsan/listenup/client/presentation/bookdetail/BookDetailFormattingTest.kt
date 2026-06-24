@@ -17,7 +17,6 @@ class BookDetailFormattingTest :
             val f = audioFormatSummary(listOf(file("aac", 1_000_000, 60_000)))
             f?.codec shouldBe "AAC"
             f?.approxBitrateKbps shouldBe 133
-            f?.displayLabel() shouldBe "AAC · ~133 kbps"
         }
 
         test("audioFormatSummary returns null when there are no files") {
@@ -28,7 +27,6 @@ class BookDetailFormattingTest :
             val f = audioFormatSummary(listOf(file("mp3", 1000, 0)))
             f?.codec shouldBe "MP3"
             f?.approxBitrateKbps shouldBe null
-            f?.displayLabel() shouldBe "MP3"
         }
 
         test("audioFormatSummary picks the most common codec across files") {
@@ -40,7 +38,6 @@ class BookDetailFormattingTest :
             val f = audioFormatSummary(listOf(file("", 1_000_000, 60_000)))
             f?.codec shouldBe ""
             f?.approxBitrateKbps shouldBe 133
-            f?.displayLabel() shouldBe "~133 kbps"
         }
 
         test("audioFormatSummary returns null when codec blank and no bitrate") {

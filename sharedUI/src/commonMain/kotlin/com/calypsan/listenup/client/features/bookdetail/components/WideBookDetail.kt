@@ -36,7 +36,6 @@ import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.ChapterUiModel
-import com.calypsan.listenup.client.presentation.bookdetail.audioFormatSummary
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_show_all_chapters
 import org.jetbrains.compose.resources.stringResource
@@ -339,7 +338,7 @@ private fun WideLeftColumn(
             publisher = book.publisher,
             publishYear = book.publishYear,
             language = book.language,
-            audioFormat = audioFormatSummary(book.audioFiles),
+            audioFiles = book.audioFiles,
             credits = book.allContributors,
             onContributorClick = onContributorClick,
             modifier = Modifier.padding(top = 16.dp),

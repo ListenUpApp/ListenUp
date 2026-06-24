@@ -63,7 +63,6 @@ import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeade
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.bookdetail.components.CompactHero
 import com.calypsan.listenup.client.features.bookdetail.components.DetailsSection
-import com.calypsan.listenup.client.presentation.bookdetail.audioFormatSummary
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.bookdetail.components.MarkCompleteDialog
 import com.calypsan.listenup.client.features.bookdetail.components.OfflineBanner
@@ -720,7 +719,7 @@ private fun ImmersiveBookDetail(
                     publisher = book.publisher,
                     publishYear = book.publishYear,
                     language = book.language,
-                    audioFormat = audioFormatSummary(book.audioFiles),
+                    audioFiles = book.audioFiles,
                     credits = book.allContributors,
                     onContributorClick = onContributorClick,
                     modifier = screenPadding.padding(top = 8.dp),

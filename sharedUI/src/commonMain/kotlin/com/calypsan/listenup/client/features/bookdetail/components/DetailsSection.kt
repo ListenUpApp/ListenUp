@@ -19,35 +19,52 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
+import com.calypsan.listenup.client.domain.model.AudioFile
 import com.calypsan.listenup.client.domain.model.BookContributor
-import com.calypsan.listenup.client.presentation.bookdetail.AudioFormat
 import com.calypsan.listenup.client.presentation.bookdetail.CreditRoleGroup
+import com.calypsan.listenup.client.presentation.bookdetail.audioFormatIdentity
+import com.calypsan.listenup.client.presentation.bookdetail.audioFormatSummary
+import com.calypsan.listenup.client.presentation.bookdetail.bitrateLabel
+import com.calypsan.listenup.client.presentation.bookdetail.channelsLabel
 import com.calypsan.listenup.client.presentation.bookdetail.groupContributorsByRole
 import com.calypsan.listenup.client.presentation.bookdetail.languageDisplayName
+import com.calypsan.listenup.client.presentation.bookdetail.sampleRateLabel
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.book_detail_bitrate
+import listenup.composeapp.generated.resources.book_detail_channels
 import listenup.composeapp.generated.resources.book_detail_details
 import listenup.composeapp.generated.resources.book_detail_format
 import listenup.composeapp.generated.resources.book_detail_language
 import listenup.composeapp.generated.resources.book_detail_published
 import listenup.composeapp.generated.resources.book_detail_publisher
+import listenup.composeapp.generated.resources.book_detail_sample_rate
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Book "Details" section: the contributor credits grouped by role, followed by the formal metadata
- * rows (publisher, published year, language, audio format). Renders nothing when there is neither
- * credits nor metadata. A divider sits between every consecutive row. Each metadata row mirrors the
- * credit-row style: value on the left, dim label on the right.
+ * rows (publisher, published year, language, then the audio-format breakdown — format identity,
+ * bitrate, sample rate, channels — read from the primary audio file). Renders nothing when there is
+ * neither credits nor metadata, and omits each row whose datum is absent. A divider sits between
+ * every consecutive row. Each metadata row mirrors the credit-row style: value on the left, dim
+ * label on the right.
  */
 @Composable
 fun DetailsSection(
     publisher: String?,
     publishYear: Int?,
     language: String?,
-    audioFormat: AudioFormat?,
+    audioFiles: List<AudioFile>,
     credits: List<BookContributor>,
     onContributorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val primary = audioFiles.firstOrNull()
+    val formatIdentity = primary?.let { audioFormatIdentity(it.codec, it.codecProfile, it.spatial) }
+    val bitrate =
+        bitrateLabel(primary?.bitrate)
+            ?: audioFormatSummary(audioFiles)?.approxBitrateKbps?.let { "~$it kbps" }
+    val sampleRate = sampleRateLabel(primary?.sampleRate)
+    val channels = channelsLabel(primary?.channels)
     val rows: List<@Composable () -> Unit> =
         buildList {
             // Contributors first (role-grouped), then the formal metadata rows.
@@ -75,12 +92,24 @@ fun DetailsSection(
                     )
                 }
             }
-            if (audioFormat != null) {
+            if (formatIdentity != null) {
                 add {
-                    MetadataRow(
-                        value = audioFormat.displayLabel(),
-                        label = stringResource(Res.string.book_detail_format),
-                    )
+                    MetadataRow(value = formatIdentity, label = stringResource(Res.string.book_detail_format))
+                }
+            }
+            if (bitrate != null) {
+                add {
+                    MetadataRow(value = bitrate, label = stringResource(Res.string.book_detail_bitrate))
+                }
+            }
+            if (sampleRate != null) {
+                add {
+                    MetadataRow(value = sampleRate, label = stringResource(Res.string.book_detail_sample_rate))
+                }
+            }
+            if (channels != null) {
+                add {
+                    MetadataRow(value = channels, label = stringResource(Res.string.book_detail_channels))
                 }
             }
         }
