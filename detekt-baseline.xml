@@ -2,215 +2,41 @@
 <SmellBaseline>
   <ManuallySuppressedIssues/>
   <CurrentIssues>
-    <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$also</ID>
-    <ID>CognitiveComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( cover: BookCoverModel, onClick: () -&gt; Unit, modifier: Modifier = Modifier, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, hasDocuments: Boolean = false, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, )</ID>
-    <ID>CognitiveComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
-    <ID>CognitiveComplexMethod:SyncTestApplication.kt$internal fun withTestApplication( heartbeatIntervalMillis: Long? = null, userScoped: Boolean = false, playbackPositions: Boolean = false, playbackEvents: Boolean = false, block: suspend SyncTestScope.() -&gt; Unit, )</ID>
-    <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x4F.toByte() &amp;&amp; headerBytes[1] == 0x67.toByte() &amp;&amp; headerBytes[2] == 0x67.toByte() &amp;&amp; headerBytes[3] == 0x53.toByte()</ID>
-    <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[0] == 0x66.toByte() &amp;&amp; headerBytes[1] == 0x4C.toByte() &amp;&amp; headerBytes[2] == 0x61.toByte() &amp;&amp; headerBytes[3] == 0x43.toByte()</ID>
-    <ID>ComplexCondition:AudioFormatDetector.kt$AudioFormatDetector$headerBytes[4] == 0x66.toByte() &amp;&amp; headerBytes[5] == 0x74.toByte() &amp;&amp; headerBytes[6] == 0x79.toByte() &amp;&amp; headerBytes[7] == 0x70.toByte()</ID>
-    <ID>ComplexCondition:AudioRoutes.kt$exp == null || sig == null || userId == null || !signer.verify(userId, bookId, fileId, exp, sig)</ID>
-    <ID>ComplexCondition:BuildMp4File.kt$MoovBuilder$patched[i] == stcoMarker[0] &amp;&amp; patched[i + 1] == stcoMarker[1] &amp;&amp; patched[i + 2] == stcoMarker[2] &amp;&amp; patched[i + 3] == stcoMarker[3]</ID>
-    <ID>CyclomaticComplexMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( cover: BookCoverModel, onClick: () -&gt; Unit, modifier: Modifier = Modifier, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, hasDocuments: Boolean = false, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, )</ID>
-    <ID>CyclomaticComplexMethod:Id3v2Reader.kt$Id3v2Reader$fun read(bytes: ByteArray): Id3v2ReadResult?</ID>
-    <ID>CyclomaticComplexMethod:Id3v2Reader.kt$Id3v2Reader$private fun handleTextFrame( frameId: String, data: ByteArray, builder: AudioTagsBuilder, )</ID>
-    <ID>CyclomaticComplexMethod:IlstReader.kt$IlstReader$private fun mapTextTag( type: String, value: String, builder: AudioTagsBuilder, )</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getIncomplete returns rows not COMPLETED and not DELETED`()</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getLocalPath returns localPath for COMPLETED rows only`()</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `hasDeletedRecords returns true if any DELETED row exists for a book`()</ID>
-    <ID>FunctionMaxLength:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `markDeletedForBook transitions all rows for a book to DELETED`()</ID>
-    <ID>FunctionMaxLength:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `deleteForBook removes all download rows for that book`()</ID>
-    <ID>FunctionMaxLength:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `downloads whose book is missing from repository are silently dropped`()</ID>
-    <ID>FunctionMaxLength:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `single completed download becomes one summary row`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `206 partial-content resume — Range header sent for partial tempFile`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `401 once then refresh succeeds — final state COMPLETED`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `401 persistent with null refresh — returns AppResult Failure and worker would markPaused`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `500 once then retry succeeds — final state COMPLETED`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `cancellation via isStopped — throws CancellationException`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `disk full on move — IOException with ENOSPC message`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `network drop mid-stream — IOException on size mismatch`()</ID>
-    <ID>FunctionMaxLength:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `progress throttling — updateProgress called sparsely not per-chunk`()</ID>
-    <ID>FunctionMaxLength:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `encryption produces different ciphertext for same plaintext`()</ID>
-    <ID>FunctionMaxLength:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getDatabasePath returns path ending in listenup db`()</ID>
-    <ID>FunctionMaxLength:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getSecureStoragePath returns path ending in auth enc`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob clears playbackError on transition to Playing`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackPaused when player transitions to Paused`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackStarted when player transitions to Playing`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob surfaces PlaybackState_Error as PlaybackError on playbackError flow`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState Paused notifies progressTracker onPlaybackPaused`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState Playing notifies progressTracker onPlaybackStarted`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState does not notify progressTracker when no book is active`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `startPlayback subscribes to AudioPlayer state and forwards to PlaybackManager`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerFallbackFetchAtomicityTest.kt$PlaybackManagerFallbackFetchAtomicityTest$@Test fun `fetchBookFromServer delegates write to bookRepository upsertWithAudioFiles`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerFallbackFetchAtomicityTest.kt$PlaybackManagerFallbackFetchAtomicityTest$@Test fun `fetchBookFromServer returns false when upsertWithAudioFiles returns Failure`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerFallbackFetchTest.kt$PlaybackManagerFallbackFetchTest$@Test fun `fallback fetch populates audio_files junction when local is empty`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerPrepareTest.kt$PlaybackManagerPrepareTest$@Test fun `prepareForPlayback builds timeline from junction rows in index order`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `onSpeedChanged does not call playbackPreferences setDefaultPlaybackSpeed`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `onSpeedChanged with 1_0f propagates progressTracker write`()</ID>
-    <ID>FunctionMaxLength:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `startPlayback with effective speed 1_0f calls audioPlayer setSpeed 1_0f`()</ID>
-    <ID>FunctionMaxLength:SchemaMigrationSmokeTest.kt$SchemaMigrationSmokeTest$@Test fun `creates current schema database and opens a live connection`()</ID>
-    <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
-    <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns null when book has no genres`()</ID>
-    <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getSeriesNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
-    <ID>FunctionMaxLength:SearchDaoTest.kt$SearchDaoTest$@Test fun `getSeriesNamesForBook returns null when book has no series`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getIncomplete returns rows not COMPLETED and not DELETED`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `getLocalPath returns localPath for COMPLETED rows only`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `hasDeletedRecords returns true if any DELETED row exists for a book`()</ID>
-    <ID>FunctionNaming:DownloadDaoTest.kt$DownloadDaoTest$@Test fun `markDeletedForBook transitions all rows for a book to DELETED`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `deleteForBook removes all download rows for that book`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `downloads whose book is missing from repository are silently dropped`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `empty downloads emits empty list`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `multi-file book aggregates size and file count`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `non-completed downloads are filtered out`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `single completed download becomes one summary row`()</ID>
-    <ID>FunctionNaming:DownloadRepositoryImplTest.kt$DownloadRepositoryImplTest$@Test fun `summaries are sorted by size descending`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `200 happy path — bytes flow and markCompleted`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `206 partial-content resume — Range header sent for partial tempFile`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `401 once then refresh succeeds — final state COMPLETED`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `401 persistent with null refresh — returns AppResult Failure and worker would markPaused`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `500 once then retry succeeds — final state COMPLETED`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `500 persistent — retries exhausted and throws`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `cancellation via isStopped — throws CancellationException`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `disk full on move — IOException with ENOSPC message`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `network drop mid-stream — IOException on size mismatch`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `prepare failure propagates as AppResult Failure`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `progress throttling — updateProgress called sparsely not per-chunk`()</ID>
-    <ID>FunctionNaming:DownloadWorkerLogicTest.kt$DownloadWorkerLogicTest$@Test fun `signed URL from prepare is used for download`()</ID>
-    <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames drops unknown names silently`()</ID>
-    <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames matches case-insensitively`()</ID>
-    <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames returns empty list for empty input`()</ID>
-    <ID>FunctionNaming:GenreDaoNameResolutionTest.kt$GenreDaoNameResolutionTest$@Test fun `getIdsByNames returns matching id-name pairs`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `clear deletes storage file`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `clear removes all data`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `data persists across storage instances`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `delete on non-existent key does not crash`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `delete removes specific key`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `encryption produces different ciphertext for same plaintext`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `file content is encrypted not plaintext`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `handles corrupted file gracefully`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `handles empty string value`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `handles long values`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `handles special JSON characters in values`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `handles unicode characters`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `multiple keys stored independently`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `new storage on non-existent file works`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `read returns null for non-existent key`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `save and read round-trip works`()</ID>
-    <ID>FunctionNaming:JvmSecureStorageTest.kt$JvmSecureStorageTest$@Test fun `save overwrites existing value`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `cache directory is created when accessed`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `database directory is created when accessed`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `directories are created when accessed`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `filesDir contains listenup in path`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `filesDir returns non-null path`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `filesDir uses appropriate base on Linux`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `filesDir uses appropriate base on Windows`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getCacheDirectory returns valid path`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getCacheDirectory uses appropriate base on Linux`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getDatabaseDirectory returns valid path`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getDatabasePath returns path ending in listenup db`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `getSecureStoragePath returns path ending in auth enc`()</ID>
-    <ID>FunctionNaming:JvmStoragePathsTest.kt$JvmStoragePathsTest$@Test fun `paths do not contain double slashes`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob clears playbackError on transition to Playing`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackPaused when player transitions to Paused`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob notifies progressTracker onPlaybackStarted when player transitions to Playing`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `playerObservationJob surfaces PlaybackState_Error as PlaybackError on playbackError flow`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setBuffering updates isBuffering flow`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState Paused notifies progressTracker onPlaybackPaused`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState Playing notifies progressTracker onPlaybackStarted`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState does not notify progressTracker when no book is active`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `setPlaybackState updates playbackState flow`()</ID>
-    <ID>FunctionNaming:PlaybackManagerBufferingStateTest.kt$PlaybackManagerBufferingStateTest$@Test fun `startPlayback subscribes to AudioPlayer state and forwards to PlaybackManager`()</ID>
-    <ID>FunctionNaming:PlaybackManagerFallbackFetchAtomicityTest.kt$PlaybackManagerFallbackFetchAtomicityTest$@Test fun `fetchBookFromServer delegates write to bookRepository upsertWithAudioFiles`()</ID>
-    <ID>FunctionNaming:PlaybackManagerFallbackFetchAtomicityTest.kt$PlaybackManagerFallbackFetchAtomicityTest$@Test fun `fetchBookFromServer returns false when upsertWithAudioFiles returns Failure`()</ID>
-    <ID>FunctionNaming:PlaybackManagerFallbackFetchTest.kt$PlaybackManagerFallbackFetchTest$@Test fun `fallback fetch populates audio_files junction when local is empty`()</ID>
-    <ID>FunctionNaming:PlaybackManagerPrepareTest.kt$PlaybackManagerPrepareTest$@Test fun `prepareForPlayback builds timeline from junction rows in index order`()</ID>
-    <ID>FunctionNaming:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `onSpeedChanged does not call playbackPreferences setDefaultPlaybackSpeed`()</ID>
-    <ID>FunctionNaming:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `onSpeedChanged with 1_0f propagates progressTracker write`()</ID>
-    <ID>FunctionNaming:PlaybackManagerSpeedTest.kt$PlaybackManagerSpeedTest$@Test fun `startPlayback with effective speed 1_0f calls audioPlayer setSpeed 1_0f`()</ID>
-    <ID>FunctionNaming:SchemaMigrationSmokeTest.kt$SchemaMigrationSmokeTest$@Test fun `creates current schema database and opens a live connection`()</ID>
-    <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
-    <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook returns null when book has no genres`()</ID>
-    <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getGenreNamesForBook sort is case-insensitive`()</ID>
-    <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getSeriesNamesForBook returns alphabetically-sorted comma-joined names`()</ID>
-    <ID>FunctionNaming:SearchDaoTest.kt$SearchDaoTest$@Test fun `getSeriesNamesForBook returns null when book has no series`()</ID>
-    <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storage: JvmSecureStorage</ID>
-    <ID>LateinitUsage:JvmSecureStorageTest.kt$JvmSecureStorageTest$private lateinit var storageFile: File</ID>
-    <ID>LateinitUsage:WithClientSyncEngineAgainstServer.kt$lateinit var statsUpdater: UserStatsUpdater</ID>
-    <ID>LongMethod:BookCard.kt$@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard( cover: BookCoverModel, onClick: () -&gt; Unit, modifier: Modifier = Modifier, duration: String? = null, subtitle: String? = null, progress: Float? = null, timeRemaining: String? = null, isFinished: Boolean = false, isPlaying: Boolean = false, avatarOverlay: AvatarOverlayData? = null, hasDocuments: Boolean = false, isInSelectionMode: Boolean = false, isSelected: Boolean = false, onLongPress: (() -&gt; Unit)? = null, cardWidth: Dp? = null, )</ID>
-    <ID>LongMethod:WithClientSyncEngineAgainstServer.kt$internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.() -&gt; Unit)</ID>
-    <ID>LongMethod:WithTagSyncEngineAgainstServer.kt$internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.() -&gt; Unit)</ID>
-    <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$for</ID>
-    <ID>MagicNumber:AudioUrlSigner.kt$AudioUrlSigner$64</ID>
-    <ID>MagicNumber:AuroraBackground.kt$120f</ID>
-    <ID>MagicNumber:AuroraBackground.kt$180f</ID>
-    <ID>MagicNumber:AuroraBackground.kt$240f</ID>
-    <ID>MagicNumber:AuroraBackground.kt$300f</ID>
-    <ID>MagicNumber:AuroraBackground.kt$360f</ID>
-    <ID>MagicNumber:ContributorDetailScreen.kt$12</ID>
-    <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$0.5f</ID>
-    <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$0xFF</ID>
-    <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$24</ID>
-    <ID>MagicNumber:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$8</ID>
-    <ID>MagicNumber:WeeklyStats.kt$WeeklyStats.Companion$7</ID>
-    <ID>MaxLineLength:DownloadRepositoryImplTest.kt$FakeDownloadEnqueuer$override suspend fun enqueue(entity: com.calypsan.listenup.client.data.local.db.DownloadEntity): AppResult&lt;Unit&gt;</ID>
-    <ID>MaxLineLength:JmDnsDiscoveryService.kt$JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
-    <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt$ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
-    <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
-    <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
-    <ID>MaxLineLength:PlaybackServiceImplTest.kt$BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
-    <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt$private fun fakeJpeg(): ByteArray</ID>
-    <ID>NestedBlockDepth:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$private fun sampleColors(image: BufferedImage): List&lt;FloatArray&gt;</ID>
-    <ID>OptionalUnit:ListenUp.kt$get&lt;com.calypsan.listenup.client.data.sync.PendingOperationQueue&gt;() .enqueue(domainName, entityId, opType, payload, ownerUserId) Unit</ID>
-    <ID>StringLiteralDuplication:ActivityFeedSection.kt$"a book"</ID>
-    <ID>StringLiteralDuplication:BookCoverImage.kt$"$bookId:cover"</ID>
-    <ID>StringLiteralDuplication:IlstReader.kt$IlstReader$"image/jpeg"</ID>
-    <ID>StringLiteralDuplication:Mp4Parser.kt$Mp4Parser$"&lt;source&gt;"</ID>
-    <ID>StringLiteralDuplication:PlatformUtils.jvm.kt$PlatformUtils$"Unknown"</ID>
-    <ID>StringLiteralDuplication:PlaybackServiceImpl.kt$PlaybackServiceImpl$"principal"</ID>
-    <ID>SwallowedException:CurrentUserApiResponse.kt$CurrentUserApiResponse$e: Exception</ID>
-    <ID>SwallowedException:JvmCoverColorExtractor.kt$JvmCoverColorExtractor$e: Exception</ID>
-    <ID>ThrowsCount:AtomWalker.kt$AtomWalker$fun readHeader( bytes: ByteArray, offset: Int, end: Int = bytes.size, ): Atom</ID>
-    <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt$ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
-    <ID>TooManyFunctions:Koin.ios.kt$KoinHelper : KoinComponent</ID>
-    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$10800_000L</ID>
-    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$12600_000L</ID>
-    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$1800_000L</ID>
-    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$3600_000L</ID>
-    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$7200_000L</ID>
-    <ID>UnnecessaryParentheses:AtomWalker.kt$AtomWalker$(end - offset)</ID>
-    <ID>UnnecessaryParentheses:AtomWalker.kt$AtomWalker$(length - offset)</ID>
-    <ID>UnnecessaryParentheses:AudioFormatDetector.kt$AudioFormatDetector$(headerBytes[1].toInt() and mp3SyncMaskHi)</ID>
-    <ID>UnnecessaryParentheses:AuroraBackground.kt$((b - r) / d + 2f)</ID>
-    <ID>UnnecessaryParentheses:AuroraBackground.kt$((g - b) / d + (if (g &lt; b) 6f else 0f))</ID>
-    <ID>UnnecessaryParentheses:AuroraBackground.kt$((r - g) / d + 4f)</ID>
-    <ID>UnnecessaryParentheses:AuroraBackground.kt$(if (g &lt; b) 6f else 0f)</ID>
-    <ID>UnnecessaryParentheses:BinaryDecoder.kt$(BITS_PER_BYTE * 2)</ID>
-    <ID>UnnecessaryParentheses:BinaryDecoder.kt$(BITS_PER_SYNC_SAFE_BYTE * 2)</ID>
-    <ID>UnnecessaryParentheses:BinaryDecoder.kt$(BITS_PER_SYNC_SAFE_BYTE * 3)</ID>
-    <ID>UnnecessaryParentheses:BinaryDecoder.kt$(raw[0].toInt() and BYTE_MASK)</ID>
-    <ID>UnnecessaryParentheses:BinaryDecoder.kt$(raw[1].toInt() and BYTE_MASK)</ID>
-    <ID>UnnecessaryParentheses:BuildMp3File.kt$Mp3Builder$(144 * bitrate)</ID>
-    <ID>UnnecessaryParentheses:BuildMp4File.kt$MoovBuilder$(ch.startMs + 1)</ID>
-    <ID>UnnecessaryParentheses:BuildMp4File.kt$MoovBuilder$(deltaMs * timescale)</ID>
-    <ID>UnnecessaryParentheses:Id3v2Reader.kt$Id3v2Reader$(flags and 0x40)</ID>
-    <ID>UnnecessaryParentheses:LeaderboardList.kt$(seconds % 3_600)</ID>
-    <ID>UnnecessaryParentheses:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$(cursorTimescaleUnits * 1000L)</ID>
-    <ID>UnnecessaryParentheses:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$(start100ns / 10_000)</ID>
-    <ID>UnnecessaryParentheses:Mp4Parser.kt$Mp4Parser$(durationUnits * 1000L)</ID>
-    <ID>UnnecessaryParentheses:Mp4ParserPropertyTest.kt$Mp4ParserPropertyTest$(du * 1000L)</ID>
-    <ID>UnnecessaryParentheses:MpegDurationCalculator.kt$MpegDurationCalculator$(bytes[i + 1].toInt() and 0xE0)</ID>
-    <ID>UnnecessaryParentheses:StatsRepositoryImplTest.kt$StatsRepositoryImplTest$(endedAt - startedAt)</ID>
-    <ID>UnnecessaryParentheses:SyncableRepository.kt$SyncableRepository$(table as? UserScopedSyncableTable)</ID>
-    <ID>UnusedImports:HomeStatsViewModel.kt$import com.calypsan.listenup.client.domain.WeeklyStats</ID>
-    <ID>UnusedImports:JvmSecureStorageTest.kt$import kotlin.test.assertNotEquals</ID>
-    <ID>UnusedImports:Koin.jvm.kt$import com.calypsan.listenup.core.ServerUrl</ID>
-    <ID>UnusedImports:ListeningEventAndStatsRouteTest.kt$import io.kotest.matchers.nulls.shouldNotBeNull</ID>
-    <ID>UnusedImports:SyncApi.kt$import com.calypsan.listenup.client.data.remote.model.ApiResponse</ID>
-    <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content1 = file1.readText()</ID>
-    <ID>UnusedPrivateProperty:JvmSecureStorageTest.kt$JvmSecureStorageTest$val content2 = file2.readText()</ID>
-    <ID>UnusedPrivateProperty:Mp4ChapterExtractor.kt$Mp4ChapterExtractor$j</ID>
-    <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt$JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
-    <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt$JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
-    <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt$StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
+    <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt:DownloadWorkerLogicTest$also</ID>
+    <ID>CognitiveComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>CognitiveComplexMethod:SyncTestApplication.kt:internal fun withTestApplication</ID>
+    <ID>CyclomaticComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>LargeClass:BookRepository.kt:BookRepository : SqlSyncableRepositoryBookIngestPortBookRevisionTouch</ID>
+    <ID>LongMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>LongMethod:WithClientSyncEngineAgainstServer.kt:internal fun withClientSyncEngineAgainstServer</ID>
+    <ID>LongMethod:WithTagSyncEngineAgainstServer.kt:internal fun withTagSyncEngineAgainstServer</ID>
+    <ID>MagicNumber:AudioUrlSigner.kt:AudioUrlSigner$64</ID>
+    <ID>MagicNumber:ContributorDetailScreen.kt:12</ID>
+    <ID>MagicNumber:WeeklyStats.kt:WeeklyStats.Companion$7</ID>
+    <ID>MaxLineLength:DownloadRepositoryImplTest.kt:FakeDownloadEnqueuer$override suspend fun enqueue: AppResult&lt;Unit&gt;</ID>
+    <ID>MaxLineLength:JmDnsDiscoveryService.kt:JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
+    <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt:ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
+    <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-0", index = 0, filename = "01.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
+    <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
+    <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
+    <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt:private fun fakeJpeg: ByteArray</ID>
+    <ID>StringLiteralDuplication:PlaybackServiceImpl.kt:PlaybackServiceImpl$"principal"</ID>
+    <ID>SwallowedException:CurrentUserApiResponse.kt:CurrentUserApiResponse$e: Exception</ID>
+    <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt:ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
+    <ID>TooManyFunctions:Koin.ios.kt:KoinHelper : KoinComponent</ID>
+    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$10800_000L</ID>
+    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$12600_000L</ID>
+    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$1800_000L</ID>
+    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$3600_000L</ID>
+    <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$7200_000L</ID>
+    <ID>UnnecessaryParentheses:BuildMp3File.kt:Mp3Builder$(144 * bitrate)</ID>
+    <ID>UnnecessaryParentheses:BuildMp4File.kt:MoovBuilder$(ch.startMs + 1)</ID>
+    <ID>UnnecessaryParentheses:BuildMp4File.kt:MoovBuilder$(deltaMs * timescale)</ID>
+    <ID>UnnecessaryParentheses:LeaderboardList.kt:(seconds % 3_600)</ID>
+    <ID>UnnecessaryParentheses:Mp4ParserPropertyTest.kt:Mp4ParserPropertyTest$(du * 1000L)</ID>
+    <ID>UnnecessaryParentheses:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$(endedAt - startedAt)</ID>
+    <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
+    <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
+    <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt:StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
   </CurrentIssues>
 </SmellBaseline>

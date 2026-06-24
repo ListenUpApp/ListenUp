@@ -48,7 +48,8 @@ detekt {
 }
 
 dependencies {
-    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:${libs.versions.detekt.get()}")
+    // Formatting is owned by Spotless/ktlint, so the detekt formatting plugin
+    // (renamed detekt-formatting → detekt-rules-ktlint-wrapper in 2.0) is omitted.
     detektPlugins("com.calypsan.listenup.build-logic:detekt-rules:0.0.1")
 }
 

@@ -1,9 +1,6 @@
 # Detekt Configuration for ListenUp Client
 # https://detekt.dev/docs/rules/
 
-build:
-  maxIssues: 0  # Ratcheted from 170 on 2026-01-07. Remaining issues are structural (complex methods, long methods).
-
 config:
   validation: true
   warningsAsErrors: true
@@ -11,68 +8,61 @@ config:
 console-reports:
   active: true
 
-output-reports:
-  active: true
-
-# Disable detekt's formatting rules - Spotless/ktlint handles formatting
-formatting:
-  active: false
-
 complexity:
   active: true
   CognitiveComplexMethod:
     active: true
-    threshold: 25  # Compose UI logic and media player code can be moderately complex
+    allowedComplexity: 25  # Compose UI logic and media player code can be moderately complex
   ComplexCondition:
     active: true
-    threshold: 4
+    allowedConditions: 4
   ComplexInterface:
     active: false  # DAOs and repository interfaces are naturally complex
   CyclomaticComplexMethod:
     active: true
-    threshold: 25  # UI and business logic can have moderate branching; exhaustive sealed-hierarchy dispatch (e.g. AppErrorStatusPages) is compile-time-checked so its branch count isn't real decision complexity
+    allowedComplexity: 25  # UI and business logic can have moderate branching; exhaustive sealed-hierarchy dispatch (e.g. AppErrorStatusPages) is compile-time-checked so its branch count isn't real decision complexity
   LabeledExpression:
     active: false  # return@label is idiomatic in Kotlin Flow/coroutine lambdas
   LargeClass:
     active: true
-    threshold: 600
+    allowedLines: 600
   LongMethod:
     active: true
-    threshold: 120  # Composables and media player logic are naturally verbose
+    allowedLines: 120  # Composables and media player logic are naturally verbose
   LongParameterList:
     active: true
-    functionThreshold: 12  # Compose state hoisting + seam-extraction functions require many params
-    constructorThreshold: 12  # DI constructors can be large
+    allowedFunctionParameters: 12  # Compose state hoisting + seam-extraction functions require many params
+    allowedConstructorParameters: 12  # DI constructors can be large
     ignoreDefaultParameters: true
     ignoreDataClasses: true
     ignoreAnnotatedParameter: [Composable]
   MethodOverloading:
     active: true
-    threshold: 6
+    allowedOverloads: 6
   NamedArguments:
     active: true
-    threshold: 3
+    allowedArguments: 3
   NestedBlockDepth:
     active: true
-    threshold: 4
+    allowedDepth: 4
   NestedScopeFunctions:
     active: true
-    threshold: 1
+    allowedDepth: 1
   ReplaceSafeCallChainWithRun:
     active: true
   StringLiteralDuplication:
     active: true
-    threshold: 3
+    allowedDuplications: 3
     ignoreAnnotation: true
-    excludeStringsWithLessThan5Characters: true
+    allowedWithLengthLessThan: 5
     ignoreStringsRegex: '$^'
   TooManyFunctions:
     active: true
-    thresholdInFiles: 20
-    thresholdInClasses: 25  # Repositories and ViewModels can be large
-    thresholdInInterfaces: 26  # DAOs have many query methods (+ per-domain digestRows for sync reconciliation)
-    thresholdInObjects: 15
-    thresholdInEnums: 15
+    allowedFunctionsPerFile: 20
+    allowedFunctionsPerClass: 25  # Repositories and ViewModels can be large
+    allowedFunctionsPerInterface: 26  # DAOs have many query methods (+ per-domain digestRows for sync reconciliation)
+    allowedFunctionsPerObject: 15
+    allowedFunctionsPerEnum: 15
     ignoreDeprecated: true
     ignorePrivate: true
     ignoreOverridden: true
@@ -117,8 +107,6 @@ empty-blocks:
   EmptyIfBlock:
     active: true
   EmptyInitBlock:
-    active: true
-  EmptyKtFile:
     active: true
   EmptySecondaryConstructor:
     active: true
@@ -206,12 +194,6 @@ naming:
   ForbiddenClassName:
     active: true
     forbiddenName: []
-  FunctionMaxLength:
-    active: true
-    maximumFunctionNameLength: 50
-  FunctionMinLength:
-    active: true
-    minimumFunctionNameLength: 3
   FunctionNaming:
     active: true
     excludes: ['**/test/**', '**/androidUnitTest/**', '**/commonTest/**', '**/jvmTest/**']
@@ -268,7 +250,7 @@ performance:
     active: true
   CouldBeSequence:
     active: true
-    threshold: 3
+    allowedOperations: 3
   ForEachOnRange:
     active: true
   SpreadOperator:
@@ -411,8 +393,7 @@ style:
     allowedPatterns: ''
   ForbiddenImport:
     active: true
-    imports: []
-    forbiddenPatterns: ''
+    forbiddenImports: []
   ForbiddenMethodCall:
     active: true
     methods:
@@ -470,7 +451,7 @@ style:
     excludeImportStatements: true
     excludeCommentStatements: true
     excludeRawStrings: true
-  MayBeConst:
+  MayBeConstant:
     active: true
   ModifierOrder:
     active: true
@@ -492,15 +473,13 @@ style:
     active: true
   OptionalUnit:
     active: true
-  PreferToOverPairSyntax:
-    active: true
   ProtectedMemberInFinalClass:
     active: true
   RedundantExplicitType:
     active: true
   RedundantHigherOrderMapUsage:
     active: true
-  RedundantVisibilityModifierRule:
+  RedundantVisibilityModifier:
     active: true
   ReturnCount:
     active: true
@@ -513,8 +492,6 @@ style:
   SafeCast:
     active: true
   SerialVersionUIDInSerializableClass:
-    active: true
-  SpacingBetweenPackageAndImports:
     active: true
   StringShouldBeRawString:
     active: true
@@ -532,10 +509,6 @@ style:
     active: true
     acceptableLength: 6  # Relaxed - 100000 is acceptable without underscore
     allowNonStandardGrouping: false
-  UnnecessaryAbstractClass:
-    active: true
-  UnnecessaryAnnotationUseSiteTarget:
-    active: true
   UnnecessaryApply:
     active: true
   UnnecessaryBackticks:
@@ -553,16 +526,16 @@ style:
   UnnecessaryParentheses:
     active: true
     allowForUnclearPrecedence: true
-  UntilInsteadOfRangeTo:
+  RangeUntilInsteadOfRangeTo:
     active: true
-  UnusedImports:
+  UnusedImport:
     active: true
   UnusedParameter:
     active: true
     allowedNames: 'ignored|expected'
   UnusedPrivateClass:
     active: true
-  UnusedPrivateMember:
+  UnusedPrivateFunction:
     active: true
     allowedNames: ''
     ignoreAnnotated: ['Preview']

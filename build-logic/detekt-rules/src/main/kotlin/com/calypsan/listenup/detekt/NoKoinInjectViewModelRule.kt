@@ -1,12 +1,10 @@
 package com.calypsan.listenup.detekt
 
-import io.gitlab.arturbosch.detekt.api.CodeSmell
-import io.gitlab.arturbosch.detekt.api.Config
-import io.gitlab.arturbosch.detekt.api.Debt
-import io.gitlab.arturbosch.detekt.api.Entity
-import io.gitlab.arturbosch.detekt.api.Issue
-import io.gitlab.arturbosch.detekt.api.Rule
-import io.gitlab.arturbosch.detekt.api.Severity
+import dev.detekt.api.Config
+import dev.detekt.api.Entity
+import dev.detekt.api.Finding
+import dev.detekt.api.Rule
+import dev.detekt.api.RuleName
 import org.jetbrains.kotlin.psi.KtCallExpression
 import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtProperty
@@ -22,14 +20,11 @@ import org.jetbrains.kotlin.psi.KtProperty
  */
 class NoKoinInjectViewModelRule(
     config: Config,
-) : Rule(config) {
-    override val issue: Issue =
-        Issue(
-            id = "NoKoinInjectViewModel",
-            severity = Severity.Defect,
-            description = "ViewModels must not be resolved via koinInject(); use koinViewModel().",
-            debt = Debt.FIVE_MINS,
-        )
+) : Rule(
+        config,
+        description = "ViewModels must not be resolved via koinInject(); use koinViewModel().",
+    ) {
+    override val ruleName = RuleName("NoKoinInjectViewModel")
 
     override fun visitCallExpression(expression: KtCallExpression) {
         super.visitCallExpression(expression)
@@ -45,8 +40,7 @@ class NoKoinInjectViewModelRule(
                 ?.text ?: ""
         if (typeArg.endsWithViewModel()) {
             report(
-                CodeSmell(
-                    issue,
+                Finding(
                     Entity.from(expression),
                     "koinInject<$typeArg>() resolves a ViewModel via the Activity store. " +
                         "Use koinViewModel().",
@@ -65,8 +59,7 @@ class NoKoinInjectViewModelRule(
 
         if (declaredType.endsWithViewModel()) {
             report(
-                CodeSmell(
-                    issue,
+                Finding(
                     Entity.from(expression),
                     "$declaredType = koinInject() resolves a ViewModel via the Activity store. " +
                         "Use koinViewModel().",
