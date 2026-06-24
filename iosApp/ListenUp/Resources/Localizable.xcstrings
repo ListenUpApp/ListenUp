@@ -5271,6 +5271,16 @@
         }
       }
     },
+    "contributor.born": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Born %1$@"
+          }
+        }
+      }
+    },
     "contributor.born_year": {
       "localizations": {
         "en": {
@@ -5357,6 +5367,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Death Date"
+          }
+        }
+      }
+    },
+    "contributor.died": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Died %1$@"
           }
         }
       }
@@ -5477,6 +5497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "from your library. This action cannot be undone."
+          }
+        }
+      }
+    },
+    "contributor.life_span": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ – %2$@"
           }
         }
       }

@@ -36,8 +36,8 @@ struct CastCreditsSheet: View {
                     ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
                         Section {
                             ForEach(Array(group.members.enumerated()), id: \.element.id) { i, member in
-                                row(member, hueIndex: groupIndex * 7 + i, // offset hue per group so adjacent groups don't repeat colors
-                                    isLead: group.kind == .narrators && i == 0)
+                                // offset hue per group so adjacent groups don't repeat colors
+                                row(member, hueIndex: groupIndex * 7 + i)
                             }
                         } header: {
                             Text(header(for: group))
@@ -85,17 +85,12 @@ struct CastCreditsSheet: View {
         }
     }
 
-    private func row(_ member: CastMember, hueIndex: Int, isLead: Bool) -> some View {
+    private func row(_ member: CastMember, hueIndex: Int) -> some View {
         HStack(spacing: 12) {
             avatar(member, hueIndex: hueIndex)
             Text(member.name)
                 .font(.subheadline)
                 .lineLimit(1)
-            if isLead {
-                Text("· \(String(localized: "book.detail_cast_lead"))")
-                    .font(.subheadline)
-                    .foregroundStyle(.tertiary)
-            }
             Spacer(minLength: 0)
         }
         .padding(.vertical, 7)

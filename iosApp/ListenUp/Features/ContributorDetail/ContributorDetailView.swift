@@ -169,23 +169,58 @@ struct ContributorDetailView: View {
                     .multilineTextAlignment(.center)
             }
 
-            if let born = observer.birthDate {
-                Text(String(format: String(localized: "contributor.born_year"), String(born.prefix(4))))
+            if let lifeDates = lifeDatesText(birth: observer.birthDate, death: observer.deathDate) {
+                Text(lifeDates)
                     .font(.footnote)
                     .foregroundStyle(Color.luLabel3)
             }
 
-            if let website = observer.website, let url = URL(string: website) {
+            if let website = observer.website?.trimmingCharacters(in: .whitespaces),
+               !website.isEmpty, let url = URL(string: website) {
                 Link(destination: url) {
-                    Label(String(localized: "website"), systemImage: "globe")
+                    Label(website, systemImage: "globe")
                         .font(.footnote.weight(.medium))
                         .foregroundStyle(Color.luTint)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
                 }
                 .padding(.top, 2)
             }
         }
         .padding(.horizontal)
         .padding(.top, 16)
+    }
+
+    // MARK: - Life dates
+
+    /// "Born September 21, 1947" · "Died January 15, 2024" · "September 21, 1947 – January 15, 2024",
+    /// or nil when neither date is present. Mirrors Android's `formatLifeDates`.
+    private func lifeDatesText(birth: String?, death: String?) -> String? {
+        let born = birth.flatMap(displayDate)
+        let died = death.flatMap(displayDate)
+        switch (born, died) {
+        case let (born?, died?):
+            return String(format: String(localized: "contributor.life_span"), born, died)
+        case let (born?, nil):
+            return String(format: String(localized: "contributor.born"), born)
+        case let (nil, died?):
+            return String(format: String(localized: "contributor.died"), died)
+        default:
+            return nil
+        }
+    }
+
+    /// ISO `yyyy-MM-dd` → a long localized date ("September 21, 1947"); falls back to the raw
+    /// value (e.g. a bare "1947") when it isn't a full ISO date.
+    private func displayDate(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        let parser = DateFormatter()
+        parser.calendar = Calendar(identifier: .gregorian)
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: trimmed) else { return trimmed }
+        return date.formatted(.dateTime.month(.wide).day().year())
     }
 
     // MARK: - Stat Strip

@@ -113,6 +113,7 @@ struct BookDetailView: View {
             BookDetailHero(
                 book: observer.book,
                 title: observer.title,
+                subtitle: observer.subtitle,
                 series: observer.series,
                 authors: observer.heroAuthors,
                 author: observer.authors,
@@ -171,6 +172,7 @@ struct BookDetailView: View {
                 BookDetailHero(
                     book: observer.book,
                     title: observer.title,
+                    subtitle: observer.subtitle,
                     series: observer.series,
                     authors: observer.heroAuthors,
                     author: observer.authors,
