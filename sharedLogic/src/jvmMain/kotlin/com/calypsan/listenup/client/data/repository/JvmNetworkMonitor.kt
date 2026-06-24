@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -38,7 +39,7 @@ private const val HEALTH_CHECK_TIMEOUT_MS = 5_000L
 class JvmNetworkMonitor(
     private val serverUrlProvider: () -> String?,
 ) : NetworkMonitor {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + appCoroutineExceptionHandler)
     private val httpClient =
         HttpClient(OkHttp) {
             installListenUpErrorHandling()

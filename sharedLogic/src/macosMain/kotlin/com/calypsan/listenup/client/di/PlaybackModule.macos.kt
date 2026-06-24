@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.core.IODispatcher
+import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadService
@@ -41,9 +42,11 @@ private const val PLAYBACK_SCOPE = "playbackScope"
  */
 val macosPlaybackModule: Module =
     module {
-        // Playback-scoped coroutine scope
+        // Playback-scoped coroutine scope. The appCoroutineExceptionHandler keeps an uncaught
+        // failure in a fire-and-forget playback launch from terminating the process on Kotlin/Native
+        // (macOS is Kotlin/Native too) — it logs loudly instead.
         single(qualifier = named(PLAYBACK_SCOPE)) {
-            CoroutineScope(SupervisorJob() + IODispatcher)
+            CoroutineScope(SupervisorJob() + IODispatcher + appCoroutineExceptionHandler)
         }
 
         // Device ID for listening events
