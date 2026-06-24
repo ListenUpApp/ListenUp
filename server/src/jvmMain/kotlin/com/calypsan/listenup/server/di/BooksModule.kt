@@ -38,6 +38,7 @@ import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
+import kotlinx.io.files.Path as IoPath
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.AnalyzedBookMapper
 import com.calypsan.listenup.server.services.BookGenreWriter
@@ -306,10 +307,10 @@ private fun Module.coverAndPersisterBindings(
     embeddedCoverCacheSize: Int,
     homeDir: Path,
 ) {
-    single { CoverImageStore(ImageStore(homeDir.resolve("covers"), COVER_MAX_BYTES)) }
+    single { CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), COVER_MAX_BYTES)) }
     single {
         com.calypsan.listenup.server.scanner
-            .CoverSpool(homeDir.resolve("scan-spool"))
+            .CoverSpool(IoPath(homeDir.resolve("scan-spool").toString()))
     }
     single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
     single {

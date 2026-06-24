@@ -287,7 +287,7 @@ class MetadataLookupServiceImplTest :
                 val imageStorage =
                     ImageStorage(HttpClient(MockEngine { _ -> respond(jpegBytes, HttpStatusCode.OK) }))
                 val coverImageStore =
-                    CoverImageStore(ImageStore(coversDir, maxBytes = 10L * 1024 * 1024))
+                    CoverImageStore(ImageStore(Path(coversDir.toString()), maxBytes = 10L * 1024 * 1024))
 
                 runTest {
                     bookRepo.upsert(bookFixture(bookId = "book-1"))
@@ -460,7 +460,8 @@ private fun makeService(
         imageDeps =
             MetadataImageDeps(
                 imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-                coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
+                coverImageStore =
+                    CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, syncRegistry, productTagSource = productTagSource),

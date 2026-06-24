@@ -4,8 +4,10 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import com.calypsan.listenup.server.io.readBytes
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 
 class ImageStoreTest :
     FunSpec({
@@ -15,17 +17,17 @@ class ImageStoreTest :
         test("stores a valid PNG and serves it back with content type") {
             val dir = Files.createTempDirectory("imagestore-")
             runTest {
-                val store = ImageStore(dir, maxBytes = 1_000_000)
+                val store = ImageStore(IoPath(dir.toString()), maxBytes = 1_000_000)
                 val stored = store.store("u1", pngBytes, "image/png")
                 stored.contentType shouldBe "image/png"
                 store.pathFor("u1").shouldNotBeNull()
-                Files.readAllBytes(store.pathFor("u1")!!) shouldBe pngBytes
+                store.pathFor("u1")!!.readBytes() shouldBe pngBytes
             }
         }
         test("rejects bytes whose magic number is not a supported image") {
             val dir = Files.createTempDirectory("imagestore-")
             runTest {
-                val store = ImageStore(dir, maxBytes = 1_000_000)
+                val store = ImageStore(IoPath(dir.toString()), maxBytes = 1_000_000)
                 shouldThrowInvalid { store.store("u1", "not an image".encodeToByteArray(), "image/png") }
                 store.pathFor("u1").shouldBeNull()
             }
@@ -33,14 +35,14 @@ class ImageStoreTest :
         test("rejects oversize input") {
             val dir = Files.createTempDirectory("imagestore-")
             runTest {
-                val store = ImageStore(dir, maxBytes = 4)
+                val store = ImageStore(IoPath(dir.toString()), maxBytes = 4)
                 shouldThrowInvalid { store.store("u1", jpegBytes, "image/jpeg") }
             }
         }
         test("delete removes the stored image") {
             val dir = Files.createTempDirectory("imagestore-")
             runTest {
-                val store = ImageStore(dir, maxBytes = 1_000_000)
+                val store = ImageStore(IoPath(dir.toString()), maxBytes = 1_000_000)
                 store.store("u1", pngBytes, "image/png")
                 store.delete("u1")
                 store.pathFor("u1").shouldBeNull()
@@ -48,13 +50,13 @@ class ImageStoreTest :
         }
         test("pathFor returns null for a path-traversal key") {
             val dir = Files.createTempDirectory("imagestore-")
-            val store = ImageStore(dir, maxBytes = 1_000_000)
+            val store = ImageStore(IoPath(dir.toString()), maxBytes = 1_000_000)
             store.pathFor("../../etc/passwd").shouldBeNull()
         }
         test("store throws InvalidImageException for a path-traversal key") {
             val dir = Files.createTempDirectory("imagestore-")
             runTest {
-                val store = ImageStore(dir, maxBytes = 1_000_000)
+                val store = ImageStore(IoPath(dir.toString()), maxBytes = 1_000_000)
                 shouldThrowInvalid { store.store("../x", pngBytes, "image/png") }
             }
         }

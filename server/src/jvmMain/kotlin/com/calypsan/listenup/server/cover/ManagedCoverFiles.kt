@@ -65,7 +65,7 @@ class ManagedCoverFiles(
         if (coverImageStore == null || pending == null) return null
         return try {
             val stored = coverImageStore.store.store(bookId.value, pending.bytes, pending.mime)
-            val relPath = "covers/${stored.path.fileName}"
+            val relPath = "covers/${stored.path.name}"
             StoredCoverInfo(relPath = relPath, hash = stored.sha256, source = pending.source)
         } catch (e: CancellationException) {
             throw e

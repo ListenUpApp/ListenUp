@@ -294,7 +294,7 @@ internal class BookMetadataApplier(
         try {
             val bytes = imageStorage.downloadBytes(url)
             val stored = coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
-            val relPath = "covers/${stored.path.fileName}"
+            val relPath = "covers/${stored.path.name}"
             val result = bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
             if (result is AppResult.Success) {
                 log.info { "Stored wizard-chosen cover for ${bookId.value} → $relPath" }

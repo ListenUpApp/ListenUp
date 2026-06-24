@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.backup
 
+import com.calypsan.listenup.server.io.hashFileSha256
+import kotlinx.io.files.Path
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
-import java.nio.file.Path
-import java.security.MessageDigest
 
 /**
  * Describes the contents of a `.listenup.zip` backup archive.
@@ -15,15 +15,15 @@ import java.security.MessageDigest
  */
 @Serializable
 data class BackupManifest(
-    val formatVersion: Int,
-    val serverId: String,
-    val createdAt: Long,
-    val appVersion: String,
-    val schemaVersion: String,
-    val includesImages: Boolean,
-    val checksums: Map<String, String>,
-    val bookCount: Int,
-    val userCount: Int,
+    @SerialName("formatVersion") val formatVersion: Int,
+    @SerialName("serverId") val serverId: String,
+    @SerialName("createdAt") val createdAt: Long,
+    @SerialName("appVersion") val appVersion: String,
+    @SerialName("schemaVersion") val schemaVersion: String,
+    @SerialName("includesImages") val includesImages: Boolean,
+    @SerialName("checksums") val checksums: Map<String, String>,
+    @SerialName("bookCount") val bookCount: Int,
+    @SerialName("userCount") val userCount: Int,
 ) {
     /** Serializes this manifest to pretty-printed JSON. */
     fun toJson(): String = JSON.encodeToString(this)
@@ -44,15 +44,4 @@ data class BackupManifest(
 }
 
 /** Computes the SHA-256 hex digest of a file's bytes, streamed in 64 KiB chunks. */
-fun sha256Of(path: Path): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    Files.newInputStream(path).use { input ->
-        val buf = ByteArray(64 * 1024)
-        while (true) {
-            val n = input.read(buf)
-            if (n < 0) break
-            digest.update(buf, 0, n)
-        }
-    }
-    return digest.digest().toHexString()
-}
+fun sha256Of(path: Path): String = hashFileSha256(path)

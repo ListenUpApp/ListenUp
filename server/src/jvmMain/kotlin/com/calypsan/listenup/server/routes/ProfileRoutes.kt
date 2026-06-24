@@ -17,9 +17,10 @@ import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import com.calypsan.listenup.server.io.readBytes
 import io.ktor.utils.io.toByteArray
-import java.nio.file.Files
 import kotlin.time.Clock
+import kotlinx.io.files.SystemFileSystem
 
 private const val AVATAR_CACHE_SECONDS = 86_400 // 24h, mirrors Go
 private const val AVATAR_TYPE_IMAGE = "image"
@@ -85,8 +86,12 @@ fun Route.profileRoutes(
     get("/api/v1/avatars/{userId}") {
         val target = call.parameters["userId"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val path = imageStore.pathFor(target) ?: return@get call.respond(HttpStatusCode.NotFound)
-        if (!Files.isRegularFile(path)) return@get call.respond(HttpStatusCode.NotFound)
+        if (SystemFileSystem.metadataOrNull(path)?.isRegularFile !=
+            true
+        ) {
+            return@get call.respond(HttpStatusCode.NotFound)
+        }
         call.response.header(HttpHeaders.CacheControl, "private, max-age=$AVATAR_CACHE_SECONDS")
-        call.respondBytes(Files.readAllBytes(path), ContentType.parse(imageStore.contentTypeFor(path)))
+        call.respondBytes(path.readBytes(), ContentType.parse(imageStore.contentTypeFor(path)))
     }
 }

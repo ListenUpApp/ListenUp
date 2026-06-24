@@ -2,13 +2,15 @@ package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.CoverSource
+import com.calypsan.listenup.server.io.deleteRecursively
+import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.io.statFile
+import com.calypsan.listenup.server.io.writeBytes
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.nio.file.Files
-import java.nio.file.Path
-import java.security.MessageDigest
-import kotlin.io.path.exists
-import kotlin.io.path.readBytes
-import kotlin.io.path.writeBytes
+import kotlin.time.Clock
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
 
@@ -60,9 +62,9 @@ class CoverSpool(
             return book.copy(embedded = lightenedEmbedded)
         }
         return try {
-            val dir = root.resolve(scanId)
-            Files.createDirectories(dir)
-            val file = dir.resolve(key(book.candidate.rootRelPath) + ".img")
+            val dir = Path(root, scanId)
+            SystemFileSystem.createDirectories(dir)
+            val file = Path(dir, key(book.candidate.rootRelPath) + ".img")
             file.writeBytes(cover.artwork.bytes)
             book.copy(
                 cover = CoverSource.Spooled(path = file.toString(), mime = cover.artwork.mime),
@@ -75,11 +77,11 @@ class CoverSpool(
     }
 
     /** Reads the spooled cover bytes back. */
-    fun read(spooled: CoverSource.Spooled): ByteArray = Path.of(spooled.path).readBytes()
+    fun read(spooled: CoverSource.Spooled): ByteArray = Path(spooled.path).readBytes()
 
     /** Deletes the spool dir for [scanId]. Idempotent; never throws. */
     fun clearScan(scanId: String) {
-        runCatching { root.resolve(scanId).toFile().deleteRecursively() }
+        runCatching { deleteRecursively(Path(root, scanId)) }
             .onFailure { logger.warn(it) { "cover spool clear failed for scan $scanId" } }
     }
 
@@ -92,28 +94,25 @@ class CoverSpool(
      * Never throws.
      */
     fun sweepOrphans() {
-        if (!root.exists()) return
-        val cutoff = System.currentTimeMillis() - ORPHAN_GRACE_MS
+        if (!SystemFileSystem.exists(root)) return
+        val cutoff = Clock.System.now().toEpochMilliseconds() - ORPHAN_GRACE_MS
         runCatching {
-            Files.newDirectoryStream(root).use { stream ->
-                stream.forEach { dir ->
-                    val lastModified = runCatching { Files.getLastModifiedTime(dir).toMillis() }.getOrDefault(0L)
-                    if (lastModified <= cutoff) {
-                        dir.toFile().deleteRecursively()
-                    } else {
-                        logger.info {
-                            "cover spool sweep: keeping recent dir ${dir.fileName} " +
-                                "(modified ${System.currentTimeMillis() - lastModified}ms ago, under grace) — " +
-                                "another scan may be live"
-                        }
+            SystemFileSystem.list(root).forEach { dir ->
+                val lastModified = statFile(dir)?.mtimeMs ?: 0L
+                if (lastModified <= cutoff) {
+                    deleteRecursively(dir)
+                } else {
+                    logger.info {
+                        "cover spool sweep: keeping recent dir ${dir.name} " +
+                            "(modified ${Clock.System.now().toEpochMilliseconds() - lastModified}ms ago, under grace) — " +
+                            "another scan may be live"
                     }
                 }
             }
         }.onFailure { logger.warn(it) { "cover spool orphan sweep failed" } }
     }
 
-    private fun key(rootRelPath: String): String =
-        MessageDigest.getInstance("SHA-256").digest(rootRelPath.toByteArray()).joinToString("") { "%02x".format(it) }
+    private fun key(rootRelPath: String): String = hashBytesSha256(rootRelPath.encodeToByteArray())
 
     companion object {
         /**

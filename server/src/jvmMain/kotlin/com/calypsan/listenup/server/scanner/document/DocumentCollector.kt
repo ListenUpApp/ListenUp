@@ -3,10 +3,10 @@ package com.calypsan.listenup.server.scanner.document
 import com.calypsan.listenup.api.dto.scanner.AnalyzedDocument
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
-import java.io.InputStream
+import com.calypsan.listenup.server.io.hashFileSha256
 import java.nio.file.Files
 import java.nio.file.Path
-import java.security.MessageDigest
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Collects EBOOK-typed files from a candidate's file list and maps them to
@@ -49,24 +49,7 @@ internal class DocumentCollector {
                             .substringAfterLast('.', "")
                             .lowercase(),
                     size = Files.size(absolutePath),
-                    hash = sha256OfPath(absolutePath),
+                    hash = hashFileSha256(IoPath(absolutePath.toString())),
                 )
             }
-
-    companion object {
-        /** SHA-256 hex digest of the file at [path], streamed in 64 KiB chunks. */
-        private fun sha256OfPath(path: Path): String = Files.newInputStream(path).use { sha256OfStream(it) }
-
-        /** SHA-256 hex of bytes read from [input], streamed in 64 KiB chunks. */
-        internal fun sha256OfStream(input: InputStream): String {
-            val digest = MessageDigest.getInstance("SHA-256")
-            val buf = ByteArray(64 * 1024)
-            while (true) {
-                val n = input.read(buf)
-                if (n < 0) break
-                digest.update(buf, 0, n)
-            }
-            return digest.digest().toHexString()
-        }
-    }
 }

@@ -173,7 +173,8 @@ private fun wire(
             imageDeps =
                 MetadataImageDeps(
                     imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-                    coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), 10L * 1024 * 1024)),
+                    coverImageStore =
+                        CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), 10L * 1024 * 1024)),
                     imageHome = Path(tempDir.toString()),
                 ),
             enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, registry),

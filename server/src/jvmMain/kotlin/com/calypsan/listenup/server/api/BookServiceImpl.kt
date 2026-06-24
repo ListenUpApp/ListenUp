@@ -358,7 +358,7 @@ internal class BookServiceImpl(
         val stored = store.store.store(id.value, bytes, contentType)
         // Derive the repo-relative path from the stored absolute path's filename only.
         // stored.path lives under homeDir/covers/<bookId>.<ext>; the repo stores covers/<filename>.
-        val relPath = "covers/${stored.path.fileName}"
+        val relPath = "covers/${stored.path.name}"
         return repo.setManagedCover(id, relPath, stored.sha256, CoverSource.UPLOADED)
     }
 

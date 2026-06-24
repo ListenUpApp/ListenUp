@@ -1,10 +1,11 @@
 package com.calypsan.listenup.server.media
 
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.io.writeBytes
 import kotlinx.coroutines.withContext
-import java.nio.file.Files
-import java.nio.file.Path
-import java.security.MessageDigest
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * Reusable validate-store-serve primitive for user-uploaded images, rooted at [baseDir]
@@ -40,7 +41,7 @@ class ImageStore(
     /**
      * Validates [bytes] by magic number, writes the file to `<baseDir>/<key>.<ext>`, and
      * returns a [StoredImage] describing the result. Any previously stored image for [key]
-     * is replaced atomically (delete-then-write).
+     * is replaced (delete-then-write).
      *
      * @throws InvalidImageException if [bytes] exceed [maxBytes] or carry an unsupported magic number,
      * or if [key] would escape [baseDir] via path traversal.
@@ -50,16 +51,16 @@ class ImageStore(
         bytes: ByteArray,
         declaredContentType: String,
     ): StoredImage =
-        withContext(Dispatchers.IO) {
+        withContext(fileIoDispatcher) {
             if (bytes.size.toLong() > maxBytes) throw InvalidImageException("image exceeds $maxBytes bytes")
             val kind = sniff(bytes) ?: throw InvalidImageException("unsupported image (declared=$declaredContentType)")
-            Files.createDirectories(baseDir)
+            SystemFileSystem.createDirectories(baseDir)
             deleteExisting(key)
             val target =
                 safeResolve(key, kind.ext)
                     ?: throw InvalidImageException("invalid key")
-            Files.write(target, bytes)
-            StoredImage(target, kind.contentType, sha256(bytes))
+            target.writeBytes(bytes)
+            StoredImage(target, kind.contentType, hashBytesSha256(bytes))
         }
 
     /**
@@ -70,24 +71,24 @@ class ImageStore(
     fun pathFor(key: String): Path? =
         Kind.entries
             .mapNotNull { safeResolve(key, it.ext) }
-            .firstOrNull { Files.isRegularFile(it) }
+            .firstOrNull { SystemFileSystem.metadataOrNull(it)?.isRegularFile == true }
 
     /**
      * Returns the MIME content type for a stored image [path] based on its extension,
      * or `"application/octet-stream"` if the extension is unrecognised.
      */
     fun contentTypeFor(path: Path): String =
-        Kind.entries.firstOrNull { path.fileName.toString().endsWith(".${it.ext}") }?.contentType
+        Kind.entries.firstOrNull { path.name.endsWith(".${it.ext}") }?.contentType
             ?: "application/octet-stream"
 
     /** Removes the stored image for [key] if one exists. Idempotent. */
     suspend fun delete(key: String) {
-        withContext(Dispatchers.IO) { deleteExisting(key) }
+        withContext(fileIoDispatcher) { deleteExisting(key) }
     }
 
     private fun deleteExisting(key: String) {
         Kind.entries.forEach { kind ->
-            safeResolve(key, kind.ext)?.let { Files.deleteIfExists(it) }
+            safeResolve(key, kind.ext)?.let { SystemFileSystem.delete(it, mustExist = false) }
         }
     }
 
@@ -100,8 +101,8 @@ class ImageStore(
         ext: String,
     ): Path? {
         if (".." in key || "/" in key || "\\" in key) return null
-        val resolved = baseDir.resolve("$key.$ext").normalize()
-        return resolved.takeIf { it.startsWith(baseDir.normalize()) }
+        val resolved = Path(baseDir, "$key.$ext")
+        return resolved.takeIf { it.toString().startsWith(baseDir.toString()) }
     }
 
     private fun sniff(bytes: ByteArray): Kind? {
@@ -124,9 +125,6 @@ class ImageStore(
             b[OFFSET_2] == WEBP_RIFF_2 && b[OFFSET_3] == WEBP_RIFF_3 &&
             b[WEBP_OFFSET_8] == WEBP_SIG_8 && b[WEBP_OFFSET_9] == WEBP_SIG_9 &&
             b[WEBP_OFFSET_10] == WEBP_SIG_10 && b[WEBP_OFFSET_11] == WEBP_SIG_11
-
-    private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance(SHA256_ALGORITHM).digest(bytes).toHexString()
 
     private companion object {
         const val MIN_SNIFF_BYTES = 4
@@ -162,7 +160,5 @@ class ImageStore(
         val WEBP_SIG_9: Byte = 'E'.code.toByte()
         val WEBP_SIG_10: Byte = 'B'.code.toByte()
         val WEBP_SIG_11: Byte = 'P'.code.toByte()
-
-        const val SHA256_ALGORITHM = "SHA-256"
     }
 }

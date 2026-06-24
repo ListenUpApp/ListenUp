@@ -50,6 +50,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path as IoPath
 
 private const val MAX_COVER_BYTES = 10L * 1024 * 1024
 
@@ -175,7 +176,7 @@ class MatchApplySelectionTest :
                 contributorRepository = contributors,
                 seriesRepository = series,
                 imageStorage = ImageStorage(httpClient = HttpClient(engine)),
-                coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES)),
+                coverImageStore = CoverImageStore(ImageStore(IoPath(tempDir.resolve("covers").toString()), MAX_COVER_BYTES)),
                 metadataProvider = provider,
                 genreHierarchy = GenreHierarchyFromLadder(dbs.sql, genreRepo, GenreAutoCreator(genreRepo)),
                 sqlDb = dbs.sql,

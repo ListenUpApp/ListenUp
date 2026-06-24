@@ -8,6 +8,7 @@ import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import kotlin.io.path.exists
+import kotlinx.io.files.Path as IoPath
 
 class BackupArchiveTest :
     FunSpec({
@@ -53,7 +54,7 @@ class BackupArchiveTest :
 
                     val extractedDb = targetDir.resolve("listenup.db")
                     extractedDb.exists() shouldBe true
-                    sha256Of(extractedDb) shouldBe manifest.checksums["db"]
+                    sha256Of(IoPath(extractedDb.toString())) shouldBe manifest.checksums["db"]
                     manifest.includesImages shouldBe false
                     manifest.serverId shouldBe "srv-test"
                 }

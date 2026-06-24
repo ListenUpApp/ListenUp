@@ -19,6 +19,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import java.nio.file.attribute.FileTime
 import kotlin.io.path.exists
+import kotlinx.io.files.Path as IoPath
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -101,7 +102,7 @@ class CoverSpoolTest :
 
         test("spoolCover writes embedded bytes to disk and returns a Spooled ref") {
             val root = Files.createTempDirectory("spool-test")
-            val spool = CoverSpool(root)
+            val spool = CoverSpool(IoPath(root.toString()))
             val out = spool.spoolCover("scan1", bookWithEmbeddedCover("A/B", COVER_BYTES))
 
             val cover = out.cover.shouldBeInstanceOf<CoverSource.Spooled>()
@@ -110,7 +111,7 @@ class CoverSpoolTest :
 
         test("spoolCover: embedded-metadata book — artwork emptied, marker + mime kept, originals spooled") {
             val root = Files.createTempDirectory("spool-test")
-            val spool = CoverSpool(root)
+            val spool = CoverSpool(IoPath(root.toString()))
             val book =
                 bookWithEmbeddedCover(
                     rootRelPath = "A/B",
@@ -144,7 +145,7 @@ class CoverSpoolTest :
 
         test("spoolCover — filesystem-cover book WITH embedded artwork: artwork bytes emptied, marker kept, filesystem cover unchanged") {
             val root = Files.createTempDirectory("spool-test")
-            val spool = CoverSpool(root)
+            val spool = CoverSpool(IoPath(root.toString()))
             val book =
                 bookWithFilesystemCover(
                     rootRelPath = "A/B",
@@ -172,7 +173,7 @@ class CoverSpoolTest :
         // -------------------------------------------------------------------
 
         test("spoolCover leaves a no-cover book with no embedded metadata unchanged") {
-            val spool = CoverSpool(Files.createTempDirectory("spool-test"))
+            val spool = CoverSpool(IoPath(Files.createTempDirectory("spool-test").toString()))
             val book =
                 AnalyzedBook(
                     candidate = CandidateBook(rootRelPath = "A", isFile = false, files = emptyList()),
@@ -182,14 +183,14 @@ class CoverSpoolTest :
         }
 
         test("spoolCover leaves a filesystem-cover book with no embedded metadata unchanged") {
-            val spool = CoverSpool(Files.createTempDirectory("spool-test"))
+            val spool = CoverSpool(IoPath(Files.createTempDirectory("spool-test").toString()))
             val book = bookWithFilesystemCover("A/B", embedded = null)
             spool.spoolCover("scan1", book) shouldBe book
         }
 
         test("spoolCover does not touch an embedded.artwork that already has empty bytes") {
             val root = Files.createTempDirectory("spool-test")
-            val spool = CoverSpool(root)
+            val spool = CoverSpool(IoPath(root.toString()))
             val book = bookWithFilesystemCover("A/B", embedded = minimalEmbedded(artworkBytes = ByteArray(0)))
             // already-empty bytes → returned as-is (no unnecessary copy)
             val out = spool.spoolCover("scan1", book)
@@ -202,7 +203,7 @@ class CoverSpoolTest :
 
         test("clearScan removes the scan's dir; sweepOrphans removes STALE leftover dirs") {
             val root = Files.createTempDirectory("spool-test")
-            val spool = CoverSpool(root)
+            val spool = CoverSpool(IoPath(root.toString()))
             spool.spoolCover("scanA", bookWithEmbeddedCover("A", byteArrayOf(9)))
             spool.spoolCover("scanB", bookWithEmbeddedCover("B", byteArrayOf(8)))
             spool.clearScan("scanA")
@@ -219,7 +220,7 @@ class CoverSpoolTest :
 
         test("sweepOrphans preserves recently-modified dirs — a live scan is never clobbered") {
             val root = Files.createTempDirectory("spool-test")
-            val spool = CoverSpool(root)
+            val spool = CoverSpool(IoPath(root.toString()))
 
             // A just-created dir stands in for a concurrent (possibly other-process) live scan.
             val liveDir = root.resolve("live-scan-corr")
@@ -248,7 +249,7 @@ class CoverSpoolTest :
 
         test("a write failure keeps the cover in memory but still empties embedded artwork bytes") {
             val file = Files.createTempFile("not-a-dir", "") // root is a FILE → createDirectories fails
-            val spool = CoverSpool(file)
+            val spool = CoverSpool(IoPath(file.toString()))
             val originalBytes = byteArrayOf(1)
             val book =
                 bookWithEmbeddedCover(
@@ -274,7 +275,7 @@ class CoverSpoolTest :
 
         test("a write failure on a book without embedded metadata returns cover unchanged") {
             val file = Files.createTempFile("not-a-dir", "")
-            val spool = CoverSpool(file)
+            val spool = CoverSpool(IoPath(file.toString()))
             val book = bookWithEmbeddedCover("A", byteArrayOf(1))
             // no embedded metadata — result is byte-for-byte equal to input
             spool.spoolCover("scan1", book) shouldBe book

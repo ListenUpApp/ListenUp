@@ -50,6 +50,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.test.runTest
 import org.koin.ktor.ext.inject
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Integration tests for Task 5: persist-at-scan and sticky-upload-merge.
@@ -81,7 +82,7 @@ class BookPersistCoverTest :
                     val homeDir = Files.createTempDirectory("listenup-cover-persist-")
                     try {
                         val coverStore =
-                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MAX_COVER_BYTES))
                         val bus = ChangeBus()
                         val syncRegistry = SyncRegistry()
                         val repo =
@@ -203,7 +204,7 @@ class BookPersistCoverTest :
                     val homeDir = Files.createTempDirectory("listenup-sticky-upload-")
                     try {
                         val coverStore =
-                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MAX_COVER_BYTES))
                         val bus = ChangeBus()
                         val syncRegistry = SyncRegistry()
                         val repo =
@@ -233,7 +234,7 @@ class BookPersistCoverTest :
                         val stored = coverStore.store.store(bookId.value, uploadedBytes, "image/jpeg")
                         repo.setManagedCover(
                             id = bookId,
-                            relPath = "covers/${stored.path.fileName}",
+                            relPath = "covers/${stored.path.name}",
                             hash = stored.sha256,
                             source = CoverSource.UPLOADED,
                         )
@@ -272,7 +273,7 @@ class BookPersistCoverTest :
                     val homeDir = Files.createTempDirectory("listenup-sticky-control-")
                     try {
                         val coverStore =
-                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MAX_COVER_BYTES))
                         val bus = ChangeBus()
                         val syncRegistry = SyncRegistry()
                         val repo =
@@ -333,7 +334,7 @@ class BookPersistCoverTest :
                     val homeDir = Files.createTempDirectory("listenup-single-event-")
                     try {
                         val coverStore =
-                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MAX_COVER_BYTES))
                         val bus = ChangeBus()
                         val syncRegistry = SyncRegistry()
                         val repo =
@@ -403,7 +404,7 @@ class BookPersistCoverTest :
                     val homeDir = Files.createTempDirectory("listenup-cover-concurrent-")
                     try {
                         val coverStore =
-                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MAX_COVER_BYTES))
                         val bus = ChangeBus()
                         val syncRegistry = SyncRegistry()
                         val repo =
@@ -492,7 +493,7 @@ class BookPersistCoverTest :
                     val homeDir = Files.createTempDirectory("listenup-no-orphan-")
                     try {
                         val coverStore =
-                            CoverImageStore(ImageStore(homeDir.resolve("covers"), MAX_COVER_BYTES))
+                            CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), MAX_COVER_BYTES))
                         val bus = ChangeBus()
                         val syncRegistry = SyncRegistry()
                         val repo =
@@ -522,7 +523,7 @@ class BookPersistCoverTest :
                         val stored = coverStore.store.store(bookId.value, uploadedBytes, "image/jpeg")
                         repo.setManagedCover(
                             id = bookId,
-                            relPath = "covers/${stored.path.fileName}",
+                            relPath = "covers/${stored.path.name}",
                             hash = stored.sha256,
                             source = CoverSource.UPLOADED,
                         )

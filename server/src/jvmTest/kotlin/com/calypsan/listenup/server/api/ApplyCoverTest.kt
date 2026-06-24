@@ -127,7 +127,7 @@ private fun withCoverFixture(
                 .upsert(coverBookFixture("book1"), clientOpId = null)
                 .shouldBeInstanceOf<AppResult.Success<*>>()
 
-            val coverStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+            val coverStore = CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
             val mockHttp =
                 HttpClient(
                     MockEngine {
