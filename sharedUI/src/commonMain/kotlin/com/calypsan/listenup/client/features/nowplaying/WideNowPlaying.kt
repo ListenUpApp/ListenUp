@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.features.nowplaying
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,9 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.Icon
@@ -24,57 +23,53 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import com.calypsan.listenup.client.features.contributors.ClickableContributorLine
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerArtwork
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerSecondaryActions
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerScrubber
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTopBar
 import com.calypsan.listenup.client.features.nowplaying.components.PlayerTransport
-import com.calypsan.listenup.client.features.nowplaying.components.UpNextQueue
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
 import com.calypsan.listenup.client.presentation.bookdetail.HERO_CONTRIBUTOR_FOLD_LIMIT
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_other_narrators
 
-// Cover size for the wide immersive player pane — matches the design reference (408 dp).
-private val WIDE_COVER_SIZE = 408.dp
-
-// Horizontal padding for the full-screen overlay panels.
+// Horizontal padding for the full-screen overlay.
 private val PANEL_HORIZONTAL_PADDING = 32.dp
 
-// Vertical padding at the bottom of the two-pane content row.
-private val PANEL_VERTICAL_PADDING_BOTTOM = 32.dp
+// Vertical padding inside the content area, below the header.
+private val PANEL_VERTICAL_PADDING = 24.dp
 
-// Gap between the left and right panes.
-private val PANE_GAP = 24.dp
+// Gap between the cover (left) and the controls (right).
+private val PANE_GAP = 40.dp
 
-// Right pane maximum width — keeps the queue readable at large viewport widths.
-private val QUEUE_MAX_WIDTH = 420.dp
+// Cover cap so the artwork stays tasteful on very large viewports.
+private val MAX_COVER_SIZE = 520.dp
 
-// Padding inside the left immersive player card.
-private val PLAYER_CARD_PADDING = 40.dp
+// Controls column cap so the scrubber/transport stay readable rather than stretching edge-to-edge.
+private val CONTROLS_MAX_WIDTH = 520.dp
 
 /**
- * Wide (expanded / desktop) two-pane Now Playing layout.
+ * Wide (expanded / foldable inner display) Now Playing layout — a landscape player.
  *
- * Renders the M3 Expressive immersive player + "Up next" queue side-by-side below a
- * desktop-style header bar:
+ * On a foldable's wide-but-short inner display, stacking a big cover over the controls forces a
+ * scroll just to reach play/pause. This layout instead places everything side-by-side below a
+ * desktop-style header, so the whole player fits on one screen with no scrolling:
  * - **Header** ([PlayerTopBar] with `wide = true`): tonal collapse button, "Now playing" overline
- *   + book/series subtitle column, cast icon, overflow menu.
- * - **Left pane** ([weight(1f)]): [surfaceContainerLow] card (28 dp corners, 40 dp padding)
- *   with ambient glow, 408 dp cover art ([PlayerArtwork]), title, chapter label, narrator
- *   ([ClickableContributorLine]), [PlayerScrubber], [PlayerTransport] (96 dp FAB), and
- *   [PlayerSecondaryActions].
- * - **Right pane** ([widthIn(max=420.dp)]): [UpNextQueue] with a chapter preview slice and
- *   a "View all N chapters" footer.
+ *   + book/series subtitle, cast icon, overflow menu.
+ * - **Left pane**: the cover art ([PlayerArtwork]) sized off the *available height* so it stays
+ *   genuinely square and never gets clamped to a portrait sliver, vertically centred.
+ * - **Right pane**: title, chapter label, narrator ([ClickableContributorLine]), [PlayerScrubber],
+ *   [PlayerTransport] (96 dp FAB) and [PlayerSecondaryActions] (speed · sleep · chapters),
+ *   vertically centred and left-aligned so it reads as a landscape player, not a centred phone one.
  *
- * This composable is intentionally **not** called by [NowPlayingScreen] — Task 8 wires the
- * adaptive dispatch. It must compile cleanly and be public so the Task-8 branch can import it
- * without errors.
+ * Chapter browsing lives behind the "Chapters" pill in [PlayerSecondaryActions] (the same control
+ * the phone layout uses), so no dedicated queue pane is needed at this size. A queue column is the
+ * planned addition for true desktop widths (≥ 1200 dp), reusing `UpNextQueue`.
  *
  * @param state Current [NowPlayingState.Active] snapshot.
  * @param progress Fast-changing playback progress driving the scrubber and time labels.
@@ -87,9 +82,7 @@ private val PLAYER_CARD_PADDING = 40.dp
  * @param onNextChapter Called when skip-next is tapped.
  * @param onSpeedClick Called when the speed pill is tapped.
  * @param onSleepClick Called when the sleep pill is tapped.
- * @param onChaptersClick Called when the chapters pill or "View all chapters" footer is tapped.
- * @param onSeekToChapter Called with the zero-based chapter index when a queue row is tapped.
- *   Task 8 maps this to the ViewModel's [seekToChapter] action.
+ * @param onChaptersClick Called when the chapters pill is tapped.
  * @param onGoToBook Called when "Go to Book" is selected from the overflow menu.
  * @param onGoToSeries Called with the series id when "Go to Series" is selected.
  * @param onGoToContributor Called with a contributor id when a contributor name or menu item is tapped.
@@ -113,7 +106,6 @@ fun WideNowPlaying(
     onSpeedClick: () -> Unit,
     onSleepClick: () -> Unit,
     onChaptersClick: () -> Unit,
-    onSeekToChapter: (Int) -> Unit,
     onGoToBook: () -> Unit,
     onGoToSeries: (String) -> Unit,
     onGoToContributor: (String) -> Unit,
@@ -148,209 +140,147 @@ fun WideNowPlaying(
                         .padding(horizontal = PANEL_HORIZONTAL_PADDING),
             )
 
-            // Two-pane content row.
-            Row(
+            BoxWithConstraints(
                 modifier =
                     Modifier
+                        .weight(1f)
                         .fillMaxSize()
                         .padding(
-                            start = PANEL_HORIZONTAL_PADDING,
-                            end = PANEL_HORIZONTAL_PADDING,
-                            bottom = PANEL_VERTICAL_PADDING_BOTTOM,
-                            top = 4.dp,
+                            horizontal = PANEL_HORIZONTAL_PADDING,
+                            vertical = PANEL_VERTICAL_PADDING,
                         ),
-                horizontalArrangement = Arrangement.spacedBy(PANE_GAP),
             ) {
-                // LEFT: Immersive player card — fills remaining width.
-                ImmersivePlayerPane(
-                    state = state,
-                    progress = progress,
-                    onPlayPause = onPlayPause,
-                    onSeek = onSeek,
-                    onSkipBack = onSkipBack,
-                    onSkipForward = onSkipForward,
-                    onPreviousChapter = onPreviousChapter,
-                    onNextChapter = onNextChapter,
-                    onSpeedClick = onSpeedClick,
-                    onSleepClick = onSleepClick,
-                    onChaptersClick = onChaptersClick,
-                    onGoToContributor = onGoToContributor,
-                    onShowNarratorPicker = onShowNarratorPicker,
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .fillMaxHeight(),
-                )
+                // Square cover capped by the left half's width AND the available height, so the whole
+                // player fits without scrolling and the artwork never clamps to a portrait sliver.
+                val halfWidth = (maxWidth - PANE_GAP) / 2
+                val coverSize = min(min(maxHeight, halfWidth), MAX_COVER_SIZE)
 
-                // RIGHT: "Up next" queue — fluid up to 420 dp max.
-                UpNextQueue(
-                    chapters = state.chapters,
-                    currentChapterIndex = state.chapterIndex,
-                    totalChapters = state.totalChapters,
-                    onSeekToChapter = onSeekToChapter,
-                    onViewAllChapters = onChaptersClick,
-                    modifier =
-                        Modifier
-                            .widthIn(max = QUEUE_MAX_WIDTH)
-                            .fillMaxHeight(),
-                )
-            }
-        }
-    }
-}
-
-/**
- * Left immersive player pane for the wide two-pane layout.
- *
- * A [surfaceContainerLow] card with 28 dp rounded corners and 40 dp internal padding.
- * Content (scrollable for very small heights):
- * - Soft [primaryContainer] glow + 408 dp cover art via [PlayerArtwork].
- * - Book title (headlineMedium, bold, centred).
- * - Chapter label: "Chapter N · Title" (or "Chapter N" when no title).
- * - Narrator line via [ClickableContributorLine] (only when narrators are present).
- * - [PlayerScrubber] with elapsed / remaining labels.
- * - [PlayerTransport] with the 96 dp FAB from the design reference.
- * - [PlayerSecondaryActions]: speed, sleep, chapters pills.
- */
-@Suppress("LongParameterList", "LongMethod")
-@Composable
-private fun ImmersivePlayerPane(
-    state: NowPlayingState.Active,
-    progress: PlaybackProgress,
-    onPlayPause: () -> Unit,
-    onSeek: (Float) -> Unit,
-    onSkipBack: () -> Unit,
-    onSkipForward: () -> Unit,
-    onPreviousChapter: () -> Unit,
-    onNextChapter: () -> Unit,
-    onSpeedClick: () -> Unit,
-    onSleepClick: () -> Unit,
-    onChaptersClick: () -> Unit,
-    onGoToContributor: (String) -> Unit,
-    onShowNarratorPicker: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-    ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(PLAYER_CARD_PADDING)
-                    .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            // Cover art with ambient glow — design reference size 408 dp.
-            PlayerArtwork(
-                coverPath = state.coverPath,
-                bookId = state.bookId,
-                coverBlurHash = state.coverBlurHash,
-                size = WIDE_COVER_SIZE,
-                title = state.title,
-                author = state.author,
-                coverHash = state.coverHash,
-            )
-
-            Spacer(Modifier.height(30.dp))
-
-            // Book title — headlineMedium, bold, centred.
-            Text(
-                text = state.title,
-                style =
-                    MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                    ),
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // The chapter's own title, falling back to "Chapter N" only when it's genuinely
-            // untitled. No "Chapter N · " prefix — the title is often itself "Chapter N", which
-            // produced confusing duplicates like "Chapter 3 · Chapter 1" (offset by front-matter).
-            val chapterLine =
-                state.chapterTitle?.takeIf { it.isNotBlank() }
-                    ?: "Chapter ${state.chapterIndex + 1}"
-            Text(
-                text = chapterLine,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            // Narrator line — only when narrators are present.
-            if (state.narrators.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-
-                ClickableContributorLine(
-                    contributors = state.narrators,
-                    onContributorClick = onGoToContributor,
-                    style = MaterialTheme.typography.bodyMedium,
-                    nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.RecordVoiceOver,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(PANE_GAP),
+                ) {
+                    // LEFT: cover, vertically centred in its half.
+                    Box(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PlayerArtwork(
+                            coverPath = state.coverPath,
+                            bookId = state.bookId,
+                            coverBlurHash = state.coverBlurHash,
+                            size = coverSize,
+                            title = state.title,
+                            author = state.author,
+                            coverHash = state.coverHash,
                         )
-                    },
-                    foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
-                    overflowTextRes = Res.string.book_detail_other_narrators,
-                    onOverflowClick = onShowNarratorPicker,
-                )
+                    }
+
+                    // RIGHT: metadata + controls, vertically centred, left-aligned.
+                    Column(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .widthIn(max = CONTROLS_MAX_WIDTH),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.Start,
+                    ) {
+                        // Book title — headlineMedium, bold.
+                        Text(
+                            text = state.title,
+                            style =
+                                MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        // The chapter's own title, falling back to "Chapter N" only when it's
+                        // genuinely untitled. No "Chapter N · " prefix — the title is often itself
+                        // "Chapter N", which produced confusing duplicates like "Chapter 3 · Chapter 1".
+                        val chapterLine =
+                            state.chapterTitle?.takeIf { it.isNotBlank() }
+                                ?: "Chapter ${state.chapterIndex + 1}"
+                        Text(
+                            text = chapterLine,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+
+                        // Narrator line — only when narrators are present.
+                        if (state.narrators.isNotEmpty()) {
+                            Spacer(Modifier.height(8.dp))
+
+                            ClickableContributorLine(
+                                contributors = state.narrators,
+                                onContributorClick = onGoToContributor,
+                                style = MaterialTheme.typography.bodyMedium,
+                                nameColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                separatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Start,
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.RecordVoiceOver,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                                foldLimit = HERO_CONTRIBUTOR_FOLD_LIMIT,
+                                overflowTextRes = Res.string.book_detail_other_narrators,
+                                onOverflowClick = onShowNarratorPicker,
+                            )
+                        }
+
+                        Spacer(Modifier.height(32.dp))
+
+                        // Scrubber: wavy seek bar + elapsed / remaining labels.
+                        PlayerScrubber(
+                            chapterProgress = progress.chapterProgress,
+                            chapterPositionMs = progress.chapterPositionMs,
+                            chapterDurationMs = progress.chapterDurationMs,
+                            isPlaying = state.isPlaying,
+                            isBuffering = state.isBuffering,
+                            onSeek = onSeek,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        Spacer(Modifier.height(24.dp))
+
+                        // Transport row with the 96 dp FAB from the design reference.
+                        PlayerTransport(
+                            isPlaying = state.isPlaying,
+                            isBuffering = state.isBuffering,
+                            onPlayPause = onPlayPause,
+                            onSkipBack = onSkipBack,
+                            onSkipForward = onSkipForward,
+                            onPreviousChapter = onPreviousChapter,
+                            onNextChapter = onNextChapter,
+                            fabSize = 96.dp,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        Spacer(Modifier.height(24.dp))
+
+                        // Secondary actions: speed pill, sleep pill, chapters pill.
+                        PlayerSecondaryActions(
+                            playbackSpeed = state.playbackSpeed,
+                            onSpeedClick = onSpeedClick,
+                            onSleepClick = onSleepClick,
+                            onChaptersClick = onChaptersClick,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
             }
-
-            // Spacer separates the metadata from the controls so controls sit near the bottom.
-            Spacer(Modifier.height(24.dp))
-
-            // Scrubber: wavy seek bar + elapsed / remaining labels.
-            PlayerScrubber(
-                chapterProgress = progress.chapterProgress,
-                chapterPositionMs = progress.chapterPositionMs,
-                chapterDurationMs = progress.chapterDurationMs,
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
-                onSeek = onSeek,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(22.dp))
-
-            // Transport row with the 96 dp FAB from the design reference.
-            PlayerTransport(
-                isPlaying = state.isPlaying,
-                isBuffering = state.isBuffering,
-                onPlayPause = onPlayPause,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
-                onPreviousChapter = onPreviousChapter,
-                onNextChapter = onNextChapter,
-                fabSize = 96.dp,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            // Secondary actions: speed pill, sleep pill, chapters pill.
-            PlayerSecondaryActions(
-                playbackSpeed = state.playbackSpeed,
-                onSpeedClick = onSpeedClick,
-                onSleepClick = onSleepClick,
-                onChaptersClick = onChaptersClick,
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }

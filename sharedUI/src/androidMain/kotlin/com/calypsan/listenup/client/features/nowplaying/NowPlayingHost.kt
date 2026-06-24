@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -24,8 +25,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
-import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
 import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
@@ -75,8 +76,15 @@ fun NowPlayingHost(
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
 
     val deviceContext = LocalDeviceContext.current
-    val useDockedBar = deviceContext.type in setOf(DeviceType.Tv, DeviceType.Desktop, DeviceType.Tablet)
     val isTv = deviceContext.isLeanback
+    // Pick the bar by the *live* window width, not a static device label: a foldable folded to its
+    // cover screen is compact and should get the slim floating bar, not the wide docked one. TV always
+    // docks (leanback never shows the floating pill).
+    val useDockedBar =
+        isTv ||
+            currentWindowAdaptiveInfo()
+                .windowSizeClass
+                .isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
 
     val state = screenState.state
     val activeState = state as? NowPlayingState.Active
@@ -116,7 +124,6 @@ fun NowPlayingHost(
                     onSkipForward = { viewModel.skipForward() },
                     onPreviousChapter = viewModel::previousChapter,
                     onNextChapter = viewModel::nextChapter,
-                    onSeekToChapter = viewModel::seekToChapter,
                     onSpeedClick = viewModel::showSpeedPicker,
                     onChaptersClick = viewModel::showChapterPicker,
                     onSleepTimerClick = viewModel::showSleepTimer,

@@ -227,7 +227,7 @@ private fun CompactSection() {
 
 @Composable
 private fun WideSection() {
-    GalleryLabel("Wide (expanded / desktop) — two-pane with Up Next queue — scroll horizontally →")
+    GalleryLabel("Wide (expanded / foldable inner) — landscape player — scroll horizontally →")
     WidePreview {
         WideNowPlaying(
             state = mockActiveState,
@@ -242,7 +242,6 @@ private fun WideSection() {
             onSpeedClick = {},
             onSleepClick = {},
             onChaptersClick = {},
-            onSeekToChapter = {},
             onGoToBook = {},
             onGoToSeries = {},
             onGoToContributor = {},
