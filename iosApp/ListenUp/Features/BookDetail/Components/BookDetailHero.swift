@@ -19,11 +19,11 @@ struct BookDetailHero: View {
     /// The series pill is omitted when this is `nil`.
     let series: String?
     /// Tappable author chips; falls back to `author` text when empty.
-    let authors: [BookContributor]
+    let authors: [CastMember]
     /// Plain authors string for the no-contributors fallback.
     let author: String
     /// Tappable narrator chips; falls back to `narratorsText` when empty.
-    let narrators: [BookContributor]
+    let narrators: [CastMember]
     /// Plain narrators string for the VoiceOver summary and the no-contributors fallback.
     let narratorsText: String
     let chapterCount: Int
@@ -154,7 +154,7 @@ struct BookDetailHero: View {
     /// optionally led by a secondary `prefix` (e.g. "Narrated by "). Centering comes from
     /// `FlowLayout(alignment: .center)` — `.multilineTextAlignment` does not affect a custom layout.
     @ViewBuilder
-    private func contributorChips(prefix: String?, contributors: [BookContributor]) -> some View {
+    private func contributorChips(prefix: String?, contributors: [CastMember]) -> some View {
         FlowLayout(spacing: 0, alignment: .center) {
             if let prefix {
                 Text(prefix).foregroundStyle(.secondary)

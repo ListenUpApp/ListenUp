@@ -49,7 +49,7 @@ struct BookDetailView: View {
                 MetadataMatchView(
                     bookId: bookId,
                     title: observer.title,
-                    author: observer.book?.authors.first?.name ?? "",
+                    author: observer.heroAuthors.first?.name ?? "",
                     asin: observer.book?.asin
                 )
             }
@@ -114,9 +114,9 @@ struct BookDetailView: View {
                 book: observer.book,
                 title: observer.title,
                 series: observer.series,
-                authors: observer.book?.authors ?? [],
+                authors: observer.heroAuthors,
                 author: observer.authors,
-                narrators: observer.book?.narrators ?? [],
+                narrators: observer.heroNarrators,
                 narratorsText: observer.narrators,
                 chapterCount: observer.chapters.count,
                 duration: observer.duration,
@@ -172,9 +172,9 @@ struct BookDetailView: View {
                     book: observer.book,
                     title: observer.title,
                     series: observer.series,
-                    authors: observer.book?.authors ?? [],
+                    authors: observer.heroAuthors,
                     author: observer.authors,
-                    narrators: observer.book?.narrators ?? [],
+                    narrators: observer.heroNarrators,
                     narratorsText: observer.narrators,
                     chapterCount: observer.chapters.count,
                     duration: observer.duration,

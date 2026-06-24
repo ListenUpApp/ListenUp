@@ -32,7 +32,11 @@ final class BookDetailObserver {
     private(set) var progress: Float?
     private(set) var timeRemaining: String?
     private(set) var isComplete: Bool = false
-    private(set) var chapters: [ChapterUiModel] = []
+    private(set) var chapters: [BookChapterRow] = []
+    /// Tappable author/narrator chips for the hero, projected to native `CastMember` so the
+    /// hero's `ForEach` never re-bridges the Kotlin `BookContributor`s.
+    private(set) var heroAuthors: [CastMember] = []
+    private(set) var heroNarrators: [CastMember] = []
     private(set) var genres: [String] = []
     private(set) var tags: [String] = []
     private(set) var moods: [String] = []
@@ -55,7 +59,7 @@ final class BookDetailObserver {
 
     // MARK: - Documents
 
-    private(set) var documents: [BookDocument] = []
+    private(set) var documents: [DocumentRow] = []
     private(set) var openingDocIds: Set<String> = []
     /// Set when a tapped PDF is ready; drives `.fullScreenCover`. Nil dismisses the reader.
     var documentToOpen: ReaderDocument?
@@ -106,7 +110,7 @@ final class BookDetailObserver {
             self?.recomputeShelfRows()
         }
         bridge.bind(viewModel.documents) { [weak self] docs in
-            self?.documents = docs
+            self?.documents = docs.map { DocumentRow($0) }
         }
         bridge.bind(viewModel.openingDocumentIds) { [weak self] ids in
             self?.openingDocIds = Set(ids)
@@ -267,7 +271,9 @@ final class BookDetailObserver {
             progress = r.progress?.floatValue
             timeRemaining = r.timeRemainingFormatted
             isComplete = r.isComplete
-            chapters = Array(r.chapters)
+            chapters = r.chapters.map { BookChapterRow($0) }
+            heroAuthors = r.book.authors.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
+            heroNarrators = r.book.narrators.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
             genres = Array(r.genresList)
             tags = r.tags.map { $0.name }
             moods = r.moods.map { $0.name }

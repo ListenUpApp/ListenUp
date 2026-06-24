@@ -1,12 +1,11 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// The "Supplementary materials" block on Book Detail: a heading then one tappable card
 /// per document (format icon · basename · "<FORMAT> · <size>"). A card shows a spinner
 /// while its bytes download (`openingDocIds`). PDFs open the reader; other formats route
 /// to a "coming soon" path in the view model.
 struct SupplementaryMaterialsSection: View {
-    let documents: [BookDocument]
+    let documents: [DocumentRow]
     let openingDocIds: Set<String>
     let tint: Color
     let onOpen: (String) -> Void
@@ -21,7 +20,7 @@ struct SupplementaryMaterialsSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func card(_ doc: BookDocument) -> some View {
+    private func card(_ doc: DocumentRow) -> some View {
         Button { onOpen(doc.id) } label: {
             HStack(spacing: 14) {
                 Image(systemName: documentFormatSymbol(doc.format))
