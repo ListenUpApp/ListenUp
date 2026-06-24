@@ -28,6 +28,9 @@ class NoUnderscoreBackingFieldRule :
                 Konsist
                     .scopeFromProduction()
                     .classes()
+                    // Scoped to :sharedLogic (the elevation target, like the sibling rules).
+                    // sharedUI / contract / server carry the pattern too but were out of the 2a sweep.
+                    .filter { it.path.contains("/sharedLogic/") }
                     .filter { underscoreBacking.containsMatchIn(it.text) }
                     .filterNot { it.name in allowed }
                     .map { it.name }
