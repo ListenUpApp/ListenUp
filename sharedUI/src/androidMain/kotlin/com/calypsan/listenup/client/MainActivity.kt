@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.deeplink.DeepLinkParser
+import com.calypsan.listenup.client.design.haptics.ProvideHaptics
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -240,6 +241,7 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
     // Observe theme preferences
     val themeMode by localPreferences.themeMode.collectAsStateWithLifecycle()
     val dynamicColorsEnabled by localPreferences.dynamicColorsEnabled.collectAsStateWithLifecycle()
+    val hapticFeedbackEnabled by localPreferences.hapticFeedbackEnabled.collectAsStateWithLifecycle()
 
     // Derive dark theme from user preference
     val isSystemDark = isSystemInDarkTheme()
@@ -254,10 +256,12 @@ fun ListenUpApp(localPreferences: LocalPreferences = koinInject()) {
         darkTheme = darkTheme,
         dynamicColor = dynamicColorsEnabled,
     ) {
-        // Paint the themed surface edge-to-edge (behind the system bars) so there are no
-        // window-background bands at the top/bottom; inner scaffolds stay transparent over it.
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-            ListenUpNavigation()
+        ProvideHaptics(hapticFeedbackEnabled = hapticFeedbackEnabled) {
+            // Paint the themed surface edge-to-edge (behind the system bars) so there are no
+            // window-background bands at the top/bottom; inner scaffolds stay transparent over it.
+            Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+                ListenUpNavigation()
+            }
         }
     }
 }
