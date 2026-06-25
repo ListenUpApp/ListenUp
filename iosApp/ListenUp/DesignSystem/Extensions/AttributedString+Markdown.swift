@@ -25,9 +25,30 @@ extension AttributedString {
             failurePolicy: .returnPartiallyParsedIfPossible
         )
         if let parsed = try? AttributedString(markdown: normalized, options: options) {
-            return parsed
+            return insertingParagraphBreaks(into: parsed)
         }
         return AttributedString(markdown)
+    }
+
+    /// Materializes `.full`'s block structure into visible line breaks.
+    ///
+    /// With `interpretedSyntax: .full`, the parser records paragraph boundaries as
+    /// `presentationIntent` *metadata* — but a single `Text(_:)` renders only the
+    /// character stream, so multi-paragraph synopses collapse into one run-on blob.
+    /// We walk the block runs and splice a blank line between each, turning the
+    /// implicit boundaries into the explicit breaks the reader expects.
+    private static func insertingParagraphBreaks(into parsed: AttributedString) -> AttributedString {
+        var result = AttributedString()
+        var previousBlockIdentity: Int?
+        for run in parsed.runs {
+            let blockIdentity = run.presentationIntent?.components.first?.identity
+            if let blockIdentity, blockIdentity != previousBlockIdentity, previousBlockIdentity != nil {
+                result.append(AttributedString("\n\n"))
+            }
+            previousBlockIdentity = blockIdentity ?? previousBlockIdentity
+            result.append(parsed[run.range])
+        }
+        return result
     }
 
     /// Converts the handful of HTML tags that show up in imported descriptions into
