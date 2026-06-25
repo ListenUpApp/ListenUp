@@ -116,8 +116,16 @@ class SettingsViewModel(
                 LocalDisplaySettings(theme, dynamicColors, autoRewind, wifiOnly, autoRemove)
             },
             localPreferences.hapticFeedbackEnabled,
-        ) { internal, localDisplay, haptics ->
+            // Synced preferences from the Room-backed repository: a change made on another device
+            // (or this one) lands here live, so the screen never needs a re-open to catch up.
+            userPreferencesRepository.observePreferences(),
+        ) { internal, localDisplay, haptics, synced ->
             internal.copy(
+                defaultPlaybackSpeed = synced.defaultPlaybackSpeed,
+                defaultSkipForwardSec = synced.defaultSkipForwardSec,
+                defaultSkipBackwardSec = synced.defaultSkipBackwardSec,
+                defaultSleepTimerMin = synced.defaultSleepTimerMin,
+                shakeToResetSleepTimer = synced.shakeToResetSleepTimer,
                 themeMode = localDisplay.themeMode,
                 dynamicColorsEnabled = localDisplay.dynamicColorsEnabled,
                 autoRewindEnabled = localDisplay.autoRewindEnabled,
@@ -143,12 +151,11 @@ class SettingsViewModel(
      */
     private fun loadSettings() {
         viewModelScope.launch {
-            // Load local settings that aren't reactive StateFlows
+            // Load local settings that aren't reactive StateFlows. The synced playback fields
+            // (speed/skip/sleep/shake) are sourced reactively from observePreferences() in the
+            // combine above, so they are not seeded here.
             val ignoreTitleArticles = libraryPreferences.getIgnoreTitleArticles()
             val hideSingleBookSeries = libraryPreferences.getHideSingleBookSeries()
-            val defaultPlaybackSpeed = playbackPreferences.getDefaultPlaybackSpeed()
-            val defaultSkipForwardSec = playbackPreferences.getDefaultSkipForwardSec()
-            val defaultSkipBackwardSec = playbackPreferences.getDefaultSkipBackwardSec()
 
             // Load server URL from local storage
             val serverUrl = serverConfig.getServerUrl()?.value
@@ -157,9 +164,6 @@ class SettingsViewModel(
                 it.copy(
                     ignoreTitleArticles = ignoreTitleArticles,
                     hideSingleBookSeries = hideSingleBookSeries,
-                    defaultPlaybackSpeed = defaultPlaybackSpeed,
-                    defaultSkipForwardSec = defaultSkipForwardSec,
-                    defaultSkipBackwardSec = defaultSkipBackwardSec,
                     serverUrl = serverUrl,
                 )
             }
@@ -188,43 +192,28 @@ class SettingsViewModel(
     }
 
     /**
-     * Fetch synced settings from server and update local cache.
-     * Falls back to cached values if server is unreachable.
+     * Refresh synced settings from the server. The repository writes the result through to its Room
+     * cache, which the `observePreferences()` flow folded into [state] picks up reactively — so this
+     * method only triggers the fetch and toggles the loading flags. On failure the cached values
+     * already in [state] stay put (offline-first); we just clear the spinner.
      */
     private suspend fun fetchSyncedSettings() {
         internalState.update { it.copy(isSyncing = true, syncError = null) }
 
         when (val result = userPreferencesRepository.getPreferences()) {
             is AppResult.Success -> {
+                // Mirror into the legacy reactive player store too, so a cross-device skip/speed
+                // change reaches the player (which observes PlaybackPreferences, not the Settings VM).
                 val prefs = result.data
-                internalState.update {
-                    it.copy(
-                        defaultPlaybackSpeed = prefs.defaultPlaybackSpeed,
-                        defaultSkipForwardSec = prefs.defaultSkipForwardSec,
-                        defaultSkipBackwardSec = prefs.defaultSkipBackwardSec,
-                        defaultSleepTimerMin = prefs.defaultSleepTimerMin,
-                        shakeToResetSleepTimer = prefs.shakeToResetSleepTimer,
-                        isLoading = false,
-                        isSyncing = false,
-                    )
-                }
-
-                // Update local reactive cache for offline access — also drives the live
-                // player observation, so a cross-device skip change lands on the player.
                 playbackPreferences.setDefaultPlaybackSpeed(prefs.defaultPlaybackSpeed)
                 playbackPreferences.setDefaultSkipForwardSec(prefs.defaultSkipForwardSec)
                 playbackPreferences.setDefaultSkipBackwardSec(prefs.defaultSkipBackwardSec)
+                internalState.update { it.copy(isLoading = false, isSyncing = false) }
             }
 
             is AppResult.Failure -> {
                 logger.warn { "Failed to fetch synced settings: ${result.message}" }
-                internalState.update {
-                    it.copy(
-                        isLoading = false,
-                        isSyncing = false,
-                        // Keep cached values, just note the sync failed
-                    )
-                }
+                internalState.update { it.copy(isLoading = false, isSyncing = false) }
             }
         }
     }
@@ -237,11 +226,10 @@ class SettingsViewModel(
      */
     fun setDefaultPlaybackSpeed(speed: Float) {
         viewModelScope.launch {
-            // Update local cache immediately (optimistic)
+            // Mirror into the player's reactive store (it observes PlaybackPreferences, not this VM).
             playbackPreferences.setDefaultPlaybackSpeed(speed)
-            internalState.update { it.copy(defaultPlaybackSpeed = speed) }
-
-            // Sync to server in background
+            // The repository writes Room optimistically (driving observePreferences() → state) then
+            // pushes to the server — so the UI reflects the change instantly without a second copy here.
             userPreferencesRepository
                 .setDefaultPlaybackSpeed(speed)
                 .onFailure { logger.warn { "Failed to sync default playback speed to server: ${it.message}" } }
@@ -254,10 +242,9 @@ class SettingsViewModel(
      */
     fun setDefaultSkipForwardSec(seconds: Int) {
         viewModelScope.launch {
-            // Persist to the local reactive store first — this is the live source the
-            // player observes — then mirror UI state and sync to the server in the background.
+            // Persist to the player's reactive store (the live source the player observes); the
+            // repository's optimistic Room write drives the Settings UI via observePreferences().
             playbackPreferences.setDefaultSkipForwardSec(seconds)
-            internalState.update { it.copy(defaultSkipForwardSec = seconds) }
             userPreferencesRepository
                 .setDefaultSkipForwardSec(seconds)
                 .onFailure { logger.warn { "Failed to sync default skip-forward to server: ${it.message}" } }
@@ -270,10 +257,9 @@ class SettingsViewModel(
      */
     fun setDefaultSkipBackwardSec(seconds: Int) {
         viewModelScope.launch {
-            // Persist to the local reactive store first — this is the live source the
-            // player observes — then mirror UI state and sync to the server in the background.
+            // Persist to the player's reactive store (the live source the player observes); the
+            // repository's optimistic Room write drives the Settings UI via observePreferences().
             playbackPreferences.setDefaultSkipBackwardSec(seconds)
-            internalState.update { it.copy(defaultSkipBackwardSec = seconds) }
             userPreferencesRepository
                 .setDefaultSkipBackwardSec(seconds)
                 .onFailure { logger.warn { "Failed to sync default skip-backward to server: ${it.message}" } }
@@ -286,7 +272,7 @@ class SettingsViewModel(
      */
     fun setDefaultSleepTimerMin(minutes: Int?) {
         viewModelScope.launch {
-            internalState.update { it.copy(defaultSleepTimerMin = minutes) }
+            // The repository's optimistic Room write drives the UI via observePreferences().
             userPreferencesRepository
                 .setDefaultSleepTimerMin(minutes)
                 .onFailure { logger.warn { "Failed to sync default sleep-timer to server: ${it.message}" } }
@@ -298,7 +284,7 @@ class SettingsViewModel(
      */
     fun setShakeToResetSleepTimer(enabled: Boolean) {
         viewModelScope.launch {
-            internalState.update { it.copy(shakeToResetSleepTimer = enabled) }
+            // The repository's optimistic Room write drives the UI via observePreferences().
             userPreferencesRepository
                 .setShakeToResetSleepTimer(enabled)
                 .onFailure { logger.warn { "Failed to sync shake-to-reset-sleep-timer to server: ${it.message}" } }

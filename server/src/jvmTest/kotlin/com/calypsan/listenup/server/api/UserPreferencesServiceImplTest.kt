@@ -7,13 +7,18 @@ import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 class UserPreferencesServiceImplTest :
@@ -91,6 +96,60 @@ class UserPreferencesServiceImplTest :
                     val r = createUserPreferencesService(sql).getMyPreferences()
                     val failure = r.shouldBeInstanceOf<AppResult.Failure>()
                     failure.error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                }
+            }
+        }
+
+        test("updateMyPreferences publishes a per-user PreferencesChanged nudge to the caller") {
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                runTest {
+                    val bus = ChangeBus()
+                    val svc =
+                        userPreferencesServiceScopedTo(
+                            createUserPreferencesService(sql, bus),
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s-u1"), UserRole.MEMBER)
+                            },
+                        )
+                    val frame = async { bus.subscribeControl().first() }
+                    advanceUntilIdle()
+
+                    svc.updateMyPreferences(UpdateUserPreferencesRequest(defaultPlaybackSpeed = 1.5f))
+
+                    val delivered = frame.await()
+                    delivered.control shouldBe SyncControl.PreferencesChanged
+                    // Targeted at the caller — NOT a broadcast — so only this user's devices receive it.
+                    delivered.userId shouldBe "u1"
+                }
+            }
+        }
+
+        test("PreferencesChanged is addressed only to the updating user, not another user") {
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                runTest {
+                    val bus = ChangeBus()
+                    val u1Svc =
+                        userPreferencesServiceScopedTo(
+                            createUserPreferencesService(sql, bus),
+                            PrincipalProvider {
+                                UserPrincipal(UserId("u1"), SessionId("s-u1"), UserRole.MEMBER)
+                            },
+                        )
+                    val frame = async { bus.subscribeControl().first() }
+                    advanceUntilIdle()
+
+                    u1Svc.updateMyPreferences(UpdateUserPreferencesRequest(defaultPlaybackSpeed = 1.5f))
+
+                    // The firehose delivers a ControlFrame only when frame.userId == subscriber's userId
+                    // (or BROADCAST). u1's frame is addressed to "u1", so u2's connection — which filters
+                    // on "u2" — would never receive it. Asserting the address proves the scoping.
+                    val delivered = frame.await()
+                    delivered.userId shouldBe "u1"
+                    (delivered.userId == "u2") shouldBe false
+                    (delivered.userId == ChangeBus.BROADCAST) shouldBe false
                 }
             }
         }

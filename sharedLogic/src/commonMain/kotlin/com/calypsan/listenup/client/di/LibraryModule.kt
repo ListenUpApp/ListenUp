@@ -110,10 +110,12 @@ internal val libraryModule: Module =
             )
         }
 
-        // UserPreferencesRepository for syncing user preferences across devices
+        // UserPreferencesRepository for syncing user preferences across devices (offline-first via Room)
         single<UserPreferencesRepository> {
             UserPreferencesRepositoryImpl(
                 rpcFactory = get(),
+                dao = get(),
+                authSession = get(),
             )
         }
 

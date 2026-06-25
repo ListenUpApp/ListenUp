@@ -440,6 +440,28 @@ internal data class UserStatsEntity(
 )
 
 /**
+ * Local offline-first cache of the user's synced playback preferences.
+ *
+ * One row per user (keyed by [id] = user ID), refreshed wholesale from
+ * `UserPreferencesService.getMyPreferences`. Unlike the P2 sync domains this is not
+ * revision-cursored — it is a small, single-row projection re-pulled in full whenever the
+ * server nudges with `SyncControl.PreferencesChanged`, so it carries no `revision`/`deletedAt`
+ * substrate. The UI observes this row (via the repository) so a change made on another device
+ * lands live and survives offline.
+ */
+@Entity(tableName = "user_preferences")
+internal data class UserPreferencesEntity(
+    /** Primary key — equals the user's ID. */
+    @PrimaryKey val id: String,
+    val defaultPlaybackSpeed: Float,
+    val defaultSkipForwardSec: Int,
+    val defaultSkipBackwardSec: Int,
+    /** Null disables the default sleep timer. */
+    val defaultSleepTimerMin: Int?,
+    val shakeToResetSleepTimer: Boolean,
+)
+
+/**
  * Local-only crash-recovery state for the current playback span. **Not synced.**
  *
  * Single-row table (a user can only listen to one thing at a time). The row
