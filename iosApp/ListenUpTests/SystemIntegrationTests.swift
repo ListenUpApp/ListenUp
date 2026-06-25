@@ -30,8 +30,4 @@ struct SystemIntegrationTests {
         let dict = SystemIntegration.dictionary(from: info)
         #expect(dict[MPNowPlayingInfoPropertyPlaybackRate] as? Double == 1.5)
     }
-
-    @Test func skipIntervalIsThirtySeconds() {
-        #expect(SystemIntegration.skipIntervalSeconds == 30)
-    }
 }

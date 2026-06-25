@@ -20,6 +20,20 @@ sealed interface PreferenceChangeEvent {
     data class PlaybackSpeedChanged(
         val speed: Float,
     ) : PreferenceChangeEvent
+
+    /**
+     * Default skip-forward interval was changed.
+     */
+    data class SkipForwardChanged(
+        val seconds: Int,
+    ) : PreferenceChangeEvent
+
+    /**
+     * Default skip-backward interval was changed.
+     */
+    data class SkipBackwardChanged(
+        val seconds: Int,
+    ) : PreferenceChangeEvent
 }
 
 // region Segregated Interfaces (ISP)
@@ -239,6 +253,12 @@ interface PlaybackPreferences {
     companion object {
         /** Default playback speed for new books (1.0x = normal speed). */
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
+
+        /** Default skip-forward interval in seconds. */
+        const val DEFAULT_SKIP_FORWARD_SEC = 30
+
+        /** Default skip-backward interval in seconds. */
+        const val DEFAULT_SKIP_BACKWARD_SEC = 10
     }
 
     /** Flow of preference change events for sync layer. */
@@ -268,6 +288,51 @@ interface PlaybackPreferences {
      * This is a synced setting - will be pushed to server.
      */
     suspend fun setDefaultPlaybackSpeed(speed: Float)
+
+    /**
+     * Reactively observe the default skip-forward interval (seconds).
+     *
+     * Emits the current value on first collect, then re-emits whenever
+     * [setDefaultSkipForwardSec] is called from any caller — so a Settings change
+     * propagates live to the player without manual coordination.
+     *
+     * EM-R1: rethrows [CancellationException]; non-cancellation failures during
+     * the initial read fall back to [DEFAULT_SKIP_FORWARD_SEC].
+     */
+    fun observeDefaultSkipForwardSec(): Flow<Int>
+
+    /**
+     * Reactively observe the default skip-backward interval (seconds).
+     *
+     * Emits the current value on first collect, then re-emits whenever
+     * [setDefaultSkipBackwardSec] is called from any caller.
+     *
+     * EM-R1: rethrows [CancellationException]; non-cancellation failures during
+     * the initial read fall back to [DEFAULT_SKIP_BACKWARD_SEC].
+     */
+    fun observeDefaultSkipBackwardSec(): Flow<Int>
+
+    /**
+     * Get the default skip-forward interval in seconds. Default is 30.
+     */
+    suspend fun getDefaultSkipForwardSec(): Int
+
+    /**
+     * Get the default skip-backward interval in seconds. Default is 10.
+     */
+    suspend fun getDefaultSkipBackwardSec(): Int
+
+    /**
+     * Set the default skip-forward interval (seconds). Persisted locally for
+     * reactive reads; server sync is the caller's responsibility.
+     */
+    suspend fun setDefaultSkipForwardSec(seconds: Int)
+
+    /**
+     * Set the default skip-backward interval (seconds). Persisted locally for
+     * reactive reads; server sync is the caller's responsibility.
+     */
+    suspend fun setDefaultSkipBackwardSec(seconds: Int)
 }
 
 /**

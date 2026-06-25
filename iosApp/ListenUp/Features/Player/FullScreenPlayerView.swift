@@ -276,13 +276,13 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             // Skip back
-            Button { observer.skipBackward(seconds: 10) } label: {
-                Image(systemName: "gobackward.10")
+            Button { observer.skipBackward() } label: {
+                Image(systemName: PlayerGlyphs.skipBackward(seconds: observer.skipBackwardSec))
                     .font(.title2)
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "10"))
+            .accessibilityLabel(String(format: String(localized: "player.skip_backward"), "\(observer.skipBackwardSec)"))
 
             Spacer()
 
@@ -305,13 +305,13 @@ struct FullScreenPlayerView: View {
             Spacer()
 
             // Skip forward
-            Button { observer.skipForward(seconds: 30) } label: {
-                Image(systemName: "goforward.30")
+            Button { observer.skipForward() } label: {
+                Image(systemName: PlayerGlyphs.skipForward(seconds: observer.skipForwardSec))
                     .font(.title2)
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
             }
-            .accessibilityLabel(String(format: String(localized: "player.skip_forward"), "30"))
+            .accessibilityLabel(String(format: String(localized: "player.skip_forward"), "\(observer.skipForwardSec)"))
 
             Spacer()
 

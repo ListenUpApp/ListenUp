@@ -101,6 +101,8 @@ internal class SettingsRepositoryImpl(
 
         // Playback preferences (synced)
         private const val KEY_DEFAULT_PLAYBACK_SPEED = "default_playback_speed"
+        private const val KEY_DEFAULT_SKIP_FORWARD_SEC = "default_skip_forward_sec"
+        private const val KEY_DEFAULT_SKIP_BACKWARD_SEC = "default_skip_backward_sec"
 
         // Local preferences (device-specific, NOT synced)
         private const val KEY_THEME_MODE = "theme_mode"
@@ -112,6 +114,8 @@ internal class SettingsRepositoryImpl(
 
         // Default values
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
+        const val DEFAULT_SKIP_FORWARD_SEC = 30
+        const val DEFAULT_SKIP_BACKWARD_SEC = 10
     }
 
     // Server configuration
@@ -316,6 +320,62 @@ internal class SettingsRepositoryImpl(
     override suspend fun setDefaultPlaybackSpeed(speed: Float) {
         secureStorage.save(KEY_DEFAULT_PLAYBACK_SPEED, speed.toString())
         preferenceChanges.emit(DomainPreferenceChangeEvent.PlaybackSpeedChanged(speed))
+    }
+
+    // Skip intervals (synced across devices; persisted locally for reactive reads)
+
+    override fun observeDefaultSkipForwardSec(): Flow<Int> =
+        flow {
+            val initial =
+                try {
+                    getDefaultSkipForwardSec()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Initial getDefaultSkipForwardSec failed; falling back to default." }
+                    DomainPlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC
+                }
+            emit(initial)
+
+            preferenceChanges
+                .filterIsInstance<DomainPreferenceChangeEvent.SkipForwardChanged>()
+                .map { it.seconds }
+                .collect { emit(it) }
+        }
+
+    override fun observeDefaultSkipBackwardSec(): Flow<Int> =
+        flow {
+            val initial =
+                try {
+                    getDefaultSkipBackwardSec()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.warn(e) { "Initial getDefaultSkipBackwardSec failed; falling back to default." }
+                    DomainPlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC
+                }
+            emit(initial)
+
+            preferenceChanges
+                .filterIsInstance<DomainPreferenceChangeEvent.SkipBackwardChanged>()
+                .map { it.seconds }
+                .collect { emit(it) }
+        }
+
+    override suspend fun getDefaultSkipForwardSec(): Int =
+        secureStorage.read(KEY_DEFAULT_SKIP_FORWARD_SEC)?.toIntOrNull() ?: DEFAULT_SKIP_FORWARD_SEC
+
+    override suspend fun getDefaultSkipBackwardSec(): Int =
+        secureStorage.read(KEY_DEFAULT_SKIP_BACKWARD_SEC)?.toIntOrNull() ?: DEFAULT_SKIP_BACKWARD_SEC
+
+    override suspend fun setDefaultSkipForwardSec(seconds: Int) {
+        secureStorage.save(KEY_DEFAULT_SKIP_FORWARD_SEC, seconds.toString())
+        preferenceChanges.emit(DomainPreferenceChangeEvent.SkipForwardChanged(seconds))
+    }
+
+    override suspend fun setDefaultSkipBackwardSec(seconds: Int) {
+        secureStorage.save(KEY_DEFAULT_SKIP_BACKWARD_SEC, seconds.toString())
+        preferenceChanges.emit(DomainPreferenceChangeEvent.SkipBackwardChanged(seconds))
     }
 
     // Local preferences (device-specific, NOT synced)

@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -278,6 +279,9 @@ object KoinHelper {
     fun getSleepTimerManager(): SleepTimerManager = resolveDependency(SleepTimerManager::class) as SleepTimerManager
 
     fun getPlaybackPreparer(): PlaybackPreparer = resolveDependency(PlaybackPreparer::class) as PlaybackPreparer
+
+    fun getPlaybackPreferences(): PlaybackPreferences =
+        resolveDependency(PlaybackPreferences::class) as PlaybackPreferences
 }
 
 /**
