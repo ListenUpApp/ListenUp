@@ -21,14 +21,15 @@ struct MiniPlayerBar: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 0) {
-                contentRow
-                progressLine
-            }
-            .frame(maxWidth: .infinity)
-            .glassControl(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            contentRow
+                .frame(maxWidth: .infinity)
+                .glassControl(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                // Progress reads as the bar's own bottom edge — a hairline pinned just
+                // inside the glass, inset from the rounded corners — not a separate strip
+                // stacked beneath the card.
+                .overlay(alignment: .bottom) { progressLine }
+                .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         // Swipe up to expand. `simultaneousGesture` keeps both the bar's tap and
@@ -58,12 +59,11 @@ struct MiniPlayerBar: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                if let chapter = observer.chapterTitle {
-                    Text(chapter)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 12)
@@ -74,6 +74,18 @@ struct MiniPlayerBar: View {
         .padding(.vertical, 8)
     }
 
+    /// "{Chapter} · {time left}" when a chapter is known, otherwise just the time left.
+    /// Time-left reuses the reader strip's `formatTimeLeft` helper ("9h 51m left"); the
+    /// single line truncates on narrow widths so the bar never crowds. Reads only scalar
+    /// values off the observer (rule 8 — no bridged Kotlin objects in the view body).
+    private var subtitle: String {
+        let timeLeft = formatTimeLeft(remainingMs: observer.bookDurationMs - observer.displayBookPositionMs)
+        if let chapter = observer.chapterTitle, !chapter.isEmpty {
+            return "\(chapter) · \(timeLeft)"
+        }
+        return timeLeft
+    }
+
     private var cover: some View {
         BookCoverImage(bookId: observer.currentBookId, coverPath: observer.coverPath, blurHash: observer.coverBlurHash)
             .frame(width: 40, height: 40)
@@ -82,22 +94,22 @@ struct MiniPlayerBar: View {
             .accessibilityHidden(true)
     }
 
-    /// Thin overall-book progress line pinned to the bottom edge of the bar.
+    /// Overall-book progress as a slim hairline sitting *on* the bar's lower edge: a
+    /// barely-there capsule track with a coral fill, inset from the rounded corners so it
+    /// reads as the bar's own progress accent rather than a separate strip beneath it.
     private var progressLine: some View {
         GeometryReader { geometry in
-            Rectangle()
-                .fill(Color.listenUpOrange)
-                .frame(width: geometry.size.width * CGFloat(observer.displayBookProgress))
+            Capsule()
+                .fill(Color.primary.opacity(0.06))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.listenUpOrange)
+                        .frame(width: geometry.size.width * CGFloat(observer.displayBookProgress))
+                }
         }
-        .frame(height: 2)
-        .background(Color.primary.opacity(0.08))
-        .clipShape(
-            UnevenRoundedRectangle(
-                bottomLeadingRadius: 16,
-                bottomTrailingRadius: 16,
-                style: .continuous
-            )
-        )
+        .frame(height: 2.5)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 5)
     }
 
     private var playPauseButton: some View {

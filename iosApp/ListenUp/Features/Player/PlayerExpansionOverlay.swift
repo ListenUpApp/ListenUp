@@ -62,7 +62,13 @@ struct PlayerExpansionOverlay: View {
                 )
                 .offset(y: reduceMotion ? 0 : dragOffset)
                 .scaleEffect(reduceMotion ? 1 : 1 - dismissProgress / 10, anchor: .center)
-                .opacity(reduceMotion ? 1 : Double(1 - dismissProgress * 0.5))
+                // No per-frame `.opacity` fade on the player during the drag: the player's
+                // background is a system glass material, and fading a material to a changing
+                // alpha re-composites it against the live content behind it every frame. On a
+                // slow continuous drag that lands on every intermediate alpha → constant
+                // flicker (a fast swipe blows through it too quickly to see). The glass already
+                // supplies the translucency the dismiss wants; the offset + slight shrink carry
+                // the gesture. Fade stays only on the cover-morph spring, which is steady.
                 .transition(fullPlayerTransition)
                 .zIndex(2)
             } else {
