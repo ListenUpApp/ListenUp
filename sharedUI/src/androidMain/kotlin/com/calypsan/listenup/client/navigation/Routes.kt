@@ -339,7 +339,7 @@ data object RestoreFromFile : Route
 /**
  * Rebuilt ABS import flow screen — single-screen host for the full import pipeline.
  *
- * Drives [com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel] through
+ * Drives [com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel] through
  * Idle → Uploading → Analyzing → Review → Applying → Done (or Error). The file picker lives
  * inside the screen's Idle state, so no [FileSource] argument is needed here.
  */

@@ -5,12 +5,12 @@ import com.calypsan.listenup.client.data.discovery.AppleDiscoveryService
 import com.calypsan.listenup.client.data.discovery.ServerDiscoveryService
 import com.calypsan.listenup.client.domain.usecase.GetInstanceUseCase
 import com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailViewModel
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import org.koin.core.context.startKoin
 import org.koin.core.module.Module
+import org.koin.core.parameter.parametersOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
+import org.koin.mp.KoinPlatform
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
@@ -20,6 +20,49 @@ import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
+import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
+import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
+import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
+import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
+import com.calypsan.listenup.client.presentation.admin.AdminViewModel
+import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
+import com.calypsan.listenup.client.presentation.auth.LoginViewModel
+import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
+import com.calypsan.listenup.client.presentation.auth.RegisterViewModel
+import com.calypsan.listenup.client.presentation.auth.SetupViewModel
+import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
+import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
+import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
+import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
+import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
+import com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel
+import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
+import com.calypsan.listenup.client.presentation.discover.DiscoverViewModel
+import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
+import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
+import com.calypsan.listenup.client.presentation.home.HomeViewModel
+import com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel
+import com.calypsan.listenup.client.presentation.library.LibraryViewModel
+import com.calypsan.listenup.client.presentation.metadata.MetadataViewModel
+import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
+import com.calypsan.listenup.client.presentation.profile.UserProfileViewModel
+import com.calypsan.listenup.client.presentation.search.SearchViewModel
+import com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel
+import com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel
+import com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel
+import com.calypsan.listenup.client.presentation.settings.DevicesViewModel
+import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
+import com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel
+import com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel
+import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
+import com.calypsan.listenup.client.presentation.startup.AppStartupViewModel
+import com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel
 
 /**
  * iOS-specific Koin initialization.
@@ -30,7 +73,7 @@ import com.calypsan.listenup.core.BookId
  *
  * @param additionalModules iOS-specific modules to include
  */
-actual fun initializeKoin(additionalModules: List<Module>) {
+internal actual fun initializeKoin(additionalModules: List<Module>) {
     // Configure logging before anything else
     configureLogging()
 
@@ -50,80 +93,70 @@ actual fun getBaseUrl(): String = "http://127.0.0.1:8080"
  * iOS-specific discovery module.
  * Provides Bonjour-based mDNS discovery using NSNetServiceBrowser.
  */
-actual val platformDiscoveryModule: Module =
+internal actual val platformDiscoveryModule: Module =
     module {
         single { AppleDiscoveryService() } bind ServerDiscoveryService::class
     }
 
 /**
- * Helper object for accessing Koin dependencies from Swift.
- * Provides strongly-typed accessors that are easier to use from Swift.
+ * Non-inline DI resolution by [KClass]. Its signature carries no Koin type (only `KClass` and
+ * `Any`), and because it is **not** `inline`, the Koin call in its body is not copied into callers'
+ * bodies. That keeps `org.koin.core.Koin` out of the Swift-exported closure of [KoinHelper] — a
+ * reified `inline` resolver (the old `by inject()`) would inline `KoinPlatform.getKoin()` into every
+ * exported accessor and re-leak the DI framework into the Swift Export bridge.
  */
-object KoinHelper : KoinComponent {
-    fun getInstanceUseCase(): GetInstanceUseCase {
-        val useCase: GetInstanceUseCase by inject()
-        return useCase
-    }
+private fun resolveDependency(type: kotlin.reflect.KClass<*>): Any = KoinPlatform.getKoin().get(type, null, null)
 
-    fun getServerConnectViewModel(): com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel by inject()
-        return viewModel
-    }
+/**
+ * Parameterized [resolveDependency]. Same non-inline rationale: the `parametersOf` closure stays in
+ * this private helper's body, never inlined onto an exported accessor.
+ */
+private fun resolveDependencyWithParams(
+    type: kotlin.reflect.KClass<*>,
+    params: List<Any?>,
+): Any = KoinPlatform.getKoin().get(type, null) { parametersOf(*params.toTypedArray()) }
 
-    fun getLoginViewModel(): com.calypsan.listenup.client.presentation.auth.LoginViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.auth.LoginViewModel by inject()
-        return viewModel
-    }
+/**
+ * Helper object for accessing dependencies from Swift.
+ *
+ * Provides strongly-typed accessors that are easier to use from Swift. Resolution goes through the
+ * non-inline [resolveDependency] / [resolveDependencyWithParams] (not the `KoinComponent` interface,
+ * not a reified inline helper) so that no Koin type appears on — or is inlined into — this object's
+ * public surface. Every accessor returns a domain or presentation type, never a Koin type.
+ */
+object KoinHelper {
+    fun getInstanceUseCase(): GetInstanceUseCase = resolveDependency(GetInstanceUseCase::class) as GetInstanceUseCase
 
-    fun getRegisterViewModel(): com.calypsan.listenup.client.presentation.auth.RegisterViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.auth.RegisterViewModel by inject()
-        return viewModel
-    }
+    fun getServerConnectViewModel(): ServerConnectViewModel =
+        resolveDependency(ServerConnectViewModel::class) as ServerConnectViewModel
 
-    fun getSetupViewModel(): com.calypsan.listenup.client.presentation.auth.SetupViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.auth.SetupViewModel by inject()
-        return viewModel
-    }
+    fun getLoginViewModel(): LoginViewModel = resolveDependency(LoginViewModel::class) as LoginViewModel
 
-    fun getClaimInviteViewModel(): com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel by inject()
-        return viewModel
-    }
+    fun getRegisterViewModel(): RegisterViewModel = resolveDependency(RegisterViewModel::class) as RegisterViewModel
+
+    fun getSetupViewModel(): SetupViewModel = resolveDependency(SetupViewModel::class) as SetupViewModel
+
+    fun getClaimInviteViewModel(): ClaimInviteViewModel =
+        resolveDependency(ClaimInviteViewModel::class) as ClaimInviteViewModel
 
     fun getPendingApprovalViewModel(
         userId: String,
         email: String,
-    ): com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel by inject(
-            parameters = { org.koin.core.parameter.parametersOf(userId, email) },
-        )
-        return viewModel
-    }
+    ): PendingApprovalViewModel =
+        resolveDependencyWithParams(PendingApprovalViewModel::class, listOf(userId, email)) as PendingApprovalViewModel
 
-    fun getServerSelectViewModel(): com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel by inject()
-        return viewModel
-    }
+    fun getServerSelectViewModel(): ServerSelectViewModel =
+        resolveDependency(ServerSelectViewModel::class) as ServerSelectViewModel
 
-    fun getLibrarySetupViewModel(): com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.setup.LibrarySetupViewModel by inject()
-        return viewModel
-    }
+    fun getLibrarySetupViewModel(): LibrarySetupViewModel =
+        resolveDependency(LibrarySetupViewModel::class) as LibrarySetupViewModel
 
-    fun getAppStartupViewModel(): com.calypsan.listenup.client.presentation.startup.AppStartupViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.startup.AppStartupViewModel by inject()
-        return viewModel
-    }
+    fun getAppStartupViewModel(): AppStartupViewModel =
+        resolveDependency(AppStartupViewModel::class) as AppStartupViewModel
 
-    fun getAuthSession(): com.calypsan.listenup.client.domain.repository.AuthSession {
-        val authSession: com.calypsan.listenup.client.domain.repository.AuthSession by inject()
-        return authSession
-    }
+    fun getAuthSession(): AuthSession = resolveDependency(AuthSession::class) as AuthSession
 
-    fun getServerConfig(): com.calypsan.listenup.client.domain.repository.ServerConfig {
-        val serverConfig: com.calypsan.listenup.client.domain.repository.ServerConfig by inject()
-        return serverConfig
-    }
+    fun getServerConfig(): ServerConfig = resolveDependency(ServerConfig::class) as ServerConfig
 
     /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
@@ -131,232 +164,127 @@ object KoinHelper : KoinComponent {
     /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun activeServerUrl(): String? = getServerConfig().getActiveUrl()?.raw
 
-    fun getUserRepository(): com.calypsan.listenup.client.domain.repository.UserRepository {
-        val userRepository: com.calypsan.listenup.client.domain.repository.UserRepository by inject()
-        return userRepository
-    }
+    fun getUserRepository(): UserRepository = resolveDependency(UserRepository::class) as UserRepository
 
-    fun getLibraryViewModel(): com.calypsan.listenup.client.presentation.library.LibraryViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.library.LibraryViewModel by inject()
-        return viewModel
-    }
+    fun getLibraryViewModel(): LibraryViewModel = resolveDependency(LibraryViewModel::class) as LibraryViewModel
 
-    fun getSyncRepository(): com.calypsan.listenup.client.domain.repository.SyncRepository {
-        val syncRepository: com.calypsan.listenup.client.domain.repository.SyncRepository by inject()
-        return syncRepository
-    }
+    fun getSyncRepository(): SyncRepository = resolveDependency(SyncRepository::class) as SyncRepository
 
-    fun getHomeViewModel(): com.calypsan.listenup.client.presentation.home.HomeViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.home.HomeViewModel by inject()
-        return viewModel
-    }
+    fun getHomeViewModel(): HomeViewModel = resolveDependency(HomeViewModel::class) as HomeViewModel
 
-    fun getHomeStatsViewModel(): com.calypsan.listenup.client.presentation.home.HomeStatsViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.home.HomeStatsViewModel by inject()
-        return viewModel
-    }
+    fun getHomeStatsViewModel(): HomeStatsViewModel = resolveDependency(HomeStatsViewModel::class) as HomeStatsViewModel
 
-    fun getSearchViewModel(): com.calypsan.listenup.client.presentation.search.SearchViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.search.SearchViewModel by inject()
-        return viewModel
-    }
+    fun getSearchViewModel(): SearchViewModel = resolveDependency(SearchViewModel::class) as SearchViewModel
 
-    fun getDiscoverViewModel(): com.calypsan.listenup.client.presentation.discover.DiscoverViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.discover.DiscoverViewModel by inject()
-        return viewModel
-    }
+    fun getDiscoverViewModel(): DiscoverViewModel = resolveDependency(DiscoverViewModel::class) as DiscoverViewModel
 
-    fun getLeaderboardViewModel(): com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel by inject()
-        return viewModel
-    }
+    fun getLeaderboardViewModel(): LeaderboardViewModel =
+        resolveDependency(LeaderboardViewModel::class) as LeaderboardViewModel
 
-    fun getActivityFeedViewModel(): com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel by inject()
-        return viewModel
-    }
+    fun getActivityFeedViewModel(): ActivityFeedViewModel =
+        resolveDependency(ActivityFeedViewModel::class) as ActivityFeedViewModel
 
-    fun getSeeAllSearchViewModel(): com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.search.SeeAllSearchViewModel by inject()
-        return viewModel
-    }
+    fun getSeeAllSearchViewModel(): SeeAllSearchViewModel =
+        resolveDependency(SeeAllSearchViewModel::class) as SeeAllSearchViewModel
 
-    fun getSettingsViewModel(): com.calypsan.listenup.client.presentation.settings.SettingsViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.settings.SettingsViewModel by inject()
-        return viewModel
-    }
+    fun getSettingsViewModel(): SettingsViewModel = resolveDependency(SettingsViewModel::class) as SettingsViewModel
 
-    fun getDevicesViewModel(): com.calypsan.listenup.client.presentation.settings.DevicesViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.settings.DevicesViewModel by inject()
-        return viewModel
-    }
+    fun getDevicesViewModel(): DevicesViewModel = resolveDependency(DevicesViewModel::class) as DevicesViewModel
 
-    fun getAdminViewModel(): com.calypsan.listenup.client.presentation.admin.AdminViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminViewModel by inject()
-        return viewModel
-    }
+    fun getAdminViewModel(): AdminViewModel = resolveDependency(AdminViewModel::class) as AdminViewModel
 
-    fun getAdminSettingsViewModel(): com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel by inject()
-        return viewModel
-    }
+    fun getAdminSettingsViewModel(): AdminSettingsViewModel =
+        resolveDependency(AdminSettingsViewModel::class) as AdminSettingsViewModel
 
-    fun getCreateInviteViewModel(): com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel by inject()
-        return viewModel
-    }
+    fun getCreateInviteViewModel(): CreateInviteViewModel =
+        resolveDependency(CreateInviteViewModel::class) as CreateInviteViewModel
 
-    fun getABSImportHubViewModel(): com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel by inject()
-        return viewModel
-    }
+    fun getABSImportHubViewModel(): ABSImportHubViewModel =
+        resolveDependency(ABSImportHubViewModel::class) as ABSImportHubViewModel
 
-    fun getImportFlowViewModel(): com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel by inject()
-        return viewModel
-    }
+    fun getImportFlowViewModel(): ImportFlowViewModel =
+        resolveDependency(ImportFlowViewModel::class) as ImportFlowViewModel
 
-    fun getAdminInboxViewModel(): com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel by inject()
-        return viewModel
-    }
+    fun getAdminInboxViewModel(): AdminInboxViewModel =
+        resolveDependency(AdminInboxViewModel::class) as AdminInboxViewModel
 
-    fun getAdminCollectionsViewModel(): com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel by inject()
-        return viewModel
-    }
+    fun getAdminCollectionsViewModel(): AdminCollectionsViewModel =
+        resolveDependency(AdminCollectionsViewModel::class) as AdminCollectionsViewModel
 
-    fun getAdminCollectionDetailViewModel(
-        collectionId: String,
-    ): com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel by inject(
-            parameters = { org.koin.core.parameter.parametersOf(collectionId) },
-        )
-        return viewModel
-    }
+    fun getAdminCollectionDetailViewModel(collectionId: String): AdminCollectionDetailViewModel =
+        resolveDependencyWithParams(
+            AdminCollectionDetailViewModel::class,
+            listOf(collectionId),
+        ) as AdminCollectionDetailViewModel
 
-    fun getBookDetailViewModel(): com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel by inject()
-        return viewModel
-    }
+    fun getBookDetailViewModel(): BookDetailViewModel =
+        resolveDependency(BookDetailViewModel::class) as BookDetailViewModel
 
-    fun getSeriesDetailViewModel(): com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.seriesdetail.SeriesDetailViewModel by inject()
-        return viewModel
-    }
+    fun getSeriesDetailViewModel(): SeriesDetailViewModel =
+        resolveDependency(SeriesDetailViewModel::class) as SeriesDetailViewModel
 
-    fun getContributorDetailViewModel(): ContributorDetailViewModel {
-        val viewModel: ContributorDetailViewModel by inject()
-        return viewModel
-    }
+    fun getContributorDetailViewModel(): ContributorDetailViewModel =
+        resolveDependency(ContributorDetailViewModel::class) as ContributorDetailViewModel
 
-    fun getTagDetailViewModel(): com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.tagdetail.TagDetailViewModel by inject()
-        return viewModel
-    }
+    fun getTagDetailViewModel(): TagDetailViewModel = resolveDependency(TagDetailViewModel::class) as TagDetailViewModel
 
-    fun getShelfDetailViewModel(): com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel by inject()
-        return viewModel
-    }
+    fun getShelfDetailViewModel(): ShelfDetailViewModel =
+        resolveDependency(ShelfDetailViewModel::class) as ShelfDetailViewModel
 
-    fun getCreateEditShelfViewModel(): com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.shelf.CreateEditShelfViewModel by inject()
-        return viewModel
-    }
+    fun getCreateEditShelfViewModel(): CreateEditShelfViewModel =
+        resolveDependency(CreateEditShelfViewModel::class) as CreateEditShelfViewModel
 
-    fun getSeriesEditViewModel(): com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.seriesedit.SeriesEditViewModel by inject()
-        return viewModel
-    }
+    fun getSeriesEditViewModel(): SeriesEditViewModel =
+        resolveDependency(SeriesEditViewModel::class) as SeriesEditViewModel
 
-    fun getContributorEditViewModel(): com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel by inject()
-        return viewModel
-    }
+    fun getContributorEditViewModel(): ContributorEditViewModel =
+        resolveDependency(ContributorEditViewModel::class) as ContributorEditViewModel
 
-    fun getUserProfileViewModel(): com.calypsan.listenup.client.presentation.profile.UserProfileViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.profile.UserProfileViewModel by inject()
-        return viewModel
-    }
+    fun getUserProfileViewModel(): UserProfileViewModel =
+        resolveDependency(UserProfileViewModel::class) as UserProfileViewModel
 
-    fun getEditProfileViewModel(): com.calypsan.listenup.client.presentation.profile.EditProfileViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.profile.EditProfileViewModel by inject()
-        return viewModel
-    }
+    fun getEditProfileViewModel(): EditProfileViewModel =
+        resolveDependency(EditProfileViewModel::class) as EditProfileViewModel
 
-    fun getBookEditViewModel(): com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel by inject()
-        return viewModel
-    }
+    fun getBookEditViewModel(): BookEditViewModel = resolveDependency(BookEditViewModel::class) as BookEditViewModel
 
-    fun getMetadataViewModel(): com.calypsan.listenup.client.presentation.metadata.MetadataViewModel {
-        val viewModel: com.calypsan.listenup.client.presentation.metadata.MetadataViewModel by inject()
-        return viewModel
-    }
+    fun getMetadataViewModel(): MetadataViewModel = resolveDependency(MetadataViewModel::class) as MetadataViewModel
 
-    fun getContributorMetadataViewModel():
-        com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel {
-        val viewModel:
-            com.calypsan.listenup.client.presentation.contributormetadata.ContributorMetadataViewModel by inject()
-        return viewModel
-    }
+    fun getContributorMetadataViewModel(): ContributorMetadataViewModel =
+        resolveDependency(ContributorMetadataViewModel::class) as ContributorMetadataViewModel
 
-    fun getPlaybackProgressReporter(): PlaybackProgressReporter {
-        val instance: PlaybackProgressReporter by inject()
-        return instance
-    }
+    fun getPlaybackProgressReporter(): PlaybackProgressReporter =
+        resolveDependency(PlaybackProgressReporter::class) as PlaybackProgressReporter
 
-    fun getBookRepository(): BookRepository {
-        val instance: BookRepository by inject()
-        return instance
-    }
+    fun getBookRepository(): BookRepository = resolveDependency(BookRepository::class) as BookRepository
 
-    fun getDocumentRepository(): DocumentRepository {
-        val instance: DocumentRepository by inject()
-        return instance
-    }
+    fun getDocumentRepository(): DocumentRepository = resolveDependency(DocumentRepository::class) as DocumentRepository
 
-    fun getImageStorage(): ImageStorage {
-        val instance: ImageStorage by inject()
-        return instance
-    }
+    fun getImageStorage(): ImageStorage = resolveDependency(ImageStorage::class) as ImageStorage
 
-    fun getImageRepository(): ImageRepository {
-        val instance: ImageRepository by inject()
-        return instance
-    }
+    fun getImageRepository(): ImageRepository = resolveDependency(ImageRepository::class) as ImageRepository
 
     /**
      * String-keyed [ImageRepository.ensureBookCoverCached] for the Swift boundary, where the
      * [BookId] value class isn't constructible. Mirrors the existing String-based book-id surface
-     * the iOS app uses everywhere ([com.calypsan.listenup.client.domain.model.BookListItem.idString]).
+     * the iOS app uses everywhere (`BookListItem.idString`).
      */
     fun ensureBookCoverCached(bookId: String) {
         getImageRepository().ensureBookCoverCached(BookId(bookId))
     }
 
-    fun getDownloadService(): DownloadService {
-        val instance: DownloadService by inject()
-        return instance
-    }
+    fun getDownloadService(): DownloadService = resolveDependency(DownloadService::class) as DownloadService
 
-    fun getSleepTimerManager(): SleepTimerManager {
-        val instance: SleepTimerManager by inject()
-        return instance
-    }
+    fun getSleepTimerManager(): SleepTimerManager = resolveDependency(SleepTimerManager::class) as SleepTimerManager
 
-    fun getPlaybackPreparer(): PlaybackPreparer {
-        val instance: PlaybackPreparer by inject()
-        return instance
-    }
+    fun getPlaybackPreparer(): PlaybackPreparer = resolveDependency(PlaybackPreparer::class) as PlaybackPreparer
 }
 
 /**
  * iOS-specific device detection module.
  * Uses UIDevice.userInterfaceIdiom to detect device type.
  */
-actual val platformDeviceModule: Module =
+internal actual val platformDeviceModule: Module =
     module {
         single {
             com.calypsan.listenup.client.device

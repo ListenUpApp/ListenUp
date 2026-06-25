@@ -14,7 +14,7 @@ import org.koin.dsl.module
  * the shared classpath. The `single` scope is the same precedent as `LibraryViewModel`
  * in `presentationModule` (a hoisted app-session VM).
  */
-val playbackPresentationModule =
+internal val playbackPresentationModule =
     module {
         single {
             NowPlayingViewModel(

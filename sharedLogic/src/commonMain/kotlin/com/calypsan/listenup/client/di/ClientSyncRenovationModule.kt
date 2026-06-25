@@ -71,7 +71,7 @@ private const val APP_SCOPE = "appScope"
  * [SyncEngine] owns frame collection so catch-up, cursor seeding, dispatch, and
  * SSE connect ordering stay in one lifecycle component.
  */
-val clientSyncRenovationModule =
+internal val clientSyncRenovationModule =
     module {
         // DAOs needed by the renovated engine. Mirrors the legacy `repositoryModule`
         // DAO-exposure pattern so Koin's `verify()` can see them as direct deps.

@@ -107,6 +107,8 @@ class BackupRepositoryImplTest :
 
             override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in upload test")
 
+            override suspend fun warmUp() = Unit
+
             override suspend fun invalidate() = Unit
         }
 
@@ -129,6 +131,8 @@ class BackupRepositoryImplTest :
             override suspend fun getStreamingClient(): HttpClient = error("not used in download test")
 
             override suspend fun getUnauthenticatedStreamingClient(): HttpClient = error("not used in download test")
+
+            override suspend fun warmUp() = Unit
 
             override suspend fun invalidate() = Unit
         }

@@ -22,8 +22,8 @@ import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.notifications.NotificationChannels
 import com.calypsan.listenup.client.di.androidDownloadModule
 import com.calypsan.listenup.client.di.androidPlaybackModule
-import com.calypsan.listenup.client.di.playbackPresentationModule
-import com.calypsan.listenup.client.di.sharedModules
+import com.calypsan.listenup.client.di.androidPlaybackPresentationModule
+import com.calypsan.listenup.client.di.androidSharedModules
 import com.calypsan.listenup.client.features.bookdetail.AndroidBookDetailPlatformActions
 import com.calypsan.listenup.client.features.bookdetail.BookDetailPlatformActions
 import com.calypsan.listenup.client.download.ListenUpWorkerFactory
@@ -285,8 +285,8 @@ class ListenUp :
 
             // Load all shared and Android-specific modules
             modules(
-                sharedModules + androidModule + playbackModule + androidPlaybackModule + playbackPresentationModule +
-                    androidDownloadModule + downloadModule,
+                androidSharedModules() + androidModule + playbackModule + androidPlaybackModule +
+                    androidPlaybackPresentationModule() + androidDownloadModule + downloadModule,
             )
         }
 
@@ -298,8 +298,7 @@ class ListenUp :
             ListenUpWorkerFactory(
                 downloadRepository = lazy { get() },
                 fileManager = lazy { get() },
-                apiClientFactory = lazy { get() },
-                playbackRpcFactory = lazy { get() },
+                audioFileDownloader = lazy { get() },
                 errorBus = lazy { get() },
             )
 
@@ -340,7 +339,8 @@ class ListenUp :
         get<CoroutineScope>().launch {
             val authSession = get<com.calypsan.listenup.client.domain.repository.AuthSession>()
             authSession.authState.first { it is AuthState.Authenticated }
-            get<com.calypsan.listenup.client.data.remote.ApiClientFactory>().getClient()
+            com.calypsan.listenup.client.data.remote
+                .warmUpApiClient()
             get<BackgroundSyncScheduler>().schedule()
         }
     }

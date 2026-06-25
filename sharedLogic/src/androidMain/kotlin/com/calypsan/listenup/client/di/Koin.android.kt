@@ -14,10 +14,29 @@ import org.koin.dsl.module
  *
  * This function is a no-op on Android.
  */
-actual fun initializeKoin(additionalModules: List<Module>) {
+internal actual fun initializeKoin(additionalModules: List<Module>) {
     // Android initialization happens in the Application class
     // See: composeApp/src/androidMain/kotlin/.../ListenUpApp.kt
 }
+
+/**
+ * Public Android accessor for the shared Koin modules.
+ *
+ * Lives in `androidMain` (not `commonMain`) so the `List<Module>` return type never reaches the
+ * iOS Swift Export surface — exposing Koin's `Module` type there crashes the link. The Android
+ * `Application` (in `:sharedUI`) owns its own `startKoin { androidContext(); … }` and appends its
+ * platform modules to this list.
+ */
+fun androidSharedModules(): List<Module> = sharedModules
+
+/**
+ * Public Android accessor for the shared playback presentation module.
+ *
+ * Lives in `androidMain` (not `commonMain`) so the `Module` return type never reaches the iOS
+ * Swift Export surface. The Android `Application` (in `:sharedUI`) appends this to its
+ * `startKoin { … }` module list.
+ */
+fun androidPlaybackPresentationModule(): Module = playbackPresentationModule
 
 /**
  * Android emulator uses 10.0.2.2 to connect to host's localhost.
@@ -28,7 +47,7 @@ actual fun getBaseUrl(): String = "http://10.0.2.2:8080"
  * Android-specific discovery module.
  * Provides NsdManager-based mDNS discovery.
  */
-actual val platformDiscoveryModule: Module =
+internal actual val platformDiscoveryModule: Module =
     module {
         single { NsdDiscoveryService(context = get()) } bind ServerDiscoveryService::class
     }
@@ -37,7 +56,7 @@ actual val platformDiscoveryModule: Module =
  * Android-specific device detection module.
  * Uses UiModeManager and screen metrics to detect device type.
  */
-actual val platformDeviceModule: Module =
+internal actual val platformDeviceModule: Module =
     module {
         single {
             com.calypsan.listenup.client.device

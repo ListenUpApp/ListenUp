@@ -26,7 +26,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.UserDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  */
-val shelfModule: Module =
+internal val shelfModule: Module =
     module {
         // ShelfRpcFactory — kotlinx.rpc proxy for ShelfService (Room reads; RPC mutations).
         single<ShelfRpcFactory> {

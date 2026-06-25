@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.dto.auth.UserId
-import com.calypsan.listenup.client.presentation.admin.import.ImportFlowUiState
-import com.calypsan.listenup.client.presentation.admin.import.ImportFlowViewModel
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowUiState
+import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
 import com.calypsan.listenup.core.AbsUserId
 
 /**

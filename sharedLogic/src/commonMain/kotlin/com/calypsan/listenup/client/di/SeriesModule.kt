@@ -27,7 +27,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  */
-val seriesModule: Module =
+internal val seriesModule: Module =
     module {
         // SeriesRpcFactory - kotlinx.rpc proxy for SeriesService (cache-miss fetch).
         // Registered on the same bearer-gated /api/rpc/authed surface as BookService (Books-B2).

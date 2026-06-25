@@ -1,9 +1,8 @@
 package com.calypsan.listenup.server.e2e
 
 import com.calypsan.listenup.core.SecureStorage
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.createApiClientFactory
-import com.calypsan.listenup.client.di.clientAuthModule
+import com.calypsan.listenup.client.di.clientApiClientFactoryTestModule
+import com.calypsan.listenup.client.di.clientAuthModuleForTests
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
@@ -107,7 +106,8 @@ internal class AuthEndToEndFixture private constructor(
             val koin =
                 koinApplication {
                     modules(
-                        clientAuthModule,
+                        clientAuthModuleForTests(),
+                        clientApiClientFactoryTestModule(),
                         testInfraModule(baseUrl),
                     )
                 }
@@ -120,13 +120,8 @@ internal class AuthEndToEndFixture private constructor(
                 single<SecureStorage> { InMemorySecureStorage() }
                 single<ServerConfig> { TestServerConfig(baseUrl) }
                 single<InstanceRepository> { StubInstanceRepository() }
-                single<ApiClientFactory> {
-                    createApiClientFactory(
-                        serverConfig = get(),
-                        authSession = get(),
-                        refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
-                    )
-                }
+                // ApiClientFactory is bound by `clientApiClientFactoryTestModule()` (in :sharedLogic
+                // jvmMain) — the type is internal to :sharedLogic so it can't be bound from here.
                 // `UserRepository` and `PlaybackManager` are only needed by
                 // `LoginUseCase` / `LogoutUseCase` (factory bindings in
                 // `clientAuthModule`). F12 calls `AuthRepository` directly and

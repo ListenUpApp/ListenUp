@@ -24,7 +24,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.CollectionBookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.CollectionShareDao] — `persistenceModule`
  */
-val collectionModule: Module =
+internal val collectionModule: Module =
     module {
         // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
         single<CollectionRpcFactory> {

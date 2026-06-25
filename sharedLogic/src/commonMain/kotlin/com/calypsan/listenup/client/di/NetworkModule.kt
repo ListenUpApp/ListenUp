@@ -20,7 +20,7 @@ import org.koin.dsl.module
  * When user configures a different server URL at runtime, API instances
  * should be recreated via factory pattern or manual invalidation.
  */
-val networkModule: Module =
+internal val networkModule: Module =
     module {
         // ApiClientFactory - creates authenticated HTTP clients with auto-refresh.
         //

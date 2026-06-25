@@ -43,7 +43,7 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.data.local.db.BookDocumentDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.images.StoragePaths] — platform storage module
  */
-val mediaModule: Module =
+internal val mediaModule: Module =
     module {
         // Image API for downloading cover images and uploading images
         single {
@@ -81,6 +81,18 @@ val mediaModule: Module =
                 downloadDao = get(),
                 bookRepository = get(),
                 enqueuer = get(),
+            )
+        }
+
+        // AudioFileDownloader — domain seam that owns the HTTP transport for offline downloads
+        // inside :sharedLogic, so the Android worker never holds a raw HttpClient (which would
+        // drag the Ktor client bridge onto the Swift Export surface).
+        single<com.calypsan.listenup.client.download.AudioFileDownloader> {
+            com.calypsan.listenup.client.download.AudioFileDownloaderImpl(
+                apiClientFactory = get(),
+                repository = get(),
+                fileManager = get(),
+                playbackRpcFactory = get(),
             )
         }
 

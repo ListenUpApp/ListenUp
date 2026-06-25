@@ -41,7 +41,7 @@ private const val PLAYBACK_SCOPE = "playbackScope"
  * - ProgressTracker for position persistence
  * - SleepTimerManager for sleep timer functionality
  */
-val macosPlaybackModule: Module =
+internal val macosPlaybackModule: Module =
     module {
         // Playback-scoped coroutine scope. The appCoroutineExceptionHandler keeps an uncaught
         // failure in a fire-and-forget playback launch from terminating the process on Kotlin/Native

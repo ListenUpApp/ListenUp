@@ -22,7 +22,7 @@ private const val APP_SCOPE = "appScope"
  * [GetInstanceUseCase], the [RpcCacheInvalidator] sweep, and the [ConnectionCoordinator]
  * that wires them all together at startup.
  */
-val connectionModule: Module =
+internal val connectionModule: Module =
     module {
         // InstanceRepository reads server URL directly from SecureStorage to avoid circular
         // dependency (SettingsRepository -> InstanceRepository -> SettingsRepository).

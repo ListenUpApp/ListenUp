@@ -47,7 +47,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.core.error.ErrorBus] — `appCoreModule`
  *  - [com.calypsan.listenup.client.data.remote.InviteRpcFactory] — `clientAuthModule`
  */
-val adminModule: Module =
+internal val adminModule: Module =
     module {
         // BackupApi for admin backup/restore operations
         single {

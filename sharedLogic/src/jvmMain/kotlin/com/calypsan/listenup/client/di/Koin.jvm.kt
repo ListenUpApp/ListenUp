@@ -25,11 +25,59 @@ import org.koin.dsl.module
  *
  * @param additionalModules Platform-specific modules to include (e.g., playback, navigation)
  */
-actual fun initializeKoin(additionalModules: List<Module>) {
+internal actual fun initializeKoin(additionalModules: List<Module>) {
     startKoin {
         modules(sharedModules + additionalModules)
     }
 }
+
+/**
+ * Public JVM accessor for the shared Koin modules.
+ *
+ * Lives in `jvmMain` (not `commonMain`) so the `List<Module>` return type never reaches the iOS
+ * Swift Export surface, where exposing Koin's `Module` type crashes the link. `:desktopApp` owns
+ * its own `startKoin { … }` and appends its platform modules to this list.
+ */
+fun jvmSharedModules(): List<Module> = sharedModules
+
+/**
+ * Public JVM accessor for the shared playback presentation module.
+ *
+ * Lives in `jvmMain` (not `commonMain`) so the `Module` return type never reaches the iOS Swift
+ * Export surface. `:desktopApp` appends this to its `startKoin { … }` module list.
+ */
+fun jvmPlaybackPresentationModule(): Module = playbackPresentationModule
+
+/**
+ * Public JVM accessor for the auth Koin module, for the server's end-to-end test fixture.
+ *
+ * Lives in `jvmMain` (not `commonMain`) so the `Module` return type never reaches the iOS Swift
+ * Export surface. `:server`'s `AuthEndToEndFixture` wires this into its own `koinApplication { }`
+ * scope with test overrides; it needs the module itself, not a full `startKoin`.
+ */
+fun clientAuthModuleForTests(): Module = clientAuthModule
+
+/**
+ * Public JVM Koin module that binds a real `ApiClientFactory` for the server's end-to-end fixture.
+ *
+ * The `ApiClientFactory` type (and `createApiClientFactory`) are `internal` to `:sharedLogic` so the
+ * Ktor `HttpClient` stays off the Swift Export surface — meaning `:server`'s `AuthEndToEndFixture`
+ * can no longer bind the type itself. This seam does the binding inside `:sharedLogic`, resolving
+ * `ServerConfig` / `AuthSession` / `AuthRepository` from the same Koin scope, so the fixture just
+ * includes this module. Its signature names no internal type.
+ */
+fun clientApiClientFactoryTestModule(): Module =
+    module {
+        single<com.calypsan.listenup.client.data.remote.ApiClientFactory> {
+            com.calypsan.listenup.client.data.remote.createApiClientFactory(
+                serverConfig = get(),
+                authSession = get(),
+                refreshAccessToken = {
+                    get<com.calypsan.listenup.client.domain.repository.AuthRepository>().refreshAccessToken()
+                },
+            )
+        }
+    }
 
 /**
  * JVM desktop has no default base URL.
@@ -44,7 +92,7 @@ actual fun getBaseUrl(): String = "http://localhost:8080"
  *
  * Uses JmDNS for mDNS/Zeroconf server discovery on the local network.
  */
-actual val platformDiscoveryModule: Module =
+internal actual val platformDiscoveryModule: Module =
     module {
         single { JmDnsDiscoveryService() } bind ServerDiscoveryService::class
     }
@@ -59,7 +107,7 @@ actual val platformDiscoveryModule: Module =
  * - NetworkMonitor: Health-check based connectivity detection
  * - DownloadFileManager: Audiobook file management
  */
-actual val platformStorageModule: Module =
+internal actual val platformStorageModule: Module =
     module {
         single<JvmStoragePaths> { JvmStoragePaths() }
 
@@ -95,7 +143,7 @@ actual val platformStorageModule: Module =
  * JVM/Desktop device detection module.
  * Always returns Desktop type.
  */
-actual val platformDeviceModule: Module =
+internal actual val platformDeviceModule: Module =
     module {
         single {
             com.calypsan.listenup.client.device

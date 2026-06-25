@@ -11,7 +11,7 @@ import org.koin.dsl.module
  * and the [TransactionRunner] implementation. Every DAO is a singleton obtained
  * from the Room database instance supplied by `platformDatabaseModule`.
  */
-val persistenceModule: Module =
+internal val persistenceModule: Module =
     module {
         // Provide DAOs from database
         single { get<ListenUpDatabase>().userDao() }

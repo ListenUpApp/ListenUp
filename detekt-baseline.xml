@@ -23,7 +23,7 @@
     <ID>StringLiteralDuplication:PlaybackServiceImpl.kt:PlaybackServiceImpl$"principal"</ID>
     <ID>SwallowedException:CurrentUserApiResponse.kt:CurrentUserApiResponse$e: Exception</ID>
     <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt:ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
-    <ID>TooManyFunctions:Koin.ios.kt:KoinHelper : KoinComponent</ID>
+    <ID>TooManyFunctions:Koin.ios.kt:KoinHelper</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$10800_000L</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$12600_000L</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$1800_000L</ID>

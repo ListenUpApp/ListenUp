@@ -40,7 +40,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler] — `clientSyncRenovationModule`
  */
-val bookModule: Module =
+internal val bookModule: Module =
     module {
         // BookRpcFactory - kotlinx.rpc proxy for BookService (on-demand fetch + search).
         // Mirrors AuthRpcFactory; fully functional end-to-end — the server registers

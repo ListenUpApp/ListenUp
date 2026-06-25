@@ -10,10 +10,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.DownloadStatus
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.SystemFileSystem
 
@@ -34,8 +32,7 @@ class DownloadWorker(
     params: WorkerParameters,
     private val downloadRepository: DownloadRepository,
     private val fileManager: DownloadFileManager,
-    private val httpClient: HttpClient,
-    private val playbackRpcFactory: PlaybackRpcFactory,
+    private val audioFileDownloader: AudioFileDownloader,
     private val errorBus: ErrorBus,
 ) : CoroutineWorker(context, params) {
     companion object {
@@ -152,15 +149,11 @@ class DownloadWorker(
         bookId: String,
         filename: String,
         expectedSize: Long,
-    ) = downloadAudioFile(
+    ) = audioFileDownloader.download(
         audioFileId = audioFileId,
         bookId = bookId,
         filename = filename,
         expectedSize = expectedSize,
-        httpClient = httpClient,
-        repository = downloadRepository,
-        fileManager = fileManager,
-        playbackRpcFactory = playbackRpcFactory,
         isStopped = { isStopped },
         setProgress = { downloaded, total ->
             setProgress(workDataOf("progress" to downloaded, "total" to total))
