@@ -57,8 +57,8 @@ class ImportStore(
             if (!SystemFileSystem.exists(dir)) {
                 false
             } else {
-                deleteRecursively(dir)
-                true
+                // Preserve the old File.deleteRecursively() contract: false on any delete failure, not a throw.
+                runCatching { deleteRecursively(dir) }.isSuccess
             }
         }
 
