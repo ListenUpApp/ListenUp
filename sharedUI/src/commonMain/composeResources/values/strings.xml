@@ -639,6 +639,7 @@ One beautiful library.</string>
     <string name="discover_new_for_you">New for You</string>
     <string name="discover_no_activity_yet_start_listening">No activity yet. Start listening to see what your community is reading!</string>
     <string name="discover_no_new_books_yet">Nothing new just yet.</string>
+    <string name="discover_no_one_listening_right_now">No one\'s listening right now. Check back soon!</string>
     <string name="discover_no_recently_added_books">No books added recently.</string>
     <string name="discover_no_shelves_to_discover_yet">No Shelves to Discover Yet</string>
     <string name="discover_period_all">All</string>
@@ -655,6 +656,7 @@ One beautiful library.</string>
     <string name="discover_total_time">Total Time</string>
     <string name="discover_what_others_are_listening_to">What Others Are Listening To</string>
     <string name="discover_when_other_users_create_shelves">When other users create shelves with books you can access, they\'ll appear here.</string>
+    <string name="discover_x_is_listening_to_y">%1$s is listening to %2$s</string>
     <string name="edit_change_image">Change image</string>
     <string name="edit_clear_date">Clear</string>
     <string name="edit_not_set">Not set</string>
