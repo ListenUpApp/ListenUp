@@ -188,6 +188,11 @@ internal val clientSyncRenovationModule =
                 // re-fetch getServerInfo, whose persistRemoteUrl side-effect updates the stored
                 // remote-URL fallback so an admin's new domain reaches us without a cold start.
                 onServerInfoChanged = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
+                // The server's content-free bulk-write nudge (e.g. an ABS import's firehose-suppressed
+                // burst): re-derive every domain via digest reconciliation so the imported positions/
+                // sessions land live instead of only on the next reconnect. Same lazy-SyncEngine
+                // resolution as onCursorStale/onAccessChanged to break the construction cycle.
+                onLibraryDataChanged = { get<SyncEngine>().forceReconcile() },
             )
         }
 

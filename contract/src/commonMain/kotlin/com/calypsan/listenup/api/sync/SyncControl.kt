@@ -91,4 +91,20 @@ sealed interface SyncControl {
     @Serializable
     @SerialName("SyncControl.ServerInfoChanged")
     data object ServerInfoChanged : SyncControl
+
+    /**
+     * Content-free broadcast nudge: a bulk server-side write landed that was NOT published on the
+     * live tail. The client re-derives every domain via digest reconciliation (the same pass the
+     * sync engine runs on connect), re-pulling any domain whose digest diverged from the server's.
+     *
+     * Emitted by a firehose-suppressed bulk path — an Audiobookshelf import writes a burst of playback
+     * positions and listening events under `FirehoseSuppressed`, so the rows commit and bump the
+     * revision but never reach the lossy live tail. Without this nudge, other connected clients only
+     * converge on their next reconnect (app restart); with it they reconcile live. The importing
+     * admin's own client refreshes through the import flow independently.
+     */
+    @HiddenFromObjC
+    @Serializable
+    @SerialName("SyncControl.LibraryDataChanged")
+    data object LibraryDataChanged : SyncControl
 }

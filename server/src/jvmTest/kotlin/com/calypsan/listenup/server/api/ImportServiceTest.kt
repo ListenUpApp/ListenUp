@@ -238,6 +238,7 @@ private suspend fun stageService(
             listeningEventRepository = listeningEventRepo,
             statsBackfill = statsBackfill,
             publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer(),
+            changeBus = bus,
         )
     val service =
         ImportServiceImpl(

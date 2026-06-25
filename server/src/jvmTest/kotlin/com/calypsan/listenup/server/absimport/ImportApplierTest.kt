@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.absimport
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
@@ -18,18 +19,24 @@ import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import java.nio.file.Files
 
 /**
@@ -132,6 +139,31 @@ class ImportApplierTest :
                             .executeAsOneOrNull()
                             .shouldNotBeNull()
                     profile.books_finished shouldBe 1L
+                }
+            }
+        }
+
+        test("a successful apply broadcasts LibraryDataChanged so other clients reconcile live") {
+            withSqlDatabase {
+                val dbs = this
+                runTest(UnconfinedTestDispatcher()) {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    val frames = mutableListOf<ControlFrame>()
+                    staged.bus
+                        .subscribeControl()
+                        .onEach { frames += it }
+                        .launchIn(backgroundScope)
+                    repeat(8) { yield() } // ensure the collector is subscribed before apply publishes
+
+                    applier.apply(staged.importId) {}
+                    repeat(8) { yield() } // let the post-apply broadcast drain to the collector
+
+                    // The progress + session writes are firehose-suppressed, so the ONLY way other
+                    // connected clients learn of them without a restart is this broadcast nudge.
+                    frames.map { it.control } shouldContain SyncControl.LibraryDataChanged
                 }
             }
         }
@@ -442,6 +474,7 @@ private data class StagedImport(
     val statsBackfill: UserStatsBackfillService,
     val bookReads: BookReadsRepository,
     val publicProfileMaintainer: PublicProfileMaintainer,
+    val bus: ChangeBus,
 )
 
 /**
@@ -500,6 +533,7 @@ private suspend fun stageAnalyzedImport(
         statsBackfill,
         bookReads,
         publicProfileMaintainer,
+        bus,
     )
 }
 
@@ -515,6 +549,7 @@ private fun applierFor(
         listeningEventRepository = staged.listeningEventRepo,
         statsBackfill = staged.statsBackfill,
         publicProfileMaintainer = staged.publicProfileMaintainer,
+        changeBus = staged.bus,
     )
 
 /** Reads back the listening-event ids stored for [userId] through the shared db. */
