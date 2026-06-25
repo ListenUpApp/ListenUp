@@ -163,7 +163,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let engine: PlaybackEngine
     private let positionTracker = PositionTracker()
     private let system = SystemIntegration()
-    private let liveActivity = LiveActivityManager()
 
     // MARK: - Seam (native protocols — see PlaybackSeam.swift)
 
@@ -293,14 +292,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
                 await engine.pause()
                 phase = .paused(loaded)
                 progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
-                updateNowPlaying(); syncLiveActivity()
+                updateNowPlaying()
             }
         case .resume:
             if !phase.isPlaying {
                 await engine.play()
                 phase = .playing(loaded)
                 progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
-                updateNowPlaying(); syncLiveActivity()
+                updateNowPlaying()
             }
         case .none:
             break
@@ -325,7 +324,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         phase = .paused(loaded)
         progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
         updateNowPlaying()
-        syncLiveActivity()
         sleep.onFadeCompleted()
     }
 
@@ -354,7 +352,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             progress.onPlaybackStarted(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
         }
         updateNowPlaying()
-        syncLiveActivity()
     }
 
     /// Seek to a whole-book position in milliseconds.
@@ -365,7 +362,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             lastReportedPositionMs = positionMs
         }
         updateNowPlaying()
-        syncLiveActivity()
     }
 
     /// Set the playback speed.
@@ -378,7 +374,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             )
         }
         updateNowPlaying()
-        syncLiveActivity()
     }
 
     /// Skip forward by the current interval (or an explicit override), clamped to the book's end.
@@ -425,15 +420,12 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     /// Tear down all observation and release the engine. `async` so teardown is
     /// deterministic: the audio session is deactivated and the engine released
-    /// *before* the call returns. The prior fire-and-forget `Task` let `liveActivity.end()`
-    /// run — and the coordinator drop — before teardown completed, so the session could
-    /// outlive the coordinator and the engine leak its observers.
+    /// *before* the call returns.
     func stop() async {
         bridge.cancelAll()
         positionTracker.reset()
         await engine.deactivateSession()
         await engine.release()
-        liveActivity.end()
     }
 
     // MARK: - RemoteCommandHandler
@@ -495,7 +487,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed)
         updateNowPlaying()
         lastSyncedChapterIndex = chapterIndex
-        if let snapshot = liveActivitySnapshot() { liveActivity.start(snapshot) }
     }
 
     // MARK: - Engine events
@@ -508,7 +499,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             if chapterIndex != lastSyncedChapterIndex {
                 lastSyncedChapterIndex = chapterIndex
                 sleep.onChapterChanged(newChapterIndex: chapterIndex)
-                syncLiveActivity()
             }
         case .statusChanged(let status):
             applyEngineStatus(status)
@@ -548,7 +538,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
         progress.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
-        syncLiveActivity()
     }
 
     // MARK: - Sleep timer
@@ -566,32 +555,6 @@ final class PlayerCoordinator: RemoteCommandHandler {
             sleepTimerMode = isEndOfChapter ? "endOfChapter" : "duration"
             sleepTimerLabel = label
         }
-    }
-
-    // MARK: - Live Activity
-
-    /// A value snapshot of the playback state the Live Activity needs.
-    private func liveActivitySnapshot() -> LiveActivitySnapshot? {
-        guard let bookId = currentBookId else { return nil }
-        return LiveActivitySnapshot(
-            bookId: bookId,
-            bookTitle: bookTitle,
-            authorName: authorName,
-            coverBlurHash: coverBlurHash,
-            coverPath: coverPath,
-            chapterTitle: chapterTitle ?? bookTitle,
-            isPlaying: isPlaying,
-            bookPositionMs: bookPositionMs,
-            bookDurationMs: bookDurationMs,
-            chapterPositionMs: chapterPositionMs,
-            chapterDurationMs: chapterDurationMs
-        )
-    }
-
-    /// Push the current state to the Live Activity, if one should be running.
-    private func syncLiveActivity() {
-        guard let snapshot = liveActivitySnapshot() else { return }
-        liveActivity.sync(snapshot)
     }
 
     // MARK: - System integration
