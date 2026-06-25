@@ -43,7 +43,7 @@ final class ABSImportHubObserver {
     // MARK: - Actions
 
     func reload() { viewModel.refresh() }
-    func deleteImport(id: String) { viewModel.deleteImport(importId: id) }
+    func deleteImport(id: String) { viewModel.deleteImport(importId: ImportId(value: id)) }
     func clearError() { viewModel.clearError() }
 
     // MARK: - State mapping

@@ -1,4 +1,5 @@
 import Foundation
+import ListenupContract
 @preconcurrency import Shared
 
 /// Adapts the Koin-resolved `PlaybackPreparer` to `PlaybackPreparing`, mapping the
@@ -8,7 +9,7 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
 
     func prepare(bookId: String) async -> PreparedPlayback? {
         guard let prepared = try? await preparer.prepare(
-            bookId: bookId
+            bookId: BookId(value: bookId)
         ) else { return nil }
         return PreparedPlayback(
             bookTitle: prepared.bookTitle,
@@ -40,24 +41,24 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
 struct KotlinProgressReporting: PlaybackProgressReporting {
     let reporter: PlaybackProgressReporter
     func onPlaybackStarted(bookId: String, positionMs: Int64, speed: Float) {
-        reporter.onPlaybackStarted(bookId: bookId, positionMs: positionMs, speed: speed)
+        reporter.onPlaybackStarted(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
     }
     func onPlaybackPaused(bookId: String, positionMs: Int64, speed: Float) {
-        reporter.onPlaybackPaused(bookId: bookId, positionMs: positionMs, speed: speed)
+        reporter.onPlaybackPaused(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
     }
     func onPositionUpdate(bookId: String, positionMs: Int64, speed: Float) {
-        reporter.onPositionUpdate(bookId: bookId, positionMs: positionMs, speed: speed)
+        reporter.onPositionUpdate(bookId: BookId(value: bookId), positionMs: positionMs, speed: speed)
     }
     func onSpeedChanged(bookId: String, positionMs: Int64, newSpeed: Float) {
-        reporter.onSpeedChanged(bookId: bookId, positionMs: positionMs, newSpeed: newSpeed)
+        reporter.onSpeedChanged(bookId: BookId(value: bookId), positionMs: positionMs, newSpeed: newSpeed)
     }
     func onBookFinished(bookId: String, finalPositionMs: Int64) {
-        reporter.onBookFinished(bookId: bookId, finalPositionMs: finalPositionMs)
+        reporter.onBookFinished(bookId: BookId(value: bookId), finalPositionMs: finalPositionMs)
     }
     func savePositionNow(bookId: String, positionMs: Int64) async {
-        // SKIE bridges the Kotlin suspend fun as `async throws`; it never throws in
+        // The Kotlin suspend fun is exposed as `async throws`; it never throws in
         // practice (failures are logged inside the reporter), so the error is dropped.
-        try? await reporter.savePositionNow(bookId: bookId, positionMs: positionMs)
+        try? await reporter.savePositionNow(bookId: BookId(value: bookId), positionMs: positionMs)
     }
 }
 
@@ -103,7 +104,7 @@ final class KotlinSleepTiming: SleepTiming, @unchecked Sendable {
     func setDurationTimer(minutes: Int) {
         manager.setTimer(mode: SleepTimerModeDuration(minutes: Int32(minutes)))
     }
-    func setEndOfChapterTimer() { manager.setTimer(mode: SleepTimerModeEndOfChapter()) }
+    func setEndOfChapterTimer() { manager.setTimer(mode: SleepTimerModeEndOfChapter.shared) }
     func cancelTimer() { manager.cancelTimer() }
     func onChapterChanged(newChapterIndex: Int) {
         manager.onChapterChanged(newChapterIndex: Int32(newChapterIndex))
@@ -124,26 +125,29 @@ struct KotlinBookDocumentProviding: BookDocumentProviding {
     let repository: DocumentRepository
 
     func firstPdfDocId(bookId: String) async -> String? {
-        // `observeDocuments` is a Kotlin Flow; SKIE bridges it as an AsyncSequence.
-        // Take the first emission — the Room store reflects the last sync, so one
-        // read is sufficient here (the coordinator re-reads on each book load).
-        guard let docs = await repository.observeDocuments(bookId: bookId).first(where: { _ in true }) else {
+        // `observeDocuments` is a Kotlin Flow; Swift Export exposes it as an AsyncSequence
+        // via `asAsyncSequence()`. Take the first emission — the Room store reflects the
+        // last sync, so one read is sufficient here (the coordinator re-reads on each book load).
+        guard let docs = try? await repository.observeDocuments(bookId: BookId(value: bookId))
+            .asAsyncSequence().first(where: { _ in true }) else {
             return nil
         }
-        // `BookDocument.format` is a plain Kotlin String; SKIE exposes it directly.
+        // `BookDocument.format` is a plain Kotlin String; Swift Export exposes it directly.
         return docs.first(where: { $0.format.lowercased() == "pdf" })?.id
     }
 
     func ensureLocalPath(bookId: String, docId: String) async -> String? {
-        // SKIE bridges the Kotlin suspend fun as `async throws`; failures via AppResult
+        // The Kotlin suspend fun is exposed as `async throws`; failures via AppResult
         // come back as `.failure`, not as thrown exceptions. Drop thrown errors (infra faults).
-        guard let result = try? await repository.ensureLocal(bookId: bookId, docId: docId) else {
+        guard let result = try? await repository.ensureLocal(bookId: BookId(value: bookId), docId: docId) else {
             return nil
         }
-        switch onEnum(of: result) {
-        // `AppResult<String>` — `data` is erased to `Any?` at the Obj-C boundary.
-        case .success(let success): return success.data as? String
-        case .failure: return nil
+        // `AppResult<String>` erases its generic to `any AppResult` over Swift Export, so there's
+        // no generated `onEnum` overload — switch on the concrete subtype instead. The success
+        // `data` is type-erased to `any _KotlinBridgeable?`; the payload is a Kotlin String.
+        guard let success = result as? _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Success else {
+            return nil
         }
+        return success.data as? String
     }
 }

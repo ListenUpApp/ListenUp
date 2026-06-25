@@ -20,7 +20,7 @@ struct HomeView: View {
     @State private var home: HomeViewModelWrapper?
     @State private var stats: HomeStatsObserver?
 
-    private var user: User_? { userObserver.user }
+    private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
     /// At regular width, cap the content so it reads as a column rather than spanning the iPad.

@@ -1,4 +1,5 @@
 import SwiftUI
+import ListenupContract
 @preconcurrency import Shared
 
 /// Download state for the UI, mapped from Kotlin's `BookDownloadState`.
@@ -60,7 +61,7 @@ final class BookDetailObserver {
         guard let files = book?.audioFiles else {
             return AudioFormatDisplay(format: nil, bitrate: nil, sampleRate: nil, channels: nil)
         }
-        return BookDetailFormattingKt.audioFormatDisplay(files: files)
+        return ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay(files: files)
     }
 
     // MARK: - Download state
@@ -172,10 +173,9 @@ final class BookDetailObserver {
         Task {
             do {
                 let result = try await downloadService.downloadBook(bookId: book.id)
-                switch onEnum(of: result) {
-                case .success:
-                    break
-                case .failure(let failure):
+                // `AppResult<Unit>` erases its generic to `any AppResult` over Swift Export, so
+                // there's no generated `onEnum` overload — switch on the concrete subtype instead.
+                if let failure = result as? _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure {
                     downloadError = failure.error.message
                 }
             } catch {
@@ -251,7 +251,7 @@ final class BookDetailObserver {
             startedAtMs: startedAtMs,
             now: Int64(Date().timeIntervalSince1970 * 1000)
         )
-        viewModel.markComplete(startedAt: KotlinLong(value: ts.start), finishedAt: KotlinLong(value: ts.finish))
+        viewModel.markComplete(startedAt: ts.start, finishedAt: ts.finish)
     }
 
     /// Pure: started defaults to `now` when unknown; finished is always `now`.
@@ -274,9 +274,9 @@ final class BookDetailObserver {
             series = r.series
             bookDescription = r.descriptionText
             narrators = r.narrators
-            year = r.year?.intValue
-            rating = r.rating?.doubleValue
-            progress = r.progress?.floatValue
+            year = r.year.map { Int($0) }
+            rating = r.rating
+            progress = r.progress
             timeRemaining = r.timeRemainingFormatted
             isComplete = r.isComplete
             chapters = r.chapters.map { BookChapterRow($0) }
@@ -292,7 +292,7 @@ final class BookDetailObserver {
             showCollectionPicker = r.showCollectionPicker
             isAddingToCollection = r.isAddingToCollection
             collectionError = r.collectionError
-            startedAtMs = r.startedAtMs?.int64Value
+            startedAtMs = r.startedAtMs
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress
             isRestarting = r.isRestarting
@@ -307,7 +307,7 @@ final class BookDetailObserver {
     }
 
     private func observeDownloadStatus(bookId: String) {
-        bridge.bind(downloadService.observeBookStatus(bookId: bookId)) { [weak self] status in
+        bridge.bind(downloadService.observeBookStatus(bookId: BookId(value: bookId))) { [weak self] status in
             self?.applyDownloadStatus(status)
         }
     }

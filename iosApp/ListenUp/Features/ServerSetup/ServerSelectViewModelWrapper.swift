@@ -99,7 +99,7 @@ final class ServerSelectViewModelWrapper {
         }
     }
 
-    private func applyNavigation(_ event: ServerSelectViewModelNavigationEvent) {
+    private func applyNavigation(_ event: ServerSelectViewModel.NavigationEvent) {
         switch onEnum(of: event) {
         case .serverActivated:
             onServerActivated?()

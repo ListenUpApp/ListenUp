@@ -9,8 +9,8 @@ import SwiftUI
 final class SeriesEditObserver {
     private(set) var isLoading: Bool = true
     private(set) var name: String = ""
-    /// The series description — stored as `seriesDescription` to avoid the NSObject
-    /// `description` property clash that SKIE bridges as `description_`.
+    /// The series description — stored as `seriesDescription` because Swift Export renames the
+    /// Kotlin `description` property to `description_` (dodging the Swift `description` clash).
     private(set) var seriesDescription: String = ""
     private(set) var displayCoverPath: String?
     private(set) var hasChanges: Bool = false

@@ -41,7 +41,7 @@ interface AudioPlayer {
     fun setSpeed(speed: Float)
 
     /** Release all resources. Call when playback session ends. */
-    fun release()
+    fun releasePlayer()
 }
 
 /**

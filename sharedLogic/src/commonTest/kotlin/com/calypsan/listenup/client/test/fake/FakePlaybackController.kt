@@ -47,7 +47,7 @@ class FakePlaybackController(
         acquireCount++
     }
 
-    override fun release() {
+    override fun releasePlayer() {
         releaseCount++
     }
 

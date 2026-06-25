@@ -155,7 +155,7 @@ enum InviteField: Equatable {
 // MARK: - Failure model
 
 /// Flattened create-invite failure. Mirrors the shared `CreateInviteErrorType` so the sheet
-/// can branch on it without touching SKIE-bridged sealed types.
+/// can branch on it without touching Swift Export-bridged sealed types.
 enum InviteFailure: Equatable {
     case validation(InviteField)
     case emailInUse

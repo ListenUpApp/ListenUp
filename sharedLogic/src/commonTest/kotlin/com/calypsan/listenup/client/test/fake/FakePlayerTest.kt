@@ -74,7 +74,7 @@ class FakePlayerTest :
                 val player = FakePlayer()
                 player.play()
 
-                player.release()
+                player.releasePlayer()
 
                 player.state.value shouldBe PlaybackState.Idle
                 player.calls.contains(FakePlayer.Call.Release) shouldBe true

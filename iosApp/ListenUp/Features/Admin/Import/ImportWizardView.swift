@@ -168,11 +168,16 @@ struct ImportWizardView: View {
         case .success(let url):
             Task {
                 do {
-                    // Read + bridge the (multi-MB) backup OFF the main thread; doing it
-                    // synchronously in the .fileImporter callback froze the UI on large backups.
-                    let fileSource = try await Task.detached {
-                        try ImportFileSourceBridge.makeFileSource(from: url)
+                    // Read the (multi-MB) backup OFF the main thread; doing it synchronously in the
+                    // .fileImporter callback froze the UI on large backups. Only the `Sendable`
+                    // `Data` crosses back — the non-`Sendable` Kotlin `FileSource` is built here.
+                    let data = try await Task.detached {
+                        try ImportFileSourceBridge.readData(from: url)
                     }.value
+                    let fileSource = ImportFileSourceBridge.makeFileSource(
+                        data: data,
+                        filename: url.lastPathComponent
+                    )
                     observer?.start(fileSource: fileSource)
                 } catch let error as ImportFilePickError {
                     pickError = error.message

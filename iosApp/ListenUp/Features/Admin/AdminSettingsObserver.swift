@@ -79,7 +79,7 @@ struct AdminSettingsReadyModel: Equatable {
     /// Transient save/load failure message (nil when none), surfaced as an inline banner.
     let error: String?
 
-    /// Pure mapping from the SKIE-bridged KMP `Ready` state. `nonisolated` so tests can
+    /// Pure mapping from the Swift Export-bridged KMP `Ready` state. `nonisolated` so tests can
     /// exercise it without a live observer or main-actor context.
     nonisolated static func from(_ ready: AdminSettingsUiStateReady) -> AdminSettingsReadyModel {
         AdminSettingsReadyModel(

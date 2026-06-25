@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
  * `acquire`/`release` are no-ops — the AudioPlayer is constructed eagerly and
  * has no service-lifecycle. `isReady` is a constant `true` for the same reason.
  *
- * Note: `release` here does NOT call [AudioPlayer.release]; that would tear down the
+ * Note: `releasePlayer` here does NOT call [AudioPlayer.releasePlayer]; that would tear down the
  * player permanently.
  */
 class DesktopPlaybackController(
@@ -22,7 +22,7 @@ class DesktopPlaybackController(
 
     override fun acquire() = Unit
 
-    override fun release() = Unit
+    override fun releasePlayer() = Unit
 
     override fun play() = audioPlayer.play()
 

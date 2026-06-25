@@ -18,7 +18,7 @@ protocol PlaybackEngine: Sendable {
     func release() async
 }
 
-// `@preconcurrency` because `Chapter_` (a SKIE-bridged KMP class) is not
+// `@preconcurrency` because `Chapter` (a Swift Export-bridged KMP class) is not
 // `Sendable`; this snapshot is built and consumed on the main actor, so treating
 // the Shared-module `Sendable` gap as a warning is sound here.
 @preconcurrency import Shared
@@ -33,7 +33,7 @@ struct PreparedPlayback: Sendable {
     let coverPath: String?
     let resumeSpeed: Float
     let resumePositionMs: Int64
-    let chapters: [Chapter_]
+    let chapters: [Chapter]
     let timeline: PreparedTimeline
 }
 

@@ -8,7 +8,7 @@ final class CurrentUserObserver {
 
     // MARK: - State
 
-    private(set) var user: User_?
+    private(set) var user: User?
 
     // MARK: - Dependencies
 

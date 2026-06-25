@@ -64,8 +64,9 @@ struct BookEntity {
 }
 
 extension BookEntity {
-    /// Pure projection of a shared `BookListItem` onto the schema entity. The SKIE
-    /// boundary unboxes `BookId` to `idString`; `authorNames` is the comma-joined
+    /// Pure projection of a shared `BookListItem` onto the schema entity. The Kotlin
+    /// model exposes `idString` (`BookId.value`) so Swift reads a plain `String`;
+    /// `authorNames` is the comma-joined
     /// author display shared with every other list surface; `seriesName` is the
     /// first series this book belongs to (the schema's `seriesTitle`).
     static func from(_ item: BookListItem) -> BookEntity {

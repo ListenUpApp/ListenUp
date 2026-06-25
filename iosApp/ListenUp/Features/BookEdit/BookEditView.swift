@@ -303,7 +303,7 @@ struct BookEditView: View {
 // MARK: - Pure formatting (unit-tested)
 
 /// Pure label formatting for the book-edit relational chips, factored out of the
-/// view so the seam is unit-testable without constructing SwiftUI or SKIE types.
+/// view so the seam is unit-testable without constructing SwiftUI or bridged Kotlin types.
 enum BookEditFormatting {
     /// "Name · 1" when a sequence is present, otherwise just the series name. A
     /// blank/whitespace sequence is treated as absent.
@@ -314,7 +314,7 @@ enum BookEditFormatting {
 
     /// Human-readable tag label derived from its slug: "found-family" → "Found Family".
     /// Mirrors the shared `EditableTag.displayName()` so the chip reads the same on every
-    /// platform without depending on the Kotlin extension crossing the SKIE seam.
+    /// platform without depending on the Kotlin extension crossing the Swift Export seam.
     static func tagLabel(slug: String) -> String {
         slug
             .split(separator: "-", omittingEmptySubsequences: true)

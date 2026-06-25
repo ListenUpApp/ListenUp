@@ -2,6 +2,11 @@ import SwiftUI
 import AVFoundation
 @preconcurrency import Shared
 
+/// Swift Export exposes the nested `PlaybackManager.ChapterInfo` type only through an
+/// `internal` typealias, so app code names it via its underlying public wrapper class.
+typealias PlaybackManagerChapterInfo =
+    _ExportedKotlinPackages_com_calypsan_listenup_client_playback_PlaybackManager_ChapterInfo
+
 /// Pure decision for an audio-session interruption — testable without notifications.
 enum InterruptionPolicy {
     enum Action: Equatable { case pause, resume, none }
@@ -28,7 +33,7 @@ enum RouteChangePolicy {
 enum ChapterMath {
     /// The index of the chapter containing `positionMs`, or `nil` for an empty
     /// list. A position past the last chapter clamps to the last index.
-    static func index(forPositionMs positionMs: Int64, in chapters: [Chapter_]) -> Int? {
+    static func index(forPositionMs positionMs: Int64, in chapters: [Chapter]) -> Int? {
         guard !chapters.isEmpty else { return nil }
         for (index, chapter) in chapters.enumerated()
         where positionMs < chapter.startTime + chapter.duration {
@@ -76,7 +81,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private(set) var coverPath: String?
     private(set) var coverBlurHash: String?
     private(set) var playbackSpeed: Float = 1.0
-    private(set) var chapters: [Chapter_] = []
+    private(set) var chapters: [Chapter] = []
 
     // MARK: - Preserved UI surface — position (derived from PositionTracker)
 

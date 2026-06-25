@@ -66,8 +66,8 @@ enum SearchRowKind: Equatable, Hashable {
 
 /// A native, value-typed projection of the bridged Kotlin `SearchHit` for SwiftUI lists.
 ///
-/// **Why (performance):** `SearchHit` is a SKIE-bridged Kotlin object; feeding it straight into a
-/// `ForEach`/`List` makes every diff/layout pass re-read its properties across the SKIE boundary
+/// **Why (performance):** `SearchHit` is a Swift Export-bridged Kotlin object; feeding it straight into a
+/// `ForEach`/`List` makes every diff/layout pass re-read its properties across the Swift Export boundary
 /// (`toKStringFromUtf16` per access). Search is query-unbounded, so that re-bridging is the same
 /// main-thread hazard that hung the books grid. `SearchRow` snapshots the rendered fields — and the
 /// per-kind subtitle, computed ONCE — into plain Swift values at the observer boundary, so SwiftUI
@@ -108,10 +108,10 @@ struct SearchRow: Identifiable, Equatable, Hashable {
                 .nilIfEmpty
         case .contributor:
             self.kind = .person
-            self.subtitle = SearchRow.detailLine(lead: hit.subtitle, count: hit.bookCount?.intValue)
+            self.subtitle = SearchRow.detailLine(lead: hit.subtitle, count: hit.bookCount.map { Int($0) })
         case .series:
             self.kind = .series
-            self.subtitle = SearchRow.detailLine(lead: hit.author, count: hit.bookCount?.intValue)
+            self.subtitle = SearchRow.detailLine(lead: hit.author, count: hit.bookCount.map { Int($0) })
         case .tag:
             self.kind = .tag
             self.subtitle = nil

@@ -54,7 +54,7 @@ final class MetadataMatchObserver {
         asin: String?
     ) {
         self.viewModel = viewModel
-        viewModel.doInitForBook(bookId: bookId, title: title, author: author, asin: asin)
+        viewModel.initForBook(bookId: bookId, title: title, author: author, asin: asin)
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
     }

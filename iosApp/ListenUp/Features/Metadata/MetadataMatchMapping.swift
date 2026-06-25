@@ -27,7 +27,7 @@ enum MetadataMatchMapping {
             authors: joinedNames(book.authors),
             narrators: joinedNames(book.narrators),
             coverURL: book.coverUrl,
-            runtimeMinutes: book.runtimeMinutes?.intValue,
+            runtimeMinutes: book.runtimeMinutes.map { Int($0) },
             chapterCountText: nil
         )
     }
@@ -73,7 +73,7 @@ enum MetadataMatchMapping {
             title: book.title,
             authorsLine: joinedNames(book.authors),
             narratorsLine: joinedNames(book.narrators),
-            runtimeMinutes: book.runtimeMinutes?.intValue,
+            runtimeMinutes: book.runtimeMinutes.map { Int($0) },
             coverURL: ready.selectedCoverUrl ?? book.coverUrl,
             identityFields: identity,
             detailFields: details,
@@ -149,7 +149,7 @@ enum MetadataMatchMapping {
     ) -> MetadataFieldSelection? {
         guard let description = book.description_, !description.isEmpty else { return nil }
         return .init(
-            field: .theDescription, label: String(localized: "metadata.field_description"),
+            field: .description, label: String(localized: "metadata.field_description"),
             value: description, isSelected: selections.description_, systemImage: "doc.text"
         )
     }
@@ -197,7 +197,7 @@ enum MetadataMatchMapping {
                     ordinal: Int(row.ordinal),
                     currentName: row.currentName,
                     suggestedName: row.suggestedName,
-                    isSelected: selected.contains(KotlinInt(int: row.ordinal))
+                    isSelected: selected.contains(row.ordinal)
                 )
             }
             return .available(AvailableChapters(

@@ -17,7 +17,7 @@ struct LibraryView: View {
     @State private var observer: LibraryObserver?
     @State private var selectedTab: LibraryTab = .books
 
-    private var user: User_? { userObserver.user }
+    private var user: User? { userObserver.user }
 
     var body: some View {
         Group {

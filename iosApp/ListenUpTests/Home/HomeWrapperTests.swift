@@ -56,7 +56,7 @@ struct HomeWrapperTests {
     // MARK: - ShelfItem
 
     @Test func shelfItemMapsFields() {
-        let shelf = Shelf_(
+        let shelf = Shelf(
             id: "shelf-1",
             name: "To Read",
             description: nil,

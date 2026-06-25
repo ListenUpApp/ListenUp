@@ -40,7 +40,7 @@ final class Dependencies {
 
     // MARK: - Settings
 
-    var authSession: any AuthSession_ { resolve { KoinHelper.shared.getAuthSession() } }
+    var authSession: any AuthSession { resolve { KoinHelper.shared.getAuthSession() } }
     var serverConfig: ServerConfig { resolve { KoinHelper.shared.getServerConfig() } }
 
     // MARK: - Playback seam (consumed by PlayerCoordinator)

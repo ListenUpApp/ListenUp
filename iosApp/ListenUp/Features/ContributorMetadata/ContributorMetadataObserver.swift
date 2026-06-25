@@ -12,9 +12,10 @@ struct ContributorHitRow: Identifiable, Hashable {
     var id: String { asin }
 }
 
-/// The fetched Audible contributor profile, flattened from the SKIE-bridged
-/// `MetadataContributorProfile` into native Swift values. `description` bridges to `description_`
-/// on the Kotlin type (NSObject clash); we expose it as `bio` to match the rest of the app.
+/// The fetched Audible contributor profile, flattened from the Swift Export-bridged
+/// `MetadataContributorProfile` into native Swift values. The Kotlin `description` property is
+/// exported as `description_` (Swift Export renames it to dodge the `description` clash); we expose
+/// it as `bio` to match the rest of the app.
 struct ContributorProfilePreview: Equatable {
     let asin: String
     let name: String
@@ -42,7 +43,7 @@ struct ContributorFieldComparison: Identifiable {
 /// flattening its flat `ContributorMetadataUiState` into `@Observable` Swift properties and native
 /// value types. Thin over `FlowBridge`; mirrors `ContributorDetailObserver` / `MetadataMatchObserver`.
 ///
-/// SKIE-bridged Kotlin objects (`MetadataContributorHit`, `MetadataContributorProfile`) are mapped to
+/// Swift Export-bridged Kotlin objects (`MetadataContributorHit`, `MetadataContributorProfile`) are mapped to
 /// native structs in `apply`; the raw hits are kept in a private `rawHits` map off the diff path so the
 /// view can hand back an ASIN on tap without exposing a Kotlin type to a `ForEach`.
 @Observable
@@ -88,7 +89,7 @@ final class ContributorMetadataObserver {
 
     deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
 
-    func start(contributorId: String) { viewModel.doInit(contributorId: contributorId) }
+    func start(contributorId: String) { viewModel.`init`(contributorId: contributorId) }
     func stopObserving() { bridge.cancelAll() }
 
     // MARK: - Actions

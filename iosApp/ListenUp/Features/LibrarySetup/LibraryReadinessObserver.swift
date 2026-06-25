@@ -67,7 +67,7 @@ struct ScanProgress: Equatable {
             isPersisting: state.phase == "persisting",
             filesDone: Int(state.current),
             filesTotal: Int(state.filesTotal),
-            fraction: state.progressFraction.map { Double($0.floatValue) },
+            fraction: state.progressFraction.map { Double($0) },
             books: Int(state.books),
             authors: Int(state.authors),
             hours: Int(state.hours),

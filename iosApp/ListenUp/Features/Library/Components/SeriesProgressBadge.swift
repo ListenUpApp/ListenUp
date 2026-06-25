@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Series-list progress affordance: a "Complete" pill, a "Not started" label, or an
 /// "X of Y" linear bar — driven by `SeriesProgressState` (named to avoid colliding
-/// with the SKIE-exported Kotlin `SeriesProgress`).
+/// with the Swift Export-bridged Kotlin `SeriesProgress`).
 struct SeriesProgressBadge: View {
     let state: SeriesProgressState
 

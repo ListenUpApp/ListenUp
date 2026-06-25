@@ -229,7 +229,7 @@ struct EditProfileView: View {
         String(
             format: String(localized: "profile.tagline_char_count"),
             tagline.count,
-            Int(EditProfileViewModel.companion.MAX_TAGLINE_LENGTH)
+            Int(EditProfileViewModel.Companion.shared.MAX_TAGLINE_LENGTH)
         )
     }
 
@@ -270,7 +270,7 @@ private struct ProfileEditSection<Content: View>: View {
 /// hitched the sheet on every render. Shows the user's current avatar until the decode lands.
 private struct StagedAvatarPreview: View {
     let data: Data
-    let user: User_?
+    let user: User?
     let size: CGFloat
 
     @State private var decoded: UIImage?

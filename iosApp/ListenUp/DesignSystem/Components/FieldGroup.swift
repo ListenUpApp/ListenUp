@@ -6,7 +6,7 @@ import SwiftUI
 /// and wraps the stack in a rounded `luSurface2` card.
 ///
 /// The primary initializer takes an explicit `id` KeyPath (mirroring SwiftUI's
-/// `ForEach(_:id:)`), so it works with the SKIE-exported Kotlin domain types that
+/// `ForEach(_:id:)`), so it works with the Swift Export-bridged Kotlin domain types that
 /// cannot conform to `Identifiable`. A convenience initializer defaults `id` to
 /// `\.id` for native `Identifiable` items.
 struct FieldGroup<Item, ID: Hashable, Row: View>: View {

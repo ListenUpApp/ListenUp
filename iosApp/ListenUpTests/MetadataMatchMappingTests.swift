@@ -61,7 +61,7 @@ struct MetadataMatchMappingTests {
         ]
         let available = ChapterSuggestionAvailable(
             rows: rows,
-            selectedOrdinals: Set([KotlinInt(int: 0)]),
+            selectedOrdinals: Set([Int32(0)]),
             isApplying: false,
             applyError: nil
         )
@@ -169,7 +169,7 @@ struct MetadataMatchMappingTests {
             description: description,
             publisher: publisher,
             releaseDate: releaseDate,
-            runtimeMinutes: runtime.map { KotlinInt(int: Int32($0)) },
+            runtimeMinutes: runtime.map { Int32($0) },
             language: language,
             authors: authors,
             narrators: narrators,

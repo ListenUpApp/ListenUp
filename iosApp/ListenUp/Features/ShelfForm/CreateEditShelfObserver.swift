@@ -31,9 +31,8 @@ final class CreateEditShelfObserver {
 
     func stopObserving() { bridge.cancelAll() }
 
-    // SKIE bridges Kotlin `init*` methods with a `do` prefix to avoid Swift's `init` keyword.
-    func prepareCreate() { viewModel.doInitCreate() }
-    func prepareEdit(shelfId: String) { viewModel.doInitEdit(shelfId: shelfId) }
+    func prepareCreate() { viewModel.initCreate() }
+    func prepareEdit(shelfId: String) { viewModel.initEdit(shelfId: shelfId) }
 
     func save(name: String, description: String, isPrivate: Bool) {
         viewModel.save(name: name, description: description, isPrivate: isPrivate)

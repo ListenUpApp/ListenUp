@@ -17,12 +17,12 @@ final class AuthStateObserver {
 
     // MARK: - Dependencies
 
-    private let authSession: any AuthSession_
+    private let authSession: any AuthSession
     private let bridge = FlowBridge()
 
     // MARK: - Init
 
-    init(authSession: any AuthSession_ = KoinHelper.shared.getAuthSession()) {
+    init(authSession: any AuthSession = KoinHelper.shared.getAuthSession()) {
         self.authSession = authSession
         Task {
             do {

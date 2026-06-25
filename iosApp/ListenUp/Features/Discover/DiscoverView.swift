@@ -24,7 +24,7 @@ struct DiscoverView: View {
     @State private var leaderboard: LeaderboardObserver?
     @State private var activity: ActivityFeedObserver?
 
-    private var user: User_? { userObserver.user }
+    private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
     private var horizontalInset: CGFloat { isRegularWidth ? 32 : 20 }
     private var railCardWidth: CGFloat { isRegularWidth ? 170 : 144 }

@@ -6,14 +6,15 @@ import UniformTypeIdentifiers
 ///
 /// `.fileImporter` (and `UIDocumentPickerViewController`) hand back a **security-scoped** URL: we
 /// must bracket the read with `startAccessingSecurityScopedResource()` /
-/// `stopAccessing…`. We read the whole file into `Data`, bridge it to a Kotlin `ByteArray` via
-/// the existing bulk-`memcpy` helper, and wrap it in `AppleFileSource` — which serves a fresh
+/// `stopAccessing…`. [readData] does that read off the main thread (`Data` is `Sendable`, so it
+/// crosses back safely); [makeFileSource] then bridges those bytes to a Kotlin `ByteArray` via the
+/// bulk-`memcpy` helper and wraps them in the shared `ByteArrayFileSource`, which serves a fresh
 /// `ByteReadChannel` per `openChannel()` so the multipart uploader can re-read the body on retry.
+/// The split matters because the Kotlin `FileSource` is not `Sendable` and must not cross an actor
+/// boundary — only the `Sendable` `Data` does.
 ///
 /// Reading the file fully into memory is acceptable at ListenUp's self-hosted scale (ABS backups
-/// are a SQLite dump plus metadata, typically single-digit MB). If backups grow large enough to
-/// matter, swap `AppleFileSource`'s backing for an `NSInputStream` adapter — the `FileSource`
-/// contract already permits true streaming.
+/// are a SQLite dump plus metadata, typically single-digit MB).
 enum ImportFileSourceBridge {
     /// The uniform types `.fileImporter` should allow. ABS exports use the `.audiobookshelf`
     /// extension (an opaque zip); we also accept plain archives as a fallback for hand-renamed
@@ -26,21 +27,31 @@ enum ImportFileSourceBridge {
         return types
     }
 
-    /// Read `url` into a `FileSource`, or throw `ImportFilePickError` on failure.
-    static func makeFileSource(from url: URL) throws -> FileSource {
+    /// Read the security-scoped `url` fully into memory, or throw `ImportFilePickError`. Safe to
+    /// call off the main actor; the returned `Data` is self-contained (not memory-mapped), so it
+    /// stays valid after the security scope is released.
+    static func readData(from url: URL) throws -> Data {
         let didScope = url.startAccessingSecurityScopedResource()
         defer { if didScope { url.stopAccessingSecurityScopedResource() } }
 
         let data: Data
         do {
-            data = try Data(contentsOf: url, options: .mappedIfSafe)
+            data = try Data(contentsOf: url)
         } catch {
             throw ImportFilePickError.unreadable
         }
 
         guard !data.isEmpty else { throw ImportFilePickError.empty }
+        return data
+    }
 
-        return AppleFileSource(bytes: data.toKotlinByteArray(), filename: url.lastPathComponent)
+    /// Wrap already-read bytes in the shared `FileSource`. The Kotlin `ByteArray` bridge and
+    /// `FileSource` are non-`Sendable`, so build them on the actor that consumes the source.
+    static func makeFileSource(data: Data, filename: String) -> FileSource {
+        ExportedKotlinPackages.com.calypsan.listenup.client.core.fileSourceOf(
+            bytes: data.toKotlinByteArray(),
+            filename: filename
+        )
     }
 }
 

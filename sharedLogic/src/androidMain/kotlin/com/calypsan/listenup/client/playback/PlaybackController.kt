@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.StateFlow
 actual interface PlaybackController {
     actual fun acquire()
 
-    actual fun release()
+    actual fun releasePlayer()
 
     actual val isReady: StateFlow<Boolean>
 

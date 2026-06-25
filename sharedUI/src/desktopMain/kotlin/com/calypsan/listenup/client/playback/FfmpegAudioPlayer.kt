@@ -143,7 +143,7 @@ class FfmpegAudioPlayer(
         }
     }
 
-    override fun release() {
+    override fun releasePlayer() {
         stopDecodeLoop()
         closeCurrentSegment()
         segments = emptyList()
