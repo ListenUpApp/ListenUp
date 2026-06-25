@@ -1,13 +1,13 @@
 import Foundation
 @preconcurrency import Shared
 
-/// Observes `DiscoverViewModel` — flattens its two iOS-relevant sealed states into
-/// SwiftUI-native phases: `discoverBooksState` (the "New for You" rail) and
-/// `recentlyAddedState` (the "Recently Added" list). The Android-only
-/// `discoverShelvesState` / `currentlyListeningState` streams are intentionally ignored;
-/// the iOS Discover design omits those sections.
+/// Observes `DiscoverViewModel` — flattens its three iOS-relevant sealed states into
+/// SwiftUI-native phases: `newForYou` (the "New for You" rail), `recentlyAdded`
+/// (the "Recently Added" rail), and `currentlyListening` (the "What Others Are Listening To"
+/// rail, from `SocialService.currentlyListening`). The Android-only `discoverShelvesState`
+/// stream is intentionally ignored; the iOS Discover design omits that section.
 ///
-/// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers.
+/// Thin over `FlowBridge`; all mapping logic lives in pure, testable initializers/helpers.
 @Observable
 @MainActor
 final class DiscoverObserver {
@@ -15,6 +15,7 @@ final class DiscoverObserver {
 
     private(set) var newForYou: DiscoverBooksPhase = .loading
     private(set) var recentlyAdded: RecentlyAddedPhase = .loading
+    private(set) var currentlyListening: CurrentlyListeningPhase = .loading
 
     // MARK: - Dependencies
 
@@ -27,6 +28,7 @@ final class DiscoverObserver {
         self.viewModel = viewModel
         bridge.bind(viewModel.discoverBooksState) { [weak self] in self?.applyBooks($0) }
         bridge.bind(viewModel.recentlyAddedState) { [weak self] in self?.applyRecent($0) }
+        bridge.bind(viewModel.currentlyListeningState) { [weak self] in self?.applyCurrentlyListening($0) }
     }
 
     /// Stop observing. Call on teardown.
@@ -63,6 +65,38 @@ final class DiscoverObserver {
             recentlyAdded = .error
         }
     }
+
+    private func applyCurrentlyListening(_ state: CurrentlyListeningUiState) {
+        switch onEnum(of: state) {
+        case .loading:
+            currentlyListening = .loading
+        case .ready(let ready):
+            currentlyListening = .ready(Self.currentlyListeningRows(from: ready.sessions))
+        case .error:
+            currentlyListening = .error
+        }
+    }
+
+    /// Pure: collapse the session list to one row per user (their most-recent book by
+    /// `startedAt`), then sort the survivors most-recent-first so the freshest activity leads
+    /// the carousel. The server's `currentlyListening` can return more than one session for a
+    /// user (different books in flight); the design shows each person once, on the book they
+    /// most recently picked up. Mapping to a native value type here keeps bridged Kotlin
+    /// sessions off the `ForEach` diff path (perf rule 8). `nonisolated` — testable off-actor.
+    nonisolated static func currentlyListeningRows(
+        from sessions: [CurrentlyListeningUiSession]
+    ) -> [CurrentlyListeningRow] {
+        var latestByUser: [String: CurrentlyListeningUiSession] = [:]
+        for session in sessions {
+            if let existing = latestByUser[session.userId], existing.startedAt >= session.startedAt {
+                continue
+            }
+            latestByUser[session.userId] = session
+        }
+        return latestByUser.values
+            .sorted { $0.startedAt > $1.startedAt }
+            .map(CurrentlyListeningRow.init(from:))
+    }
 }
 
 // MARK: - Phases
@@ -74,10 +108,17 @@ enum DiscoverBooksPhase: Equatable {
     case error
 }
 
-/// Flattened "Recently Added" list state for a SwiftUI `switch`.
+/// Flattened "Recently Added" rail state for a SwiftUI `switch`.
 enum RecentlyAddedPhase: Equatable {
     case loading
     case ready([RecentlyAddedBook])
+    case error
+}
+
+/// Flattened "What Others Are Listening To" rail state for a SwiftUI `switch`.
+enum CurrentlyListeningPhase: Equatable {
+    case loading
+    case ready([CurrentlyListeningRow])
     case error
 }
 
@@ -134,5 +175,61 @@ struct RecentlyAddedBook: Identifiable, Equatable {
         self.coverPath = coverPath
         self.blurHash = blurHash
         self.addedAt = addedAt
+    }
+}
+
+/// One carousel item in the "What Others Are Listening To" rail: a person and the single
+/// book they're currently on. Tapping the card navigates to that book's detail. The avatar
+/// is a neutral initials chip tinted with the user's stored avatar color; the cover comes
+/// from the viewer's local library (the session is dropped upstream if the book isn't local).
+struct CurrentlyListeningRow: Identifiable, Equatable {
+    /// Stable per (user, book) — a user appears at most once after dedup, but keying on both
+    /// keeps the identity stable across a book change so the card animates rather than replaces.
+    let id: String
+    let userId: String
+    let displayName: String
+    let initials: String
+    let avatarColor: String
+    let bookId: String
+    let title: String
+    let author: String?
+    let coverPath: String?
+    let blurHash: String?
+
+    init(from session: CurrentlyListeningUiSession) {
+        self.id = "\(session.userId):\(session.bookId)"
+        self.userId = session.userId
+        self.displayName = session.displayName
+        self.initials = LeaderboardRow.initials(from: session.displayName)
+        self.avatarColor = session.avatarColor
+        self.bookId = session.bookId
+        self.title = session.bookTitle
+        self.author = session.authorName
+        self.coverPath = session.coverPath
+        self.blurHash = session.coverBlurHash
+    }
+
+    init(
+        id: String,
+        userId: String,
+        displayName: String,
+        initials: String,
+        avatarColor: String,
+        bookId: String,
+        title: String,
+        author: String?,
+        coverPath: String?,
+        blurHash: String?
+    ) {
+        self.id = id
+        self.userId = userId
+        self.displayName = displayName
+        self.initials = initials
+        self.avatarColor = avatarColor
+        self.bookId = bookId
+        self.title = title
+        self.author = author
+        self.coverPath = coverPath
+        self.blurHash = blurHash
     }
 }

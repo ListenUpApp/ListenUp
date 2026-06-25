@@ -658,6 +658,7 @@
     "new_for_you": "New for You",
     "no_activity_yet_start_listening": "No activity yet. Start listening to see what your community is reading!",
     "no_new_books_yet": "Nothing new just yet.",
+    "no_one_listening_right_now": "No one's listening right now. Check back soon!",
     "no_recently_added_books": "No books added recently.",
     "no_shelves_to_discover_yet": "No Shelves to Discover Yet",
     "period_all": "All",
@@ -673,7 +674,8 @@
     "time_ago_now": "Just now",
     "total_time": "Total Time",
     "what_others_are_listening_to": "What Others Are Listening To",
-    "when_other_users_create_shelves": "When other users create shelves with books you can access, they'll appear here."
+    "when_other_users_create_shelves": "When other users create shelves with books you can access, they'll appear here.",
+    "x_is_listening_to_y": "%1$s is listening to %2$s"
   },
   "home": {
     "best_day_streak": "Best: %1$d day streak",

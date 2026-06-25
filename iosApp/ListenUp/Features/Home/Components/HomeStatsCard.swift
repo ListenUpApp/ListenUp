@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The Home "This week" stats card — a Screen-Time-style breakdown of the user's listening.
 ///
-/// A glass-backed surface (matching `ContinueHeroCard`) carrying a "This week" header with the
+/// A glass-backed surface carrying a "This week" header with the
 /// total listen time, an optional streak badge, the 7-day chart, and the top-genre bars. The card
 /// is pure — it renders whatever `StatsPhase` it's handed, so Task 5 simply passes
 /// `observer.statsPhase`. Each phase has its own quiet surface: a loading placeholder, a gentle

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A single "My Shelves" card: a fanned stack of cover art, the shelf name, and a count/duration
-/// subtitle. Glass-backed to match `ContinueHeroCard`/`HomeStatsCard`.
+/// subtitle. Glass-backed to match `HomeStatsCard`.
 ///
 /// Pure visual tile — `MyShelvesRow` wraps it in a `NavigationLink(value:)` so the tap pushes the
 /// shelf's detail onto the Home stack, matching how book/series covers route elsewhere.

@@ -1,17 +1,18 @@
 import SwiftUI
 
-/// The "Recently Added" section: a section title and a horizontally scrolling rail of
-/// recently added cover cards, each with a relative "added" time. Card width is width-driven
-/// by the caller so the rail reads larger on iPad. Renders loading / ready / error.
-struct RecentlyAddedSection: View {
-    let phase: RecentlyAddedPhase
+/// The "What Others Are Listening To" section: a section title and a horizontally scrolling
+/// rail of people-and-their-current-book cards. One card per person (deduped upstream in
+/// `CurrentlyListeningObserver`). Card width is width-driven by the caller so the rail reads
+/// larger on iPad. Renders loading / ready / error from the observer's phase.
+struct CurrentlyListeningSection: View {
+    let phase: CurrentlyListeningPhase
     let cardWidth: CGFloat
     /// Horizontal inset so the rail's first/last cards align with the screen's content margin.
     let horizontalInset: CGFloat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(String(localized: "discover.recently_added"))
+            Text(String(localized: "discover.what_others_are_listening_to"))
                 .font(.title2.bold())
                 .padding(.horizontal, horizontalInset)
 
@@ -26,21 +27,21 @@ struct RecentlyAddedSection: View {
             ProgressView()
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 24)
-        case .ready(let books):
-            if books.isEmpty {
-                message(String(localized: "discover.no_recently_added_books"))
+        case .ready(let rows):
+            if rows.isEmpty {
+                message(String(localized: "discover.no_one_listening_right_now"))
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
-                        ForEach(books) { book in
-                            RecentlyAddedCard(book: book, width: cardWidth)
+                        ForEach(rows) { row in
+                            CurrentlyListeningCard(row: row, width: cardWidth)
                         }
                     }
                     .padding(.horizontal, horizontalInset)
                 }
             }
         case .error:
-            message(String(localized: "discover.no_recently_added_books"))
+            message(String(localized: "discover.no_one_listening_right_now"))
         }
     }
 

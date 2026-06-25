@@ -11,8 +11,8 @@ import SwiftUI
 /// instances). This mirrors `LibraryView`/`SeriesDetailView`: observation is live whenever visible.
 ///
 /// Layout adapts to width: at compact (iPhone) the screen is a single scrolling column; at regular
-/// (iPad) the content is constrained to a comfortable reading width and the non-hero continue rows
-/// flow into a two-column grid so the extra space reads as a real layout, not a stretched phone.
+/// (iPad) the content is constrained to a comfortable reading width and the continue-listening rail
+/// cards grow so the extra space reads as a real layout, not a stretched phone.
 struct HomeView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -121,44 +121,33 @@ struct HomeView: View {
 
     // MARK: - Continue section
 
+    /// Horizontal inset so the rail's title aligns with the screen's content margin while the
+    /// cards bleed to the edge.
+    private var horizontalInset: CGFloat { 20 }
+    /// Card width is width-driven so the rail reads larger on iPad.
+    private var continueCardWidth: CGFloat { isRegularWidth ? 168 : 140 }
+
     @ViewBuilder
     private func continueSection(_ items: [ContinueItem]) -> some View {
         if items.isEmpty {
             EmptyContinueListening()
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, horizontalInset)
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 Text(String(localized: "home.continue_listening"))
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(.primary)
+                    .padding(.horizontal, horizontalInset)
 
-                ContinueHeroCard(item: items[0])
-
-                let rest = Array(items.dropFirst())
-                if !rest.isEmpty {
-                    continueRows(rest)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(items) { item in
+                            ContinueCard(item: item, width: continueCardWidth)
+                        }
+                    }
+                    .padding(.horizontal, horizontalInset)
                 }
-            }
-            .padding(.horizontal, 20)
-        }
-    }
-
-    /// Single column at compact; a width-driven grid at regular so columns flow with the canvas
-    /// (one in a narrow Split View, two on a full-width iPad) rather than a fixed two-up.
-    @ViewBuilder
-    private func continueRows(_ items: [ContinueItem]) -> some View {
-        if isRegularWidth {
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 320), spacing: 16)],
-                alignment: .leading,
-                spacing: 4
-            ) {
-                ForEach(items) { ContinueRow(item: $0) }
-            }
-        } else {
-            VStack(spacing: 4) {
-                ForEach(items) { ContinueRow(item: $0) }
             }
         }
     }
