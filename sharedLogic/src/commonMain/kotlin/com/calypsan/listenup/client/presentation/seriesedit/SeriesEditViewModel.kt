@@ -390,23 +390,20 @@ class SeriesEditViewModel internal constructor(
             return
         }
 
-        viewModelScope.launch {
-            // Delete staging cover if it exists
-            if (state.value.stagingCoverPath != null) {
-                imageStagingRepository.deleteSeriesCoverStaging(seriesId)
-            }
-
-            state.update {
-                it.copy(
-                    stagingCoverPath = null,
-                    pendingCoverData = null,
-                    pendingCoverFilename = null,
-                )
-            }
-            updateHasChanges()
-
-            logger.debug { "Staging cover removed" }
+        if (state.value.stagingCoverPath != null) {
+            imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
         }
+
+        state.update {
+            it.copy(
+                stagingCoverPath = null,
+                pendingCoverData = null,
+                pendingCoverFilename = null,
+            )
+        }
+        updateHasChanges()
+
+        logger.debug { "Staging cover removed" }
     }
 
     /**
@@ -467,10 +464,7 @@ class SeriesEditViewModel internal constructor(
     private fun cancelAndCleanup() {
         val seriesId = state.value.seriesId
         if (seriesId.isNotBlank() && state.value.stagingCoverPath != null) {
-            viewModelScope.launch {
-                imageStagingRepository.deleteSeriesCoverStaging(seriesId)
-                logger.debug { "Staging cover cleaned up on cancel" }
-            }
+            imageStagingRepository.requestSeriesCoverStagingCleanup(seriesId)
         }
         _navActions.trySend(SeriesEditNavAction.NavigateBack)
     }

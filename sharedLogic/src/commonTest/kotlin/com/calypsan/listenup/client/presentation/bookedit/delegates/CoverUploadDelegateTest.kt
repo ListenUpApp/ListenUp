@@ -85,4 +85,17 @@ class CoverUploadDelegateTest :
                 verify { repo.requestBookCoverStagingCleanup(BookId("book-1")) }
             }
         }
+
+        test("cleanupStagingOnCancel requests cleanup when bookId and staging path are present") {
+            runTest {
+                val state = MutableStateFlow(defaultUiState(bookId = "book-1", stagingCoverPath = "/tmp/staging-book-1.jpg"))
+                val repo: ImageStagingRepository = mock()
+                every { repo.requestBookCoverStagingCleanup(any()) } returns Unit
+                val delegate = buildDelegate(state, repo)
+
+                delegate.cleanupStagingOnCancel()
+
+                verify { repo.requestBookCoverStagingCleanup(BookId("book-1")) }
+            }
+        }
     })
