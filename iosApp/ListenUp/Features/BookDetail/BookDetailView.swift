@@ -15,6 +15,7 @@ struct BookDetailView: View {
     @Environment(\.dependencies) private var deps
     @Environment(\.horizontalSizeClass) private var hSize
     @State private var observer: BookDetailObserver?
+    @State private var readersObserver: BookReadersObserver?
 
     var body: some View {
         Group {
@@ -96,6 +97,10 @@ struct BookDetailView: View {
             )
             observer = obs
             obs.loadBook(bookId: bookId)
+
+            // The Readers VM is bookId-parameterized at construction and observes immediately —
+            // no separate load call needed.
+            readersObserver = BookReadersObserver(viewModel: deps.createBookReadersViewModel(bookId: bookId))
         }
     }
 
@@ -150,6 +155,8 @@ struct BookDetailView: View {
                 Divider()
 
                 BookChaptersSection(chapters: observer.chapters)
+
+                readersSection
 
                 Divider()
 
@@ -207,6 +214,8 @@ struct BookDetailView: View {
 
                 BookChaptersSection(chapters: observer.chapters)
 
+                readersSection
+
                 Divider()
 
                 if !observer.documents.isEmpty {
@@ -249,6 +258,16 @@ struct BookDetailView: View {
             onAddToShelf: { observer.openShelfPicker() },
             onMarkFinished: { observer.markFinished() }
         )
+    }
+
+    /// The social "Readers" block. Renders only when the readers VM has data; loading, empty,
+    /// and error phases keep the section (and its surrounding divider) out of the layout entirely.
+    @ViewBuilder
+    private var readersSection: some View {
+        if case .data(let rows) = readersObserver?.phase {
+            Divider()
+            BookReadersSection(readers: rows)
+        }
     }
 
     private func detailsSection(_ observer: BookDetailObserver) -> some View {
