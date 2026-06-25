@@ -1,3 +1,5 @@
+@file:MustUseReturnValues
+
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.SeriesUpdate
