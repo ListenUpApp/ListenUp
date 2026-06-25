@@ -24,13 +24,15 @@ class NoUnderscoreBackingFieldRule :
         test(
             "no production class uses the underscore Mutable(StateFlow|SharedFlow) backing pattern; use explicit `field =`",
         ) {
+            // The explicit-backing-field idiom is canonical across the client KMP modules: the 2a
+            // sweep covered :sharedLogic; :sharedUI and :contract are folded in here. :server is a
+            // separate (Kotlin/Native) track with its own conventions and stays out of scope.
+            val inScope = listOf("/sharedLogic/", "/sharedUI/", "/contract/")
             val offenders =
                 Konsist
                     .scopeFromProduction()
                     .classes()
-                    // Scoped to :sharedLogic (the elevation target, like the sibling rules).
-                    // sharedUI / contract / server carry the pattern too but were out of the 2a sweep.
-                    .filter { it.path.contains("/sharedLogic/") }
+                    .filter { cls -> inScope.any { cls.path.contains(it) } }
                     .filter { underscoreBacking.containsMatchIn(it.text) }
                     .filterNot { it.name in allowed }
                     .map { it.name }

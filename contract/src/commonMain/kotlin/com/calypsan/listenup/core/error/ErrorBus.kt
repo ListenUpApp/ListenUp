@@ -24,10 +24,9 @@ import kotlinx.coroutines.flow.SharedFlow
  * ```
  */
 class ErrorBus {
-    private val _errors = MutableSharedFlow<AppError>(extraBufferCapacity = 16)
-
     /** Stream of errors emitted from anywhere in the app. */
-    val errors: SharedFlow<AppError> = _errors
+    val errors: SharedFlow<AppError>
+        field = MutableSharedFlow<AppError>(extraBufferCapacity = 16)
 
     /**
      * Emit an error to be displayed in the UI.
@@ -36,6 +35,6 @@ class ErrorBus {
      * Drops the error silently if the buffer is full (unlikely with 16 slots).
      */
     fun emit(error: AppError) {
-        _errors.tryEmit(error)
+        errors.tryEmit(error)
     }
 }
