@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -68,13 +69,17 @@ class ProfileEditRepositoryImplTest :
         fun repo(
             userDao: UserDao = mock(),
             service: ProfileService = mock(),
+            avatarUploader: AvatarUploader = noOpUploader,
+            imageStorage: ImageStorage = mock<ImageStorage>(),
         ): ProfileEditRepositoryImpl {
             val rpcFactory: ProfileRpcFactory = mock()
             everySuspend { rpcFactory.get() } returns service
+            everySuspend { imageStorage.saveUserAvatar(any(), any()) } returns AppResult.Success(Unit)
             return ProfileEditRepositoryImpl(
                 userDao = userDao,
                 profileRpcFactory = rpcFactory,
-                avatarUploader = noOpUploader,
+                avatarUploader = avatarUploader,
+                imageStorage = imageStorage,
             )
         }
 
@@ -242,6 +247,30 @@ class ProfileEditRepositoryImplTest :
                 val result = avatarUploaderOf(fakeFactory).upload(ByteArray(4), "image/jpeg")
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+            }
+        }
+
+        test("uploadAvatar caches the uploaded bytes locally on success") {
+            runTest {
+                val bytes = byteArrayOf(1, 2, 3)
+                val userDao = mock<UserDao>()
+                val avatarUploader = mock<AvatarUploader>()
+                val imageStorage = mock<ImageStorage>()
+
+                everySuspend { userDao.getCurrentUser() } returns userEntity
+                everySuspend { userDao.updateAvatar(any(), any(), any(), any(), any()) } returns Unit
+                everySuspend { avatarUploader.upload(bytes, "image/jpeg") } returns AppResult.Success(Unit)
+                everySuspend { imageStorage.saveUserAvatar(userId, bytes) } returns AppResult.Success(Unit)
+
+                val result =
+                    repo(
+                        userDao = userDao,
+                        avatarUploader = avatarUploader,
+                        imageStorage = imageStorage,
+                    ).uploadAvatar(bytes, "image/jpeg")
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { imageStorage.saveUserAvatar(userId, bytes) }
             }
         }
     })

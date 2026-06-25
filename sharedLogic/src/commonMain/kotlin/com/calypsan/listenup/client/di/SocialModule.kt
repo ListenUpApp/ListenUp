@@ -83,6 +83,7 @@ internal val socialModule: Module =
                 userDao = get(),
                 profileRpcFactory = get(),
                 avatarUploader = avatarUploaderOf(get()),
+                imageStorage = get(),
             )
         }
 

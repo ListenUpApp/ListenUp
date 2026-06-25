@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.request.forms.formData
@@ -93,6 +94,7 @@ internal class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
     private val profileRpcFactory: ProfileRpcFactory,
     private val avatarUploader: AvatarUploader,
+    private val imageStorage: ImageStorage,
 ) : ProfileEditRepository {
     /**
      * Persist all changed profile text fields in one RPC call.
@@ -190,6 +192,10 @@ internal class ProfileEditRepositoryImpl(
                         avatarColor = user.avatarColor,
                         updatedAt = currentEpochMilliseconds(),
                     )
+                    when (val cached = imageStorage.saveUserAvatar(user.id.value, imageData)) {
+                        is AppResult.Failure -> logger.warn { "Avatar local cache write failed: ${cached.error}" }
+                        is AppResult.Success -> Unit
+                    }
                     logger.info { "Avatar uploaded, local type flipped to image" }
                     AppResult.Success(Unit)
                 }
