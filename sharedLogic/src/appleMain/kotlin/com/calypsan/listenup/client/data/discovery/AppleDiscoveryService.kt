@@ -42,11 +42,27 @@ private val logger = KotlinLogging.logger {}
 internal class AppleDiscoveryService : ServerDiscoveryService {
     private val serviceBrowser = NSNetServiceBrowser()
     private val serversState = MutableStateFlow<Map<String, DiscoveredServer>>(emptyMap())
+
+    /**
+     * Guards the bookkeeping maps + [isDiscovering] flag against concurrent mutation from the
+     * public start/stop callers and the Bonjour browser/service delegate callbacks (which fire on
+     * the scheduling run loop). Mirrors `DownloadSessionDelegate`'s [NSRecursiveLock] pattern.
+     */
+    private val lock = platform.Foundation.NSRecursiveLock()
     private val pendingServices = mutableMapOf<String, NSNetService>()
     private val serviceDelegates = mutableMapOf<String, ServiceDelegate>()
 
     private var browserDelegate: BrowserDelegate? = null
     private var isDiscovering = false
+
+    private inline fun <T> withLock(block: () -> T): T {
+        lock.lock()
+        try {
+            return block()
+        } finally {
+            lock.unlock()
+        }
+    }
 
     companion object {
         private const val SERVICE_TYPE = "_listenup._tcp."
@@ -57,40 +73,46 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
     override fun discover(): Flow<List<DiscoveredServer>> = serversState.map { it.values.toList() }
 
     override fun startDiscovery() {
-        if (isDiscovering) {
-            logger.debug { "Discovery already running" }
-            return
-        }
+        val delegate =
+            withLock {
+                if (isDiscovering) {
+                    logger.debug { "Discovery already running" }
+                    return
+                }
+                isDiscovering = true
+                BrowserDelegate().also { browserDelegate = it }
+            }
 
         logger.info { "Starting mDNS discovery for $SERVICE_TYPE" }
-        isDiscovering = true
-
-        browserDelegate = BrowserDelegate()
-        serviceBrowser.delegate = browserDelegate
+        serviceBrowser.delegate = delegate
         serviceBrowser.searchForServicesOfType(SERVICE_TYPE, inDomain = SERVICE_DOMAIN)
     }
 
     override fun stopDiscovery() {
-        if (!isDiscovering) {
-            logger.debug { "Discovery not running, nothing to stop" }
-            return
+        withLock {
+            if (!isDiscovering) {
+                logger.debug { "Discovery not running, nothing to stop" }
+                return
+            }
+            isDiscovering = false
+            browserDelegate = null
+            pendingServices.clear()
+            serviceDelegates.clear()
         }
 
         logger.info { "Stopping mDNS discovery" }
         serviceBrowser.stop()
-        isDiscovering = false
-        browserDelegate = null
-        pendingServices.clear()
-        serviceDelegates.clear()
     }
 
     private fun onServiceFound(service: NSNetService) {
         val serviceName = service.name
         logger.debug { "Service found: $serviceName" }
 
-        pendingServices[serviceName] = service
         val delegate = ServiceDelegate()
-        serviceDelegates[serviceName] = delegate
+        withLock {
+            pendingServices[serviceName] = service
+            serviceDelegates[serviceName] = delegate
+        }
         service.delegate = delegate
         service.resolveWithTimeout(RESOLVE_TIMEOUT)
     }
@@ -99,8 +121,10 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
         val serviceName = service.name
         logger.debug { "Service removed: $serviceName" }
 
-        pendingServices.remove(serviceName)
-        serviceDelegates.remove(serviceName)
+        withLock {
+            pendingServices.remove(serviceName)
+            serviceDelegates.remove(serviceName)
+        }
         serversState.update { current ->
             val removedId = current.entries.firstOrNull { it.value.name == serviceName }?.key
             if (removedId != null) current - removedId else current
@@ -154,11 +178,12 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
                 additionalHosts = rankedHosts.drop(1),
             )
 
-        pendingServices.remove(serviceName)
-        serviceDelegates.remove(serviceName)
+        withLock {
+            pendingServices.remove(serviceName)
+            serviceDelegates.remove(serviceName)
+        }
         serversState.update { it + (server.id to server) }
         logger.info { "Server discovered: ${server.name} (${server.id}) at ${server.localUrl}" }
-        pendingServices.remove(serviceName)
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -199,20 +224,19 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
             // sockaddr_in is 16 bytes: sa_len(1) + sa_family(1) + sin_port(2) + sin_addr(4) + sin_zero(8)
             if (data.length < 16u) continue
 
-            val len = data.length.toInt()
             val ptr = data.bytes ?: continue
-            val bytePtr = ptr.reinterpret<kotlinx.cinterop.ByteVar>()
-            val bytes = ByteArray(len) { bytePtr[it] }
+            val bytePtr = ptr.reinterpret<ByteVar>()
 
-            // Check address family (offset 1 on Darwin — sa_family is second byte after sa_len)
-            val family = bytes[1].toInt() and 0xFF
+            // Check address family (offset 1 on Darwin — sa_family is second byte after sa_len).
+            // Read the 8 used bytes directly off the foreign pointer; the trailing 8 are sin_zero.
+            val family = bytePtr[1].toInt() and 0xFF
             if (family != AF_INET) continue
 
             // IPv4 address is at offset 4-7 (sin_addr, after sa_len + sa_family + sin_port)
-            val a = bytes[4].toInt() and 0xFF
-            val b = bytes[5].toInt() and 0xFF
-            val c = bytes[6].toInt() and 0xFF
-            val d = bytes[7].toInt() and 0xFF
+            val a = bytePtr[4].toInt() and 0xFF
+            val b = bytePtr[5].toInt() and 0xFF
+            val c = bytePtr[6].toInt() and 0xFF
+            val d = bytePtr[7].toInt() and 0xFF
             result += "$a.$b.$c.$d"
         }
 
@@ -259,7 +283,7 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
 
         override fun netServiceBrowserDidStopSearch(browser: NSNetServiceBrowser) {
             logger.info { "Service browser stopped searching" }
-            isDiscovering = false
+            withLock { isDiscovering = false }
         }
 
         override fun netServiceBrowser(
@@ -267,7 +291,7 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
             didNotSearch: Map<Any?, *>,
         ) {
             logger.error { "Service browser failed to search: $didNotSearch" }
-            isDiscovering = false
+            withLock { isDiscovering = false }
         }
 
         @ObjCSignatureOverride
@@ -304,8 +328,10 @@ internal class AppleDiscoveryService : ServerDiscoveryService {
             didNotResolve: Map<Any?, *>,
         ) {
             logger.error { "Failed to resolve service ${sender.name}: $didNotResolve" }
-            pendingServices.remove(sender.name)
-            serviceDelegates.remove(sender.name)
+            withLock {
+                pendingServices.remove(sender.name)
+                serviceDelegates.remove(sender.name)
+            }
         }
     }
 }

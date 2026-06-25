@@ -279,7 +279,7 @@ class AppleDownloadService internal constructor(
                 task.taskDescription = "$bookId|$audioFileId|$filename|$destPath"
 
                 // Register continuation so delegate can resume it
-                sessionDelegate.registerDownload(task.taskIdentifier, continuation, destPath.toString(), bookId)
+                sessionDelegate.registerDownload(task, continuation, destPath.toString(), bookId)
 
                 continuation.invokeOnCancellation { task.cancel() }
                 task.resume()
@@ -307,19 +307,6 @@ class AppleDownloadService internal constructor(
         val cancelledCount = sessionDelegate.cancelTasksForBook(bookId.value)
         if (cancelledCount > 0) {
             logger.info { "Cancelled $cancelledCount active download task(s) for book: ${bookId.value}" }
-        }
-
-        // Also cancel via the URL session to ensure tasks are actually stopped
-        urlSession.getTasksWithCompletionHandler { _, _, downloadTasks ->
-            downloadTasks?.forEach { task ->
-                @Suppress("UNCHECKED_CAST")
-                val downloadTask = task as? NSURLSessionDownloadTask ?: return@forEach
-                val desc = downloadTask.taskDescription ?: return@forEach
-                if (desc.startsWith("${bookId.value}|")) {
-                    downloadTask.cancel()
-                    logger.debug { "Cancelled NSURLSession task: ${downloadTask.taskIdentifier}" }
-                }
-            }
         }
     }
 
@@ -481,14 +468,19 @@ private class DownloadSessionDelegate(
     /** Maps taskIdentifier to bookId for cancellation support */
     private val taskToBookId = mutableMapOf<ULong, String>()
 
+    /** Maps taskIdentifier to its live download task so cancellation can stop it directly */
+    private val taskById = mutableMapOf<ULong, NSURLSessionDownloadTask>()
+
     fun registerDownload(
-        taskId: ULong,
+        task: NSURLSessionDownloadTask,
         continuation: CancellableContinuation<Boolean>,
         destPath: String,
         bookId: String? = null,
     ) {
         withLock {
+            val taskId = task.taskIdentifier
             pendingDownloads[taskId] = PendingDownload(continuation, destPath)
+            taskById[taskId] = task
             if (bookId != null) {
                 taskToBookId[taskId] = bookId
             }
@@ -497,20 +489,28 @@ private class DownloadSessionDelegate(
 
     /**
      * Cancel all active download tasks for a given book.
-     * Returns the number of tasks cancelled.
+     *
+     * Each [NSURLSessionDownloadTask.cancel] drives the task to `didCompleteWithError`
+     * (NSURLErrorCancelled), which resumes the suspended continuation as failed and clears its
+     * pending state exactly once. Returns the number of tasks actually cancelled.
      */
     fun cancelTasksForBook(bookId: String): Int {
-        val taskIds =
+        val tasks =
             withLock {
-                taskToBookId.filterValues { it == bookId }.keys.toList()
+                taskToBookId
+                    .filterValues { it == bookId }
+                    .keys
+                    .mapNotNull { taskById[it] }
             }
-        return taskIds.size
+        tasks.forEach { it.cancel() }
+        return tasks.size
     }
 
     private fun removePending(taskId: ULong): PendingDownload? =
         withLock {
             lastLoggedPct.remove(taskId)
             taskToBookId.remove(taskId)
+            taskById.remove(taskId)
             pendingDownloads.remove(taskId)
         }
 
