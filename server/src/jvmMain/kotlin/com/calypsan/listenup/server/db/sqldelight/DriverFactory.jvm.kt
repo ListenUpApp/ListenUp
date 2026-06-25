@@ -15,6 +15,13 @@ private const val BUSY_TIMEOUT_MS = 5_000
  * bug this avoids.
  *
  * - `journal_mode=WAL` — concurrent readers alongside a single writer.
+ * - `synchronous=NORMAL` — the SQLite-recommended companion to WAL: an `fsync` is taken only at a
+ *   WAL checkpoint, not on every transaction commit. Under WAL+NORMAL a commit is durable across an
+ *   application crash and the database is never corrupted by an OS crash / power loss — only the last
+ *   in-flight transaction(s) may be lost, which the sync engine reconciles on reconnect. Library
+ *   persistence and ABS-import progress writes commit one small transaction PER book/row, so the
+ *   default `synchronous=FULL`'s per-commit `fsync` dominated the wall-clock of those bulk flows;
+ *   NORMAL removes it. Safe for a self-hosted single-instance server.
  * - `busy_timeout=5000` — wait up to 5 s for a write-lock before SQLITE_BUSY.
  * - foreign_keys is intentionally LEFT OFF on JVM: enabling it changes live-scan insert ordering and
  *   breaks `LibraryLessOnboardingE2ETest` (202→404). The native actual ([DriverFactory] on linuxX64)
@@ -32,6 +39,7 @@ actual class DriverFactory {
                 .apply {
                     busyTimeout = BUSY_TIMEOUT_MS
                     setJournalMode(SQLiteConfig.JournalMode.WAL)
+                    setSynchronous(SQLiteConfig.SynchronousMode.NORMAL)
                 }.toProperties(),
         )
 }
