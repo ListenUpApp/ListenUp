@@ -72,6 +72,8 @@ before any non-trivial iOS work.
      `SearchRow`, `RoleSectionRow`, `EditableRelation`. If the observer still needs the raw Kotlin
      object (e.g. for an id→object lookup on a remove/tap action), keep it as private observer
      state, off the diff path — never in the `ForEach`.
+   - Swift Export bridge architecture, the patcher, and the version coupling: see
+     `docs/superpowers/swift-export-bridge.md`.
 9. **Native, type-safe navigation.** `NavigationStack` + value-typed routes; sheets,
    `presentationDetents`, and inspectors over ported screens.
 10. **Errors the iOS way.** The shared typed `AppError` crosses the boundary, but iOS maps
