@@ -58,12 +58,11 @@ struct MiniPlayerBar: View {
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
-                if let chapter = observer.chapterTitle {
-                    Text(chapter)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 12)
@@ -72,6 +71,18 @@ struct MiniPlayerBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    /// "{Chapter} · {time left}" when a chapter is known, otherwise just the time left.
+    /// Time-left reuses the reader strip's `formatTimeLeft` helper ("9h 51m left"); the
+    /// single line truncates on narrow widths so the bar never crowds. Reads only scalar
+    /// values off the observer (rule 8 — no bridged Kotlin objects in the view body).
+    private var subtitle: String {
+        let timeLeft = formatTimeLeft(remainingMs: observer.bookDurationMs - observer.displayBookPositionMs)
+        if let chapter = observer.chapterTitle, !chapter.isEmpty {
+            return "\(chapter) · \(timeLeft)"
+        }
+        return timeLeft
     }
 
     private var cover: some View {
