@@ -91,10 +91,7 @@ class CoverUploadDelegate(
     fun cleanupStagingOnCancel() {
         val bookId = state.value.bookId
         if (bookId.isNotBlank() && state.value.stagingCoverPath != null) {
-            scope.launch {
-                imageStagingRepository.deleteBookCoverStaging(BookId(bookId))
-                logger.debug { "Staging cover cleaned up on cancel" }
-            }
+            imageStagingRepository.requestBookCoverStagingCleanup(BookId(bookId))
         }
     }
 

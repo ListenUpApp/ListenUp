@@ -274,7 +274,6 @@ class SeriesEditViewModelTest :
                 everySuspend { fixture.seriesRepository.getById("series-1") } returns createSeries()
                 everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns listOf("book-1")
                 everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
-                everySuspend { fixture.imageStagingRepository.deleteSeriesCoverStaging(any()) } returns AppResult.Success(Unit)
 
                 val viewModel = fixture.build()
                 viewModel.loadSeries("series-1")
@@ -348,6 +347,54 @@ class SeriesEditViewModelTest :
                 verify(mode = VerifyMode.not) {
                     fixture.imageStagingRepository.requestSeriesCoverStagingCleanup(any())
                 }
+            }
+        }
+
+        test("CancelClicked requests staging cleanup when a staging cover is present") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries(id = "series-1")
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns series
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.imageStagingRepository.saveSeriesCoverStaging("series-1", any()) } returns AppResult.Success(Unit)
+                every { fixture.imageStagingRepository.getSeriesCoverStagingPath("series-1") } returns "/tmp/staging-series-1.jpg"
+                every { fixture.imageStagingRepository.requestSeriesCoverStagingCleanup(any()) } returns Unit
+
+                val vm = fixture.build()
+                vm.loadSeries("series-1")
+                advanceUntilIdle()
+                vm.onEvent(SeriesEditUiEvent.CoverSelected(byteArrayOf(1, 2, 3), "cover.jpg"))
+                advanceUntilIdle()
+
+                vm.onEvent(SeriesEditUiEvent.CancelClicked)
+                advanceUntilIdle()
+
+                verify { fixture.imageStagingRepository.requestSeriesCoverStagingCleanup("series-1") }
+            }
+        }
+
+        test("CoverRemoved requests staging cleanup when a staging cover is present") {
+            runTest {
+                val fixture = createFixture()
+                val series = createSeries(id = "series-1")
+                everySuspend { fixture.seriesRepository.getById("series-1") } returns series
+                everySuspend { fixture.seriesRepository.getBookIdsForSeries("series-1") } returns emptyList()
+                everySuspend { fixture.imageRepository.seriesCoverExists("series-1") } returns false
+                everySuspend { fixture.imageStagingRepository.saveSeriesCoverStaging("series-1", any()) } returns AppResult.Success(Unit)
+                every { fixture.imageStagingRepository.getSeriesCoverStagingPath("series-1") } returns "/tmp/staging-series-1.jpg"
+                every { fixture.imageStagingRepository.requestSeriesCoverStagingCleanup(any()) } returns Unit
+
+                val vm = fixture.build()
+                vm.loadSeries("series-1")
+                advanceUntilIdle()
+                vm.onEvent(SeriesEditUiEvent.CoverSelected(byteArrayOf(1, 2, 3), "cover.jpg"))
+                advanceUntilIdle()
+
+                vm.onEvent(SeriesEditUiEvent.CoverRemoved)
+                advanceUntilIdle()
+
+                verify { fixture.imageStagingRepository.requestSeriesCoverStagingCleanup("series-1") }
             }
         }
     })

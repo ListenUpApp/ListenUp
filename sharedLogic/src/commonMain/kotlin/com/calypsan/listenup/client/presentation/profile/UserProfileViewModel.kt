@@ -276,7 +276,8 @@ class UserProfileViewModel internal constructor(
 
     private suspend fun tryDownloadAvatar(userId: String): String? =
         try {
-            imageRepository.downloadUserAvatar(userId, forceRefresh = false)
+            // The path lookup below returns null if the download failed, so a dropped result is safe here.
+            val _ = imageRepository.downloadUserAvatar(userId, forceRefresh = false)
             imageRepository.getUserAvatarPath(userId)
         } catch (cancel: kotlin.coroutines.cancellation.CancellationException) {
             throw cancel

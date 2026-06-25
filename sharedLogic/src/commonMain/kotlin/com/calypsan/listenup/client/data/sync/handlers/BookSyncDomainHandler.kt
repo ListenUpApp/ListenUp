@@ -162,7 +162,7 @@ internal class BookSyncDomainHandler(
         // would keep rendering the stale image. Drop it: the render then re-fetches the new cover and
         // the downloader repopulates it. Best-effort — a failed delete must not fail the sync write.
         if (existing != null && existing.coverHash != updatedEntity.coverHash) {
-            imageStorage.deleteCover(bookId)
+            val _ = imageStorage.deleteCover(bookId)
         }
 
         applyContributors(bookId, payload.contributors)

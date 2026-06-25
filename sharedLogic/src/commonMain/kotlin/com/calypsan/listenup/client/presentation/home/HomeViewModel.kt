@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.currentHourOfDay
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ScanProgressState
@@ -141,7 +142,9 @@ class HomeViewModel(
     fun refresh() {
         viewModelScope.launch {
             logger.debug { "Refresh: triggering sync to pull latest progress" }
-            syncRepository.sync()
+            syncRepository
+                .sync()
+                .onFailure { logger.warn { "Home refresh sync failed: ${it.message}" } }
         }
     }
 

@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.await
 import androidx.work.workDataOf
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -195,7 +196,9 @@ class DownloadManager internal constructor(
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
         // but before the state update fires (Finding 08 D10).
         workManager.cancelAllWorkByTag(bookTag(bookId)).await()
-        downloadRepository.cancelForBook(bookId)
+        downloadRepository
+            .cancelForBook(bookId)
+            .onFailure { logger.warn { "Failed to persist cancelled state: ${bookId.value}" } }
         logger.info { "Cancelled download: ${bookId.value}" }
     }
 

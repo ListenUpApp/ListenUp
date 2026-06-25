@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.client.domain.model.SearchHitType
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
@@ -431,7 +432,11 @@ class ImportFlowViewModel(
                             if (uiState.value !is ImportFlowUiState.Error && uiState.value !is ImportFlowUiState.Done) {
                                 progressJob?.cancel()
                                 uiState.value = ImportFlowUiState.Done(result = applyResult.data)
-                                syncRepository.refreshListeningHistory()
+                                syncRepository
+                                    .refreshListeningHistory()
+                                    .onFailure {
+                                        logger.warn { "Listening-history refresh after import failed: ${it.message}" }
+                                    }
                             }
                         }
                     }
@@ -514,7 +519,9 @@ class ImportFlowViewModel(
                 // deliver Done before (or racing with) the apply() AppResult.
                 if (uiState.value !is ImportFlowUiState.Done && uiState.value !is ImportFlowUiState.Error) {
                     uiState.value = ImportFlowUiState.Done(result = event.result)
-                    syncRepository.refreshListeningHistory()
+                    syncRepository
+                        .refreshListeningHistory()
+                        .onFailure { logger.warn { "Listening-history refresh after import failed: ${it.message}" } }
                 }
             }
 

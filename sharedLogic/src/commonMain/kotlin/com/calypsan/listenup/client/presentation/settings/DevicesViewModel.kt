@@ -80,7 +80,7 @@ class DevicesViewModel(
     /** Revoke every session for the caller, then invoke [onDone] (e.g. navigate to login). */
     fun signOutEverywhere(onDone: () -> Unit) {
         viewModelScope.launch {
-            authRepository.logoutAll()
+            val _ = authRepository.logoutAll()
             // Never stranded: run the nav teardown unconditionally even if the
             // server-side revoke failed — it clears local tokens and routes to
             // login regardless, and the server revokes on next refresh as backstop.

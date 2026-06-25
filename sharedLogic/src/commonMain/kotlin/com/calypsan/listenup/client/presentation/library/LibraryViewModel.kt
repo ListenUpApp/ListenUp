@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.library
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ScanProgressState
@@ -379,7 +380,9 @@ class LibraryViewModel(
 
     private fun refreshBooks() {
         viewModelScope.launch {
-            bookRepository.refreshBooks()
+            bookRepository
+                .refreshBooks()
+                .onFailure { logger.warn { "Library refresh failed: ${it.message}" } }
         }
     }
 

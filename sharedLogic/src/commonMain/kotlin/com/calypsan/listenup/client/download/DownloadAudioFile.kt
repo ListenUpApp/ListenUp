@@ -3,6 +3,7 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.suspendRunCatching
@@ -114,7 +115,8 @@ internal suspend fun downloadAudioFile(
 
                     // Update total size in DB up front so the UI shows progress against the right denominator.
                     if (totalSize > 0) {
-                        repository.updateProgress(audioFileId, startByte, totalSize)
+                        // Progress write is best-effort UI feedback; a dropped update is corrected by the next tick.
+                        val _ = repository.updateProgress(audioFileId, startByte, totalSize)
                     }
 
                     // Stream the body into the temp file. Append mode iff we're resuming.
@@ -142,7 +144,7 @@ internal suspend fun downloadAudioFile(
                                 sinceLastProgress >= PROGRESS_BYTES_INTERVAL
                             ) {
                                 if (totalSize > 0) {
-                                    repository.updateProgress(audioFileId, totalBytesRead, totalSize)
+                                    val _ = repository.updateProgress(audioFileId, totalBytesRead, totalSize)
                                 }
                                 setProgress(totalBytesRead, totalSize)
                                 lastProgressUpdate = now
@@ -165,12 +167,18 @@ internal suspend fun downloadAudioFile(
                         throw IOException("Failed to move temp file to destination")
                     }
 
-                    // Mark complete via repository.
-                    repository.markCompleted(
-                        audioFileId = audioFileId,
-                        localPath = destPath.toString(),
-                        completedAt = currentEpochMilliseconds(),
-                    )
+                    // Mark complete via repository. The file is already on disk, so a failed DB write
+                    // leaves a recoverable inconsistency — surface it loudly rather than silently.
+                    repository
+                        .markCompleted(
+                            audioFileId = audioFileId,
+                            localPath = destPath.toString(),
+                            completedAt = currentEpochMilliseconds(),
+                        ).onFailure {
+                            logger.error {
+                                "Download finished on disk but markCompleted failed for $audioFileId: ${it.message}"
+                            }
+                        }
                 }
         }
     }

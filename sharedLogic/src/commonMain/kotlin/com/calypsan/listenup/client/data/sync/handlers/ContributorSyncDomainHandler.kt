@@ -140,7 +140,7 @@ internal class ContributorSyncDomainHandler(
         // The local copy is otherwise never re-downloaded (the downloader skips when a file exists),
         // so drop it on change: the render then re-fetches the new photo. Best-effort.
         if (existing != null && existing.imagePath != newImagePath) {
-            imageStorage.deleteContributorImage(payload.id)
+            val _ = imageStorage.deleteContributorImage(payload.id)
         }
         database.contributorDao().upsert(
             ContributorEntity(
