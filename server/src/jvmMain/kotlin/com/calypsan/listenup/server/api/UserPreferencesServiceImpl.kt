@@ -5,10 +5,13 @@ import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.User_settings
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.sync.ChangeBus
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 
 private const val DEFAULT_SPEED = 1.0f
@@ -34,6 +37,7 @@ internal class UserPreferencesServiceImpl(
     private val sql: ListenUpDatabase,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
+    private val bus: ChangeBus? = null,
 ) : UserPreferencesService {
     override suspend fun getMyPreferences(): AppResult<UserPreferencesDto> {
         val userId = currentUserId() ?: return AppResult.Failure(AuthError.PermissionDenied())
@@ -42,22 +46,41 @@ internal class UserPreferencesServiceImpl(
 
     override suspend fun updateMyPreferences(request: UpdateUserPreferencesRequest): AppResult<UserPreferencesDto> {
         val userId = currentUserId() ?: return AppResult.Failure(AuthError.PermissionDenied())
-        return suspendTransaction(sql) {
-            val current = readRow(userId) ?: defaults()
-            val merged =
-                UserPreferencesDto(
-                    defaultPlaybackSpeed =
-                        (request.defaultPlaybackSpeed ?: current.defaultPlaybackSpeed).coerceIn(SPEED_RANGE),
-                    defaultSkipForwardSec =
-                        (request.defaultSkipForwardSec ?: current.defaultSkipForwardSec).coerceIn(SKIP_RANGE),
-                    defaultSkipBackwardSec =
-                        (request.defaultSkipBackwardSec ?: current.defaultSkipBackwardSec).coerceIn(SKIP_RANGE),
-                    defaultSleepTimerMin =
-                        (request.defaultSleepTimerMin ?: current.defaultSleepTimerMin)?.coerceIn(SLEEP_RANGE),
-                    shakeToResetSleepTimer = request.shakeToResetSleepTimer ?: current.shakeToResetSleepTimer,
-                )
-            upsert(userId, merged)
-            AppResult.Success(merged)
+        val merged =
+            suspendTransaction(sql) {
+                val current = readRow(userId) ?: defaults()
+                val next =
+                    UserPreferencesDto(
+                        defaultPlaybackSpeed =
+                            (request.defaultPlaybackSpeed ?: current.defaultPlaybackSpeed).coerceIn(SPEED_RANGE),
+                        defaultSkipForwardSec =
+                            (request.defaultSkipForwardSec ?: current.defaultSkipForwardSec).coerceIn(SKIP_RANGE),
+                        defaultSkipBackwardSec =
+                            (request.defaultSkipBackwardSec ?: current.defaultSkipBackwardSec).coerceIn(SKIP_RANGE),
+                        defaultSleepTimerMin =
+                            (request.defaultSleepTimerMin ?: current.defaultSleepTimerMin)?.coerceIn(SLEEP_RANGE),
+                        shakeToResetSleepTimer = request.shakeToResetSleepTimer ?: current.shakeToResetSleepTimer,
+                    )
+                upsert(userId, next)
+                next
+            }
+        // The write is durable (transaction committed); nudge the user's OTHER devices to re-pull.
+        // Per-user targeted via [ChangeBus.publishControl] — the firehose delivers it only to this
+        // user's subscribers, never another user's. The echo on the originating device re-fetches the
+        // same values and writes through idempotently, so it does not flicker.
+        publishPreferencesChanged(userId)
+        return AppResult.Success(merged)
+    }
+
+    /** Best-effort per-user firehose nudge. A failed publish must not fail the (committed) write. */
+    private suspend fun publishPreferencesChanged(userId: String) {
+        val bus = bus ?: return
+        try {
+            bus.publishControl(SyncControl.PreferencesChanged, userId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            // The write is already durable; a dropped nudge is recovered on the client's next pull.
         }
     }
 
@@ -112,7 +135,7 @@ internal class UserPreferencesServiceImpl(
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): UserPreferencesServiceImpl =
-        UserPreferencesServiceImpl(sql = sql, clock = clock, principal = principal)
+        UserPreferencesServiceImpl(sql = sql, clock = clock, principal = principal, bus = bus)
 }
 
 /** Boolean → SQLite INTEGER (0/1) at the persistence boundary. */
@@ -125,7 +148,10 @@ private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
  * the `internal` access on [UserPreferencesServiceImpl]. Production wiring constructs the impl
  * directly inside the Koin module.
  */
-fun createUserPreferencesService(sql: ListenUpDatabase): UserPreferencesService = UserPreferencesServiceImpl(sql = sql)
+fun createUserPreferencesService(
+    sql: ListenUpDatabase,
+    bus: ChangeBus? = null,
+): UserPreferencesService = UserPreferencesServiceImpl(sql = sql, bus = bus)
 
 /**
  * Scopes a [UserPreferencesService] built by [createUserPreferencesService] to [principal] for one

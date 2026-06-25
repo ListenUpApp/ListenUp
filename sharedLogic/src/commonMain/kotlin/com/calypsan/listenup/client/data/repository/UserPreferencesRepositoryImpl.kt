@@ -5,45 +5,125 @@ import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.UserPreferencesDao
+import com.calypsan.listenup.client.data.local.db.UserPreferencesEntity
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.UserPreferences
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 private val logger = KotlinLogging.logger {}
 
+private val DEFAULTS =
+    UserPreferences(
+        defaultPlaybackSpeed = 1.0f,
+        defaultSkipForwardSec = 30,
+        defaultSkipBackwardSec = 10,
+        defaultSleepTimerMin = null,
+        shakeToResetSleepTimer = false,
+    )
+
 /**
- * Backs [UserPreferencesRepository] with the [com.calypsan.listenup.api.UserPreferencesService] RPC
- * proxy (issue #599 — replaces the deleted REST `UserPreferencesApi`).
+ * Offline-first [UserPreferencesRepository] backed by Room (the read source) and the
+ * [com.calypsan.listenup.api.UserPreferencesService] RPC proxy (the write/refresh source).
  *
- * Reads map the wire [UserPreferencesDto] to the domain [UserPreferences]; writes forward a single
- * non-null field via PATCH semantics. RPC calls are wrapped so a thrown transport error becomes a
- * typed [AppResult.Failure] — the data layer never throws (cancellation is always re-raised).
+ * - [observePreferences] reads the cached row reactively, so the UI works offline and a cross-device
+ *   change lands live once a [com.calypsan.listenup.api.sync.SyncControl.PreferencesChanged] nudge
+ *   re-pulls it.
+ * - [getPreferences] fetches from the server and writes through to Room (authoritative refresh).
+ * - The setters write Room optimistically (instant UI), then push the single-field PATCH and write
+ *   the server's merged result through to Room. Re-applying identical values is a no-op, so neither a
+ *   local echo nor a firehose echo flickers.
+ *
+ * All fallible suspend functions return [AppResult]; a thrown RPC transport error is folded into a
+ * typed [AppResult.Failure] (the data layer never throws; cancellation is always re-raised).
  */
 internal class UserPreferencesRepositoryImpl(
     private val rpcFactory: UserPreferencesRpcFactory,
+    private val dao: UserPreferencesDao,
+    private val authSession: AuthSession,
 ) : UserPreferencesRepository {
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    override fun observePreferences(): Flow<UserPreferences> =
+        authSession.authState
+            .map { authSession.getUserId() }
+            .distinctUntilChanged()
+            .flatMapLatest { userId ->
+                if (userId == null) {
+                    flowOf(DEFAULTS)
+                } else {
+                    dao.observe(userId).map { it?.toDomain() ?: DEFAULTS }
+                }
+            }
+
     override suspend fun getPreferences(): AppResult<UserPreferences> =
-        rpcCall { rpcFactory.get().getMyPreferences() }.map { it.toDomain() }
+        rpcCall { rpcFactory.get().getMyPreferences() }
+            .map { it.toDomain() }
+            .also { result -> if (result is AppResult.Success) cache(result.data) }
 
     override suspend fun setDefaultPlaybackSpeed(speed: Float): AppResult<Unit> =
-        update(UpdateUserPreferencesRequest(defaultPlaybackSpeed = speed))
+        optimisticUpdate(
+            patch = UpdateUserPreferencesRequest(defaultPlaybackSpeed = speed),
+        ) { it.copy(defaultPlaybackSpeed = speed) }
 
     override suspend fun setDefaultSkipForwardSec(seconds: Int): AppResult<Unit> =
-        update(UpdateUserPreferencesRequest(defaultSkipForwardSec = seconds))
+        optimisticUpdate(
+            patch = UpdateUserPreferencesRequest(defaultSkipForwardSec = seconds),
+        ) { it.copy(defaultSkipForwardSec = seconds) }
 
     override suspend fun setDefaultSkipBackwardSec(seconds: Int): AppResult<Unit> =
-        update(UpdateUserPreferencesRequest(defaultSkipBackwardSec = seconds))
+        optimisticUpdate(
+            patch = UpdateUserPreferencesRequest(defaultSkipBackwardSec = seconds),
+        ) { it.copy(defaultSkipBackwardSec = seconds) }
 
     override suspend fun setDefaultSleepTimerMin(minutes: Int?): AppResult<Unit> =
-        update(UpdateUserPreferencesRequest(defaultSleepTimerMin = minutes))
+        optimisticUpdate(
+            patch = UpdateUserPreferencesRequest(defaultSleepTimerMin = minutes),
+        ) { it.copy(defaultSleepTimerMin = minutes) }
 
     override suspend fun setShakeToResetSleepTimer(enabled: Boolean): AppResult<Unit> =
-        update(UpdateUserPreferencesRequest(shakeToResetSleepTimer = enabled))
+        optimisticUpdate(
+            patch = UpdateUserPreferencesRequest(shakeToResetSleepTimer = enabled),
+        ) { it.copy(shakeToResetSleepTimer = enabled) }
 
-    private suspend fun update(request: UpdateUserPreferencesRequest): AppResult<Unit> =
-        rpcCall { rpcFactory.get().updateMyPreferences(request) }.toUnit()
+    /**
+     * Offline-first write: apply [mutate] to the cached row and write it through immediately (instant
+     * UI), then push [patch] and write the server's authoritative merged result through. A failed push
+     * leaves the optimistic value in place — the next [getPreferences] or firehose nudge reconciles it.
+     */
+    private suspend fun optimisticUpdate(
+        patch: UpdateUserPreferencesRequest,
+        mutate: (UserPreferences) -> UserPreferences,
+    ): AppResult<Unit> {
+        val current = cachedOrDefaults()
+        cache(mutate(current))
+        return rpcCall { rpcFactory.get().updateMyPreferences(patch) }
+            .map { it.toDomain() }
+            .also { result -> if (result is AppResult.Success) cache(result.data) }
+            .toUnit()
+    }
+
+    /** The current cached preferences, or [DEFAULTS] when nothing is cached / no user is signed in. */
+    private suspend fun cachedOrDefaults(): UserPreferences {
+        val userId = authSession.getUserId() ?: return DEFAULTS
+        return dao.get(userId)?.toDomain() ?: DEFAULTS
+    }
+
+    /**
+     * Write [preferences] through to Room, keyed by the signed-in user. Idempotent: Room suppresses a
+     * write that leaves the row unchanged, so [observePreferences] does not re-emit on an echo.
+     */
+    private suspend fun cache(preferences: UserPreferences) {
+        val userId = authSession.getUserId() ?: return
+        dao.upsert(preferences.toEntity(userId))
+    }
 
     /**
      * Run an RPC call, folding any thrown transport error into an [AppResult.Failure] via
@@ -59,7 +139,6 @@ internal class UserPreferencesRepositoryImpl(
             AppResult.Failure(ErrorMapper.map(e))
         }
 
-    /** Discard the typed data from a successful result, preserving failures. */
     private fun <T> AppResult<T>.toUnit(): AppResult<Unit> =
         when (this) {
             is AppResult.Success -> AppResult.Success(Unit)
@@ -68,6 +147,25 @@ internal class UserPreferencesRepositoryImpl(
 
     private fun UserPreferencesDto.toDomain(): UserPreferences =
         UserPreferences(
+            defaultPlaybackSpeed = defaultPlaybackSpeed,
+            defaultSkipForwardSec = defaultSkipForwardSec,
+            defaultSkipBackwardSec = defaultSkipBackwardSec,
+            defaultSleepTimerMin = defaultSleepTimerMin,
+            shakeToResetSleepTimer = shakeToResetSleepTimer,
+        )
+
+    private fun UserPreferencesEntity.toDomain(): UserPreferences =
+        UserPreferences(
+            defaultPlaybackSpeed = defaultPlaybackSpeed,
+            defaultSkipForwardSec = defaultSkipForwardSec,
+            defaultSkipBackwardSec = defaultSkipBackwardSec,
+            defaultSleepTimerMin = defaultSleepTimerMin,
+            shakeToResetSleepTimer = shakeToResetSleepTimer,
+        )
+
+    private fun UserPreferences.toEntity(userId: String): UserPreferencesEntity =
+        UserPreferencesEntity(
+            id = userId,
             defaultPlaybackSpeed = defaultPlaybackSpeed,
             defaultSkipForwardSec = defaultSkipForwardSec,
             defaultSkipBackwardSec = defaultSkipBackwardSec,

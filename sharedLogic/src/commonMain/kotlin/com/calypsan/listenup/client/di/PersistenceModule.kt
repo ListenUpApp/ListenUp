@@ -40,6 +40,7 @@ internal val persistenceModule: Module =
         single { get<ListenUpDatabase>().listeningEventDao() }
         single { get<ListenUpDatabase>().activityDao() }
         single { get<ListenUpDatabase>().userStatsDao() }
+        single { get<ListenUpDatabase>().userPreferencesDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }
         single { get<ListenUpDatabase>().publicProfileDao() }
 

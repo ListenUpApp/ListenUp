@@ -211,6 +211,34 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("control: SyncControl.PreferencesChanged invokes onPreferencesChanged") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var refetched = false
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> },
+                        onPreferencesChanged = { refetched = true },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = null,
+                        event = "control",
+                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.PreferencesChanged),
+                    )
+                dispatcher.handle(frame)
+                refetched shouldBe true
+                db.close()
+            }
+        }
+
         test("control: SyncControl.LibraryDataChanged invokes onLibraryDataChanged") {
             runTest {
                 val db = createInMemoryTestDatabase()

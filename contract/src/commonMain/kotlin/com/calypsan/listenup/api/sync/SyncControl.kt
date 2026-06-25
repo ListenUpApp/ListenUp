@@ -82,6 +82,21 @@ sealed interface SyncControl {
     data object ActivityChanged : SyncControl
 
     /**
+     * Content-free per-user nudge: the recipient's synced playback preferences changed on another
+     * device. The client re-fetches [com.calypsan.listenup.api.UserPreferencesService.getMyPreferences]
+     * and writes the result through to its local cache, so a change made on device A reaches device B
+     * live instead of only on B's next Settings open.
+     *
+     * Delivered per-user via the firehose control channel ([ControlFrame] targeting): only the same
+     * user's other devices receive it — never another user's. No payload: the value travels on the
+     * existing getMyPreferences probe (one source of truth), mirroring [ServerInfoChanged].
+     */
+    @HiddenFromObjC
+    @Serializable
+    @SerialName("SyncControl.PreferencesChanged")
+    data object PreferencesChanged : SyncControl
+
+    /**
      * Content-free broadcast nudge: server-identity settings (display name / remote URL) changed.
      * Clients re-fetch [com.calypsan.listenup.api.InstanceService.getServerInfo] and silently update
      * their stored remote-URL fallback — so an admin's new domain reaches connected clients without a

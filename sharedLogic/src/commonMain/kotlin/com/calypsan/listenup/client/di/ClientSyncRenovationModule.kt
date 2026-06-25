@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
@@ -188,6 +189,11 @@ internal val clientSyncRenovationModule =
                 // re-fetch getServerInfo, whose persistRemoteUrl side-effect updates the stored
                 // remote-URL fallback so an admin's new domain reaches us without a cold start.
                 onServerInfoChanged = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
+                // The server's content-free per-user preferences nudge (a change made on another of
+                // this user's devices): re-fetch getMyPreferences, whose write-through updates the Room
+                // cache the Settings/player UI observes — so the change lands live. Idempotent: an echo
+                // of this device's own change re-applies identical values and does not re-emit.
+                onPreferencesChanged = { val _ = get<UserPreferencesRepository>().getPreferences() },
                 // The server's content-free bulk-write nudge (e.g. an ABS import's firehose-suppressed
                 // burst): re-derive every domain via digest reconciliation so the imported positions/
                 // sessions land live instead of only on the next reconnect. Same lazy-SyncEngine
