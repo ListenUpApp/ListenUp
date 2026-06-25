@@ -6,10 +6,12 @@ import com.calypsan.listenup.client.data.local.db.CoverDownloadDao
 import com.calypsan.listenup.client.data.local.db.CoverDownloadStatus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import com.calypsan.listenup.client.core.Failure
 
 private val logger = KotlinLogging.logger {}
@@ -114,8 +116,12 @@ internal class CoverDownloadWorker(
                             }
                         }
                     } catch (e: CancellationException) {
-                        // App is backgrounding — mark task back to pending so it resumes later
-                        coverDownloadDao.updateStatus(task.bookId, CoverDownloadStatus.PENDING)
+                        // App is backgrounding — mark task back to pending so it resumes later. The
+                        // scope is already cancelled, so the write must run under NonCancellable or
+                        // it would be skipped, stranding the task as IN_PROGRESS.
+                        withContext(NonCancellable) {
+                            coverDownloadDao.updateStatus(task.bookId, CoverDownloadStatus.PENDING)
+                        }
                         throw e
                     } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                         throw e
