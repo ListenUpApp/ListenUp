@@ -28,6 +28,25 @@ struct ExpandableText: View {
         self.minimumLengthForToggle = minimumLengthForToggle
     }
 
+    /// Bottom alpha-fade for the clamped (collapsed) description, matching the Android preview.
+    /// A no-op opaque mask when expanded or when the text is too short to be truncated.
+    @ViewBuilder
+    private var descriptionMask: some View {
+        if !isExpanded && text.count > minimumLengthForToggle {
+            LinearGradient(
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 0.8),
+                    .init(color: .clear, location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        } else {
+            Color.black
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let title {
@@ -39,6 +58,7 @@ struct ExpandableText: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(isExpanded ? nil : lineLimit)
+                .mask { descriptionMask }
 
             if text.count > minimumLengthForToggle {
                 Button(isExpanded ? "Show less" : "Read more") {
