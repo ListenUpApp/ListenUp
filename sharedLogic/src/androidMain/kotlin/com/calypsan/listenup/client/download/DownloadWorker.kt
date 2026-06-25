@@ -7,6 +7,7 @@ import androidx.work.workDataOf
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.DownloadStatus
@@ -52,7 +53,9 @@ class DownloadWorker(
 
         logger.info { "Starting download: $audioFileId ($filename)" }
 
-        downloadRepository.markDownloading(audioFileId, System.currentTimeMillis())
+        // Optimistic start state; a later terminal write (markCompleted/markFailed/markPaused)
+        // always overwrites it, so a dropped status write here self-corrects.
+        val _ = downloadRepository.markDownloading(audioFileId, System.currentTimeMillis())
 
         return try {
             when (val result = downloadFile(audioFileId, bookId, filename, expectedSize)) {
@@ -67,7 +70,9 @@ class DownloadWorker(
             }
         } catch (e: CancellationException) {
             logger.info { "Download cancelled: $audioFileId" }
-            downloadRepository.markPaused(audioFileId)
+            downloadRepository
+                .markPaused(audioFileId)
+                .onFailure { logger.warn { "Failed to persist paused state on cancel: $audioFileId" } }
             deleteTempIfCancelled(audioFileId, bookId, filename)
             Result.failure()
         }
@@ -84,7 +89,9 @@ class DownloadWorker(
         // background worker we simply pause so the download resumes after re-auth.
         if (error is AuthError.SessionExpired) {
             logger.warn { "Download paused due to auth failure: $audioFileId" }
-            downloadRepository.markPaused(audioFileId)
+            downloadRepository
+                .markPaused(audioFileId)
+                .onFailure { logger.warn { "Failed to persist paused state: $audioFileId" } }
             return Result.failure()
         }
 
@@ -102,7 +109,9 @@ class DownloadWorker(
         if (isStorageError) {
             errorBus.emit(DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
             logger.error { "Download failed due to insufficient storage: $audioFileId" }
-            downloadRepository.markFailed(audioFileId, DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
+            downloadRepository
+                .markFailed(audioFileId, DownloadError.InsufficientStorage(debugInfo = error.debugInfo))
+                .onFailure { logger.warn { "Failed to persist failed state: $audioFileId" } }
             return Result.failure()
         }
 
@@ -111,7 +120,9 @@ class DownloadWorker(
         // markFailed sets state=FAILED + writes errorMessage + increments retryCount in one call,
         // collapsing the previous redundant updateError + updateState(FAILED) writes (the prior
         // updateError already set state=FAILED via its underlying query — no behavior change).
-        downloadRepository.markFailed(audioFileId, DownloadError.DownloadFailed(debugInfo = error.debugInfo))
+        downloadRepository
+            .markFailed(audioFileId, DownloadError.DownloadFailed(debugInfo = error.debugInfo))
+            .onFailure { logger.warn { "Failed to persist failed state: $audioFileId" } }
 
         return if (runAttemptCount < MAX_RETRIES) {
             logger.info { "Will retry download: $audioFileId (attempt ${runAttemptCount + 1})" }
