@@ -165,6 +165,22 @@ struct FullScreenPlayerView: View {
 
             Spacer().frame(height: 24)
         }
+        // Idiomatic swipe-down-to-dismiss anywhere on the player, not just the header
+        // handle. `simultaneousGesture` keeps the inner controls (transport buttons,
+        // the chapter `Slider`'s horizontal drag) fully interactive; the dismiss only
+        // commits on a downward release past the threshold or a fast fling, so a
+        // horizontal scrub never trips it. Reuses the same `onDragChanged`/`onDragEnded`
+        // path the header uses — one dismiss pipeline, no parallel logic.
+        .contentShape(Rectangle())
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 18)
+                .onChanged { value in
+                    if value.translation.height > 0 { onDragChanged(value.translation.height) }
+                }
+                .onEnded { value in
+                    onDragEnded(value.translation.height, value.predictedEndTranslation.height)
+                }
+        )
     }
 
     // MARK: - Header
@@ -292,9 +308,9 @@ struct FullScreenPlayerView: View {
             } label: {
                 ZStack {
                     Circle()
-                        .fill(tint)
+                        .fill(Color.listenUpOrange)
                         .frame(width: 76, height: 76)
-                        .shadow(color: tint.opacity(0.45), radius: 12, x: 0, y: 8)
+                        .shadow(color: Color.listenUpOrange.opacity(0.45), radius: 12, x: 0, y: 8)
                     Image(systemName: observer.isPlaying ? "pause.fill" : "play.fill")
                         .font(.title)
                         .foregroundStyle(.white)

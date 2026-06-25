@@ -45,7 +45,6 @@ struct NowPlayingUpNextPanel: View {
         .padding(.horizontal, 28)
         .padding(.vertical, 36)
         .frame(width: 360)
-        .background(Color(.systemBackground).opacity(0.78))
         .overlay(alignment: .leading) {
             Divider().ignoresSafeArea()
         }
