@@ -5,7 +5,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.domain.embeddedmeta.AudioStreamInfo
 import com.calypsan.listenup.server.embeddedmeta.fixtures.NeroChapter
 import com.calypsan.listenup.server.embeddedmeta.fixtures.TextTrackChapter
@@ -353,7 +353,7 @@ class Mp4ParserTest :
 
         test("parse maps IO failure to AudioMetadataError.IoError") {
             val source =
-                object : SeekableAudioSource {
+                object : SeekableSource {
                     override val length: Long = 100
 
                     override fun position(): Long = 0
@@ -483,8 +483,8 @@ class Mp4ParserTest :
         }
     })
 
-internal fun byteSource(bytes: ByteArray): SeekableAudioSource =
-    object : SeekableAudioSource {
+internal fun byteSource(bytes: ByteArray): SeekableSource =
+    object : SeekableSource {
         private var pos: Long = 0
         override val length: Long = bytes.size.toLong()
 

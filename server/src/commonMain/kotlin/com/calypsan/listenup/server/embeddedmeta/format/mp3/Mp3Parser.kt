@@ -8,7 +8,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import kotlinx.io.IOException
 
 /**
@@ -43,7 +43,7 @@ import kotlinx.io.IOException
 internal class Mp3Parser : AudioFormatParser {
     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp3)
 
-    override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> =
+    override suspend fun parse(source: SeekableSource): AppResult<EmbeddedAudioMetadata> =
         try {
             val id3v2 = readId3v2Region(source)
             val id3v1Tags = readId3v1Footer(source)
@@ -87,7 +87,7 @@ internal class Mp3Parser : AudioFormatParser {
             )
         }
 
-    private fun readId3v2Region(source: SeekableAudioSource): Id3v2ReadResult? {
+    private fun readId3v2Region(source: SeekableSource): Id3v2ReadResult? {
         if (source.length < ID3V2_HEADER_SIZE) return null
         source.seek(0)
         val header = source.readFully(ID3V2_HEADER_SIZE)
@@ -99,7 +99,7 @@ internal class Mp3Parser : AudioFormatParser {
         return Id3v2Reader.read(tagBytes)
     }
 
-    private fun readId3v1Footer(source: SeekableAudioSource): AudioTags? {
+    private fun readId3v1Footer(source: SeekableSource): AudioTags? {
         if (source.length < ID3V1_LEN) return null
         source.seek(source.length - ID3V1_LEN)
         val footer = source.readFully(ID3V1_LEN)

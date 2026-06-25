@@ -6,8 +6,8 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry
-import com.calypsan.listenup.server.embeddedmeta.ByteArraySeekableAudioSource
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.ByteArraySeekableSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -216,7 +216,7 @@ class Mp3ParserTest :
 
         test("parse maps IO failure to AudioMetadataError.IoError") {
             val source =
-                object : SeekableAudioSource {
+                object : SeekableSource {
                     override val length: Long = 100
 
                     override fun position(): Long = 0
@@ -288,7 +288,7 @@ class Mp3ParserTest :
                     id3v2 { textFrame("TIT2", "T") }
                     mpegFrames(durationSeconds = 30, bitrate = 64_000, sampleRate = 44_100)
                 }
-            val result = Mp3Parser().parse(ByteArraySeekableAudioSource(bytes))
+            val result = Mp3Parser().parse(ByteArraySeekableSource(bytes))
             result.shouldBeInstanceOf<AppResult.Success<EmbeddedAudioMetadata>>()
             val a = (result as AppResult.Success).data.audioStream
             // mpegFrameHeader encodes channel mode 0b00 (stereo) → 2 channels
@@ -315,8 +315,8 @@ class Mp3ParserTest :
         }
     })
 
-internal fun byteSource(bytes: ByteArray): SeekableAudioSource =
-    object : SeekableAudioSource {
+internal fun byteSource(bytes: ByteArray): SeekableSource =
+    object : SeekableSource {
         private var pos: Long = 0
         override val length: Long = bytes.size.toLong()
 

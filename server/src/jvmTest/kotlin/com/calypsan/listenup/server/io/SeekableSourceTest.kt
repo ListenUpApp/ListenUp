@@ -1,4 +1,4 @@
-package com.calypsan.listenup.server.embeddedmeta
+package com.calypsan.listenup.server.io
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -6,13 +6,13 @@ import io.kotest.matchers.shouldBe
 import java.nio.file.Files
 import kotlinx.io.IOException
 
-class SeekableAudioSourceTest :
+class SeekableSourceTest :
     FunSpec({
         test("reads, seeks, and reports length") {
             val tmp = Files.createTempFile("seekable", ".bin").toFile()
             try {
                 tmp.writeBytes(byteArrayOf(1, 2, 3, 4, 5, 6, 7, 8))
-                defaultSeekableSource(tmp.toPath().toKotlinxIoPath()).use { src ->
+                openSeekableSource(tmp.toPath().toKotlinxIoPath()).use { src ->
                     src.length shouldBe 8L
                     src.position() shouldBe 0L
                     src.readFully(2).toList() shouldBe listOf<Byte>(1, 2)
@@ -29,7 +29,7 @@ class SeekableAudioSourceTest :
             val tmp = Files.createTempFile("seekable", ".bin").toFile()
             try {
                 tmp.writeBytes(byteArrayOf(1, 2))
-                defaultSeekableSource(tmp.toPath().toKotlinxIoPath()).use { src ->
+                openSeekableSource(tmp.toPath().toKotlinxIoPath()).use { src ->
                     runCatching { src.readFully(4) }.isFailure shouldBe true
                 }
             } finally {
@@ -40,7 +40,7 @@ class SeekableAudioSourceTest :
         test("readFully past EOF throws a catchable kotlinx.io.IOException") {
             // The parsers catch kotlinx.io.IOException; the JVM source throws EOFException (a subtype)
             // and the native source must too — pin the contract so a short read can't crash a scan.
-            val src = ByteArraySeekableAudioSource(byteArrayOf(1, 2, 3, 4))
+            val src = ByteArraySeekableSource(byteArrayOf(1, 2, 3, 4))
             shouldThrow<IOException> { src.readFully(8) }
         }
     })

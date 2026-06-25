@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp3
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeLessThan
@@ -62,7 +62,7 @@ class Mp3ParserStreamingTest :
 private class LargePrefixSource(
     private val realPrefix: ByteArray,
     private val totalLength: Long,
-) : SeekableAudioSource {
+) : SeekableSource {
     var totalBytesRead: Long = 0
         private set
 

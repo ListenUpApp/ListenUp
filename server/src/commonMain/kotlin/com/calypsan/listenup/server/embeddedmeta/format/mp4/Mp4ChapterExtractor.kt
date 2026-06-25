@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.domain.embeddedmeta.Chapter
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import kotlinx.io.IOException
 
 /**
@@ -94,7 +94,7 @@ internal object Mp4ChapterExtractor {
         bytes: ByteArray,
         moovAtom: Atom,
         durationMs: Long,
-        source: SeekableAudioSource,
+        source: SeekableSource,
     ): List<Chapter> {
         val chapterTrackId = findChapterTrackRef(bytes, moovAtom) ?: return emptyList()
         val chapterTrak = findTrackById(bytes, moovAtom, chapterTrackId) ?: return emptyList()
@@ -142,7 +142,7 @@ internal object Mp4ChapterExtractor {
         bytes: ByteArray,
         trakAtom: Atom,
         durationMs: Long,
-        source: SeekableAudioSource,
+        source: SeekableSource,
     ): List<Chapter> {
         val mdia = AtomWalker.findChild(bytes, trakAtom.dataOffset, trakAtom.end, "mdia") ?: return emptyList()
         val minf = AtomWalker.findChild(bytes, mdia.dataOffset, mdia.end, "minf") ?: return emptyList()
@@ -341,7 +341,7 @@ internal fun extractMp4Chapters(
     bytes: ByteArray,
     moovAtom: Atom,
     durationMs: Long,
-    source: SeekableAudioSource,
+    source: SeekableSource,
 ): Mp4ChapterResult {
     val nero = Mp4ChapterExtractor.readNeroChpl(bytes, moovAtom, durationMs)
     if (nero.isNotEmpty()) return Mp4ChapterResult(nero, ChapterSource.Mp4Chpl)

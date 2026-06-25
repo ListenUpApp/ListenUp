@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.embeddedmeta
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
+import com.calypsan.listenup.server.io.SeekableSource
 
 /**
  * Per-format parser contract — the extension point for the embeddedmeta
@@ -20,7 +21,7 @@ import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
  * - [com.calypsan.listenup.api.error.AudioMetadataError.TruncatedStream] when
  *   the file ended before declared structure was complete
  * - [com.calypsan.listenup.api.error.AudioMetadataError.IoError] when the
- *   underlying [SeekableAudioSource] fails
+ *   underlying [SeekableSource] fails
  *
  * **Adding a new audio format:**
  *
@@ -43,5 +44,5 @@ internal interface AudioFormatParser {
      * Parse the embedded metadata for the audio stream referenced by [source].
      * Caller is responsible for opening and closing [source].
      */
-    suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata>
+    suspend fun parse(source: SeekableSource): AppResult<EmbeddedAudioMetadata>
 }

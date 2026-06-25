@@ -1,14 +1,14 @@
-package com.calypsan.listenup.server.embeddedmeta
+package com.calypsan.listenup.server.io
 
 import kotlinx.io.files.Path
 
 /**
- * Seekable byte source — the only place in the embeddedmeta package that knows
- * how the platform opens a file for random access. Every parser depends on this
+ * Seekable byte source — the only place in the server that knows how the platform
+ * opens a file for random access. Parsers and container readers depend on this
  * interface, never on a platform file primitive directly. If kotlinx-io ships a
- * random-access primitive in a future version, swap [defaultSeekableSource] only.
+ * random-access primitive in a future version, swap [openSeekableSource] only.
  */
-internal interface SeekableAudioSource : AutoCloseable {
+internal interface SeekableSource : AutoCloseable {
     /** Total length of the underlying file in bytes. */
     val length: Long
 
@@ -35,4 +35,4 @@ internal interface SeekableAudioSource : AutoCloseable {
 }
 
 /** Default factory: opens [path] in read-only mode. */
-internal expect fun defaultSeekableSource(path: Path): SeekableAudioSource
+internal expect fun openSeekableSource(path: Path): SeekableSource

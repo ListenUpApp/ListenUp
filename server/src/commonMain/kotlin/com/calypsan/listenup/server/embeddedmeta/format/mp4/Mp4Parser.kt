@@ -7,7 +7,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
 import com.calypsan.listenup.server.embeddedmeta.AudioFormatParser
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.server.embeddedmeta.emptyAudioTags
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.IOException
@@ -41,7 +41,7 @@ import kotlinx.io.IOException
 internal class Mp4Parser : AudioFormatParser {
     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp4)
 
-    override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> {
+    override suspend fun parse(source: SeekableSource): AppResult<EmbeddedAudioMetadata> {
         val moovBytes =
             try {
                 val topMoov =

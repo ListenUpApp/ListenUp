@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp4File
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeLessThan
@@ -15,7 +15,7 @@ import java.io.IOException
 /**
  * Regression coverage for the streaming-MP4 parse path.
  *
- * Uses a synthetic [SeekableAudioSource] that reports a multi-gigabyte
+ * Uses a synthetic [SeekableSource] that reports a multi-gigabyte
  * length (simulating a real M4B audiobook) but only carries the metadata
  * region in memory; any read into the synthetic mdat returns zeros via a
  * small reusable buffer, with strict accounting on total bytes pulled.
@@ -167,7 +167,7 @@ class Mp4ParserStreamingTest :
     })
 
 /**
- * Synthetic [SeekableAudioSource] simulating a non-fast-start MP4 layout
+ * Synthetic [SeekableSource] simulating a non-fast-start MP4 layout
  * (`ftyp` → `mdat` larger than 2 GB → `moov` at the end). Holds only the
  * tiny header + moov regions in memory; the synthetic mdat payload is
  * never materialised. Tracks total bytes pulled to assert the parser
@@ -179,7 +179,7 @@ private class NonFastStartSource(
     private val moovOffset: Long,
     private val moov: ByteArray,
     private val totalLength: Long,
-) : SeekableAudioSource {
+) : SeekableSource {
     var totalBytesRead: Long = 0
         private set
 
@@ -258,7 +258,7 @@ private class NonFastStartSource(
 }
 
 /**
- * Synthetic [SeekableAudioSource] that lies about its total length.
+ * Synthetic [SeekableSource] that lies about its total length.
  *
  * Bytes inside [realPrefix] are returned verbatim; bytes anywhere past
  * its end are returned as zeros without ever materialising a giant
@@ -267,7 +267,7 @@ private class NonFastStartSource(
 private class HugeMdatSource(
     private val realPrefix: ByteArray,
     private val totalLength: Long,
-) : SeekableAudioSource {
+) : SeekableSource {
     var totalBytesRead: Long = 0
         private set
     var maxSingleReadBytes: Int = 0

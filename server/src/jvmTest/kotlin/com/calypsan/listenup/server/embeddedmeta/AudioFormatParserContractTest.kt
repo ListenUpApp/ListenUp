@@ -6,6 +6,7 @@ import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.AudioTags
 import com.calypsan.listenup.domain.embeddedmeta.ChapterSource
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
+import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
@@ -22,7 +23,7 @@ class AudioFormatParserContractTest :
                 object : AudioFormatParser {
                     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp3)
 
-                    override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> =
+                    override suspend fun parse(source: SeekableSource): AppResult<EmbeddedAudioMetadata> =
                         AppResult.Failure(
                             AudioMetadataError.IoError("/test", "stub"),
                         )
@@ -35,7 +36,7 @@ class AudioFormatParserContractTest :
                 object : AudioFormatParser {
                     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp4)
 
-                    override suspend fun parse(source: SeekableAudioSource): AppResult<EmbeddedAudioMetadata> =
+                    override suspend fun parse(source: SeekableSource): AppResult<EmbeddedAudioMetadata> =
                         AppResult.Failure(
                             AudioMetadataError.CorruptHeader(
                                 pathString = "/test",
@@ -48,7 +49,7 @@ class AudioFormatParserContractTest :
             // Stub source — the parser never reads it in this stub.
             val result =
                 parser.parse(
-                    object : SeekableAudioSource {
+                    object : SeekableSource {
                         override val length: Long = 0
 
                         override fun position(): Long = 0
