@@ -16,7 +16,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
@@ -24,9 +23,10 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.imePadding
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import com.calypsan.listenup.client.design.components.ListenUpTopAppBar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -68,7 +68,6 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.common_back
 import listenup.composeapp.generated.resources.common_save_changes
 import listenup.composeapp.generated.resources.profile_avatar
 import listenup.composeapp.generated.resources.profile_avatar_description
@@ -140,7 +139,10 @@ fun EditProfileScreen(
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
-            EditProfileTopBar(onBack = onBack)
+            ListenUpTopAppBar(
+                title = stringResource(Res.string.profile_edit_profile_title),
+                onBack = onBack,
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         floatingActionButton = {
@@ -187,32 +189,6 @@ fun EditProfileScreen(
     }
 }
 
-// ── Top bar ────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun EditProfileTopBar(onBack: () -> Unit) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onBack) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = stringResource(Res.string.common_back),
-            )
-        }
-        Text(
-            text = stringResource(Res.string.profile_edit_profile_title),
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(start = 4.dp),
-        )
-    }
-}
-
 // ── Content ────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -234,6 +210,7 @@ private fun EditProfileContent(
                 Modifier
                     .widthIn(max = DESKTOP_MAX_WIDTH)
                     .fillMaxWidth()
+                    .imePadding()
                     .verticalScroll(scrollState)
                     .padding(horizontal = 18.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(SECTION_GAP),
@@ -322,7 +299,7 @@ private fun ProfileSectionCard(
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
+        shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Column(modifier = Modifier.padding(CARD_CONTENT_PADDING)) {
@@ -424,12 +401,6 @@ private fun AvatarEditRow(
     }
 }
 
-/**
- * Avatar preview that respects the staged [avatarChange]:
- * - Upload staged → preview the uploaded bytes (if we have a local path; otherwise show initials)
- * - RevertToAuto or None with no image → scallop initials badge
- * - Image avatar + path → async image clipped to scallop
- */
 @Composable
 private fun AvatarPreview(
     user: User,
@@ -437,24 +408,29 @@ private fun AvatarPreview(
     avatarChange: AvatarChange,
 ) {
     val size = AVATAR_SCALLOP_SIZE
-    val showImage =
+    val context = LocalPlatformContext.current
+
+    // Staged upload → preview the picked bytes directly. Persisted image → load the cached file.
+    val model: Any? =
         when (avatarChange) {
-            is AvatarChange.Upload -> false
-
-            // bytes not easily previewable; show initials
-            is AvatarChange.RevertToAuto -> false
-
-            AvatarChange.None -> user.hasImageAvatar && localAvatarPath != null
+            is AvatarChange.Upload -> avatarChange.bytes
+            AvatarChange.RevertToAuto -> null
+            AvatarChange.None -> if (user.hasImageAvatar && localAvatarPath != null) localAvatarPath else null
         }
 
-    if (showImage && localAvatarPath != null) {
-        val context = LocalPlatformContext.current
+    if (model != null) {
+        val cacheKey =
+            if (avatarChange is AvatarChange.Upload) {
+                "staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}"
+            } else {
+                "$localAvatarPath-${user.updatedAtMs}"
+            }
         AsyncImage(
             model =
                 ImageRequest
                     .Builder(context)
-                    .data(localAvatarPath)
-                    .memoryCacheKey("$localAvatarPath-${user.updatedAtMs}")
+                    .data(model)
+                    .memoryCacheKey(cacheKey)
                     .build(),
             contentDescription = null,
             modifier =

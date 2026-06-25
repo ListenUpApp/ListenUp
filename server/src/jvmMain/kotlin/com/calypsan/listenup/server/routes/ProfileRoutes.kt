@@ -69,10 +69,12 @@ fun Route.profileRoutes(
         } catch (e: ImageStore.InvalidImageException) {
             return@post call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
         }
+        val now = clock.now().toEpochMilliseconds()
         suspendTransaction(sql) {
             sql.usersQueries.updateAvatarType(
                 avatar_type = AVATAR_TYPE_IMAGE,
-                updated_at = clock.now().toEpochMilliseconds(),
+                avatar_updated_at = now,
+                updated_at = now,
                 id = userId,
             )
         }

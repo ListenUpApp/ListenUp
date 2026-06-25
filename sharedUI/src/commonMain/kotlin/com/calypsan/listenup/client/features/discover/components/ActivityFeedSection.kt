@@ -64,6 +64,7 @@ private const val ACTIVITY_LIMIT = 5
  *
  * @param onBookClick Callback when a book is clicked
  * @param onShelfClick Callback when a shelf is clicked
+ * @param onUserClick Callback when a user's avatar is clicked (navigates to their profile)
  * @param modifier Modifier from parent
  * @param viewModel ActivityFeedViewModel injected via Koin
  */
@@ -71,6 +72,7 @@ private const val ACTIVITY_LIMIT = 5
 fun ActivityFeedSection(
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ActivityFeedViewModel = koinViewModel(),
 ) {
@@ -134,6 +136,7 @@ fun ActivityFeedSection(
                                 activity = activity,
                                 onBookClick = onBookClick,
                                 onShelfClick = onShelfClick,
+                                onUserClick = onUserClick,
                             )
                         }
                     }
@@ -152,6 +155,7 @@ private fun ActivityItem(
     activity: ActivityUiModel,
     onBookClick: (String) -> Unit,
     onShelfClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val parts = remember(activity) { activityParts(activity) }
@@ -196,6 +200,7 @@ private fun ActivityItem(
         UserAvatar(
             userId = activity.userId,
             size = AvatarSize.Medium,
+            onClick = { onUserClick(activity.userId) },
         )
 
         Spacer(modifier = Modifier.width(14.dp))

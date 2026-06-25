@@ -56,6 +56,33 @@ class PublicProfileSyncPayloadTest :
             decoded shouldBe tombstoned
         }
 
+        test("avatarUpdatedAt round-trips and defaults to 0 for legacy JSON") {
+            val payload =
+                PublicProfileSyncPayload(
+                    id = "user-1",
+                    displayName = "Ada Lovelace",
+                    avatarType = "image",
+                    tagline = null,
+                    totalSecondsAllTime = 123_456L,
+                    totalSecondsLast7Days = 7_000L,
+                    totalSecondsLast30Days = 30_000L,
+                    totalSecondsLast365Days = 365_000L,
+                    booksFinished = 12,
+                    currentStreakDays = 5,
+                    longestStreakDays = 40,
+                    revision = 99L,
+                    updatedAt = 1_700_000_000_000L,
+                    createdAt = 1_600_000_000_000L,
+                    deletedAt = null,
+                ).copy(avatarUpdatedAt = 1_717_000_000_000L)
+            val encoded = contractJson.encodeToString(PublicProfileSyncPayload.serializer(), payload)
+            contractJson.decodeFromString(PublicProfileSyncPayload.serializer(), encoded).avatarUpdatedAt shouldBe 1_717_000_000_000L
+
+            // Back-compat: JSON without the field decodes to 0.
+            val legacy = encoded.replace(""","avatarUpdatedAt":1717000000000""", "")
+            contractJson.decodeFromString(PublicProfileSyncPayload.serializer(), legacy).avatarUpdatedAt shouldBe 0L
+        }
+
         test("round-trips the windowed books and streak metrics") {
             val payload =
                 PublicProfileSyncPayload(

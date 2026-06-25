@@ -333,6 +333,7 @@ internal val clientSyncRenovationModule =
             PublicProfileSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
+                avatarDownloadRepository = get(),
                 registry = get(),
             )
         }

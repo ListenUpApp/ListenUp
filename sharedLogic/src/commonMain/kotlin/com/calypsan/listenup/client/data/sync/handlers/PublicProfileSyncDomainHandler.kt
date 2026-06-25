@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -25,6 +26,7 @@ private val logger = KotlinLogging.logger {}
 internal class PublicProfileSyncDomainHandler(
     private val database: ListenUpDatabase,
     private val transactionRunner: TransactionRunner,
+    private val avatarDownloadRepository: AvatarDownloadRepository,
     registry: ClientSyncDomainRegistry,
 ) : SyncDomainHandler<PublicProfileSyncPayload> {
     override val domainName: String = "public_profiles"
@@ -84,6 +86,7 @@ internal class PublicProfileSyncDomainHandler(
      * sole writer — no merge logic, no local-only columns to preserve.
      */
     private suspend fun upsert(payload: PublicProfileSyncPayload) {
+        val previousAvatarUpdatedAt = database.publicProfileDao().findById(payload.id)?.avatarUpdatedAt ?: 0L
         database.publicProfileDao().upsert(
             PublicProfileEntity(
                 id = payload.id,
@@ -103,9 +106,15 @@ internal class PublicProfileSyncDomainHandler(
                 longestStreakLast7Days = payload.longestStreakLast7Days,
                 longestStreakLast30Days = payload.longestStreakLast30Days,
                 longestStreakLast365Days = payload.longestStreakLast365Days,
+                avatarUpdatedAt = payload.avatarUpdatedAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
             ),
         )
+        // Avatar bytes change behind a stable path — avatarUpdatedAt is the only signal. Force a
+        // re-download when it advances for an image avatar (fire-and-forget; queue returns immediately).
+        if (payload.avatarType == "image" && payload.avatarUpdatedAt != previousAvatarUpdatedAt) {
+            avatarDownloadRepository.queueAvatarForceRefresh(payload.id)
+        }
     }
 }

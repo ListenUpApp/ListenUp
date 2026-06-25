@@ -197,6 +197,52 @@ class PublicProfileMaintainerTest :
             }
         }
 
+        test("refresh carries avatar_updated_at from users into the public_profiles projection") {
+            withSqlDatabase {
+                val avatarTs = 1_717_000_000_000L
+                sql.transaction {
+                    sql.usersQueries.insert(
+                        id = "uav",
+                        email = "avatar@example.com",
+                        email_normalized = "avatar@example.com",
+                        password_hash = "phc",
+                        role = "MEMBER",
+                        display_name = "AvatarUser",
+                        status = "ACTIVE",
+                        created_at = 1L,
+                        updated_at = avatarTs,
+                        last_login_at = null,
+                        can_edit = 1L,
+                        can_share = 1L,
+                        approved_by = null,
+                        approved_at = null,
+                        deleted_at = null,
+                        invited_by = null,
+                        tagline = null,
+                        avatar_type = "image",
+                        timezone = "UTC",
+                    )
+                    sql.usersQueries.updateAvatarType(
+                        avatar_type = "image",
+                        avatar_updated_at = avatarTs,
+                        updated_at = avatarTs,
+                        id = "uav",
+                    )
+                }
+
+                val repo = PublicProfileRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val maintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = repo)
+
+                runTest {
+                    maintainer.refresh("uav")
+
+                    val saved = repo.pullSince(userId = null, cursor = 0, limit = 10).items.single()
+                    saved.id shouldBe "uav"
+                    saved.avatarUpdatedAt shouldBe avatarTs
+                }
+            }
+        }
+
         test("refresh computes windowed books-finished and longest-streak-within-window") {
             val day = 86_400_000L
             val nowMs = 1_700_000_000_000L

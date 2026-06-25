@@ -47,4 +47,6 @@ data class PublicProfileSyncPayload(
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
+    /** Epoch-ms the avatar bytes last changed server-side; the avatar re-download signal + Coil cache-buster. 0 = never. */
+    val avatarUpdatedAt: Long = 0,
 ) : Tombstoned

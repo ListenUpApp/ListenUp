@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -167,26 +168,89 @@ class PublicProfileSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = PublicProfileSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = PublicProfileSyncDomainHandler(db, RoomTransactionRunner(db), FakeAvatarDownloadRepository(), registry)
                 handler.domainName shouldBe "public_profiles"
                 registry.lookup("public_profiles") shouldBe handler
             } finally {
                 db.close()
             }
         }
+
+        test("image avatar with changed avatarUpdatedAt triggers queueAvatarForceRefresh") {
+            val fakeRepo = FakeAvatarDownloadRepository()
+            withHandler(fakeRepo) { handler, _ ->
+                val p = payload("user-avatar-refresh", avatarType = "image", avatarUpdatedAt = 100L)
+                handler.onEvent(created(p), isOwnEcho = false)
+                fakeRepo.forceRefreshCalls shouldBe listOf("user-avatar-refresh")
+            }
+        }
+
+        test("same avatarUpdatedAt does NOT trigger queueAvatarForceRefresh on second upsert") {
+            val fakeRepo = FakeAvatarDownloadRepository()
+            withHandler(fakeRepo) { handler, _ ->
+                val p = payload("user-no-refresh", avatarType = "image", avatarUpdatedAt = 100L)
+                handler.onEvent(created(p), isOwnEcho = false)
+                // same avatarUpdatedAt — should NOT trigger another refresh
+                handler.onEvent(updated(p), isOwnEcho = false)
+                fakeRepo.forceRefreshCalls.size shouldBe 1
+            }
+        }
+
+        test("avatarUpdatedAt advancing from an existing value re-triggers the refresh") {
+            val fakeRepo = FakeAvatarDownloadRepository()
+            withHandler(fakeRepo) { handler, _ ->
+                handler.onEvent(created(payload("user-advance", avatarType = "image", avatarUpdatedAt = 100L)), isOwnEcho = false)
+                handler.onEvent(
+                    updated(payload("user-advance", avatarType = "image", avatarUpdatedAt = 200L, revision = 2L)),
+                    isOwnEcho = false,
+                )
+                fakeRepo.forceRefreshCalls shouldBe listOf("user-advance", "user-advance")
+            }
+        }
+
+        test("non-image avatar with changed avatarUpdatedAt does NOT trigger a refresh") {
+            val fakeRepo = FakeAvatarDownloadRepository()
+            withHandler(fakeRepo) { handler, _ ->
+                val p = payload("user-auto-avatar", avatarType = "auto", avatarUpdatedAt = 100L)
+                handler.onEvent(created(p), isOwnEcho = false)
+                fakeRepo.forceRefreshCalls shouldBe emptyList<String>()
+            }
+        }
     })
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (PublicProfileSyncDomainHandler, ListenUpDatabase) -> Unit) =
-    runTest {
-        val db = createInMemoryTestDatabase()
-        try {
-            block(PublicProfileSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
-        } finally {
-            db.close()
-        }
+private class FakeAvatarDownloadRepository : AvatarDownloadRepository {
+    val forceRefreshCalls = mutableListOf<String>()
+
+    override fun queueAvatarDownload(userId: String) = Unit
+
+    override fun queueAvatarForceRefresh(userId: String) {
+        forceRefreshCalls.add(userId)
     }
+
+    override suspend fun deleteAvatar(userId: String) = Unit
+}
+
+private fun withHandler(
+    fakeAvatarRepo: FakeAvatarDownloadRepository = FakeAvatarDownloadRepository(),
+    block: suspend (PublicProfileSyncDomainHandler, ListenUpDatabase) -> Unit,
+) = runTest {
+    val db = createInMemoryTestDatabase()
+    try {
+        block(
+            PublicProfileSyncDomainHandler(
+                db,
+                RoomTransactionRunner(db),
+                fakeAvatarRepo,
+                ClientSyncDomainRegistry(),
+            ),
+            db,
+        )
+    } finally {
+        db.close()
+    }
+}
 
 private fun created(p: PublicProfileSyncPayload) =
     SyncEvent.Created(
@@ -218,10 +282,12 @@ private fun payload(
     revision: Long = 1L,
     deletedAt: Long? = null,
     tagline: String? = null,
+    avatarType: String = "auto",
+    avatarUpdatedAt: Long = 0L,
 ) = PublicProfileSyncPayload(
     id = id,
     displayName = "Test User",
-    avatarType = "auto",
+    avatarType = avatarType,
     tagline = tagline,
     totalSecondsAllTime = totalSecondsAllTime,
     totalSecondsLast7Days = totalSecondsLast7Days,
@@ -234,4 +300,5 @@ private fun payload(
     updatedAt = 200L,
     createdAt = 50L,
     deletedAt = deletedAt,
+    avatarUpdatedAt = avatarUpdatedAt,
 )

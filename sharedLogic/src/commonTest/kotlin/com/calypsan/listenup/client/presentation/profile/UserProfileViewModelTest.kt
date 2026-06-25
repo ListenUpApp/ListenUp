@@ -48,6 +48,7 @@ class UserProfileViewModelTest :
             booksFinished: Int = 0,
             currentStreakDays: Int = 0,
             longestStreakDays: Int = 0,
+            avatarUpdatedAt: Long = 0L,
         ): PublicProfileEntity =
             PublicProfileEntity(
                 id = id,
@@ -61,6 +62,7 @@ class UserProfileViewModelTest :
                 booksFinished = booksFinished,
                 currentStreakDays = currentStreakDays,
                 longestStreakDays = longestStreakDays,
+                avatarUpdatedAt = avatarUpdatedAt,
             )
 
         fun user(
@@ -248,5 +250,62 @@ class UserProfileViewModelTest :
             first shouldBe second
             first shouldStartWith "#"
             first.length shouldBe 7
+        }
+
+        test("own profile avatarCacheBuster equals row.avatarUpdatedAt (not user updatedAt)") {
+            runTest {
+                val ownId = "me-buster"
+                val fixture = Fixture()
+                fixture.configureImage()
+                val row =
+                    publicProfile(
+                        id = ownId,
+                        avatarType = "image",
+                        avatarUpdatedAt = 777L,
+                    )
+                val ownUser = user(id = ownId, updatedAtMs = 9_999L)
+                everySuspend { fixture.userRepository.getCurrentUser() } returns ownUser
+                every { fixture.userRepository.observeCurrentUser() } returns MutableStateFlow(ownUser)
+                every { fixture.publicProfileDao.observeById(ownId) } returns MutableStateFlow(row)
+                every { fixture.shelfRepository.observeMyShelves(ownId) } returns
+                    MutableStateFlow(emptyList())
+
+                val viewModel = fixture.build()
+                keepHot(viewModel)
+
+                viewModel.loadProfile(ownId)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
+                ready.avatarCacheBuster shouldBe 777L
+            }
+        }
+
+        test("other profile avatarCacheBuster equals row.avatarUpdatedAt (so other users' avatar changes repaint)") {
+            runTest {
+                val otherId = "other-buster"
+                val fixture = Fixture()
+                fixture.configureImage()
+                val row =
+                    publicProfile(
+                        id = otherId,
+                        avatarType = "image",
+                        avatarUpdatedAt = 555L,
+                    )
+                everySuspend { fixture.userRepository.getCurrentUser() } returns user(id = "me")
+                every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
+                everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns
+                    AppResult.Success(emptyList())
+
+                val viewModel = fixture.build()
+                keepHot(viewModel)
+
+                viewModel.loadProfile(otherId)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
+                ready.isOwnProfile shouldBe false
+                ready.avatarCacheBuster shouldBe 555L
+            }
         }
     })

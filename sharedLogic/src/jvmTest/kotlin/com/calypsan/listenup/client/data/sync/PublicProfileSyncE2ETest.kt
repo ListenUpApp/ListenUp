@@ -93,4 +93,96 @@ class PublicProfileSyncE2ETest :
                 snapshot.time.first().rank shouldBe 1
             }
         }
+
+        test("editing display name + tagline on the server propagates to the client public_profiles row") {
+            withClientSyncEngineAgainstServer {
+                // Seed user "u1" with the original display name; tagline is NULL initially.
+                val seedNow = System.currentTimeMillis()
+                serverDriver.execute(
+                    null,
+                    "INSERT INTO users(id, email, email_normalized, password_hash, role, " +
+                        "display_name, status, created_at, updated_at) VALUES " +
+                        "('u1', 'u1@example.com', 'u1@example.com', 'phc', " +
+                        "'MEMBER', 'Original Name', 'ACTIVE', $seedNow, $seedNow)",
+                    0,
+                )
+
+                engine.start(currentUserId = "u1")
+
+                // Phase 1: fire a listening event so UserStatsUpdater calls
+                // PublicProfileMaintainer.refresh("u1"), publishing the initial row.
+                serverListeningEventRepository.upsert(
+                    ListeningEventSyncPayload(
+                        id = "pp-edit-evt-1",
+                        bookId = "book-pp-edit-1",
+                        startPositionMs = 0L,
+                        endPositionMs = spanMs,
+                        startedAt = nowMs - spanMs,
+                        endedAt = nowMs,
+                        playbackSpeed = 1.0f,
+                        tz = "UTC",
+                        deviceLabel = null,
+                        revision = 0L,
+                        updatedAt = nowMs,
+                        createdAt = nowMs,
+                        deletedAt = null,
+                    ),
+                    clientOpId = null,
+                    userId = "u1",
+                )
+
+                // Wait for the initial row to arrive before editing.
+                withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                    var rows = clientDatabase.publicProfileDao().observeAll().first()
+                    while (rows.none { it.id == "u1" && it.displayName == "Original Name" }) {
+                        rows = clientDatabase.publicProfileDao().observeAll().first()
+                    }
+                }
+
+                // EDIT the identity on the server via raw SQL — simulates ProfileServiceImpl
+                // updating display_name and tagline in the users table.
+                serverDriver.execute(
+                    null,
+                    "UPDATE users SET display_name = 'Edited Name', tagline = 'Edited bio' WHERE id = 'u1'",
+                    0,
+                )
+
+                // Phase 2: fire a second listening event (distinct id) to re-trigger
+                // UserStatsUpdater → PublicProfileMaintainer.refresh("u1"). The maintainer
+                // re-reads display_name + tagline from the now-updated users row and publishes
+                // a fresh public_profiles SSE event that the client applies into Room.
+                serverListeningEventRepository.upsert(
+                    ListeningEventSyncPayload(
+                        id = "pp-edit-evt-2",
+                        bookId = "book-pp-edit-1",
+                        startPositionMs = spanMs,
+                        endPositionMs = spanMs * 2,
+                        startedAt = nowMs,
+                        endedAt = nowMs + spanMs,
+                        playbackSpeed = 1.0f,
+                        tz = "UTC",
+                        deviceLabel = null,
+                        revision = 0L,
+                        updatedAt = nowMs + spanMs,
+                        createdAt = nowMs + spanMs,
+                        deletedAt = null,
+                    ),
+                    clientOpId = null,
+                    userId = "u1",
+                )
+
+                // Poll until the edited values propagate through SSE into the client Room row.
+                val editedRow =
+                    withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
+                        var rows = clientDatabase.publicProfileDao().observeAll().first()
+                        while (rows.none { it.id == "u1" && it.displayName == "Edited Name" }) {
+                            rows = clientDatabase.publicProfileDao().observeAll().first()
+                        }
+                        rows.first { it.id == "u1" }
+                    }
+
+                editedRow.displayName shouldBe "Edited Name"
+                editedRow.tagline shouldBe "Edited bio"
+            }
+        }
     })
