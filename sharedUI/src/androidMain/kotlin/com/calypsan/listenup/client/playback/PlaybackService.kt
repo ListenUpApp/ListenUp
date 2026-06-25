@@ -44,6 +44,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -662,6 +663,8 @@ class PlaybackService : MediaLibraryService() {
                     try {
                         val children = browseTreeProvider.getChildren(parentId)
                         completer.set(LibraryResult.ofItemList(ImmutableList.copyOf(children), params))
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.error(e) { "Failed to get children for $parentId" }
                         completer.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN))
@@ -687,6 +690,8 @@ class PlaybackService : MediaLibraryService() {
                         } else {
                             completer.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_BAD_VALUE))
                         }
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.error(e) { "Failed to get item $mediaId" }
                         completer.set(LibraryResult.ofError(LibraryResult.RESULT_ERROR_UNKNOWN))
@@ -800,6 +805,8 @@ class PlaybackService : MediaLibraryService() {
 
                     // Notify that search results are ready
                     session.notifySearchResultChanged(browser, query, items.size, params)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.error(e) { "Search failed for query: $query" }
                     // Still notify with 0 results on error
@@ -920,6 +927,8 @@ class PlaybackService : MediaLibraryService() {
                         }
 
                         completer.set(resolvedItems)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.error(e) { "Failed to resolve media items" }
                         completer.setException(e)
@@ -1095,6 +1104,8 @@ class PlaybackService : MediaLibraryService() {
                                 startPosition.positionInFileMs,
                             ),
                         )
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.error(e) { "Playback resumption failed" }
                         completer.setException(e)

@@ -6,12 +6,15 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.repository.HomeRepository
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -47,6 +50,26 @@ class ListenUpShortcutManagerTest {
             scope = CoroutineScope(Dispatchers.Unconfined),
         )
     }
+
+    // ──────────────────────────── cancellation contract ────────────────────────────
+
+    @Test
+    fun `updateShortcutsInternal re-throws CancellationException instead of swallowing it`() =
+        runTest {
+            val cancellingManager =
+                ListenUpShortcutManager(
+                    context = RuntimeEnvironment.getApplication(),
+                    homeRepository =
+                        object : HomeRepository {
+                            override suspend fun getContinueListening(limit: Int): AppResult<List<ContinueListeningBook>> = throw CancellationException("shortcut refresh cancelled")
+
+                            override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> = flowOf(emptyList())
+                        },
+                    scope = CoroutineScope(Dispatchers.Unconfined),
+                )
+
+            shouldThrow<CancellationException> { cancellingManager.updateShortcutsInternal() }
+        }
 
     // ───────────────────────────── calculateSampleSize ──────────────────────────────
 

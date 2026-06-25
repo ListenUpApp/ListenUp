@@ -8,6 +8,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -20,6 +21,18 @@ private val logger = KotlinLogging.logger {}
 
 private const val HEALTH_CHECK_INTERVAL_MS = 30_000L
 private const val HEALTH_CHECK_TIMEOUT_MS = 5_000L
+
+private fun createHealthCheckClient(): HttpClient =
+    HttpClient(OkHttp) {
+        installListenUpErrorHandling()
+
+        engine {
+            config {
+                connectTimeout(HEALTH_CHECK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+                readTimeout(HEALTH_CHECK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
+            }
+        }
+    }
 
 /**
  * JVM desktop implementation of [NetworkMonitor] using health check polling.
@@ -37,19 +50,9 @@ private const val HEALTH_CHECK_TIMEOUT_MS = 5_000L
  */
 class JvmNetworkMonitor(
     private val serverUrlProvider: () -> String?,
+    private val httpClient: HttpClient = createHealthCheckClient(),
 ) : NetworkMonitor {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + appCoroutineExceptionHandler)
-    private val httpClient =
-        HttpClient(OkHttp) {
-            installListenUpErrorHandling()
-
-            engine {
-                config {
-                    connectTimeout(HEALTH_CHECK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
-                    readTimeout(HEALTH_CHECK_TIMEOUT_MS, java.util.concurrent.TimeUnit.MILLISECONDS)
-                }
-            }
-        }
 
     override val isOnlineFlow: StateFlow<Boolean>
         field = MutableStateFlow(true) // Optimistic default
@@ -64,6 +67,9 @@ class JvmNetworkMonitor(
 
     override fun isOnline(): Boolean = isOnlineFlow.value
 
+    // checkHealth is widened from private to internal solely so the cancellation contract
+    // can be exercised directly in jvmTest (the polling loop is otherwise unobservable).
+
     private fun startHealthCheckLoop() {
         scope.launch {
             while (true) {
@@ -73,7 +79,7 @@ class JvmNetworkMonitor(
         }
     }
 
-    private suspend fun checkHealth() {
+    internal suspend fun checkHealth() {
         val serverUrl = serverUrlProvider()
 
         if (serverUrl == null) {
@@ -86,6 +92,8 @@ class JvmNetworkMonitor(
             try {
                 val response = httpClient.get("$serverUrl/healthz")
                 response.status.isSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.debug(e) { "Health check failed for $serverUrl" }
                 false

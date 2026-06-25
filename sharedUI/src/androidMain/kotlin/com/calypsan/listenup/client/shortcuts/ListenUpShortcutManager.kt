@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,8 +70,12 @@ class ListenUpShortcutManager(
 
     /**
      * Internal implementation that runs on background thread.
+     *
+     * Widened from private to internal solely so the cancellation contract can be
+     * exercised directly in androidHostTest (the public [updateShortcuts] launches
+     * fire-and-forget, so its propagation is otherwise unobservable).
      */
-    private suspend fun updateShortcutsInternal() =
+    internal suspend fun updateShortcutsInternal() =
         withContext(Dispatchers.IO) {
             try {
                 // Get recent books from local database
@@ -95,6 +100,8 @@ class ListenUpShortcutManager(
                         // Don't clear existing shortcuts on failure - keep stale data
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.error(e) { "Error updating shortcuts" }
             }
