@@ -62,6 +62,30 @@ class SwiftExportSourcePatcherTest {
     }
 
     @Test
+    fun `sealed pass avoids redeclaring unknown when a real Unknown subtype exists`() {
+        // Reachability has a real `Unknown` subtype -> `case unknown`. The synthetic catch-all must NOT
+        // also be named `unknown` (an invalid Swift redeclaration that fails the real iOS compile); it
+        // falls back to a non-colliding name.
+        val source = fixture("sealed-with-unknown-subtype.swift")
+        val out = SwiftExportSourcePatcher.appendSealedEnumSupport("", listOf(source)).content
+
+        // The real subtype keeps its `case unknown`.
+        assertTrue(
+            out.contains("case unknown(_ExportedKotlinPackages_com_calypsan_listenup_client_domain_repository_Reachability_Unknown)"),
+            "real Unknown subtype maps to case unknown",
+        )
+        // Exactly one `case unknown(` in the enum — no redeclaration.
+        assertEquals(1, Regex("""case unknown\(""").findAll(out).count(), "no duplicate `case unknown`")
+        // The synthetic catch-all uses the non-colliding fallback name + returns it.
+        assertTrue(
+            out.contains("case unknownCatchAll1(ExportedKotlinPackages.com.calypsan.listenup.client.domain.repository.Reachability)"),
+            "synthetic catch-all renamed to avoid the collision",
+        )
+        assertTrue(out.contains("    return .unknownCatchAll1(value)\n}"), "onEnum returns the renamed catch-all")
+        assertFalse(out.contains("fatalError"), "no fatalError crash path")
+    }
+
+    @Test
     fun `sealed exact-count guard flags a known parent that lost a subtype`() {
         // SyncResult is recorded as having 2 subtypes; emit only one -> a partial drop the build fails on.
         val partial =
