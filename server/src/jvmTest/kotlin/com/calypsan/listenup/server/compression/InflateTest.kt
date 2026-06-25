@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.compression
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.property.Arb
 import io.kotest.property.arbitrary.byte
 import io.kotest.property.arbitrary.byteArray
@@ -82,9 +83,13 @@ class InflateTest :
             val (distCodes, distLens) = canonicalCodes(FIXED_DIST_LENGTHS)
             writeHuffmanCode(w, litCodes[257], litLens[257]) // length symbol 257 (len 3, 0 extra)
             writeHuffmanCode(w, distCodes[0], distLens[0]) // distance symbol 0 (distance 1, 0 extra) — but 0 bytes produced
+            writeHuffmanCode(w, litCodes[256], litLens[256]) // end-of-block, so the stream parses fully (no truncation)
             w.alignToByte()
             w.flush()
-            shouldThrow<MalformedDeflateException> { inflateBytes(out) }
+            // The stream is structurally complete, so the ONLY possible error is the distance-too-far guard,
+            // not "unexpected end of stream". Before the I1 fix this emitted 3 zero bytes and succeeded.
+            val ex = shouldThrow<MalformedDeflateException> { inflateBytes(out) }
+            ex.message shouldContain "distance"
         }
 
         test("rejects reserved block type 3") {
