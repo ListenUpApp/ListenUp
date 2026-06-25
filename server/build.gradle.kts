@@ -90,6 +90,7 @@ kotlin {
                 implementation(libs.kotlinx.io.bytestring)
                 // kotlin-logging — structured logging (KMP: JVM + linuxX64)
                 implementation(libs.kotlin.logging)
+                implementation(libs.atomicfu)
             }
         }
 

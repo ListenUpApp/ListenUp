@@ -43,5 +43,12 @@ internal fun Path.relativeTo(base: Path): String {
     return if (p.startsWith("$b/")) p.removePrefix("$b/") else p
 }
 
+/** True if [this] is [base] itself or nested under it (string-prefix on normalized paths). */
+internal fun Path.isUnder(base: Path): Boolean {
+    val p = this.toString()
+    val b = base.toString().trimEnd('/')
+    return p == b || p.startsWith("$b/")
+}
+
 private fun randomHex(): String =
     (0 until TEMP_NAME_HEX_CHARS).joinToString("") { Random.nextInt(HEX_RADIX).toString(HEX_RADIX) }
