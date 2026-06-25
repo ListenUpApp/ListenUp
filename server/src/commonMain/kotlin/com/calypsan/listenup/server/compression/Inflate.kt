@@ -12,9 +12,10 @@ import kotlinx.io.buffered
  * gzip wrapper is expected; feed only the DEFLATE payload.
  *
  * Decoding is incremental: each [readAtMostTo] decodes whole blocks into an internal buffer only as
- * far as the caller's request demands, so an arbitrarily large stream is inflated with bounded
- * memory (a 32 KiB sliding window plus at most one block of decoded-but-undelivered bytes). A
- * truncated or otherwise malformed stream raises [MalformedDeflateException].
+ * far as the caller's request demands. Memory is the 32 KiB window plus one block's worth of
+ * decoded-but-undelivered bytes; for well-formed `java.util.zip` output a block decodes to at most
+ * a few hundred KB, but a crafted block's decoded size is not RFC-bounded. A truncated or otherwise
+ * malformed stream raises [MalformedDeflateException].
  */
 public class InflateRawSource(
     source: RawSource,
@@ -30,6 +31,9 @@ public class InflateRawSource(
     private val pending = Buffer()
     private var finished = false
 
+    // Running count of emitted bytes — used to validate back-reference distances (RFC §3.2.3).
+    private var produced = 0L
+
     // Fixed Huffman tables (RFC §3.2.6) are stream-invariant — build them once and reuse.
     private val fixedLitLen by lazy { HuffmanDecoder(FIXED_LITLEN_LENGTHS) }
     private val fixedDist by lazy { HuffmanDecoder(FIXED_DIST_LENGTHS) }
@@ -43,7 +47,7 @@ public class InflateRawSource(
         while (pending.size < byteCount && !finished) {
             decodeOneBlock()
         }
-        if (pending.size == 0L) return if (finished) -1L else 0L
+        if (pending.size == 0L) return -1L
         return pending.readAtMostTo(sink, byteCount)
     }
 
@@ -111,16 +115,21 @@ public class InflateRawSource(
                 REPEAT_PREVIOUS -> {
                     if (i == 0) throw MalformedDeflateException("repeat with no previous code length")
                     val count = reader.readBits(2) + 3
+                    if (i + count > all.size) throw MalformedDeflateException("code-length repeat overflows the table")
                     val prev = all[i - 1]
-                    repeat(count) { if (i < all.size) all[i++] = prev }
+                    repeat(count) { all[i++] = prev }
                 }
 
                 REPEAT_ZERO_SHORT -> {
-                    repeat(reader.readBits(3) + 3) { if (i < all.size) all[i++] = 0 }
+                    val count = reader.readBits(3) + 3
+                    if (i + count > all.size) throw MalformedDeflateException("code-length repeat overflows the table")
+                    repeat(count) { all[i++] = 0 }
                 }
 
                 REPEAT_ZERO_LONG -> {
-                    repeat(reader.readBits(7) + 11) { if (i < all.size) all[i++] = 0 }
+                    val count = reader.readBits(7) + 11
+                    if (i + count > all.size) throw MalformedDeflateException("code-length repeat overflows the table")
+                    repeat(count) { all[i++] = 0 }
                 }
 
                 else -> {
@@ -163,6 +172,9 @@ public class InflateRawSource(
         }
         val distance = DIST_BASE[distSymbol] + reader.readBits(DIST_EXTRA[distSymbol])
 
+        if (distance > produced) {
+            throw MalformedDeflateException("distance $distance exceeds output produced ($produced)")
+        }
         // One byte at a time so overlapping runs (e.g. a single byte repeated via distance == 1) work.
         repeat(length) { emit(window[(windowPos - distance) and WINDOW_MASK]) }
     }
@@ -172,6 +184,7 @@ public class InflateRawSource(
         pending.writeByte(b)
         window[windowPos] = b
         windowPos = (windowPos + 1) and WINDOW_MASK
+        produced++
     }
 
     private companion object {

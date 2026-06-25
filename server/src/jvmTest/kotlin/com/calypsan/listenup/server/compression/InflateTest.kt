@@ -13,6 +13,8 @@ import kotlinx.io.buffered
 import kotlinx.io.readByteArray
 import java.util.zip.Deflater
 
+private fun inflateBytes(bytes: Buffer): ByteArray = InflateRawSource(bytes).buffered().readByteArray()
+
 private fun jdkDeflateRaw(
     data: ByteArray,
     level: Int,
@@ -69,5 +71,42 @@ class InflateTest :
         test("rejects a truncated stream") {
             val good = jdkDeflateRaw(ByteArray(5000) { it.toByte() }, 6)
             shouldThrow<MalformedDeflateException> { oursInflate(good.copyOf(good.size / 2)) }
+        }
+
+        test("rejects a back-reference distance before start of output (I1)") {
+            val out = Buffer()
+            val w = BitWriter(out)
+            w.writeBits(1, 1) // BFINAL = 1
+            w.writeBits(1, 2) // BTYPE = 01 (fixed)
+            val (litCodes, litLens) = canonicalCodes(FIXED_LITLEN_LENGTHS)
+            val (distCodes, distLens) = canonicalCodes(FIXED_DIST_LENGTHS)
+            writeHuffmanCode(w, litCodes[257], litLens[257]) // length symbol 257 (len 3, 0 extra)
+            writeHuffmanCode(w, distCodes[0], distLens[0]) // distance symbol 0 (distance 1, 0 extra) — but 0 bytes produced
+            w.alignToByte()
+            w.flush()
+            shouldThrow<MalformedDeflateException> { inflateBytes(out) }
+        }
+
+        test("rejects reserved block type 3") {
+            val out = Buffer()
+            val w = BitWriter(out)
+            w.writeBits(1, 1) // BFINAL = 1
+            w.writeBits(3, 2) // BTYPE = 11 (reserved)
+            w.alignToByte()
+            w.flush()
+            shouldThrow<MalformedDeflateException> { inflateBytes(out) }
+        }
+
+        test("rejects a stored block with bad NLEN complement") {
+            val out = Buffer()
+            val w = BitWriter(out)
+            w.writeBits(1, 1) // BFINAL = 1
+            w.writeBits(0, 2) // BTYPE = 00 (stored)
+            w.alignToByte()
+            w.writeBits(5, 16) // LEN = 5
+            w.writeBits(0, 16) // NLEN = 0 (wrong; correct would be 0xFFFA)
+            w.writeBytes(ByteArray(5))
+            w.flush()
+            shouldThrow<MalformedDeflateException> { inflateBytes(out) }
         }
     })
