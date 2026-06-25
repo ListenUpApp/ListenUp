@@ -52,7 +52,7 @@ class SidecarMergeTest :
                     val rel = "Author/Title"
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserEmpty,
                             sidecarParsers = listOf(FakeNfoParser(SidecarMetadata(description = "from-sidecar"))),
@@ -87,7 +87,7 @@ class SidecarMergeTest :
                     fixture.root.writeFile("$rel/metadata.json", """{"title":"Title","description":"from-abs"}""")
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserEmpty,
                             sidecarParsers = listOf(FakeNfoParser(SidecarMetadata(description = "from-sidecar"))),
@@ -130,7 +130,7 @@ class SidecarMergeTest :
                     val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserReal,
                             sidecarParsers = listOf(FakeNfoParser(SidecarMetadata(description = "from-sidecar"))),
@@ -165,7 +165,7 @@ class SidecarMergeTest :
                     val rel = "Author/(2005) - Title"
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserEmpty,
                             sidecarParsers = listOf(FakeNfoParser(SidecarMetadata(publishYear = 2018))),
@@ -207,7 +207,7 @@ class SidecarMergeTest :
                     val audioPath = fixture.root.writeAudioFile("$rel/01.mp3", audioBytes)
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserReal,
                             sidecarParsers = listOf(FakeNfoParser(SidecarMetadata(publishYear = 2018))),
@@ -249,7 +249,7 @@ class SidecarMergeTest :
                         )
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserEmpty,
                             sidecarParsers = listOf(FakeNfoParser(sidecar)),
@@ -284,7 +284,7 @@ class SidecarMergeTest :
                     val rel = "Author/Title"
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserEmpty,
                             sidecarParsers = listOf(FakeNfoParser(SidecarMetadata(description = "from-sidecar"))),
@@ -312,7 +312,7 @@ class SidecarMergeTest :
                     val rel = "Author/Title"
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            IoPath(fixture.root.toString()),
                             metadataReader,
                             embeddedParserEmpty,
                             sidecarParsers = listOf(ThrowingNfoParser()),

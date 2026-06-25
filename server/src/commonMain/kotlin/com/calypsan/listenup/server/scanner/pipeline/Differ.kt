@@ -96,7 +96,7 @@ internal class Differ {
                     // First-write-wins: if two previous books somehow share an
                     // inode (impossible on one filesystem, defensive here),
                     // keep the first.
-                    index.putIfAbsent(inode, book)
+                    if (inode !in index) index[inode] = book
                 }
             }
         }

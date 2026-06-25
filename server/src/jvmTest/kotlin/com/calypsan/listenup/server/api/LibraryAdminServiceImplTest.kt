@@ -39,8 +39,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlin.time.Clock
+import kotlinx.io.files.Path
 import kotlin.time.Instant
 
 class LibraryAdminServiceImplTest :

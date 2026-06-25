@@ -19,9 +19,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.io.files.Path
 
 class ScanCoordinatorTest :
     FunSpec({
@@ -119,7 +119,7 @@ class ScanCoordinatorTest :
                 val full = async { coordinator.scanFull() }
                 runCurrent() // full scan now holds the mutex
 
-                coordinator.reanalyze(Path.of("/library/Author/Title"))
+                coordinator.reanalyze(Path("/library/Author/Title"))
                 runCurrent()
                 withClue("worker must not run while full scan holds the mutex") {
                     incrementalCalls.shouldContainExactly(emptyList())
@@ -129,7 +129,7 @@ class ScanCoordinatorTest :
                 full.await()
                 runCurrent()
 
-                incrementalCalls shouldContainExactly listOf(Path.of("/library/Author/Title"))
+                incrementalCalls shouldContainExactly listOf(Path("/library/Author/Title"))
             }
         }
 
@@ -144,7 +144,7 @@ class ScanCoordinatorTest :
                         scope = backgroundScope,
                     )
 
-                val path = Path.of("/library/Author/Hot Folder")
+                val path = Path("/library/Author/Hot Folder")
                 repeat(100) { coordinator.reanalyze(path) }
                 runCurrent() // worker drains the queue
 
@@ -163,7 +163,7 @@ class ScanCoordinatorTest :
                         scope = backgroundScope,
                     )
 
-                val path = Path.of("/library/Author/Title")
+                val path = Path("/library/Author/Title")
                 coordinator.reanalyze(path)
                 runCurrent()
                 invocations.get() shouldBe 1
@@ -188,9 +188,9 @@ class ScanCoordinatorTest :
                         scope = backgroundScope,
                     )
 
-                val a = Path.of("/library/A")
-                val b = Path.of("/library/B")
-                val c = Path.of("/library/C")
+                val a = Path("/library/A")
+                val b = Path("/library/B")
+                val c = Path("/library/C")
                 coordinator.reanalyze(a)
                 coordinator.reanalyze(b)
                 coordinator.reanalyze(c)
@@ -208,18 +208,18 @@ class ScanCoordinatorTest :
                         libraryId = LibraryId("test-lib"),
                         runFullScan = { emptyResult() },
                         runIncremental = { p ->
-                            if (p == Path.of("/boom")) error("simulated failure")
+                            if (p == Path("/boom")) error("simulated failure")
                             seen.add(p)
                         },
                         scope = backgroundScope,
                     )
 
-                coordinator.reanalyze(Path.of("/before"))
-                coordinator.reanalyze(Path.of("/boom"))
-                coordinator.reanalyze(Path.of("/after"))
+                coordinator.reanalyze(Path("/before"))
+                coordinator.reanalyze(Path("/boom"))
+                coordinator.reanalyze(Path("/after"))
                 runCurrent()
 
-                seen shouldContainExactly listOf(Path.of("/before"), Path.of("/after"))
+                seen shouldContainExactly listOf(Path("/before"), Path("/after"))
             }
         }
 
@@ -295,7 +295,7 @@ class ScanCoordinatorTest :
                         scope = backgroundScope,
                     )
 
-                coordinator.reanalyze(Path.of("/slow"))
+                coordinator.reanalyze(Path("/slow"))
                 runCurrent() // worker takes mutex, suspends on gate
 
                 val full = async { coordinator.scanFull() }

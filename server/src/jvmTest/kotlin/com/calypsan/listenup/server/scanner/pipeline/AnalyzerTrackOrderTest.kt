@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
+import kotlinx.io.files.Path
 
 /**
  * Track-ordering behaviour for multi-file books.
@@ -67,7 +68,7 @@ class AnalyzerTrackOrderTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -118,7 +119,7 @@ class AnalyzerTrackOrderTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -162,7 +163,7 @@ class AnalyzerTrackOrderTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -190,10 +191,10 @@ private fun trackEntry(
         fileType = FileType.AUDIO,
     )
 
-private fun Path.writeAudio(
+private fun NioPath.writeAudio(
     relPath: String,
     bytes: ByteArray,
-): Path {
+): NioPath {
     val target = resolve(relPath)
     Files.createDirectories(target.parent)
     Files.write(target, bytes)

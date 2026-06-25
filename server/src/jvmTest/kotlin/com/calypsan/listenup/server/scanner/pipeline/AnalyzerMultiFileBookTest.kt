@@ -16,8 +16,9 @@ import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
 
 /**
  * Book-level metadata for **multi-file books** — a directory where each file is a
@@ -75,7 +76,7 @@ class AnalyzerMultiFileBookTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -120,7 +121,7 @@ class AnalyzerMultiFileBookTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -159,7 +160,7 @@ class AnalyzerMultiFileBookTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -192,7 +193,7 @@ class AnalyzerMultiFileBookTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -228,7 +229,7 @@ class AnalyzerMultiFileBookTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -254,10 +255,10 @@ private fun trackEntry(
         fileType = FileType.AUDIO,
     )
 
-private fun Path.writeAudio(
+private fun NioPath.writeAudio(
     relPath: String,
     bytes: ByteArray,
-): Path {
+): NioPath {
     val target = resolve(relPath)
     Files.createDirectories(target.parent)
     Files.write(target, bytes)

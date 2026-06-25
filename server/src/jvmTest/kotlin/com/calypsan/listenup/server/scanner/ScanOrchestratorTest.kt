@@ -18,7 +18,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 /**
  * Unit tests for [ScanOrchestrator].
@@ -208,7 +208,7 @@ class ScanOrchestratorTest :
 
         test("scanFolder finds new folder after onFolderAdded updates the snapshot") {
             runTest {
-                val incrementalPaths = mutableListOf<java.nio.file.Path>()
+                val incrementalPaths = mutableListOf<Path>()
                 val factory = FakeScannerFactory(recordIncremental = { path -> incrementalPaths.add(path) })
                 val orchestrator = orchestrator(factory, FakeWatcherSupervisor(), backgroundScope)
 
@@ -257,6 +257,57 @@ class ScanOrchestratorTest :
                 job1.await().shouldBeInstanceOf<AppResult.Success<ScanResult>>()
             }
         }
+
+        test("onFileChanged skips null-rootPath folders and still reanalyzes the real subtree") {
+            runTest {
+                val reanalyzedPaths = mutableListOf<Path>()
+                val factory = FakeScannerFactory(recordIncremental = { path -> reanalyzedPaths.add(path) })
+
+                // Library with one real folder and one null-rootPath folder (redacted/sentinel case).
+                val realFolder = LibraryFolderRef(FolderId("f-real"), "/tmp/books")
+                val nullFolder = LibraryFolderRef(FolderId("f-null"), null)
+                val library =
+                    Library(
+                        id = LibraryId("lib-1"),
+                        name = "Test Library",
+                        folders = listOf(realFolder, nullFolder),
+                        metadataPrecedence = "embedded,abs,sidecar",
+                        accessMode = AccessMode.SHARED,
+                        createdByUserId = null,
+                        createdAt = 0L,
+                    )
+
+                // FakeWatcherSupervisor that can emit an event on demand.
+                var capturedEvent: (suspend (LibraryId, Path) -> Unit)? = null
+                val supervisor =
+                    object : WatcherSupervisorPort {
+                        override suspend fun mount(
+                            libraryId: LibraryId,
+                            folder: LibraryFolderRef,
+                            onEvent: suspend (LibraryId, Path) -> Unit,
+                        ) {
+                            capturedEvent = onEvent
+                        }
+
+                        override suspend fun unmount(folderId: FolderId) = Unit
+
+                        override suspend fun unmountAllForLibrary(libraryId: LibraryId) = Unit
+
+                        override suspend fun unmountAll() = Unit
+                    }
+                val orchestrator = orchestrator(factory, supervisor, backgroundScope)
+                orchestrator.onLibraryAdded(library)
+
+                // Emit a watcher event for a path under the real folder.
+                val changedPath = Path("/tmp/books/Author/Title")
+                capturedEvent?.invoke(LibraryId("lib-1"), changedPath)
+                testScheduler.runCurrent()
+
+                // reanalyze must have been called; the null-folder must not have caused a crash.
+                reanalyzedPaths.size shouldBe 1
+                reanalyzedPaths.first().toString() shouldBe "/tmp/books/Author/Title"
+            }
+        }
     })
 
 // --- Helpers ----------------------------------------------------------------
@@ -277,7 +328,7 @@ private fun testLib(
 
 private fun orchestrator(
     factory: FakeScannerFactory,
-    supervisor: FakeWatcherSupervisor,
+    supervisor: WatcherSupervisorPort,
     scope: kotlinx.coroutines.CoroutineScope,
 ): ScanOrchestrator =
     ScanOrchestrator(
@@ -294,7 +345,7 @@ private fun orchestrator(
  */
 private class FakeScannerFactory(
     vararg gates: CompletableDeferred<Unit>,
-    private val recordIncremental: (suspend (java.nio.file.Path) -> Unit)? = null,
+    private val recordIncremental: (suspend (Path) -> Unit)? = null,
 ) {
     private val gateQueue = ArrayDeque(gates.toList())
     var scannersCreated = 0
@@ -339,7 +390,7 @@ private class FakeWatcherSupervisor : WatcherSupervisorPort {
     override suspend fun mount(
         libraryId: LibraryId,
         folder: LibraryFolderRef,
-        onEvent: suspend (LibraryId, Path) -> Unit,
+        onEvent: suspend (LibraryId, Path) -> Unit, // kotlinx.io Path
     ) {
         mountedFolders += folder
     }

@@ -6,8 +6,12 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.server.io.isUnder
+import com.calypsan.listenup.server.io.relativeTo
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.testing.testLibrary
 import io.kotest.assertions.withClue
@@ -19,6 +23,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path
 import java.util.concurrent.atomic.AtomicLong
 
 class ScannerTest :
@@ -107,7 +112,7 @@ class ScannerTest :
                     // Add a track to "Updated" only.
                     fixture.book("Author/Updated") { audio("02 - New.mp3") }
 
-                    val targetRoot = fixture.root.resolve("Author/Updated")
+                    val targetRoot = Path(fixture.root.resolve("Author/Updated").toString())
                     scanner.runIncremental(targetRoot)
 
                     val last = scanner.lastResult().shouldNotBeNull()
@@ -135,8 +140,9 @@ class ScannerTest :
                     eventBus.resetReplayCache()
 
                     // Delete the book directory entirely.
-                    val targetRoot = fixture.root.resolve("Author/Goes Away")
-                    targetRoot.toFile().deleteRecursively()
+                    val targetRootNio = fixture.root.resolve("Author/Goes Away")
+                    targetRootNio.toFile().deleteRecursively()
+                    val targetRoot = Path(targetRootNio.toString())
 
                     scanner.runIncremental(targetRoot)
 
@@ -281,7 +287,7 @@ class ScannerTest :
                     val (scanner, _) = newScanner(fixture, scanResultBus = bus)
                     scanner.runFullScan() // populate lastResult
 
-                    scanner.runIncremental(fixture.root.resolve("Author/Title"))
+                    scanner.runIncremental(Path(fixture.root.resolve("Author/Title").toString()))
 
                     val result = bus.replayCache.last()
                     (result.scope is ScanScope.Subtree) shouldBe true
@@ -305,7 +311,7 @@ class ScannerTest :
                         )
                     scanner.runFullScan() // scan-1
 
-                    scanner.runIncremental(fixture.root.resolve("Author/Title")) // scan-2
+                    scanner.runIncremental(Path(fixture.root.resolve("Author/Title").toString())) // scan-2
 
                     // Bug #703: `lastResult?.copy(...)` inherited the prior full scan's correlationId,
                     // so the incremental spooled to scan-2 but cleared/reported scan-1 — leaking the
@@ -315,6 +321,45 @@ class ScannerTest :
                     }
                 }
             }
+        }
+
+        test("runIncremental does not crash when a folder has a null rootPath") {
+            runTest {
+                audioLibrary {
+                    book("Author/Title") { tracks(count = 1) }
+                }.use { fixture ->
+                    // A library with one real folder and one null-rootPath (redacted) folder.
+                    val library =
+                        testLibrary(folders = listOf(fixture.root.toString())).copy(
+                            folders =
+                                listOf(
+                                    LibraryFolderRef(FolderId("test-lib-1-folder-0"), fixture.root.toString()),
+                                    LibraryFolderRef(FolderId("redacted-folder"), null),
+                                ),
+                        )
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64)
+                    val scanner =
+                        Scanner(
+                            library = library,
+                            metadataReader = AbsMetadataReader(contractJson),
+                            embeddedMetadataParser = noOpEmbeddedParser(),
+                            eventBus = eventBus,
+                            scanResultBus = MutableSharedFlow(replay = 1),
+                        )
+                    scanner.runFullScan()
+                    val bookRoot = Path(fixture.root.resolve("Author/Title").toString())
+
+                    // If runIncremental throws, the test fails — that's the assertion.
+                    scanner.runIncremental(bookRoot)
+                }
+            }
+        }
+
+        test("incremental prefix: when an owning folder is found, bookRoot is under folderRoot so relativeTo == nio relativize") {
+            val folderRoot = Path("/lib/audiobooks")
+            val bookRoot = Path("/lib/audiobooks/Author/Title")
+            bookRoot.isUnder(folderRoot) shouldBe true
+            bookRoot.relativeTo(folderRoot) shouldBe "Author/Title"
         }
     })
 

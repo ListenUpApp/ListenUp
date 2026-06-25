@@ -159,7 +159,7 @@ private object NoOpWatcherSupervisor : WatcherSupervisorPort {
     override suspend fun mount(
         libraryId: com.calypsan.listenup.core.LibraryId,
         folder: com.calypsan.listenup.api.dto.LibraryFolderRef,
-        onEvent: suspend (com.calypsan.listenup.core.LibraryId, java.nio.file.Path) -> Unit,
+        onEvent: suspend (com.calypsan.listenup.core.LibraryId, kotlinx.io.files.Path) -> Unit,
     ) = Unit
 
     override suspend fun unmount(folderId: com.calypsan.listenup.core.FolderId) = Unit

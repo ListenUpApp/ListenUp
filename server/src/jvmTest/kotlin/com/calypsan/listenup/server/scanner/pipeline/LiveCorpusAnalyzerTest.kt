@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
+import kotlinx.io.files.Path
 import kotlin.io.path.isDirectory
 import kotlin.io.path.listDirectoryEntries
 
@@ -44,19 +45,19 @@ class LiveCorpusAnalyzerTest :
         test("Myst - The Book Of Atrus synthesizes chapters from tracks")
             .config(enabled = liveDir != null) {
                 val rel = "Rand Miller, Robyn Miller/Myst - The Book Of Atrus"
-                runTest { assertSynthesis(Path.of(liveDir!!), rel) }
+                runTest { assertSynthesis(NioPath.of(liveDir!!), rel) }
             }
 
         test("The Girl Who Kicked the Hornet's Nest synthesizes chapters from tracks")
             .config(enabled = liveDir != null) {
                 val rel = "Steig Larsson/Millenium/Book 3 - The Girl Who Kicked the Hornet's Nest"
-                runTest { assertSynthesis(Path.of(liveDir!!), rel) }
+                runTest { assertSynthesis(NioPath.of(liveDir!!), rel) }
             }
 
         test("Moral Revolution synthesizes chapters from tracks")
             .config(enabled = liveDir != null) {
                 val rel = "Kris Valloton/Moral Revolution"
-                runTest { assertSynthesis(Path.of(liveDir!!), rel) }
+                runTest { assertSynthesis(NioPath.of(liveDir!!), rel) }
             }
     })
 
@@ -69,7 +70,7 @@ private val liveParser =
     )
 
 private suspend fun assertSynthesis(
-    rootPath: Path,
+    rootPath: NioPath,
     rel: String,
 ) {
     val bookPath = rootPath.resolve(rel)
@@ -94,7 +95,7 @@ private suspend fun assertSynthesis(
             }
 
     val candidate = CandidateBook(rootRelPath = rel, isFile = false, files = files)
-    val analyzer = Analyzer(rootPath, AbsMetadataReader(contractJson), liveParser)
+    val analyzer = Analyzer(Path(rootPath.toString()), AbsMetadataReader(contractJson), liveParser)
     val book =
         analyzer
             .analyze(flowOf(candidate))

@@ -17,7 +17,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
+import kotlinx.io.files.Path
 
 /**
  * Verifies [TitleSubtitleSplitter] integration in [Analyzer.compose]:
@@ -48,7 +49,7 @@ class AnalyzerSubtitleDerivationTest :
                     val candidate = candidateAt(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -76,7 +77,7 @@ class AnalyzerSubtitleDerivationTest :
                     val candidate = candidateAt(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -102,7 +103,7 @@ class AnalyzerSubtitleDerivationTest :
                     val candidate = candidateAt(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -118,7 +119,7 @@ class AnalyzerSubtitleDerivationTest :
 
 private fun candidateAt(
     rel: String,
-    audioPath: Path,
+    audioPath: NioPath,
 ): CandidateBook =
     CandidateBook(
         rootRelPath = rel,
@@ -141,10 +142,10 @@ private fun candidateAt(
             ),
     )
 
-private fun Path.writeAudio(
+private fun NioPath.writeAudio(
     relPath: String,
     bytes: ByteArray,
-): Path {
+): NioPath {
     val target = resolve(relPath)
     Files.createDirectories(target.parent)
     Files.write(target, bytes)

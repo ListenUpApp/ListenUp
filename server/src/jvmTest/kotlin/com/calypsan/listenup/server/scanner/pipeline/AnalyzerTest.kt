@@ -25,7 +25,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
+import kotlinx.io.files.Path
 
 class AnalyzerTest :
     FunSpec({
@@ -44,7 +45,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val candidate =
                         candidateOf(
                             "Sanderson/Stormlight/The Way of Kings",
@@ -77,7 +78,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Sanderson/Stormlight/(2010) - Book 1 - The Way of Kings [B0015T963C] {Michael Kramer; Kate Reading}"
                     val candidate =
                         candidateOf(
@@ -129,7 +130,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Sanderson/Stormlight/Folder Title"
                     val candidate =
                         candidateOf(
@@ -175,7 +176,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val candidate =
                         candidateOf(
                             "Author/Title",
@@ -202,7 +203,7 @@ class AnalyzerTest :
         test("picks cover.<ext> over other images") {
             audioLibrary { /* paths only — no real files needed for this case */ }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val firstImage = fileEntry("$rel/folder.png", FileType.IMAGE)
                     val cover = fileEntry("$rel/cover.jpg", FileType.IMAGE)
@@ -231,7 +232,7 @@ class AnalyzerTest :
         test("falls back to first image when no cover.<ext> is present") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val firstImage = fileEntry("$rel/folder.png", FileType.IMAGE)
                     val candidate =
@@ -259,7 +260,7 @@ class AnalyzerTest :
         test("emits null cover when there are no images") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val candidate =
                         candidateOf(
@@ -281,7 +282,7 @@ class AnalyzerTest :
         test("sorts tracks by disc then track number") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val candidate =
                         candidateOf(
@@ -322,7 +323,7 @@ class AnalyzerTest :
         test("title falls back to titleFolder when ABS regex strips everything") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     // Just an ASIN bracket, nothing else — parsed.title would be empty.
                     val rel = "Author/[B0015T963C]"
                     val candidate =
@@ -347,7 +348,7 @@ class AnalyzerTest :
         test("single-file book at library root is analyzed without crashing") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val candidate =
                         candidateOf(
                             "standalone.m4b",
@@ -366,7 +367,7 @@ class AnalyzerTest :
         test("analyzer continues across multiple candidates") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val a =
                         candidateOf(
                             "Author/Book A",
@@ -387,7 +388,7 @@ class AnalyzerTest :
         test("a book whose primary audio fails to parse is still produced, with hasScanWarning") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Broken Book"
                     // Random non-audio bytes — no magic matches, the parser rejects this
                     // as an unsupported format. The book is still produced; the failure
@@ -430,7 +431,7 @@ class AnalyzerTest :
                             detector = AudioFormatDetector(),
                             parsers = listOf(Mp3Parser()),
                         )
-                    val analyzer = Analyzer(fixture.root, metadataReader, realParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, realParser)
                     val rel = "Author/Clean Book"
                     val audioBytes =
                         buildMp3File {
@@ -470,7 +471,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Some Book (Unabridged)"
                     val candidate =
                         candidateOf(
@@ -504,7 +505,7 @@ class AnalyzerTest :
                 }
             }.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Some Book (Unabridged)"
                     val candidate =
                         candidateOf(
@@ -531,7 +532,7 @@ class AnalyzerTest :
         test("read returns the live cover FileEntry, not a copy") {
             audioLibrary {}.use { fixture ->
                 runTest {
-                    val analyzer = Analyzer(fixture.root, metadataReader, embeddedParser)
+                    val analyzer = Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                     val rel = "Author/Title"
                     val cover = fileEntry("$rel/cover.jpg", FileType.IMAGE)
                     val candidate =
@@ -577,7 +578,7 @@ class AnalyzerTest :
                 runTest {
                     val analyzer =
                         Analyzer(
-                            fixture.root,
+                            Path(fixture.root.toString()),
                             metadataReader,
                             embeddedParser,
                             sidecarParsers = listOf(OpfParser()),
@@ -634,10 +635,10 @@ private fun fileEntry(
     )
 
 private fun writeBytes(
-    root: Path,
+    root: NioPath,
     relPath: String,
     bytes: ByteArray,
-): Path {
+): NioPath {
     val target = root.resolve(relPath)
     Files.createDirectories(target.parent)
     Files.write(target, bytes)
