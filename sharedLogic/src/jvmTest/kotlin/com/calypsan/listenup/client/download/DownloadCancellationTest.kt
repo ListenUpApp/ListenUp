@@ -9,6 +9,7 @@ import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
@@ -28,6 +29,7 @@ import java.io.File
  *
  * Per project memory `feedback_fakes_for_seams.md`: hand-rolled fakes, not mokkery.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class DownloadCancellationTest :
     FunSpec({
 
