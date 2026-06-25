@@ -6381,6 +6381,16 @@
         }
       }
     },
+    "discover.no_one_listening_right_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No one's listening right now. Check back soon!"
+          }
+        }
+      }
+    },
     "discover.no_recently_added_books": {
       "localizations": {
         "en": {
@@ -6537,6 +6547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "When other users create shelves with books you can access, they'll appear here."
+          }
+        }
+      }
+    },
+    "discover.x_is_listening_to_y": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is listening to %2$@"
           }
         }
       }

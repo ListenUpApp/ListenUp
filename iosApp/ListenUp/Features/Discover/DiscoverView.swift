@@ -3,9 +3,11 @@ import SwiftUI
 
 /// Discover — the social landing screen for finding new audiobooks and seeing the community.
 ///
-/// Four sections, wired to three shared ViewModels via native observers:
+/// Five sections, wired to three shared ViewModels via native observers:
 /// - **New for You** (`DiscoverObserver.newForYou`) — a horizontal cover rail.
-/// - **Recently Added** (`DiscoverObserver.recentlyAdded`) — a vertical list.
+/// - **Recently Added** (`DiscoverObserver.recentlyAdded`) — a horizontal cover rail.
+/// - **What Others Are Listening To** (`DiscoverObserver.currentlyListening`) — a horizontal
+///   rail of people-and-their-current-book cards, one per user.
 /// - **Leaderboard** (`LeaderboardObserver`) — ranked rows with a Week / Month / All control.
 /// - **Activity** (`ActivityFeedObserver`) — the community feed.
 ///
@@ -15,7 +17,7 @@ import SwiftUI
 /// This mirrors `HomeView`/`LibraryView`.
 ///
 /// Layout is width-responsive: a single scrolling column at compact width (iPhone); at
-/// regular width (iPad) the rails grow and Leaderboard + Activity sit side-by-side.
+/// regular width (iPad) the rail cards grow and Leaderboard + Activity sit side-by-side.
 struct DiscoverView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -68,15 +70,24 @@ struct DiscoverView: View {
     ) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
-                // The rail manages its own horizontal insets so cards can bleed to the edge.
+                // The rails manage their own horizontal insets so cards can bleed to the edge.
                 NewForYouSection(
                     phase: discover.newForYou,
                     cardWidth: railCardWidth,
                     horizontalInset: horizontalInset
                 )
 
-                RecentlyAddedSection(phase: discover.recentlyAdded)
-                    .padding(.horizontal, horizontalInset)
+                RecentlyAddedSection(
+                    phase: discover.recentlyAdded,
+                    cardWidth: railCardWidth,
+                    horizontalInset: horizontalInset
+                )
+
+                CurrentlyListeningSection(
+                    phase: discover.currentlyListening,
+                    cardWidth: railCardWidth,
+                    horizontalInset: horizontalInset
+                )
 
                 socialSections(leaderboard: leaderboard, activity: activity)
                     .padding(.horizontal, horizontalInset)

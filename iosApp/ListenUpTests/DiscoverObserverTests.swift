@@ -176,3 +176,73 @@ struct ActivityFeedObserverTests {
         #expect(item.action == "joined the server")
     }
 }
+
+// MARK: - Currently listening (What Others Are Listening To) mapping
+
+@Suite("Currently listening mapping")
+struct CurrentlyListeningMappingTests {
+
+    private func session(
+        user: String,
+        book: String,
+        startedAt: Int64,
+        name: String = "Marcus Lee"
+    ) -> CurrentlyListeningUiSession {
+        CurrentlyListeningUiSession(
+            sessionId: "\(user):\(book)",
+            userId: user,
+            bookId: book,
+            bookTitle: "Book \(book)",
+            authorName: "Frank Herbert",
+            coverPath: nil,
+            coverHash: nil,
+            coverBlurHash: nil,
+            displayName: name,
+            avatarType: "initials",
+            avatarValue: nil,
+            avatarColor: "#2E8BFF",
+            startedAt: startedAt
+        )
+    }
+
+    @Test func rowMapsSessionFields() {
+        let row = CurrentlyListeningRow(from: session(user: "u1", book: "b1", startedAt: 100, name: "Priya Nair"))
+
+        #expect(row.id == "u1:b1")
+        #expect(row.userId == "u1")
+        #expect(row.bookId == "b1")
+        #expect(row.title == "Book b1")
+        #expect(row.author == "Frank Herbert")
+        #expect(row.displayName == "Priya Nair")
+        #expect(row.initials == "PN")
+        #expect(row.avatarColor == "#2E8BFF")
+    }
+
+    @Test func dedupsToOneRowPerUserKeepingMostRecentBook() {
+        let sessions = [
+            session(user: "u1", book: "old", startedAt: 100),
+            session(user: "u1", book: "new", startedAt: 200), // u1's latest
+            session(user: "u2", book: "solo", startedAt: 150)
+        ]
+        let rows = DiscoverObserver.currentlyListeningRows(from: sessions)
+
+        #expect(rows.count == 2)
+        let u1 = rows.first { $0.userId == "u1" }
+        #expect(u1?.bookId == "new")
+    }
+
+    @Test func sortsSurvivorsMostRecentFirst() {
+        let sessions = [
+            session(user: "u1", book: "b1", startedAt: 100),
+            session(user: "u2", book: "b2", startedAt: 300),
+            session(user: "u3", book: "b3", startedAt: 200)
+        ]
+        let rows = DiscoverObserver.currentlyListeningRows(from: sessions)
+
+        #expect(rows.map(\.userId) == ["u2", "u3", "u1"])
+    }
+
+    @Test func emptySessionsProduceNoRows() {
+        #expect(DiscoverObserver.currentlyListeningRows(from: []).isEmpty)
+    }
+}
