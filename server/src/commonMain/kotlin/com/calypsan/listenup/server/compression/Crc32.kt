@@ -22,6 +22,7 @@ class Crc32 {
     ) {
         var c = crc
         for (i in offset until offset + length) {
+            // Byte.toULong() sign-extends; `and 0xFFuL` isolates the low 8 bits and cancels the extension.
             c = TABLE[((c xor bytes[i].toULong()) and 0xFFuL).toInt()] xor (c shr 8)
         }
         crc = c

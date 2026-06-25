@@ -37,4 +37,22 @@ class Crc32Test :
         test("empty input is 0") {
             Crc32().value shouldBe 0L
         }
+
+        test("single-byte update matches java.util.zip.CRC32") {
+            checkAll(Arb.int(-128..255)) { v ->
+                val ours = Crc32().apply { update(v) }.value
+                val jdk =
+                    java.util.zip
+                        .CRC32()
+                        .apply { update(v) }
+                        .value
+                ours shouldBe jdk
+            }
+        }
+
+        test("reset returns to the initial state") {
+            val c = Crc32().apply { update(byteArrayOf(1, 2, 3)) }
+            c.reset()
+            c.value shouldBe 0L
+        }
     })
