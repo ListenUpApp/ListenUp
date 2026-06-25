@@ -132,4 +132,22 @@ class DeflateTest :
                 }
             }
         }
+
+        test("multi-MB mixed-entropy input round-trips through java.util.zip and ours") {
+            // ~4 MiB of long-range repetition (distances toward 32 KiB across many windows) interleaved
+            // with PRNG noise (a dense literal distribution) — a backup-shaped input the ≤16 KB oracle
+            // can't reach. Forces a real dynamic block + large-distance matches end-to-end.
+            val size = 4 * 1024 * 1024
+            val data = ByteArray(size)
+            var s = 0x9E37_79B9.toInt()
+            for (i in data.indices) {
+                s = s * 1_103_515_245 + 12345
+                data[i] = if (i > 20_000 && s ushr 24 and 0x3 != 0) data[i - 20_000] else (s ushr 16).toByte()
+            }
+            val compressed = oursDeflate(data, 6)
+            (compressed.size < data.size) shouldBe true
+            jdkInflateRaw(compressed) shouldBe data
+            val src = Buffer().apply { write(compressed) }
+            InflateRawSource(src).buffered().readByteArray() shouldBe data
+        }
     })

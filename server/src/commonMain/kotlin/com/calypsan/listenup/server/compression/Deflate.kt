@@ -68,7 +68,7 @@ public class DeflateRawSink(
 
     /** Size in bits of [dataSize] bytes encoded as stored blocks (5 bytes of framing per ≤64 KiB block). */
     private fun storedSizeBits(dataSize: Int): Long {
-        val blocks = maxOf(1, (dataSize + 65534) / 65535)
+        val blocks = maxOf(1L, (dataSize.toLong() + 65534) / 65535)
         return (dataSize.toLong() + 5L * blocks) * 8L
     }
 
