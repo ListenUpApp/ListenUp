@@ -3,7 +3,6 @@ package com.calypsan.listenup.api.result
 import com.calypsan.listenup.api.error.AppError
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlin.MustUseReturnValues
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
@@ -31,8 +30,13 @@ import kotlin.contracts.contract
  *
  * Failure constructors ([success], [failure], [failureOf], [validationError], …)
  * live in `AppResultFactories.kt`.
+ *
+ * **Enforcement:** an ignored `AppResult` is a swallowed error. The unused-return-value checker
+ * enforces this at the *declaring scopes* (the `domain/repository` interfaces carry
+ * `@file:MustUseReturnValues`; see `AppResultSurfaceIsMustUseRule`) — annotating this type itself
+ * would have no effect, since the checker keys off the scope a function is declared in, not its
+ * return type.
  */
-@MustUseReturnValues
 @Serializable
 sealed interface AppResult<out T> {
     /** Carries the value [data] produced by a successful operation. */
