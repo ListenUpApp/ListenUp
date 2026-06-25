@@ -489,12 +489,21 @@ object SwiftExportSourcePatcher {
         var count = 0
         for ((parent, subtypes) in sealedTypes) {
             val enumName = "OnEnum_${parent.path.replace('.', '_')}_${parent.name}"
+            // The synthetic catch-all case name. Normally `unknown`, but a real Kotlin subtype named
+            // `Unknown` already maps to `case unknown` (e.g. `Reachability.Unknown`); emitting another
+            // `unknown` is an invalid Swift redeclaration. So pick the first name that doesn't collide
+            // with any real subtype's lowercased-first-char case — keeps `.unknown` for the 99% case,
+            // sidesteps the collision for the rare real-`Unknown` enum without consumer churn.
+            val existingCases = subtypes.mapTo(HashSet()) { (subtype, _) -> subtype.replaceFirstChar { it.lowercase() } }
+            val catchAll = generateSequence(0) { it + 1 }
+                .map { if (it == 0) "unknown" else "unknownCatchAll$it" }
+                .first { it !in existingCases }
             // subtype flat aliases (SKIE's `<Parent><Subtype>` name)
             for ((subtype, className) in subtypes) {
                 val alias = "${parent.name}$subtype"
                 if (emittedAlias.add(alias)) builder.append("public typealias $alias = $className\n")
             }
-            // enum — one case per subtype, plus an `unknown` tail carrying the base type so a value
+            // enum — one case per subtype, plus a synthetic catch-all carrying the base type so a value
             // matching no known subtype degrades gracefully (the consumer `switch` is forced to handle
             // it) instead of hitting a runtime `fatalError`. See Plan 004.
             builder.append("public enum $enumName {\n")
@@ -503,7 +512,7 @@ object SwiftExportSourcePatcher {
                 val case = if (raw in swiftKeywords) "`$raw`" else raw
                 builder.append("    case $case($className)\n")
             }
-            builder.append("    case unknown(ExportedKotlinPackages.${parent.path}.${parent.name})\n")
+            builder.append("    case $catchAll(ExportedKotlinPackages.${parent.path}.${parent.name})\n")
             builder.append("}\n")
             // onEnum overload
             builder.append(
@@ -514,7 +523,7 @@ object SwiftExportSourcePatcher {
                 val case = if (raw in swiftKeywords) "`$raw`" else raw
                 builder.append("    if let value = value as? $className { return .$case(value) }\n")
             }
-            builder.append("    return .unknown(value)\n}\n")
+            builder.append("    return .$catchAll(value)\n}\n")
             count++
         }
         return PatchOutcome(sharedContent + builder.toString(), count)
