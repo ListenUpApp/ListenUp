@@ -16,6 +16,8 @@ import org.koin.ktor.ext.inject
  *
  * @param registrationPolicy override the registration policy bucket (`OPEN`,
  *   `APPROVAL_QUEUE`, `CLOSED`). Tests covering policy branching pass it here.
+ *   Pass `null` to omit the key entirely and exercise the server's own default
+ *   for a fresh/unconfigured instance.
  * @param libraryPath when set, adds `scanner.libraryPath` so `module()` wires
  *   the scanner and books slices. Must point at an existing directory — the
  *   server skips scanner wiring for a missing/blank path. Tests that need the
@@ -40,7 +42,7 @@ import org.koin.ktor.ext.inject
  *   rationale as the `mdns.enabled = false` default above.
  */
 fun ApplicationTestBuilder.useIsolatedTestConfig(
-    registrationPolicy: String = "OPEN",
+    registrationPolicy: String? = "OPEN",
     libraryPath: String? = null,
     seedProfile: String? = null,
     homeDir: String? = null,
@@ -56,7 +58,6 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 "jwt.secret" to "x".repeat(32),
                 "jwt.issuer" to "listenup",
                 "jwt.audience" to "listenup-client",
-                "registration.policy" to registrationPolicy,
                 // No test should bind multicast sockets or run an mDNS receive loop — pure overhead
                 // and a source of cross-test load that flakes the firehose timeout budget.
                 "mdns.enabled" to "false",
@@ -65,6 +66,7 @@ fun ApplicationTestBuilder.useIsolatedTestConfig(
                 "scanner.watchEnabled" to watchEnabled.toString(),
                 "scan.rescanOnStartup" to rescanOnStartup.toString(),
             ).apply {
+                if (registrationPolicy != null) put("registration.policy", registrationPolicy)
                 if (libraryPath != null) put("scanner.libraryPath", libraryPath)
                 if (seedProfile != null) put("seed.profile", seedProfile)
                 if (homeDir != null) put("listenup.home", homeDir)
