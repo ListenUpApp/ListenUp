@@ -294,7 +294,11 @@ struct SkipIntervalTests {
         await progress.waitForStarted(bookId: "book1")
 
         // Anchor the position tracker at 60 s so both skips land on a positive position.
-        engine.emit(.position(ms: 60000, rate: 1.0))
+        // `rate: 0` (paused) is deliberate: a positive rate starts the `CADisplayLink`, whose
+        // per-frame interpolation advances `bookPositionMs` past 60000 on the next frame — the
+        // `== 60000` poll could then never settle and the test would hang. A paused sample holds
+        // the position exactly, which is all this skip-math anchor needs.
+        engine.emit(.position(ms: 60000, rate: 0.0))
         await awaitUntil { coordinator.bookPositionMs == 60000 }
 
         // 60 s + 30 s default forward = 90 s.
@@ -349,7 +353,9 @@ struct SkipIntervalTests {
         await awaitUntil { coordinator.skipForwardSec == 45 }
 
         // Anchor position at 60 s, then the next skip uses 45 s → 105 s.
-        engine.emit(.position(ms: 60000, rate: 1.0))
+        // `rate: 0` (paused) holds the position exactly; a positive rate would start the
+        // `CADisplayLink` and interpolate past 60000, leaving the `== 60000` poll to hang.
+        engine.emit(.position(ms: 60000, rate: 0.0))
         await awaitUntil { coordinator.bookPositionMs == 60000 }
         coordinator.skipForward()
         await progress.waitForPositionUpdate(bookId: "book1", positionMs: 105_000)
