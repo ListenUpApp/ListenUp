@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrDefault
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -277,7 +279,9 @@ class AppStartupViewModel(
      * genuinely no cached library to fall back to (fresh admin, first startup offline).
      */
     private suspend fun resolveOfflineOrFail() {
-        val hasLocal = runCatching { syncRepository.hasLocalLibrary() }.getOrDefault(false)
+        // suspendRunCatching (unlike stdlib runCatching) re-throws CancellationException, so a
+        // cancelled probe propagates instead of being mistaken for "no local library".
+        val hasLocal = suspendRunCatching { syncRepository.hasLocalLibrary() }.getOrDefault { false }
         if (hasLocal) {
             logger.info { "library check failed but a local library exists — opening offline" }
             state.value =

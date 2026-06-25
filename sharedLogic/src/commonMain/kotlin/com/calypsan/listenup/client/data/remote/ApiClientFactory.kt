@@ -17,6 +17,8 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
+import io.ktor.client.call.HttpClientCall
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.contentType
@@ -325,36 +327,55 @@ internal class KtorApiClientFactory(
                 request.url.port = parsed.port
             }
 
-            try {
-                execute(request)
-            } catch (cause: Exception) {
-                if (isNetworkError(cause)) {
-                    // Try fallback URL
-                    val fallbackUrl = serverConfig.switchToFallbackUrl()
-                    if (fallbackUrl != null) {
-                        logger.info { "Network error, retrying with fallback URL: ${fallbackUrl.value}" }
-                        val parsed = Url(fallbackUrl.value)
-                        request.url.protocol = parsed.protocol
-                        request.url.host = parsed.host
-                        request.url.port = parsed.port
-                        try {
-                            execute(request)
-                        } catch (retryError: Exception) {
-                            // Fallback also failed, preserve both errors
-                            cause.addSuppressed(retryError)
-                            throw cause
-                        }
-                    } else {
-                        throw cause
-                    }
-                } else {
-                    throw cause
-                }
-            }
+            executeWithFallback(request) { execute(it) }
         }
 
         return client
     }
+
+    /**
+     * Execute [request], retrying once against the fallback URL on a network error.
+     */
+    internal suspend fun executeWithFallback(
+        request: HttpRequestBuilder,
+        execute: suspend (HttpRequestBuilder) -> HttpClientCall,
+    ): HttpClientCall {
+        // Guard clauses keep this flat: a cancelled or non-network failure propagates immediately;
+        // only a network error falls through to the single fallback retry below.
+        val cause =
+            try {
+                return execute(request)
+            } catch (e: Exception) {
+                if (e is CancellationException || !isNetworkError(e)) throw e
+                e
+            }
+
+        val fallbackUrl = serverConfig.switchToFallbackUrl() ?: throw cause
+        logger.info { "Network error, retrying with fallback URL: ${fallbackUrl.value}" }
+        val parsed = Url(fallbackUrl.value)
+        request.url.protocol = parsed.protocol
+        request.url.host = parsed.host
+        request.url.port = parsed.port
+
+        return retryAgainstFallback(request, cause, execute)
+    }
+
+    /**
+     * Retry [request] against the already-applied fallback URL. A cancelled retry propagates; any
+     * other failure surfaces the [original] network error with the retry error suppressed.
+     */
+    private suspend fun retryAgainstFallback(
+        request: HttpRequestBuilder,
+        original: Exception,
+        execute: suspend (HttpRequestBuilder) -> HttpClientCall,
+    ): HttpClientCall =
+        try {
+            execute(request)
+        } catch (retryError: Exception) {
+            if (retryError is CancellationException) throw retryError
+            original.addSuppressed(retryError)
+            throw original
+        }
 
     /**
      * Check if an exception is a network/connection error (not an HTTP error).

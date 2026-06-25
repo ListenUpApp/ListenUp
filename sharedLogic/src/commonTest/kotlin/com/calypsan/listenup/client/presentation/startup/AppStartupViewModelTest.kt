@@ -15,12 +15,14 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.api.result.AppResult as CoreAppResult
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -306,6 +308,31 @@ class AppStartupViewModelTest :
                 viewModel.state.value.isChecking shouldBe false
                 viewModel.state.value.setupCheckFailed shouldBe true
                 viewModel.state.value.needsLibrarySetup shouldBe false
+            }
+        }
+
+        test("setup-check failure does NOT swallow CancellationException into setupCheckFailed") {
+            runTest {
+                // Given - admin user, setup-status fails, and the local-library probe is cancelled
+                // mid-flight (the coroutine scope is being torn down).
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } returns
+                    AppResult.Failure(TransportError.NetworkUnavailable())
+                val sync = createMockSyncRepository()
+                everySuspend { sync.hasLocalLibrary() } throws CancellationException("scope cancelled")
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), sync)
+                advanceUntilIdle()
+
+                // Then - cancellation must propagate, not be mistaken for "no local library" and
+                // surfaced as the retryable-error wall.
+                viewModel.state.value.setupCheckFailed shouldBe false
             }
         }
 
