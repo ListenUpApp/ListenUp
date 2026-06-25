@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.design.components.ValuePill
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.presentation.settings.SettingsUiState
 import com.calypsan.listenup.client.presentation.settings.SettingsViewModel
@@ -559,6 +560,7 @@ private fun <T> SelectorRow(
     pillContentColor: Color = MaterialTheme.colorScheme.onSecondaryContainer,
     showDivider: Boolean = false,
 ) {
+    val haptics = LocalHaptics.current
     var expanded by remember { mutableStateOf(false) }
     SettingRow(
         icon = icon,
@@ -582,6 +584,7 @@ private fun <T> SelectorRow(
                     DropdownMenuItem(
                         text = { Text(formatValue(option)) },
                         onClick = {
+                            haptics.selectionTick()
                             onValueSelected(option)
                             expanded = false
                         },
@@ -602,6 +605,7 @@ private fun ToggleRow(
     onCheckedChange: (Boolean) -> Unit,
     showDivider: Boolean = false,
 ) {
+    val haptics = LocalHaptics.current
     SettingRow(
         icon = icon,
         accent = accent,
@@ -609,7 +613,13 @@ private fun ToggleRow(
         subtitle = subtitle,
         showDivider = showDivider,
     ) {
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(
+            checked = checked,
+            onCheckedChange = { newValue ->
+                haptics.toggle(on = newValue)
+                onCheckedChange(newValue)
+            },
+        )
     }
 }
 
