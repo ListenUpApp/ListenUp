@@ -7,14 +7,24 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.security.KeyStore
+import java.security.KeyStoreException
 import javax.crypto.Cipher
+import javax.crypto.IllegalBlockSizeException
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import kotlin.coroutines.cancellation.CancellationException
 
 private val logger = KotlinLogging.logger {}
+
+/** Keystore reads retry this many times before a transient fault is treated as unavailable. */
+private const val KEYSTORE_READ_ATTEMPTS = 3
+
+/** Backoff between Keystore read retries — a pruned key reloads almost immediately. */
+private const val KEYSTORE_RETRY_DELAY_MS = 20L
 
 /**
  * Modern Android implementation of SecureStorage using Android KeyStore directly.
@@ -129,6 +139,15 @@ class AndroidSecureStorage(
         return String(plaintext, Charsets.UTF_8)
     }
 
+    /**
+     * True for Keystore faults that are typically transient — the key was pruned or briefly
+     * unavailable (e.g. under memory pressure) and a retry usually succeeds. AES/GCM authentication
+     * failures (BadPadding/AEADBadTag) and decode errors are NOT transient: those mean the stored
+     * bytes are genuinely corrupt and the caller should see null.
+     */
+    private fun isTransientKeystoreFailure(e: Throwable): Boolean =
+        e is IllegalBlockSizeException || e is KeyStoreException
+
     override suspend fun save(
         key: String,
         value: String,
@@ -141,10 +160,25 @@ class AndroidSecureStorage(
         withContext(Dispatchers.IO) {
             val encrypted = prefs.getString(key, null) ?: return@withContext null
             try {
-                decrypt(encrypted)
+                // Retry transient Keystore faults (key pruned/unavailable under memory pressure) so a
+                // momentary blip can't masquerade as "no value" — which would wipe server_url / tokens
+                // and strand the user. Genuine corruption (auth-tag/decode failure) is not transient and
+                // falls straight through to null.
+                retryOnTransient(
+                    maxAttempts = KEYSTORE_READ_ATTEMPTS,
+                    isTransient = ::isTransientKeystoreFailure,
+                    onRetry = { _, _ -> delay(KEYSTORE_RETRY_DELAY_MS) },
+                ) {
+                    decrypt(encrypted)
+                }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                // If decryption fails (corrupted data, key change), return null
-                logger.warn(e) { "Decryption failed for key '$key' - data may be corrupted" }
+                if (isTransientKeystoreFailure(e)) {
+                    logger.warn(e) { "Keystore read for '$key' failed transiently; treated as unavailable" }
+                } else {
+                    logger.warn(e) { "Decryption failed for key '$key' — data may be corrupted" }
+                }
                 null
             }
         }

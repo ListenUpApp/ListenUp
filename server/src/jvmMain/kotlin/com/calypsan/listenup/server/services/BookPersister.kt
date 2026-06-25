@@ -42,6 +42,16 @@ private val log = KotlinLogging.logger {}
 private const val PERSIST_PROGRESS_TICKS = 100
 
 /**
+ * A bulk incremental scan with more than this many changed books is firehose-suppressed like a
+ * full scan, rather than published per-book to the live tail. Above this, the per-event burst
+ * would flood the lossy [com.calypsan.listenup.server.sync.ChangeBus] (replay=256, DROP_OLDEST)
+ * and storm connected clients into a per-event transaction GC storm; below it, incrementals stay
+ * live so a normal one-or-few-book change is a real-time delta. Kept well under the live tail's
+ * 256-deep buffer so a suppressed burst can never overflow it.
+ */
+private const val INCREMENTAL_FIREHOSE_SUPPRESS_THRESHOLD = 50
+
+/**
  * Consumes the Scanner's [ScanResult] stream and persists every
  * [com.calypsan.listenup.api.dto.scanner.AnalyzedBook] through [BookIngestPort].
  *
@@ -109,15 +119,20 @@ class BookPersister internal constructor(
             // block persistence; the TODO below tracks proper error surfacing.
             val folderId = resolveFolderId(result.rootPath)
 
-            // A FULL scan is bulk population (onboarding, re-scan): suppress the per-book firehose
-            // PUBLISH so the lossy live tail (ChangeBus replay=256, DROP_OLDEST) never carries the
-            // burst — an arbitrarily large library would otherwise overflow it and trip a client
-            // CursorStale → catch-up spin. Revisions still bump, so the client does one clean REST
-            // catch-up after the Completed below. Incremental scans ARE live deltas; they publish.
+            // Suppress the per-book firehose PUBLISH for any BULK persist so the lossy live tail
+            // (ChangeBus replay=256, DROP_OLDEST) never carries the burst — otherwise it overflows
+            // and storms connected clients into a per-event transaction GC storm. A FULL scan is
+            // always bulk (onboarding, re-scan); a large INCREMENTAL (dropping a folder of many
+            // books, or a big subtree re-persist) is bulk too. Revisions still bump, so the client
+            // does one clean REST catch-up after the Completed below. Small incrementals stay live —
+            // they ARE real-time deltas.
+            val suppressFirehose =
+                result.scope is ScanScope.Full ||
+                    result.changes.size > INCREMENTAL_FIREHOSE_SUPPRESS_THRESHOLD
             val counts: PersistCounts
             try {
                 counts =
-                    if (result.scope is ScanScope.Full) {
+                    if (suppressFirehose) {
                         withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
                     } else {
                         persistAll(result, libraryId, folderId)
