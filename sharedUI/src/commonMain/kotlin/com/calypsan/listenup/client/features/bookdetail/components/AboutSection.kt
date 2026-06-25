@@ -6,14 +6,23 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.components.BookFacet
@@ -24,7 +33,6 @@ import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.model.Tag
-import com.calypsan.listenup.client.util.toPlainTextPreview
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_about_this_book
 import listenup.composeapp.generated.resources.book_detail_credits
@@ -142,26 +150,26 @@ private fun AboutDescriptionBlock(
     isExpanded: Boolean,
     onToggleExpanded: () -> Unit,
 ) {
-    if (isExpanded) {
+    val isLong = description.length > DESCRIPTION_EXPAND_THRESHOLD
+
+    if (isExpanded || !isLong) {
         MarkdownText(
             markdown = description,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     } else {
-        // Collapsed preview: a clean maxLines clamp with ellipsis (no mid-line height crop) —
-        // the markdown renderer can't clamp by line, so the teaser renders as plain text with
-        // HTML/markdown markup stripped.
-        Text(
-            text = description.toPlainTextPreview(),
+        // Collapsed preview: real styled markdown, height-clamped to DESCRIPTION_PREVIEW_MAX_LINES
+        // with the bottom edge alpha-faded (the Markdown renderer can't clamp by line count itself).
+        ClampedMarkdownPreview(
+            markdown = description,
+            maxLines = DESCRIPTION_PREVIEW_MAX_LINES,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = DESCRIPTION_PREVIEW_MAX_LINES,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 
-    if (description.length > DESCRIPTION_EXPAND_THRESHOLD) {
+    if (isLong) {
         Text(
             text =
                 stringResource(
@@ -173,6 +181,47 @@ private fun AboutDescriptionBlock(
                 Modifier
                     .padding(top = 4.dp)
                     .clickable(onClick = onToggleExpanded),
+        )
+    }
+}
+
+/**
+ * Renders [markdown] clamped to roughly [maxLines] of [style] height, the bottom edge alpha-fading
+ * to transparent — the styled-markdown analogue of a `maxLines` text clamp. The fade is alpha-based
+ * (DstIn), so it is independent of whatever background the section sits on.
+ */
+@Composable
+private fun ClampedMarkdownPreview(
+    markdown: String,
+    maxLines: Int,
+    style: TextStyle,
+    color: Color,
+) {
+    val maxHeight = with(LocalDensity.current) { (style.lineHeight * maxLines.toFloat()).toDp() }
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .heightIn(max = maxHeight)
+                .clipToBounds()
+                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                .drawWithContent {
+                    drawContent()
+                    drawRect(
+                        brush =
+                            Brush.verticalGradient(
+                                0f to Color.Black,
+                                0.8f to Color.Black,
+                                1f to Color.Transparent,
+                            ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                },
+    ) {
+        MarkdownText(
+            markdown = markdown,
+            style = style,
+            color = color,
         )
     }
 }
