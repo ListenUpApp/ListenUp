@@ -36,7 +36,6 @@ struct FullScreenPlayerView: View {
     @State private var tint: Color = .listenUpOrange
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.horizontalSizeClass) private var hSize
 
     var body: some View {
@@ -83,39 +82,16 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Frosted background
 
-    /// One calm frosted-glass surface so the foreground hero cover, title, scrubber,
-    /// and transport sit *on* the panel and read cleanly — instead of the old tint
-    /// gradient competing with the cover's colors and the tinted controls (the
-    /// "stacked layers" legibility problem). Back→front: blurred cover backdrop ·
-    /// heavy frosting material (the "very frosted" knob — `.thinMaterial` for less,
-    /// `.regularMaterial` for more) · faint cover-tint veil. Under Reduce
-    /// Transparency we drop the blur + material (no hand-rolled blur) and fall back
-    /// to the opaque tint gradient.
-    @ViewBuilder
+    /// One clean Liquid-Glass surface for the whole player — the *same* glass the mini
+    /// player uses (`.glassControl`), so expanding the bar reads as the same panel
+    /// growing to fill the screen. It frosts the actual app content behind it (the tab
+    /// content it expanded over), and `glassControl` carries its own Reduce-Transparency
+    /// fallback (an opaque `secondarySystemBackground`), so we don't hand-roll one.
     private var frostedBackground: some View {
-        if reduceTransparency {
-            LinearGradient(
-                colors: [tint.opacity(0.22), Color(.systemBackground)],
-                startPoint: .top,
-                endPoint: .center
-            )
+        Rectangle()
+            .fill(.clear)
+            .glassControl(in: Rectangle())
             .ignoresSafeArea()
-        } else {
-            ZStack {
-                BookCoverImage(
-                    bookId: observer.currentBookId,
-                    coverPath: observer.coverPath,
-                    blurHash: observer.coverBlurHash
-                )
-                .scaledToFill()
-                .blur(radius: 60)
-                .opacity(0.9)
-
-                Rectangle().fill(.ultraThinMaterial)
-                tint.opacity(0.12)
-            }
-            .ignoresSafeArea()
-        }
     }
 
     // MARK: - Layout
@@ -294,7 +270,7 @@ struct FullScreenPlayerView: View {
             if !observer.narratorName.isEmpty {
                 Text(String(format: String(localized: "book.detail_narrated_by_value"), observer.narratorName))
                     .font(.footnote)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
         }

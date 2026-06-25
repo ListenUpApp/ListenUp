@@ -95,13 +95,20 @@ struct MainTabView: View {
     /// Reads the tab content's live bottom safe-area inset (home indicator + floating
     /// tab bar) and publishes it for the overlay. Sits behind tab content (zero-sized,
     /// non-interactive) and updates as the bar minimizes/expands on scroll.
+    ///
+    /// The probe is attached *inside* the same view the sibling `.safeAreaInset` reserves
+    /// the `miniBarInset` mini-bar band on, so `proxy.safeAreaInsets.bottom` already
+    /// includes that band. We subtract it back out (when the band is actually reserved)
+    /// so the published value is the *true* system bar — otherwise the mini player floats
+    /// a whole `miniBarInset` (~60pt) too high above the tab bar.
     private var tabBarInsetProbe: some View {
         GeometryReader { proxy in
             Color.clear
                 .onGeometryChange(for: CGFloat.self) { _ in
                     proxy.safeAreaInsets.bottom
                 } action: { inset in
-                    tabContentBottomInset = inset
+                    let reservedBand = playerCoordinator?.isVisible == true ? miniBarInset : 0
+                    tabContentBottomInset = max(0, inset - reservedBand)
                 }
         }
     }
