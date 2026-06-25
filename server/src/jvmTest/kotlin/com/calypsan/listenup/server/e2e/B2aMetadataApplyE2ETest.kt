@@ -135,7 +135,8 @@ class B2aMetadataApplyE2ETest :
                         )
                     }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
-                val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+                val coverImageStore =
+                    CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
 
                 // ── Wire MetadataService + MetadataLookupServiceImpl ────────────
                 val cacheRepo = MetadataCacheRepository(sql, clock = FixedClock(TEST_NOW))
@@ -211,7 +212,8 @@ class B2aMetadataApplyE2ETest :
 
                 val mockEngine = MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) }
                 val imageStorage = ImageStorage(HttpClient(mockEngine))
-                val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+                val coverImageStore =
+                    CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
 
                 val cacheRepo = MetadataCacheRepository(sql, clock = FixedClock(TEST_NOW))
                 val metadataService =
@@ -279,7 +281,8 @@ class B2aMetadataApplyE2ETest :
                     )
                 val imageStorage =
                     ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) }))
-                val coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), MAX_COVER_BYTES))
+                val coverImageStore =
+                    CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), MAX_COVER_BYTES))
                 val service =
                     buildService(
                         this,

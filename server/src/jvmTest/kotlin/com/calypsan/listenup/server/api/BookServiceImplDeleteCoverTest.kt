@@ -42,6 +42,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.writeBytes
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path as IoPath
 
 class BookServiceImplDeleteCoverTest :
     FunSpec({
@@ -175,7 +176,7 @@ class BookServiceImplDeleteCoverTest :
                 // Write a fake managed cover file at covers/<bookId>.jpg
                 val managedFile = coversDir.resolve("b1.jpg").apply { writeBytes(byteArrayOf(1, 2, 3)) }
                 sql.seedTestLibraryAndFolder()
-                val coverImageStore = CoverImageStore(ImageStore(coversDir, MAX_COVER_BYTES))
+                val coverImageStore = CoverImageStore(ImageStore(IoPath(coversDir.toString()), MAX_COVER_BYTES))
                 val (service, repo) = newService(db, coverImageStore, homeDir = home)
                 runTest {
                     // Seed the book with an ENRICHED cover in the DB
@@ -203,7 +204,7 @@ class BookServiceImplDeleteCoverTest :
                 val coversDir = home.resolve("covers").apply { createDirectories() }
                 val managedFile = coversDir.resolve("b2.png").apply { writeBytes(byteArrayOf(4, 5, 6)) }
                 sql.seedTestLibraryAndFolder()
-                val coverImageStore = CoverImageStore(ImageStore(coversDir, MAX_COVER_BYTES))
+                val coverImageStore = CoverImageStore(ImageStore(IoPath(coversDir.toString()), MAX_COVER_BYTES))
                 val (service, repo) = newService(db, coverImageStore, homeDir = home)
                 runTest {
                     repo.upsert(bookFixture(id = "b2", title = "Uploaded Cover Book"))

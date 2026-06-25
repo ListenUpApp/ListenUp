@@ -135,7 +135,8 @@ private fun makeMetadataPermService(dbs: SqlTestDatabases): MetadataLookupServic
         imageDeps =
             MetadataImageDeps(
                 imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond("", HttpStatusCode.OK) })),
-                coverImageStore = CoverImageStore(ImageStore(tempDir.resolve("covers"), maxBytes = 10L * 1024 * 1024)),
+                coverImageStore =
+                    CoverImageStore(ImageStore(Path(tempDir.resolve("covers").toString()), maxBytes = 10L * 1024 * 1024)),
                 imageHome = Path(tempDir.toString()),
             ),
         enrichmentDeps = testEnrichmentDeps(dbs.sql, bus, registry),

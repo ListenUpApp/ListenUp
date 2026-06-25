@@ -13,6 +13,7 @@ import java.security.MessageDigest
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Creates, opens, validates, and extracts `.listenup.zip` backup archives.
@@ -58,7 +59,7 @@ class BackupArchive(
             try {
                 onEvent(BackupEvent.DbSnapshotting)
                 dbHandle.vacuumInto(tmpDb.toAbsolutePath().toString())
-                val dbHash = sha256Of(tmpDb)
+                val dbHash = sha256Of(IoPath(tmpDb.toString()))
                 val dest = paths.archiveFor(id)
                 writeArchive(tmpDb, dbHash, includeImages, onEvent, dest)
                 dest
@@ -279,7 +280,7 @@ class BackupArchive(
     ) {
         val extractedDb = targetDir.resolve(DB_ENTRY)
         val dbExpected = resolveDbExpected(archive, extractedDb, manifest)
-        val dbActual = sha256Of(extractedDb)
+        val dbActual = sha256Of(IoPath(extractedDb.toString()))
         if (dbActual != dbExpected) {
             throw CorruptArchiveException(
                 "$DB_ENTRY checksum mismatch after extract (expected=$dbExpected, actual=$dbActual)",

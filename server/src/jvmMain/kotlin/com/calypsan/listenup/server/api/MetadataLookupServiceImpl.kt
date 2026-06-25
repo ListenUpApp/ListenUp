@@ -293,7 +293,7 @@ internal class MetadataLookupServiceImpl(
         return try {
             val bytes = imageDeps.imageStorage.downloadBytes(url)
             val stored = imageDeps.coverImageStore.store.store(bookId.value, bytes, "image/jpeg")
-            val relPath = "covers/${stored.path.fileName}"
+            val relPath = "covers/${stored.path.name}"
             bookRepository.setManagedCover(bookId, relPath, stored.sha256, CoverSource.UPLOADED)
         } catch (e: CancellationException) {
             throw e

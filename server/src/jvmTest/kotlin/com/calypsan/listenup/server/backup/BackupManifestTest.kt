@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.backup
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 
 class BackupManifestTest :
     FunSpec({
@@ -25,8 +26,8 @@ class BackupManifestTest :
         test("sha256 of a file is stable") {
             val f = Files.createTempFile("chk", ".bin")
             Files.write(f, byteArrayOf(1, 2, 3, 4))
-            val a = sha256Of(f)
-            val b = sha256Of(f)
+            val a = sha256Of(IoPath(f.toString()))
+            val b = sha256Of(IoPath(f.toString()))
             a shouldBe b
             a.length shouldBe 64
         }

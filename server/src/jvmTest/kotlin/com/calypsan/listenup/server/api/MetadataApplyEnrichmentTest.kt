@@ -57,6 +57,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.files.Path as IoPath
 
 private val ENRICH_NOW = Instant.parse("2026-05-24T12:00:00Z")
 private const val ENRICH_ASIN = "B0ENRICH01"
@@ -213,7 +214,7 @@ private class EnrichmentCtx(
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             imageStorage = ImageStorage(HttpClient(MockEngine { _ -> respond(TINY_JPEG, HttpStatusCode.OK) })),
-            coverImageStore = CoverImageStore(ImageStore(Path.of(tempDir).resolve("covers"), MAX_COVER_BYTES)),
+            coverImageStore = CoverImageStore(ImageStore(IoPath(Path.of(tempDir).resolve("covers").toString()), MAX_COVER_BYTES)),
             metadataProvider = AudibleMetadataProvider(metadataService),
             genreHierarchy = GenreHierarchyFromLadder(sql, genreRepo, GenreAutoCreator(genreRepo)),
             sqlDb = sql,
