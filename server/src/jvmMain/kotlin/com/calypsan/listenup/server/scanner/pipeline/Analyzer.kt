@@ -215,8 +215,7 @@ internal class Analyzer(
             return null to MetadataStatus.UnsupportedFormat(format = null)
         }
         val absolutePath = Path(rootPath, primaryAudio.relPath)
-        val ioPath = absolutePath
-        return when (val result = embeddedMetadataParser.parse(ioPath)) {
+        return when (val result = embeddedMetadataParser.parse(absolutePath)) {
             is AppResult.Success -> {
                 result.data to MetadataStatus.Available
             }
@@ -261,8 +260,7 @@ internal class Analyzer(
     private suspend fun parseTrackForDuration(file: FileEntry): EmbeddedAudioMetadata? {
         if (file.size < AudioFormatDetector.MIN_HEADER_BYTES) return null
         val absolutePath = Path(rootPath, file.relPath)
-        val ioPath = absolutePath
-        return when (val result = embeddedMetadataParser.parse(ioPath)) {
+        return when (val result = embeddedMetadataParser.parse(absolutePath)) {
             is AppResult.Success -> {
                 result.data
             }
