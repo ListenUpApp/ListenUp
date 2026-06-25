@@ -43,9 +43,11 @@ struct DailyListeningChart: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .chartPlotStyle { plot in
-            plot.frame(height: 132)
-        }
+        // Bound the WHOLE chart, not just the plot: constraining only the plot region leaves the
+        // Chart view itself vertically greedy, so its bars could bleed upward into the streak pill
+        // sitting just above it in the stats card. A fixed overall height (plot + x-axis labels)
+        // gives the chart a deterministic footprint that never overlaps its neighbours.
+        .frame(height: 150)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.5), value: orderedDays)
     }
 
