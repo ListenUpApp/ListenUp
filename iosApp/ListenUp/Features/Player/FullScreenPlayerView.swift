@@ -82,16 +82,26 @@ struct FullScreenPlayerView: View {
 
     // MARK: - Frosted background
 
+    /// Slight extra opacity layered *under* the player glass so the surface reads a touch
+    /// less see-through while still frosting what's behind it. Tune in `0...1` — higher is
+    /// more opaque/solid, lower is more transparent.
+    private static let glassOpacityBoost: CGFloat = 0.14
+
     /// One clean Liquid-Glass surface for the whole player — the *same* glass the mini
     /// player uses (`.glassControl`), so expanding the bar reads as the same panel
-    /// growing to fill the screen. It frosts the actual app content behind it (the tab
-    /// content it expanded over), and `glassControl` carries its own Reduce-Transparency
-    /// fallback (an opaque `secondarySystemBackground`), so we don't hand-roll one.
+    /// growing to fill the screen. A faint `systemBackground` scrim sits *behind* the
+    /// glass (so the material frosts it too) to nudge it slightly less transparent. The
+    /// glass frosts the actual app content behind it (the tab content it expanded over),
+    /// and `glassControl` carries its own Reduce-Transparency fallback (an opaque
+    /// `secondarySystemBackground`), so we don't hand-roll one.
     private var frostedBackground: some View {
-        Rectangle()
-            .fill(.clear)
-            .glassControl(in: Rectangle())
-            .ignoresSafeArea()
+        ZStack {
+            Color(.systemBackground).opacity(Self.glassOpacityBoost)
+            Rectangle()
+                .fill(.clear)
+                .glassControl(in: Rectangle())
+        }
+        .ignoresSafeArea()
     }
 
     // MARK: - Layout
@@ -172,12 +182,12 @@ struct FullScreenPlayerView: View {
 
             Spacer().frame(height: 24)
         }
-        // Idiomatic swipe-down-to-dismiss anywhere on the player, not just the header
-        // handle. `simultaneousGesture` keeps the inner controls (transport buttons,
-        // the chapter `Slider`'s horizontal drag) fully interactive; the dismiss only
-        // commits on a downward release past the threshold or a fast fling, so a
-        // horizontal scrub never trips it. Reuses the same `onDragChanged`/`onDragEnded`
-        // path the header uses — one dismiss pipeline, no parallel logic.
+        // Idiomatic swipe-down-to-dismiss anywhere on the player (header included) — the
+        // single dismiss recognizer, so a slow drag is driven by exactly one gesture (no
+        // duplicate header drag double-firing `onDragChanged`). `simultaneousGesture` keeps
+        // the inner controls (transport buttons, the chapter `Slider`'s horizontal drag)
+        // fully interactive; the downward-only `onChanged` plus the threshold/fling commit
+        // mean a horizontal scrub never trips it.
         .contentShape(Rectangle())
         .simultaneousGesture(
             DragGesture(minimumDistance: 18)
@@ -236,17 +246,6 @@ struct FullScreenPlayerView: View {
             .accessibilityLabel(String(localized: "player.more_options"))
         }
         .padding(.horizontal, 18)
-        // Interactive swipe-down-to-dismiss lives on the header strip only. The
-        // chevron/menu `Button`s still get their taps (the drag only fires past
-        // its minimum distance); the body's chapter `Slider` is untouched.
-        .contentShape(Rectangle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 10)
-                .onChanged { value in onDragChanged(value.translation.height) }
-                .onEnded { value in
-                    onDragEnded(value.translation.height, value.predictedEndTranslation.height)
-                }
-        )
     }
 
     // MARK: - Title block
