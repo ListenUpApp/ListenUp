@@ -8,7 +8,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.io.isUnder
-import com.calypsan.listenup.server.scanner.watcher.WatcherSupervisor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -264,22 +263,3 @@ internal interface WatcherSupervisorPort {
 
     suspend fun unmountAll()
 }
-
-/** Adapts the concrete [WatcherSupervisor] to [WatcherSupervisorPort], bridging java.nio Path → kotlinx.io Path. */
-internal fun WatcherSupervisor.asPort(): WatcherSupervisorPort =
-    object : WatcherSupervisorPort {
-        override suspend fun mount(
-            libraryId: LibraryId,
-            folder: LibraryFolderRef,
-            onEvent: suspend (LibraryId, Path) -> Unit, // kotlinx.io Path
-        ) = this@asPort.mount(libraryId, folder) { libId, nioPath ->
-            // nioPath: java.nio Path
-            onEvent(libId, Path(nioPath.toString())) // bridge
-        }
-
-        override suspend fun unmount(folderId: FolderId) = this@asPort.unmount(folderId)
-
-        override suspend fun unmountAllForLibrary(libraryId: LibraryId) = this@asPort.unmountAllForLibrary(libraryId)
-
-        override suspend fun unmountAll() = this@asPort.unmountAll()
-    }

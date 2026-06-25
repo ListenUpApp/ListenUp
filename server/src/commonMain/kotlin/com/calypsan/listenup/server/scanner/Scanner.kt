@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.toList
 import kotlin.time.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
+import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
