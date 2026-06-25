@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.compression
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.property.Arb
@@ -8,9 +9,30 @@ import io.kotest.property.arbitrary.byteArray
 import io.kotest.property.arbitrary.int
 import io.kotest.property.checkAll
 import kotlinx.io.Buffer
+import kotlinx.io.RawSink
 import kotlinx.io.buffered
 import kotlinx.io.readByteArray
 import java.util.zip.Inflater
+
+/** A [RawSink] that records whether [close] reached it (a [Buffer]'s own close is a no-op). */
+private class CloseTrackingSink(
+    private val delegate: RawSink,
+) : RawSink {
+    var closed = false
+        private set
+
+    override fun write(
+        source: Buffer,
+        byteCount: Long,
+    ) = delegate.write(source, byteCount)
+
+    override fun flush() = delegate.flush()
+
+    override fun close() {
+        closed = true
+        delegate.close()
+    }
+}
 
 private fun oursDeflate(
     data: ByteArray,
@@ -57,7 +79,20 @@ class DeflateTest :
         }
 
         test("level 0: a >64KiB input spans multiple stored blocks") {
-            val data = ByteArray(200_000) { ((it * 13) and 0xFF).toByte() }
+            val data = ByteArray(200_000) { (it * 13 and 0xFF).toByte() }
             jdkInflateRaw(oursDeflate(data, 0)) shouldBe data
+        }
+
+        test("close propagates to the underlying sink (no fd leak)") {
+            val tracking = CloseTrackingSink(Buffer())
+            DeflateRawSink(tracking, 0).buffered().use {
+                it.write(Buffer().apply { write(byteArrayOf(1, 2, 3)) }, 3)
+            }
+            tracking.closed shouldBe true
+        }
+
+        test("rejects an out-of-range level") {
+            shouldThrow<IllegalArgumentException> { DeflateRawSink(Buffer(), 10) }
+            shouldThrow<IllegalArgumentException> { DeflateRawSink(Buffer(), -1) }
         }
     })

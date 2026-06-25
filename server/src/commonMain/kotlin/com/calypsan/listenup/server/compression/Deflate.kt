@@ -9,15 +9,21 @@ import kotlinx.io.readByteArray
 public const val DEFAULT_LEVEL: Int = 6
 
 /**
- * Compresses bytes written to it into a raw DEFLATE (RFC 1951) stream on [sink]. Streaming; [close]
- * emits the final block (BFINAL=1) and flushes. [level] 0 = stored (no compression); 1..9 = effort
- * (added in a later task — for now non-zero levels also use the stored path). Output is standard raw
- * DEFLATE that any RFC 1951 inflater (incl. java.util.zip) reads.
+ * Compresses bytes written to it into a raw DEFLATE (RFC 1951) stream on [sink]. Buffers all written
+ * bytes in memory, then on [close] emits them as DEFLATE blocks (BFINAL=1 on the last) and closes the
+ * underlying sink. The whole input is held in memory until [close]; a future task may emit blocks
+ * incrementally. [level] 0 = stored (no compression); 1..9 = effort (real compression added in a later
+ * task — for now non-zero levels also use the stored path). Output is standard raw DEFLATE that any
+ * RFC 1951 inflater (incl. java.util.zip) reads.
  */
 public class DeflateRawSink(
     sink: RawSink,
     private val level: Int = DEFAULT_LEVEL,
 ) : RawSink {
+    init {
+        require(level in 0..9) { "level must be 0..9, was $level" }
+    }
+
     private val out = sink.buffered()
     private val writer = BitWriter(out)
     private val input = Buffer()
@@ -36,8 +42,11 @@ public class DeflateRawSink(
     override fun close() {
         if (closed) return
         closed = true
-        emitStored(input.readByteArray()) // TODO Task 6: route level>=1 to a real compressor
-        out.flush()
+        try {
+            emitStored(input.readByteArray()) // TODO Task 6: route level>=1 to a real compressor
+        } finally {
+            out.close() // flushes, then releases the underlying sink (RealSink.close)
+        }
     }
 
     /**
@@ -59,7 +68,7 @@ public class DeflateRawSink(
             if (len > 0) writer.writeBytes(data.copyOfRange(offset, offset + len))
             offset += len
         } while (offset < data.size)
-        writer.alignToByte()
+        // Every block ends byte-aligned (writeBytes enforces alignment), so no final padding is needed.
         writer.flush()
     }
 }
