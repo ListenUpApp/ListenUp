@@ -16,7 +16,7 @@ struct MiniPlayerBar: View {
 
     /// Height of the content row — used by the host to reserve tab content space.
     static let barHeight: CGFloat = 56
-    /// Bottom padding that lifts the bar clear of the floating tab bar.
+    /// Small gap between the bar and the (measured) floating tab bar it sits above.
     static let tabBarClearance: CGFloat = 4
 
     var body: some View {
