@@ -440,6 +440,13 @@ class BookRepository(
         seriesIds: Map<String, SeriesId>?,
     ): AppResult<IngestOutcome> {
         val rootRelPath = analyzed.candidate.rootRelPath
+        // Defense-in-depth: the natural key is library-relative. An absolute path here means an
+        // upstream scanner bug leaked one (see FileHelpers.relativeTo / the 2026-06-25 regression);
+        // persisting it would miss findByPath on every rescan and mass-trip the inode "moved" branch.
+        // Fail loud and contained — BookPersister.persistOne logs and skips the offending book.
+        require(!rootRelPath.startsWith("/")) {
+            "rootRelPath must be library-relative, got absolute: $rootRelPath"
+        }
 
         // The three identity branches differ only in the resolved BookId and the wasNew flag; the
         // aggregate write (and its threaded pre-resolved id maps) is identical, so close over it once.
