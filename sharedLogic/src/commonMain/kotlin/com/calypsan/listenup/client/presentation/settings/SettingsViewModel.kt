@@ -147,6 +147,8 @@ class SettingsViewModel(
             val ignoreTitleArticles = libraryPreferences.getIgnoreTitleArticles()
             val hideSingleBookSeries = libraryPreferences.getHideSingleBookSeries()
             val defaultPlaybackSpeed = playbackPreferences.getDefaultPlaybackSpeed()
+            val defaultSkipForwardSec = playbackPreferences.getDefaultSkipForwardSec()
+            val defaultSkipBackwardSec = playbackPreferences.getDefaultSkipBackwardSec()
 
             // Load server URL from local storage
             val serverUrl = serverConfig.getServerUrl()?.value
@@ -156,6 +158,8 @@ class SettingsViewModel(
                     ignoreTitleArticles = ignoreTitleArticles,
                     hideSingleBookSeries = hideSingleBookSeries,
                     defaultPlaybackSpeed = defaultPlaybackSpeed,
+                    defaultSkipForwardSec = defaultSkipForwardSec,
+                    defaultSkipBackwardSec = defaultSkipBackwardSec,
                     serverUrl = serverUrl,
                 )
             }
@@ -205,8 +209,11 @@ class SettingsViewModel(
                     )
                 }
 
-                // Update local cache for offline access
+                // Update local reactive cache for offline access — also drives the live
+                // player observation, so a cross-device skip change lands on the player.
                 playbackPreferences.setDefaultPlaybackSpeed(prefs.defaultPlaybackSpeed)
+                playbackPreferences.setDefaultSkipForwardSec(prefs.defaultSkipForwardSec)
+                playbackPreferences.setDefaultSkipBackwardSec(prefs.defaultSkipBackwardSec)
             }
 
             is AppResult.Failure -> {
@@ -247,6 +254,9 @@ class SettingsViewModel(
      */
     fun setDefaultSkipForwardSec(seconds: Int) {
         viewModelScope.launch {
+            // Persist to the local reactive store first — this is the live source the
+            // player observes — then mirror UI state and sync to the server in the background.
+            playbackPreferences.setDefaultSkipForwardSec(seconds)
             internalState.update { it.copy(defaultSkipForwardSec = seconds) }
             userPreferencesRepository
                 .setDefaultSkipForwardSec(seconds)
@@ -260,6 +270,9 @@ class SettingsViewModel(
      */
     fun setDefaultSkipBackwardSec(seconds: Int) {
         viewModelScope.launch {
+            // Persist to the local reactive store first — this is the live source the
+            // player observes — then mirror UI state and sync to the server in the background.
+            playbackPreferences.setDefaultSkipBackwardSec(seconds)
             internalState.update { it.copy(defaultSkipBackwardSec = seconds) }
             userPreferencesRepository
                 .setDefaultSkipBackwardSec(seconds)

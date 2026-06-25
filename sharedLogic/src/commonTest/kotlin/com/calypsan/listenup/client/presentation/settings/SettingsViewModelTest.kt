@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
@@ -91,6 +92,10 @@ class SettingsViewModelTest :
 
             // Default stubs for playback preferences - getters
             everySuspend { fixture.playbackPreferences.getDefaultPlaybackSpeed() } returns PlaybackPreferences.DEFAULT_PLAYBACK_SPEED
+            everySuspend { fixture.playbackPreferences.getDefaultSkipForwardSec() } returns
+                PlaybackPreferences.DEFAULT_SKIP_FORWARD_SEC
+            everySuspend { fixture.playbackPreferences.getDefaultSkipBackwardSec() } returns
+                PlaybackPreferences.DEFAULT_SKIP_BACKWARD_SEC
 
             // Default stubs for library preferences - getters
             everySuspend { fixture.libraryPreferences.getIgnoreTitleArticles() } returns true
@@ -98,6 +103,8 @@ class SettingsViewModelTest :
 
             // Default stubs for playback preferences - setters (called when syncing from server)
             everySuspend { fixture.playbackPreferences.setDefaultPlaybackSpeed(PlaybackPreferences.DEFAULT_PLAYBACK_SPEED) } returns Unit
+            everySuspend { fixture.playbackPreferences.setDefaultSkipForwardSec(any()) } returns Unit
+            everySuspend { fixture.playbackPreferences.setDefaultSkipBackwardSec(any()) } returns Unit
 
             // Default stub for API - return defaults
             everySuspend { fixture.userPreferencesRepository.getPreferences() } returns

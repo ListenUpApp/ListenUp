@@ -83,6 +83,16 @@ enum SleepTimingState: Sendable, Equatable {
     case active(remainingMs: Int64, isEndOfChapter: Bool, label: String)
 }
 
+/// The user's skip-interval settings, projected as native streams. Each stream emits
+/// the current value immediately and re-emits whenever the setting is written from any
+/// surface (e.g. the Settings screen) — so a change lands on the player live, mid-session.
+protocol SkipIntervalProviding: Sendable {
+    /// Forward skip interval in seconds. Emits current value, then on every change.
+    var forwardSeconds: AsyncStream<Int> { get }
+    /// Backward skip interval in seconds. Emits current value, then on every change.
+    var backwardSeconds: AsyncStream<Int> { get }
+}
+
 protocol BookCoverProviding: Sendable {
     func coverBlurHash(bookId: String) async -> String?
 }

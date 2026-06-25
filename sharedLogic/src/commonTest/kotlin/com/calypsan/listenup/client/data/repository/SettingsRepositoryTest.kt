@@ -290,4 +290,50 @@ class SettingsRepositoryTest :
                 }
             }
         }
+
+        // ========== Default skip intervals ==========
+
+        test("getDefaultSkipForwardSec / getDefaultSkipBackwardSec return defaults when unset") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_skip_forward_sec") } returns null
+                everySuspend { storage.read("default_skip_backward_sec") } returns null
+                val repository = createRepository(storage = storage)
+
+                repository.getDefaultSkipForwardSec() shouldBe 30
+                repository.getDefaultSkipBackwardSec() shouldBe 10
+            }
+        }
+
+        test("observeDefaultSkipForwardSec emits current value then re-emits on write") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_skip_forward_sec") } returns "30"
+                everySuspend { storage.save("default_skip_forward_sec", "45") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.observeDefaultSkipForwardSec().test {
+                    awaitItem() shouldBe 30
+                    repository.setDefaultSkipForwardSec(45)
+                    awaitItem() shouldBe 45
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
+
+        test("observeDefaultSkipBackwardSec emits current value then re-emits on write") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read("default_skip_backward_sec") } returns "10"
+                everySuspend { storage.save("default_skip_backward_sec", "5") } returns Unit
+                val repository = createRepository(storage = storage)
+
+                repository.observeDefaultSkipBackwardSec().test {
+                    awaitItem() shouldBe 10
+                    repository.setDefaultSkipBackwardSec(5)
+                    awaitItem() shouldBe 5
+                    cancelAndIgnoreRemainingEvents()
+                }
+            }
+        }
     })

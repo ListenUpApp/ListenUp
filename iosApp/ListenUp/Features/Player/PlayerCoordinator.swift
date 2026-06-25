@@ -172,10 +172,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let sleep: SleepTiming
     private let coverProvider: BookCoverProviding
     private let documentProvider: BookDocumentProviding
-    /// Source of the user's synced skip-interval settings. The coordinator observes
-    /// its `state` so the transport, glyphs, and lock-screen control track the setting.
-    /// Optional so the fake-injected unit tests don't need a settings VM.
-    private let settingsViewModel: SettingsViewModel?
+    /// Reactive source of the user's skip-interval settings. The coordinator observes
+    /// its streams so the transport, glyphs, and lock-screen control track the setting
+    /// live — a change on the Settings screen lands here mid-session. Optional so the
+    /// fake-injected unit tests don't need a settings source.
+    private let skipIntervals: SkipIntervalProviding?
     /// Per-step delay of the sleep-timer fade-out. Injected so tests run the fade instantly
     /// (`.zero`) instead of depending on ~3 s of real wall-clock time, which flakes under CI load.
     private let fadeStepDelay: Duration
@@ -201,7 +202,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         engine: PlaybackEngine,
         coverProvider: BookCoverProviding,
         documentProvider: BookDocumentProviding = NoDocumentProviding(),
-        settingsViewModel: SettingsViewModel? = nil,
+        skipIntervals: SkipIntervalProviding? = nil,
         fadeStepDelay: Duration = .milliseconds(250)
     ) {
         self.preparer = preparer
@@ -210,7 +211,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.engine = engine
         self.coverProvider = coverProvider
         self.documentProvider = documentProvider
-        self.settingsViewModel = settingsViewModel
+        self.skipIntervals = skipIntervals
         self.fadeStepDelay = fadeStepDelay
         system.attach(handler: self)
         system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: skipBackwardSec)
@@ -230,7 +231,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
             engine: AudioEngine(),
             coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository),
             documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository),
-            settingsViewModel: deps.createSettingsViewModel()
+            skipIntervals: KotlinSkipIntervalProviding(preferences: deps.playbackPreferences)
         )
     }
 
@@ -241,18 +242,20 @@ final class PlayerCoordinator: RemoteCommandHandler {
         }
     }
 
-    /// Track the user's synced skip-interval settings. Updates the `@Observable`
-    /// surface the transport reads and re-pushes the lock-screen control's intervals.
+    /// Track the user's skip-interval settings. Each stream emits the current value on
+    /// subscribe and again on every change, so the `@Observable` surface the transport
+    /// reads — and the lock-screen control — stay live with the setting.
     private func observeSkipIntervals() {
-        guard let settingsViewModel else { return }
-        bridge.bind(settingsViewModel.state) { [weak self] state in
-            guard let self else { return }
-            let forward = Int(state.defaultSkipForwardSec)
-            let backward = Int(state.defaultSkipBackwardSec)
-            guard forward != skipForwardSec || backward != skipBackwardSec else { return }
-            skipForwardSec = forward
-            skipBackwardSec = backward
-            system.updateSkipIntervals(forwardSeconds: forward, backwardSeconds: backward)
+        guard let skipIntervals else { return }
+        bridge.bind(skipIntervals.forwardSeconds) { [weak self] seconds in
+            guard let self, seconds != skipForwardSec else { return }
+            skipForwardSec = seconds
+            system.updateSkipIntervals(forwardSeconds: seconds, backwardSeconds: skipBackwardSec)
+        }
+        bridge.bind(skipIntervals.backwardSeconds) { [weak self] seconds in
+            guard let self, seconds != skipBackwardSec else { return }
+            skipBackwardSec = seconds
+            system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: seconds)
         }
     }
 

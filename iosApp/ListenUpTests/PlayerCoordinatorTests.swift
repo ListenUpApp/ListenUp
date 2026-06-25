@@ -266,7 +266,9 @@ struct EndOfChapterTests {
 @Suite("Skip interval wiring")
 @MainActor
 struct SkipIntervalTests {
-    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
+    private func makeCoordinator(
+        skipIntervals: FakeSkipIntervalProviding? = nil
+    ) -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
         let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
@@ -278,7 +280,8 @@ struct SkipIntervalTests {
         )
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
-            engine: engine, coverProvider: FakeBookCoverProviding())
+            engine: engine, coverProvider: FakeBookCoverProviding(),
+            skipIntervals: skipIntervals)
         return (coordinator, engine, progress)
     }
 
@@ -303,6 +306,54 @@ struct SkipIntervalTests {
         coordinator.skipBackward()
         await progress.waitForPositionUpdate(bookId: "book1", positionMs: 50000)
         #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 50000 })
+    }
+
+    /// The provider's seeded values flow into the coordinator's observable surface.
+    @Test func seededIntervalsApplyToObservableSurface() async {
+        let skip = FakeSkipIntervalProviding(initialForward: 45, initialBackward: 15)
+        let (coordinator, _, _) = makeCoordinator(skipIntervals: skip)
+        await awaitUntil { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 15 }
+        #expect(coordinator.skipForwardSec == 45)
+        #expect(coordinator.skipBackwardSec == 15)
+    }
+
+    /// A live change emitted by the provider (e.g. the user picks a new interval on the
+    /// Settings screen mid-session) propagates to the coordinator's interval *without* a
+    /// rebuild — write → Flow emits → coordinator updates. This is the regression the
+    /// repo-flow wiring exists to prevent. Kept playback-free so it only exercises the
+    /// observation seam, not the full app start path.
+    @Test func liveChangePropagatesToObservableSurface() async {
+        let skip = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
+        let (coordinator, _, _) = makeCoordinator(skipIntervals: skip)
+        await awaitUntil { coordinator.skipForwardSec == 30 && coordinator.skipBackwardSec == 10 }
+
+        // User changes the intervals after construction (mid-session, no rebuild).
+        skip.emitForward(45)
+        skip.emitBackward(20)
+        await awaitUntil { coordinator.skipForwardSec == 45 && coordinator.skipBackwardSec == 20 }
+        #expect(coordinator.skipForwardSec == 45)
+        #expect(coordinator.skipBackwardSec == 20)
+    }
+
+    /// After a live change, the next skip honors the *new* interval. Together with
+    /// `liveChangePropagatesToObservableSurface` this proves the full chain: a Settings
+    /// write updates the interval and the very next skip uses it (45 s → 105 s, not 30 s → 90 s).
+    @Test func nextSkipAfterLiveChangeUsesNewInterval() async {
+        let skip = FakeSkipIntervalProviding(initialForward: 30, initialBackward: 10)
+        let (coordinator, engine, progress) = makeCoordinator(skipIntervals: skip)
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+        await awaitUntil { coordinator.skipForwardSec == 30 }
+
+        skip.emitForward(45)
+        await awaitUntil { coordinator.skipForwardSec == 45 }
+
+        // Anchor position at 60 s, then the next skip uses 45 s → 105 s.
+        engine.emit(.position(ms: 60000, rate: 1.0))
+        await awaitUntil { coordinator.bookPositionMs == 60000 }
+        coordinator.skipForward()
+        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 105_000)
+        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 105_000 })
     }
 }
 

@@ -133,6 +133,27 @@ final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
     }
 }
 
+final class FakeSkipIntervalProviding: SkipIntervalProviding, @unchecked Sendable {
+    let forwardSeconds: AsyncStream<Int>
+    private let forwardContinuation: AsyncStream<Int>.Continuation
+    let backwardSeconds: AsyncStream<Int>
+    private let backwardContinuation: AsyncStream<Int>.Continuation
+
+    /// Seeds each stream with an initial value, mirroring the real provider's first emission.
+    init(initialForward: Int, initialBackward: Int) {
+        var fc: AsyncStream<Int>.Continuation!
+        forwardSeconds = AsyncStream { fc = $0 }; forwardContinuation = fc
+        var bc: AsyncStream<Int>.Continuation!
+        backwardSeconds = AsyncStream { bc = $0 }; backwardContinuation = bc
+        forwardContinuation.yield(initialForward)
+        backwardContinuation.yield(initialBackward)
+    }
+
+    /// Push a new interval, simulating a live Settings change.
+    func emitForward(_ seconds: Int) { forwardContinuation.yield(seconds) }
+    func emitBackward(_ seconds: Int) { backwardContinuation.yield(seconds) }
+}
+
 final class FakeBookCoverProviding: BookCoverProviding, @unchecked Sendable {
     var blurHash: String?
     func coverBlurHash(bookId: String) async -> String? { blurHash }

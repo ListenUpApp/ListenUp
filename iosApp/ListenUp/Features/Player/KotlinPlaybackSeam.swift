@@ -112,6 +112,39 @@ final class KotlinSleepTiming: SleepTiming, @unchecked Sendable {
     func onFadeCompleted() { manager.onFadeCompleted() }
 }
 
+/// Bridges `PlaybackPreferences`' reactive skip-interval `Flow<Int>`s into native
+/// `AsyncStream<Int>`s. The shared store emits the current value on first collect and
+/// re-emits on every write (from any surface), so the player tracks the setting live.
+final class KotlinSkipIntervalProviding: SkipIntervalProviding, @unchecked Sendable {
+    private let bridge: FlowBridge
+    let forwardSeconds: AsyncStream<Int>
+    private let forwardContinuation: AsyncStream<Int>.Continuation
+    let backwardSeconds: AsyncStream<Int>
+    private let backwardContinuation: AsyncStream<Int>.Continuation
+
+    // `@MainActor`: constructed only from `Dependencies.playerCoordinator` (main actor);
+    // `FlowBridge` is main-actor-isolated. The protocol requirements stay nonisolated.
+    @MainActor
+    init(preferences: PlaybackPreferences) {
+        self.bridge = FlowBridge()
+        var fc: AsyncStream<Int>.Continuation!
+        forwardSeconds = AsyncStream { fc = $0 }; forwardContinuation = fc
+        var bc: AsyncStream<Int>.Continuation!
+        backwardSeconds = AsyncStream { bc = $0 }; backwardContinuation = bc
+        // A cold Kotlin `Flow` is exposed over Swift Export via `asAsyncSequence()` (the
+        // `observeDocuments` precedent), as a `KotlinFlowSequence<Int32>`. The explicit
+        // `Int32` annotation steers `bind` to its `AsyncSequence` overload; convert to `Int`.
+        let forward = preferences.observeDefaultSkipForwardSec().asAsyncSequence()
+        bridge.bind(forward) { [forwardContinuation] (seconds: Int32) in
+            forwardContinuation.yield(Int(seconds))
+        }
+        let backward = preferences.observeDefaultSkipBackwardSec().asAsyncSequence()
+        bridge.bind(backward) { [backwardContinuation] (seconds: Int32) in
+            backwardContinuation.yield(Int(seconds))
+        }
+    }
+}
+
 struct KotlinBookCoverProviding: BookCoverProviding {
     let repository: BookRepository
     func coverBlurHash(bookId: String) async -> String? {

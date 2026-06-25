@@ -48,6 +48,7 @@ final class Dependencies {
     var playbackPreparer: PlaybackPreparer { resolve { KoinHelper.shared.getPlaybackPreparer() } }
     var playbackProgressReporter: PlaybackProgressReporter { resolve { KoinHelper.shared.getPlaybackProgressReporter() } }
     var sleepTimerManager: SleepTimerManager { resolve { KoinHelper.shared.getSleepTimerManager() } }
+    var playbackPreferences: PlaybackPreferences { resolve { KoinHelper.shared.getPlaybackPreferences() } }
 
     // MARK: - Library services
 
