@@ -42,6 +42,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Service-level tests for the admin-gated ABS-import surface. They drive the full lifecycle through
@@ -203,10 +204,16 @@ private suspend fun stageService(
     principal: PrincipalProvider,
 ): StagedService {
     val home = Files.createTempDirectory("abs-service-")
-    val paths = ImportPaths(home).apply { ensureDirs() }
+    val paths = ImportPaths(IoPath(home.toString())).apply { ensureDirs() }
     val importId = ImportId("abs-service-test")
-    Files.createDirectories(paths.dirFor(importId.value))
-    buildSyntheticAbsDb(paths.absDbFor(importId.value))
+    Files.createDirectories(
+        java.nio.file.Path
+            .of(paths.dirFor(importId.value).toString()),
+    )
+    buildSyntheticAbsDb(
+        java.nio.file.Path
+            .of(paths.absDbFor(importId.value).toString()),
+    )
 
     val libId = seedLibraryUser(dbs)
     dbs.sql.seedBooks(libId.value)

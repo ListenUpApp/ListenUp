@@ -84,9 +84,15 @@ class ImportApplier internal constructor(
             try {
                 val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
                 val (progress, sessions) =
-                    reader.open(paths.absDbFor(importId.value).toAbsolutePath().toString()).use { handle ->
-                        handle.progress() to handle.playbackSessions()
-                    }
+                    reader
+                        .open(
+                            java.nio.file.Path
+                                .of(paths.absDbFor(importId.value).toString())
+                                .toAbsolutePath()
+                                .toString(),
+                        ).use { handle ->
+                            handle.progress() to handle.playbackSessions()
+                        }
 
                 val affectedUsers = mutableSetOf<String>()
                 // The honest "couldn't import" count: distinct books a mapped user has history for

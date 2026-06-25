@@ -29,6 +29,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 import java.util.UUID
 import java.util.zip.ZipInputStream
 import kotlin.io.path.outputStream
@@ -88,7 +89,7 @@ private suspend fun ApplicationCall.handleImportUpload(
 ) {
     paths.ensureDirs()
     // Stream the upload to a temp file — never buffer a multi-hundred-MB ABS backup into memory.
-    val tmpZip = Files.createTempFile(paths.tmpDir, "abs-upload-", ".audiobookshelf")
+    val tmpZip = Files.createTempFile(paths.tmpDir.toNio(), "abs-upload-", ".audiobookshelf")
     try {
         var received = false
         receiveMultipart(formFieldLimit = MAX_BACKUP_UPLOAD_BYTES).forEachPart { part ->
@@ -106,12 +107,12 @@ private suspend fun ApplicationCall.handleImportUpload(
 
         // Server-minted id — never from the client filename — so it is always a safe path segment.
         val importId = "abs-${UUID.randomUUID()}"
-        val importDir = paths.dirFor(importId)
+        val importDir = paths.dirFor(importId).toNio()
         Files.createDirectories(importDir)
         try {
-            extractAbsDatabase(tmpZip, importDir, paths.absDbFor(importId))
+            extractAbsDatabase(tmpZip, importDir, paths.absDbFor(importId).toNio())
             val createdAt = clock.now().toEpochMilliseconds()
-            paths.metaFor(importId).writeText(
+            paths.metaFor(importId).toNio().writeText(
                 metaJson.encodeToString(UploadMeta(createdAt = createdAt)),
             )
             respond(
@@ -198,3 +199,6 @@ private suspend fun ApplicationCall.respondImportAppError(error: AppError) {
     val typed = error.withCorrelationId(callId)
     respond(typed.toHttpStatus(), typed)
 }
+
+/** Bridges a kotlinx-io path (from [ImportPaths]) to the java.nio path this route's zip/IO code uses. */
+private fun IoPath.toNio(): Path = Path.of(toString())

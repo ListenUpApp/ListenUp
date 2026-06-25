@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.absimport
 
-import java.nio.file.Files
-import java.nio.file.Path
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * All filesystem locations the ABS-import domain uses, rooted at `$LISTENUP_HOME/imports/`.
@@ -19,34 +19,34 @@ class ImportPaths(
     private val homeDir: Path,
 ) {
     /** Root directory holding one subdirectory per staged import job. */
-    val importsDir: Path get() = homeDir.resolve("imports")
+    val importsDir: Path get() = Path(homeDir, "imports")
 
     /** Scratch space for in-progress upload streaming (inside [importsDir] to keep renames cheap). */
-    val tmpDir: Path get() = importsDir.resolve(".tmp")
+    val tmpDir: Path get() = Path(importsDir, ".tmp")
 
     /** The working directory for the import with the given [id]. */
-    fun dirFor(id: String): Path = importsDir.resolve(id)
+    fun dirFor(id: String): Path = Path(importsDir, id)
 
     /** The extracted Audiobookshelf SQLite database for the import [id]. */
-    fun absDbFor(id: String): Path = dirFor(id).resolve(AbsSchema.DB_FILENAME)
+    fun absDbFor(id: String): Path = Path(dirFor(id), AbsSchema.DB_FILENAME)
 
     /** The persisted analysis preview (`analysis.json`) for the import [id]. */
-    fun analysisFor(id: String): Path = dirFor(id).resolve("analysis.json")
+    fun analysisFor(id: String): Path = Path(dirFor(id), "analysis.json")
 
     /** The server-internal resolved matches (`matches.json`) for the import [id]. */
-    fun matchesFor(id: String): Path = dirFor(id).resolve("matches.json")
+    fun matchesFor(id: String): Path = Path(dirFor(id), "matches.json")
 
     /** The persisted confirmed mapping (`mapping.json`) for the import [id]. */
-    fun mappingFor(id: String): Path = dirFor(id).resolve("mapping.json")
+    fun mappingFor(id: String): Path = Path(dirFor(id), "mapping.json")
 
     /** The marker file written once apply has completed for the import [id]. */
-    fun appliedMarkerFor(id: String): Path = dirFor(id).resolve(".applied")
+    fun appliedMarkerFor(id: String): Path = Path(dirFor(id), ".applied")
 
     /** The small upload-time metadata sidecar (`meta.json`) for the import [id]. */
-    fun metaFor(id: String): Path = dirFor(id).resolve("meta.json")
+    fun metaFor(id: String): Path = Path(dirFor(id), "meta.json")
 
     /** Creates [importsDir] and [tmpDir] if they do not already exist. */
     fun ensureDirs() {
-        listOf(importsDir, tmpDir).forEach { Files.createDirectories(it) }
+        listOf(importsDir, tmpDir).forEach { SystemFileSystem.createDirectories(it) }
     }
 }

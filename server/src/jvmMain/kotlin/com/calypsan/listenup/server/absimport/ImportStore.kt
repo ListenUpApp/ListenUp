@@ -9,17 +9,16 @@ import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.server.io.creationTimeMillis
+import com.calypsan.listenup.server.io.deleteRecursively
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.io.readText
+import com.calypsan.listenup.server.io.writeText
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
-import kotlin.io.path.exists
-import kotlin.io.path.isDirectory
-import kotlin.io.path.name
-import kotlin.io.path.readText
-import kotlin.io.path.useDirectoryEntries
-import kotlin.io.path.writeText
 
 /**
  * Filesystem-truth job state for staged ABS imports.
@@ -30,7 +29,7 @@ import kotlin.io.path.writeText
  * [ImportStatus] from which staging files exist, and persisting/reading the
  * `analysis.json` and `mapping.json` sidecars.
  *
- * All file I/O runs on [Dispatchers.IO].
+ * All file I/O runs on [fileIoDispatcher].
  */
 class ImportStore(
     private val paths: ImportPaths,
@@ -39,14 +38,13 @@ class ImportStore(
     suspend fun listImports(): List<ImportSummary> =
         onIo {
             val root = paths.importsDir
-            if (!root.exists()) return@onIo emptyList()
-            root.useDirectoryEntries { entries ->
-                entries
-                    .filter { entry -> entry.isDirectory() && entry.name != paths.tmpDir.name }
-                    .mapNotNull { dir -> summaryFor(dir.name) }
-                    .sortedByDescending { it.createdAt }
-                    .toList()
-            }
+            if (!SystemFileSystem.exists(root)) return@onIo emptyList()
+            SystemFileSystem
+                .list(root)
+                .filter { entry ->
+                    SystemFileSystem.metadataOrNull(entry)?.isDirectory == true && entry.name != paths.tmpDir.name
+                }.mapNotNull { dir -> summaryFor(dir.name) }
+                .sortedByDescending { it.createdAt }
         }
 
     /** Returns the summary for [id], or null if no such import directory exists. */
@@ -56,10 +54,11 @@ class ImportStore(
     suspend fun deleteImport(id: ImportId): Boolean =
         onIo {
             val dir = paths.dirFor(id.value)
-            if (!dir.exists()) {
+            if (!SystemFileSystem.exists(dir)) {
                 false
             } else {
-                dir.toFile().deleteRecursively()
+                deleteRecursively(dir)
+                true
             }
         }
 
@@ -90,7 +89,7 @@ class ImportStore(
     suspend fun readMatches(id: ImportId): ResolvedImport? =
         onIo {
             val file = paths.matchesFor(id.value)
-            if (file.exists()) json.decodeFromString<ResolvedImport>(file.readText()) else null
+            if (SystemFileSystem.exists(file)) json.decodeFromString<ResolvedImport>(file.readText()) else null
         }
 
     /** Persists the confirmed mapping for [id] as `mapping.json`. */
@@ -106,7 +105,7 @@ class ImportStore(
     suspend fun readMapping(id: ImportId): StoredMapping? =
         onIo {
             val file = paths.mappingFor(id.value)
-            if (file.exists()) json.decodeFromString<StoredMapping>(file.readText()) else null
+            if (SystemFileSystem.exists(file)) json.decodeFromString<StoredMapping>(file.readText()) else null
         }
 
     /** Touches the `.applied` marker, recording that apply has completed for [id]. */
@@ -120,16 +119,16 @@ class ImportStore(
 
     private fun statusOf(id: String): ImportStatus =
         when {
-            paths.appliedMarkerFor(id).exists() -> ImportStatus.APPLIED
-            paths.mappingFor(id).exists() -> ImportStatus.MAPPED
-            paths.analysisFor(id).exists() -> ImportStatus.ANALYZED
+            SystemFileSystem.exists(paths.appliedMarkerFor(id)) -> ImportStatus.APPLIED
+            SystemFileSystem.exists(paths.mappingFor(id)) -> ImportStatus.MAPPED
+            SystemFileSystem.exists(paths.analysisFor(id)) -> ImportStatus.ANALYZED
             else -> ImportStatus.UPLOADED
         }
 
     /** Builds the summary for a single import directory, or null if the directory is absent. */
     private fun summaryFor(id: String): ImportSummary? {
         val dir = paths.dirFor(id)
-        if (!dir.exists()) return null
+        if (!SystemFileSystem.exists(dir)) return null
         val analysis = readAnalysisBlocking(id)
         return ImportSummary(
             id = ImportId(id),
@@ -142,23 +141,18 @@ class ImportStore(
 
     private fun readAnalysisBlocking(id: String): ImportAnalysis? {
         val file = paths.analysisFor(id)
-        return if (file.exists()) json.decodeFromString<ImportAnalysis>(file.readText()) else null
+        return if (SystemFileSystem.exists(file)) json.decodeFromString<ImportAnalysis>(file.readText()) else null
     }
 
     /** Reads `createdAt` from the upload-time `meta.json`, falling back to the dir creation time. */
     private fun createdAtFor(id: String): Long {
         val meta = paths.metaFor(id)
-        if (meta.exists()) {
+        if (SystemFileSystem.exists(meta)) {
             runCatching { json.decodeFromString<ImportMeta>(meta.readText()).createdAt }
                 .getOrNull()
                 ?.let { return it }
         }
-        return runCatching {
-            Files
-                .readAttributes(paths.dirFor(id), java.nio.file.attribute.BasicFileAttributes::class.java)
-                .creationTime()
-                .toMillis()
-        }.getOrDefault(0L)
+        return runCatching { creationTimeMillis(paths.dirFor(id)) }.getOrDefault(0L)
     }
 
     /** Total books surfaced in the preview: matched (definitive tiers) + ambiguous + unmatched. */
@@ -171,12 +165,14 @@ class ImportStore(
         return definitive + analysis.ambiguous.size + analysis.unmatched.size
     }
 
-    private suspend fun <T> onIo(block: () -> T): T = withContext(Dispatchers.IO) { block() }
+    private suspend fun <T> onIo(block: () -> T): T = withContext(fileIoDispatcher) { block() }
 
     /** Server-internal persisted shape of a confirmed mapping (`mapping.json`). */
     @Serializable
     data class StoredMapping(
+        @SerialName("userMappings")
         val userMappings: Map<AbsUserId, UserId>,
+        @SerialName("bookOverrides")
         val bookOverrides: Map<AbsItemId, BookId?>,
     )
 
@@ -190,13 +186,16 @@ class ImportStore(
      */
     @Serializable
     data class ResolvedImport(
+        @SerialName("itemMatches")
         val itemMatches: Map<AbsItemId, BookId>,
+        @SerialName("userMatches")
         val userMatches: List<AbsUserMatch>,
     )
 
     /** Server-internal upload-time metadata sidecar (`meta.json`). */
     @Serializable
     private data class ImportMeta(
+        @SerialName("createdAt")
         val createdAt: Long,
     )
 
