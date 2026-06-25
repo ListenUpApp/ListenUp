@@ -139,7 +139,8 @@ internal class DownloadRepositoryImpl(
             // Transition all non-terminal rows to CANCELLED.
             for (row in rows) {
                 if (row.state != DownloadState.COMPLETED && row.state != DownloadState.DELETED) {
-                    markCancelled(row.audioFileId)
+                    // Best-effort per row — a single failed transition shouldn't abort the cancel sweep.
+                    val _ = markCancelled(row.audioFileId)
                 }
             }
         }

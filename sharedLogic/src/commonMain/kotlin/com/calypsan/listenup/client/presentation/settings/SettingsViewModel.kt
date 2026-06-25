@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.settings
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.onFailure
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.core.Failure
@@ -235,6 +236,7 @@ class SettingsViewModel(
 
             // Sync to server in background
             userPreferencesRepository.setDefaultPlaybackSpeed(speed)
+                .onFailure { logger.warn { "Failed to sync default playback speed to server: ${it.message}" } }
         }
     }
 
@@ -246,6 +248,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             internalState.update { it.copy(defaultSkipForwardSec = seconds) }
             userPreferencesRepository.setDefaultSkipForwardSec(seconds)
+                .onFailure { logger.warn { "Failed to sync default skip-forward to server: ${it.message}" } }
         }
     }
 
@@ -257,6 +260,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             internalState.update { it.copy(defaultSkipBackwardSec = seconds) }
             userPreferencesRepository.setDefaultSkipBackwardSec(seconds)
+                .onFailure { logger.warn { "Failed to sync default skip-backward to server: ${it.message}" } }
         }
     }
 
@@ -268,6 +272,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             internalState.update { it.copy(defaultSleepTimerMin = minutes) }
             userPreferencesRepository.setDefaultSleepTimerMin(minutes)
+                .onFailure { logger.warn { "Failed to sync default sleep-timer to server: ${it.message}" } }
         }
     }
 
@@ -278,6 +283,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             internalState.update { it.copy(shakeToResetSleepTimer = enabled) }
             userPreferencesRepository.setShakeToResetSleepTimer(enabled)
+                .onFailure { logger.warn { "Failed to sync shake-to-reset-sleep-timer to server: ${it.message}" } }
         }
     }
 

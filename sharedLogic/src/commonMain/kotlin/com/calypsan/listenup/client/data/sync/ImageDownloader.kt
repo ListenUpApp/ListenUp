@@ -279,7 +279,8 @@ internal class ImageDownloader(
 
         // Delete existing if force refresh
         if (forceRefresh && imageStorage.userAvatarExists(userId)) {
-            imageStorage.deleteUserAvatar(userId)
+            // Best-effort cleanup before re-download; the fresh file overwrites a failed delete anyway.
+            val _ = imageStorage.deleteUserAvatar(userId)
             logger.info { "Deleted old avatar for user $userId before refresh" }
         }
 

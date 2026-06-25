@@ -187,7 +187,7 @@ internal val clientSyncRenovationModule =
                 // The server's content-free server-info nudge (admin changed name / remote URL):
                 // re-fetch getServerInfo, whose persistRemoteUrl side-effect updates the stored
                 // remote-URL fallback so an admin's new domain reaches us without a cold start.
-                onServerInfoChanged = { get<InstanceRepository>().getServerInfo(forceRefresh = true) },
+                onServerInfoChanged = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
             )
         }
 
