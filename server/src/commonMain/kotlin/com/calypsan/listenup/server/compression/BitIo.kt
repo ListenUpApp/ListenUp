@@ -16,6 +16,7 @@ internal class BitReader(
 
     /** Reads [count] bits (0..32) LSB-first and returns them as an Int. Refills from [source] as needed. */
     fun readBits(count: Int): Int {
+        require(count in 0..32) { "count out of range: $count" }
         while (bitCount < count) {
             if (source.exhausted()) throw MalformedDeflateException("unexpected end of stream")
             bitBuffer = bitBuffer or ((source.readByte().toLong() and 0xFF) shl bitCount)
@@ -45,17 +46,19 @@ internal class BitReader(
             bitCount -= 8
         }
         if (i < n) {
-            val rest = source.readByteArray(n - i)
-            if (rest.size < n - i) throw MalformedDeflateException("unexpected end of stream")
-            rest.copyInto(out, i)
+            // kotlinx-io readByteArray throws EOFException on a short source; request() returns false
+            // instead, so we surface the codec's own MalformedDeflateException on a truncated stream.
+            if (!source.request((n - i).toLong())) throw MalformedDeflateException("unexpected end of stream")
+            source.readByteArray(n - i).copyInto(out, i)
         }
         return out
     }
 }
 
 /**
- * Writes LSB-first bit fields to a byte [Sink] (RFC 1951 §3.1.1 packing). Buffers partial bytes;
- * [alignToByte] pads the current byte with zero bits; [flush] writes buffered whole bytes to the sink.
+ * Writes LSB-first bit fields to a byte [Sink] (RFC 1951 §3.1.1 packing). Whole bytes are emitted to
+ * the sink immediately; only 0–7 partial bits are ever buffered. [alignToByte] pads the current byte
+ * with zero bits (emitting it); [flush] then forwards to the sink.
  */
 internal class BitWriter(
     private val sink: Sink,
@@ -89,7 +92,10 @@ internal class BitWriter(
         sink.write(bytes)
     }
 
-    /** Flushes buffered whole bytes to the sink (does not pad — call [alignToByte] to finalize). */
+    /**
+     * Forwards to the underlying sink's flush. Does **not** pad partial bits — call [alignToByte]
+     * before the final flush to emit the last partial byte.
+     */
     fun flush() {
         sink.flush()
     }

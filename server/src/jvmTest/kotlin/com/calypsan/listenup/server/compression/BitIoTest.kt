@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.compression
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.io.Buffer
@@ -37,5 +38,28 @@ class BitIoTest :
             r.readBits(3) shouldBe 0b101
             r.alignToByte()
             r.readBytes(3).toList() shouldBe listOf<Byte>(1, 2, 3)
+        }
+
+        test("zero-count reads and writes are no-ops") {
+            val out = Buffer()
+            val w = BitWriter(out)
+            w.writeBits(0, 0)
+            w.writeBits(0b11, 2)
+            w.alignToByte()
+            w.flush()
+            val r = BitReader(out)
+            r.readBits(0) shouldBe 0
+            r.readBits(2) shouldBe 0b11
+        }
+
+        test("readBits past end of stream throws MalformedDeflateException") {
+            val r = BitReader(Buffer().apply { writeByte(0xFF.toByte()) })
+            r.readBits(8) shouldBe 0xFF
+            shouldThrow<MalformedDeflateException> { r.readBits(1) }
+        }
+
+        test("readBytes on a truncated stream throws MalformedDeflateException") {
+            val r = BitReader(Buffer().apply { write(byteArrayOf(1, 2)) })
+            shouldThrow<MalformedDeflateException> { r.readBytes(3) }
         }
     })
