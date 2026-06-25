@@ -424,6 +424,32 @@ class BookPersisterTest :
             }
         }
 
+        test("a large incremental scan suppresses the firehose to avoid a live-tail storm") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    // A bulk incremental — dropping a folder of many books, or a large
+                    // subtree re-persist — would flood the lossy live tail (ChangeBus
+                    // replay=256, DROP_OLDEST) and storm connected clients into a per-event
+                    // transaction GC storm. It must suppress like a full scan; the client
+                    // reconciles once via catch-up on ScanEvent.Completed. Small incrementals
+                    // stay live (covered by the test above).
+                    val many = (1..LARGE_INCREMENTAL_COUNT).map { "book-$it" }
+                    persister.persist(
+                        scanResult(
+                            books = many.map { analyzedBook(it) },
+                            changes = many.map { ChangeEventDto.Added(analyzedBook(it)) },
+                            scope = ScanScope.Subtree("big/folder"),
+                        ),
+                    )
+
+                    fake.suppressionObserved shouldContainExactly List(LARGE_INCREMENTAL_COUNT) { true }
+                }
+            }
+        }
+
         test("incremental scan does NOT sweep absent books") {
             withSqlDatabase {
                 runTest {
@@ -550,6 +576,9 @@ class BookPersisterTest :
             }
         }
     })
+
+/** Changed-book count for the large-incremental suppression test — above the production threshold. */
+private const val LARGE_INCREMENTAL_COUNT = 60
 
 // --- Fakes ------------------------------------------------------------------
 
