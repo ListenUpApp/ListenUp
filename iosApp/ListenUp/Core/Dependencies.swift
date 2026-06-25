@@ -79,6 +79,9 @@ final class Dependencies {
     }
 
     func createBookDetailViewModel() -> BookDetailViewModel { KoinHelper.shared.getBookDetailViewModel() }
+    func createBookReadersViewModel(bookId: String) -> BookReadersViewModel {
+        KoinHelper.shared.getBookReadersViewModel(bookId: bookId)
+    }
     func createSeriesDetailViewModel() -> SeriesDetailViewModel { KoinHelper.shared.getSeriesDetailViewModel() }
     func createSeriesEditViewModel() -> SeriesEditViewModel { KoinHelper.shared.getSeriesEditViewModel() }
     func createContributorDetailViewModel() -> ContributorDetailViewModel {

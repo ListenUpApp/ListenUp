@@ -3001,6 +3001,26 @@
         }
       }
     },
+    "book.detail_readers_a11y_finished": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, finished %2$@"
+          }
+        }
+      }
+    },
+    "book.detail_readers_a11y_reading": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$d percent"
+          }
+        }
+      }
+    },
     "book.detail_readers_empty": {
       "localizations": {
         "en": {
@@ -3027,6 +3047,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d listening now"
+          }
+        }
+      }
+    },
+    "book.detail_readers_you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ (You)"
           }
         }
       }

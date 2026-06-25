@@ -38,6 +38,7 @@ import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.auth.RegisterViewModel
 import com.calypsan.listenup.client.presentation.auth.SetupViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
+import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
@@ -220,6 +221,9 @@ object KoinHelper {
 
     fun getBookDetailViewModel(): BookDetailViewModel =
         resolveDependency(BookDetailViewModel::class) as BookDetailViewModel
+
+    fun getBookReadersViewModel(bookId: String): BookReadersViewModel =
+        resolveDependencyWithParams(BookReadersViewModel::class, listOf(bookId)) as BookReadersViewModel
 
     fun getSeriesDetailViewModel(): SeriesDetailViewModel =
         resolveDependency(SeriesDetailViewModel::class) as SeriesDetailViewModel
