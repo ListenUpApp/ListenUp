@@ -12,9 +12,10 @@ public const val DEFAULT_LEVEL: Int = 6
  * Compresses bytes written to it into a raw DEFLATE (RFC 1951) stream on [sink]. Buffers all written
  * bytes in memory, then on [close] emits them as DEFLATE blocks (BFINAL=1 on the last) and closes the
  * underlying sink. The whole input is held in memory until [close]; a future task may emit blocks
- * incrementally. [level] 0 = stored (no compression); 1..9 = effort (real compression added in a later
- * task — for now non-zero levels also use the stored path). Output is standard raw DEFLATE that any
- * RFC 1951 inflater (incl. java.util.zip) reads.
+ * incrementally. [level] 0 = stored (no compression); 1..9 = LZ77 + dynamic-Huffman compression with
+ * a deeper match search at higher levels, falling back to a stored block whenever that would be
+ * smaller (so incompressible input never pathologically expands). Output is standard raw DEFLATE that
+ * any RFC 1951 inflater (incl. java.util.zip) reads.
  */
 public class DeflateRawSink(
     sink: RawSink,
@@ -43,10 +44,32 @@ public class DeflateRawSink(
         if (closed) return
         closed = true
         try {
-            emitStored(input.readByteArray()) // TODO Task 6: route level>=1 to a real compressor
+            val data = input.readByteArray()
+            if (level == 0) emitStored(data) else compress(data)
         } finally {
             out.close() // flushes, then releases the underlying sink (RealSink.close)
         }
+    }
+
+    /**
+     * Compresses [data] via LZ77 + dynamic Huffman, emitting a single final dynamic block — unless a
+     * stored block would be smaller, in which case it falls back to [emitStored]. The plan computes
+     * the dynamic block's exact bit cost up front so the choice never expands incompressible input.
+     */
+    private fun compress(data: ByteArray) {
+        val tokens = lz77(data, level)
+        val plan = planDynamicBlock(tokens)
+        if (plan.totalBits < storedSizeBits(data.size)) {
+            emitDynamicBlock(writer, tokens, plan, isFinal = true)
+        } else {
+            emitStored(data)
+        }
+    }
+
+    /** Size in bits of [dataSize] bytes encoded as stored blocks (5 bytes of framing per ≤64 KiB block). */
+    private fun storedSizeBits(dataSize: Int): Long {
+        val blocks = maxOf(1, (dataSize + 65534) / 65535)
+        return (dataSize.toLong() + 5L * blocks) * 8L
     }
 
     /**
