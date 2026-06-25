@@ -18,7 +18,7 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlin.io.path.exists
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * Read-only analyze stage of an ABS import: parse the staged backup, match its users and
@@ -53,20 +53,26 @@ class ImportAnalyzer internal constructor(
     ): AppResult<ImportAnalysis> =
         withContext(Dispatchers.IO) {
             val absDb = paths.absDbFor(importId.value)
-            if (!absDb.exists()) {
+            if (!SystemFileSystem.exists(absDb)) {
                 return@withContext AppResult.Failure(ImportError.ImportNotFound())
             }
             try {
                 onEvent(ImportEvent.Parsing)
                 val absData =
-                    reader.open(absDb.toAbsolutePath().toString()).use { handle ->
-                        AbsReadResult(
-                            handle.users(),
-                            handle.bookItems(),
-                            handle.progress(),
-                            handle.playbackSessions(),
-                        )
-                    }
+                    reader
+                        .open(
+                            java.nio.file.Path
+                                .of(absDb.toString())
+                                .toAbsolutePath()
+                                .toString(),
+                        ).use { handle ->
+                            AbsReadResult(
+                                handle.users(),
+                                handle.bookItems(),
+                                handle.progress(),
+                                handle.playbackSessions(),
+                            )
+                        }
 
                 val libraryId = libraryRegistry.currentLibrary()
                 val listenupUsers = loadMatchableUsers()

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Koin module for the Audiobookshelf-import slice.
@@ -41,7 +42,7 @@ import java.nio.file.Path
  */
 fun importModule(homeDir: Path): Module =
     module {
-        single { ImportPaths(homeDir) }
+        single { ImportPaths(IoPath(homeDir.toString())) }
         single { ImportStore(get()) }
         single { AbsBackupReader() }
         single { BookMatcher(get()) }

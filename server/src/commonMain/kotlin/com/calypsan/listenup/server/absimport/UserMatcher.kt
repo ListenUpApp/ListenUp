@@ -26,10 +26,12 @@ internal data class MatchableUser(
 internal class UserMatcher {
     /** The outcome of one tier: the resolved user (one candidate) or AMBIGUOUS (many candidates). */
     private sealed interface TierResult {
+        /** Exactly one ListenUp user matched this tier — the confident suggestion. */
         data class Resolved(
             val userId: UserId,
         ) : TierResult
 
+        /** More than one ListenUp user matched this tier — surfaced for the admin, never auto-picked. */
         data object Ambiguous : TierResult
     }
 

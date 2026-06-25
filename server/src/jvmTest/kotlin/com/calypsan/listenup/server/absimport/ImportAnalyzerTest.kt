@@ -21,6 +21,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 
 class ImportAnalyzerTest :
     FunSpec({
@@ -120,7 +121,7 @@ class ImportAnalyzerTest :
             withSqlDatabase {
                 val dbs = this
                 val home = Files.createTempDirectory("abs-missing-")
-                val paths = ImportPaths(home).apply { ensureDirs() }
+                val paths = ImportPaths(IoPath(home.toString())).apply { ensureDirs() }
                 val analyzer = analyzerFor(dbs, paths)
 
                 runTest {
@@ -134,10 +135,17 @@ class ImportAnalyzerTest :
             withSqlDatabase {
                 val dbs = this
                 val home = Files.createTempDirectory("abs-corrupt-")
-                val paths = ImportPaths(home).apply { ensureDirs() }
+                val paths = ImportPaths(IoPath(home.toString())).apply { ensureDirs() }
                 val importId = ImportId("abs-corrupt")
-                Files.createDirectories(paths.dirFor(importId.value))
-                Files.write(paths.absDbFor(importId.value), "not a database".toByteArray())
+                Files.createDirectories(
+                    java.nio.file.Path
+                        .of(paths.dirFor(importId.value).toString()),
+                )
+                Files.write(
+                    java.nio.file.Path
+                        .of(paths.absDbFor(importId.value).toString()),
+                    "not a database".toByteArray(),
+                )
                 val analyzer = analyzerFor(dbs, paths)
 
                 runTest {
@@ -154,10 +162,16 @@ class ImportAnalyzerTest :
 /** Stages a synthetic ABS backup db under a fresh import home, returning (paths, importId). */
 private fun stageImport(): Pair<ImportPaths, ImportId> {
     val home = Files.createTempDirectory("abs-analyze-")
-    val paths = ImportPaths(home).apply { ensureDirs() }
+    val paths = ImportPaths(IoPath(home.toString())).apply { ensureDirs() }
     val importId = ImportId("abs-test")
-    Files.createDirectories(paths.dirFor(importId.value))
-    buildSyntheticAbsDb(paths.absDbFor(importId.value))
+    Files.createDirectories(
+        java.nio.file.Path
+            .of(paths.dirFor(importId.value).toString()),
+    )
+    buildSyntheticAbsDb(
+        java.nio.file.Path
+            .of(paths.absDbFor(importId.value).toString()),
+    )
     return paths to importId
 }
 
