@@ -107,11 +107,20 @@ internal class HuffmanDecoder(
  *
  * DEFLATE (RFC 1951) requires all code lengths ≤ 15; pass `maxBits = 15` for deflate streams.
  *
+ * Returns a **complete** prefix code: `Σ 2^−len == 1` for any input with ≥ 2 used symbols. This is
+ * stronger than mere validity (`Σ 2^−len ≤ 1`) and is required for interop — RFC-1951 inflaters
+ * (zlib/gzip/browsers) reject an *incomplete* literal/length or distance table as `Z_DATA_ERROR`.
+ *
  * Algorithm:
- * 1. Build a standard Huffman tree via a sorted-list min-heap.
- * 2. Read depths from the parent-pointer tree.
- * 3. If any depth exceeds [maxBits], clip all overlong codes to [maxBits] and then iteratively
- *    lengthen the shortest codes until the Kraft inequality `Σ 2^−len ≤ 1` is restored.
+ * 1. Build a standard Huffman tree via a sorted-list min-heap and read each used symbol's natural
+ *    depth from the parent-pointer tree.
+ * 2. If the deepest natural code is within [maxBits], those depths already form a complete code — done.
+ * 3. Otherwise redistribute using zlib's `gen_bitlen` overflow handling on the length histogram
+ *    `blCount[]`: collapse every length > [maxBits] into the [maxBits] bucket, then repeatedly demote
+ *    one shorter code and pull one over-deep code up as its sibling until the histogram is exactly
+ *    complete again (each such step lowers `Σ 2^−len` by precisely `2^−maxBits`).
+ * 4. Re-hand the resulting lengths to symbols shortest-first in descending-frequency order, so the
+ *    most frequent symbols keep the shortest codes.
  *
  * Edge cases: 0 used symbols → all-zero lengths; exactly 1 used symbol → length 1.
  */
@@ -168,38 +177,51 @@ internal fun buildLengthLimitedLengths(
         depths[i] = depth
     }
 
-    // If max depth is already within the limit, we are done.
-    if ((depths.maxOrNull() ?: 0) <= maxBits) return depths
+    // If the deepest natural code is already within the limit, the tree depths form a complete
+    // code — return them directly (frequent symbols already hold the shortest codes).
+    val naturalMax = depths.maxOrNull() ?: 0
+    if (naturalMax <= maxBits) return depths
 
-    // Clip all depths that exceed maxBits.
-    for (i in depths.indices) {
-        if (depths[i] > maxBits) depths[i] = maxBits
+    // Histogram of natural code lengths (some buckets may sit above maxBits).
+    val blCount = IntArray(naturalMax + 1)
+    for (i in usedIndices) blCount[depths[i]]++
+
+    // Collapse every over-deep code into the maxBits bucket. The histogram is now ≤ maxBits but
+    // over-subscribed: Σ 2^−len > 1 (clipping deep codes shorter reclaims more code space than exists).
+    for (len in naturalMax downTo maxBits + 1) {
+        blCount[maxBits] += blCount[len]
+        blCount[len] = 0
     }
 
-    // Restore the Kraft inequality using integer arithmetic scaled by 2^maxBits.
-    // capacity  = 2^maxBits (total available code space)
-    // usage(d)  = 2^(maxBits − d)   (space consumed by a single code of length d)
-    // Increasing depth d → d+1 frees 2^(maxBits − d − 1) units of capacity.
+    // zlib gen_bitlen redistribution. Working in code space scaled by 2^maxBits:
+    //   used      = Σ blCount[len] · 2^(maxBits − len)   (an integer once all lengths ≤ maxBits)
+    //   capacity  = 2^maxBits   (a complete code uses exactly this)
+    // Each step demotes one code at `bits` to `bits+1` and lifts one code from the maxBits bucket up
+    // as its sibling. The net effect on `used` is exactly −1, so we step until used == capacity — i.e.
+    // until the histogram describes a *complete* code (Σ 2^−len == 1), never merely a valid one.
     val capacity = 1L shl maxBits
-    var used = depths.sumOf { d -> if (d > 0) 1L shl (maxBits - d) else 0L }
-
-    // Lengthen the shortest codes first (they free the most capacity per step).
-    while (used > capacity) {
-        var bestIdx = -1
-        var bestDepth = Int.MAX_VALUE
-        for (i in depths.indices) {
-            if (depths[i] in 1 until maxBits && depths[i] < bestDepth) {
-                bestDepth = depths[i]
-                bestIdx = i
-            }
-        }
-        if (bestIdx == -1) break // Cannot increase further — tree is already at maxBits everywhere.
-        used -= 1L shl (maxBits - depths[bestIdx])
-        depths[bestIdx]++
-        used += 1L shl (maxBits - depths[bestIdx])
+    var overflow = (1..maxBits).sumOf { blCount[it].toLong() shl (maxBits - it) } - capacity
+    while (overflow > 0) {
+        var bits = maxBits - 1
+        while (bits > 0 && blCount[bits] == 0) bits--
+        if (bits == 0) break // Unreachable while over capacity: codes must exist below maxBits.
+        blCount[bits]--
+        blCount[bits + 1] += 2
+        blCount[maxBits]--
+        overflow--
     }
 
-    return depths
+    // Hand the histogram's lengths back to symbols shortest-first, most-frequent-first, so the
+    // highest-frequency symbols keep the shortest codes (good compression — the inverse of clipping
+    // the most frequent symbol). Ties break on symbol index for a deterministic assignment.
+    val limited = IntArray(n)
+    val byFrequencyDesc = usedIndices.sortedWith(compareByDescending<Int> { freq[it] }.thenBy { it })
+    var cursor = 0
+    for (len in 1..maxBits) {
+        repeat(blCount[len]) { limited[byFrequencyDesc[cursor++]] = len }
+    }
+
+    return limited
 }
 
 /** Fixed literal/length code lengths (RFC §3.2.6): 0..143 = 8, 144..255 = 9, 256..279 = 7, 280..287 = 8. */

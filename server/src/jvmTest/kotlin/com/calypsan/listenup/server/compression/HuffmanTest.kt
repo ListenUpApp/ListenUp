@@ -2,8 +2,10 @@ package com.calypsan.listenup.server.compression
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.comparables.shouldBeLessThanOrEqualTo
+import io.kotest.matchers.doubles.plusOrMinus
 import io.kotest.matchers.shouldBe
 import kotlinx.io.Buffer
+import kotlin.random.Random
 
 class HuffmanTest :
     FunSpec({
@@ -36,7 +38,54 @@ class HuffmanTest :
             val lengths = buildLengthLimitedLengths(freq, maxBits = 15)
             lengths.forEachIndexed { i: Int, len: Int -> if (freq[i] > 0) len shouldBeLessThanOrEqualTo 15 }
             val kraft = lengths.filter { it > 0 }.sumOf { 1.0 / (1 shl it) }
-            (kraft <= 1.0 + 1e-9) shouldBe true
+            kraft shouldBe (1.0 plusOrMinus 1e-9)
+        }
+
+        test("length-limited redistribution yields a COMPLETE prefix code when natural depth exceeds maxBits") {
+            // Fibonacci frequencies force a maximally-unbalanced tree whose natural longest code is ~n-1 bits
+            // (19 here), well over the 15-bit DEFLATE limit — this actually exercises clip-and-redistribute.
+            val freq =
+                intArrayOf(
+                    1,
+                    1,
+                    2,
+                    3,
+                    5,
+                    8,
+                    13,
+                    21,
+                    34,
+                    55,
+                    89,
+                    144,
+                    233,
+                    377,
+                    610,
+                    987,
+                    1597,
+                    2584,
+                    4181,
+                    6765,
+                )
+            val lengths = buildLengthLimitedLengths(freq, maxBits = 15)
+            lengths.filter { it > 0 }.forEach { it shouldBeLessThanOrEqualTo 15 }
+            // COMPLETE, not merely valid: Σ 2^-len == 1. An incomplete litlen/dist code is rejected by RFC-1951 inflate.
+            val kraft = lengths.filter { it > 0 }.sumOf { 1.0 / (1 shl it) }
+            kraft shouldBe (1.0 plusOrMinus 1e-9)
+        }
+
+        test("length-limited build yields a COMPLETE prefix code for random 286-symbol litlen alphabets") {
+            val rng = Random(20260625)
+            repeat(50) {
+                val freq = IntArray(286) { if (rng.nextInt(4) == 0) 0 else rng.nextInt(1, 100_000) }
+                val usedCount = freq.count { it > 0 }
+                val lengths = buildLengthLimitedLengths(freq, maxBits = 15)
+                lengths.filter { it > 0 }.forEach { it shouldBeLessThanOrEqualTo 15 }
+                if (usedCount >= 2) {
+                    val kraft = lengths.filter { it > 0 }.sumOf { 1.0 / (1 shl it) }
+                    kraft shouldBe (1.0 plusOrMinus 1e-9)
+                }
+            }
         }
 
         test("length-limited build: single used symbol gets length 1") {
