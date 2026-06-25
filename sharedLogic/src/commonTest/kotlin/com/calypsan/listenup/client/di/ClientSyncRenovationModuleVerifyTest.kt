@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -60,6 +61,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         ServerConfig::class,
                         CoroutineScope::class,
                         AuthSession::class,
+                        AvatarDownloadRepository::class,
                         ConnectionCoordinator::class,
                         InstanceRepository::class,
                         ErrorBus::class,

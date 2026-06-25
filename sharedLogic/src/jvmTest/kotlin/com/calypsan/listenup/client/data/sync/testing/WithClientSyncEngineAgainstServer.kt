@@ -47,6 +47,7 @@ import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomai
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
@@ -592,6 +593,14 @@ private fun registerClientSyncHandlers(
     PublicProfileSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
+        avatarDownloadRepository =
+            object : AvatarDownloadRepository {
+                override fun queueAvatarDownload(userId: String) = Unit
+
+                override fun queueAvatarForceRefresh(userId: String) = Unit
+
+                override suspend fun deleteAvatar(userId: String) = Unit
+            },
         registry = registry,
     )
 }
