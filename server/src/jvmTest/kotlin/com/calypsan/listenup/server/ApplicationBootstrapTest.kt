@@ -30,8 +30,8 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
-import java.nio.file.Path
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.io.files.Path
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.test.runTest
 

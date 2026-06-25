@@ -7,11 +7,12 @@ import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.scanner.watcher.WatcherSupervisor
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 /**
  * Minimal capability the [ScanOrchestrator] requires from a scanner.
@@ -204,7 +205,7 @@ internal class ScanOrchestrator(
                 logger.warn { "scanFolder: folderId=${folderId.value} not registered — ignoring" }
                 return
             }
-        active.coordinator.reanalyze(Path.of(folderPath))
+        active.coordinator.reanalyze(Path(folderPath))
     }
 
     /**
@@ -225,7 +226,7 @@ internal class ScanOrchestrator(
         // Find the owning folder and compute a book-root within that folder.
         val owningFolder =
             active.library.folders.firstOrNull { folder ->
-                subtreePath.startsWith(Path.of(folder.rootPath))
+                folder.rootPath?.let { subtreePath.isUnder(Path(it)) } ?: false
             }
         val bookRoot = owningFolder?.let { subtreePath } ?: subtreePath
         active.coordinator.reanalyze(bookRoot)
@@ -264,14 +265,16 @@ internal interface WatcherSupervisorPort {
     suspend fun unmountAll()
 }
 
-/** Adapts the concrete [WatcherSupervisor] to [WatcherSupervisorPort]. */
+/** Adapts the concrete [WatcherSupervisor] to [WatcherSupervisorPort], bridging java.nio Path → kotlinx.io Path. */
 internal fun WatcherSupervisor.asPort(): WatcherSupervisorPort =
     object : WatcherSupervisorPort {
         override suspend fun mount(
             libraryId: LibraryId,
             folder: LibraryFolderRef,
-            onEvent: suspend (LibraryId, Path) -> Unit,
-        ) = this@asPort.mount(libraryId, folder, onEvent)
+            onEvent: suspend (LibraryId, Path) -> Unit, // kotlinx.io Path
+        ) = this@asPort.mount(libraryId, folder) { libId, nioPath -> // nioPath: java.nio Path
+            onEvent(libId, Path(nioPath.toString())) // bridge
+        }
 
         override suspend fun unmount(folderId: FolderId) = this@asPort.unmount(folderId)
 

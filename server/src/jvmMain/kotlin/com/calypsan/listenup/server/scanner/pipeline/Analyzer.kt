@@ -35,7 +35,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import java.nio.file.Path
+import kotlinx.io.files.Path
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry as EmbeddedSeriesEntry
 
 private val logger = KotlinLogging.logger {}
@@ -214,8 +214,8 @@ internal class Analyzer(
         if (primaryAudio.size < AudioFormatDetector.MIN_HEADER_BYTES) {
             return null to MetadataStatus.UnsupportedFormat(format = null)
         }
-        val absolutePath = rootPath.resolve(primaryAudio.relPath)
-        val ioPath = kotlinx.io.files.Path(absolutePath.toString())
+        val absolutePath = Path(rootPath, primaryAudio.relPath)
+        val ioPath = absolutePath
         return when (val result = embeddedMetadataParser.parse(ioPath)) {
             is AppResult.Success -> {
                 result.data to MetadataStatus.Available
@@ -260,8 +260,8 @@ internal class Analyzer(
 
     private suspend fun parseTrackForDuration(file: FileEntry): EmbeddedAudioMetadata? {
         if (file.size < AudioFormatDetector.MIN_HEADER_BYTES) return null
-        val absolutePath = rootPath.resolve(file.relPath)
-        val ioPath = kotlinx.io.files.Path(absolutePath.toString())
+        val absolutePath = Path(rootPath, file.relPath)
+        val ioPath = absolutePath
         return when (val result = embeddedMetadataParser.parse(ioPath)) {
             is AppResult.Success -> {
                 result.data
@@ -283,7 +283,7 @@ internal class Analyzer(
             candidate.files.firstOrNull {
                 it.fileType == FileType.METADATA && it.name.equals("metadata.json", ignoreCase = true)
             } ?: return null
-        return metadataReader.read(kotlinx.io.files.Path(rootPath.resolve(sidecar.relPath).toString()))
+        return metadataReader.read(Path(rootPath, sidecar.relPath))
     }
 
     /**
@@ -318,7 +318,7 @@ internal class Analyzer(
         file: FileEntry,
     ): SidecarMetadata? =
         try {
-            parser.parse(kotlinx.io.files.Path(rootPath.resolve(file.relPath).toString()))
+            parser.parse(Path(rootPath, file.relPath))
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
@@ -405,7 +405,7 @@ internal class Analyzer(
             // not fully read. MetadataStatus.Available and a null status (no audio
             // file, or a clean parse) are not warnings.
             hasScanWarning = embeddedStatus.isParseFailure(),
-            documents = documentCollector.collect(rootPath, rootPath.resolve(candidate.rootRelPath), candidate.files),
+            documents = documentCollector.collect(rootPath, Path(rootPath, candidate.rootRelPath), candidate.files),
         )
     }
 

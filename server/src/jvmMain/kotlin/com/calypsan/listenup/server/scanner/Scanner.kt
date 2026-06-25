@@ -25,13 +25,16 @@ import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
 import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.io.isUnder
+import com.calypsan.listenup.server.io.relativeTo
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import java.nio.file.Path
-import java.util.UUID
-import kotlinx.io.files.Path as IoPath
+import kotlin.time.Clock
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -75,8 +78,9 @@ internal class Scanner(
     private val parseSubtitle: Boolean = false,
     private val sidecarParsers: List<SidecarParser> = emptyList(),
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
-    private val clock: () -> Long = System::currentTimeMillis,
-    private val correlationIdFactory: () -> String = { UUID.randomUUID().toString() },
+    private val clock: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    @OptIn(ExperimentalUuidApi::class)
+    private val correlationIdFactory: () -> String = { Uuid.random().toString() },
     private val coverSpool: CoverSpool? = null,
 ) : ScannerResultPort {
     @Volatile
@@ -99,7 +103,7 @@ internal class Scanner(
                 val rootPath = folder.rootPath ?: return@flatMap emptyList()
                 val walker = Walker()
                 walker
-                    .walk(IoPath(rootPath))
+                    .walk(Path(rootPath))
                     .toList()
             }
 
@@ -125,8 +129,8 @@ internal class Scanner(
         // libraries. Using the first folder root is consistent with what the
         // watcher supplies to runIncremental.
         val primaryRoot =
-            library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
-                ?: Path.of(library.id.value)
+            library.folders.firstOrNull()?.rootPath?.let { Path(it) }
+                ?: Path(library.id.value)
         val analyzer =
             Analyzer(
                 primaryRoot,
@@ -207,16 +211,16 @@ internal class Scanner(
         // Identify which folder owns this subtree to compute the relative path.
         val owningFolder =
             library.folders.firstOrNull { folder ->
-                bookRoot.startsWith(Path.of(folder.rootPath))
+                folder.rootPath?.let { bookRoot.isUnder(Path(it)) } ?: false
             }
         val folderRoot =
-            owningFolder?.let { Path.of(it.rootPath) }
-                ?: library.folders.firstOrNull()?.let { Path.of(it.rootPath) }
+            owningFolder?.rootPath?.let { Path(it) }
+                ?: library.folders.firstOrNull()?.rootPath?.let { Path(it) }
                 ?: bookRoot
 
         val walker = Walker()
-        val rawFiles = walker.walk(IoPath(bookRoot.toString())).toList()
-        val prefix = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
+        val rawFiles = walker.walk(bookRoot).toList()
+        val prefix = bookRoot.relativeTo(folderRoot).replace('\\', '/')
         val rebasedFiles =
             rawFiles.map { entry ->
                 if (prefix.isEmpty()) entry else entry.copy(relPath = "$prefix/${entry.relPath}")
@@ -258,7 +262,7 @@ internal class Scanner(
 
         val patchedStripped = previousUntouched + booksStripped
         val durationMs = clock() - started
-        val rootRelPath = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
+        val rootRelPath = bookRoot.relativeTo(folderRoot).replace('\\', '/')
         val subtreeScope = ScanScope.Subtree(rootRelPath)
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
 
@@ -446,7 +450,7 @@ internal class Scanner(
         folderRoot: Path,
         books: List<AnalyzedBook>,
     ): Pair<List<AnalyzedBook>, List<AnalyzedBook>> {
-        val rootPrefix = folderRoot.relativize(bookRoot).toString().replace('\\', '/')
+        val rootPrefix = bookRoot.relativeTo(folderRoot).replace('\\', '/')
         return books.partition { book ->
             val rel = book.candidate.rootRelPath
             if (rootPrefix.isEmpty()) {
@@ -500,7 +504,7 @@ internal class Scanner(
     ): ScanError {
         val path =
             (t as? BookAnalysisFailure)
-                ?.let { folderRoot.resolve(it.rootRelPath).toString() }
+                ?.let { Path(folderRoot, it.rootRelPath).toString() }
                 ?: folderRoot.toString()
         return ScanError.FileUnreadable(
             path = path,

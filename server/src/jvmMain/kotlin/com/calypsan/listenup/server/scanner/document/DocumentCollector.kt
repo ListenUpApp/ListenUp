@@ -4,9 +4,9 @@ import com.calypsan.listenup.api.dto.scanner.AnalyzedDocument
 import com.calypsan.listenup.api.dto.scanner.FileEntry
 import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.server.io.hashFileSha256
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlinx.io.files.Path as IoPath
+import com.calypsan.listenup.server.io.relativeTo
+import com.calypsan.listenup.server.io.statFile
+import kotlinx.io.files.Path
 
 /**
  * Collects EBOOK-typed files from a candidate's file list and maps them to
@@ -38,18 +38,17 @@ internal class DocumentCollector {
     ): List<AnalyzedDocument> =
         files
             .filter { it.fileType == FileType.EBOOK }
-            .map { entry -> entry to libraryRoot.resolve(entry.relPath) }
+            .map { entry -> entry to Path(libraryRoot, entry.relPath) }
             .sortedBy { (_, absolutePath) -> absolutePath.toString() }
             .map { (_, absolutePath) ->
                 AnalyzedDocument(
-                    relPath = bookRoot.relativize(absolutePath).toString(),
+                    relPath = absolutePath.relativeTo(bookRoot),
                     format =
-                        absolutePath.fileName
-                            .toString()
+                        absolutePath.name
                             .substringAfterLast('.', "")
                             .lowercase(),
-                    size = Files.size(absolutePath),
-                    hash = hashFileSha256(IoPath(absolutePath.toString())),
+                    size = statFile(absolutePath)?.size ?: error("file vanished during scan: $absolutePath"),
+                    hash = hashFileSha256(absolutePath),
                 )
             }
 }

@@ -7,12 +7,13 @@ import com.calypsan.listenup.core.LibraryId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.nio.file.Path
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -39,7 +40,7 @@ private val logger = KotlinLogging.logger {}
  * **Plan deviation:** the plan literal sketched `Channel.CONFLATED` for the
  * incremental queue. That collapses *all* traffic globally — when two
  * distinct book roots fire in quick succession the second clobbers the
- * first. We use [ConcurrentHashMap.newKeySet] for per-path dedup with an
+ * first. We use an atomicfu-synchronized set for per-path dedup with an
  * unbounded queue, which gives the test-stated semantics ("100 triggers
  * for the same path collapse to ≤ 1") *without* dropping events for
  * unrelated paths.
@@ -56,7 +57,8 @@ internal class ScanCoordinator(
     private val scope: CoroutineScope,
 ) {
     private val mutex = Mutex()
-    private val pendingPaths: MutableSet<Path> = ConcurrentHashMap.newKeySet()
+    private val pendingLock = SynchronizedObject()
+    private val pendingPaths = LinkedHashSet<Path>() // guarded by pendingLock
     private val incrementalChannel = Channel<Path>(Channel.UNLIMITED)
 
     init {
@@ -65,7 +67,7 @@ internal class ScanCoordinator(
                 // Remove BEFORE processing so a subsequent reanalyze(path)
                 // arriving during this run is re-enqueued — the file may
                 // have changed again while we were working on it.
-                pendingPaths.remove(path)
+                synchronized(pendingLock) { pendingPaths.remove(path) }
                 try {
                     mutex.withLock { runIncremental(path) }
                 } catch (e: CancellationException) {
@@ -120,12 +122,12 @@ internal class ScanCoordinator(
     }
 
     fun reanalyze(bookRoot: Path) {
-        if (pendingPaths.add(bookRoot)) {
+        if (synchronized(pendingLock) { pendingPaths.add(bookRoot) }) {
             // trySend on UNLIMITED never fails for legitimate sends; the
             // only failure mode is a closed channel, in which case we've
             // been cancelled and dropping is correct.
             val sent = incrementalChannel.trySend(bookRoot).isSuccess
-            if (!sent) pendingPaths.remove(bookRoot)
+            if (!sent) synchronized(pendingLock) { pendingPaths.remove(bookRoot) }
         }
     }
 

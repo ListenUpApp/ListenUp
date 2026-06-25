@@ -27,7 +27,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
+import kotlinx.io.files.Path
 
 /**
  * End-to-end Analyzer + EmbeddedMetadataParser integration tests.
@@ -66,7 +67,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -100,7 +101,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -141,7 +142,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -182,7 +183,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -225,7 +226,7 @@ class AnalyzerEnrichmentTest :
                     // Embedded ahead of metadata.json — embedded wins despite both being present.
                     val book =
                         Analyzer(
-                            fixture.root,
+                            Path(fixture.root.toString()),
                             metadataReader,
                             embeddedParser,
                             precedence = MetadataPrecedence.parse("embedded,metadata.json"),
@@ -254,7 +255,7 @@ class AnalyzerEnrichmentTest :
                     // Embedded omitted entirely — title falls through to the folder name.
                     val book =
                         Analyzer(
-                            fixture.root,
+                            Path(fixture.root.toString()),
                             metadataReader,
                             embeddedParser,
                             precedence = MetadataPrecedence.parse("metadata.json,sidecar,filename,folder"),
@@ -309,7 +310,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -349,7 +350,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -376,7 +377,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -398,7 +399,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -444,7 +445,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -502,7 +503,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -547,7 +548,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -577,7 +578,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -605,7 +606,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -629,7 +630,7 @@ class AnalyzerEnrichmentTest :
                     val candidate = candidateForPath(rel, audioPath)
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -668,7 +669,7 @@ class AnalyzerEnrichmentTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -687,7 +688,7 @@ class AnalyzerEnrichmentTest :
 
 private fun candidateForPath(
     rel: String,
-    audioPath: Path,
+    audioPath: NioPath,
 ): CandidateBook =
     CandidateBook(
         rootRelPath = rel,
@@ -717,15 +718,15 @@ private fun fileEntry(
         fileType = fileType,
     )
 
-private fun Path.writeAudioFile(
+private fun NioPath.writeAudioFile(
     relPath: String,
     bytes: ByteArray,
-): Path = writeFile(relPath, bytes)
+): NioPath = writeFile(relPath, bytes)
 
-private fun Path.writeFile(
+private fun NioPath.writeFile(
     relPath: String,
     bytes: ByteArray,
-): Path {
+): NioPath {
     val target = resolve(relPath)
     Files.createDirectories(target.parent)
     Files.write(target, bytes)

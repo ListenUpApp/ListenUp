@@ -8,10 +8,11 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldHaveLength
 import io.kotest.matchers.string.shouldMatch
 import java.nio.file.Files
-import java.nio.file.Path
 import java.security.MessageDigest
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
+import kotlinx.io.files.Path
+import java.nio.file.Path as NioPath
 
 /**
  * Unit tests for [DocumentCollector].
@@ -43,7 +44,7 @@ class DocumentCollectorTest :
                         fileEntry(libraryRoot, pdfFile, FileType.EBOOK),
                     )
 
-                val docs = collector.collect(libraryRoot, bookRoot, files)
+                val docs = collector.collect(Path(libraryRoot.toString()), Path(bookRoot.toString()), files)
 
                 docs.size shouldBe 1
                 val doc = docs.single()
@@ -78,7 +79,7 @@ class DocumentCollectorTest :
                         fileEntry(libraryRoot, pdfFile, FileType.EBOOK),
                     )
 
-                val docs = collector.collect(libraryRoot, bookRoot, files)
+                val docs = collector.collect(Path(libraryRoot.toString()), Path(bookRoot.toString()), files)
 
                 docs.size shouldBe 1
                 val doc = docs.single()
@@ -105,7 +106,7 @@ class DocumentCollectorTest :
                         fileEntry(libraryRoot, audioFile, FileType.AUDIO),
                     )
 
-                val docs = collector.collect(libraryRoot, bookRoot, files)
+                val docs = collector.collect(Path(libraryRoot.toString()), Path(bookRoot.toString()), files)
 
                 docs.shouldBeEmpty()
             } finally {
@@ -117,8 +118,8 @@ class DocumentCollectorTest :
 // --- helpers ---
 
 private fun fileEntry(
-    libraryRoot: Path,
-    absolutePath: Path,
+    libraryRoot: NioPath,
+    absolutePath: NioPath,
     fileType: FileType,
 ): FileEntry {
     val relPath = libraryRoot.relativize(absolutePath).toString().replace('\\', '/')

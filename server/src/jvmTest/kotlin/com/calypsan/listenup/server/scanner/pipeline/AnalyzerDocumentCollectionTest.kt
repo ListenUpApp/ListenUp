@@ -17,8 +17,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.Path as NioPath
 import java.security.MessageDigest
+import kotlinx.io.files.Path
 
 /**
  * EBOOK collection wired through the REAL [Analyzer]: a book folder containing an audio
@@ -66,7 +67,7 @@ class AnalyzerDocumentCollectionTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -101,7 +102,7 @@ class AnalyzerDocumentCollectionTest :
                         )
 
                     val book =
-                        Analyzer(fixture.root, metadataReader, embeddedParser)
+                        Analyzer(Path(fixture.root.toString()), metadataReader, embeddedParser)
                             .analyze(flowOf(candidate))
                             .toList()
                             .single()
@@ -128,10 +129,10 @@ private fun fileEntry(
         fileType = fileType,
     )
 
-private fun Path.writeFile(
+private fun NioPath.writeFile(
     relPath: String,
     bytes: ByteArray,
-): Path {
+): NioPath {
     val target = resolve(relPath)
     Files.createDirectories(target.parent)
     Files.write(target, bytes)
