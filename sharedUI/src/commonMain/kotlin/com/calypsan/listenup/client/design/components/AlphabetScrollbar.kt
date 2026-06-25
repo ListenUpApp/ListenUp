@@ -37,9 +37,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.input.pointer.pointerInput
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -162,7 +161,7 @@ fun AlphabetScrollbar(
 ) {
     if (alphabetIndex.letters.isEmpty()) return
 
-    val hapticFeedback = LocalHapticFeedback.current
+    val haptics = LocalHaptics.current
     val density = LocalDensity.current
 
     // Track container height for adaptive sizing
@@ -276,9 +275,9 @@ fun AlphabetScrollbar(
 
                 // Haptic feedback - stronger for initial touch, tick for subsequent
                 if (isInitialTouch) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptics.longPress()
                 } else if (letter != lastHapticLetter) {
-                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    haptics.selectionTick()
                 }
                 lastHapticLetter = letter
             }
