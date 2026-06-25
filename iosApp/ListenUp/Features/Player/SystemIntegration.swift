@@ -35,10 +35,6 @@ protocol RemoteCommandHandler: AnyObject {
 /// `MPRemoteCommandCenter` commands back to a `RemoteCommandHandler`.
 @MainActor
 final class SystemIntegration {
-    /// Skip interval in seconds, surfaced on the lock screen and used by the
-    /// skip commands.
-    nonisolated static let skipIntervalSeconds: Int = 30
-
     /// Single-slot cache for the *current* Now Playing artwork, guarded by an unfair lock
     /// (iosApp concurrency rule: guard shared mutable state, no `nonisolated(unsafe)`).
     /// Now Playing shows one book at a time, so a single slot keeps memory bounded to one
@@ -59,6 +55,15 @@ final class SystemIntegration {
     /// Push a fresh lock-screen snapshot.
     func update(_ info: NowPlayingInfo) {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = Self.dictionary(from: info)
+    }
+
+    /// Set the lock-screen skip intervals the system shows on its skip controls.
+    /// Re-pushed whenever the user's skip-interval setting changes so the
+    /// lock-screen glyphs reflect the chosen values.
+    func updateSkipIntervals(forwardSeconds: Int, backwardSeconds: Int) {
+        let center = MPRemoteCommandCenter.shared()
+        center.skipForwardCommand.preferredIntervals = [NSNumber(value: forwardSeconds)]
+        center.skipBackwardCommand.preferredIntervals = [NSNumber(value: backwardSeconds)]
     }
 
     /// Clear the lock screen (playback stopped / no book).
@@ -99,9 +104,6 @@ final class SystemIntegration {
 
     private func configureRemoteCommands() {
         let center = MPRemoteCommandCenter.shared()
-        let interval = NSNumber(value: Self.skipIntervalSeconds)
-        center.skipForwardCommand.preferredIntervals = [interval]
-        center.skipBackwardCommand.preferredIntervals = [interval]
 
         center.togglePlayPauseCommand.addTarget { [weak self] _ in
             self?.handler?.remoteTogglePlayPause()

@@ -83,6 +83,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private(set) var playbackSpeed: Float = 1.0
     private(set) var chapters: [Chapter] = []
 
+    // MARK: - Preserved UI surface — skip intervals (observed from Settings)
+
+    /// Forward skip interval in seconds. Mirrors the user's synced setting; the
+    /// transport's forward button, its glyph, and the lock-screen control all read it.
+    private(set) var skipForwardSec: Int = 30
+    /// Backward skip interval in seconds. Mirrors the user's synced setting.
+    private(set) var skipBackwardSec: Int = 10
+
     // MARK: - Preserved UI surface — position (derived from PositionTracker)
 
     var bookDurationMs: Int64 { phase.playingState?.durationMs ?? 0 }
@@ -164,6 +172,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private let sleep: SleepTiming
     private let coverProvider: BookCoverProviding
     private let documentProvider: BookDocumentProviding
+    /// Source of the user's synced skip-interval settings. The coordinator observes
+    /// its `state` so the transport, glyphs, and lock-screen control track the setting.
+    /// Optional so the fake-injected unit tests don't need a settings VM.
+    private let settingsViewModel: SettingsViewModel?
     /// Per-step delay of the sleep-timer fade-out. Injected so tests run the fade instantly
     /// (`.zero`) instead of depending on ~3 s of real wall-clock time, which flakes under CI load.
     private let fadeStepDelay: Duration
@@ -189,6 +201,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
         engine: PlaybackEngine,
         coverProvider: BookCoverProviding,
         documentProvider: BookDocumentProviding = NoDocumentProviding(),
+        settingsViewModel: SettingsViewModel? = nil,
         fadeStepDelay: Duration = .milliseconds(250)
     ) {
         self.preparer = preparer
@@ -197,10 +210,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
         self.engine = engine
         self.coverProvider = coverProvider
         self.documentProvider = documentProvider
+        self.settingsViewModel = settingsViewModel
         self.fadeStepDelay = fadeStepDelay
         system.attach(handler: self)
+        system.updateSkipIntervals(forwardSeconds: skipForwardSec, backwardSeconds: skipBackwardSec)
         bridge.bind(engine.events) { [weak self] in self?.handleEngineEvent($0) }
         observeSleep()
+        observeSkipIntervals()
         observeInterruptions()
         observeRouteChanges()
     }
@@ -213,7 +229,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
             sleep: KotlinSleepTiming(manager: deps.sleepTimerManager),
             engine: AudioEngine(),
             coverProvider: KotlinBookCoverProviding(repository: deps.bookRepository),
-            documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository)
+            documentProvider: KotlinBookDocumentProviding(repository: deps.documentRepository),
+            settingsViewModel: deps.createSettingsViewModel()
         )
     }
 
@@ -221,6 +238,21 @@ final class PlayerCoordinator: RemoteCommandHandler {
         bridge.bind(sleep.stateStream) { [weak self] state in self?.applySleepTimer(state) }
         bridge.bind(sleep.fired) { [weak self] _ in
             Task { @MainActor in await self?.handleSleepFired() }
+        }
+    }
+
+    /// Track the user's synced skip-interval settings. Updates the `@Observable`
+    /// surface the transport reads and re-pushes the lock-screen control's intervals.
+    private func observeSkipIntervals() {
+        guard let settingsViewModel else { return }
+        bridge.bind(settingsViewModel.state) { [weak self] state in
+            guard let self else { return }
+            let forward = Int(state.defaultSkipForwardSec)
+            let backward = Int(state.defaultSkipBackwardSec)
+            guard forward != skipForwardSec || backward != skipBackwardSec else { return }
+            skipForwardSec = forward
+            skipBackwardSec = backward
+            system.updateSkipIntervals(forwardSeconds: forward, backwardSeconds: backward)
         }
     }
 
@@ -346,14 +378,16 @@ final class PlayerCoordinator: RemoteCommandHandler {
         syncLiveActivity()
     }
 
-    /// Skip forward, clamped to the book's end.
-    func skipForward(seconds: Int = 10) {
-        seekTo(positionMs: min(bookPositionMs + Int64(seconds) * 1000, bookDurationMs))
+    /// Skip forward by the current interval (or an explicit override), clamped to the book's end.
+    func skipForward(seconds: Int? = nil) {
+        let interval = seconds ?? skipForwardSec
+        seekTo(positionMs: min(bookPositionMs + Int64(interval) * 1000, bookDurationMs))
     }
 
-    /// Skip backward, clamped to the book's start.
-    func skipBackward(seconds: Int = 10) {
-        seekTo(positionMs: max(bookPositionMs - Int64(seconds) * 1000, 0))
+    /// Skip backward by the current interval (or an explicit override), clamped to the book's start.
+    func skipBackward(seconds: Int? = nil) {
+        let interval = seconds ?? skipBackwardSec
+        seekTo(positionMs: max(bookPositionMs - Int64(interval) * 1000, 0))
     }
 
     /// Jump to a chapter by index.
@@ -404,8 +438,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func remoteTogglePlayPause() { togglePlayback() }
     func remotePlay() { if !isPlaying { togglePlayback() } }
     func remotePause() { if isPlaying { togglePlayback() } }
-    func remoteSkipForward() { skipForward(seconds: SystemIntegration.skipIntervalSeconds) }
-    func remoteSkipBackward() { skipBackward(seconds: SystemIntegration.skipIntervalSeconds) }
+    func remoteSkipForward() { skipForward() }
+    func remoteSkipBackward() { skipBackward() }
     func remoteSeek(toMs positionMs: Int64) { seekTo(positionMs: positionMs) }
 
     // MARK: - Prepare

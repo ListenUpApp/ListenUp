@@ -263,6 +263,49 @@ struct EndOfChapterTests {
     }
 }
 
+@Suite("Skip interval wiring")
+@MainActor
+struct SkipIntervalTests {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 600_000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 600_000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        return (coordinator, engine, progress)
+    }
+
+    /// With no override, forward and backward use their *distinct* default intervals
+    /// (30 / 10) — proving each direction reads its own setting-backed value rather
+    /// than the old shared hardcoded amount.
+    @Test func defaultForwardAndBackwardUseDistinctIntervals() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        // Anchor the position tracker at 60 s so both skips land on a positive position.
+        engine.emit(.position(ms: 60000, rate: 1.0))
+        await awaitUntil { coordinator.bookPositionMs == 60000 }
+
+        // 60 s + 30 s default forward = 90 s.
+        coordinator.skipForward()
+        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 90000)
+        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 90000 })
+
+        // 60 s − 10 s default backward = 50 s (distinct from the forward interval).
+        coordinator.skipBackward()
+        await progress.waitForPositionUpdate(bookId: "book1", positionMs: 50000)
+        #expect(progress.positionUpdates.contains { $0.0 == "book1" && $0.1 == 50000 })
+    }
+}
+
 @Suite("Seek persistence")
 @MainActor
 struct SeekPersistenceTests {
