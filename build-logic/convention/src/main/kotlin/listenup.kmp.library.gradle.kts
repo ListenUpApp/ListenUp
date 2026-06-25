@@ -49,9 +49,15 @@ kotlin {
     targets.configureEach {
         val isJvm = platformType == KotlinPlatformType.jvm
         compilations.configureEach {
+            // Test compile tasks (compileTestKotlin*, compile*UnitTestKotlin*, …) contain "Test";
+            // anything else is a production (main) compilation that must enforce AppResult must-use.
+            val isMainCompilation = !compileKotlinTaskName.contains("Test", ignoreCase = true)
             compileTaskProvider.configure {
                 compilerOptions {
                     freeCompilerArgs.addAll(LISTENUP_FREE_COMPILER_ARGS)
+                    if (isMainCompilation) {
+                        freeCompilerArgs.addAll(LISTENUP_MAIN_ONLY_COMPILER_ARGS)
+                    }
                     if (isJvm && this is KotlinJvmCompilerOptions) {
                         jvmTarget.set(JvmTarget.JVM_21)
                     }
