@@ -35,7 +35,7 @@ struct ExpandableText: View {
                     .font(.headline)
             }
 
-            Text(text)
+            Text(AttributedString.fromBookMarkdown(text))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(isExpanded ? nil : lineLimit)
