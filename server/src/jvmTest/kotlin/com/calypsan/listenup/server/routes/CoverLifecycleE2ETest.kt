@@ -15,7 +15,7 @@ import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.IngestOutcome
 import com.calypsan.listenup.server.services.LibraryRegistry
-import com.calypsan.listenup.server.services.PendingCover
+import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.useIsolatedTestConfig
 import io.kotest.core.spec.style.FunSpec

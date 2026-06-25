@@ -2,12 +2,12 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.cover.PendingCover
 
 /**
  * The narrow slice of [BookRepository] that [BookPersister] depends on.
@@ -109,33 +109,6 @@ data class ScanIdentityMaps(
     val contributors: Map<String, ContributorId> = emptyMap(),
     val series: Map<String, SeriesId> = emptyMap(),
 )
-
-/**
- * Cover bytes extracted from an [AnalyzedBook] before the DB upsert, ready to
- * be stored into the managed cover store once the stable [BookId] is known.
- *
- * [bytes] are the raw image bytes; [mime] is the MIME type declared by the
- * source (e.g. `"image/jpeg"`); [source] is the sync-layer provenance tag
- * ([CoverSource.FILESYSTEM] or [CoverSource.EMBEDDED]).
- */
-data class PendingCover(
-    val bytes: ByteArray,
-    val mime: String,
-    val source: CoverSource,
-) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is PendingCover) return false
-        return mime == other.mime && source == other.source && bytes.contentEquals(other.bytes)
-    }
-
-    override fun hashCode(): Int {
-        var result = mime.hashCode()
-        result = 31 * result + source.hashCode()
-        result = 31 * result + bytes.contentHashCode()
-        return result
-    }
-}
 
 /**
  * The result of a resolve-or-insert: the stable [bookId] the aggregate landed

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.cover
 
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 /**
  * Where a book's cover image lives — the resolved input the cover route needs

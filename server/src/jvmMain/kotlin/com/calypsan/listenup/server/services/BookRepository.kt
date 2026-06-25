@@ -19,6 +19,7 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.ManagedCoverFiles
+import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.cover.StoredCoverInfo
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -113,7 +114,8 @@ class BookRepository(
     BookIngestPort,
     BookRevisionTouch {
     /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
-    private val managedCoverFiles = ManagedCoverFiles(coverImageStore, homeDir, db)
+    private val managedCoverFiles =
+        ManagedCoverFiles(coverImageStore, homeDir?.let { kotlinx.io.files.Path(it.toString()) }, db)
 
     /** Book-row child-table write mechanics (transaction-scoped, no revision/bus calls). */
     private val bookAggregateWriter = BookAggregateWriter(db)
