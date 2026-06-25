@@ -109,6 +109,13 @@ jobs:
   test-ios:
     name: Test (iOS)
     runs-on: macos-26
+    # Fail-fast-visible. The iOS test suite is fast (~363 tests in ~35s warm); the time
+    # is the cold Kotlin/Native + Swift-Export framework compile + simulator boot. A cold
+    # build is well under 30m even with empty Konan/Gradle caches (the post-merge Release
+    # build is ~16m cold). 45m leaves comfortable margin for a legitimate cold run while
+    # turning a wedged build (which otherwise burns the ~50m default-ish runner ceiling) into
+    # a clean, visible failure instead of a silent hang.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -255,6 +262,9 @@ jobs:
   build-ios:
     name: Build (iOS)
     runs-on: macos-26
+    # The expensive Release build is ~16m cold; 45m leaves margin for a slow cold runner
+    # while killing a wedge instead of letting it run to the runner ceiling.
+    timeout-minutes: 45
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     # The expensive build (~16m) — gate it behind lint + JVM tests + iOS tests so we
     # never spend it on code that already failed an earlier stage.
