@@ -47,6 +47,9 @@ final class ActivityFeedObserver {
             phase = .ready(ready.activities.map(ActivityRowItem.init(from:)))
         case .error:
             phase = .error
+        case .unknown:
+            Log.error("Unexpected ActivityFeedUiState case")
+            phase = .error
         }
     }
 }

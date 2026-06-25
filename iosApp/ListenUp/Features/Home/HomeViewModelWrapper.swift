@@ -54,6 +54,9 @@ final class HomeViewModelWrapper {
             phase = .ready(HomeReady(from: ready))
         case .error(let error):
             phase = .error(error.message)
+        case .unknown:
+            Log.error("Unexpected HomeUiState case")
+            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }
@@ -122,6 +125,19 @@ struct ContinueItem: Identifiable, Equatable {
         case .loading(let loading):
             self.init(
                 id: loading.bookId,
+                title: "",
+                author: "",
+                coverPath: nil,
+                blurHash: nil,
+                progress: 0,
+                progressPercent: 0,
+                timeLeft: "",
+                isLoading: true
+            )
+        case .unknown:
+            Log.error("Unexpected ContinueListeningItem case")
+            self.init(
+                id: "",
                 title: "",
                 author: "",
                 coverPath: nil,

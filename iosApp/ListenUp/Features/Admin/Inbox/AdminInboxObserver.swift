@@ -53,6 +53,9 @@ final class AdminInboxObserver {
             phase = .ready(AdminInboxReadyModel(from: ready))
         case .error(let error):
             phase = .error(error.message)
+        case .unknown:
+            Log.error("Unexpected AdminInboxUiState case")
+            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }

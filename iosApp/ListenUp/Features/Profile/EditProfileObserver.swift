@@ -104,6 +104,10 @@ final class EditProfileObserver {
         case .error:
             isLoading = false
             user = nil
+        case .unknown:
+            Log.error("Unexpected EditProfileUiState case")
+            isLoading = false
+            user = nil
         }
     }
 
@@ -115,6 +119,8 @@ final class EditProfileObserver {
             savedToken += 1
         case .saveFailed(let failure):
             lastError = failure.message
+        case .unknown:
+            Log.error("Unexpected EditProfileEvent case")
         }
     }
 
@@ -131,6 +137,9 @@ final class EditProfileObserver {
             return .reverted
         case .upload:
             return pickedImage.map(StagedAvatar.image) ?? .none
+        case .unknown:
+            Log.error("Unexpected AvatarChange case")
+            return .none
         }
     }
 }

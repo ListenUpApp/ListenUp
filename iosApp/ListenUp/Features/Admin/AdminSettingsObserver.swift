@@ -56,6 +56,9 @@ final class AdminSettingsObserver {
             phase = .ready(AdminSettingsReadyModel.from(ready))
         case .error(let error):
             phase = .error(message: error.error.message)
+        case .unknown:
+            Log.error("Unexpected AdminSettingsUiState case")
+            phase = .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

@@ -129,6 +129,10 @@ final class LibraryReadinessObserver {
         case .checkFailed:
             phase = .checkFailed
             scanProgress = nil
+        case .unknown:
+            Log.error("Unexpected LibraryReadiness case")
+            phase = .checkFailed
+            scanProgress = nil
         }
     }
 }

@@ -40,6 +40,9 @@ struct TagDetailSnapshot: Equatable {
             )
         case .error(let errorState):
             return TagDetailSnapshot(phase: .error(errorState.message), tagName: "")
+        case .unknown:
+            Log.error("Unexpected TagDetailUiState case")
+            return TagDetailSnapshot(phase: .error(String(localized: "common.something_went_wrong")), tagName: "")
         }
     }
 }

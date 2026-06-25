@@ -60,6 +60,9 @@ final class PendingApprovalViewModelWrapper {
             phase = .approved
         case .denied(let denied):
             phase = .denied(denied.message)
+        case .unknown:
+            Log.error("Unexpected PendingApprovalUiState case")
+            phase = .waiting
         }
     }
 }

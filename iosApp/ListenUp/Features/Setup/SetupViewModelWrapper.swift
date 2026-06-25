@@ -53,6 +53,10 @@ final class SetupViewModelWrapper {
             isLoading = false; isSuccess = true; clearErrors()
         case .error(let error):
             isLoading = false; isSuccess = false; mapError(error.type)
+        case .unknown:
+            Log.error("Unexpected SetupUiState case")
+            isLoading = false; isSuccess = false
+            clearErrors(); generalError = String(localized: "common.something_went_wrong")
         }
     }
 
@@ -72,6 +76,9 @@ final class SetupViewModelWrapper {
             generalError = String(localized: "auth.unable_to_connect")
         case .serverError:
             generalError = String(localized: "auth.server_error")
+        case .unknown:
+            Log.error("Unexpected SetupErrorType case")
+            generalError = String(localized: "common.something_went_wrong")
         }
     }
 }

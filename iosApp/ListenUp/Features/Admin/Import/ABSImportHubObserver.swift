@@ -62,6 +62,9 @@ final class ABSImportHubObserver {
             return .ready(ImportHubReadyModel(from: ready))
         case .error(let error):
             return .error(message: error.error.message)
+        case .unknown:
+            Log.error("Unexpected ABSImportListUiState case")
+            return .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

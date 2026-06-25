@@ -149,6 +149,8 @@ final class LibrarySetupViewModelWrapper {
         switch onEnum(of: action) {
         case .finished:
             onFinished?()
+        case .unknown:
+            Log.error("Unexpected LibrarySetupNavAction case")
         }
     }
 }

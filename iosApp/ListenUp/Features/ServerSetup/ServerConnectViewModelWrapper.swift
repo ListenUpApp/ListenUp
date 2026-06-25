@@ -53,6 +53,9 @@ final class ServerConnectViewModelWrapper {
             isLoading = false; isVerified = true; error = nil
         case .error(let errorState):
             isLoading = false; isVerified = false; error = errorState.error.message
+        case .unknown:
+            Log.error("Unexpected ServerConnectUiState case")
+            isLoading = false; isVerified = false; error = String(localized: "common.something_went_wrong")
         }
     }
 }

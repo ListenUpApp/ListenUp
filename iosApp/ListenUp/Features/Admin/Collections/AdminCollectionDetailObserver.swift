@@ -58,6 +58,9 @@ final class AdminCollectionDetailObserver {
             phase = .ready(AdminCollectionDetailReadyModel(from: ready))
         case .error(let err):
             phase = .error(err.message)
+        case .unknown:
+            Log.error("Unexpected AdminCollectionDetailUiState case")
+            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 }

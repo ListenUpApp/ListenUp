@@ -57,6 +57,9 @@ final class AdminObserver {
             phase = .loading
         case .ready(let ready):
             phase = .ready(AdminReadyModel(from: ready))
+        case .unknown:
+            Log.error("Unexpected AdminUiState case")
+            phase = .loading
         }
     }
 }

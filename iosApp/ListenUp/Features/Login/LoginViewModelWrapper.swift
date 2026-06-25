@@ -46,6 +46,11 @@ final class LoginViewModelWrapper {
             isLoading = false; isSuccess = true; clearErrors()
         case .error(let error):
             isLoading = false; isSuccess = false; mapError(error.type)
+        case .unknown:
+            Log.error("Unexpected LoginUiState case")
+            isLoading = false; isSuccess = false
+            clearErrors()
+            generalError = String(localized: "auth.server_error")
         }
     }
 
@@ -69,6 +74,9 @@ final class LoginViewModelWrapper {
             case .email: emailError = String(localized: "auth.invalid_email")
             case .password: passwordError = String(localized: "auth.enter_password")
             }
+        case .unknown:
+            Log.error("Unexpected LoginErrorType case")
+            generalError = String(localized: "auth.server_error")
         }
     }
 }
