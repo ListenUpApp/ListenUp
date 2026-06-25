@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.playback
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Desktop implementation of [PlaybackController]. Wraps the existing shared [AudioPlayer]
@@ -18,8 +17,8 @@ class DesktopPlaybackController(
     private val audioPlayer: AudioPlayer,
     private val playbackManager: PlaybackManager,
 ) : PlaybackController {
-    private val _isReady = MutableStateFlow(true)
-    override val isReady: StateFlow<Boolean> = _isReady.asStateFlow()
+    override val isReady: StateFlow<Boolean>
+        field = MutableStateFlow(true)
 
     override fun acquire() = Unit
 

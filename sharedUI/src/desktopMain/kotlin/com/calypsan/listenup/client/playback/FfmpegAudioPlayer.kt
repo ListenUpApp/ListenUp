@@ -38,14 +38,14 @@ class FfmpegAudioPlayer(
     private val tokenProvider: AudioTokenProvider,
     private val scope: CoroutineScope,
 ) : AudioPlayer {
-    private val _state = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
-    override val state: StateFlow<PlaybackState> = _state
+    override val state: StateFlow<PlaybackState>
+        field = MutableStateFlow<PlaybackState>(PlaybackState.Idle)
 
-    private val _positionMs = MutableStateFlow(0L)
-    override val positionMs: StateFlow<Long> = _positionMs
+    override val positionMs: StateFlow<Long>
+        field = MutableStateFlow(0L)
 
-    private val _durationMs = MutableStateFlow(0L)
-    override val durationMs: StateFlow<Long> = _durationMs
+    override val durationMs: StateFlow<Long>
+        field = MutableStateFlow(0L)
 
     private var grabber: FFmpegFrameGrabber? = null
     private var filter: FFmpegFrameFilter? = null
@@ -64,7 +64,7 @@ class FfmpegAudioPlayer(
     override suspend fun load(segments: List<AudioSegment>) {
         if (segments.isEmpty()) {
             logger.error { "Cannot load empty segment list" }
-            _state.value = PlaybackState.Error(message = "Playback error. No audio segments were provided.")
+            state.value = PlaybackState.Error(message = "Playback error. No audio segments were provided.")
             return
         }
 
@@ -72,14 +72,14 @@ class FfmpegAudioPlayer(
         currentSegmentIndex = 0
         hasStartedPlaying = false
         pendingSeekMs = null
-        _durationMs.value = segments.sumOf { it.durationMs }
-        _state.value = PlaybackState.Buffering
+        durationMs.value = segments.sumOf { it.durationMs }
+        state.value = PlaybackState.Buffering
 
-        logger.info { "Loaded ${segments.size} segments, total duration: ${_durationMs.value}ms" }
+        logger.info { "Loaded ${segments.size} segments, total duration: ${durationMs.value}ms" }
     }
 
     override fun play() {
-        if (hasStartedPlaying && _state.value == PlaybackState.Paused) {
+        if (hasStartedPlaying && state.value == PlaybackState.Paused) {
             resumePlayback()
         } else {
             startSegment(currentSegmentIndex)
@@ -93,24 +93,24 @@ class FfmpegAudioPlayer(
         // Sync grabber to the last reported position (discard decoded-but-unplayed audio)
         val segment = segments.getOrNull(currentSegmentIndex)
         if (segment != null && grabber != null) {
-            val segmentOffset = _positionMs.value - segment.offsetMs
+            val segmentOffset = positionMs.value - segment.offsetMs
             grabber?.timestamp = segmentOffset * 1000
         }
-        _state.value = PlaybackState.Paused
+        state.value = PlaybackState.Paused
     }
 
     override fun seekTo(positionMs: Long) {
-        val coercedPosition = positionMs.coerceIn(0, _durationMs.value)
+        val coercedPosition = positionMs.coerceIn(0, durationMs.value)
         val (segmentIndex, segmentOffset) = resolvePosition(coercedPosition)
 
         if (!hasStartedPlaying) {
             currentSegmentIndex = segmentIndex
             pendingSeekMs = coercedPosition
-            _positionMs.value = coercedPosition
+            this.positionMs.value = coercedPosition
             return
         }
 
-        val wasPlaying = _state.value == PlaybackState.Playing
+        val wasPlaying = state.value == PlaybackState.Playing
         stopDecodeLoop()
         audioLine?.flush()
 
@@ -122,7 +122,7 @@ class FfmpegAudioPlayer(
 
         // Seek within the current segment (microseconds)
         grabber?.timestamp = segmentOffset * 1000
-        _positionMs.value = coercedPosition
+        this.positionMs.value = coercedPosition
 
         if (wasPlaying) {
             startDecodeLoop()
@@ -131,7 +131,7 @@ class FfmpegAudioPlayer(
 
     override fun setSpeed(speed: Float) {
         currentSpeed = speed
-        if (hasStartedPlaying && _state.value == PlaybackState.Playing) {
+        if (hasStartedPlaying && state.value == PlaybackState.Playing) {
             val wasPlaying = true
             stopDecodeLoop()
             rebuildFilter(speed)
@@ -151,9 +151,9 @@ class FfmpegAudioPlayer(
         hasStartedPlaying = false
         pendingSeekMs = null
         currentSpeed = 1.0f
-        _state.value = PlaybackState.Idle
-        _positionMs.value = 0L
-        _durationMs.value = 0L
+        state.value = PlaybackState.Idle
+        positionMs.value = 0L
+        durationMs.value = 0L
         logger.info { "FfmpegAudioPlayer released" }
     }
 
@@ -164,7 +164,7 @@ class FfmpegAudioPlayer(
         val segment = segments.getOrNull(index)
         if (segment == null) {
             logger.error { "Invalid segment index: $index" }
-            _state.value = PlaybackState.Error(message = "Playback error. Segment index $index is out of range.")
+            state.value = PlaybackState.Error(message = "Playback error. Segment index $index is out of range.")
             return
         }
 
@@ -199,7 +199,7 @@ class FfmpegAudioPlayer(
                 logger.error { "Invalid audio format: sampleRate=$sampleRate, channels=$channels" }
                 newGrabber.stop()
                 newGrabber.release()
-                _state.value =
+                state.value =
                     PlaybackState.Error(
                         message = "Playback error. Audio stream has invalid format (${sampleRate}Hz, ${channels}ch).",
                     )
@@ -247,7 +247,7 @@ class FfmpegAudioPlayer(
             throw e
         } catch (e: Exception) {
             logger.error(e) { "Failed to open segment $index" }
-            _state.value = PlaybackState.Error(message = "Playback failed: ${e.message}")
+            state.value = PlaybackState.Error(message = "Playback failed: ${e.message}")
         }
     }
 
@@ -289,10 +289,10 @@ class FfmpegAudioPlayer(
         currentSegmentIndex = index
         openSegment(index)
 
-        if (_state.value is PlaybackState.Error) return
+        if (state.value is PlaybackState.Error) return
 
         hasStartedPlaying = true
-        _state.value = PlaybackState.Playing
+        state.value = PlaybackState.Playing
         startDecodeLoop()
     }
 
@@ -301,7 +301,7 @@ class FfmpegAudioPlayer(
      */
     private fun resumePlayback() {
         audioLine?.start()
-        _state.value = PlaybackState.Playing
+        state.value = PlaybackState.Playing
         startDecodeLoop()
     }
 
@@ -320,7 +320,7 @@ class FfmpegAudioPlayer(
                 } catch (e: Exception) {
                     if (isActive) {
                         logger.error(e) { "Decode loop error" }
-                        _state.value = PlaybackState.Error(message = "Playback failed: ${e.message}")
+                        state.value = PlaybackState.Error(message = "Playback failed: ${e.message}")
                     }
                 }
             }
@@ -354,7 +354,7 @@ class FfmpegAudioPlayer(
             // Update book-relative position
             val positionInSegmentMs = currentGrabber.timestamp / 1000
             val bookPosition = segment.offsetMs + positionInSegmentMs
-            _positionMs.value = bookPosition.coerceAtMost(_durationMs.value)
+            positionMs.value = bookPosition.coerceAtMost(durationMs.value)
         }
 
         // End of segment reached naturally
@@ -379,8 +379,8 @@ class FfmpegAudioPlayer(
             startSegment(nextIndex)
         } else {
             logger.info { "All segments finished" }
-            _positionMs.value = _durationMs.value
-            _state.value = PlaybackState.Ended
+            positionMs.value = durationMs.value
+            state.value = PlaybackState.Ended
             audioLine?.drain()
         }
     }
