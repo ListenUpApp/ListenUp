@@ -21,4 +21,23 @@ class FileHelpersTest :
         test("isUnder is false for an unrelated path") {
             Path("/other/x").isUnder(Path("/lib/books")) shouldBe false
         }
+
+        test("relativeTo returns empty string when path equals base") {
+            Path("/mnt/lib").relativeTo(Path("/mnt/lib")) shouldBe ""
+        }
+        test("relativeTo treats a trailing slash on base as equal") {
+            Path("/mnt/lib").relativeTo(Path("/mnt/lib/")) shouldBe ""
+        }
+        test("relativeTo strips the base prefix for a direct child") {
+            Path("/mnt/lib/Author").relativeTo(Path("/mnt/lib")) shouldBe "Author"
+        }
+        test("relativeTo strips the base prefix for a deep child") {
+            Path("/mnt/lib/Author/Series/Book").relativeTo(Path("/mnt/lib")) shouldBe "Author/Series/Book"
+        }
+        test("relativeTo preserves special characters in the remainder") {
+            Path("/mnt/lib/John O'Donohue/Anam Cara").relativeTo(Path("/mnt/lib")) shouldBe "John O'Donohue/Anam Cara"
+        }
+        test("relativeTo does NOT strip a sibling that merely shares a name prefix") {
+            Path("/mnt/library2/Book").relativeTo(Path("/mnt/lib")) shouldBe "/mnt/library2/Book"
+        }
     })

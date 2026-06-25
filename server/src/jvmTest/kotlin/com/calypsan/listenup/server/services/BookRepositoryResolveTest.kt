@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.logging.ListenUpLoggerFactory
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -99,6 +100,57 @@ class BookRepositoryResolveTest :
             }
         }
 
+        test("resolveOrInsert rejects an absolute rootRelPath and writes nothing") {
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val absolute =
+                        analyzedFor(rootRelPath = "/mnt/Igni/Audiobooks/Sanderson/Way of Kings", inode = 1001L)
+
+                    // Defense-in-depth: an absolute rootRelPath is always a programming
+                    // error (the scanner must emit library-relative paths). The guard
+                    // rejects it BEFORE any identity lookup or write.
+                    shouldThrow<IllegalArgumentException> {
+                        repo.resolveOrInsert(libId, TEST_FOLDER_ID, absolute)
+                    }
+
+                    // The rejected attempt left no trace: a fresh RELATIVE book reusing
+                    // the same inode resolves as NEW — proving no half-written row exists
+                    // for it to "move" off of.
+                    val relative = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
+                    repo.resolveOrInsert(libId, TEST_FOLDER_ID, relative).outcome().wasNew shouldBe true
+                }
+            }
+        }
+
+        test("re-resolving the same relative path resolves by natural key without logging a move") {
+            withSqlDatabase {
+                val (repo, registry) = repository(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val capture = ListenUpLoggerFactory.installTestCapture()
+                    try {
+                        val analyzed = analyzedFor(rootRelPath = "Sanderson/Way of Kings", inode = 1001L)
+
+                        val first = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzed).outcome()
+                        first.wasNew shouldBe true
+
+                        // An unchanged re-scan: same relative natural key. This MUST hit
+                        // findByPath (wasNew == false) and never fall through to the inode
+                        // "Book moved" branch — the headline symptom of the absolute-path bug.
+                        val second = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzed).outcome()
+                        second.wasNew shouldBe false
+                        second.bookId shouldBe first.bookId
+
+                        capture.events.none { it.message.startsWith("Book moved:") } shouldBe true
+                    } finally {
+                        ListenUpLoggerFactory.removeTestCapture()
+                    }
+                }
+            }
+        }
+
         test("inode match logs the move at INFO") {
             withSqlDatabase {
                 val (repo, registry) = repository(sql, driver)
@@ -142,6 +194,17 @@ private val TEST_FOLDER_ID = FolderId("test-folder")
 private fun AppResult<IngestOutcome>.resolved(): BookId =
     when (this) {
         is AppResult.Success -> data.bookId
+        is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
+    }
+
+/**
+ * Asserts the [resolveOrInsert] result landed and returns the full
+ * [IngestOutcome] — including the `wasNew` flag the natural-key/inode/new
+ * identity branches set.
+ */
+private fun AppResult<IngestOutcome>.outcome(): IngestOutcome =
+    when (this) {
+        is AppResult.Success -> data
         is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
     }
 

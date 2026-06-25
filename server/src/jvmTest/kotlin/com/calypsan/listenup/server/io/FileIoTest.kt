@@ -119,18 +119,4 @@ class FileIoTest :
 
             (first.toString() == second.toString()).shouldBeFalse()
         }
-
-        test("relativeTo strips the base prefix") {
-            val base = Path("/srv/library")
-            val child = Path("/srv/library/author/book/track.m4b")
-
-            child.relativeTo(base) shouldBe "author/book/track.m4b"
-        }
-
-        test("relativeTo returns self when not under base") {
-            val base = Path("/srv/library")
-            val outside = Path("/var/data/track.m4b")
-
-            outside.relativeTo(base) shouldBe "/var/data/track.m4b"
-        }
     })

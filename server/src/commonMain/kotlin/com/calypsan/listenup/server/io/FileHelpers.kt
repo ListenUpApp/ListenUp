@@ -40,7 +40,11 @@ internal fun createTempFileIn(
 internal fun Path.relativeTo(base: Path): String {
     val p = this.toString()
     val b = base.toString().trimEnd('/')
-    return if (p.startsWith("$b/")) p.removePrefix("$b/") else p
+    return when {
+        p == b -> ""
+        p.startsWith("$b/") -> p.removePrefix("$b/")
+        else -> p
+    }
 }
 
 /** True if [this] is [base] itself or nested under it (string-prefix on normalized paths). */
