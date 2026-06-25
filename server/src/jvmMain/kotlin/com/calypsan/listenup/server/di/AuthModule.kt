@@ -196,8 +196,8 @@ private const val REFRESH_TOKEN_TTL_DAYS = 30L
 private const val DEFAULT_SERVER_NAME = "ListenUp"
 
 private fun ApplicationConfig.registrationPolicy(): RegistrationPolicy {
-    val raw = propertyOrNull("registration.policy")?.getString() ?: return RegistrationPolicy.OPEN
-    return runCatching { RegistrationPolicy.valueOf(raw) }.getOrDefault(RegistrationPolicy.OPEN)
+    val raw = propertyOrNull("registration.policy")?.getString() ?: return RegistrationPolicy.APPROVAL_QUEUE
+    return runCatching { RegistrationPolicy.valueOf(raw) }.getOrDefault(RegistrationPolicy.APPROVAL_QUEUE)
 }
 
 /** The instance's display name, shown on the invite landing page. Defaults to [DEFAULT_SERVER_NAME]. */

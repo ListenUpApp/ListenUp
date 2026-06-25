@@ -95,6 +95,30 @@ class AuthRoutesRegisterTest :
             }
         }
 
+        test("POST /register on a fresh server with no policy configured returns PendingApproval") {
+            testApplication {
+                // No registration.policy key — exercises the server's default for an
+                // unconfigured instance, which must be approval-required.
+                useIsolatedTestConfig(registrationPolicy = null)
+                application { module() }
+                val client = createClient { install(ContentNegotiation) { json() } }
+                client.seedRoot()
+
+                val r =
+                    client.post("/api/v1/auth/register") {
+                        contentType(ContentType.Application.Json)
+                        setBody(RegisterRequest("alice@x", "x".repeat(8), "Alice"))
+                    }
+
+                r.status shouldBe HttpStatusCode.OK
+                r
+                    .body<AppResult<RegisterResult>>()
+                    .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
+                    .data
+                    .shouldBeInstanceOf<RegisterResult.PendingApproval>()
+            }
+        }
+
         test("POST /register on CLOSED instance returns RegistrationDisabled (403)") {
             testApplication {
                 useIsolatedTestConfig(registrationPolicy = "CLOSED")
