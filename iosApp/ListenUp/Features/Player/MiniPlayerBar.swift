@@ -21,14 +21,15 @@ struct MiniPlayerBar: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 0) {
-                contentRow
-                progressLine
-            }
-            .frame(maxWidth: .infinity)
-            .glassControl(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            contentRow
+                .frame(maxWidth: .infinity)
+                .glassControl(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                // Progress reads as the bar's own bottom edge — a hairline pinned just
+                // inside the glass, inset from the rounded corners — not a separate strip
+                // stacked beneath the card.
+                .overlay(alignment: .bottom) { progressLine }
+                .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 4)
+                .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
         // Swipe up to expand. `simultaneousGesture` keeps both the bar's tap and
@@ -93,22 +94,22 @@ struct MiniPlayerBar: View {
             .accessibilityHidden(true)
     }
 
-    /// Thin overall-book progress line pinned to the bottom edge of the bar.
+    /// Overall-book progress as a slim hairline sitting *on* the bar's lower edge: a
+    /// barely-there capsule track with a coral fill, inset from the rounded corners so it
+    /// reads as the bar's own progress accent rather than a separate strip beneath it.
     private var progressLine: some View {
         GeometryReader { geometry in
-            Rectangle()
-                .fill(Color.listenUpOrange)
-                .frame(width: geometry.size.width * CGFloat(observer.displayBookProgress))
+            Capsule()
+                .fill(Color.primary.opacity(0.06))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.listenUpOrange)
+                        .frame(width: geometry.size.width * CGFloat(observer.displayBookProgress))
+                }
         }
-        .frame(height: 2)
-        .background(Color.primary.opacity(0.08))
-        .clipShape(
-            UnevenRoundedRectangle(
-                bottomLeadingRadius: 16,
-                bottomTrailingRadius: 16,
-                style: .continuous
-            )
-        )
+        .frame(height: 2.5)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 5)
     }
 
     private var playPauseButton: some View {
