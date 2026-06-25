@@ -129,7 +129,10 @@ internal class Scanner(
         // libraries. Using the first folder root is consistent with what the
         // watcher supplies to runIncremental.
         val primaryRoot =
-            library.folders.firstOrNull()?.rootPath?.let { Path(it) }
+            library.folders
+                .firstOrNull()
+                ?.rootPath
+                ?.let { Path(it) }
                 ?: Path(library.id.value)
         val analyzer =
             Analyzer(
@@ -215,7 +218,10 @@ internal class Scanner(
             }
         val folderRoot =
             owningFolder?.rootPath?.let { Path(it) }
-                ?: library.folders.firstOrNull()?.rootPath?.let { Path(it) }
+                ?: library.folders
+                    .firstOrNull()
+                    ?.rootPath
+                    ?.let { Path(it) }
                 ?: bookRoot
 
         val walker = Walker()

@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.io.relativeTo
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
@@ -326,40 +328,20 @@ class ScannerTest :
                 audioLibrary {
                     book("Author/Title") { tracks(count = 1) }
                 }.use { fixture ->
-                    // Build a library with one real folder and one null-rootPath folder.
+                    // A library with one real folder and one null-rootPath (redacted) folder.
                     val library =
-                        com.calypsan.listenup.server.testing.testLibrary(
-                            folders = listOf(fixture.root.toString()),
-                        ).copy(
+                        testLibrary(folders = listOf(fixture.root.toString())).copy(
                             folders =
-                                com.calypsan.listenup.api.dto.Library(
-                                    id = com.calypsan.listenup.core.LibraryId("test-lib-1"),
-                                    name = "Test Library",
-                                    folders =
-                                        listOf(
-                                            com.calypsan.listenup.api.dto.LibraryFolderRef(
-                                                com.calypsan.listenup.core.FolderId("test-lib-1-folder-0"),
-                                                fixture.root.toString(),
-                                            ),
-                                            com.calypsan.listenup.api.dto.LibraryFolderRef(
-                                                com.calypsan.listenup.core.FolderId("redacted-folder"),
-                                                null,
-                                            ),
-                                        ),
-                                    metadataPrecedence = "embedded,abs,sidecar",
-                                    accessMode = com.calypsan.listenup.api.dto.AccessMode.SHARED,
-                                    createdByUserId = null,
-                                    createdAt = 0L,
-                                ).folders,
+                                listOf(
+                                    LibraryFolderRef(FolderId("test-lib-1-folder-0"), fixture.root.toString()),
+                                    LibraryFolderRef(FolderId("redacted-folder"), null),
+                                ),
                         )
-                    val eventBus =
-                        MutableSharedFlow<com.calypsan.listenup.api.event.ScanEvent>(replay = 64, extraBufferCapacity = 64)
+                    val eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64)
                     val scanner =
                         Scanner(
                             library = library,
-                            metadataReader = com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader(
-                                com.calypsan.listenup.api.contractJson,
-                            ),
+                            metadataReader = AbsMetadataReader(contractJson),
                             embeddedMetadataParser = noOpEmbeddedParser(),
                             eventBus = eventBus,
                             scanResultBus = MutableSharedFlow(replay = 1),
@@ -367,7 +349,7 @@ class ScannerTest :
                     scanner.runFullScan()
                     val bookRoot = Path(fixture.root.resolve("Author/Title").toString())
 
-                    // If runIncremental throws, the test fails — that's the assertion
+                    // If runIncremental throws, the test fails — that's the assertion.
                     scanner.runIncremental(bookRoot)
                 }
             }

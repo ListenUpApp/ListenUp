@@ -272,7 +272,8 @@ internal fun WatcherSupervisor.asPort(): WatcherSupervisorPort =
             libraryId: LibraryId,
             folder: LibraryFolderRef,
             onEvent: suspend (LibraryId, Path) -> Unit, // kotlinx.io Path
-        ) = this@asPort.mount(libraryId, folder) { libId, nioPath -> // nioPath: java.nio Path
+        ) = this@asPort.mount(libraryId, folder) { libId, nioPath ->
+            // nioPath: java.nio Path
             onEvent(libId, Path(nioPath.toString())) // bridge
         }
 
