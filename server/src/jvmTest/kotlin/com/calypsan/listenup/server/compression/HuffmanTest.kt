@@ -75,7 +75,7 @@ class HuffmanTest :
         }
 
         test("length-limited build yields a COMPLETE prefix code for random 286-symbol litlen alphabets") {
-            val rng = Random(20260625)
+            val rng = Random(20_260_625)
             repeat(50) {
                 val freq = IntArray(286) { if (rng.nextInt(4) == 0) 0 else rng.nextInt(1, 100_000) }
                 val usedCount = freq.count { it > 0 }
