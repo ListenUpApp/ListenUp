@@ -227,6 +227,7 @@ private fun DiscoverContent(
                     ActivityFeedSection(
                         onBookClick = onBookClick,
                         onShelfClick = onShelfClick,
+                        onUserClick = onUserProfileClick,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -241,6 +242,7 @@ private fun DiscoverContent(
                 ActivityFeedSection(
                     onBookClick = onBookClick,
                     onShelfClick = onShelfClick,
+                    onUserClick = onUserProfileClick,
                 )
             }
         }
