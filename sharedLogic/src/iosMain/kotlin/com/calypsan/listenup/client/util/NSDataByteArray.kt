@@ -5,6 +5,7 @@ import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.convert
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSData
+import platform.Foundation.create
 import platform.posix.memcpy
 
 /** Copies an `NSData` into a Kotlin `ByteArray` in one bulk `memcpy` (no per-byte bridge). */
@@ -20,4 +21,13 @@ fun byteArrayFromNSData(data: NSData): ByteArray {
         return@usePinned
     }
     return bytes
+}
+
+/** Copies a Kotlin `ByteArray` into an `NSData` in one bulk `memcpy` (the inverse of [byteArrayFromNSData]). */
+@OptIn(ExperimentalForeignApi::class)
+fun nsDataFromByteArray(bytes: ByteArray): NSData {
+    if (bytes.isEmpty()) return NSData()
+    return bytes.usePinned { pinned ->
+        NSData.create(bytes = pinned.addressOf(0), length = bytes.size.convert())
+    }
 }

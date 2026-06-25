@@ -34,8 +34,8 @@ func awaitUntil(
 
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
-    private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter_ {
-        Chapter_(id: id, title: id, duration: duration, startTime: start)
+    private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
+        Chapter(id: id, title: id, duration: duration, startTime: start)
     }
 
     @Test func indexIsNilForEmpty() {
@@ -240,8 +240,8 @@ struct EndOfChapterTests {
         let sleep = FakeSleepTiming()
         let preparer = FakePlaybackPreparing()
         let chapters = [
-            Chapter_(id: "c0", title: "c0", duration: 1000, startTime: 0),
-            Chapter_(id: "c1", title: "c1", duration: 1000, startTime: 1000)
+            Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0),
+            Chapter(id: "c1", title: "c1", duration: 1000, startTime: 1000)
         ]
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
