@@ -190,16 +190,13 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
-// Exclude stately-concurrent-collections from every configuration.
-// stately-concurrent-collections (pulled transitively by koin-core) ships a
-// ConcurrentMutableList that implements MutableList, causing Swift Export to crash with
-// "Global 'ktypew:kotlin.collections.MutableList' already exists" when two klibs each
-// register the MutableList type descriptor. Koin uses Stately only on older Kotlin/Native
-// targets; Kotlin 2.4.0's own atomics make it redundant, and the symbols are never needed
-// at runtime on this Kotlin version.
-configurations.all {
-    exclude(group = "co.touchlab", module = "stately-concurrent-collections")
-}
+// NOTE: stately-concurrent-collections (pulled transitively by koin-core) ships a
+// ConcurrentMutableList/Map that Koin uses at runtime on Kotlin/Native — `KoinPlatformTools.
+// safeHashMap()` constructs `ConcurrentMutableMap` during `startKoin`, so it MUST be on the
+// classpath or the app aborts at launch with an IrLinkageError. It must NOT be excluded.
+// The Swift Export `MutableList` link collision it once caused is prevented structurally
+// instead: the DI `Module` vals are `internal`, so koin-core never reaches the exported Swift
+// surface and its mutable-collection bridge is never generated.
 
 // Wire KSP for Room - platform-specific targets only
 // Note: kspCommonMainMetadata is intentionally omitted to avoid generating
