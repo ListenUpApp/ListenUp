@@ -74,6 +74,9 @@ final class CreateInviteObserver {
             return .success(CreatedInviteModel(from: success.invite))
         case .error(let error):
             return .failure(InviteFailure(from: error.type))
+        case .unknown:
+            Log.error("Unexpected CreateInviteStatus case")
+            return .failure(.server(detail: nil))
         }
     }
 }
@@ -172,6 +175,9 @@ enum InviteFailure: Equatable {
             self = .network(detail: network.detail)
         case .serverError(let server):
             self = .server(detail: server.detail)
+        case .unknown:
+            Log.error("Unexpected CreateInviteErrorType case")
+            self = .server(detail: nil)
         }
     }
 }

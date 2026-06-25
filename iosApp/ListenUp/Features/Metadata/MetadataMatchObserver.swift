@@ -121,6 +121,10 @@ final class MetadataMatchObserver {
             query = previewState.query
             rawResults = Dictionary(previewState.searchResults.map { ($0.asin, $0) }) { first, _ in first }
             phase = .preview(MetadataMatchMapping.previewPhase(from: previewState))
+        case .unknown:
+            Log.error("Unexpected MetadataUiState case")
+            phase = .idle
+            rawResults = [:]
         }
     }
 
@@ -130,6 +134,8 @@ final class MetadataMatchObserver {
             appliedToken += 1
         case .chapterNamesApplied:
             chapterAppliedToken += 1
+        case .unknown:
+            Log.error("Unexpected MetadataEvent case")
         }
     }
 }

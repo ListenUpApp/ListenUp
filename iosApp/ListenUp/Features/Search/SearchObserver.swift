@@ -77,6 +77,10 @@ final class SearchObserver {
         case .error(let error):
             phase = .error(error.message)
             groups = SearchHitGroups()
+        case .unknown:
+            Log.error("Unexpected SearchUiState case")
+            phase = .error(String(localized: "common.error"))
+            groups = SearchHitGroups()
         }
     }
 
@@ -86,6 +90,7 @@ final class SearchObserver {
         case .navigateToContributor(let a): pendingNavigation = .contributor(id: a.contributorId)
         case .navigateToSeries(let a): pendingNavigation = .series(id: a.seriesId)
         case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId)
+        case .unknown: Log.error("Unexpected SearchNavAction case")
         }
     }
 }

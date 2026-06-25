@@ -52,6 +52,9 @@ final class DiscoverObserver {
             newForYou = .ready(ready.books.map(DiscoverBook.init(from:)))
         case .error:
             newForYou = .error
+        case .unknown:
+            Log.error("Unexpected DiscoverBooksUiState case")
+            newForYou = .error
         }
     }
 
@@ -63,6 +66,9 @@ final class DiscoverObserver {
             recentlyAdded = .ready(ready.books.map(RecentlyAddedBook.init(from:)))
         case .error:
             recentlyAdded = .error
+        case .unknown:
+            Log.error("Unexpected RecentlyAddedUiState case")
+            recentlyAdded = .error
         }
     }
 
@@ -73,6 +79,9 @@ final class DiscoverObserver {
         case .ready(let ready):
             currentlyListening = .ready(Self.currentlyListeningRows(from: ready.sessions))
         case .error:
+            currentlyListening = .error
+        case .unknown:
+            Log.error("Unexpected CurrentlyListeningUiState case")
             currentlyListening = .error
         }
     }

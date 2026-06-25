@@ -130,6 +130,10 @@ final class SeriesDetailObserver {
         case .error(let e):
             isLoading = false
             error = e.message
+        case .unknown:
+            Log.error("Unexpected SeriesDetailUiState case")
+            isLoading = false
+            error = String(localized: "common.something_went_wrong")
         }
     }
 

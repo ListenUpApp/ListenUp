@@ -233,6 +233,12 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
             "Swift Export patcher: 0 flat typealiases emitted — generated shape drift. Run " +
                 "`./gradlew :build-logic:convention:test` to localize the broken transform."
         }
+        check((counts["appResult"] ?: 0) > 0) {
+            "Swift Export patcher: AppResult accessor not emitted — the generated " +
+                "_AppResult_Success/_Failure class shape likely changed (Kotlin/Swift-Export bump). The " +
+                "two iOS call sites cast the raw mangled names and would break. Run " +
+                "`./gradlew :build-logic:convention:test` to localize the broken transform."
+        }
         logger.lifecycle("Swift export patcher: $counts")
     }
 }

@@ -66,6 +66,8 @@ final class SeriesEditObserver {
     private func applyNav(_ action: SeriesEditNavAction) {
         switch onEnum(of: action) {
         case .navigateBack: didFinish = true
+        case .unknown:
+            Log.error("Unexpected SeriesEditNavAction case")
         }
     }
 }

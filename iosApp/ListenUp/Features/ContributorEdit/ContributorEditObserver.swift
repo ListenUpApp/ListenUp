@@ -74,6 +74,7 @@ final class ContributorEditObserver {
     private func applyNav(_ action: ContributorEditNavAction) {
         switch onEnum(of: action) {
         case .navigateBack, .saveSuccess: didFinish = true
+        case .unknown: Log.error("Unexpected ContributorEditNavAction case")
         }
     }
 }

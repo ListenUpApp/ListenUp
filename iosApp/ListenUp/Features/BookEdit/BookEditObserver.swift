@@ -308,6 +308,7 @@ final class BookEditObserver {
         switch onEnum(of: action) {
         case .navigateBack: didFinish = true
         case .showSaveSuccess: didFinish = true
+        case .unknown: Log.error("Unexpected BookEditNavAction case")
         }
     }
 }

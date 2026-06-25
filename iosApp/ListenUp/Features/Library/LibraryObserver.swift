@@ -102,6 +102,10 @@ final class LibraryObserver {
         case .error(let e):
             isLoading = false
             errorMessage = e.message
+        case .unknown:
+            Log.error("Unexpected LibraryUiState case")
+            isLoading = false
+            errorMessage = String(localized: "common.something_went_wrong")
         }
     }
 

@@ -50,6 +50,9 @@ final class SeeAllSearchObserver {
             phase = results.hits.isEmpty ? .empty : .results(results.hits.map { SearchRow($0) })
         case .error(let error):
             phase = .error(error.message)
+        case .unknown:
+            Log.error("Unexpected SeeAllSearchUiState case")
+            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 
@@ -59,6 +62,8 @@ final class SeeAllSearchObserver {
         case .navigateToContributor(let a): pendingNavigation = .contributor(id: a.contributorId)
         case .navigateToSeries(let a): pendingNavigation = .series(id: a.seriesId)
         case .navigateToTag(let a): pendingNavigation = .tag(id: a.tagId)
+        case .unknown:
+            Log.error("Unexpected SearchNavAction case")
         }
     }
 }

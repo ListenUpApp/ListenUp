@@ -52,6 +52,9 @@ final class BookReadersObserver {
             phase = .data(Self.rows(from: data.readers))
         case .error(let error):
             phase = .error(isRetryable: error.isRetryable)
+        case .unknown:
+            Log.error("Unexpected BookReadersUiState case")
+            phase = .error(isRetryable: false)
         }
     }
 

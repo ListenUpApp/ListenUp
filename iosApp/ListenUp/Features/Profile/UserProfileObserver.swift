@@ -75,6 +75,9 @@ final class UserProfileObserver {
             longestStreak = Int(r.longestStreak)
         case .error(let errorState):
             phase = .error(errorState.message)
+        case .unknown:
+            Log.error("Unexpected UserProfileUiState case")
+            phase = .error(String(localized: "common.error"))
         }
     }
 }

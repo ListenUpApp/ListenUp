@@ -65,6 +65,9 @@ final class AuthStateObserver {
             pendingApprovalEmail = pending.email
         case .authenticated:
             state = .authenticated
+        case .unknown:
+            Log.error("Unexpected AuthState case")
+            state = .initializing
         }
     }
 }

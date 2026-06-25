@@ -58,6 +58,9 @@ final class ClaimInviteViewModelWrapper {
             phase = .claimed
         case .error(let errorState):
             phase = .error(errorState.message)
+        case .unknown:
+            Log.error("Unexpected ClaimInviteUiState case")
+            phase = .error(String(localized: "invite.error_invalid"))
         }
     }
 }

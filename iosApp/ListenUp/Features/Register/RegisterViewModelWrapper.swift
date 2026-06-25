@@ -46,6 +46,9 @@ final class RegisterViewModelWrapper {
             isLoading = false; isSuccess = true; error = nil
         case .error(let errorState):
             isLoading = false; isSuccess = false; error = errorState.message
+        case .unknown:
+            Log.error("Unexpected RegisterUiState case")
+            isLoading = false; isSuccess = false; error = String(localized: "common.error")
         }
     }
 }

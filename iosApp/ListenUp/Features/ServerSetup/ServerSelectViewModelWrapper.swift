@@ -96,6 +96,10 @@ final class ServerSelectViewModelWrapper {
         case .error(let s):
             isDiscovering = false; isConnecting = false
             selectedServerId = s.selectedServerId; error = s.message
+        case .unknown:
+            Log.error("Unexpected ServerSelectUiState case")
+            isDiscovering = false; isConnecting = false
+            error = String(localized: "common.something_went_wrong")
         }
     }
 
@@ -105,6 +109,8 @@ final class ServerSelectViewModelWrapper {
             onServerActivated?()
         case .goToManualEntry:
             onManualEntryRequested?()
+        case .unknown:
+            Log.error("Unexpected ServerSelectViewModel.NavigationEvent case")
         }
     }
 

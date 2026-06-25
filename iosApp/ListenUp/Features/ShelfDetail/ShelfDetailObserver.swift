@@ -42,6 +42,9 @@ struct ShelfDetailSnapshot: Equatable {
             )
         case .error(let errorState):
             return ShelfDetailSnapshot(phase: .error(errorState.message))
+        case .unknown:
+            Log.error("Unexpected ShelfDetailUiState case")
+            return ShelfDetailSnapshot(phase: .error(String(localized: "common.something_went_wrong")))
         }
     }
 }

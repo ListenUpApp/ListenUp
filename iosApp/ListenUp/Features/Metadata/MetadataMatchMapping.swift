@@ -17,6 +17,9 @@ enum MetadataMatchMapping {
             return .loaded(loaded.results.map(resultItem(from:)))
         case .failed(let failed):
             return .failed(failed.message)
+        case .unknown:
+            Log.error("Unexpected SearchLoadState case")
+            return .failed(String(localized: "common.error"))
         }
     }
 
@@ -42,6 +45,9 @@ enum MetadataMatchMapping {
             return .failed(failed.message)
         case .ready(let ready):
             return .ready(preview(from: ready, match: state.match))
+        case .unknown:
+            Log.error("Unexpected PreviewLoadState case")
+            return .failed(String(localized: "common.error"))
         }
     }
 
@@ -207,6 +213,9 @@ enum MetadataMatchMapping {
                 isApplying: available.isApplying,
                 applyError: available.applyError
             ))
+        case .unknown:
+            Log.error("Unexpected ChapterSuggestion case")
+            return .unavailable
         }
     }
 

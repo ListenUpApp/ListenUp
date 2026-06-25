@@ -68,6 +68,9 @@ final class LeaderboardObserver {
             phase = .data(Self.rows(from: data.snapshot, currentUserId: currentUserId))
         case .error(let error):
             phase = .error(isRetryable: error.isRetryable)
+        case .unknown:
+            Log.error("Unexpected LeaderboardUiState case")
+            phase = .error(isRetryable: false)
         }
     }
 

@@ -106,6 +106,9 @@ final class ImportFlowObserver {
             phase = .done(ImportDoneModel(from: done.result))
         case .error(let error):
             phase = .error(message: error.error.message)
+        case .unknown:
+            Log.error("Unexpected ImportFlowUiState case")
+            phase = .error(message: String(localized: "common.something_went_wrong"))
         }
     }
 }

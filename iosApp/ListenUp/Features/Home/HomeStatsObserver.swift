@@ -40,6 +40,9 @@ final class HomeStatsObserver {
             statsPhase = .data(HomeStatsData(from: data))
         case .error:
             statsPhase = .error
+        case .unknown:
+            Log.error("Unexpected HomeStatsUiState case")
+            statsPhase = .error
         }
     }
 }

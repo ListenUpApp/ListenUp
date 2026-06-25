@@ -173,10 +173,15 @@ final class BookDetailObserver {
         Task {
             do {
                 let result = try await downloadService.downloadBook(bookId: book.id)
-                // `AppResult<Unit>` erases its generic to `any AppResult` over Swift Export, so
-                // there's no generated `onEnum` overload — switch on the concrete subtype instead.
-                if let failure = result as? _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Failure {
+                // `AppResult<Unit>` erases its generic to `any AppResult` over Swift Export. Fold it via
+                // the generated typed accessor — both branches compiler-forced.
+                switch appResultCase(result) {
+                case .failure(let failure):
                     downloadError = failure.error.message
+                case .success:
+                    break
+                case .unknown:
+                    Log.error("downloadBook returned an unexpected AppResult case for \(book.idString)")
                 }
             } catch {
                 // A *thrown* error (vs. the typed `.failure` above) is unexpected — surface
@@ -303,6 +308,10 @@ final class BookDetailObserver {
         case .error(let e):
             isLoading = false
             error = e.message
+        case .unknown:
+            Log.error("Unexpected BookDetailUiState case")
+            isLoading = false
+            error = String(localized: "common.something_went_wrong")
         }
     }
 
@@ -318,6 +327,8 @@ final class BookDetailObserver {
             documentToOpen = ReaderDocument(localPath: open.localPath, title: title)
         case .showViewerComingSoon:
             showComingSoon = true
+        case .unknown:
+            Log.error("Unexpected BookDetailNavAction case")
         }
     }
 
@@ -344,6 +355,11 @@ final class BookDetailObserver {
             downloadProgress = s.totalBytes > 0
                 ? Float(s.downloadedBytes) / Float(s.totalBytes)
                 : 0
+            isDownloaded = false
+        case .unknown:
+            Log.error("Unexpected BookDownloadStatus case")
+            downloadState = .notDownloaded
+            downloadProgress = 0
             isDownloaded = false
         }
     }

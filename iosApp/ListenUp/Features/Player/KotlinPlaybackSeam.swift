@@ -175,12 +175,19 @@ struct KotlinBookDocumentProviding: BookDocumentProviding {
         guard let result = try? await repository.ensureLocal(bookId: BookId(value: bookId), docId: docId) else {
             return nil
         }
-        // `AppResult<String>` erases its generic to `any AppResult` over Swift Export, so there's
-        // no generated `onEnum` overload — switch on the concrete subtype instead. The success
-        // `data` is type-erased to `any _KotlinBridgeable?`; the payload is a Kotlin String.
-        guard let success = result as? _ExportedKotlinPackages_com_calypsan_listenup_api_result_AppResult_Success else {
+        // `AppResult<String>` erases its generic to `any AppResult` over Swift Export. Fold it via the
+        // generated typed accessor (both branches compiler-forced); the success `data` is type-erased
+        // to `any _KotlinBridgeable?` and the payload here is a Kotlin String.
+        switch appResultCase(result) {
+        case .success(let success):
+            return success.data as? String
+        case .failure(let failure):
+            // A typed `.failure` is no longer silently dropped — surface why the PDF won't localize.
+            Log.error("ensureLocal failed for \(docId): \(failure.error.message)")
+            return nil
+        case .unknown:
+            Log.error("ensureLocal returned an unexpected AppResult case for \(docId)")
             return nil
         }
-        return success.data as? String
     }
 }

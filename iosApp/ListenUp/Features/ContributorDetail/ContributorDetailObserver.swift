@@ -96,6 +96,10 @@ final class ContributorDetailObserver {
         case .error(let err):
             isLoading = false
             error = err.message
+        case .unknown:
+            Log.error("Unexpected ContributorDetailUiState case")
+            isLoading = false
+            error = String(localized: "common.something_went_wrong")
         }
     }
 
@@ -103,6 +107,8 @@ final class ContributorDetailObserver {
         switch onEnum(of: action) {
         case .deleted:
             onDeletedCallback?()
+        case .unknown:
+            Log.error("Unexpected ContributorDetailNavAction case")
         }
     }
 

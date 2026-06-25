@@ -53,6 +53,9 @@ final class CreateEditShelfObserver {
             phase = .saving
         case .error(let errorState):
             phase = .error(errorState.message)
+        case .unknown:
+            Log.error("Unexpected CreateEditShelfUiState case")
+            phase = .error(String(localized: "common.something_went_wrong"))
         }
     }
 
@@ -60,6 +63,8 @@ final class CreateEditShelfObserver {
         switch onEnum(of: action) {
         case .navigateBack:
             onClose?()
+        case .unknown:
+            Log.error("Unexpected CreateEditShelfNavAction case")
         }
     }
 }
