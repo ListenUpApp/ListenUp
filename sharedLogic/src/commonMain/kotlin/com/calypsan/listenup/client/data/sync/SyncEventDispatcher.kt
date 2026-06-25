@@ -12,7 +12,7 @@ private val logger = KotlinLogging.logger {}
  * Routes parsed SSE frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
  *  - `clientOpId` echoes are matched against the pending queue (and acked),
- *  - control events (`CursorStale`, `StreamError`, `AccessChanged`) are recognised and acted on,
+ *  - control events (`CursorStale`, `StreamError`, `AccessChanged`, `LibraryDataChanged`) are recognised and acted on,
  *  - unknown domains are logged and dropped (graceful for forward-compat).
  */
 internal class SyncEventDispatcher(
@@ -26,6 +26,7 @@ internal class SyncEventDispatcher(
     private val onActiveSessionsChanged: () -> Unit = {},
     private val onActivityChanged: () -> Unit = {},
     private val onServerInfoChanged: suspend () -> Unit = {},
+    private val onLibraryDataChanged: suspend () -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
     suspend fun handle(frame: ParsedSseFrame) {
@@ -82,6 +83,11 @@ internal class SyncEventDispatcher(
             SyncControl.ServerInfoChanged -> {
                 logger.debug { "server-info nudge; re-fetching getServerInfo" }
                 onServerInfoChanged()
+            }
+
+            SyncControl.LibraryDataChanged -> {
+                logger.info { "LibraryDataChanged received; reconciling all domains via digest" }
+                onLibraryDataChanged()
             }
         }
     }

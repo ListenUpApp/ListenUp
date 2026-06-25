@@ -211,6 +211,34 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("control: SyncControl.LibraryDataChanged invokes onLibraryDataChanged") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var reconciled = false
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> },
+                        onLibraryDataChanged = { reconciled = true },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = null,
+                        event = "control",
+                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.LibraryDataChanged),
+                    )
+                dispatcher.handle(frame)
+                reconciled shouldBe true
+                db.close()
+            }
+        }
+
         test("control: SyncControl.UserDeleted invokes onUserDeleted with the reason") {
             runTest {
                 val db = createInMemoryTestDatabase()

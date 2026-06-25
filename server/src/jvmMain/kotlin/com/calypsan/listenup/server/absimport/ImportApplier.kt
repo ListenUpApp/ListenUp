@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.dto.imports.ImportResult
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
@@ -13,6 +14,7 @@ import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -39,6 +41,12 @@ private val logger = KotlinLogging.logger {}
  * UserStatsBackfillService.backfillFor] runs *after* (outside) the suppressed block, so the final
  * authoritative stats row publishes live.
  *
+ * **On success, apply broadcasts [SyncControl.LibraryDataChanged]** to every connected client. The
+ * suppressed burst never reached the live tail, so without this nudge other clients would only see
+ * the imported positions/sessions on their next reconnect (app restart). The nudge makes them
+ * re-derive each domain via digest reconciliation — the same convergence path the firehose-suppressed
+ * scan relies on — so they pick up the import live.
+ *
  * **Idempotency is inherited, not engineered.** `recordPosition` upserts on `(userId, bookId)` with
  * last-played-wins; sessions carry the stable `abs:<sessionId>` id, so a re-upsert no-ops the domain
  * fields (append-only) and the per-event stats hook fires only on first insert. The final backfill
@@ -58,6 +66,7 @@ class ImportApplier internal constructor(
     private val listeningEventRepository: ListeningEventRepository,
     private val statsBackfill: UserStatsBackfillService,
     private val publicProfileMaintainer: PublicProfileMaintainer,
+    private val changeBus: ChangeBus,
 ) {
     /**
      * Applies the confirmed import [importId], emitting [ImportEvent.Applying] progress through
@@ -127,6 +136,13 @@ class ImportApplier internal constructor(
                 }
 
                 store.markApplied(importId)
+
+                // The progress + session burst was firehose-suppressed, so it never reached the
+                // live tail. Nudge every connected client to re-derive its domains via digest
+                // reconciliation, so other devices pick up the imported positions/sessions live
+                // instead of only on their next reconnect (app restart).
+                changeBus.broadcastControl(SyncControl.LibraryDataChanged)
+
                 onEvent(ImportEvent.Applied(result))
                 AppResult.Success(result)
             } catch (e: CancellationException) {

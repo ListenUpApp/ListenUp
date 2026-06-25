@@ -72,6 +72,7 @@ fun importModule(homeDir: Path): Module =
                 listeningEventRepository = get(),
                 statsBackfill = get(),
                 publicProfileMaintainer = get(),
+                changeBus = get(),
             )
         }
 
