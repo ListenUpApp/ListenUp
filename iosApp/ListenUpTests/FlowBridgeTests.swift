@@ -16,6 +16,25 @@ private struct NumberSequence: AsyncSequence, Sendable {
     func makeAsyncIterator() -> Iterator { Iterator(remaining: values) }
 }
 
+/// A distinctive error type so the `onError` assertion can prove the *thrown*
+/// error is the one forwarded, not some incidental cancellation.
+private struct BridgeTestError: Error, Equatable {}
+
+/// Emits `values`, then throws `BridgeTestError` — mimics a Kotlin flow that
+/// fails mid-stream (the failure mode this plan makes observable).
+private struct ThrowingSequence: AsyncSequence, Sendable {
+    let values: [Int]
+    struct Iterator: AsyncIteratorProtocol {
+        var remaining: [Int]
+        mutating func next() async throws -> Int? {
+            guard !remaining.isEmpty else { throw BridgeTestError() }
+            try? await Task.sleep(for: .milliseconds(10))
+            return remaining.removeFirst()
+        }
+    }
+    func makeAsyncIterator() -> Iterator { Iterator(remaining: values) }
+}
+
 @MainActor
 @Suite("FlowBridge")
 struct FlowBridgeTests {
@@ -75,5 +94,49 @@ struct FlowBridgeTests {
         }
         #expect(a == [1, 2])
         #expect(b == [9, 8])
+    }
+
+    @Test func failureInvokesOnErrorWithTheThrownError() async {
+        let bridge = FlowBridge()
+        var received: [Int] = []
+        let caught: BridgeTestError? = await withCheckedContinuation { continuation in
+            bridge.bind(
+                ThrowingSequence(values: [1, 2]),
+                onError: { error in continuation.resume(returning: error as? BridgeTestError) }
+            ) { received.append($0) }
+        }
+        // The thrown error reached `onError` on the main actor…
+        #expect(caught == BridgeTestError())
+        // …after both pre-failure values were delivered, and no `sink` ran past the throw.
+        #expect(received == [1, 2])
+    }
+
+    @Test func normalCompletionDoesNotInvokeOnError() async {
+        let bridge = FlowBridge()
+        var received: [Int] = []
+        var onErrorCalled = false
+        await withCheckedContinuation { continuation in
+            bridge.bind(
+                NumberSequence(values: [1, 2, 3]),
+                onError: { _ in onErrorCalled = true }
+            ) { value in
+                received.append(value)
+                if received.count == 3 { continuation.resume() }
+            }
+        }
+        // Drain any stray task turn before asserting the negative.
+        try? await Task.sleep(for: .milliseconds(20))
+        #expect(received == [1, 2, 3])
+        #expect(!onErrorCalled)
+    }
+
+    @Test func cancellationDoesNotInvokeOnError() async {
+        let bridge = FlowBridge()
+        var onErrorCalled = false
+        bridge.bind(NumberSequence(values: [1, 2, 3]), onError: { _ in onErrorCalled = true }) { _ in }
+        bridge.cancelAll()
+        try? await Task.sleep(for: .milliseconds(50))
+        // Cancellation is normal teardown, not a failure — `onError` must stay silent.
+        #expect(!onErrorCalled)
     }
 }
