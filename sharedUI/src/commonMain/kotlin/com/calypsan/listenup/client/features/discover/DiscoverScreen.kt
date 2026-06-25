@@ -278,6 +278,7 @@ private fun DiscoverContent(
                     UserShelvesSection(
                         userShelves = userShelves,
                         onShelfClick = onShelfClick,
+                        onUserClick = onUserProfileClick,
                     )
                 }
             }
@@ -292,6 +293,7 @@ private fun DiscoverContent(
 private fun UserShelvesSection(
     userShelves: DiscoverUserShelves,
     onShelfClick: (String) -> Unit,
+    onUserClick: (String) -> Unit,
 ) {
     val avatarColor =
         remember(userShelves.user.id) {
@@ -311,6 +313,7 @@ private fun UserShelvesSection(
             UserAvatar(
                 userId = userShelves.user.id,
                 size = AvatarSize.Small,
+                onClick = { onUserClick(userShelves.user.id) },
             )
 
             Spacer(modifier = Modifier.width(12.dp))
