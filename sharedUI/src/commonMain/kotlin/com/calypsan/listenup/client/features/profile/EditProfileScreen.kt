@@ -420,9 +420,10 @@ private fun AvatarPreview(
 
     if (model != null) {
         val cacheKey =
-            when (avatarChange) {
-                is AvatarChange.Upload -> "staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}"
-                else -> "$localAvatarPath-${user.updatedAtMs}"
+            if (avatarChange is AvatarChange.Upload) {
+                "staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}"
+            } else {
+                "$localAvatarPath-${user.updatedAtMs}"
             }
         AsyncImage(
             model =

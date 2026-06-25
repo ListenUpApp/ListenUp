@@ -41,7 +41,8 @@ CREATE TABLE users (
     invited_by       TEXT,
     tagline          TEXT,
     avatar_type      TEXT    NOT NULL DEFAULT 'auto',
-    timezone         TEXT    NOT NULL DEFAULT 'UTC'
+    timezone         TEXT    NOT NULL DEFAULT 'UTC',
+    avatar_updated_at INTEGER NOT NULL DEFAULT 0
 );
 
 -- Single-row lookup by normalized email — the login / registration uniqueness probe. Indexed
@@ -97,7 +98,7 @@ SELECT timezone FROM users WHERE id = :id;
 -- Display identity for a LIVE (non-tombstoned) user — drives the public_profiles projection
 -- (PublicProfileMaintainer). A tombstoned or absent user yields no row → the projection no-ops.
 selectIdentityLiveById:
-SELECT display_name, avatar_type, tagline FROM users WHERE id = :id AND deleted_at IS NULL;
+SELECT display_name, avatar_type, tagline, avatar_updated_at FROM users WHERE id = :id AND deleted_at IS NULL;
 
 -- Ids of every LIVE (non-tombstoned) user — drives the one-time public_profiles backfill.
 selectLiveUserIds:
@@ -191,9 +192,9 @@ WHERE id = :id;
 updatePermissions:
 UPDATE users SET can_edit = :can_edit, can_share = :can_share WHERE id = :id;
 
--- Flip avatar_type to 'image' and stamp updated_at after a successful avatar upload (ProfileRoutes).
+-- Flip avatar_type to 'image', stamp avatar_updated_at + updated_at after a successful avatar upload (ProfileRoutes).
 updateAvatarType:
-UPDATE users SET avatar_type = :avatar_type, updated_at = :updated_at WHERE id = :id;
+UPDATE users SET avatar_type = :avatar_type, avatar_updated_at = :avatar_updated_at, updated_at = :updated_at WHERE id = :id;
 
 -- Count of LIVE (non-tombstoned) users — used by BackupArchive to embed a snapshot
 -- count in the backup manifest (replaces the Exposed `UserTable.selectAll().where { deletedAt.isNull() }.count()`).

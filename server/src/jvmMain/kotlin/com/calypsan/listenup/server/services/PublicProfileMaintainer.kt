@@ -46,6 +46,7 @@ class PublicProfileMaintainer(
                     displayName = it.display_name,
                     avatarType = it.avatar_type,
                     tagline = it.tagline,
+                    avatarUpdatedAt = it.avatar_updated_at,
                 )
             } ?: return
 
@@ -81,6 +82,7 @@ class PublicProfileMaintainer(
                     displayName = identity.displayName,
                     avatarType = identity.avatarType,
                     tagline = identity.tagline,
+                    avatarUpdatedAt = identity.avatarUpdatedAt,
                     totalSecondsAllTime = stats?.total_seconds_all_time ?: 0L,
                     totalSecondsLast7Days = stats?.total_seconds_last_7_days ?: 0L,
                     totalSecondsLast30Days = stats?.total_seconds_last_30_days ?: 0L,
@@ -155,5 +157,6 @@ class PublicProfileMaintainer(
         val displayName: String,
         val avatarType: String,
         val tagline: String?,
+        val avatarUpdatedAt: Long,
     )
 }

@@ -28,7 +28,8 @@ CREATE TABLE public_profiles (
     books_finished_last_365_days INTEGER NOT NULL DEFAULT 0,
     longest_streak_last_7_days   INTEGER NOT NULL DEFAULT 0,
     longest_streak_last_30_days  INTEGER NOT NULL DEFAULT 0,
-    longest_streak_last_365_days INTEGER NOT NULL DEFAULT 0
+    longest_streak_last_365_days INTEGER NOT NULL DEFAULT 0,
+    avatar_updated_at            INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_public_profiles_revision ON public_profiles(revision);
@@ -72,14 +73,16 @@ INSERT INTO public_profiles (
     total_seconds_last_30_days, total_seconds_last_365_days, books_finished, current_streak_days,
     longest_streak_days, revision, created_at, updated_at, deleted_at, client_op_id,
     books_finished_last_7_days, books_finished_last_30_days, books_finished_last_365_days,
-    longest_streak_last_7_days, longest_streak_last_30_days, longest_streak_last_365_days
+    longest_streak_last_7_days, longest_streak_last_30_days, longest_streak_last_365_days,
+    avatar_updated_at
 )
 VALUES (
     :id, :display_name, :avatar_type, :tagline, :total_seconds_all_time, :total_seconds_last_7_days,
     :total_seconds_last_30_days, :total_seconds_last_365_days, :books_finished, :current_streak_days,
     :longest_streak_days, :revision, :created_at, :updated_at, :deleted_at, :client_op_id,
     :books_finished_last_7_days, :books_finished_last_30_days, :books_finished_last_365_days,
-    :longest_streak_last_7_days, :longest_streak_last_30_days, :longest_streak_last_365_days
+    :longest_streak_last_7_days, :longest_streak_last_30_days, :longest_streak_last_365_days,
+    :avatar_updated_at
 );
 
 update:
@@ -97,6 +100,7 @@ SET display_name = :display_name, avatar_type = :avatar_type, tagline = :tagline
     longest_streak_last_7_days = :longest_streak_last_7_days,
     longest_streak_last_30_days = :longest_streak_last_30_days,
     longest_streak_last_365_days = :longest_streak_last_365_days,
+    avatar_updated_at = :avatar_updated_at,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
 WHERE id = :id;
