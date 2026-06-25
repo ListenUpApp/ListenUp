@@ -146,9 +146,8 @@ class UserProfileViewModel internal constructor(
             userRepository.observeCurrentUser(),
             shelfRepository.observeMyShelves(userId),
         ) { row, currentUser, shelves ->
-            val cacheBuster = currentUser?.updatedAtMs ?: 0L
             when {
-                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries(), cacheBuster)
+                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries(), row.avatarUpdatedAt)
                 currentUser != null -> readyFromUser(userId, currentUser, shelves.toSummaries())
                 else -> UserProfileUiState.Error("No user data available")
             }
@@ -178,7 +177,7 @@ class UserProfileViewModel internal constructor(
                         logger.error { "No public profile row for user: $userId" }
                         UserProfileUiState.Error("Failed to load profile")
                     } else {
-                        readyFromRow(userId, isOwn = false, row, shelves, cacheBuster = 0L)
+                        readyFromRow(userId, isOwn = false, row, shelves, cacheBuster = row.avatarUpdatedAt)
                     }
                 },
             )
