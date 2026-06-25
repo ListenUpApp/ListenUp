@@ -127,7 +127,11 @@ internal fun emitDynamicBlock(
     }
     writeHuffmanCode(writer, litCodes[END_OF_BLOCK], plan.litlenLengths[END_OF_BLOCK])
 
-    writer.alignToByte() // a dynamic block ends mid-byte; pad the final partial byte before flushing
+    // Only the final block pads to a byte boundary: non-final blocks must leave their trailing partial
+    // bits for the next block to continue, since DEFLATE blocks do not begin on byte boundaries (RFC
+    // §3.2.3). Padding between blocks would be decoded as a spurious stored-block header and corrupt
+    // the stream. The whole-stream byte alignment happens once, on the last block emitted.
+    if (isFinal) writer.alignToByte()
     writer.flush()
 }
 

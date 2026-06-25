@@ -8,6 +8,13 @@ package com.calypsan.listenup.server.compression
  * - a **match** is `MATCH_FLAG or (length shl LENGTH_SHIFT) or distance`, where `length` is `3..258`
  *   and `distance` is `1..32768`.
  *
+ * Tokens are emitted only for positions in `[emitFrom, buffer.size)` (the current block), but the
+ * hash chains are seeded over **all** of `[0, buffer.size)` first — so the prefix `[0, emitFrom)` (the
+ * sliding-window history of already-emitted bytes) is reachable as back-reference candidates. A match
+ * for a position in the block can therefore reference bytes carried over from the previous block,
+ * provided the distance stays within DEFLATE's `1..32768` limit (which holds because the history is
+ * itself capped at 32768 bytes).
+ *
  * Matches are found with a hash-chain over a rolling 3-byte hash: [head] maps a hash bucket to the
  * most recent position with that hash, and [prev] chains earlier positions sharing the bucket. The
  * search at each position walks the chain — bounded by a [level]-derived chain limit — for the
@@ -17,34 +24,47 @@ package com.calypsan.listenup.server.compression
  * reference it.
  */
 internal fun lz77(
-    data: ByteArray,
+    buffer: ByteArray,
+    emitFrom: Int,
     level: Int,
 ): IntArray {
-    val size = data.size
-    if (size == 0) return IntArray(0)
+    val size = buffer.size
+    val emitCount = size - emitFrom
+    if (emitCount <= 0) return IntArray(0)
 
-    // A token consumes at least one input byte, so there can never be more tokens than input bytes.
-    val tokens = IntArray(size)
+    // A token consumes at least one byte of the emit region, so tokens never outnumber its bytes.
+    val tokens = IntArray(emitCount)
     var tokenCount = 0
 
     val head = IntArray(HASH_SIZE) { -1 }
     val prev = IntArray(size)
     val maxChain = maxChainFor(level)
 
-    var pos = 0
+    // Seed the chains with the history prefix so block positions can match into the previous window.
+    var seed = 0
+    while (seed < emitFrom) {
+        if (seed + MIN_MATCH <= size) {
+            val bucket = hash3(buffer, seed)
+            prev[seed] = head[bucket]
+            head[bucket] = seed
+        }
+        seed++
+    }
+
+    var pos = emitFrom
     while (pos < size) {
         var matchLen = 0
         var matchDist = 0
 
         if (pos + MIN_MATCH <= size) {
-            val bucket = hash3(data, pos)
+            val bucket = hash3(buffer, pos)
             val maxLen = minOf(MAX_MATCH, size - pos)
             var candidate = head[bucket]
             var chain = maxChain
             while (candidate >= 0 && pos - candidate <= WINDOW_SIZE && chain-- > 0) {
                 // Skip candidates that cannot beat the current best (zlib's tail-byte shortcut).
-                if (matchLen == 0 || data[candidate + matchLen] == data[pos + matchLen]) {
-                    val len = matchLength(data, candidate, pos, maxLen)
+                if (matchLen == 0 || buffer[candidate + matchLen] == buffer[pos + matchLen]) {
+                    val len = matchLength(buffer, candidate, pos, maxLen)
                     if (len > matchLen) {
                         matchLen = len
                         matchDist = pos - candidate
@@ -64,7 +84,7 @@ internal fun lz77(
             var next = pos + 1
             while (next < stop) {
                 if (next + MIN_MATCH <= size) {
-                    val bucket = hash3(data, next)
+                    val bucket = hash3(buffer, next)
                     prev[next] = head[bucket]
                     head[bucket] = next
                 }
@@ -72,7 +92,7 @@ internal fun lz77(
             }
             pos = stop
         } else {
-            tokens[tokenCount++] = data[pos].toInt() and 0xFF
+            tokens[tokenCount++] = buffer[pos].toInt() and 0xFF
             pos++
         }
     }

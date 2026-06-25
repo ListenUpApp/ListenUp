@@ -150,4 +150,50 @@ class DeflateTest :
             val src = Buffer().apply { write(compressed) }
             InflateRawSource(src).buffered().readByteArray() shouldBe data
         }
+
+        test("emits output incrementally as blocks fill, before close") {
+            val tracking = Buffer()
+            val sink = DeflateRawSink(tracking, 6).buffered()
+            // write well over one BLOCK_INPUT_SIZE of compressible data WITHOUT closing
+            val chunk = ByteArray(3 * 1024 * 1024) { (it % 32).toByte() }
+            sink.write(Buffer().apply { write(chunk) }, chunk.size.toLong())
+            sink.flush()
+            // a non-streaming impl would have written nothing until close(); streaming has emitted block(s)
+            (tracking.size > 0L) shouldBe true
+            sink.close()
+        }
+
+        test("back-references span block boundaries (cross-window match)") {
+            // > 2 * BLOCK_INPUT_SIZE so the matcher must reference the previous block's bytes. The copy
+            // distance is < 32768 (DEFLATE's hard window) yet large enough that positions near a 1 MiB
+            // block boundary reference the prior block — a genuine cross-window back-reference.
+            val size = 5 * 1024 * 1024
+            val data = ByteArray(size)
+            var s = 0x2545_F491
+            for (i in data.indices) {
+                s = s * 1_103_515_245 + 12345
+                // mostly copy from ~30 KiB back (forces matches into the previous window), some fresh noise
+                data[i] = if (i > 30_000 && s ushr 24 and 0x7 != 0) data[i - 30_000] else (s ushr 16).toByte()
+            }
+            val compressed = oursDeflate(data, 6)
+            (compressed.size < data.size) shouldBe true
+            jdkInflateRaw(compressed) shouldBe data
+            InflateRawSource(Buffer().apply { write(compressed) }).buffered().readByteArray() shouldBe data
+        }
+
+        test("round-trips when fed via many small write() calls") {
+            val data = ByteArray(2 * 1024 * 1024) { (it * 7 xor (it ushr 3) and 0xFF).toByte() }
+            val out = Buffer()
+            DeflateRawSink(out, 6).buffered().use { sink ->
+                var off = 0
+                while (off < data.size) {
+                    val n = minOf(1000, data.size - off)
+                    sink.write(Buffer().apply { write(data, off, off + n) }, n.toLong())
+                    off += n
+                }
+            }
+            val compressed = out.readByteArray()
+            jdkInflateRaw(compressed) shouldBe data
+            InflateRawSource(Buffer().apply { write(compressed) }).buffered().readByteArray() shouldBe data
+        }
     })
