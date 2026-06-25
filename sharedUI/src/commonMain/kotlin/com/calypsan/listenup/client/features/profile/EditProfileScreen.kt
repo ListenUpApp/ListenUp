@@ -401,12 +401,6 @@ private fun AvatarEditRow(
     }
 }
 
-/**
- * Avatar preview that respects the staged [avatarChange]:
- * - Upload staged → preview the uploaded bytes (if we have a local path; otherwise show initials)
- * - RevertToAuto or None with no image → scallop initials badge
- * - Image avatar + path → async image clipped to scallop
- */
 @Composable
 private fun AvatarPreview(
     user: User,
@@ -414,24 +408,28 @@ private fun AvatarPreview(
     avatarChange: AvatarChange,
 ) {
     val size = AVATAR_SCALLOP_SIZE
-    val showImage =
+    val context = LocalPlatformContext.current
+
+    // Staged upload → preview the picked bytes directly. Persisted image → load the cached file.
+    val model: Any? =
         when (avatarChange) {
-            is AvatarChange.Upload -> false
-
-            // bytes not easily previewable; show initials
-            is AvatarChange.RevertToAuto -> false
-
-            AvatarChange.None -> user.hasImageAvatar && localAvatarPath != null
+            is AvatarChange.Upload -> avatarChange.bytes
+            AvatarChange.RevertToAuto -> null
+            AvatarChange.None -> if (user.hasImageAvatar && localAvatarPath != null) localAvatarPath else null
         }
 
-    if (showImage && localAvatarPath != null) {
-        val context = LocalPlatformContext.current
+    if (model != null) {
+        val cacheKey =
+            when (avatarChange) {
+                is AvatarChange.Upload -> "staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}"
+                else -> "$localAvatarPath-${user.updatedAtMs}"
+            }
         AsyncImage(
             model =
                 ImageRequest
                     .Builder(context)
-                    .data(localAvatarPath)
-                    .memoryCacheKey("$localAvatarPath-${user.updatedAtMs}")
+                    .data(model)
+                    .memoryCacheKey(cacheKey)
                     .build(),
             contentDescription = null,
             modifier =
