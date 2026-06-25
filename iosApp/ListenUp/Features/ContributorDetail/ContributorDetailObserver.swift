@@ -11,7 +11,6 @@ final class ContributorDetailObserver {
 
     private(set) var isLoading: Bool = true
     private(set) var error: String?
-    private(set) var contributor: Contributor?
     private(set) var roleSections: [RoleSectionRow] = []
     private(set) var bookProgress: [String: Float] = [:]
     private(set) var isDeleting: Bool = false
@@ -25,16 +24,19 @@ final class ContributorDetailObserver {
     /// immediately, so the confirmation step lives here.
     private(set) var showDeleteConfirmation: Bool = false
 
-    // MARK: - Derived from `contributor`
+    // MARK: - Projected from `Contributor`
 
-    var name: String { contributor?.name ?? "" }
-    var bio: String? { contributor?.description_ }
-    var imagePath: String? { contributor?.imagePath }
-    var imageBlurHash: String? { contributor?.imageBlurHash }
-    var aliases: [String] { contributor.map { Array($0.aliases) } ?? [] }
-    var birthDate: String? { contributor?.birthDate }
-    var deathDate: String? { contributor?.deathDate }
-    var website: String? { contributor?.website }
+    // Native value projections set once in `apply`, never re-bridged in `body`. The view
+    // reads `aliases` twice per render — as computed accessors over the raw Kotlin
+    // `Contributor` each read re-bridged the full alias list across the K/N boundary.
+    private(set) var name: String = ""
+    private(set) var bio: String?
+    private(set) var imagePath: String?
+    private(set) var imageBlurHash: String?
+    private(set) var aliases: [String] = []
+    private(set) var birthDate: String?
+    private(set) var deathDate: String?
+    private(set) var website: String?
 
     private let viewModel: ContributorDetailViewModel
     private let bridge = FlowBridge()
@@ -85,7 +87,15 @@ final class ContributorDetailObserver {
         case .ready(let r):
             isLoading = false
             error = nil
-            contributor = r.contributor
+            let contributor = r.contributor
+            name = contributor.name
+            bio = contributor.description_
+            imagePath = contributor.imagePath
+            imageBlurHash = contributor.imageBlurHash
+            aliases = Array(contributor.aliases)
+            birthDate = contributor.birthDate
+            deathDate = contributor.deathDate
+            website = contributor.website
             roleSections = r.roleSections.map { RoleSectionRow($0) }
             bookProgress = mapProgress(r.bookProgress)
             isDeleting = r.isDeleting

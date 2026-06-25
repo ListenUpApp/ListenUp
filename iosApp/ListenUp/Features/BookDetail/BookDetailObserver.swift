@@ -20,6 +20,15 @@ struct CollectionRow: Identifiable, Equatable {
     let name: String
 }
 
+/// The book fields the hero renders, projected to native values so the hero never
+/// re-bridges the Kotlin `BookDetail` per SwiftUI diff (cover lookup + series-pill nav).
+struct BookDetailHeaderModel: Equatable {
+    let coverBookId: String
+    let coverPath: String?
+    let coverBlurHash: String?
+    let seriesId: String?
+}
+
 /// Observes `BookDetailViewModel` — flattens the sealed `BookDetailUiState` into
 /// flat `@Observable` properties, plus a download-status secondary flow. Thin over `FlowBridge`.
 @Observable
@@ -48,21 +57,26 @@ final class BookDetailObserver {
     private(set) var tags: [String] = []
     private(set) var moods: [String] = []
 
-    // MARK: - Derived from `book`
+    // MARK: - Projected from `book`
 
-    var title: String { book?.title ?? "" }
-    var authors: String { book?.authorNames ?? "" }
-    var duration: String { book?.formatDuration() ?? "" }
-    var durationMs: Int64 { book?.duration ?? 0 }
+    // Native value projections set once in `apply` `.ready`, never re-bridged in `body`.
+    // BookDetail recomposes on every playback/download tick — reading these off the live
+    // bridged object each render re-bridged its strings (and, for `audioFormat`, the whole
+    // `audioFiles` collection) across the K/N boundary for a value that's static per book.
+    private(set) var title: String = ""
+    private(set) var authors: String = ""
+    private(set) var duration: String = ""
+    private(set) var durationMs: Int64 = 0
+    private(set) var asin: String?
+    private(set) var publisher: String?
+    private(set) var language: String?
+    /// The hero's book-derived fields (cover + series-pill nav), projected so the hero
+    /// never re-bridges the raw `BookDetail`.
+    private(set) var header: BookDetailHeaderModel?
 
     /// Pre-formatted audio-format display strings (Format / Bitrate / Sample rate / Channels),
     /// derived from the book's primary audio file. Fields are nil when their datum is absent.
-    var audioFormat: AudioFormatDisplay {
-        guard let files = book?.audioFiles else {
-            return AudioFormatDisplay(format: nil, bitrate: nil, sampleRate: nil, channels: nil)
-        }
-        return ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail.audioFormatDisplay(files: files)
-    }
+    private(set) var audioFormat = AudioFormatDisplay(format: nil, bitrate: nil, sampleRate: nil, channels: nil)
 
     // MARK: - Download state
 
@@ -274,7 +288,7 @@ final class BookDetailObserver {
         case .ready(let r):
             isLoading = false
             error = nil
-            book = r.book
+            applyBook(r.book)
             subtitle = r.subtitle
             series = r.series
             bookDescription = r.descriptionText
@@ -285,8 +299,6 @@ final class BookDetailObserver {
             timeRemaining = r.timeRemainingFormatted
             isComplete = r.isComplete
             chapters = r.chapters.map { BookChapterRow($0) }
-            heroAuthors = r.book.authors.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
-            heroNarrators = r.book.narrators.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
             genres = Array(r.genresList)
             tags = r.tags.map { $0.name }
             moods = r.moods.map { $0.name }
@@ -301,10 +313,6 @@ final class BookDetailObserver {
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress
             isRestarting = r.isRestarting
-            if observingDownloadForBookId != r.book.idString {
-                observingDownloadForBookId = r.book.idString
-                observeDownloadStatus(bookId: r.book.idString)
-            }
         case .error(let e):
             isLoading = false
             error = e.message
@@ -312,6 +320,34 @@ final class BookDetailObserver {
             Log.error("Unexpected BookDetailUiState case")
             isLoading = false
             error = String(localized: "common.something_went_wrong")
+        }
+    }
+
+    /// Projects the bridged `BookDetail` to native values once, off the `body` diff path.
+    /// Cover/series-pill fields, scalars, and the audio-format summary are all snapshotted
+    /// here so the detail screen never re-bridges the Kotlin object on a playback/download tick.
+    private func applyBook(_ book: BookDetail) {
+        self.book = book
+        title = book.title
+        authors = book.authorNames
+        duration = book.formatDuration()
+        durationMs = book.duration
+        asin = book.asin
+        publisher = book.publisher
+        language = book.language
+        header = BookDetailHeaderModel(
+            coverBookId: book.idString,
+            coverPath: book.coverPath,
+            coverBlurHash: book.coverBlurHash,
+            seriesId: book.seriesId
+        )
+        audioFormat = ExportedKotlinPackages.com.calypsan.listenup.client.presentation.bookdetail
+            .audioFormatDisplay(files: book.audioFiles)
+        heroAuthors = book.authors.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
+        heroNarrators = book.narrators.map { CastMember(id: $0.id, name: $0.name, roles: Array($0.roles)) }
+        if observingDownloadForBookId != book.idString {
+            observingDownloadForBookId = book.idString
+            observeDownloadStatus(bookId: book.idString)
         }
     }
 
