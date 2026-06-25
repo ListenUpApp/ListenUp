@@ -66,4 +66,31 @@ class ZipFormatTest :
                 findEocdOffset(ByteArray(50) { 0x11 })
             }
         }
+
+        test("encodeZip64Extra returns an empty array when all fields are null") {
+            encodeZip64Extra(uncompSize = null, compSize = null, localOffset = null).size shouldBe 0
+        }
+
+        test("findEocdOffset throws (not OOB) on a sub-22-byte buffer") {
+            io.kotest.assertions.throwables
+                .shouldThrow<MalformedZipException> { findEocdOffset(ByteArray(0)) }
+            io.kotest.assertions.throwables
+                .shouldThrow<MalformedZipException> { findEocdOffset(ByteArray(3) { 0 }) }
+        }
+
+        test("parseZip64Extra on an empty array returns all null without throwing") {
+            val parsed = parseZip64Extra(ByteArray(0))
+            parsed.uncompSize shouldBe null
+            parsed.compSize shouldBe null
+            parsed.localOffset shouldBe null
+        }
+
+        test("parseZip64Extra on a truncated 0x0001 record returns all null (no OOB)") {
+            // id=0x0001, dataSize claims 16 bytes (two fields), but only 4 data bytes present.
+            val truncated = byteArrayOf(0x01, 0x00, 0x10, 0x00, 0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte())
+            val parsed = parseZip64Extra(truncated)
+            parsed.uncompSize shouldBe null
+            parsed.compSize shouldBe null
+            parsed.localOffset shouldBe null
+        }
     })

@@ -100,6 +100,7 @@ internal fun encodeZip64Extra(
     localOffset: Long?,
 ): ByteArray {
     val fields = listOfNotNull(uncompSize, compSize, localOffset)
+    if (fields.isEmpty()) return ByteArray(0)
     val buf = Buffer()
     buf.writeU16LE(ZIP64_EXTRA_ID)
     buf.writeU16LE(fields.size * 8)
@@ -110,8 +111,9 @@ internal fun encodeZip64Extra(
 /**
  * Walks [extra] as a sequence of TLV records (id:u16, size:u16, data[size]). Finds the 0x0001
  * record and reads its fields positionally: uncompSize first, then compSize, then localOffset,
- * up to dataSize/8 values. Fields absent from the record are returned as null. Malformed or
- * truncated records are skipped gracefully; if no 0x0001 record is found, all fields are null.
+ * up to dataSize/8 values. Fields absent from the record are returned as null. On a truncated record
+ * the walk stops cleanly (no partial result, no out-of-bounds read); if no 0x0001 record is found, all
+ * fields are null.
  */
 internal fun parseZip64Extra(extra: ByteArray): Zip64ExtraFields {
     var pos = 0
@@ -154,9 +156,8 @@ internal fun parseZip64Extra(extra: ByteArray): Zip64ExtraFields {
  * signature starts, or throws [MalformedZipException] if the signature is not found.
  */
 internal fun findEocdOffset(tail: ByteArray): Long {
-    val start = (tail.size - 22).coerceAtLeast(0)
-    for (i in start downTo 0) {
-        if (i + 4 > tail.size) continue
+    if (tail.size < 22) throw MalformedZipException("tail too short to contain an EOCD (${tail.size} bytes)")
+    for (i in tail.size - 22 downTo 0) {
         val sig =
             (tail[i].toLong() and 0xFFL) or
                 ((tail[i + 1].toLong() and 0xFFL) shl 8) or
