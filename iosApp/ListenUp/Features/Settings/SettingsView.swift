@@ -12,7 +12,7 @@ import SwiftUI
 /// Only settings the VM actually exposes are shown. The mockup's storage meter,
 /// Open Source Licenses, and Now Playing wallpaper rows are intentionally omitted —
 /// they have no `SettingsViewModel` backing yet. The Administration row is shown only
-/// to admin / root users (`User_.isAdmin`) and pushes `AdminView`. The Devices row
+/// to admin / root users (`User.isAdmin`) and pushes `AdminView`. The Devices row
 /// is now present and pushes `DevicesView`.
 struct SettingsView: View {
     @Environment(\.dependencies) private var deps

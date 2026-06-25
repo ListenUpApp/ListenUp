@@ -3,7 +3,7 @@ import Foundation
 
 /// A native, value-typed projection of `SeriesWithBooks` for the Library Series tab.
 ///
-/// **Why (performance — see `BookRow`).** Feeding SKIE-bridged `SeriesWithBooks` straight into a
+/// **Why (performance — see `BookRow`).** Feeding Swift Export-bridged `SeriesWithBooks` straight into a
 /// `ForEach` re-bridges every property on every SwiftUI diff/layout/`scrollTo`. The Series cards were
 /// the worst case: `SeriesRowCard`/`SeriesGridCard` mapped *every nested book* to a cover via
 /// `CoverStack(books:)` on each pass. Snapshotting once here — including the ≤5 covers the deck needs

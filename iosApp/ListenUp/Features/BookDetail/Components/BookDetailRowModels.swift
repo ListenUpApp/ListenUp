@@ -3,8 +3,8 @@ import Foundation
 
 /// Native, value-typed projection of a chapter for the Book Detail chapters list.
 ///
-/// `ChapterUiModel` is a SKIE-bridged Kotlin type; feeding it straight into a `ForEach`
-/// re-reads its properties across the SKIE boundary on every diff. A long audiobook has
+/// `ChapterUiModel` is a Swift Export-bridged Kotlin type; feeding it straight into a `ForEach`
+/// re-reads its properties across the Swift Export boundary on every diff. A long audiobook has
 /// 100+ chapters, so this maps each to plain Swift values ONCE at the observer boundary.
 struct BookChapterRow: Identifiable, Equatable, Hashable {
     let id: String

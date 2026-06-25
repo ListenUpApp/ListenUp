@@ -13,18 +13,18 @@ import kotlinx.coroutines.flow.StateFlow
  * speed, queue management). Read-side state (currentBookId, isPlaying, position
  * polling, etc.) continues to flow through [PlaybackManager].
  *
- * Lifecycle: [acquire]/[release] are refcounted on Android (Media3 service binding);
+ * Lifecycle: [acquire]/[releasePlayer] are refcounted on Android (Media3 service binding);
  * no-ops on Desktop/Apple (AudioPlayer instances are eagerly ready).
  *
- * Note: [release] is a refcount decrement, NOT a permanent resource release.
- * Do NOT confuse with [AudioPlayer.release] which tears down the player permanently.
+ * Note: [releasePlayer] is a refcount decrement, NOT a permanent resource release.
+ * Do NOT confuse with [AudioPlayer.releasePlayer] which tears down the player permanently.
  */
 expect interface PlaybackController {
     /** Refcounted reference acquisition. Android: connects to Media3 service if first acquire. Desktop/Apple: no-op. */
     fun acquire()
 
     /** Refcounted reference release. Android: disconnects from Media3 service when refcount hits zero. Desktop/Apple: no-op. */
-    fun release()
+    fun releasePlayer()
 
     /** Emits true when the underlying player is connected and accepting commands. */
     val isReady: StateFlow<Boolean>

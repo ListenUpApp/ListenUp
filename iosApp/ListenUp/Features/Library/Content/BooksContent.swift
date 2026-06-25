@@ -153,7 +153,7 @@ struct BooksContent: View {
         let count = String(format: String(localized: "library.title_count"), books.count)
         let sortLabel = sortState?.category.label ?? ""
         return SortRow(count: count, sortLabel: sortLabel) {
-            ForEach(sortCategories, id: \.name) { cat in
+            ForEach(sortCategories, id: \.rawValue) { cat in
                 Button {
                     UISelectionFeedbackGenerator().selectionChanged()
                     onCategorySelected(cat)

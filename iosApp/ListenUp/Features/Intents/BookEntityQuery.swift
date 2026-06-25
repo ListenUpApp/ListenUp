@@ -13,7 +13,7 @@ struct BookEntityQuery: EntityStringQuery {
     /// usable.
     @MainActor
     func entities(matching string: String) async throws -> [BookEntity] {
-        let items = await firstEmission(of: Dependencies.shared.bookRepository.search(query: string))
+        let items = await firstEmission(of: Dependencies.shared.bookRepository.search(query: string).asAsyncSequence())
         return items.prefix(10).map(BookEntity.from)
     }
 
@@ -38,13 +38,13 @@ struct BookEntityQuery: EntityStringQuery {
         []
     }
 
-    /// Drains the first emission of a SKIE-bridged Kotlin `Flow`. `search` emits
-    /// exactly once (it's a query, not a subscription), so the first element is the
-    /// complete ranked result; a failing/empty flow yields `[]` (never stranded).
+    /// Drains the first emission of a Kotlin `Flow` (bridged via `asAsyncSequence()`).
+    /// `search` emits exactly once (it's a query, not a subscription), so the first
+    /// element is the complete ranked result; a failing/empty flow yields `[]` (never stranded).
     ///
-    /// Generic over `AsyncSequence` to avoid naming SKIE's generated flow type —
+    /// Generic over `AsyncSequence` to avoid naming the generated flow-sequence type —
     /// the same approach `FlowBridge.bind` takes. `@MainActor`-confined so the
-    /// non-`Sendable` SKIE iterator never crosses an isolation boundary.
+    /// non-`Sendable` flow iterator never crosses an isolation boundary.
     @MainActor
     private func firstEmission<S: AsyncSequence>(of sequence: S) async -> [BookListItem]
     where S.Element == [BookListItem] {

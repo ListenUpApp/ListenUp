@@ -133,20 +133,20 @@ final class SeriesDetailObserver {
         }
     }
 
-    /// `Map<BookId, Float>` arrives as `[AnyHashable: KotlinFloat]` over the SKIE
-    /// boundary — the `BookId` value-class key bridges as `AnyHashable`. Keys are
+    /// `Map<BookId, Float>` arrives as `[BookId: Float]` over the Swift Export
+    /// boundary — the `BookId` value-class key bridges as its wrapper type. Keys are
     /// normalized to the book-id string the UI looks up by.
-    private func mapBookProgress(_ raw: [AnyHashable: KotlinFloat]) -> [String: Float] {
+    private func mapBookProgress(_ raw: [BookId: Float]) -> [String: Float] {
         var result: [String: Float] = [:]
         for (key, value) in raw {
-            result[String(describing: key.base)] = value.floatValue
+            result[key.value] = value
         }
         return result
     }
 
 }
 
-/// A native, value-typed series author for SwiftUI. KMP `BookContributor` is SKIE-bridged and must
+/// A native, value-typed series author for SwiftUI. KMP `BookContributor` is Swift Export-bridged and must
 /// never be fed into a `ForEach`/`List` (it re-bridges every diff), so it's mapped to this struct at
 /// the observer boundary. Mirrors `BookRow`/`CastMember`.
 struct SeriesAuthor: Identifiable, Hashable {

@@ -8,8 +8,8 @@ import SwiftUI
 final class ContributorEditObserver {
     private(set) var isLoading: Bool = true
     private(set) var name: String = ""
-    /// The contributor biography — stored as `bio` to avoid the NSObject `description`
-    /// property clash that SKIE bridges as `description_`.
+    /// The contributor biography — stored as `bio` because Swift Export renames the Kotlin
+    /// `description` property to `description_` (dodging the Swift `description` clash).
     private(set) var bio: String = ""
     private(set) var website: String = ""
     private(set) var birthDate: String = ""

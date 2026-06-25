@@ -55,7 +55,7 @@ fun main() {
             state = windowState,
             onCloseRequest = {
                 mediaKeyManager?.stop()
-                getKoin().get<AudioPlayer>().release()
+                getKoin().get<AudioPlayer>().releasePlayer()
                 exitApplication()
             },
         )

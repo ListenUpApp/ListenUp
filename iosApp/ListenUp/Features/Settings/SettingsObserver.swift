@@ -57,7 +57,7 @@ final class SettingsObserver {
         defaultPlaybackSpeed = state.defaultPlaybackSpeed
         defaultSkipForwardSec = Int(state.defaultSkipForwardSec)
         defaultSkipBackwardSec = Int(state.defaultSkipBackwardSec)
-        defaultSleepTimerMin = state.defaultSleepTimerMin.map { Int(truncating: $0) }
+        defaultSleepTimerMin = state.defaultSleepTimerMin.map { Int($0) }
         shakeToResetSleepTimer = state.shakeToResetSleepTimer
         themeMode = state.themeMode
         autoRewindEnabled = state.autoRewindEnabled
@@ -79,7 +79,7 @@ final class SettingsObserver {
     func setAutoRewindEnabled(_ enabled: Bool) { viewModel.setAutoRewindEnabled(enabled: enabled) }
 
     func setDefaultSleepTimerMin(_ minutes: Int?) {
-        viewModel.setDefaultSleepTimerMin(minutes: minutes.map { KotlinInt(int: Int32($0)) })
+        viewModel.setDefaultSleepTimerMin(minutes: minutes.map { Int32($0) })
     }
 
     func setShakeToResetSleepTimer(_ enabled: Bool) { viewModel.setShakeToResetSleepTimer(enabled: enabled) }
@@ -94,7 +94,7 @@ final class SettingsObserver {
 // MARK: - Pure formatting helpers
 
 /// Pure value→label mappings for the settings rows. Kept free of the observer so the
-/// branches are unit-testable rather than buried in the view (the SKIE-bridged
+/// branches are unit-testable rather than buried in the view (the Swift Export-bridged
 /// `SettingsUiState` itself can't be constructed from Swift, so these helpers are the
 /// meaningful pure seam).
 enum SettingsFormat {

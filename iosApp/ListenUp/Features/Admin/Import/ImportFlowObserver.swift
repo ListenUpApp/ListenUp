@@ -11,8 +11,9 @@ import Foundation
 /// localized message.
 ///
 /// The user-review rows are flattened Kotlin-side via `ImportFlowSwiftBridge` — the VM holds the
-/// ABS/ListenUp ids in value classes that SKIE boxes inside its `Map`/`Set` state, so the bridge
-/// reads them where the Kotlin types are in scope and hands back plain strings. Progress maths
+/// ABS/ListenUp ids in value classes nested inside its `Map`/`Set` state (awkward to read across the
+/// Swift Export boundary), so the bridge reads them where the Kotlin types are in scope and hands
+/// back plain strings. Progress maths
 /// (the ring fraction, the counters) live in pure, testable statics.
 ///
 /// Thin over `FlowBridge`, mirroring `AdminObserver`.
@@ -89,7 +90,7 @@ final class ImportFlowObserver {
                 booksMatched: Int(analyzing.booksMatched)
             ))
         case .review(let review):
-            // The boxed value-class state is flattened Kotlin-side; the picker users ride SKIE
+            // The boxed value-class state is flattened Kotlin-side; the picker users bridge
             // cleanly (AdminUserInfo has String ids), so map those here.
             let snapshot = ImportFlowSwiftBridge.shared.reviewSnapshot(state: state)
             let pickerUsers = review.listenupUsers.map(ImportPickerUser.init(from:))

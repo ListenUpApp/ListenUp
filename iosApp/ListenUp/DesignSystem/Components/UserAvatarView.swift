@@ -9,10 +9,10 @@ import UIKit
 /// - Colored circle with initials as fallback
 /// - Gray placeholder when user is nil
 struct UserAvatarView: View {
-    let user: User_?
+    let user: User?
     let size: CGFloat
 
-    init(user: User_?, size: CGFloat = 36) {
+    init(user: User?, size: CGFloat = 36) {
         self.user = user
         self.size = size
     }
@@ -38,7 +38,7 @@ struct UserAvatarView: View {
         }
         .task(id: user?.idString) {
             // Read the Sendable primitives on the main actor; only the String id crosses into the
-            // nonisolated loader (the Kotlin `User_` isn't Sendable).
+            // nonisolated loader (the Kotlin `User` isn't Sendable).
             guard let user, user.hasImageAvatar else {
                 avatarImage = nil
                 return
@@ -61,7 +61,7 @@ struct UserAvatarView: View {
 
     // MARK: - Private Views
 
-    private func initialsAvatar(for user: User_) -> some View {
+    private func initialsAvatar(for user: User) -> some View {
         Circle()
             .fill(avatarColor(for: user))
             .frame(width: size, height: size)
@@ -83,7 +83,7 @@ struct UserAvatarView: View {
             }
     }
 
-    private func avatarColor(for user: User_) -> Color {
+    private func avatarColor(for user: User) -> Color {
         Color(hex: user.avatarColor)
     }
 }

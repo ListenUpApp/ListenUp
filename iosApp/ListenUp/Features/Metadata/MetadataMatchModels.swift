@@ -82,7 +82,7 @@ struct MetadataFieldSelection: Identifiable, Equatable {
     let isSelected: Bool
     let systemImage: String
 
-    var id: Int { Int(field.ordinal) }
+    var id: Int { Int(field.rawValue) }
 }
 
 /// One author/narrator with its own opt-in. `asin` is the toggle key (name fallback when Audible

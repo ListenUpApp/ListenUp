@@ -83,7 +83,7 @@ struct AdminInboxReadyModel {
         self.books = ready.books.map(InboxBookRowModel.init(from:))
         self.selectedBookIds = Set(ready.selectedBookIds)
         self.isReleasing = ready.isReleasing
-        self.lastReleasedCount = ready.lastReleasedCount?.intValue
+        self.lastReleasedCount = ready.lastReleasedCount.map { Int($0) }
         self.error = ready.error
         self.bookCount = Int(ready.bookIds.count)
         self.hasBooks = ready.hasBooks

@@ -21,7 +21,7 @@ struct FloatingSortButton: View {
     var body: some View {
         Menu {
             // Category options
-            ForEach(categories, id: \.name) { category in
+            ForEach(categories, id: \.rawValue) { category in
                 Button {
                     feedbackGenerator.selectionChanged()
                     onCategorySelected(category)

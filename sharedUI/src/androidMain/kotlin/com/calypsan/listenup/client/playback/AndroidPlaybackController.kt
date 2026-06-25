@@ -43,7 +43,7 @@ class AndroidPlaybackController(
 
     override fun acquire() = holder.acquire()
 
-    override fun release() = holder.release()
+    override fun releasePlayer() = holder.release()
 
     override val isReady: StateFlow<Boolean> = holder.isConnected
 

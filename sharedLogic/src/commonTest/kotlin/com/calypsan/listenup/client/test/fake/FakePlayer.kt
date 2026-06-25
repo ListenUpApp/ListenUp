@@ -54,7 +54,7 @@ class FakePlayer : AudioPlayer {
         _calls.add(Call.SetSpeed(speed))
     }
 
-    override fun release() {
+    override fun releasePlayer() {
         _calls.add(Call.Release)
         _state.value = PlaybackState.Idle
         _positionMs.value = 0L

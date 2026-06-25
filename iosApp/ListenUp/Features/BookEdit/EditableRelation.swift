@@ -3,8 +3,8 @@ import Foundation
 /// A native, value-typed projection of one Book-Edit relational chip (a contributor, series,
 /// genre, tag, or mood).
 ///
-/// **Why this exists (the SKIE no-bridged-`ForEach` convention).** The Book-Edit form's relations
-/// arrive as SKIE-bridged Kotlin `Editable*` types. Feeding those straight into a `ForEach` makes
+/// **Why this exists (the no-bridged-`ForEach` convention).** The Book-Edit form's relations
+/// arrive as Swift Export-bridged Kotlin `Editable*` types. Feeding those straight into a `ForEach` makes
 /// every SwiftUI diff re-read their properties across the Kotlin boundary — the same main-thread
 /// re-bridging hazard that froze the library grid. `BookEditObserver` maps them to `EditableRelation`
 /// once at the observer boundary; the chips diff cheap Swift values. The `id` is the same key the
@@ -49,8 +49,8 @@ extension EditableRelation {
 /// A native, value-typed projection of one add-picker search result (a contributor, series,
 /// genre, tag, or mood the user can attach to the book).
 ///
-/// **Why this exists (the same SKIE no-bridged-`ForEach` convention as `EditableRelation`).** The
-/// add-pickers' live results arrive as SKIE-bridged Kotlin types (`ContributorSearchResult`,
+/// **Why this exists (the same no-bridged-`ForEach` convention as `EditableRelation`).** The
+/// add-pickers' live results arrive as Swift Export-bridged Kotlin types (`ContributorSearchResult`,
 /// `SeriesSearchResult`, `EditableGenre/Tag/Mood`). Feeding those into the results `ForEach` would
 /// re-bridge their properties on every diff. `BookEditObserver` maps them to `RelationSearchResult`
 /// once in `apply`; the result rows diff cheap Swift values. The `id` is the same key the observer

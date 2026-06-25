@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A neutral initials avatar for the Discover leaderboard and activity feed.
 ///
-/// Distinct from `UserAvatarView` (which renders a *known* `User_` with their stored
-/// avatar color): these surfaces have only a display name's initials and no `User_`, so
+/// Distinct from `UserAvatarView` (which renders a *known* `User` with their stored
+/// avatar color): these surfaces have only a display name's initials and no `User`, so
 /// the avatar is intentionally neutral — a system fill with secondary-label initials. The
 /// current user's leaderboard row is tinted coral via `isCurrentUser`, matching the design.
 struct InitialsAvatar: View {

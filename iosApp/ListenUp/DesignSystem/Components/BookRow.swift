@@ -3,7 +3,7 @@ import Foundation
 
 /// A native, value-typed projection of `BookListItem` for SwiftUI lists.
 ///
-/// **Why this exists (performance, not cosmetics).** `BookListItem` is a SKIE-bridged
+/// **Why this exists (performance, not cosmetics).** `BookListItem` is a Swift Export-bridged
 /// Kotlin object. Handing thousands of them straight to a `ForEach` means every
 /// SwiftUI diff, layout, and `ScrollViewReader.scrollTo` pass re-reads each item's
 /// properties — and each read crosses the Kotlin boundary, converting a Kotlin UTF-16

@@ -37,7 +37,7 @@ class AndroidPlaybackControllerTest :
             val holder = FakeControllerHolder()
             val sut = AndroidPlaybackController(holder)
 
-            sut.release()
+            sut.releasePlayer()
 
             holder.releaseCount shouldBe 1
         }

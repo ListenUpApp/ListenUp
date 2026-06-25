@@ -24,7 +24,7 @@ enum StagedAvatar: Equatable {
 @MainActor
 final class EditProfileObserver {
     private(set) var isLoading: Bool = true
-    private(set) var user: User_?
+    private(set) var user: User?
     private(set) var localAvatarPath: String?
     private(set) var firstName: String = ""
     private(set) var lastName: String = ""

@@ -37,9 +37,7 @@ enum LicenseData {
         IosLicense(name: "Koin", version: "4.2.1", spdxId: "Apache-2.0",
                    url: "https://github.com/InsertKoinIO/koin"),
         IosLicense(name: "AndroidX Room", version: "2.8.4", spdxId: "Apache-2.0",
-                   url: "https://developer.android.com/jetpack/androidx/releases/room"),
-        IosLicense(name: "SKIE", version: "0.10.12", spdxId: "Apache-2.0",
-                   url: "https://github.com/touchlab/SKIE")
+                   url: "https://developer.android.com/jetpack/androidx/releases/room")
     ]
 
     // MARK: License colour

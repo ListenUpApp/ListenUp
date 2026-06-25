@@ -167,7 +167,7 @@ struct ShelfItem: Identifiable, Equatable {
     let durationLabel: String
     let coverPaths: [String]
 
-    init(from shelf: Shelf_) {
+    init(from shelf: Shelf) {
         self.id = shelf.id
         self.name = shelf.name
         self.bookCount = Int(shelf.bookCount)

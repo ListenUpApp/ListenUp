@@ -21,7 +21,7 @@ struct CoverArt: Identifiable, Equatable, Hashable {
         self.blurHash = book.coverBlurHash
     }
 
-    /// Maps a native `BookRow` to its cover (no SKIE re-bridge).
+    /// Maps a native `BookRow` to its cover (no Swift Export re-bridge).
     init(book: BookRow) {
         self.id = book.id
         self.coverPath = book.coverPath

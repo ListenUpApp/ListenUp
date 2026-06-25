@@ -15,7 +15,7 @@ struct UserProfileView: View {
     @State private var statsObserver: UserProfileObserver?
     @State private var isEditing = false
 
-    private var user: User_? { userObserver.user }
+    private var user: User? { userObserver.user }
 
     var body: some View {
         ScrollView {

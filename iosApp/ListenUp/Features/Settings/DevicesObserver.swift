@@ -54,7 +54,7 @@ final class DevicesObserver {
             phase = .loading
         case .ready(let ready):
             let devices = Array(ready.devices)
-            // Kotlin Set<String> bridges via SKIE as a KotlinMutableSet;
+            // The Kotlin Set<String> arrives as a bridged Kotlin set, not a Swift Set;
             // map through String(describing:) to produce a Swift-native Set<String>.
             let signingOut = Set(ready.signingOut.map { String(describing: $0) })
             phase = .ready(devices: devices, signingOut: signingOut)

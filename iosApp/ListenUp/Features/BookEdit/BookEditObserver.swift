@@ -7,7 +7,7 @@ import SwiftUI
 ///
 /// The relational lists (contributors, series, genres, tags, moods) are mapped to native
 /// `EditableRelation` chips and `RelationSearchResult` rows at the observer boundary — no
-/// SKIE-bridged Kotlin object ever reaches a `ForEach`. Both display+remove and the
+/// Swift Export-bridged Kotlin object ever reaches a `ForEach`. Both display+remove and the
 /// search-and-add pickers are wired here.
 @Observable
 @MainActor
@@ -18,8 +18,8 @@ final class BookEditObserver {
     private(set) var title: String = ""
     private(set) var sortTitle: String = ""
     private(set) var subtitle: String = ""
-    /// The book description — stored as `bookDescription` to avoid the NSObject
-    /// `description` property clash that SKIE bridges as `description_`.
+    /// The book description — stored as `bookDescription` because Swift Export renames the Kotlin
+    /// `description` property to `description_` (dodging the Swift `description` clash).
     private(set) var bookDescription: String = ""
     private(set) var publisher: String = ""
     private(set) var publishYear: String = ""
@@ -250,8 +250,8 @@ final class BookEditObserver {
         // Contributors — per-role maps keyed by ContributorRole.
         authorQuery = state.roleSearchQueries[.author] ?? ""
         narratorQuery = state.roleSearchQueries[.narrator] ?? ""
-        authorSearching = (state.roleSearchLoading[.author])?.boolValue ?? false
-        narratorSearching = (state.roleSearchLoading[.narrator])?.boolValue ?? false
+        authorSearching = state.roleSearchLoading[.author] ?? false
+        narratorSearching = state.roleSearchLoading[.narrator] ?? false
         rawAuthorResults = state.roleSearchResults[.author] ?? []
         rawNarratorResults = state.roleSearchResults[.narrator] ?? []
         authorResults = rawAuthorResults.map(Self.contributorResult)

@@ -144,7 +144,7 @@ struct ContributorListContent: View {
             contributors.count
         )
         return SortRow(count: count, sortLabel: sortState?.category.label ?? "") {
-            ForEach(sortCategories, id: \.name) { cat in
+            ForEach(sortCategories, id: \.rawValue) { cat in
                 Button {
                     UISelectionFeedbackGenerator().selectionChanged()
                     onCategorySelected(cat)

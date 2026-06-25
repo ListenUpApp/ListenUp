@@ -105,23 +105,23 @@ final class LibraryObserver {
         }
     }
 
-    /// `Map<BookId, Float>` arrives as `[AnyHashable: KotlinFloat]` over the SKIE
-    /// boundary — the `BookId` value-class key bridges as `AnyHashable`. Keys are
+    /// `Map<BookId, Float>` arrives as `[BookId: Float]` over the Swift Export
+    /// boundary — the `BookId` value-class key bridges as its wrapper type. Keys are
     /// normalized to the book-id string the UI looks up by.
-    private func mapProgress(_ raw: [AnyHashable: KotlinFloat]) -> [String: Float] {
+    private func mapProgress(_ raw: [BookId: Float]) -> [String: Float] {
         var result: [String: Float] = [:]
         for (key, value) in raw {
-            result[String(describing: key.base)] = value.floatValue
+            result[key.value] = value
         }
         return result
     }
 
     /// Bridge `Map<SeriesId, SeriesProgress>` → `[String: SeriesProgressState]`.
-    /// The `SeriesId` value-class key bridges as `AnyHashable`, matching `mapProgress`.
-    private func mapSeriesProgress(_ raw: [AnyHashable: SeriesProgress]) -> [String: SeriesProgressState] {
+    /// The `SeriesId` value-class key bridges as its wrapper type, matching `mapProgress`.
+    private func mapSeriesProgress(_ raw: [SeriesId: SeriesProgress]) -> [String: SeriesProgressState] {
         var result: [String: SeriesProgressState] = [:]
         for (key, value) in raw {
-            result[String(describing: key.base)] = SeriesProgressState(
+            result[key.value] = SeriesProgressState(
                 finishedCount: Int(value.finishedCount),
                 totalCount: Int(value.totalCount)
             )

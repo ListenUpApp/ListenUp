@@ -36,7 +36,7 @@ class DesktopPlaybackControllerTest :
             val player = FakeAudioPlayer()
             val sut = newController(player)
 
-            sut.release()
+            sut.releasePlayer()
 
             player.calls shouldBe emptyList()
         }
@@ -226,7 +226,7 @@ private class FakeAudioPlayer : AudioPlayer {
         _calls += PlayerCall.Load(segments)
     }
 
-    override fun release() {}
+    override fun releasePlayer() {}
 }
 
 /** Constructs a [DesktopPlaybackController] with a never-invoked [PlaybackManager] mock. */

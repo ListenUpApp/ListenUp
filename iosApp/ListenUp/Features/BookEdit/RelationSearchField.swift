@@ -9,7 +9,7 @@ import SwiftUI
 /// creator) differs, and that is passed in as closures.
 ///
 /// All inputs are native Swift value types (`RelationSearchResult`) mapped at the observer boundary —
-/// no SKIE-bridged Kotlin object ever reaches the results `ForEach`.
+/// no Swift Export-bridged Kotlin object ever reaches the results `ForEach`.
 struct RelationSearchField: View {
     /// The placeholder / accessibility prompt (e.g. "Add author…").
     let placeholder: String
