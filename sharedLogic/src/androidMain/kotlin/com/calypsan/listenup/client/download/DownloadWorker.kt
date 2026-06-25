@@ -10,11 +10,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.onFailure
 import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.core.error.ErrorBus
-import com.calypsan.listenup.client.domain.model.DownloadStatus
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
 
@@ -70,11 +68,10 @@ class DownloadWorker(
             }
         } catch (e: CancellationException) {
             logger.info { "Download cancelled: $audioFileId" }
-            downloadRepository
-                .markPaused(audioFileId)
-                .onFailure { logger.warn { "Failed to persist paused state on cancel: $audioFileId" } }
-            deleteTempIfCancelled(audioFileId, bookId, filename)
-            Result.failure()
+            // Persist the pause + temp cleanup under NonCancellable (the scope is already being
+            // cancelled here), then re-throw so the worker is recorded as cancelled, not failed.
+            persistDownloadCancellation(downloadRepository, fileManager, audioFileId, bookId, filename)
+            throw e
         }
     }
 
@@ -129,29 +126,6 @@ class DownloadWorker(
             Result.retry()
         } else {
             Result.failure()
-        }
-    }
-
-    // If the row was explicitly cancelled by the user (state = CANCELLED), delete the partial .tmp
-    // so it does not linger on disk. Network-paused downloads (state = PAUSED after markPaused)
-    // keep their .tmp for Range-resume.
-    // Note: cancelForBook() is called by DownloadManager after WorkManager.await(), so CANCELLED
-    // may not yet be written at this point. The startup sweep in resumeIncompleteDownloads is the
-    // durable catch-all; this path handles the cases where the state has already been written.
-    private suspend fun deleteTempIfCancelled(
-        audioFileId: String,
-        bookId: String,
-        filename: String,
-    ) {
-        val rowState = downloadRepository.getStateForAudioFile(audioFileId)
-        if (rowState != DownloadStatus.CANCELLED) return
-        val tempPath = fileManager.getAudioFilePath(bookId, audioFileId, filename, isTemp = true)
-        if (!SystemFileSystem.exists(tempPath)) return
-        try {
-            SystemFileSystem.delete(tempPath)
-            logger.info { "Deleted orphaned .tmp for cancelled download: $audioFileId" }
-        } catch (deleteEx: Exception) {
-            logger.warn(deleteEx) { "Failed to delete .tmp for cancelled download: $audioFileId" }
         }
     }
 
