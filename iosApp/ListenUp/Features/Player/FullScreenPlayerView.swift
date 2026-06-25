@@ -36,19 +36,13 @@ struct FullScreenPlayerView: View {
     @State private var tint: Color = .listenUpOrange
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.horizontalSizeClass) private var hSize
 
     var body: some View {
         layout
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            LinearGradient(
-                colors: [tint.opacity(0.18), Color(.systemBackground)],
-                startPoint: .top,
-                endPoint: .center
-            )
-            .ignoresSafeArea()
-        )
+        .background(frostedBackground)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
         .task(id: observer.currentBookId) { resolveTint() }
         .statusBarHidden(false)
@@ -84,6 +78,43 @@ struct FullScreenPlayerView: View {
             set: { observer.documentToOpen = $0 }
         )) { doc in
             DocumentReaderView(document: doc, onDone: { observer.documentToOpen = nil })
+        }
+    }
+
+    // MARK: - Frosted background
+
+    /// One calm frosted-glass surface so the foreground hero cover, title, scrubber,
+    /// and transport sit *on* the panel and read cleanly — instead of the old tint
+    /// gradient competing with the cover's colors and the tinted controls (the
+    /// "stacked layers" legibility problem). Back→front: blurred cover backdrop ·
+    /// heavy frosting material (the "very frosted" knob — `.thinMaterial` for less,
+    /// `.regularMaterial` for more) · faint cover-tint veil. Under Reduce
+    /// Transparency we drop the blur + material (no hand-rolled blur) and fall back
+    /// to the opaque tint gradient.
+    @ViewBuilder
+    private var frostedBackground: some View {
+        if reduceTransparency {
+            LinearGradient(
+                colors: [tint.opacity(0.22), Color(.systemBackground)],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .ignoresSafeArea()
+        } else {
+            ZStack {
+                BookCoverImage(
+                    bookId: observer.currentBookId,
+                    coverPath: observer.coverPath,
+                    blurHash: observer.coverBlurHash
+                )
+                .scaledToFill()
+                .blur(radius: 60)
+                .opacity(0.9)
+
+                Rectangle().fill(.ultraThinMaterial)
+                tint.opacity(0.12)
+            }
+            .ignoresSafeArea()
         }
     }
 
