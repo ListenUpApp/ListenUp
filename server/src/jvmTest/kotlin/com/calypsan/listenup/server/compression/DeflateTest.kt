@@ -196,4 +196,31 @@ class DeflateTest :
             jdkInflateRaw(compressed) shouldBe data
             InflateRawSource(Buffer().apply { write(compressed) }).buffered().readByteArray() shouldBe data
         }
+
+        test("heterogeneous multi-block stream: dynamic then stored then dynamic round-trips") {
+            // repetitive(1 MiB) → dynamic(non-final); incompressible(1 MiB) → stored(non-final);
+            // repetitive(0.5 MiB) → dynamic(final). Exercises the dynamic→stored partial-bit carry, the
+            // stored→dynamic transition, and a non-block-size-multiple total — the mid-stream stored
+            // fallback a real backup hits on its already-compressed (m4b/mp3) regions.
+            val rep1 = ByteArray(1024 * 1024) { (it % 8).toByte() }
+            val incompressible =
+                ByteArray(1024 * 1024).also {
+                    var s = 0x5BD1_E995
+                    for (i in it.indices) {
+                        s = s * 1_103_515_245 + 12345
+                        it[i] = (s ushr 16).toByte()
+                    }
+                }
+            val rep2 = ByteArray(512 * 1024) { (it % 8 + 1).toByte() }
+            val data = rep1 + incompressible + rep2
+            val compressed = oursDeflate(data, 6)
+            jdkInflateRaw(compressed) shouldBe data
+            InflateRawSource(Buffer().apply { write(compressed) }).buffered().readByteArray() shouldBe data
+        }
+
+        test("level 0: a multi-window (>2 blocks) input round-trips with BFINAL only on the last") {
+            val data = ByteArray(2 * 1024 * 1024 + 777) { (it * 31 and 0xFF).toByte() }
+            jdkInflateRaw(oursDeflate(data, 0)) shouldBe data
+            InflateRawSource(Buffer().apply { write(oursDeflate(data, 0)) }).buffered().readByteArray() shouldBe data
+        }
     })
