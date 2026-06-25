@@ -52,6 +52,8 @@ internal data class PublicProfileEntity(
     @ColumnInfo(defaultValue = "0") val longestStreakLast30Days: Int = 0,
     /** Longest consecutive listening-day run within the trailing 365-day window. */
     @ColumnInfo(defaultValue = "0") val longestStreakLast365Days: Int = 0,
+    /** Epoch-ms the avatar bytes last changed server-side; the avatar re-download signal + Coil cache-buster. */
+    @ColumnInfo(defaultValue = "0") val avatarUpdatedAt: Long = 0,
     /** Monotonic server revision; 0 until the server has confirmed the row. */
     val revision: Long = 0,
     /** Epoch-ms tombstone; null while the row is live. */
@@ -86,6 +88,10 @@ internal interface PublicProfileDao {
      */
     @Upsert
     suspend fun upsert(entity: PublicProfileEntity)
+
+    /** One-shot fetch by id (incl. tombstoned), for reading the prior row inside a sync transaction. */
+    @Query("SELECT * FROM public_profiles WHERE id = :userId")
+    suspend fun findById(userId: String): PublicProfileEntity?
 
     /**
      * Apply a server tombstone: set the soft-delete timestamp and revision.

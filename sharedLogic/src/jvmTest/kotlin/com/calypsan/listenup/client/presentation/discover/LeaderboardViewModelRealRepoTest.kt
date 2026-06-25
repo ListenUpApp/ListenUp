@@ -245,6 +245,8 @@ private class FakePublicProfileDao(
 
     override suspend fun upsert(entity: PublicProfileEntity) = error("unused in VM test")
 
+    override suspend fun findById(userId: String): PublicProfileEntity? = error("unused in VM test")
+
     override suspend fun softDelete(
         id: String,
         deletedAt: Long,
