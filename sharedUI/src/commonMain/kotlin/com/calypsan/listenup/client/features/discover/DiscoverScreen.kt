@@ -43,6 +43,7 @@ import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.UserAvatar
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
 import com.calypsan.listenup.client.design.util.stableColorForId
@@ -86,10 +87,14 @@ fun DiscoverScreen(
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
     val shelvesState by viewModel.discoverShelvesState.collectAsStateWithLifecycle()
+    val haptics = LocalHaptics.current
 
     PullToRefreshBox(
         isRefreshing = shelvesState is DiscoverShelvesUiState.Loading,
-        onRefresh = { viewModel.refresh() },
+        onRefresh = {
+            haptics.thresholdActivate()
+            viewModel.refresh()
+        },
         modifier =
             modifier
                 .fillMaxSize()

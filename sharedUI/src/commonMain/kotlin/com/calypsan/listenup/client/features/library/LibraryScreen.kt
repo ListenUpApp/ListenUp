@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.LocalSnackbarHostState
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
@@ -183,6 +184,7 @@ private fun LibraryLoadedContent(
     onExitSelectionMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val selectionMode = state.selectionMode
     val isInSelectionMode = selectionMode is SelectionMode.Active
     val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds ?: emptySet()
@@ -277,7 +279,10 @@ private fun LibraryLoadedContent(
             // Pull-to-refresh wraps the active filter's content (syncs all data).
             PullToRefreshBox(
                 isRefreshing = state.syncState is SyncState.Syncing,
-                onRefresh = { onEvent(LibraryUiEvent.RefreshRequested) },
+                onRefresh = {
+                    haptics.thresholdActivate()
+                    onEvent(LibraryUiEvent.RefreshRequested)
+                },
                 modifier = Modifier.fillMaxSize(),
             ) {
                 when (selectedFilter) {
