@@ -35,7 +35,10 @@ struct ImportWizardView: View {
             }
             .background(Color.luSurface)
             .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.large)
+            // Inline, not large: this is a sheet with a leading Cancel button, and a large
+            // title's vertical span collides with that button on narrow widths. Inline is also
+            // the HIG-standard chrome for a modal sheet.
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { toolbar }
             .fileImporter(
                 isPresented: $showingFileImporter,
