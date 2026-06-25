@@ -23,6 +23,15 @@ struct MainTabView: View {
         .search: NavigationPath()
     ]
 
+    /// Live bottom safe-area inset *as the tab content sees it* — home indicator plus
+    /// the floating tab bar (which tracks the `.onScrollDown` minimize state).
+    ///
+    /// The iOS 26 floating tab bar reserves space only inside the `TabView`'s own
+    /// content safe area — a ZStack sibling like the player overlay never sees it. We
+    /// measure it here and hand it to the overlay so the mini player anchors to the
+    /// *real* bar, not a fixed guess, in both the full and minimized bar states.
+    @State private var tabContentBottomInset: CGFloat = 0
+
     /// Height reserved below tab content for the collapsed mini bar (bar + clearance).
     private var miniBarInset: CGFloat {
         MiniPlayerBar.barHeight + MiniPlayerBar.tabBarClearance
@@ -48,7 +57,11 @@ struct MainTabView: View {
             .tabBarMinimizeBehavior(.onScrollDown)
 
             if let coordinator = playerCoordinator, coordinator.isVisible {
-                PlayerExpansionOverlay(coordinator: coordinator, onViewBookDetails: pushBookDetail)
+                PlayerExpansionOverlay(
+                    coordinator: coordinator,
+                    tabContentBottomInset: tabContentBottomInset,
+                    onViewBookDetails: pushBookDetail
+                )
             }
         }
         .onAppear {
@@ -68,10 +81,27 @@ struct MainTabView: View {
                 .navigationDestination(for: SearchSeeAllDestination.self) { destination in
                     SeeAllSearchView(destination: destination, path: pathBinding(tab))
                 }
+                // Probe the *system* bottom inset (home indicator + floating tab bar)
+                // BEFORE reserving the mini-bar band below, so it measures only the bar.
+                .background(tabBarInsetProbe)
                 .safeAreaInset(edge: .bottom) {
                     if playerCoordinator?.isVisible == true {
                         Color.clear.frame(height: miniBarInset)
                     }
+                }
+        }
+    }
+
+    /// Reads the tab content's live bottom safe-area inset (home indicator + floating
+    /// tab bar) and publishes it for the overlay. Sits behind tab content (zero-sized,
+    /// non-interactive) and updates as the bar minimizes/expands on scroll.
+    private var tabBarInsetProbe: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .onGeometryChange(for: CGFloat.self) { _ in
+                    proxy.safeAreaInsets.bottom
+                } action: { inset in
+                    tabContentBottomInset = inset
                 }
         }
     }
