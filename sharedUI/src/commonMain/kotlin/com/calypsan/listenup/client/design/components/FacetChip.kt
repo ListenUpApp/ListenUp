@@ -28,6 +28,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * The three classification axes shown on Book Detail. Each book is described along three
@@ -134,6 +135,7 @@ fun FacetChip(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
     val style = facet.style()
     val shape = RoundedCornerShape(50)
 
@@ -155,7 +157,10 @@ fun FacetChip(
                     },
                 ).then(
                     if (onClick != null) {
-                        Modifier.clickable(onClick = onClick)
+                        Modifier.clickable {
+                            haptics.selectionTick()
+                            onClick()
+                        }
                     } else {
                         Modifier
                     },
