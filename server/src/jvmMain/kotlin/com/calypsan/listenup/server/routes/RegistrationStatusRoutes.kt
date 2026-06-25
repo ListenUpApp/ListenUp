@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -80,12 +81,22 @@ fun Route.registrationStatusRoutes(
             }
         try {
             val initial = currentStatus(userId)
-            sendStatus(initial)
-            if (initial.status == STATUS_PENDING) {
-                // Still pending: resolve a terminal status from whichever source fires first.
+            if (initial.status != STATUS_PENDING) {
+                // Already decided on connect: emit the persisted terminal status and close. No live
+                // wait — the decision is durable, so there is nothing to race against.
+                sendStatus(initial)
+            } else {
+                // Still pending: resolve a terminal status from whichever source fires first — an
+                // instant live broadcast or the persisted-status poll. The broadcaster is replay=0,
+                // so a decision pushed before we subscribe is dropped; sending the initial "pending"
+                // frame via onSubscription emits it exactly when the broadcaster collector registers,
+                // closing the connect→notify→subscribe window that could otherwise strand the stream.
                 val terminal =
                     merge(
-                        broadcaster.subscribe(userId).map { it.toEvent() },
+                        broadcaster
+                            .subscribe(userId)
+                            .onSubscription { sendStatus(initial) }
+                            .map { it.toEvent() },
                         pollUntilTerminal(userId, currentStatus),
                     ).first()
                 sendStatus(terminal)
