@@ -67,7 +67,7 @@ internal val DockedNowPlayingBarHeight = 72.dp
 @Composable
 fun DockedNowPlayingBar(
     state: NowPlayingState,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     isExpanded: Boolean,
     onTap: () -> Unit,
     onPlayPause: () -> Unit,
@@ -137,7 +137,7 @@ fun DockedNowPlayingBar(
 @Composable
 private fun ActiveDockedContent(
     state: NowPlayingState.Active,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
@@ -212,11 +212,10 @@ private fun ActiveDockedContent(
             size = 40.dp,
         )
 
-        // Inline scrubber — fills the remaining width.
+        // Inline scrubber — fills the remaining width. It reads [progress] internally so a
+        // position tick recomposes only the scrubber row, not this whole docked bar.
         ChapterScrubberRow(
-            chapterPositionMs = progress.chapterPositionMs,
-            chapterDurationMs = progress.chapterDurationMs,
-            chapterProgress = progress.chapterProgress,
+            progress = progress,
             isPlaying = state.isPlaying,
             onSeek = onSeek,
             modifier = Modifier.weight(1f),
@@ -240,9 +239,7 @@ private fun ActiveDockedContent(
 /** Elapsed label · [WavySeekBar] · -remaining label, filling available width. */
 @Composable
 private fun ChapterScrubberRow(
-    chapterPositionMs: Long,
-    chapterDurationMs: Long,
-    chapterProgress: Float,
+    progress: () -> PlaybackProgress,
     isPlaying: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -252,8 +249,9 @@ private fun ChapterScrubberRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        val elapsedTime = chapterPositionMs.milliseconds.formatPlaybackTime()
-        val remainingMs = (chapterDurationMs - chapterPositionMs).coerceAtLeast(0)
+        val current = progress()
+        val elapsedTime = current.chapterPositionMs.milliseconds.formatPlaybackTime()
+        val remainingMs = (current.chapterDurationMs - current.chapterPositionMs).coerceAtLeast(0)
         val remainingTime = "-${remainingMs.milliseconds.formatPlaybackTime()}"
 
         Text(
@@ -262,7 +260,7 @@ private fun ChapterScrubberRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         WavySeekBar(
-            progress = chapterProgress,
+            progress = current.chapterProgress,
             onSeek = onSeek,
             modifier = Modifier.weight(1f),
             enabled = true,

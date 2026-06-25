@@ -62,7 +62,10 @@ fun NowPlayingHost(
     modifier: Modifier = Modifier,
 ) {
     val screenState by viewModel.screenState.collectAsStateWithLifecycle()
-    val progress by viewModel.progress.collectAsStateWithLifecycle()
+    val progressState = viewModel.progress.collectAsStateWithLifecycle()
+    // Pass progress as a deferred lambda so the 4 Hz position tick only recomposes the leaf
+    // scrubber + time labels that actually read it — never this host or the player chrome.
+    val provideProgress = { progressState.value }
     val firstPdfDocId by viewModel.firstPdfDocId.collectAsStateWithLifecycle()
 
     // Consume one-shot navigation events from the ViewModel.
@@ -116,7 +119,7 @@ fun NowPlayingHost(
             if (activeState != null) {
                 NowPlayingScreen(
                     state = activeState,
-                    progress = progress,
+                    progress = provideProgress,
                     onCollapse = viewModel::collapse,
                     onPlayPause = viewModel::playPause,
                     onSeek = viewModel::seekWithinChapter,
@@ -153,7 +156,7 @@ fun NowPlayingHost(
         if (useDockedBar) {
             DockedNowPlayingBar(
                 state = state,
-                progress = progress,
+                progress = provideProgress,
                 isExpanded = screenState.isExpanded,
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,
@@ -188,7 +191,7 @@ fun NowPlayingHost(
 
             NowPlayingBar(
                 state = state,
-                progress = progress,
+                progress = provideProgress,
                 isExpanded = screenState.isExpanded,
                 onTap = viewModel::expand,
                 onPlayPause = viewModel::playPause,

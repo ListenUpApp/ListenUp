@@ -157,7 +157,7 @@ fun NowPlayingPreviewGallery() {
             Box(modifier = Modifier.fillMaxWidth().height(820.dp)) {
                 CompactNowPlaying(
                     state = mockBufferingState,
-                    progress = mockBufferingProgress,
+                    progress = { mockBufferingProgress },
                     onCollapse = {},
                     onPlayPause = {},
                     onSeek = {},
@@ -204,7 +204,7 @@ private fun CompactSection() {
     Box(modifier = Modifier.fillMaxWidth().height(820.dp)) {
         CompactNowPlaying(
             state = mockActiveState,
-            progress = mockProgress,
+            progress = { mockProgress },
             onCollapse = {},
             onPlayPause = {},
             onSeek = {},
@@ -231,7 +231,7 @@ private fun WideSection() {
     WidePreview {
         WideNowPlaying(
             state = mockActiveState,
-            progress = mockProgress,
+            progress = { mockProgress },
             onCollapse = {},
             onPlayPause = {},
             onSeek = {},
@@ -257,7 +257,7 @@ private fun MiniPlayerPhoneSection() {
     GalleryLabel("Mini-player — phone (playing)")
     NowPlayingBar(
         state = mockActiveState,
-        progress = mockProgress,
+        progress = { mockProgress },
         isExpanded = false,
         onTap = {},
         onPlayPause = {},
@@ -268,7 +268,7 @@ private fun MiniPlayerPhoneSection() {
     GalleryLabel("Mini-player — phone (buffering)")
     NowPlayingBar(
         state = mockBufferingState,
-        progress = mockBufferingProgress,
+        progress = { mockBufferingProgress },
         isExpanded = false,
         onTap = {},
         onPlayPause = {},
@@ -283,7 +283,7 @@ private fun MiniPlayerDesktopSection() {
     WidePreview {
         DockedNowPlayingBar(
             state = mockActiveState,
-            progress = mockProgress,
+            progress = { mockProgress },
             isExpanded = false,
             onTap = {},
             onPlayPause = {},

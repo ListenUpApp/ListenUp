@@ -66,12 +66,15 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                 val nowPlayingScreenState by nowPlayingViewModel
                     .screenState
                     .collectAsStateWithLifecycle()
-                val nowPlayingProgress by nowPlayingViewModel
-                    .progress
-                    .collectAsStateWithLifecycle()
+                // Deferred read: the 4 Hz position tick recomposes only the scrubber leaf inside
+                // NowPlayingBar, not this shell content or the bar chrome.
+                val nowPlayingProgressState =
+                    nowPlayingViewModel
+                        .progress
+                        .collectAsStateWithLifecycle()
                 NowPlayingBar(
                     state = nowPlayingScreenState.state,
-                    progress = nowPlayingProgress,
+                    progress = { nowPlayingProgressState.value },
                     isExpanded = nowPlayingScreenState.isExpanded,
                     onTap = nowPlayingViewModel::expand,
                     onPlayPause = nowPlayingViewModel::playPause,
