@@ -432,8 +432,11 @@ class ImportFlowViewModel(
                             if (uiState.value !is ImportFlowUiState.Error && uiState.value !is ImportFlowUiState.Done) {
                                 progressJob?.cancel()
                                 uiState.value = ImportFlowUiState.Done(result = applyResult.data)
-                                syncRepository.refreshListeningHistory()
-                                    .onFailure { logger.warn { "Listening-history refresh after import failed: ${it.message}" } }
+                                syncRepository
+                                    .refreshListeningHistory()
+                                    .onFailure {
+                                        logger.warn { "Listening-history refresh after import failed: ${it.message}" }
+                                    }
                             }
                         }
                     }
@@ -516,7 +519,8 @@ class ImportFlowViewModel(
                 // deliver Done before (or racing with) the apply() AppResult.
                 if (uiState.value !is ImportFlowUiState.Done && uiState.value !is ImportFlowUiState.Error) {
                     uiState.value = ImportFlowUiState.Done(result = event.result)
-                    syncRepository.refreshListeningHistory()
+                    syncRepository
+                        .refreshListeningHistory()
                         .onFailure { logger.warn { "Listening-history refresh after import failed: ${it.message}" } }
                 }
             }

@@ -206,7 +206,8 @@ class AppStartupViewModel(
                 if (user != null) {
                     launch {
                         try {
-                            profileRepository.refreshMyProfile()
+                            profileRepository
+                                .refreshMyProfile()
                                 .onFailure { logger.warn { "Own profile refresh failed at startup: ${it.message}" } }
                         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                             throw e

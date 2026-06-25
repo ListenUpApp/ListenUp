@@ -142,7 +142,8 @@ class HomeViewModel(
     fun refresh() {
         viewModelScope.launch {
             logger.debug { "Refresh: triggering sync to pull latest progress" }
-            syncRepository.sync()
+            syncRepository
+                .sync()
                 .onFailure { logger.warn { "Home refresh sync failed: ${it.message}" } }
         }
     }

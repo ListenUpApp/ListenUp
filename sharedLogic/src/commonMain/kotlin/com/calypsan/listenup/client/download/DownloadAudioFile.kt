@@ -169,13 +169,16 @@ internal suspend fun downloadAudioFile(
 
                     // Mark complete via repository. The file is already on disk, so a failed DB write
                     // leaves a recoverable inconsistency — surface it loudly rather than silently.
-                    repository.markCompleted(
-                        audioFileId = audioFileId,
-                        localPath = destPath.toString(),
-                        completedAt = currentEpochMilliseconds(),
-                    ).onFailure {
-                        logger.error { "Download finished on disk but markCompleted failed for $audioFileId: ${it.message}" }
-                    }
+                    repository
+                        .markCompleted(
+                            audioFileId = audioFileId,
+                            localPath = destPath.toString(),
+                            completedAt = currentEpochMilliseconds(),
+                        ).onFailure {
+                            logger.error {
+                                "Download finished on disk but markCompleted failed for $audioFileId: ${it.message}"
+                            }
+                        }
                 }
         }
     }

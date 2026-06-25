@@ -380,7 +380,8 @@ class LibraryViewModel(
 
     private fun refreshBooks() {
         viewModelScope.launch {
-            bookRepository.refreshBooks()
+            bookRepository
+                .refreshBooks()
                 .onFailure { logger.warn { "Library refresh failed: ${it.message}" } }
         }
     }
