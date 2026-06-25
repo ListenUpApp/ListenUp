@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.embeddedmeta.fixtures.buildMp3File
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.module

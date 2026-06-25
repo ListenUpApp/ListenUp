@@ -15,6 +15,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.SystemCollectionType
 import com.calypsan.listenup.server.cover.CoverImageStore
+import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.CoverSpool

@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.cover
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
+import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.services.BookRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.http.ContentType
@@ -11,10 +12,10 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
-import java.nio.file.Files
-import java.nio.file.Path
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val log = KotlinLogging.logger {}
 
@@ -80,7 +81,7 @@ class CoverResponder internal constructor(
     ) {
         val bytes =
             withContext(Dispatchers.IO) {
-                if (!Files.isRegularFile(path)) null else Files.readAllBytes(path)
+                if (SystemFileSystem.metadataOrNull(path)?.isRegularFile != true) null else path.readBytes()
             }
         if (bytes == null) {
             // The DB still records a filesystem cover, but the file vanished
@@ -98,7 +99,7 @@ class CoverResponder internal constructor(
     ) {
         val artwork =
             cache.getOrCompute(id) {
-                when (val result = parser.parse(kotlinx.io.files.Path(audioFilePath.toString()))) {
+                when (val result = parser.parse(audioFilePath)) {
                     is AppResult.Success -> {
                         result.data.artwork
                     }
@@ -126,8 +127,7 @@ class CoverResponder internal constructor(
      */
     private fun contentTypeForExtension(path: Path): ContentType =
         when (
-            path.fileName
-                .toString()
+            path.name
                 .substringAfterLast('.', "")
                 .lowercase()
         ) {

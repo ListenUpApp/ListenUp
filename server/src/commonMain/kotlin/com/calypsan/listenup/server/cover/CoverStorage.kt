@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.cover
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.nio.file.Path
-import kotlin.io.path.deleteIfExists
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
 
@@ -41,7 +41,7 @@ class CoverStorage {
      */
     fun delete(path: Path) {
         try {
-            path.deleteIfExists()
+            SystemFileSystem.delete(path, mustExist = false)
         } catch (e: Exception) {
             logger.warn(e) { "CoverStorage.delete failed for path=$path" }
         }

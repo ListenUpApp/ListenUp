@@ -15,6 +15,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import java.nio.file.Files
 import kotlinx.coroutines.test.runTest
 
 class BookRepositoryManagedCoverTest :
@@ -116,9 +117,49 @@ class BookRepositoryManagedCoverTest :
                 }
             }
         }
+
+        test("coverInfo returns null for a path-traversal cover_path (.. guard)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val homeDir = Files.createTempDirectory("listenup-cover-sandbox-")
+                val repo = makeRepo(homeDir = homeDir)
+                runTest {
+                    repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
+                    // Persist an escaping cover_path; the read-time sandbox must reject it.
+                    repo.setManagedCover(
+                        id = BookId("b1"),
+                        relPath = "../../etc/passwd",
+                        hash = "deadbeef",
+                        source = CoverSource.UPLOADED,
+                    )
+                    // The guard returns null (a 404 to the caller), never a path outside homeDir.
+                    repo.coverInfo(BookId("b1")).shouldBeNull()
+                }
+            }
+        }
+
+        test("coverInfo returns null when the managed cover file is missing on disk") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val homeDir = Files.createTempDirectory("listenup-cover-sandbox-")
+                val repo = makeRepo(homeDir = homeDir)
+                runTest {
+                    repo.upsert(bookPayloadFixture(id = "b1", title = "The Way of Kings"))
+                    // A benign relPath that passes the `..` guard but points at a file that was
+                    // never written — the existence check must return null (a 404), not 500.
+                    repo.setManagedCover(
+                        id = BookId("b1"),
+                        relPath = "covers/does-not-exist.jpg",
+                        hash = "deadbeef",
+                        source = CoverSource.UPLOADED,
+                    )
+                    repo.coverInfo(BookId("b1")).shouldBeNull()
+                }
+            }
+        }
     })
 
-private fun SqlTestDatabases.makeRepo(): BookRepository {
+private fun SqlTestDatabases.makeRepo(homeDir: java.nio.file.Path? = null): BookRepository {
     val bus = ChangeBus()
     val syncRegistry = SyncRegistry()
     return BookRepository(
@@ -129,5 +170,6 @@ private fun SqlTestDatabases.makeRepo(): BookRepository {
         contributorRepository = ContributorRepository(sql, bus, syncRegistry),
         seriesRepository = SeriesRepository(sql, bus, syncRegistry),
         genreRepository = GenreRepository(sql, bus, syncRegistry),
+        homeDir = homeDir,
     )
 }

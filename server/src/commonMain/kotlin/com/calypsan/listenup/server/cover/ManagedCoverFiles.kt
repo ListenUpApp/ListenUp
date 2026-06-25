@@ -4,13 +4,12 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.services.PendingCover
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.nio.file.Files
-import java.nio.file.Path
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val log = KotlinLogging.logger {}
 
@@ -37,7 +36,7 @@ data class StoredCoverInfo(
  * syncable-repository template-method seam ([nextRevision], [ChangeBus], [readPayload]).
  *
  * All suspension points are safe to call from outside a transaction (file I/O
- * runs on [Dispatchers.IO]; [coverInfo] opens its own short read transaction internally).
+ * runs on [fileIoDispatcher]; [coverInfo] opens its own short read transaction internally).
  *
  * @param coverImageStore the cover-scoped [ImageStore] wrapper; null when the managed
  *   store is not configured (no library path set).
@@ -130,7 +129,7 @@ class ManagedCoverFiles(
                 ResolvedCover(source, folderRoot, rootRelPath, primaryFilename, hash, coverPath)
             } ?: return null
 
-        val bookDir = Path.of(resolved.libraryRoot, resolved.rootRelPath)
+        val bookDir = Path(resolved.libraryRoot, resolved.rootRelPath)
         val source =
             CoverSource.entries.firstOrNull { it.name.equals(resolved.source, ignoreCase = true) }
                 ?: return null
@@ -152,9 +151,13 @@ class ManagedCoverFiles(
 
             CoverSource.EMBEDDED -> {
                 resolved.primaryFilename
-                    ?.let { bookDir.resolve(it) }
-                    ?.takeIf { withContext(Dispatchers.IO) { Files.isRegularFile(it) } }
-                    ?.let { CoverInfo.Embedded(it, resolved.hash) }
+                    ?.let { Path(bookDir, it) }
+                    ?.takeIf {
+                        withContext(fileIoDispatcher) {
+                            SystemFileSystem.metadataOrNull(it)?.isRegularFile ==
+                                true
+                        }
+                    }?.let { CoverInfo.Embedded(it, resolved.hash) }
             }
 
             CoverSource.UPLOADED,
@@ -178,9 +181,9 @@ class ManagedCoverFiles(
         hash: String?,
     ): CoverInfo.Managed? {
         if (relPath.startsWith("/") || "../" in relPath || relPath == "..") return null
-        val absolute = base.resolve(relPath).normalize()
-        if (!absolute.startsWith(base.normalize())) return null
-        val exists = withContext(Dispatchers.IO) { Files.isRegularFile(absolute) }
+        val absolute = Path(base, relPath)
+        if (!absolute.toString().startsWith(base.toString())) return null
+        val exists = withContext(fileIoDispatcher) { SystemFileSystem.metadataOrNull(absolute)?.isRegularFile == true }
         return if (exists) CoverInfo.Managed(absolute, hash) else null
     }
 
@@ -191,25 +194,19 @@ class ManagedCoverFiles(
      * when the directory holds no image — or has vanished since the scan.
      */
     private suspend fun resolveFilesystemCover(bookDir: Path): Path? =
-        withContext(Dispatchers.IO) {
-            if (!Files.isDirectory(bookDir)) return@withContext null
+        withContext(fileIoDispatcher) {
+            if (SystemFileSystem.metadataOrNull(bookDir)?.isDirectory != true) return@withContext null
             val images =
-                Files
+                SystemFileSystem
                     .list(bookDir)
-                    .use { stream ->
-                        stream
-                            .filter { Files.isRegularFile(it) }
-                            .filter {
-                                it.fileName
-                                    .toString()
-                                    .substringAfterLast('.', "")
-                                    .lowercase() in IMAGE_EXTENSIONS
-                            }.sorted(compareBy { it.fileName.toString() })
-                            .toList()
-                    }
+                    .filter { SystemFileSystem.metadataOrNull(it)?.isRegularFile == true }
+                    .filter {
+                        it.name
+                            .substringAfterLast('.', "")
+                            .lowercase() in IMAGE_EXTENSIONS
+                    }.sortedBy { it.name }
             images.firstOrNull {
-                it.fileName
-                    .toString()
+                it.name
                     .substringBeforeLast('.')
                     .equals("cover", ignoreCase = true)
             }
