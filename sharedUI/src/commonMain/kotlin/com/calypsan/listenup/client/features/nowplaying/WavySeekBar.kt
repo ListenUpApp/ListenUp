@@ -33,6 +33,7 @@ import androidx.compose.ui.semantics.setProgress
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import kotlin.math.roundToInt
 
 /**
@@ -68,6 +69,7 @@ fun WavySeekBar(
     stateDescription: String = "",
 ) {
     val density = LocalDensity.current
+    val haptics = LocalHaptics.current
 
     // Track width for calculating drag position
     var trackWidth by remember { mutableFloatStateOf(0f) }
@@ -110,6 +112,7 @@ fun WavySeekBar(
                         onDragStart = { offset ->
                             isDragging = true
                             dragProgress = (offset.x / trackWidth).coerceIn(0f, 1f)
+                            haptics.selectionTick()
                         },
                         onDragEnd = {
                             if (isDragging) {
