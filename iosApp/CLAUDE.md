@@ -121,3 +121,13 @@ before any non-trivial iOS work.
 14. **Swift Testing (not XCTest) for native code**; shared logic keeps Kotest. Same TDD
     discipline as the root `CLAUDE.md` — no fix without a failing test first, no feature
     without a test.
+
+## Build hygiene
+
+15. **Stale shared-framework escape hatch.** If an iOS build links *stale* shared types after
+    a Kotlin edit (the Swift Export framework didn't pick up your change — new types missing,
+    old shapes still linked, no compile error), run
+    `rm -rf sharedLogic/build/{SwiftExport,SPMPackage}` from the repo root and rebuild. The
+    `*GenerateSPMPackage` task is now forced to never report `UP-TO-DATE`
+    (`sharedLogic/build.gradle.kts`), so this should no longer be necessary — keep this note
+    until that wiring is confirmed on real iOS builds, then remove it.

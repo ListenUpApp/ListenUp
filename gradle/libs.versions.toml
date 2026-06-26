@@ -22,10 +22,19 @@ androidx-core-splashscreen = "1.2.0"
 robolectric = "4.16.1"
 composeMultiplatform = "1.11.1"
 compose-material3 = "1.11.0-alpha07"
+# Swift Export bridge upgrade UNIT — bump together, never piecemeal:
+#   kotlin  +  the Swift Export patcher (build-logic `SwiftExportSourcePatcher`, validated against
+#   THIS Kotlin)  +  kotlinx-rpc.
+# Bumping `kotlin` requires re-validating the patcher (Plan 001 / `SwiftExportSourcePatcherTest` is
+# the first gate — a codegen-shape drift fails the `*GenerateSPMPackage` check) AND a matching
+# kotlinx-rpc build. `ksp` also moves in lockstep (see its note below).
 kotlin = "2.4.0"
 ksp = "2.3.9"
 mokkery = "3.4.1"
 ktor = "3.5.1"
+# DEV CHANNEL — resolved from the `kxrpc-grpc` redirector (see settings.gradle.kts). Migrate to
+# kotlinx-rpc 0.11.x stable on Maven Central once it ships with the KRPC-560 fix, then delete the
+# `kxrpc-grpc` redirector entries in settings.gradle.kts. Part of the Swift Export upgrade UNIT above.
 kotlinx-rpc = "0.11.0-grpc-188"
 kotest = "6.2.1"
 junit-vintage = "6.1.0" # JUnit Platform vintage engine — runs JUnit4 tests under useJUnitPlatform(); matches Kotest's JUnit BOM
