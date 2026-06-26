@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 // Two responsive presentations of the grouped hits:
 //  - `SearchResultsList`  — a single grouped `List` (compact / iPhone).

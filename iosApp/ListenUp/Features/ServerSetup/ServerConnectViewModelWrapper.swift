@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ServerConnectViewModel`'s `state` flow, flattening the sealed
 /// `ServerConnectUiState` into SwiftUI-native properties. Holds the URL text as

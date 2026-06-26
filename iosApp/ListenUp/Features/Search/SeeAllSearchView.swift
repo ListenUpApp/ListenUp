@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The full single-type "See all" search page — every hit of one kind for a query, reached
 /// when a main-results group overflowed its display cap. A pushed screen with the system back

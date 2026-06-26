@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Presented sheet for editing a series: cover, name, description. Bound to
 /// `SeriesEditViewModel` via `SeriesEditObserver`.

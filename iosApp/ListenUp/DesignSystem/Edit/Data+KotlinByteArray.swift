@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 extension Data {
     /// Bridges to a Kotlin `ByteArray` via a single bulk `memcpy` crossing — fast for

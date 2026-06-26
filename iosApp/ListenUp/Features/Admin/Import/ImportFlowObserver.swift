@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ImportFlowViewModel` — the linear ABS-import wizard — and flattens its sealed
 /// `ImportFlowUiState` (`Idle` / `Uploading` / `Analyzing` / `Review` / `Applying` / `Done` /

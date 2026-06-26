@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `SeriesDetailViewModel`, flattening `SeriesDetailUiState` into flat
 /// `@Observable` properties, and drives playback via `PlayerCoordinator`.

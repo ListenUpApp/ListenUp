@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `SeriesEditViewModel`, flattening `SeriesEditUiState` into `@Observable`
 /// properties and dispatching edits as `SeriesEditUiEvent`s. `NavigateBack` flips

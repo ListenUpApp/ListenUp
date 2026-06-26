@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Pure transforms from the Kotlin `MetadataViewModel` sealed states into the flattened Swift
 /// view models. Kept free of `@Observable`/actor state so every branch is unit-testable in

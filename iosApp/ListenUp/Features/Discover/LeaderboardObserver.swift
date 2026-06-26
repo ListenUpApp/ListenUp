@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `LeaderboardViewModel` — flattens the sealed `LeaderboardUiState` into a
 /// SwiftUI-native `LeaderboardPhase` for the Discover leaderboard. Surfaces only the

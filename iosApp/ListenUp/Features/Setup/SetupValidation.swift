@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Pure, UI-independent rules for the Setup form (unit-testable without a live KMP ViewModel).
 enum SetupFieldKey: Equatable {

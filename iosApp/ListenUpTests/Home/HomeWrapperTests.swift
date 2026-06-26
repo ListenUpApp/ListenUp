@@ -1,5 +1,5 @@
 import Testing
-@preconcurrency import Shared
+import Shared
 @testable import ListenUp
 
 /// Pure mapping tests for the Home wrappers. These construct the KMP domain types

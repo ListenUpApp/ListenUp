@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// A single-role contributor Library tab (Authors or Narrators): a sorted, letter-grouped
 /// list of people, with a responsive single/multi-column layout and an alphabet scrubber on

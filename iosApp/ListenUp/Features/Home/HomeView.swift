@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Home ("Listen Now") — the personalized landing screen.
 ///

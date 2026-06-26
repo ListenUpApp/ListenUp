@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// A native, value-typed projection of `BookListItem` for SwiftUI lists.
 ///

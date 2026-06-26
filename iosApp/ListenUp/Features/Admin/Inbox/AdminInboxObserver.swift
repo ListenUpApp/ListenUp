@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `AdminInboxViewModel` — flattens the sealed `AdminInboxUiState` into a
 /// SwiftUI-native `AdminInboxPhase` and surfaces selection state, release overlay, and

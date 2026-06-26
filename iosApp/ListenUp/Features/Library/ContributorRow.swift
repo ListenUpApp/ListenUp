@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// A native, value-typed projection of `ContributorWithBookCount` for the Library Contributors tab.
 ///

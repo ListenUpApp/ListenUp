@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The folder-picker step of first-run library setup. The user browses the server's
 /// filesystem and chooses the folders that hold their audiobooks.

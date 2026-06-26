@@ -1,5 +1,5 @@
 import AppIntents
-@preconcurrency import Shared
+import Shared
 
 /// An audiobook as exposed to App Intents / Siri / Apple Intelligence. Conforms to
 /// Apple's `.books.audiobook` assistant schema so the system understands it

@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `AdminCollectionDetailViewModel` — flattens the sealed
 /// `AdminCollectionDetailUiState` into a SwiftUI-native `AdminCollectionDetailPhase`

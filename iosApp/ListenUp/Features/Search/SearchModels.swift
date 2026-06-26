@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Single-select search scope, surfaced as `.searchScopes` segments above the results.
 ///

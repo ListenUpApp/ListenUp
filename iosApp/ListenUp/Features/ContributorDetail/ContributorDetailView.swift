@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Contributor (Author/Narrator) detail screen — clean-coral design.
 ///

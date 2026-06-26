@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Coordinates the first-run library-setup flow: ChooseFolders → completeSetup → Shell.
 ///

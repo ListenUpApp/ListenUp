@@ -1,6 +1,6 @@
 import Foundation
 import Observation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `MetadataViewModel` — the "Match metadata on Audible" wizard — flattening its
 /// three-phase sealed `MetadataUiState` (Idle / Search / Preview) and one-shot `MetadataEvent`

@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-@preconcurrency import Shared
+import Shared
 
 /// Administration — the native server-management dashboard, wired to two shared ViewModels:
 /// `AdminViewModel` (users, pending registrations, pending invites, open-registration) via

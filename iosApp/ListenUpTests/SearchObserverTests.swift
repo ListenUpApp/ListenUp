@@ -1,5 +1,5 @@
 import Testing
-@preconcurrency import Shared
+import Shared
 @testable import ListenUp
 
 /// Pure-mapping coverage for the search observer's two seams: the single-select

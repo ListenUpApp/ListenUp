@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Presented sheet for editing a contributor: avatar, name, bio, website, birth/death dates.
 struct ContributorEditView: View {

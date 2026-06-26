@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 import UIKit
 
 /// Circular avatar displaying user initials or image.

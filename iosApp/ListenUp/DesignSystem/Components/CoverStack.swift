@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// A single cover's image source, decoupled from any Kotlin type so `CoverStack` is
 /// reusable and previewable in plain Swift.

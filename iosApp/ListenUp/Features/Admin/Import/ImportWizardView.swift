@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The Audiobookshelf import wizard, presented as a sheet from the import hub. A linear pipeline
 /// bound to `ImportFlowObserver`: **Intro** (choose a backup file) → **Uploading** → **Analyzing**

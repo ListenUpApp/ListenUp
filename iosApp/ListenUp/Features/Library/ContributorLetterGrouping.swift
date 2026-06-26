@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Groups contributors under alphabet headers for the name-sorted list. The pure
 /// `letterBuckets` core (over plain strings) carries the logic and is unit-tested;

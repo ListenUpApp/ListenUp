@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ABSImportHubViewModel`'s **list** surface — the persistent/resumable roster of
 /// staged ABS imports — and flattens `ABSImportListUiState` (`Loading` / `Ready` / `Error`)

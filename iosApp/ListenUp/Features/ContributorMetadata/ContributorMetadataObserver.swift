@@ -1,6 +1,6 @@
 import Foundation
 import Observation
-@preconcurrency import Shared
+import Shared
 
 /// A single Audible search hit, mapped to a native value type at the observer boundary so it
 /// never re-bridges across the Kotlin seam inside a SwiftUI `ForEach` (per `iosApp/CLAUDE.md`

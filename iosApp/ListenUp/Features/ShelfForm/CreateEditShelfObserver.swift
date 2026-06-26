@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Flattened render phase for the Create/Edit Shelf screen.
 enum CreateEditShelfPhase: Equatable {

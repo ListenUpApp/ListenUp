@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Standalone series row card for the iPhone Series list: an overlapping cover stack,
 /// name + meta, a progress affordance, and a chevron — its own rounded surface.

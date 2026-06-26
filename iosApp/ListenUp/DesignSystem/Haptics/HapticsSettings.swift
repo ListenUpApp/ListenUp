@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// App-lifetime source of truth for whether haptics are enabled, bridged from the shared
 /// `SettingsViewModel`. Injected at the root via `.environment(...)` and read by `.haptic(_:trigger:)`.

@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Step 3: review the Audible chapter-name replacements before applying. Each row shows the
 /// current label struck through → the suggested name, with a per-row circular toggle (default on).

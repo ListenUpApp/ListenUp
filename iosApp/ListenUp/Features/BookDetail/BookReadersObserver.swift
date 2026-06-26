@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `BookReadersViewModel` — flattens the sealed `BookReadersUiState` into a
 /// SwiftUI-native `BookReadersPhase` for the Book Detail "Readers" section.

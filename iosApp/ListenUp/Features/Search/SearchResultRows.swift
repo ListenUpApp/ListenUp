@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 // Row views for each search-hit kind. Pure presentation over a native `SearchRow`; the tap
 // closure lets the row work in both the compact list and the regular-width columns.

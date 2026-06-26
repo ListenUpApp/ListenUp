@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Native projection of a contributor's per-role section ("Author", "Narrator", …).
 ///

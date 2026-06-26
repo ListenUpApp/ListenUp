@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The presented "Match metadata on Audible" wizard, opened from Book Detail. A focused task
 /// that takes the whole sheet — no app sidebar — so the work gets the width.

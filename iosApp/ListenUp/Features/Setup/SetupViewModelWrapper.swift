@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `SetupViewModel`'s `state` flow, flattening `SetupUiState` into
 /// SwiftUI-native properties. Thin over `FlowBridge`.

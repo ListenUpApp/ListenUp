@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Edit-the-current-user's-profile sheet: avatar, tagline, name, and password, committed
 /// by a single Save (the scaffold's nav-bar Done).

@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Manual server URL entry screen, presented as a sheet over the server picker.
 ///

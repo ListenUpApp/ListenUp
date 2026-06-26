@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// A server-side directory, flattened for SwiftUI display.
 struct DirectoryItem: Identifiable, Equatable {

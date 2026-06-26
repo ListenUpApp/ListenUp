@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The phase a first-run (or returning) admin's library is in, flattened from the KMP
 /// ``LibraryReadiness`` sealed type for a SwiftUI `switch`. Mirrors the Android nav gate:

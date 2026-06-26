@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `BookEditViewModel`, flattening `BookEditUiState` into `@Observable`
 /// properties and dispatching edits as `BookEditUiEvent`s. `NavigateBack` flips

@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The Audiobookshelf import hub — the entry to the import flow, reached from Administration ›
 /// Management. Lists existing (resumable) imports and launches the wizard for a new one; an empty

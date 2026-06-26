@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Book detail screen — the native, redesigned assembly.
 ///

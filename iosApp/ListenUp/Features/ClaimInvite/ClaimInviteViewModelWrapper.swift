@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ClaimInviteViewModel`'s `state` flow, flattening `ClaimInviteUiState` into
 /// SwiftUI-native properties. Thin over `FlowBridge`.

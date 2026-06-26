@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `CreateInviteViewModel` — flattens the command-driven `CreateInviteUiState.Ready`
 /// status into a SwiftUI-native `CreateInvitePhase` the sheet binds to. The VM has no async

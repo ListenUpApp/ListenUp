@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Create-admin-account screen shown once when the server has no users yet.
 ///

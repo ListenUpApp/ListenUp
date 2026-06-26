@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Settings screen — the Cupertino counterpart to the Android M3 Expressive settings.
 ///

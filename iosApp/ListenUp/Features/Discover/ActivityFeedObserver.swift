@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ActivityFeedViewModel` — flattens the sealed `ActivityFeedUiState` into a
 /// SwiftUI-native `ActivityFeedPhase`. Each `ActivityUiModel` becomes an `ActivityRowItem`
