@@ -12,8 +12,7 @@ class CoverUrlSignerTest :
     FunSpec({
         val key = CoverUrlSigner.deriveSigningKey("test-jwt-secret")
 
-        fun parse(query: String): Map<String, String> =
-            query.split("&").associate { it.substringBefore("=") to it.substringAfter("=") }
+        fun parse(query: String): Map<String, String> = query.split("&").associate { it.substringBefore("=") to it.substringAfter("=") }
 
         test("a freshly signed query verifies") {
             val signer = CoverUrlSigner(key, ttl = 12.hours, clock = FixedClock(Instant.fromEpochSeconds(1000)))

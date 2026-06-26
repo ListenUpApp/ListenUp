@@ -92,18 +92,19 @@ class CastMediaItemFactory {
 
     /** Assembles a [CastTrack] into a Media3 [MediaItem] with an explicit MIME type (CastPlayer requires it). */
     fun toMediaItem(track: CastTrack): MediaItem =
-        MediaItem.Builder()
+        MediaItem
+            .Builder()
             .setMediaId(track.fileId)
             .setUri(track.uri)
             .setMimeType(track.mimeType)
             .setMediaMetadata(
-                MediaMetadata.Builder()
+                MediaMetadata
+                    .Builder()
                     .setTitle(track.title)
                     .setArtist(track.artist)
                     .setAlbumTitle(track.albumTitle)
                     .setArtworkUri(track.artworkUri?.let { Uri.parse(it) })
                     .setMediaType(MediaMetadata.MEDIA_TYPE_AUDIO_BOOK)
                     .build(),
-            )
-            .build()
+            ).build()
 }

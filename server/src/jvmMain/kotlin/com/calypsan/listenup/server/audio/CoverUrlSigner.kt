@@ -109,7 +109,7 @@ class CoverUrlSigner(
      * is not valid hex (odd length, non-hex chars, wrong length for SHA-256).
      */
     private fun hexToBytes(hex: String): ByteArray? {
-        if (hex.length != 64) return null // SHA-256 produces 32 bytes = 64 hex chars
+        if (hex.length != SHA256_HEX_LENGTH) return null // SHA-256 produces 32 bytes = 64 hex chars
         return try {
             hex.hexToByteArray()
         } catch (_: IllegalArgumentException) {
@@ -118,6 +118,9 @@ class CoverUrlSigner(
     }
 
     companion object {
+        /** SHA-256 produces 32 bytes, which encode as exactly 64 lowercase hex characters. */
+        private const val SHA256_HEX_LENGTH = 64
+
         /**
          * Derives the signing key from a JWT secret so operators manage no new
          * secret. The derivation uses HMAC-SHA256 itself as a KDF:

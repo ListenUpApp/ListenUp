@@ -38,7 +38,10 @@ class CastPreparer(
                     coverUrlAbsolute = data.coverUrl?.let { serverUrl + it },
                 )
             }
-            is AppResult.Failure -> null
+
+            is AppResult.Failure -> {
+                null
+            }
         }
     }
 }

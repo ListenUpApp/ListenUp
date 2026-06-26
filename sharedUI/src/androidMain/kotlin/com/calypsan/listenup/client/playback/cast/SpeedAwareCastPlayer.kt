@@ -47,5 +47,9 @@ class SpeedAwareCastPlayer(
         command == Player.COMMAND_SET_SPEED_AND_PITCH || super.isCommandAvailable(command)
 
     override fun getAvailableCommands(): Player.Commands =
-        super.getAvailableCommands().buildUpon().add(Player.COMMAND_SET_SPEED_AND_PITCH).build()
+        super
+            .getAvailableCommands()
+            .buildUpon()
+            .add(Player.COMMAND_SET_SPEED_AND_PITCH)
+            .build()
 }
