@@ -67,8 +67,8 @@ class ScannerMultiFolderTest :
                                         detector = AudioFormatDetector(),
                                         parsers = listOf(Mp3Parser()),
                                     ),
-                                eventBus = MutableSharedFlow(replay = 64, extraBufferCapacity = 64),
-                                scanResultBus = MutableSharedFlow(replay = 1),
+                                eventBus = MutableSharedFlow<ScanEvent>(replay = 64, extraBufferCapacity = 64),
+                                scanResultBus = MutableSharedFlow<ScanResult>(replay = 1),
                                 correlationIdFactory = { "test-correlation-id" },
                             )
 
