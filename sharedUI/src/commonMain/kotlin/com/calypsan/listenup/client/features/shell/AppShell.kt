@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.presentation.sync.SyncIndicatorViewModel
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.client.features.permission.RequestPostNotificationsPermission
 import com.calypsan.listenup.client.features.shell.components.GlobalErrorSnackbar
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.launch
@@ -107,6 +108,11 @@ fun AppShell(
     val searchViewModel: SearchViewModel = koinViewModel()
     val syncIndicatorViewModel: SyncIndicatorViewModel = koinViewModel()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Request POST_NOTIFICATIONS once at the post-auth entry point. The composable is
+    // fire-and-forget: it prompts exactly once per session and has no effect on playback
+    // regardless of whether the user grants or denies.
+    RequestPostNotificationsPermission()
 
     // Trigger sync on shell entry (not just when Library is visible)
     val scope = rememberCoroutineScope()
