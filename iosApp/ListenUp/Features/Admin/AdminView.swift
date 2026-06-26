@@ -375,11 +375,11 @@ struct AdminView: View {
     // MARK: - Transient mutation error alert
 
     /// Bridges the observer's transient `error` string into an `Identifiable` alert payload.
-    private var alertBinding: Binding<AdminAlert?> {
+    private var alertBinding: Binding<MessageAlert?> {
         Binding(
             get: {
                 guard case .ready(let ready)? = admin?.phase, let message = ready.error else { return nil }
-                return AdminAlert(message: message)
+                return MessageAlert(message: message)
             },
             set: { newValue in
                 if newValue == nil { admin?.clearError() }
@@ -387,7 +387,7 @@ struct AdminView: View {
         )
     }
 
-    private func mutationAlert(_ alert: AdminAlert) -> Alert {
+    private func mutationAlert(_ alert: MessageAlert) -> Alert {
         Alert(
             title: Text(String(localized: "common.something_went_wrong")),
             message: Text(alert.message),
@@ -461,14 +461,6 @@ struct AdminView: View {
             withAnimation { copiedToast = false }
         }
     }
-}
-
-// MARK: - Alert payload
-
-/// Identifiable wrapper so a transient error string drives `.alert(item:)`.
-private struct AdminAlert: Identifiable {
-    let message: String
-    var id: String { message }
 }
 
 // MARK: - Copied toast

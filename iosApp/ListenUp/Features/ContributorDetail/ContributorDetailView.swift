@@ -222,16 +222,22 @@ struct ContributorDetailView: View {
         }
     }
 
+    /// Parses the ISO `yyyy-MM-dd` birth/death strings. Pure and immutable once configured, so it's
+    /// shared as a `static let` rather than rebuilt on every `displayDate(_:)` call from the hero body.
+    private static let isoDateParser: DateFormatter = {
+        let parser = DateFormatter()
+        parser.calendar = Calendar(identifier: .gregorian)
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        return parser
+    }()
+
     /// ISO `yyyy-MM-dd` → a long localized date ("September 21, 1947"); falls back to the raw
     /// value (e.g. a bare "1947") when it isn't a full ISO date.
     private func displayDate(_ raw: String) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return nil }
-        let parser = DateFormatter()
-        parser.calendar = Calendar(identifier: .gregorian)
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.dateFormat = "yyyy-MM-dd"
-        guard let date = parser.date(from: trimmed) else { return trimmed }
+        guard let date = Self.isoDateParser.date(from: trimmed) else { return trimmed }
         return date.formatted(.dateTime.month(.wide).day().year())
     }
 

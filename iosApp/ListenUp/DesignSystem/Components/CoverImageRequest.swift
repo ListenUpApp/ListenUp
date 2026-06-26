@@ -11,11 +11,10 @@ import Nuke
 enum CoverImageRequest {
     @MainActor
     static func book(bookId: String?, coverPath: String?, targetPixels: CGFloat) async -> ImageRequest? {
-        let processors: [any ImageProcessing] =
-            targetPixels > 0 ? [ImageProcessors.Resize(width: targetPixels, unit: .pixels)] : []
+        let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
 
         if let coverPath, !coverPath.isEmpty {
-            return ImageRequest(url: URL(fileURLWithPath: coverPath), processors: processors)
+            return AuthenticatedImageRequest.localFile(coverPath, processors: processors)
         }
 
         guard let bookId, !bookId.isEmpty else { return nil }
@@ -30,10 +29,6 @@ enum CoverImageRequest {
               let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
         else { return nil }
 
-        var urlRequest = URLRequest(url: url)
-        if let token = try? await KoinHelper.shared.accessToken() {
-            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        return ImageRequest(urlRequest: urlRequest, processors: processors)
+        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors)
     }
 }

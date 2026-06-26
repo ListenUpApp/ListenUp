@@ -143,11 +143,11 @@ struct ABSImportHubView: View {
 
     // MARK: - Bindings
 
-    private var errorAlertBinding: Binding<HubErrorAlert?> {
+    private var errorAlertBinding: Binding<MessageAlert?> {
         Binding(
             get: {
                 guard case .ready(let ready)? = observer?.phase, let message = ready.error else { return nil }
-                return HubErrorAlert(message: message)
+                return MessageAlert(message: message)
             },
             set: { if $0 == nil { observer?.clearError() } }
         )
@@ -232,13 +232,6 @@ private struct ImportSummaryRow: View {
         default: .orange
         }
     }
-}
-
-// MARK: - Alert payload
-
-private struct HubErrorAlert: Identifiable {
-    let message: String
-    var id: String { message }
 }
 
 // MARK: - Preview
