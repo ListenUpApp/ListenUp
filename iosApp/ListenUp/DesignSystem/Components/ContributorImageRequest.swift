@@ -32,6 +32,15 @@ enum ContributorImageRequest {
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors)
     }
 
+    /// The content-addressed Nuke cache key for a contributor photo. Folding the server's
+    /// content-addressed `imagePath` (`contributors/{sha}.jpg`) into the key means a re-scraped
+    /// photo (new path) busts the cached image instead of serving the stale one — mirroring the
+    /// Compose `contributorCacheKey` and `BookCoverImage`'s `coverHash` handling. Pure, so it's
+    /// unit-tested. `nil` imagePath falls back to a stable per-id key.
+    static func cacheKey(contributorId: String, imagePath: String?) -> String {
+        "\(contributorId):\(imagePath ?? "contributor")"
+    }
+
     /// The authenticated contributor-photo endpoint for a server base URL. Pure, so the endpoint
     /// shape is unit-tested. Returns nil for a blank base.
     static func photoURL(base: String, contributorId: String) -> URL? {
