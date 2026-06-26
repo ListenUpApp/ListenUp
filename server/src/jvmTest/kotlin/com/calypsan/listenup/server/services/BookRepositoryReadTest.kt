@@ -158,6 +158,11 @@ class BookRepositoryReadTest :
                             codec = "aac",
                             duration = 162_000_000L,
                             size = 200_000_000L,
+                            codecProfile = null,
+                            spatial = null,
+                            bitrate = null,
+                            sampleRate = null,
+                            channels = null,
                         )
                     }
 

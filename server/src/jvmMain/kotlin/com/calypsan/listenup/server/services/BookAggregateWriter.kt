@@ -110,6 +110,11 @@ internal class BookAggregateWriter(
                 codec = f.codec,
                 duration = f.duration,
                 size = f.size,
+                codecProfile = f.codecProfile,
+                spatial = f.spatial,
+                bitrate = f.bitrate?.toLong(),
+                sampleRate = f.sampleRate?.toLong(),
+                channels = f.channels?.toLong(),
             )
         }
     }
