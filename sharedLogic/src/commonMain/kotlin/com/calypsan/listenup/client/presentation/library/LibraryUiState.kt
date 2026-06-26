@@ -48,6 +48,8 @@ sealed interface LibraryUiState {
         // Progress derived from playback positions
         val bookProgress: Map<BookId, Float>,
         val bookIsFinished: Map<BookId, Boolean>,
+        /** Books with partial progress: started (progress > 0) but not yet finished. */
+        val booksInProgress: List<BookListItem>,
         /** Per-series finished/total aggregation for the series-list progress affordance. */
         val seriesProgress: Map<SeriesId, SeriesProgress>,
         // Sync

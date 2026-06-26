@@ -998,6 +998,73 @@ class LibraryViewModelTest :
             }
         }
 
+        // ========== booksInProgress Derivation Tests ==========
+
+        test("booksInProgress includes only started-but-unfinished books") {
+            runTest {
+                // Given — three books: not started, in progress, finished
+                val books =
+                    listOf(
+                        createTestBook(id = "not-started", duration = 10_000L),
+                        createTestBook(id = "in-progress", duration = 10_000L),
+                        createTestBook(id = "finished", duration = 10_000L),
+                    )
+                val positions =
+                    mapOf(
+                        // "in-progress" has 50% progress and is not finished
+                        BookId("in-progress") to
+                            PlaybackPosition(
+                                bookId = "in-progress",
+                                positionMs = 5_000L,
+                                playbackSpeed = 1.0f,
+                                hasCustomSpeed = false,
+                                updatedAtMs = 0L,
+                                syncedAtMs = null,
+                                lastPlayedAtMs = null,
+                                isFinished = false,
+                            ),
+                        // "finished" is marked finished (isFinished = true)
+                        BookId("finished") to
+                            PlaybackPosition(
+                                bookId = "finished",
+                                positionMs = 10_000L,
+                                playbackSpeed = 1.0f,
+                                hasCustomSpeed = false,
+                                updatedAtMs = 0L,
+                                syncedAtMs = null,
+                                lastPlayedAtMs = null,
+                                isFinished = true,
+                            ),
+                    )
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
+                every { fixture.playbackPositionRepository.observeAll() } returns flowOf(positions)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                // Then — only the in-progress book appears
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                loaded.booksInProgress.map { it.id.value } shouldBe listOf("in-progress")
+            }
+        }
+
+        test("booksInProgress is empty when no books have partial progress") {
+            runTest {
+                // Given — one book, no positions
+                val books = listOf(createTestBook(id = "book-1", duration = 10_000L))
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+
+                // Then
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                loaded.booksInProgress shouldBe emptyList()
+            }
+        }
+
         // ========== Per-Upstream Catch Tests ==========
 
         test("transient observeBooks failure keeps state as Loaded with empty books") {

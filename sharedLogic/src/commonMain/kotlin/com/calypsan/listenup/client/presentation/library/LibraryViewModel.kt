@@ -441,6 +441,11 @@ class LibraryViewModel(
             narrators = sortedNarrators,
             bookProgress = progress.progressMap,
             bookIsFinished = progress.finishedMap,
+            booksInProgress =
+                sortedBooks.filter { book ->
+                    val p = progress.progressMap[book.id]
+                    p != null && p > 0f && p < 1f && progress.finishedMap[book.id] != true
+                },
             seriesProgress = seriesProgress,
             syncState = sync.syncState,
             isServerScanning = sync.isServerScanning,
