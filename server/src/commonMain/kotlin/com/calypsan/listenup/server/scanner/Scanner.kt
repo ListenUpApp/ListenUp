@@ -98,78 +98,100 @@ internal class Scanner(
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
         eventBus.emit(ScanEvent.Started(correlationId, library.id, primaryRootPath))
 
-        // Walk each folder, rebase its files onto its folder-relative prefix,
-        // then aggregate into a single flat list for the pipeline.
-        val allFiles =
-            library.folders.flatMap { folder ->
-                val rootPath = folder.rootPath ?: return@flatMap emptyList()
-                val walker = Walker()
-                walker
-                    .walk(Path(rootPath))
-                    .toList()
-            }
+        // Walk and group each folder independently so each Analyzer below can be
+        // anchored to the correct folder root. Each file's relPath is relative to
+        // the folder root it was walked from; using the wrong root causes
+        // Path(root, relPath) to resolve a nonexistent path, failing embedded-
+        // metadata parsing for every book in non-first folders.
+        var totalFileCount = 0
+        var totalCandidateCount = 0
+        val folderRoots = mutableListOf<Path>()
+        val candidatesPerFolder = mutableListOf<List<CandidateBook>>()
 
-        emitProgress(correlationId, ScanPhase.WALKING, allFiles.size, 0, 0)
+        for (folder in library.folders) {
+            val rootPath = folder.rootPath ?: continue
+            val folderRoot = Path(rootPath)
+            val files = Walker().walk(folderRoot).toList()
+            val candidates = Grouper().group(files.asFlow()).toList()
+            totalFileCount += files.size
+            totalCandidateCount += candidates.size
+            folderRoots += folderRoot
+            candidatesPerFolder += candidates
+        }
 
-        val grouper = Grouper()
-        emitProgress(correlationId, ScanPhase.GROUPING, allFiles.size, 0, 0)
-        val candidates = grouper.group(allFiles.asFlow()).toList()
+        emitProgress(correlationId, ScanPhase.WALKING, totalFileCount, 0, 0)
+
+        emitProgress(correlationId, ScanPhase.GROUPING, totalFileCount, 0, 0)
 
         emitProgress(
             correlationId,
             ScanPhase.ANALYZING,
-            allFiles.size,
+            totalFileCount,
             0,
             0,
-            totalFiles = allFiles.size,
-            booksTotal = candidates.size,
+            totalFiles = totalFileCount,
+            booksTotal = totalCandidateCount,
         )
-        // Analyzer uses the first folder root as the libraryRoot anchor for
-        // computing rootRelPath and resolving error paths. When the library has
-        // multiple folders, each folder's books will be at absolute paths inside
-        // those roots — the Grouper preserves absolute relPath for multi-folder
-        // libraries. Using the first folder root is consistent with what the
-        // watcher supplies to runIncremental.
-        val primaryRoot =
-            library.folders
-                .firstOrNull()
-                ?.rootPath
-                ?.let { Path(it) }
-                ?: Path(library.id.value)
-        val analyzer =
-            Analyzer(
-                primaryRoot,
-                metadataReader,
-                embeddedMetadataParser,
-                parseSubtitle,
-                sidecarParsers,
-                metadataPrecedence,
-            )
+
         // Build a path-keyed cache from the previous scan so unchanged books can
         // be reused without re-parsing their audio files.
         val previousByPath = lastResult?.books.orEmpty().associateBy { it.candidate.rootRelPath }
-        val pass = collectAnalyzed(analyzer, candidates, correlationId, allFiles.size, primaryRoot, previousByPath)
-        val books = pass.books
-        val errors = pass.errors
+
+        // Analyze each folder with an Analyzer anchored to that folder's root.
+        // Aggregated books and errors replace the single-pass result; the Differ
+        // runs once over the full aggregated set after all folders are processed.
+        val allBooks = mutableListOf<AnalyzedBook>()
+        val allErrors = mutableListOf<ScanError>()
+        var authorsMatched = 0
+        var totalDurationMs = 0L
+        var currentFile: String? = null
+        var recentBooks: List<ScanBookRef> = emptyList()
+
+        for (i in folderRoots.indices) {
+            val analyzer =
+                Analyzer(
+                    folderRoots[i],
+                    metadataReader,
+                    embeddedMetadataParser,
+                    parseSubtitle,
+                    sidecarParsers,
+                    metadataPrecedence,
+                )
+            val pass =
+                collectAnalyzed(
+                    analyzer,
+                    candidatesPerFolder[i],
+                    correlationId,
+                    totalFileCount,
+                    folderRoots[i],
+                    previousByPath,
+                )
+            allBooks += pass.books
+            allErrors += pass.errors
+            authorsMatched += pass.authorsMatched
+            totalDurationMs += pass.totalDurationMs
+            if (pass.currentFile != null) currentFile = pass.currentFile
+            if (pass.recentBooks.isNotEmpty()) recentBooks = pass.recentBooks
+        }
 
         emitProgress(
             correlationId,
             ScanPhase.DIFFING,
-            allFiles.size,
-            books.size,
-            errors.size,
-            totalFiles = allFiles.size,
-            booksTotal = candidates.size,
-            authorsMatched = pass.authorsMatched,
-            totalDurationMs = pass.totalDurationMs,
-            currentFile = pass.currentFile,
-            recentBooks = pass.recentBooks,
+            totalFileCount,
+            allBooks.size,
+            allErrors.size,
+            totalFiles = totalFileCount,
+            booksTotal = totalCandidateCount,
+            authorsMatched = authorsMatched,
+            totalDurationMs = totalDurationMs,
+            currentFile = currentFile,
+            recentBooks = recentBooks,
         )
         // Strip artwork from both diff sides so unchanged books don't falsely show as Modified.
         // lastResult is already artwork-free (stripped at the end of the previous scan); strip
         // the new books for the diff so both sides are comparable without artwork bytes.
         val previousStripped = lastResult?.books.orEmpty() // already stripped from previous scan
-        val booksStripped = books.map { it.withoutArtwork() }
+        val booksStripped = allBooks.map { it.withoutArtwork() }
         val changes = Differ().diff(booksStripped.asFlow(), previousStripped).toList()
         changes.forEach { eventBus.emit(ScanEvent.Change(correlationId, library.id, it)) }
 
@@ -177,11 +199,11 @@ internal class Scanner(
             ScanResult(
                 correlationId = correlationId,
                 rootPath = primaryRootPath,
-                books = books, // artwork-bearing: BookPersister needs these to write covers to disk
+                books = allBooks, // artwork-bearing: BookPersister needs these to write covers to disk
                 changes = changes, // artwork-free: Differ used stripped books
-                errors = errors,
+                errors = allErrors,
                 durationMs = clock() - started,
-                filesWalked = allFiles.size,
+                filesWalked = totalFileCount,
                 filesSkipped = 0,
                 scope = ScanScope.Full,
             )
