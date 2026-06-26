@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h1 align="center">ListenUp</h1>
+<img src=".github/screenshots/listenup-hero-banner.webp" alt="Hero Banner">
 
 <p align="center">
   <strong>A modern, offline-first audiobook player for Android &amp; iOS</strong>
@@ -29,7 +29,6 @@
   where you left off on any device.
 </p>
 
-<img src=".github/screenshots/listenup-hero-banner.webp" alt="Hero Banner">
 
 ---
 
