@@ -100,7 +100,7 @@ class PreparedPlaybackContractTest :
         test("PreparedPlayback decodes without coverUrl field (backward compat)") {
             // A payload from an older server that predates coverUrl must still decode cleanly.
             val json =
-                """{"type":"PreparedPlayback","bookId":"b1","audioFiles":[],"resumePosition":null}"""
+                """{"bookId":"b1","audioFiles":[],"resumePosition":null}"""
             val decoded = contractJson.decodeFromString(PreparedPlayback.serializer(), json)
             decoded.bookId shouldBe "b1"
             decoded.coverUrl shouldBe null

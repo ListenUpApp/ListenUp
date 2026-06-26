@@ -85,6 +85,8 @@ internal class PlaybackServiceImpl(
             }
 
         val resumePosition = playbackPositionRepository.getPosition(userId, bookId.value)
+        // Always mint — the route resolves covers lazily (embedded covers aren't persisted), so
+        // guarding here would cost a resolution. No cover → route 404s → receiver shows no art.
         val coverUrl =
             "/api/v1/cover-cast/${bookId.value.encodeURLParameter()}?" +
                 coverUrlSigner.signedQuery(userId = userId, bookId = bookId.value)
