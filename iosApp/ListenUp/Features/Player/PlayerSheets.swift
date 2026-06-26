@@ -122,17 +122,6 @@ struct ChapterRow: View {
     let tint: Color
     let onTap: () -> Void
 
-    static func formatMs(_ ms: Int64) -> String {
-        let totalSeconds = ms / 1000
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        }
-        return String(format: "%d:%02d", minutes, seconds)
-    }
-
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 14) {
@@ -150,7 +139,7 @@ struct ChapterRow: View {
 
                 Spacer(minLength: 8)
 
-                Text(Self.formatMs(durationMs))
+                Text(DurationFormatting.clock(ms: durationMs))
                     .font(.footnote)
                     .monospacedDigit()
                     .foregroundStyle(isCurrent ? tint : Color.luLabel2)

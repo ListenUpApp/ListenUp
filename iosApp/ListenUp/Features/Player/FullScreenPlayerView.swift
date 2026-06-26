@@ -480,12 +480,12 @@ private struct ChapterScrubberSection: View {
 
             HStack {
                 let elapsed = isDraggingSlider ? Int64(sliderPosition) : observer.chapterPositionMs
-                Text(formatTime(elapsed))
+                Text(DurationFormatting.clock(ms: elapsed))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
                 Spacer()
-                Text("-" + formatTime(observer.chapterDurationMs - elapsed))
+                Text("-" + DurationFormatting.clock(ms: observer.chapterDurationMs - elapsed))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -498,18 +498,6 @@ private struct ChapterScrubberSection: View {
         }
         .onAppear {
             sliderPosition = Double(observer.chapterPositionMs)
-        }
-    }
-
-    private func formatTime(_ ms: Int64) -> String {
-        let totalSeconds = max(0, ms / 1000)
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let seconds = totalSeconds % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, minutes, seconds)
-        } else {
-            return String(format: "%d:%02d", minutes, seconds)
         }
     }
 }

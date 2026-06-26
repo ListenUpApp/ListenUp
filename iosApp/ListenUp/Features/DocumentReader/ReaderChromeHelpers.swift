@@ -3,10 +3,7 @@ import Foundation
 /// "9h 51m left" / "1m left" — remaining audiobook time for the reader's now-playing strip.
 /// Sub-minute rounds down to "0m left". Deterministic (not a locale formatter).
 func formatTimeLeft(remainingMs: Int64) -> String {
-    let totalMinutes = max(0, remainingMs / 60_000)
-    let hours = totalMinutes / 60
-    let minutes = totalMinutes % 60
-    return hours > 0 ? "\(hours)h \(minutes)m left" : "\(minutes)m left"
+    "\(DurationFormatting.hoursMinutes(ms: remainingMs)) left"
 }
 
 /// 1-based page for a scrubber fraction (0...1), clamped. `pageCount == 0` → 0.

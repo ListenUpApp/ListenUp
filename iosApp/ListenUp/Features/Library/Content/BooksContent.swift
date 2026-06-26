@@ -103,15 +103,14 @@ struct BooksContent: View {
                     isScrolling = newPhase != .idle
                 }
             }
-            .onChange(of: scrollTarget) { _, newTarget in
-                if let target = newTarget {
-                    // Instant jump, NOT animated: animating a scrollTo across a large lazy list
-                    // freezes the main thread on every scrubber letter-change (#alphabet-scrubber-hang).
-                    proxy.scrollTo(target, anchor: .top)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        scrollTarget = nil
-                    }
-                }
+            .task(id: scrollTarget) {
+                guard let target = scrollTarget else { return }
+                // Instant jump, NOT animated: animating a scrollTo across a large lazy list
+                // freezes the main thread on every scrubber letter-change (#alphabet-scrubber-hang).
+                proxy.scrollTo(target, anchor: .top)
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
+                scrollTarget = nil
             }
             // Alphabet scrubber overlay
             .overlay(alignment: .trailing) {

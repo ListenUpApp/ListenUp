@@ -27,7 +27,7 @@ before any non-trivial iOS work.
    - *Shared Kotlin core (`sharedLogic`/contract):* domain models, repositories, sync engine,
      `AppError`, local-DB source-of-truth, RPC contract.
    - *Shared Swift core (Apple-platform-agnostic):* native `@Observable` state objects, the
-     KMP/SKIE seam, and platform-neutral logic (`AudioEngine`, position math, segment/chapter
+     KMP/Swift Export seam, and platform-neutral logic (`AudioEngine`, position math, segment/chapter
      math). No `import UIKit`-only assumptions here; gate anything platform-specific behind
      `#if os(...)`. **This layer is destined to be shared with macOS and watchOS** (see below).
    - *Platform-specific UI & integration:* SwiftUI views tuned per platform, plus
@@ -62,9 +62,9 @@ before any non-trivial iOS work.
      (that reorders).
    - Any `MainActor.assumeIsolated` must document the invariant that makes it sound.
 8. **Observation, not Combine.** `@Observable`/`@Bindable`; no `ObservableObject`/`@Published`
-   in new code. Bridge Kotlin `Flow`/suspend → Swift `async`/`AsyncSequence` via SKIE
+   in new code. Bridge Kotlin `Flow`/suspend → Swift `async`/`AsyncSequence` via Swift Export
    (`FlowBridge` is the established helper).
-   - **Never feed SKIE-bridged Kotlin objects into a `ForEach`/`List`/`LazyVGrid`/`LazyVStack`.**
+   - **Never feed Swift-Export-bridged Kotlin objects into a `ForEach`/`List`/`LazyVGrid`/`LazyVStack`.**
      Map them to a **native Swift value type at the `@Observable` observer boundary** (in `apply`)
      and feed those structs to the view. Every SwiftUI diff/layout/`scrollTo` re-reads a bridged
      object's properties across the Kotlin boundary — re-bridging per diff (`toKStringFromUtf16`)
@@ -131,3 +131,12 @@ before any non-trivial iOS work.
     `*GenerateSPMPackage` task is now forced to never report `UP-TO-DATE`
     (`sharedLogic/build.gradle.kts`), so this should no longer be necessary — keep this note
     until that wiring is confirmed on real iOS builds, then remove it.
+
+16. **iOS local build setup.** The iOS build drives a Gradle Swift Export embed step that
+    generates and compiles the `Shared`/`ListenupContract` frameworks (Swift Export is the sole
+    interop layer). Set `JAVA_HOME` to a JDK before invoking `xcodebuild`
+    (CI does this in the iOS lane); any recent JDK that launches Gradle works — the Gradle
+    build resolves its own Kotlin toolchain. The first build is slow because it generates and
+    compiles those Swift Export frameworks; subsequent incremental builds reuse them.
+    **The pre-push gate must compile the test target** — `xcodebuild build` does *not*
+    (`build-for-testing` or the full `Test (iOS)` does); see `client/CLAUDE.md` "Pushing".

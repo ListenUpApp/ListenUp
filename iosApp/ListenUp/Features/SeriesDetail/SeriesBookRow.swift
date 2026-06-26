@@ -73,7 +73,7 @@ struct SeriesBookRow: View {
     }
 
     private var metadataText: String {
-        let duration = formatDuration(book.duration)
+        let duration = DurationFormatting.hoursMinutes(ms: book.duration)
         return isFinished
             ? "\(String(localized: "series.book_finished")) · \(duration)"
             : duration
@@ -89,13 +89,5 @@ struct SeriesBookRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isPlaying ? "Pause" : "Play")
-    }
-
-    /// Milliseconds → "15h 54m" / "54m".
-    private func formatDuration(_ ms: Int64) -> String {
-        let totalMinutes = Int(ms / 60_000)
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
     }
 }
