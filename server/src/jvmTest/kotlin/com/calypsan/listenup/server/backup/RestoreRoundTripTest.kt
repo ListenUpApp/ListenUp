@@ -5,8 +5,9 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
 
 /**
  * Pins that a restore's db-file swap reaches the repositories: after `closePool → move the replacement
@@ -22,12 +23,12 @@ import java.nio.file.StandardCopyOption
 class RestoreRoundTripTest :
     FunSpec({
         test("after closePool + db-file swap + reopenPool, repos on handle.sqlDriver see the swapped-in data") {
-            val liveFile = Files.createTempFile("listenup-live-", ".db").toFile().apply { deleteOnExit() }
-            val replacementFile = Files.createTempFile("listenup-replacement-", ".db").toFile().apply { deleteOnExit() }
+            val liveFile = Path(SystemTemporaryDirectory, "listenup-live-${System.nanoTime()}.db")
+            val replacementFile = Path(SystemTemporaryDirectory, "listenup-replacement-${System.nanoTime()}.db")
 
-            val liveHandle = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${liveFile.absolutePath}"))
+            val liveHandle = DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$liveFile"))
             val replacementHandle =
-                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:${replacementFile.absolutePath}"))
+                DatabaseFactory.init(DatabaseConfig(jdbcUrl = "jdbc:sqlite:$replacementFile"))
 
             // Seed a library row into the REPLACEMENT db, then close it so its file is consistent on disk.
             ListenUpDatabase(replacementHandle.sqlDriver).seedLibrary("from-replacement")
@@ -40,9 +41,9 @@ class RestoreRoundTripTest :
             // Restore: close live handles, move the replacement file over the live path (rename = new
             // inode, matching RestoreOrchestrator.swapFile), drop stale WAL sidecars, reopen.
             liveHandle.closePool()
-            Files.move(replacementFile.toPath(), liveFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
-            Files.deleteIfExists(liveFile.toPath().resolveSibling("${liveFile.name}-wal"))
-            Files.deleteIfExists(liveFile.toPath().resolveSibling("${liveFile.name}-shm"))
+            SystemFileSystem.atomicMove(replacementFile, liveFile)
+            SystemFileSystem.delete(Path(liveFile.parent!!, "${liveFile.name}-wal"), mustExist = false)
+            SystemFileSystem.delete(Path(liveFile.parent!!, "${liveFile.name}-shm"), mustExist = false)
             liveHandle.reopenPool()
 
             // The SAME repos instance (bound to handle.sqlDriver) must now see the swapped-in row.

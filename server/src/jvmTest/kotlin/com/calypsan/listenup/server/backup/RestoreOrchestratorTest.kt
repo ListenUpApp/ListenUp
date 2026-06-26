@@ -8,12 +8,14 @@ import com.calypsan.listenup.core.BackupId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.io.path.exists
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.runTest
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * Adversarial test suite for [RestoreOrchestrator].
@@ -105,7 +107,7 @@ class RestoreOrchestratorTest :
                     // Write the malicious archive to the expected path
                     fixture.paths.ensureDirs()
                     val archivePath = fixture.paths.archiveFor("mal1")
-                    ZipOutputStream(Files.newOutputStream(archivePath)).use { zip ->
+                    ZipOutputStream(Files.newOutputStream(java.nio.file.Path.of(archivePath.toString()))).use { zip ->
                         zip.putNextEntry(ZipEntry("listenup.db"))
                         zip.write(garbageBytes)
                         zip.closeEntry()
@@ -167,9 +169,9 @@ class RestoreOrchestratorTest :
             runTest {
                 backupTestFixture(withImages = false).use { fixture ->
                     // Write a sentinel file into coversDir before creating the backup
-                    Files.createDirectories(fixture.paths.coversDir)
-                    val sentinel = fixture.paths.coversDir.resolve("sentinel.jpg")
-                    Files.write(sentinel, byteArrayOf(0x01, 0x02, 0x03))
+                    SystemFileSystem.createDirectories(fixture.paths.coversDir)
+                    val sentinel = Path(fixture.paths.coversDir, "sentinel.jpg")
+                    SystemFileSystem.sink(sentinel).buffered().use { it.write(byteArrayOf(0x01, 0x02, 0x03)) }
 
                     // Create a metadata-only backup (no images)
                     fixture.archive.create("meta1", includeImages = false, onEvent = {})
@@ -181,7 +183,7 @@ class RestoreOrchestratorTest :
                     success.data.includedImages shouldBe false
 
                     // Sentinel file must still exist — images were not swapped
-                    sentinel.exists() shouldBe true
+                    SystemFileSystem.exists(sentinel) shouldBe true
                 }
             }
         }
@@ -281,12 +283,12 @@ private fun sha256OfBytes(bytes: ByteArray): String {
  * a future schema version (for the IncompatibleSchema test).
  */
 private fun rebuildArchiveWithManifest(
-    source: java.nio.file.Path,
-    dest: java.nio.file.Path,
+    source: Path,
+    dest: Path,
     newManifest: BackupManifest,
 ) {
-    ZipOutputStream(Files.newOutputStream(dest)).use { out ->
-        java.util.zip.ZipFile(source.toFile()).use { zf ->
+    ZipOutputStream(Files.newOutputStream(java.nio.file.Path.of(dest.toString()))).use { out ->
+        java.util.zip.ZipFile(java.nio.file.Path.of(source.toString()).toFile()).use { zf ->
             copyEntriesReplacingManifest(out, zf, newManifest)
         }
     }
