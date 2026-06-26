@@ -26,7 +26,7 @@ restate architecture. For ViewModels/MVI/state/error/Compose mechanics, see the 
 ## Platform & language
 4. **Android 14/15 platform modernity.** Adopt predictive back, per-app language, the Photo Picker,
    and granular media permissions where they serve the app.
-5. **Modern Kotlin** — Kotlin 2.3.20 (catalog-pinned). Idiomatic coroutines/Flow per the root rubric.
+5. **Modern Kotlin** — Kotlin 2.4.0 (catalog-pinned). Idiomatic coroutines/Flow per the root rubric.
 
 ## Multiplatform
 6. **`commonMain` is Android + Desktop.** The Expressive APIs are in multiplatform material3, and

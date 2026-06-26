@@ -330,10 +330,8 @@ class ListenUp :
         }
 
         // Log memory-related historical exit reasons so operators can diagnose OOM crashes
-        // from logs alone, without requiring ADB or on-device tooling. API 30+.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            logHistoricalMemoryExits()
-        }
+        // from logs alone, without requiring ADB or on-device tooling.
+        logHistoricalMemoryExits()
 
         // Schedule periodic background sync only after user authenticates
         get<CoroutineScope>().launch {

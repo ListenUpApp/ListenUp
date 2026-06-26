@@ -592,7 +592,7 @@ private fun BooksSection(
         } else {
             val coverSize: Dp = if (cols >= BOOKS_COLS_WIDE) COVER_SIZE_WIDE_DP.dp else COVER_SIZE_NARROW_DP.dp
             LazyVerticalGrid(
-                columns = GridCells.Fixed(cols),
+                columns = GridCells.Adaptive(minSize = 160.dp),
                 modifier = Modifier.height(((coverSize + 8.dp) * 4).coerceAtMost(480.dp)).fillMaxWidth(),
                 contentPadding = PaddingValues(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

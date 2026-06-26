@@ -160,13 +160,13 @@ Concrete example: `data/remote/` API methods use `apiCall(errorMessage = "...") 
 
 ### Modern Everything
 
-This codebase targets the latest stable versions. Kotlin 2.3.20, Compose Multiplatform 1.10, Room KMP 2.8, Ktor 3.4, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multiplatform 1.11.1, Room KMP 2.8, Ktor 3.4, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
 
 ### The Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Language | Kotlin 2.3.20 (KMP) |
+| Language | Kotlin 2.4.0 (KMP) |
 | UI | Compose Multiplatform |
 | Navigation | Compose Navigation 3 (multiplatform) |
 | DI | Koin 4.2 |
