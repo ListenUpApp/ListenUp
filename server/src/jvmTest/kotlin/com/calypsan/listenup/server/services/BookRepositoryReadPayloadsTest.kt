@@ -113,6 +113,11 @@ class BookRepositoryReadPayloadsTest :
                                     codec = "aac",
                                     duration = 100L,
                                     size = 100L,
+                                    codecProfile = null,
+                                    spatial = null,
+                                    bitrate = null,
+                                    sampleRate = null,
+                                    channels = null,
                                 )
                             }
                             // Two live genres (distinct paths) + one soft-deleted genre — exercises the

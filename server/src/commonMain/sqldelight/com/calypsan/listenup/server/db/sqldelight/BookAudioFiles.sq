@@ -7,14 +7,19 @@
 --
 -- FK declaration (book_id → books) omitted; it lives in the migration DDL.
 CREATE TABLE book_audio_files (
-    book_id  TEXT    NOT NULL,
-    ordinal  INTEGER NOT NULL,
-    id       TEXT    NOT NULL,
-    filename TEXT    NOT NULL,
-    format   TEXT    NOT NULL,
-    codec    TEXT    NOT NULL,
-    duration INTEGER NOT NULL,
-    size     INTEGER NOT NULL,
+    book_id      TEXT    NOT NULL,
+    ordinal      INTEGER NOT NULL,
+    id           TEXT    NOT NULL,
+    filename     TEXT    NOT NULL,
+    format       TEXT    NOT NULL,
+    codec        TEXT    NOT NULL,
+    duration     INTEGER NOT NULL,
+    size         INTEGER NOT NULL,
+    codecProfile TEXT,
+    spatial      TEXT,
+    bitrate      INTEGER,
+    sampleRate   INTEGER,
+    channels     INTEGER,
     PRIMARY KEY (book_id, ordinal)
 );
 
@@ -34,8 +39,8 @@ selectPrimaryFilenameForBook:
 SELECT filename FROM book_audio_files WHERE book_id = :book_id ORDER BY ordinal LIMIT 1;
 
 insert:
-INSERT INTO book_audio_files (book_id, ordinal, id, filename, format, codec, duration, size)
-VALUES (:book_id, :ordinal, :id, :filename, :format, :codec, :duration, :size);
+INSERT INTO book_audio_files (book_id, ordinal, id, filename, format, codec, duration, size, codecProfile, spatial, bitrate, sampleRate, channels)
+VALUES (:book_id, :ordinal, :id, :filename, :format, :codec, :duration, :size, :codecProfile, :spatial, :bitrate, :sampleRate, :channels);
 
 -- Wholesale-replace step.
 deleteByBookId:

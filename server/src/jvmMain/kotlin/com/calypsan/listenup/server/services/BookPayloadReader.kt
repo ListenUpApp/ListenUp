@@ -170,6 +170,11 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
                         codec = row.codec,
                         duration = row.duration,
                         size = row.size,
+                        codecProfile = row.codecProfile,
+                        spatial = row.spatial,
+                        bitrate = row.bitrate?.toInt(),
+                        sampleRate = row.sampleRate?.toInt(),
+                        channels = row.channels?.toInt(),
                     ),
                 )
         }
