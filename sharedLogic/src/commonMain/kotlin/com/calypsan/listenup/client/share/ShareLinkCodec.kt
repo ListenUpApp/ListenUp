@@ -84,30 +84,30 @@ object ShareLinkCodec {
                 .substringBefore('#')
                 .lowercase()
         return when (host) {
-            "book" -> {
-                val id =
-                    afterScheme
-                        .substringAfter('/', "")
-                        .substringBefore('?')
-                        .substringBefore('#')
-                        .split('/')
-                        .firstOrNull { it.isNotBlank() }
-                        ?: return null
-                ShareTarget.Book(bookId = BookId(id), serverInstanceId = null, serverUrl = null)
-            }
-
-            "join" -> {
-                val query = afterScheme.substringAfter('?', "").substringBefore('#')
-                val params = parseQueryString(query)
-                val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
-                val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
-                ShareTarget.Invite(serverUrl = server, code = code)
-            }
-
-            else -> {
-                null
-            }
+            "book" -> decodeLegacyBookScheme(afterScheme)
+            "join" -> decodeLegacyJoinScheme(afterScheme)
+            else -> null
         }
+    }
+
+    private fun decodeLegacyBookScheme(afterScheme: String): ShareTarget? {
+        val id =
+            afterScheme
+                .substringAfter('/', "")
+                .substringBefore('?')
+                .substringBefore('#')
+                .split('/')
+                .firstOrNull { it.isNotBlank() }
+                ?: return null
+        return ShareTarget.Book(bookId = BookId(id), serverInstanceId = null, serverUrl = null)
+    }
+
+    private fun decodeLegacyJoinScheme(afterScheme: String): ShareTarget? {
+        val query = afterScheme.substringAfter('?', "").substringBefore('#')
+        val params = parseQueryString(query)
+        val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
+        val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
+        return ShareTarget.Invite(serverUrl = server, code = code)
     }
 
     /**

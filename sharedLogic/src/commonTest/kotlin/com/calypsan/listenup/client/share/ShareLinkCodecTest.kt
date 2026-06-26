@@ -115,4 +115,27 @@ class ShareLinkCodecTest :
             ShareLinkCodec.decode("not a url") shouldBe null
             ShareLinkCodec.decode("https://link.listenup.audio/other") shouldBe null
         }
+
+        test("encode then decode round-trips a book with a non-ASCII server URL") {
+            val original =
+                ShareTarget.Book(
+                    bookId = BookId("book-abc"),
+                    serverInstanceId = "inst-1",
+                    serverUrl = "https://bücher.example.com",
+                )
+            ShareLinkCodec.decode(ShareLinkCodec.encode(original)) shouldBe original
+        }
+
+        test("encode percent-encodes control characters with two-digit hex") {
+            // Tab (0x09) must encode to %09, not the malformed %9.
+            val url =
+                ShareLinkCodec.encode(
+                    ShareTarget.Book(bookId = BookId("book\tabc"), serverInstanceId = null, serverUrl = null),
+                )
+            url shouldContain "b=book%09abc"
+        }
+
+        test("decode returns null for a path extension on the /o route") {
+            ShareLinkCodec.decode("https://link.listenup.audio/o/extra#t=book&b=x") shouldBe null
+        }
     })
