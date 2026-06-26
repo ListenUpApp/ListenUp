@@ -10,15 +10,20 @@ import Nuke
 /// Nuke's evictable cache. Mirrors `CoverImageRequest` and the Compose `ContributorCoverImage`.
 enum ContributorImageRequest {
     @MainActor
-    static func contributor(contributorId: String, targetPixels: CGFloat) async -> ImageRequest? {
+    static func contributor(
+        contributorId: String,
+        imagePath: String?,
+        targetPixels: CGFloat
+    ) async -> ImageRequest? {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
+        let key = cacheKey(contributorId: contributorId, imagePath: imagePath)
 
         let repository = KoinHelper.shared.getImageRepository()
 
         // Offline fast path: a previously cached photo on disk.
         if repository.contributorImageExists(contributorId: contributorId) {
             let path = repository.getContributorImagePath(contributorId: contributorId)
-            return AuthenticatedImageRequest.localFile(path, processors: processors)
+            return AuthenticatedImageRequest.localFile(path, processors: processors, cacheKey: key)
         }
 
         // No durable file yet — persist this streamed photo on disk for offline use (fire-and-forget,
@@ -29,7 +34,16 @@ enum ContributorImageRequest {
               let url = photoURL(base: base, contributorId: contributorId)
         else { return nil }
 
-        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors)
+        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: key)
+    }
+
+    /// The content-addressed Nuke cache key for a contributor photo. Folding the server's
+    /// content-addressed `imagePath` (`contributors/{sha}.jpg`) into the key means a re-scraped
+    /// photo (new path) busts the cached image instead of serving the stale one — mirroring the
+    /// Compose `contributorCacheKey`. Pure, so it's unit-tested. `nil` imagePath falls back to a
+    /// stable per-id key.
+    static func cacheKey(contributorId: String, imagePath: String?) -> String {
+        "\(contributorId):\(imagePath ?? "contributor")"
     }
 
     /// The authenticated contributor-photo endpoint for a server base URL. Pure, so the endpoint

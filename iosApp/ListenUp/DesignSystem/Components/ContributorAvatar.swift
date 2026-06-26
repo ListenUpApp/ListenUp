@@ -94,7 +94,7 @@ struct ContributorAvatar: View {
             // Streamed contributor photo, layered over the BlurHash/initials placeholder. Nuke
             // owns the off-main decode + caching (scroll-safe, like the cover grid).
             if streamsContributorPhoto {
-                ContributorPhotoLayer(contributorId: id)
+                ContributorPhotoLayer(contributorId: id, imagePath: imagePath)
                     .clipShape(Circle())
             }
         }
@@ -144,6 +144,11 @@ struct ContributorAvatar: View {
 /// so the BlurHash/initials placeholder shows through.
 private struct ContributorPhotoLayer: View {
     let contributorId: String
+    /// The contributor's content-addressed image path. Folded into the cache key and the task id so
+    /// a sync-driven photo change (new path) re-resolves and busts the cached image. On the
+    /// local-file branch the disk copy is dropped upstream by `ContributorSyncDomainHandler` when
+    /// `imagePath` changes, so the stale file is gone before this re-resolves.
+    let imagePath: String?
 
     @Environment(\.displayScale) private var displayScale
     @State private var request: ImageRequest?
@@ -164,11 +169,12 @@ private struct ContributorPhotoLayer: View {
                 targetMaxPixels = pixels
             }
         }
-        // Cancelled when the row scrolls away; re-resolves only when id/size change.
-        .task(id: TaskKey(contributorId: contributorId, targetPixels: targetMaxPixels)) {
+        // Cancelled when the row scrolls away; re-resolves when id/imagePath/size change.
+        .task(id: TaskKey(contributorId: contributorId, imagePath: imagePath, targetPixels: targetMaxPixels)) {
             guard targetMaxPixels > 0 else { return }
             request = await ContributorImageRequest.contributor(
                 contributorId: contributorId,
+                imagePath: imagePath,
                 targetPixels: targetMaxPixels
             )
         }
@@ -177,6 +183,7 @@ private struct ContributorPhotoLayer: View {
     /// Identity for the request-building task: any change re-resolves the photo source.
     private struct TaskKey: Equatable {
         let contributorId: String
+        let imagePath: String?
         let targetPixels: CGFloat
     }
 }

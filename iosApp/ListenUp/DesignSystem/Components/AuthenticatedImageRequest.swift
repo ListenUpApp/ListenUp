@@ -17,20 +17,31 @@ enum AuthenticatedImageRequest {
         targetPixels > 0 ? [ImageProcessors.Resize(width: targetPixels, unit: .pixels)] : []
     }
 
-    /// A Nuke request for a durable local file path.
-    static func localFile(_ path: String, processors: [any ImageProcessing]) -> ImageRequest {
-        ImageRequest(url: URL(fileURLWithPath: path), processors: processors)
+    /// A Nuke request for a durable local file path. `cacheKey`, when supplied, overrides Nuke's
+    /// URL-derived cache key so a content change at a stable path still busts the cache.
+    static func localFile(
+        _ path: String,
+        processors: [any ImageProcessing],
+        cacheKey: String? = nil
+    ) -> ImageRequest {
+        let userInfo: [ImageRequest.UserInfoKey: Any]? = cacheKey.map { [.imageIdKey: $0] }
+        return ImageRequest(url: URL(fileURLWithPath: path), processors: processors, userInfo: userInfo)
     }
 
     /// A Nuke request for an authenticated server URL: attaches `Authorization: Bearer` but keys the
-    /// cache on the URL (Nuke's default) so a cached image survives token rotation and never
-    /// re-downloads just because the access token rotated.
+    /// cache on `cacheKey` when supplied (else the URL, Nuke's default) so a cached image survives
+    /// token rotation and never re-downloads just because the access token rotated.
     @MainActor
-    static func authenticated(url: URL, processors: [any ImageProcessing]) async -> ImageRequest {
+    static func authenticated(
+        url: URL,
+        processors: [any ImageProcessing],
+        cacheKey: String? = nil
+    ) async -> ImageRequest {
         var urlRequest = URLRequest(url: url)
         if let token = try? await KoinHelper.shared.accessToken() {
             urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
-        return ImageRequest(urlRequest: urlRequest, processors: processors)
+        let userInfo: [ImageRequest.UserInfoKey: Any]? = cacheKey.map { [.imageIdKey: $0] }
+        return ImageRequest(urlRequest: urlRequest, processors: processors, userInfo: userInfo)
     }
 }
