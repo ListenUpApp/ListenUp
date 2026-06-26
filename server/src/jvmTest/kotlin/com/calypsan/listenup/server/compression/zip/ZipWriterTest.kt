@@ -4,8 +4,13 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.io.Buffer
 import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.files.SystemTemporaryDirectory
 import kotlinx.io.readByteArray
 import java.io.ByteArrayInputStream
+import java.io.File
+import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
 private fun writeArchive(entries: List<Triple<String, ZipMethod, ByteArray>>): ByteArray {
@@ -16,6 +21,14 @@ private fun writeArchive(entries: List<Triple<String, ZipMethod, ByteArray>>): B
         }
     }
     return out.readByteArray()
+}
+
+/** Writes [entries] to a temp file so it can be opened by [ZipFile], which seeks by central-directory offset. */
+private fun writeTempArchive(entries: List<Triple<String, ZipMethod, ByteArray>>): Path {
+    val archive = writeArchive(entries)
+    val path = Path(SystemTemporaryDirectory, "zw-${archive.size}-${entries.hashCode()}.zip")
+    SystemFileSystem.sink(path).buffered().use { it.write(Buffer().apply { write(archive) }, archive.size.toLong()) }
+    return path
 }
 
 private fun readWithJdk(archive: ByteArray): Map<String, ByteArray> {
@@ -42,6 +55,27 @@ class ZipWriterTest :
             val read = readWithJdk(writeArchive(entries))
             for ((name, _, content) in entries) read[name] shouldBe content
             read.size shouldBe entries.size
+        }
+
+        test("java.util.zip ZipFile reads our archive by name (central directory + seek)") {
+            val entries =
+                listOf(
+                    Triple("manifest.json", ZipMethod.STORED, """{"v":1}""".encodeToByteArray()),
+                    Triple("listenup.db", ZipMethod.DEFLATE, ByteArray(120_000) { (it % 7).toByte() }),
+                    Triple("covers/book-1/cover.jpg", ZipMethod.DEFLATE, ByteArray(6000) { (it * 13).toByte() }),
+                )
+            val path = writeTempArchive(entries)
+            try {
+                ZipFile(File(path.toString())).use { zf ->
+                    for ((name, _, content) in entries) {
+                        val entry = zf.getEntry(name) ?: error("missing entry $name")
+                        zf.getInputStream(entry).use { it.readBytes() } shouldBe content
+                    }
+                    zf.size() shouldBe entries.size
+                }
+            } finally {
+                SystemFileSystem.delete(path, mustExist = false)
+            }
         }
 
         test("empty archive (no entries) is a valid zip java.util.zip accepts") {
