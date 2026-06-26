@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -21,11 +22,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.ListenUpButton
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.contributor_also_known_as
+import listenup.composeapp.generated.resources.contributor_merge_button
+import listenup.composeapp.generated.resources.contributor_no_aliases_hint
 import listenup.composeapp.generated.resources.contributor_remove_aliasname
 import listenup.composeapp.generated.resources.contributor_unmerge_aliasname
 import listenup.composeapp.generated.resources.contributor_unmerge_body
@@ -33,7 +36,8 @@ import listenup.composeapp.generated.resources.contributor_unmerge_confirm
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Read-only display of a contributor's aliases (AKAs) with per-alias unmerge action.
+ * Always-visible "Also Known As" section: a contributor's aliases (AKAs) with a
+ * per-alias unmerge action and an inline merge button.
  *
  * Renders each alias as an [InputChip]. Tapping the trailing close icon opens a
  * confirmation dialog; confirming invokes [onUnmerge] with the alias name. The VM
@@ -41,38 +45,42 @@ import org.jetbrains.compose.resources.stringResource
  * list, which causes the parent screen to re-render.
  *
  * Per Books-C2 design: aliases are merge/unmerge-only. There is no "add alias"
- * affordance — aliases appear only as a side effect of `mergeContributors`.
- *
- * Renders nothing when [aliases] is empty.
+ * affordance — aliases appear only as a side effect of `mergeContributors`. The
+ * [onMergeClick] button opens the merge flow; when [aliases] is empty, a hint
+ * replaces the chip row so the section still reads as a field.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun AliasesSection(
     aliases: List<String>,
     onUnmerge: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    onMergeClick: () -> Unit,
 ) {
-    if (aliases.isEmpty()) return
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier,
-    ) {
-        Text(
-            text = stringResource(Res.string.contributor_also_known_as),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            aliases.forEach { alias ->
-                AliasChip(
-                    alias = alias,
-                    onUnmerge = { onUnmerge(alias) },
+    ContributorStudioCard(title = stringResource(Res.string.contributor_also_known_as)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (aliases.isEmpty()) {
+                Text(
+                    text = stringResource(Res.string.contributor_no_aliases_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    aliases.forEach { alias ->
+                        AliasChip(alias = alias, onUnmerge = { onUnmerge(alias) })
+                    }
+                }
             }
+            ListenUpButton(
+                text = stringResource(Res.string.contributor_merge_button),
+                onClick = onMergeClick,
+                filled = false,
+                fillMaxWidth = false,
+                leadingIcon = Icons.AutoMirrored.Filled.CallMerge,
+            )
         }
     }
 }

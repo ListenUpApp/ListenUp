@@ -575,13 +575,14 @@ One beautiful library.</string>
     <string name="contributor_life_span">%1$s – %2$s</string>
     <string name="contributor_links">Links</string>
     <string name="contributor_merge_body">This contributor\'s books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target\'s biography, image, and other details win.</string>
+    <string name="contributor_merge_button">Merge with another author</string>
     <string name="contributor_merge_confirm">Merge</string>
-    <string name="contributor_merge_into">Merge into…</string>
     <string name="contributor_merge_search_placeholder">Search contributors…</string>
     <string name="contributor_merge_title">Merge into…</string>
     <string name="contributor_name_profile_image">%1$s profile image</string>
     <string name="contributor_narrator">Narrator</string>
     <string name="contributor_new_image">New image</string>
+    <string name="contributor_no_aliases_hint">No alternate names yet. Merge another author to add one.</string>
     <string name="contributor_no_change">No change</string>
     <string name="contributor_no_image_available_from_audible">No image available from Audible</string>
     <string name="contributor_no_pen_names_yet_add">No pen names yet. Add aliases to merge other contributors into this one.</string>

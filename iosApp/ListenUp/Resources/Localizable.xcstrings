@@ -5741,22 +5741,22 @@
         }
       }
     },
+    "contributor.merge_button": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Merge with another author"
+          }
+        }
+      }
+    },
     "contributor.merge_confirm": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Merge"
-          }
-        }
-      }
-    },
-    "contributor.merge_into": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Merge into…"
           }
         }
       }
@@ -5807,6 +5807,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "New image"
+          }
+        }
+      }
+    },
+    "contributor.no_aliases_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No alternate names yet. Merge another author to add one."
           }
         }
       }
