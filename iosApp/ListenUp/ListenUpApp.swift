@@ -27,6 +27,7 @@ private struct RootView: View {
     @State private var auth = AuthStateObserver()
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
+    @State private var hapticsSettings = HapticsSettings()
     @State private var syncSession: SyncSessionController?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
@@ -34,6 +35,7 @@ private struct RootView: View {
     var body: some View {
         content
             .environment(currentUser)
+            .environment(hapticsSettings)
             .animation(.smooth(duration: 0.3), value: auth.state)
             // Start realtime sync once authenticated (initial pull + SSE firehose), mirroring the
             // Compose `MainActivity`/`AppShell`. Without this the library never populates on iOS.
