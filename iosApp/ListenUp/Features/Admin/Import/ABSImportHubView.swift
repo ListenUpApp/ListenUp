@@ -37,7 +37,6 @@ struct ABSImportHubView: View {
                 observer = ABSImportHubObserver(viewModel: deps.createABSImportHubViewModel())
             }
         }
-        .onDisappear { observer?.stopObserving() }
         .sheet(isPresented: $showingWizard) {
             ImportWizardView { observer?.reload() }
         }

@@ -29,6 +29,5 @@ struct LibrarySetupFlowCoordinator: View {
             viewModel.onFinished = onComplete
             viewModel.checkStatus()
         }
-        .onDisappear { viewModel.stopObserving() }
     }
 }

@@ -99,10 +99,7 @@ final class LibraryReadinessObserver {
         bridge.bind(appStartupViewModel.readiness) { [weak self] in self?.apply($0) }
     }
 
-    /// Stop observing. Call on teardown.
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     /// Clear the needs-setup latch once the admin finishes the create-library wizard,
     /// flipping readiness to `ready` so the root mounts the main app.

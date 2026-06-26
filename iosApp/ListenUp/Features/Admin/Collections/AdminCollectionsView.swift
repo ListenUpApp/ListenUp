@@ -40,9 +40,6 @@ struct AdminCollectionsView: View {
                 observer = AdminCollectionsObserver(viewModel: deps.createAdminCollectionsViewModel())
             }
         }
-        .onDisappear {
-            observer?.stopObserving()
-        }
         .sheet(isPresented: $showingCreateSheet, onDismiss: { createName = "" }) {
             createSheet
         }

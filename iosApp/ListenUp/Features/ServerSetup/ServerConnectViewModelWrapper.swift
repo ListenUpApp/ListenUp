@@ -27,9 +27,7 @@ final class ServerConnectViewModelWrapper {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

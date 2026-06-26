@@ -22,8 +22,5 @@ final class CurrentUserObserver {
         }
     }
 
-    /// Stop observing. Call on teardown.
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }

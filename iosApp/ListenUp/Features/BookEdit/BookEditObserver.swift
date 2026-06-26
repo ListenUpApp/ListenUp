@@ -92,7 +92,7 @@ final class BookEditObserver {
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
 
-    deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadBook(bookId: String) {
         viewModel.loadBook(bookId: bookId)

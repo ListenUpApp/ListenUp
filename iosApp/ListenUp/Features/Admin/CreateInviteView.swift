@@ -52,7 +52,6 @@ struct CreateInviteView: View {
         .onAppear {
             if observer == nil { observer = CreateInviteObserver(viewModel: viewModel) }
         }
-        .onDisappear { observer?.stopObserving() }
     }
 
     // MARK: - Form

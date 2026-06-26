@@ -36,9 +36,6 @@ struct AdminInboxView: View {
                 observer = AdminInboxObserver(viewModel: deps.createAdminInboxViewModel())
             }
         }
-        .onDisappear {
-            observer?.stopObserving()
-        }
     }
 
     // MARK: - Content routing

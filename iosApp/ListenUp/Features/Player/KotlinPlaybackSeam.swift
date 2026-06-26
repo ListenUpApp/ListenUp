@@ -91,6 +91,8 @@ final class KotlinSleepTiming: SleepTiming, @unchecked Sendable {
         }
     }
 
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+
     private static func map(_ state: SleepTimerState) -> SleepTimingState {
         guard let active = state as? SleepTimerStateActive else { return .inactive }
         let isEoc = active.mode is SleepTimerModeEndOfChapter
@@ -143,6 +145,8 @@ final class KotlinSkipIntervalProviding: SkipIntervalProviding, @unchecked Senda
             backwardContinuation.yield(Int(seconds))
         }
     }
+
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }
 
 struct KotlinBookCoverProviding: BookCoverProviding {

@@ -31,9 +31,7 @@ final class LibraryObserver {
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
 
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Lifecycle & actions
 

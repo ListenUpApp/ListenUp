@@ -46,7 +46,6 @@ struct SettingsView: View {
                 observer = SettingsObserver(viewModel: deps.createSettingsViewModel())
             }
         }
-        .onDisappear { observer?.stopObserving() }
         .confirmationDialog(
             String(localized: "settings.sign_out_confirm_title"),
             isPresented: $showingSignOutConfirmation,

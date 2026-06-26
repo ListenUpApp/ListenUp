@@ -160,15 +160,7 @@ final class BookDetailObserver {
         }
     }
 
-    deinit {
-        // `BookDetailObserver` is held in SwiftUI `@State` on a `@MainActor`-isolated
-        // view, so ARC dealloc always fires on the main thread — `assumeIsolated` is sound.
-        MainActor.assumeIsolated { stopObserving() }
-    }
-
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

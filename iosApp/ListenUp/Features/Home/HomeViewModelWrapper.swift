@@ -28,10 +28,7 @@ final class HomeViewModelWrapper {
         bridge.bind(viewModel.snackbarMessages) { [weak self] in self?.snackbar = $0 }
     }
 
-    /// Stop observing. Call on teardown.
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

@@ -76,9 +76,7 @@ final class LibrarySetupViewModelWrapper {
         self.viewModel = nil
     }
 
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

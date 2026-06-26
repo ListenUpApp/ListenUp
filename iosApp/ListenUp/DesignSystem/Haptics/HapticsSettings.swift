@@ -17,4 +17,6 @@ final class HapticsSettings {
             self?.isEnabled = state.hapticFeedbackEnabled
         }
     }
+
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 }

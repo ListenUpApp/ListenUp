@@ -49,9 +49,7 @@ final class ContributorDetailObserver {
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNavAction($0) }
     }
 
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

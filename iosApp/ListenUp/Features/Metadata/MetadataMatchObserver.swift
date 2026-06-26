@@ -59,9 +59,7 @@ final class MetadataMatchObserver {
         bridge.bind(viewModel.events) { [weak self] in self?.applyEvent($0) }
     }
 
-    deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
-
-    func stopObserving() { bridge.cancelAll() }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

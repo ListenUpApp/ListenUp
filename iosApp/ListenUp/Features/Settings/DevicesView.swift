@@ -32,7 +32,6 @@ struct DevicesView: View {
                 observer = DevicesObserver(viewModel: deps.createDevicesViewModel())
             }
         }
-        .onDisappear { observer?.stopObserving() }
         .confirmationDialog(
             String(localized: "devices.sign_out_everywhere"),
             isPresented: $showSignOutAllConfirmation,
