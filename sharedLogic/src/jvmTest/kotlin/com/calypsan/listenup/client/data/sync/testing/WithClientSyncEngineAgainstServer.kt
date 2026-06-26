@@ -21,6 +21,7 @@ import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
+import com.calypsan.listenup.client.data.sync.BookUpdateOpSender
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -375,11 +376,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 // matches the existing SSE/REST clients above.
                 installKrpc()
             }
-        val bookEditRepository: BookEditRepository =
-            BookEditRepositoryImpl(
-                bookRpcFactory = TestBookRpcFactory(testClient),
-                collectionRpcFactory = TestCollectionRpcFactory(testClient),
-            )
+        val testBookRpcFactory = TestBookRpcFactory(testClient)
         val contributorEditRepository: ContributorEditRepository =
             ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
         val seriesEditRepository: SeriesEditRepository =
@@ -413,8 +410,22 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                             mapOf(
                                 "playback_positions" to playbackSender,
                                 "listening_events" to listeningEventSender,
+                                "books" to BookUpdateOpSender(testBookRpcFactory),
                             ),
                         ),
+                )
+
+            // Offline-first book edits write to client Room and enqueue a "books" op;
+            // the engine drains it through the BookUpdateOpSender above to the in-process
+            // server, whose SSE echo reconciles client Room via BookSyncDomainHandler.
+            val bookEditRepository: BookEditRepository =
+                BookEditRepositoryImpl(
+                    bookRpcFactory = testBookRpcFactory,
+                    collectionRpcFactory = TestCollectionRpcFactory(testClient),
+                    bookDao = clientDb.bookDao(),
+                    pendingQueue = queue,
+                    transactionRunner = RoomTransactionRunner(clientDb),
+                    authSession = FakeAuthSession(),
                 )
 
             val catchUp =

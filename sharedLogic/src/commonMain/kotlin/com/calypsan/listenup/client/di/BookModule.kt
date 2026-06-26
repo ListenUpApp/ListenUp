@@ -88,11 +88,16 @@ internal val bookModule: Module =
             )
         } binds arrayOf(BookIngestPort::class)
 
-        // BookEditRepository — pure RPC dispatcher; SSE echoes write back into Room.
+        // BookEditRepository — offline-first updateBook (Room + outbox queue); the
+        // remaining edits stay RPC-only with SSE echoes writing back into Room.
         single<BookEditRepository> {
             BookEditRepositoryImpl(
                 bookRpcFactory = get(),
                 collectionRpcFactory = get(),
+                bookDao = get(),
+                pendingQueue = get(),
+                transactionRunner = get(),
+                authSession = get(),
             )
         }
 
