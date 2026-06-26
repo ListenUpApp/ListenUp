@@ -4531,6 +4531,16 @@
         }
       }
     },
+    "common.not_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not selected"
+          }
+        }
+      }
+    },
     "common.offline": {
       "localizations": {
         "en": {
@@ -4767,6 +4777,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "See all"
+          }
+        }
+      }
+    },
+    "common.select": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select"
           }
         }
       }
@@ -11737,6 +11757,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Search Unavailable"
+          }
+        }
+      }
+    },
+    "selection.add_n_to_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %1$d to a collection"
+          }
+        }
+      }
+    },
+    "selection.add_n_to_shelf": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %1$d to a shelf"
+          }
+        }
+      }
+    },
+    "selection.n_selected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d selected"
           }
         }
       }
