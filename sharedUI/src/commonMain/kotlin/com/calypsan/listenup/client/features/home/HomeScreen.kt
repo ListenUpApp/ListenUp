@@ -214,23 +214,23 @@ private fun HomeContent(
                     EmptyContinueListening(onBrowseLibrary = onNavigateToLibrary)
                 }
 
-            if (isWide) {
-                HomeContentWide(
-                    state = state,
-                    onShelfClick = onShelfClick,
-                    onSeeAllShelves = onSeeAllShelves,
-                )
-            } else {
-                HomeContentCompact(
-                    state = state,
-                    onShelfClick = onShelfClick,
-                    onSeeAllShelves = onSeeAllShelves,
-                )
-            }
+                if (isWide) {
+                    HomeContentWide(
+                        state = state,
+                        onShelfClick = onShelfClick,
+                        onSeeAllShelves = onSeeAllShelves,
+                    )
+                } else {
+                    HomeContentCompact(
+                        state = state,
+                        onShelfClick = onShelfClick,
+                        onSeeAllShelves = onSeeAllShelves,
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
-    }
 
         // Multi-select overlay: top toolbar, picker sheets, and success feedback.
         BookSelectionScaffold(multiSelect = multiSelect)
