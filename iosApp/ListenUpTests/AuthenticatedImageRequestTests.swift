@@ -23,4 +23,16 @@ struct AuthenticatedImageRequestTests {
         let request = AuthenticatedImageRequest.localFile("/var/covers/book-1.jpg", processors: [])
         #expect(request.url == URL(fileURLWithPath: "/var/covers/book-1.jpg"))
     }
+
+    @Test func localFileRequestCarriesOverrideCacheKey() {
+        let request = AuthenticatedImageRequest.localFile(
+            "/var/contributors/c-1.jpg", processors: [], cacheKey: "c-1:contributors/aaa.jpg"
+        )
+        #expect(request.userInfo[.imageIdKey] as? String == "c-1:contributors/aaa.jpg")
+    }
+
+    @Test func localFileRequestWithoutCacheKeyLeavesDefault() {
+        let request = AuthenticatedImageRequest.localFile("/var/covers/book-1.jpg", processors: [])
+        #expect(request.userInfo[.imageIdKey] == nil)
+    }
 }
