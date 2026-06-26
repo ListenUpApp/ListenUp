@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 import UIKit
 
 /// Library screen displaying the user's audiobook collection with four tabs.

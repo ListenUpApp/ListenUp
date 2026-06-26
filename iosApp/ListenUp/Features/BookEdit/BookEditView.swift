@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Presented sheet for editing a book: cover, the core metadata fields, and the
 /// relational sections (authors, narrators, series, genres, tags, moods) with display,

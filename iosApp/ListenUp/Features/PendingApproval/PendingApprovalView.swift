@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Screen shown after registration when the user's account is awaiting admin approval.
 ///

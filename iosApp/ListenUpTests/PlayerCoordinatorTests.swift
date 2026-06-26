@@ -1,7 +1,7 @@
 import Testing
 import AVFoundation
 @testable import ListenUp
-@preconcurrency import Shared
+import Shared
 
 /// Polls `condition` until true or the timeout elapses.
 ///

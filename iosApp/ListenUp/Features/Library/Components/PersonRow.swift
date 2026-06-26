@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// One contributor in the Contributors list: avatar, name over a role chip + book count,
 /// and a chevron. Rendered inside a `FieldGroup`, so it carries padding but no surface.

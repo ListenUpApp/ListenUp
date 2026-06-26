@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `AdminSettingsViewModel` — flattens the sealed `AdminSettingsUiState` into a
 /// SwiftUI-native `AdminSettingsPhase` for the SERVER section of the admin screen.

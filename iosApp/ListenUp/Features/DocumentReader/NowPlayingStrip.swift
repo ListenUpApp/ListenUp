@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The reader's docked now-playing strip: cover · "Ch. N · {time left}" · play/pause.
 /// Reflects the shared `PlayerCoordinator` (global playback) and renders only while a

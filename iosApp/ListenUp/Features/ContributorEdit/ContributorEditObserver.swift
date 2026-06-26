@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ContributorEditViewModel`, flattening `ContributorEditUiState` into
 /// `@Observable` properties and dispatching edits as `ContributorEditUiEvent`s.

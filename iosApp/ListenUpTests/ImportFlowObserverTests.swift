@@ -1,5 +1,5 @@
 import Testing
-@preconcurrency import Shared
+import Shared
 @testable import ListenUp
 
 /// Pure-mapping coverage for the ABS-import observers' seams: the progress arithmetic the rings

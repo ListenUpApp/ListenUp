@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `HomeViewModel` — flattens the sealed `HomeUiState` into a SwiftUI-native
 /// `HomePhase`, and surfaces transient `snackbarMessages` as a clearable string.

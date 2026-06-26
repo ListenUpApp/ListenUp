@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Admin Collection Detail — edit a collection's name, manage its books and member shares.
 ///

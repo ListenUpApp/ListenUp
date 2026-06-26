@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Role-grouped Cast & Credits sheet (Author / Narrators / Production). Presented as a
 /// native sheet from Book Detail; responsive two-column layout where width allows.

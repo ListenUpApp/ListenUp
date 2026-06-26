@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-@preconcurrency import Shared
+import Shared
 
 /// Create Invite — a presented sheet wired to `CreateInviteViewModel` via `CreateInviteObserver`.
 ///

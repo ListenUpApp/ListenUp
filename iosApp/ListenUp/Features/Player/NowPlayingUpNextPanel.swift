@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The inline "Up Next" chapters panel shown beside the player at regular width
 /// (iPad / large iPhone landscape). It replaces the chapter *sheet* on those

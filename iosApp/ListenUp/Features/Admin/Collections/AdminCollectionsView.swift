@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Admin Collections list — browse, create, and delete shared book sets.
 ///

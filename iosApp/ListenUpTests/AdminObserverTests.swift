@@ -1,5 +1,5 @@
 import Testing
-@preconcurrency import Shared
+import Shared
 @testable import ListenUp
 
 /// Pure-mapping coverage for the admin observers' seams: the role-label classification the

@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 // Type-safe navigation destinations. Separate `Hashable` structs (not an enum)
 // so each destination evolves independently and `navigationDestination(for:)`

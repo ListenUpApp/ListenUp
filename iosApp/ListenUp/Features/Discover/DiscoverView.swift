@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Discover — the social landing screen for finding new audiobooks and seeing the community.
 ///

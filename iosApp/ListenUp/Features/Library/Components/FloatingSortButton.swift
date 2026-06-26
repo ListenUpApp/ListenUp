@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Floating sort button that shows current sort and expands to menu on tap.
 ///

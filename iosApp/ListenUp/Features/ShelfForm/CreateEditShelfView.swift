@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Create or edit a shelf. `shelfId == nil` means create mode.
 ///

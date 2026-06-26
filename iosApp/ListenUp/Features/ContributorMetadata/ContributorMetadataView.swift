@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// "Find on Audible" sheet for a contributor: search Audible, pick a match, preview which
 /// fields (name / bio / photo) to apply, then apply. Mirrors the Android two-screen flow

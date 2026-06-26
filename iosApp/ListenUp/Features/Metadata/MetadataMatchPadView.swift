@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// iPad / regular-width layout: a focused full-screen modal with a fixed left search rail beside a
 /// flexible right column showing the matched edition and its field checklists. The work gets the

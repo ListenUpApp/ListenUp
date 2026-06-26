@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Server selection screen showing discovered servers via mDNS.
 ///

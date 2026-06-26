@@ -1,6 +1,6 @@
 import NukeUI
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 import UIKit
 
 /// Circular avatar for contributors (authors, narrators) with fallback chain.

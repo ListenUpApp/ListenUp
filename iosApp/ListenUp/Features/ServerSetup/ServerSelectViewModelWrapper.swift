@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// A discovered server, flattened for SwiftUI display.
 struct DiscoveredServerItem: Identifiable, Equatable {

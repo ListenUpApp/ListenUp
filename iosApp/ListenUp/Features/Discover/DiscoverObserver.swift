@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `DiscoverViewModel` — flattens its three iOS-relevant sealed states into
 /// SwiftUI-native phases: `newForYou` (the "New for You" rail), `recentlyAdded`

@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 import UniformTypeIdentifiers
 
 /// Bridges a picked backup file URL into the shared `FileSource` the import wizard consumes.

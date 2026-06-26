@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// A Swift-friendly projection of the VM's pending avatar change, carrying the picked
 /// image bytes so the view can preview an upload without saving first.

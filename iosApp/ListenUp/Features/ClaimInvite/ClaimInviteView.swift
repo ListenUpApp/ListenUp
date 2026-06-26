@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Public invite redeem flow: enter code → preview → set password → join.
 ///

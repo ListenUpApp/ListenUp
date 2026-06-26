@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The render phase of the user profile screen, flattened from `UserProfileUiState`.
 ///

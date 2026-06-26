@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Step 1 (iPhone): search Audible and pick the matching edition. Query field, region picker,
 /// and a results list; a sticky "Use This Match" tray advances once a result is chosen.

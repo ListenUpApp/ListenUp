@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Tag detail screen — the books carrying a given tag.
 ///

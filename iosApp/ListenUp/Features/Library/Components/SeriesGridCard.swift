@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Series grid card for the iPad Series list: a centered cover stack over name + meta
 /// + progress, on its own rounded surface.

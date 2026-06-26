@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Step 2: choose which fields of the matched Audible edition to apply. A matched-edition hero,
 /// grouped field checklists (Identity / Classification / Details), a chapters CTA, and an

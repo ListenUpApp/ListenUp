@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 import UIKit
 
 /// Full-screen audiobook player on a soft cover-tint wash.

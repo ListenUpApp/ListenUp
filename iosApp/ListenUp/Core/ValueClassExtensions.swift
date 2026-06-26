@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 // Domain models that Swift consumes by id expose a Kotlin-side `idString`
 // (`get() = id.value`), so Swift reads a plain `String` and never touches the

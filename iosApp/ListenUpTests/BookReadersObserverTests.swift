@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@preconcurrency import Shared
+import Shared
 @testable import ListenUp
 
 /// Pure mapping tests for `BookReadersObserver`. These construct the KMP `Reader`/`BookReaders`

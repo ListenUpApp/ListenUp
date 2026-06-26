@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `ContributorDetailViewModel` — flattens the sealed
 /// `ContributorDetailUiState` into flat `@Observable` properties, plus a

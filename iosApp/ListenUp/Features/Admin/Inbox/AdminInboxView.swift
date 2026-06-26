@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Admin inbox — freshly-scanned books awaiting triage before release into the library.
 ///

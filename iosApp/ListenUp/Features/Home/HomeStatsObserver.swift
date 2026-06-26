@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `HomeStatsViewModel` — flattens the sealed `HomeStatsUiState` into a
 /// SwiftUI-native `StatsPhase` for the Home stats section. Thin over `FlowBridge`;

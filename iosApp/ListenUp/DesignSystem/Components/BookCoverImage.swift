@@ -1,6 +1,6 @@
 import NukeUI
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Reusable book cover image component with authenticated loading and BlurHash placeholders.
 ///

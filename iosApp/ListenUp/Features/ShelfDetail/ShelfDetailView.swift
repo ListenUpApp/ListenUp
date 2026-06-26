@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Shelf detail screen — the books a user has curated onto one shelf.
 ///

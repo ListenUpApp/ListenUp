@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Native, value-typed projection of a chapter for the Book Detail chapters list.
 ///

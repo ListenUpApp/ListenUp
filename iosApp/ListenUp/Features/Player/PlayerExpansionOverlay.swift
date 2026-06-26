@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-@preconcurrency import Shared
+import Shared
 
 /// Shared `matchedGeometryEffect` identities for the mini ↔ full player morph.
 ///

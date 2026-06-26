@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Step 4: confirmation. A success mark, "Metadata updated", and a small summary of what changed
 /// (fields applied, chapters named, cover source). "Done" dismisses the whole wizard.

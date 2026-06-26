@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `AdminCollectionsViewModel` — flattens the sealed `AdminCollectionsUiState`
 /// into a SwiftUI-native `AdminCollectionsPhase` and surfaces collection rows as pre-mapped
