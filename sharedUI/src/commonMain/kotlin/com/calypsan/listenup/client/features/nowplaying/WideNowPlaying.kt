@@ -95,7 +95,7 @@ private val CONTROLS_MAX_WIDTH = 520.dp
 @Composable
 fun WideNowPlaying(
     state: NowPlayingState.Active,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -244,9 +244,7 @@ fun WideNowPlaying(
 
                         // Scrubber: wavy seek bar + elapsed / remaining labels.
                         PlayerScrubber(
-                            chapterProgress = progress.chapterProgress,
-                            chapterPositionMs = progress.chapterPositionMs,
-                            chapterDurationMs = progress.chapterDurationMs,
+                            progress = progress,
                             isPlaying = state.isPlaying,
                             isBuffering = state.isBuffering,
                             onSeek = onSeek,

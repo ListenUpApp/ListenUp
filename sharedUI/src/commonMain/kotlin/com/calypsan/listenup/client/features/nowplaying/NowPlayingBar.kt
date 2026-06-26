@@ -60,7 +60,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun NowPlayingBar(
     state: NowPlayingState,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     isExpanded: Boolean,
     onTap: () -> Unit,
     onPlayPause: () -> Unit,
@@ -125,7 +125,7 @@ fun NowPlayingBar(
 @Composable
 private fun MiniPlayerContent(
     state: NowPlayingState.Active,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     onPlayPause: () -> Unit,
     onSkipBack: () -> Unit,
 ) {
@@ -200,7 +200,7 @@ private fun MiniPlayerContent(
         // cleaner at the mini-player's small height — the expressive wave is reserved for the
         // full-screen player and the desktop bar, where it has the vertical room to register.
         LinearProgressIndicator(
-            progress = { progress.chapterProgress },
+            progress = { progress().chapterProgress },
             modifier =
                 Modifier
                     .fillMaxWidth()

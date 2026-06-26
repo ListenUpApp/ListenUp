@@ -50,7 +50,7 @@ private const val TV_AMBIENT_DELAY_MS = 15_000L
 @Composable
 fun NowPlayingScreen(
     state: NowPlayingState.Active,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,

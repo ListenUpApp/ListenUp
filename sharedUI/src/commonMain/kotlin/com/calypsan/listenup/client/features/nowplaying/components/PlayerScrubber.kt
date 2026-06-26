@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.calypsan.listenup.client.features.nowplaying.WavySeekBar
 import com.calypsan.listenup.client.features.nowplaying.formatPlaybackTime
+import com.calypsan.listenup.client.playback.PlaybackProgress
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -19,23 +20,28 @@ import kotlin.time.Duration.Companion.milliseconds
  * the remaining label shows the negative remaining time (e.g. "-15:05"). Both use tabular
  * figures so digits never shift horizontally during playback.
  *
- * @param chapterProgress Playhead position within the current chapter (0f–1f).
- * @param chapterPositionMs Elapsed chapter position in milliseconds.
- * @param chapterDurationMs Total chapter duration in milliseconds.
+ * [progress] is a deferred lambda so the 4 Hz position tick recomposes only this leaf scrubber +
+ * its time labels — the player chrome above it (artwork, title, transport) reads nothing from it
+ * and stays stable across ticks.
+ *
+ * @param progress Deferred read of the fast-changing playback progress (playhead, chapter bounds).
  * @param isPlaying Whether audio is currently playing; drives the wave amplitude animation.
  * @param isBuffering When true, seeking is disabled and the seek bar is non-interactive.
  * @param onSeek Called with the new fractional position when the user seeks.
  */
 @Composable
 fun PlayerScrubber(
-    chapterProgress: Float,
-    chapterPositionMs: Long,
-    chapterDurationMs: Long,
+    progress: () -> PlaybackProgress,
     isPlaying: Boolean,
     isBuffering: Boolean,
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val current = progress()
+    val chapterProgress = current.chapterProgress
+    val chapterPositionMs = current.chapterPositionMs
+    val chapterDurationMs = current.chapterDurationMs
+
     val elapsedDuration = chapterPositionMs.milliseconds
     val remainingDuration = (chapterDurationMs - chapterPositionMs).coerceAtLeast(0L).milliseconds
 

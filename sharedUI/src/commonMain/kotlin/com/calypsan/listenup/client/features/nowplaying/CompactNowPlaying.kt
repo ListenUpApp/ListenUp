@@ -64,7 +64,8 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
  * free to fire, instead of being consumed by an inner scroll container.
  *
  * @param state Current [NowPlayingState.Active] snapshot.
- * @param progress Fast-changing playback progress driving the scrubber and time labels.
+ * @param progress Deferred read of the fast-changing playback progress driving the scrubber and
+ *   time labels. Passed as a lambda so a position tick recomposes only the scrubber, not this layout.
  * @param onCollapse Called when the collapse button (or back gesture) fires.
  * @param onPlayPause Called when the play/pause FAB is tapped.
  * @param onSeek Called with a 0f–1f fractional position when the user seeks.
@@ -87,7 +88,7 @@ private val COMPACT_FIT_MIN_HEIGHT = 640.dp
 @Composable
 fun CompactNowPlaying(
     state: NowPlayingState.Active,
-    progress: PlaybackProgress,
+    progress: () -> PlaybackProgress,
     onCollapse: () -> Unit,
     onPlayPause: () -> Unit,
     onSeek: (Float) -> Unit,
@@ -228,9 +229,7 @@ fun CompactNowPlaying(
 
             // Scrubber + time labels — fills column width (horizontal padding from the column).
             PlayerScrubber(
-                chapterProgress = progress.chapterProgress,
-                chapterPositionMs = progress.chapterPositionMs,
-                chapterDurationMs = progress.chapterDurationMs,
+                progress = progress,
                 isPlaying = state.isPlaying,
                 isBuffering = state.isBuffering,
                 onSeek = onSeek,
