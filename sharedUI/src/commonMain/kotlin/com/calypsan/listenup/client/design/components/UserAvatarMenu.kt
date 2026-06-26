@@ -1,6 +1,7 @@
 
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,27 +23,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil3.PlatformContext
-import coil3.compose.AsyncImage
-import coil3.compose.LocalPlatformContext
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.domain.repository.ServerConfig
-import org.koin.compose.koinInject
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_administration
-import listenup.composeapp.generated.resources.common_displayname_avatar
 import listenup.composeapp.generated.resources.common_loading
 import listenup.composeapp.generated.resources.common_my_profile
 import listenup.composeapp.generated.resources.common_settings
@@ -77,15 +65,6 @@ fun UserAvatarMenu(
     modifier: Modifier = Modifier,
     showLabel: Boolean = false,
 ) {
-    val platformContext = LocalPlatformContext.current
-    val serverConfig: ServerConfig = koinInject()
-    val imageStorage: ImageStorage = koinInject()
-    val serverUrl by produceState<String?>(null) {
-        value = serverConfig.getServerUrl()?.value
-    }
-
-    val hasImageAvatar = user?.avatarType == "image" && !user.avatarValue.isNullOrEmpty()
-
     Box(modifier = modifier) {
         // Anchor: a labelled pill (name + email + chevron) on wide chrome, or the bare circle.
         if (showLabel && user != null) {
@@ -93,10 +72,6 @@ fun UserAvatarMenu(
         } else {
             UserAvatarCircle(
                 user = user,
-                hasImageAvatar = hasImageAvatar,
-                serverUrl = serverUrl,
-                imageStorage = imageStorage,
-                platformContext = platformContext,
                 onClick = { onExpandedChange(true) },
             )
         }
@@ -163,99 +138,22 @@ private fun UserAvatarPill(
 @Composable
 private fun UserAvatarCircle(
     user: User?,
-    hasImageAvatar: Boolean,
-    serverUrl: String?,
-    imageStorage: ImageStorage,
-    platformContext: PlatformContext,
     onClick: () -> Unit,
 ) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color =
-            if (hasImageAvatar) {
-                Color.Transparent
-            } else {
-                user?.let { Color.hsl((it.id.value.hashCode() and 0x7FFFFFFF).rem(360).toFloat(), 0.4f, 0.65f) }
-                    ?: MaterialTheme.colorScheme.surfaceContainerHighest
-            },
-        modifier = Modifier.size(48.dp),
-    ) {
-        if (hasImageAvatar && user != null) {
-            // Offline-first: prefer local cached avatar
-            val localPath =
-                if (imageStorage.userAvatarExists(user.id.value)) {
-                    imageStorage.getUserAvatarPath(user.id.value)
-                } else {
-                    null
-                }
-
-            if (localPath != null) {
-                // Version the key on updatedAtMs (bumped on avatar upload) so a re-uploaded avatar
-                // busts the stale cached bitmap — mirrors the canonical UserAvatar key shape.
-                val avatarKey = "${user.id.value}-avatar-${user.updatedAtMs}"
-                AsyncImage(
-                    model =
-                        ImageRequest
-                            .Builder(platformContext)
-                            .data(localPath)
-                            .memoryCacheKey(avatarKey)
-                            .diskCacheKey(avatarKey)
-                            .build(),
-                    contentDescription = stringResource(Res.string.common_displayname_avatar, user.displayName),
-                    modifier =
-                        Modifier
-                            .size(48.dp)
-                            .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-            } else if (serverUrl != null) {
-                // Fallback: fetch from server with disabled caching
-                val avatarUrl = "$serverUrl${user.avatarValue}"
-                AsyncImage(
-                    model =
-                        ImageRequest
-                            .Builder(platformContext)
-                            .data(avatarUrl)
-                            .memoryCachePolicy(CachePolicy.DISABLED)
-                            .diskCachePolicy(CachePolicy.DISABLED)
-                            .build(),
-                    contentDescription = stringResource(Res.string.common_displayname_avatar, user.displayName),
-                    modifier =
-                        Modifier
-                            .size(48.dp)
-                            .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                // No local file and no server URL - show initials
-                AvatarInitials(displayName = user.displayName)
-            }
-        } else {
-            AvatarInitials(displayName = user?.displayName)
-        }
-    }
-}
-
-@Composable
-private fun AvatarInitials(displayName: String?) {
-    Box(contentAlignment = Alignment.Center) {
-        Text(
-            text =
-                displayName?.let { name ->
-                    name
-                        .trim()
-                        .split("\\s+".toRegex())
-                        .let { parts ->
-                            when {
-                                parts.size >= 2 -> "${parts[0].first()}${parts[1].first()}"
-                                name.length >= 2 -> name.take(2)
-                                else -> name.take(1)
-                            }
-                        }.uppercase()
-                } ?: "?",
-            style = MaterialTheme.typography.titleSmall,
-            color = Color.White,
+    if (user != null) {
+        UserAvatar(
+            userId = user.id.value,
+            size = AvatarSize.Medium,
+            onClick = onClick,
+            fallbackName = user.displayName,
+        )
+    } else {
+        Box(
+            modifier =
+                Modifier
+                    .size(AvatarSize.Medium.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         )
     }
 }
