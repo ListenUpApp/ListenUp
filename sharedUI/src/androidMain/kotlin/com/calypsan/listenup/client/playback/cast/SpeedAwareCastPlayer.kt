@@ -25,10 +25,15 @@ class SpeedAwareCastPlayer(
     castPlayer: Player,
     private val rateSetter: CastRateSetter,
 ) : ForwardingPlayer(castPlayer) {
-    private var current: PlaybackParameters = PlaybackParameters.DEFAULT
+    /**
+     * Local mirror of the last rate we pushed — authoritative only because this app is the
+     * sole rate-writer. It is NOT synced receiver state: it starts at [PlaybackParameters.DEFAULT]
+     * and would lag a pre-existing remote rate when resuming an already-playing Cast session.
+     */
+    private var currentParameters: PlaybackParameters = PlaybackParameters.DEFAULT
 
     override fun setPlaybackParameters(playbackParameters: PlaybackParameters) {
-        current = playbackParameters
+        currentParameters = playbackParameters
         rateSetter.setRate(playbackParameters.speed.toDouble())
     }
 
@@ -36,7 +41,7 @@ class SpeedAwareCastPlayer(
         setPlaybackParameters(PlaybackParameters(speed))
     }
 
-    override fun getPlaybackParameters(): PlaybackParameters = current
+    override fun getPlaybackParameters(): PlaybackParameters = currentParameters
 
     override fun isCommandAvailable(command: Int): Boolean =
         command == Player.COMMAND_SET_SPEED_AND_PITCH || super.isCommandAvailable(command)
