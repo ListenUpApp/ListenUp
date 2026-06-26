@@ -13,7 +13,7 @@ struct LeaderRow: View {
                 .foregroundStyle(rankColor)
                 .frame(width: 22)
 
-            InitialsAvatar(initials: row.initials, isCurrentUser: row.isCurrentUser)
+            UserAvatarView(userId: row.id, fallbackName: row.displayName, size: 38)
 
             Text(name)
                 .font(.callout.weight(row.isCurrentUser ? .semibold : .regular))

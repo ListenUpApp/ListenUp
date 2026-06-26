@@ -29,7 +29,7 @@ struct ActivityRow: View {
 
     private var content: some View {
         HStack(spacing: 13) {
-            InitialsAvatar(initials: item.initials, tint: Color(hex: item.avatarColor))
+            UserAvatarView(userId: item.userId, fallbackName: item.who, avatarColor: item.avatarColor)
 
             VStack(alignment: .leading, spacing: 2) {
                 phrase
