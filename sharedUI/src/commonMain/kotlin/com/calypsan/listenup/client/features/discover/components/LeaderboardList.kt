@@ -34,7 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.AvatarSize
 import com.calypsan.listenup.client.design.components.RankBadge
+import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardCategory
 import com.calypsan.listenup.client.domain.leaderboard.LeaderboardEntry
 import org.jetbrains.compose.resources.stringResource
@@ -145,6 +147,13 @@ private fun LeaderboardEntryRow(
         }
 
         Spacer(Modifier.width(14.dp))
+
+        UserAvatar(
+            userId = entry.userId,
+            size = AvatarSize.Small,
+            fallbackName = entry.displayName,
+        )
+        Spacer(Modifier.width(12.dp))
 
         // User name
         Text(
