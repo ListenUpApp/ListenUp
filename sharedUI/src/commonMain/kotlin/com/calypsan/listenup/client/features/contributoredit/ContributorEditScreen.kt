@@ -206,7 +206,10 @@ fun ContributorEditScreen(
                 showMergeDialog = false
                 viewModel.onEvent(ContributorEditUiEvent.MergeInto(targetId))
             },
-            onDismiss = { showMergeDialog = false },
+            onDismiss = {
+                showMergeDialog = false
+                viewModel.onMergeQueryChange("")
+            },
         )
     }
 }
