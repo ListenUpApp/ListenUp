@@ -22,6 +22,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -62,6 +63,7 @@ class PlaybackServiceImplTest :
             val bookRepo: BookRepository,
             val positionRepo: PlaybackPositionRepository,
             val signer: AudioUrlSigner,
+            val coverSigner: CoverUrlSigner,
             val eventRepo: ListeningEventRepository,
             val statsRepo: UserStatsRepository,
             val accessPolicy: BookAccessPolicy,
@@ -88,6 +90,7 @@ class PlaybackServiceImplTest :
                 )
             val positionRepo = PlaybackPositionRepository(db = sql, bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
+            val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
             val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
             val updater =
                 UserStatsUpdater(
@@ -106,6 +109,7 @@ class PlaybackServiceImplTest :
                 bookRepo = bookRepo,
                 positionRepo = positionRepo,
                 signer = signer,
+                coverSigner = coverSigner,
                 eventRepo = eventRepo,
                 statsRepo = statsRepo,
                 accessPolicy = BookAccessPolicy(sql, driver),
@@ -154,6 +158,7 @@ class PlaybackServiceImplTest :
                 bookRepository = bookRepo,
                 audioFileLocator = AudioFileLocator(sql),
                 audioUrlSigner = signer,
+                coverUrlSigner = coverSigner,
                 playbackPositionRepository = positionRepo,
                 listeningEventRepository = eventRepo,
                 userStatsRepository = statsRepo,

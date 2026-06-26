@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -192,6 +193,7 @@ internal fun withTestApplication(
                 )
             val positionRepoForPlayback = PlaybackPositionRepository(sqlDb, bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
+            val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
             val bookRepo = buildPlaybackBookRepository(sqlDb, driver, bus)
             bookRepoForScope = bookRepo
             // Seed the library + folder a test book FKs to, so playback-event tests
@@ -202,6 +204,7 @@ internal fun withTestApplication(
                     bookRepository = bookRepo,
                     audioFileLocator = AudioFileLocator(sqlDb),
                     audioUrlSigner = signer,
+                    coverUrlSigner = coverSigner,
                     playbackPositionRepository = positionRepoForPlayback,
                     listeningEventRepository = eventRepo,
                     userStatsRepository = statsRepo,

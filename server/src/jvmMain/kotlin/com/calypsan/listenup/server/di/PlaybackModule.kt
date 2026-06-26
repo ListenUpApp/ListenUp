@@ -131,6 +131,7 @@ fun playbackModule(): Module =
                 bookRepository = get<BookRepository>(),
                 audioFileLocator = get(),
                 audioUrlSigner = get(),
+                coverUrlSigner = get(),
                 playbackPositionRepository = get(),
                 listeningEventRepository = get(),
                 userStatsRepository = get(),

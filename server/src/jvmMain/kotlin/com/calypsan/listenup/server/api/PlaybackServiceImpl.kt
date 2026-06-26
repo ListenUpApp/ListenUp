@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -44,6 +45,7 @@ internal class PlaybackServiceImpl(
     private val bookRepository: BookRepository,
     private val audioFileLocator: AudioFileLocator,
     private val audioUrlSigner: AudioUrlSigner,
+    private val coverUrlSigner: CoverUrlSigner,
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val listeningEventRepository: ListeningEventRepository,
     private val userStatsRepository: UserStatsRepository,
@@ -83,12 +85,16 @@ internal class PlaybackServiceImpl(
             }
 
         val resumePosition = playbackPositionRepository.getPosition(userId, bookId.value)
+        val coverUrl =
+            "/api/v1/cover-cast/${bookId.value.encodeURLParameter()}?" +
+                coverUrlSigner.signedQuery(userId = userId, bookId = bookId.value)
 
         return AppResult.Success(
             PreparedPlayback(
                 bookId = bookId.value,
                 audioFiles = audioFiles,
                 resumePosition = resumePosition,
+                coverUrl = coverUrl,
             ),
         )
     }
@@ -167,6 +173,7 @@ internal class PlaybackServiceImpl(
             bookRepository = bookRepository,
             audioFileLocator = audioFileLocator,
             audioUrlSigner = audioUrlSigner,
+            coverUrlSigner = coverUrlSigner,
             playbackPositionRepository = playbackPositionRepository,
             listeningEventRepository = listeningEventRepository,
             userStatsRepository = userStatsRepository,
