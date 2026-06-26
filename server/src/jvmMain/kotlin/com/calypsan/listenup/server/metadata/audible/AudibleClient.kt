@@ -241,11 +241,13 @@ class AudibleClient(
                 }
 
                 HttpStatusCode.TooManyRequests -> {
+                    logger.warn { "Audible API rate-limited: region=$region path=$path" }
                     AppResult.Failure(MetadataError.ExternalRateLimited())
                 }
 
                 else -> {
                     if (response.status.value in 500..599) {
+                        logger.warn { "Audible API server error: region=$region path=$path status=${response.status.value}" }
                         AppResult.Failure(
                             MetadataError.ExternalUnavailable(
                                 debugInfo = "HTTP ${response.status.value}",
@@ -263,6 +265,7 @@ class AudibleClient(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            logger.warn(e) { "Audible API request failed: region=$region path=$path" }
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
 
@@ -317,6 +320,7 @@ class AudibleClient(
                 }
 
                 response.status == HttpStatusCode.TooManyRequests -> {
+                    logger.warn { "Audible web request rate-limited: region=$region path=$path" }
                     AppResult.Failure(MetadataError.ExternalRateLimited())
                 }
 
@@ -329,6 +333,7 @@ class AudibleClient(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            logger.warn(e) { "Audible web request failed: region=$region path=$path" }
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
 

@@ -16,10 +16,13 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Orchestrator for external metadata lookups. Wraps [AudibleApi] + [ITunesApi]
@@ -89,6 +92,17 @@ internal class MetadataService(
             return primaryResult
         }
         if (defaultRegion == AudibleRegion.US) return primaryResult
+        when (primaryResult) {
+            is AppResult.Failure ->
+                logger.warn {
+                    "metadata provider failed: source=AUDIBLE region=$defaultRegion " +
+                        "(${primaryResult.error.code}) — falling back to US"
+                }
+            is AppResult.Success ->
+                logger.debug {
+                    "metadata lookup: source=AUDIBLE region=$defaultRegion returned 0 results — falling back to US"
+                }
+        }
         return search(AudibleRegion.US, params)
     }
 
