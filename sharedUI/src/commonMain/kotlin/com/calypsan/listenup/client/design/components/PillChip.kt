@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * Outlined pill button with an optional filled-[selected] state — the canonical chip across the
@@ -40,10 +41,14 @@ fun PillChip(
     selected: Boolean = false,
     leadingIcon: ImageVector? = null,
 ) {
+    val haptics = LocalHaptics.current
     val contentColor =
         if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.selectionTick()
+            onClick()
+        },
         modifier = modifier,
         shape = RoundedCornerShape(percent = 50),
         color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,

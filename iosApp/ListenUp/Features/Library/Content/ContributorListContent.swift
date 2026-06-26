@@ -1,6 +1,5 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
 /// A single-role contributor Library tab (Authors or Narrators): a sorted, letter-grouped
 /// list of people, with a responsive single/multi-column layout and an alphabet scrubber on
@@ -146,7 +145,6 @@ struct ContributorListContent: View {
         return SortRow(count: count, sortLabel: sortState?.category.label ?? "") {
             ForEach(sortCategories, id: \.rawValue) { cat in
                 Button {
-                    UISelectionFeedbackGenerator().selectionChanged()
                     onCategorySelected(cat)
                 } label: {
                     HStack {
@@ -157,10 +155,10 @@ struct ContributorListContent: View {
             }
             Divider()
             Button {
-                UISelectionFeedbackGenerator().selectionChanged()
                 onDirectionToggle()
             } label: { Text(String(localized: "common.direction")) }
         }
+        .haptic(.selectionTick, trigger: sortState)
     }
 
     private var emptyState: some View {

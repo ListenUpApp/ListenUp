@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 
 /**
  * Squircle play/pause FAB with primary background; shows the wavy circular progress indicator while
@@ -44,8 +45,12 @@ fun PlayPauseFab(
     size: Dp,
     shadowElevation: Dp = 8.dp,
 ) {
+    val haptics = LocalHaptics.current
     Surface(
-        onClick = onClick,
+        onClick = {
+            haptics.toggle(on = !isPlaying)
+            onClick()
+        },
         modifier = Modifier.size(size),
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primary,

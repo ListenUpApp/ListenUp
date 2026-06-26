@@ -1,6 +1,5 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
 /// Floating sort button that shows current sort and expands to menu on tap.
 ///
@@ -16,14 +15,12 @@ struct FloatingSortButton: View {
     let onDirectionToggle: () -> Void
 
     @State private var isExpanded = false
-    private let feedbackGenerator = UISelectionFeedbackGenerator()
 
     var body: some View {
         Menu {
             // Category options
             ForEach(categories, id: \.rawValue) { category in
                 Button {
-                    feedbackGenerator.selectionChanged()
                     onCategorySelected(category)
                 } label: {
                     HStack {
@@ -39,7 +36,6 @@ struct FloatingSortButton: View {
 
             // Direction toggle
             Button {
-                feedbackGenerator.selectionChanged()
                 onDirectionToggle()
             } label: {
                 HStack {
@@ -65,6 +61,7 @@ struct FloatingSortButton: View {
         }
         .accessibilityLabel("Sort by \(sortState.category.label)")
         .accessibilityHint("Double tap to change sort options")
+        .haptic(.selectionTick, trigger: sortState)
     }
 
     private var sortIcon: String {

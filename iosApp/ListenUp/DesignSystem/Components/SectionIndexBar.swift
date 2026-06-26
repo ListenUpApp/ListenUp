@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Compact alphabet index for quick section navigation.
 ///
@@ -16,8 +15,6 @@ struct SectionIndexBar: View {
     @State private var selectedLetter: String?
     @State private var isDragging = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
         GeometryReader { geo in
@@ -85,6 +82,7 @@ struct SectionIndexBar: View {
         .opacity(isVisible || isDragging ? 1 : 0)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isVisible)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.1), value: isDragging)
+        .haptic(.selectionTick, trigger: selectedLetter)
     }
 
     private func handleDrag(at y: CGFloat, letterHeight: CGFloat) {
@@ -92,7 +90,6 @@ struct SectionIndexBar: View {
 
         if !isDragging {
             isDragging = true
-            feedbackGenerator.prepare()
         }
 
         let index = Int(y / letterHeight)
@@ -101,7 +98,6 @@ struct SectionIndexBar: View {
 
         if letter != selectedLetter {
             selectedLetter = letter
-            feedbackGenerator.impactOccurred()
             onLetterSelected(letter)
         }
     }

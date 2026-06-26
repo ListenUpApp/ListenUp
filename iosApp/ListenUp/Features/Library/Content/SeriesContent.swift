@@ -1,6 +1,5 @@
 import SwiftUI
 @preconcurrency import Shared
-import UIKit
 
 /// Content view for the Series tab in the Library.
 ///
@@ -100,7 +99,6 @@ struct SeriesContent: View {
         return SortRow(count: count, sortLabel: sortLabel) {
             ForEach(sortCategories, id: \.rawValue) { cat in
                 Button {
-                    UISelectionFeedbackGenerator().selectionChanged()
                     onCategorySelected(cat)
                 } label: {
                     HStack {
@@ -113,12 +111,12 @@ struct SeriesContent: View {
             }
             Divider()
             Button {
-                UISelectionFeedbackGenerator().selectionChanged()
                 onDirectionToggle()
             } label: {
                 Text(String(localized: "common.direction"))
             }
         }
+        .haptic(.selectionTick, trigger: sortState)
     }
 
     // MARK: - iPhone List

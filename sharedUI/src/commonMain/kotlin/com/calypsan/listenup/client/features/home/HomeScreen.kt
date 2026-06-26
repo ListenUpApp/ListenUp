@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.theme.Spacing
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -157,9 +158,14 @@ private fun HomeContent(
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalHaptics.current
+
     PullToRefreshBox(
         isRefreshing = state.isLoading,
-        onRefresh = onRefresh,
+        onRefresh = {
+            haptics.thresholdActivate()
+            onRefresh()
+        },
         modifier = modifier.fillMaxSize(),
     ) {
         // The shell's system-bar/nav insets are applied *inside* the scroll so content scrolls

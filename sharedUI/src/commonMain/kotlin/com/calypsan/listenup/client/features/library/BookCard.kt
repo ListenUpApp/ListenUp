@@ -39,9 +39,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -123,7 +122,7 @@ fun BookCard(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val isFocused by interactionSource.collectIsFocusedAsState()
-    val hapticFeedback = LocalHapticFeedback.current
+    val haptics = LocalHaptics.current
 
     // Animate scale for press, focus, and selection
     val scale by animateFloatAsState(
@@ -173,9 +172,12 @@ fun BookCard(
                         Modifier.combinedClickable(
                             interactionSource = interactionSource,
                             indication = null,
+                            // Our gated haptics.longPress() owns the feel; suppress
+                            // combinedClickable's built-in long-press haptic so it doesn't double up.
+                            hapticFeedbackEnabled = false,
                             onClick = onClick,
                             onLongClick = {
-                                hapticFeedback.performHapticFeedback(HapticFeedbackType.LongPress)
+                                haptics.longPress()
                                 onLongPress()
                             },
                         )

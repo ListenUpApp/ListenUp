@@ -112,6 +112,7 @@ struct SettingsView: View {
             } label: {
                 SettingsLabel(title: String(localized: "settings.appearance"), systemImage: "moon.fill", tint: .indigo)
             }
+            .haptic(.selectionTick, trigger: observer.themeMode)
             // No "Dynamic Colors" toggle on iOS — Material You dynamic color is Android-only and has
             // no effect here. The shared preference stays for Android (see SettingsScreen.showDynamicColors).
         }
@@ -133,6 +134,7 @@ struct SettingsView: View {
                     tint: .luTint
                 )
             }
+            .haptic(.selectionTick, trigger: observer.defaultPlaybackSpeed)
 
             Picker(selection: skipForwardBinding(observer)) {
                 ForEach(Self.skipOptions, id: \.self) { sec in
@@ -145,6 +147,7 @@ struct SettingsView: View {
                     tint: .luTint
                 )
             }
+            .haptic(.selectionTick, trigger: observer.defaultSkipForwardSec)
 
             Picker(selection: skipBackwardBinding(observer)) {
                 ForEach(Self.skipOptions, id: \.self) { sec in
@@ -157,6 +160,7 @@ struct SettingsView: View {
                     tint: .luTint
                 )
             }
+            .haptic(.selectionTick, trigger: observer.defaultSkipBackwardSec)
 
             Toggle(isOn: boolBinding(observer.autoRewindEnabled, observer.setAutoRewindEnabled)) {
                 SettingsLabel(
@@ -165,6 +169,7 @@ struct SettingsView: View {
                     tint: .luTint
                 )
             }
+            .haptic(.toggleOn, trigger: observer.autoRewindEnabled)
 
         }
     }
@@ -187,6 +192,7 @@ struct SettingsView: View {
                     tint: .purple
                 )
             }
+            .haptic(.selectionTick, trigger: observer.defaultSleepTimerMin)
 
             Toggle(isOn: boolBinding(observer.shakeToResetSleepTimer, observer.setShakeToResetSleepTimer)) {
                 SettingsLabel(
@@ -195,6 +201,7 @@ struct SettingsView: View {
                     tint: .purple
                 )
             }
+            .haptic(.toggleOn, trigger: observer.shakeToResetSleepTimer)
         }
     }
 
@@ -211,6 +218,7 @@ struct SettingsView: View {
                     tint: .blue
                 )
             }
+            .haptic(.toggleOn, trigger: observer.ignoreTitleArticles)
 
             Toggle(isOn: boolBinding(observer.hideSingleBookSeries, observer.setHideSingleBookSeries)) {
                 SettingsLabel(
@@ -220,6 +228,7 @@ struct SettingsView: View {
                     tint: .blue
                 )
             }
+            .haptic(.toggleOn, trigger: observer.hideSingleBookSeries)
         }
     }
 
@@ -235,6 +244,7 @@ struct SettingsView: View {
                     tint: .green
                 )
             }
+            .haptic(.toggleOn, trigger: observer.wifiOnlyDownloads)
 
             Toggle(isOn: boolBinding(observer.autoRemoveFinished, observer.setAutoRemoveFinished)) {
                 SettingsLabel(
@@ -243,6 +253,7 @@ struct SettingsView: View {
                     tint: .green
                 )
             }
+            .haptic(.toggleOn, trigger: observer.autoRemoveFinished)
         }
     }
 
@@ -275,6 +286,7 @@ struct SettingsView: View {
                     tint: .teal
                 )
             }
+            .haptic(.toggleOn, trigger: observer.hapticFeedbackEnabled)
         }
     }
 

@@ -19,6 +19,10 @@ struct MiniPlayerBar: View {
     /// Small gap between the bar and the (measured) floating tab bar it sits above.
     static let tabBarClearance: CGFloat = 4
 
+    /// Counts user taps on play/pause so the haptic fires only on a deliberate tap — not on
+    /// programmatic `isPlaying` changes (audio-session interruptions, route changes, end of book).
+    @State private var playPauseTapCount = 0
+
     var body: some View {
         Button(action: onTap) {
             contentRow
@@ -114,7 +118,7 @@ struct MiniPlayerBar: View {
 
     private var playPauseButton: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            playPauseTapCount += 1
             observer.togglePlayback()
         } label: {
             Image(systemName: observer.isPlaying ? "pause.fill" : "play.fill")
@@ -127,5 +131,6 @@ struct MiniPlayerBar: View {
         .accessibilityLabel(observer.isPlaying
             ? String(localized: "player.pause")
             : String(localized: "player.play"))
+        .haptic(.toggleOn, trigger: playPauseTapCount)
     }
 }
