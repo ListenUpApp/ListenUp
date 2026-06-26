@@ -1,6 +1,5 @@
 import SwiftUI
 import Shared
-import UIKit
 
 /// Library screen displaying the user's audiobook collection with four tabs.
 ///

@@ -1,6 +1,5 @@
 import SwiftUI
 import Shared
-import UIKit
 
 /// Full-screen audiobook player on a soft cover-tint wash.
 ///
