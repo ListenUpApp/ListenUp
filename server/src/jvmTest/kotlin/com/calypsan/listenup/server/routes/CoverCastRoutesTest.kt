@@ -1,8 +1,14 @@
 package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.module
@@ -70,7 +76,7 @@ class CoverCastRoutesTest :
 
                     val repo by application.inject<BookRepository>()
                     repo.upsert(
-                        coverCastFixture(
+                        coverFixture(
                             id = "b1",
                             source = CoverSource.FILESYSTEM,
                         ),
@@ -82,8 +88,8 @@ class CoverCastRoutesTest :
                     sql.seedTestUser("user1")
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
-                    collectionRepo.upsert(coverCastPrivateCollection("owned-col", owner = "user1"))
-                    collectionBookRepo.upsert(coverCastMembership("owned-col", "b1"))
+                    collectionRepo.upsert(privateCollection("owned-col", owner = "user1"))
+                    collectionBookRepo.upsert(membership("owned-col", "b1"))
 
                     val signer = CoverUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("user1", "b1")
@@ -152,7 +158,7 @@ class CoverCastRoutesTest :
 
                     val repo by application.inject<BookRepository>()
                     repo.upsert(
-                        coverCastFixture(
+                        coverFixture(
                             id = "b1",
                             source = CoverSource.FILESYSTEM,
                         ),
@@ -164,8 +170,8 @@ class CoverCastRoutesTest :
                     sql.seedTestUser("member")
                     val collectionRepo by application.inject<CollectionRepository>()
                     val collectionBookRepo by application.inject<CollectionBookRepository>()
-                    collectionRepo.upsert(coverCastPrivateCollection("private-col", owner = "stranger"))
-                    collectionBookRepo.upsert(coverCastMembership("private-col", "b1"))
+                    collectionRepo.upsert(privateCollection("private-col", owner = "stranger"))
+                    collectionBookRepo.upsert(membership("private-col", "b1"))
 
                     val signer = CoverUrlSigner(signingKey = TEST_SIGNING_KEY)
                     val query = signer.signedQuery("member", "b1")
@@ -180,11 +186,11 @@ class CoverCastRoutesTest :
         }
     })
 
-private fun coverCastPrivateCollection(
+private fun privateCollection(
     id: String,
     owner: String,
-): com.calypsan.listenup.api.sync.CollectionSyncPayload =
-    com.calypsan.listenup.api.sync.CollectionSyncPayload(
+): CollectionSyncPayload =
+    CollectionSyncPayload(
         id = id,
         libraryId = "test-library",
         ownerId = owner,
@@ -194,25 +200,25 @@ private fun coverCastPrivateCollection(
         updatedAt = 0L,
     )
 
-private fun coverCastMembership(
+private fun membership(
     collectionId: String,
     bookId: String,
-): com.calypsan.listenup.api.sync.CollectionBookSyncPayload =
-    com.calypsan.listenup.api.sync.CollectionBookSyncPayload(
+): CollectionBookSyncPayload =
+    CollectionBookSyncPayload(
         collectionId = collectionId,
         bookId = bookId,
         createdAt = 0L,
         revision = 0L,
     )
 
-private fun coverCastFixture(
+private fun coverFixture(
     id: String,
     source: CoverSource?,
-): com.calypsan.listenup.api.sync.BookSyncPayload =
-    com.calypsan.listenup.api.sync.BookSyncPayload(
+): BookSyncPayload =
+    BookSyncPayload(
         id = id,
-        libraryId = com.calypsan.listenup.core.LibraryId("test-library"),
-        folderId = com.calypsan.listenup.core.FolderId("test-folder"),
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
         title = "Cover Cast Book $id",
         sortTitle = "Cover Cast Book $id",
         subtitle = null,
@@ -233,7 +239,7 @@ private fun coverCastFixture(
         series = emptyList(),
         audioFiles =
             listOf(
-                com.calypsan.listenup.api.sync.BookAudioFilePayload(
+                BookAudioFilePayload(
                     id = "af-$id",
                     index = 0,
                     filename = "01.m4b",
