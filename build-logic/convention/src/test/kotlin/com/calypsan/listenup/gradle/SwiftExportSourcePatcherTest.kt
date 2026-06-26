@@ -119,13 +119,35 @@ class SwiftExportSourcePatcherTest {
     }
 
     @Test
-    fun `unknown sealed parent does not drift (new type before baseline recorded)`() {
-        // A sealed type absent from the expected map must not fail the build before its baseline exists.
+    fun `undeclared sealed parent drifts (forces a baseline entry before it can ship)`() {
+        // A harvested sealed type absent from the expected map must fail the build, so a brand-new
+        // sealed type can't ship with no recorded onEnum baseline.
         val novel =
             "public final class _ExportedKotlinPackages_com_calypsan_listenup_client_domain_model_BrandNewType_One: " +
                 "KotlinRuntime.KotlinBase, ExportedKotlinPackages.com.calypsan.listenup.client.domain.model.BrandNewType, " +
                 "ExportedKotlinPackages.com.calypsan.listenup.client.domain.model._BrandNewType {\n}\n"
-        assertTrue(SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel)).none { it.contains("BrandNewType") })
+        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(novel))
+        assertTrue(drift.any { it.contains("BrandNewType") && it.contains("not declared") }, "undeclared parent reported")
+    }
+
+    @Test
+    fun `a fully-declared harvested parent is not flagged as undeclared`() {
+        // ServerConnectError is in the production map at 5 subtypes — harvest exactly 5 and assert the
+        // new undeclared check stays silent on it (the other declared parents harvest 0 here and shrink-
+        // drift, which is expected; we assert only that the harvested parent isn't called *undeclared*).
+        val base = "ExportedKotlinPackages.com.calypsan.listenup.api.error"
+
+        fun subtype(name: String) =
+            "public final class _ExportedKotlinPackages_com_calypsan_listenup_api_error_ServerConnectError_$name: " +
+                "KotlinRuntime.KotlinBase, $base.ServerConnectError, $base._ServerConnectError {\n}\n"
+        val five =
+            listOf("InvalidUrl", "NotListenUpServer", "ServerNotReachable", "VerificationFailed", "LocalNetworkPermissionDenied")
+                .joinToString("") { subtype(it) }
+        val drift = SwiftExportSourcePatcher.sealedSubtypeDrift(listOf(five))
+        assertFalse(
+            drift.any { it.contains("ServerConnectError") && it.contains("not declared") },
+            "a declared, fully-harvested parent must not be flagged undeclared",
+        )
     }
 
     // ---- AppResult accessor pass ---------------------------------------------------------------

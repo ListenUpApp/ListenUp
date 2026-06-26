@@ -328,9 +328,11 @@ object SwiftExportSourcePatcher {
      * count makes that partial drop a red build naming the parent.
      *
      * **Maintenance:** when a Kotlin sealed type legitimately gains or loses a subtype, update its
-     * entry here — that edit is the intended signal. A new sealed type with `onEnum` consumers should
-     * be added; the guard ignores harvested parents absent from this map (so a brand-new type doesn't
-     * fail the build before its baseline is recorded), and only fires when a *known* parent shrinks.
+     * entry here — that edit is the intended signal. A brand-new sealed type added to `:contract`
+     * must also be declared here (with its subtype count): [sealedSubtypeDrift] fails the build on any
+     * harvested parent absent from this map, so a new sealed type can't ship without its `onEnum(of:)`
+     * support being considered. The guard fires both when a *known* parent shrinks and when an
+     * *undeclared* parent is harvested.
      */
     internal val expectedSealedSubtypeCounts: Map<String, Int> =
         mapOf(
@@ -439,24 +441,37 @@ object SwiftExportSourcePatcher {
 
     /**
      * Compares harvested per-parent subtype counts against [expectedSealedSubtypeCounts] and returns
-     * one human-readable drift line per *known* parent that harvested fewer subtypes than recorded —
-     * the exact-count guard the build fails on. Only shrinkage of a known parent drifts: an unknown
-     * parent (new sealed type) or a parent that grew (legitimately gained a subtype, with its map
-     * entry not yet bumped) does not fail here — those are caught by code review / the consumer
-     * compile, not a false-positive build break. The returned list is empty when there's no drift.
+     * one human-readable drift line per parent that drifts. Two ways a parent drifts:
+     *  1. A *known* parent harvested fewer subtypes than recorded (a partial drop) — the exact-count
+     *     guard; the dropped subtype would silently fall to the generated `unknown` case.
+     *  2. A harvested parent that is *not declared* in [expectedSealedSubtypeCounts] — a brand-new
+     *     sealed type that would ship with no recorded baseline, so its `onEnum(of:)` support is never
+     *     considered. Declaring it (with its subtype count) is the forcing function that guarantees a
+     *     reviewer signs off on its exhaustive Swift switch.
+     * A *known* parent that grew (legitimately gained a subtype, with its map entry not yet bumped)
+     * still fails via case 1's shrink check only when it shrank; a grow surfaces at the consumer
+     * compile. The returned list is empty when there's no drift.
      */
     internal fun sealedSubtypeDrift(sourceContents: List<String>): List<String> {
         val harvested = harvestSealedSubtypes(sourceContents).mapKeys { (parent, _) -> "${parent.path}.${parent.name}" }
-        return expectedSealedSubtypeCounts.mapNotNull { (parent, expected) ->
-            val actual = harvested[parent]?.size ?: 0
-            if (actual < expected) {
-                "$parent: expected $expected subtype(s), harvested $actual " +
-                    "(a Swift-Export/Kotlin bump likely shifted a subtype's emitted shape; the dropped " +
-                    "subtype would silently fall to the generated `unknown` case)"
-            } else {
-                null
+        val shrinkOrMissing =
+            expectedSealedSubtypeCounts.mapNotNull { (parent, expected) ->
+                val actual = harvested[parent]?.size ?: 0
+                if (actual < expected) {
+                    "$parent: expected $expected subtype(s), harvested $actual " +
+                        "(a Swift-Export/Kotlin bump likely shifted a subtype's emitted shape; the dropped " +
+                        "subtype would silently fall to the generated `unknown` case)"
+                } else {
+                    null
+                }
             }
-        }
+        val undeclared =
+            harvested.keys.filter { it !in expectedSealedSubtypeCounts }.map { parent ->
+                "$parent: harvested sealed type is not declared in expectedSealedSubtypeCounts — add it " +
+                    "(with its subtype count) so its onEnum(of:) support is guaranteed; a new sealed type " +
+                    "without an entry would ship with no exhaustive Swift switch."
+            }
+        return shrinkOrMissing + undeclared
     }
 
     /**
