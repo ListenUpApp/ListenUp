@@ -21,7 +21,7 @@ struct PersonRow: View {
             HStack(spacing: 14) {
                 ContributorAvatar(
                     name: name,
-                    imagePath: nil,
+                    imagePath: contributor.imagePath,
                     blurHash: contributor.imageBlurHash,
                     id: contributor.id,
                     fontSize: 16,
