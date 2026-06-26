@@ -1,7 +1,6 @@
 package com.calypsan.listenup.server.mdns
 
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
 /**
@@ -12,7 +11,6 @@ import kotlin.uuid.Uuid
 class InstanceIdentity(
     private val settings: ServerSettingsRepository,
 ) {
-    @OptIn(ExperimentalUuidApi::class)
     suspend fun instanceId(): String =
         settings.getValue(KEY) ?: Uuid.random().toString().also { settings.setValue(KEY, it) }
 

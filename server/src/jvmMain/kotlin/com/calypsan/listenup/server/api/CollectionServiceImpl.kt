@@ -1,5 +1,3 @@
-@file:OptIn(kotlin.uuid.ExperimentalUuidApi::class)
-
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.CollectionService
