@@ -6,16 +6,9 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanResultSummary
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.routes.resources.ScannerResources
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.plugins.toHttpStatus
-import com.calypsan.listenup.server.plugins.withCorrelationId
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.plugins.callid.callId
 import io.ktor.server.resources.get
 import io.ktor.server.resources.post
-import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
@@ -56,22 +49,4 @@ fun Route.scannerRoutes(
             )
         }
     }
-}
-
-private suspend inline fun <reified T : Any> ApplicationCall.respondAppResult(result: AppResult<T>) {
-    val status: HttpStatusCode
-    val body: AppResult<T>
-    when (result) {
-        is AppResult.Success -> {
-            status = HttpStatusCode.OK
-            body = result
-        }
-
-        is AppResult.Failure -> {
-            val typed = result.error.withCorrelationId(callId)
-            status = typed.toHttpStatus()
-            body = AppResult.Failure(typed)
-        }
-    }
-    respond(status, body)
 }

@@ -50,4 +50,56 @@ class LoggingBackendTest :
                 ListenUpLoggerFactory.removeTestCapture()
             }
         }
+
+        test("LISTENUP_LOG_LEVEL=DEBUG enables debug on app loggers") {
+            val factory =
+                ListenUpLoggerFactory(
+                    isJsonFormat = false,
+                    levelConfig = LogLevelConfig.fromEnv(mapOf("LISTENUP_LOG_LEVEL" to "DEBUG")),
+                )
+            factory.getLogger("com.calypsan.listenup.server.sync.SyncRoutes").isDebugEnabled.shouldBeTrue()
+        }
+
+        test("unset or unparseable LISTENUP_LOG_LEVEL defaults to INFO") {
+            val unset = ListenUpLoggerFactory(isJsonFormat = false, levelConfig = LogLevelConfig.fromEnv(emptyMap()))
+            unset.getLogger("com.calypsan.x").isInfoEnabled.shouldBeTrue()
+            unset.getLogger("com.calypsan.x").isDebugEnabled.shouldBeFalse()
+
+            val garbage =
+                ListenUpLoggerFactory(
+                    isJsonFormat = false,
+                    levelConfig = LogLevelConfig.fromEnv(mapOf("LISTENUP_LOG_LEVEL" to "LOUD")),
+                )
+            garbage.getLogger("com.calypsan.x").isInfoEnabled.shouldBeTrue()
+            garbage.getLogger("com.calypsan.x").isDebugEnabled.shouldBeFalse()
+        }
+
+        test("an empty-suffix LISTENUP_LOG_LEVEL_ key is ignored (no silent catch-all)") {
+            val cfg = LogLevelConfig.fromEnv(mapOf("LISTENUP_LOG_LEVEL" to "INFO", "LISTENUP_LOG_LEVEL_" to "TRACE"))
+            val factory = ListenUpLoggerFactory(isJsonFormat = false, levelConfig = cfg)
+            // the malformed key must NOT enable TRACE/DEBUG everywhere — the INFO default stands
+            factory.getLogger("com.calypsan.listenup.server.anything").isDebugEnabled.shouldBeFalse()
+            factory.getLogger("com.calypsan.listenup.server.anything").isInfoEnabled.shouldBeTrue()
+        }
+
+        test("per-prefix override targets only matching loggers") {
+            val cfg =
+                LogLevelConfig.fromEnv(
+                    mapOf(
+                        "LISTENUP_LOG_LEVEL" to "WARN",
+                        "LISTENUP_LOG_LEVEL_com_calypsan_listenup_server_sync" to "DEBUG",
+                    ),
+                )
+            val factory = ListenUpLoggerFactory(isJsonFormat = false, levelConfig = cfg)
+            factory.getLogger("com.calypsan.listenup.server.sync.SyncRoutes").isDebugEnabled.shouldBeTrue()
+            factory.getLogger("com.calypsan.listenup.server.book.BookServiceImpl").isInfoEnabled.shouldBeFalse()
+            factory.getLogger("com.calypsan.listenup.server.book.BookServiceImpl").isWarnEnabled.shouldBeTrue()
+        }
+
+        test("netty/jetty WARN floor still wins over a broad DEBUG default") {
+            val cfg = LogLevelConfig.fromEnv(mapOf("LISTENUP_LOG_LEVEL" to "DEBUG"))
+            val factory = ListenUpLoggerFactory(isJsonFormat = false, levelConfig = cfg)
+            factory.getLogger("io.netty.some.Class").isInfoEnabled.shouldBeFalse()
+            factory.getLogger("io.netty.some.Class").isWarnEnabled.shouldBeTrue()
+        }
     })

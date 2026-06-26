@@ -15,6 +15,17 @@ import org.slf4j.helpers.MessageFormatter
  * Each [handleNormalizedLoggingCall] call writes a single [println] to [System.out],
  * which is internally synchronized, guaranteeing atomic multi-line output under
  * concurrent access.
+ *
+ * ## Level convention
+ * - **ERROR** — a failure needing operator attention (unhandled exception, failed restore, corruption).
+ * - **WARN**  — a recoverable anomaly or fallback (server search failed → local; transient retry; auth rejection).
+ * - **INFO**  — a lifecycle milestone (server started, scan completed, backup created, user registered).
+ * - **DEBUG** — flow + decisions (entered handler X; resolved metadata from source Y; conflict resolved last-write-wins).
+ * - **TRACE** — verbose payload dumps (rare).
+ *
+ * Always carry the correlation id (propagated via MDC) and key entity ids (bookId/userId/scanId) in the message.
+ * New code obtains loggers via `io.github.oshai.kotlinlogging.KotlinLogging.logger {}`, never `org.slf4j` directly.
+ * Never log tokens, password hashes, secrets, or user content.
  */
 class ListenUpLogger(
     name: String,

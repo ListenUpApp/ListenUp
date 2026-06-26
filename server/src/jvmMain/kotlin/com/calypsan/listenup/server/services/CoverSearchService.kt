@@ -59,11 +59,20 @@ class CoverSearchService(
         provider: CoverProvider,
         book: BookSummary,
         region: AudibleRegion?,
-    ): List<CoverOption> =
-        when (val r = provider.searchCovers(book, region)) {
-            is AppResult.Failure -> throw SourceException(r.error)
-            is AppResult.Success -> r.data.map { option(provider.source, it.url, it.sourceId) }
+    ): List<CoverOption> {
+        log.debug { "cover search: source=${provider.source.name} title='${book.title}' author='${book.author}'" }
+        return when (val r = provider.searchCovers(book, region)) {
+            is AppResult.Failure -> {
+                throw SourceException(r.error)
+            }
+
+            is AppResult.Success -> {
+                r.data.map { option(provider.source, it.url, it.sourceId) }.also { opts ->
+                    log.debug { "cover search result: source=${provider.source.name} candidates=${opts.size}" }
+                }
+            }
         }
+    }
 
     private suspend fun option(
         source: CoverOptionSource,
@@ -83,7 +92,7 @@ class CoverSearchService(
         } catch (e: CancellationException) {
             throw e
         } catch (e: SourceException) {
-            log.warn { "cover search: $source source failed: ${e.error.code}" }
+            log.warn { "cover search: $source source failed (${e.error.code}: ${e.error.debugInfo}) — skipping" }
             emptyList()
         } catch (e: Exception) {
             log.warn(e) { "cover search: $source source threw" }

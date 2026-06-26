@@ -14,6 +14,9 @@ import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.services.MetadataService
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val log = KotlinLogging.logger {}
 
 /**
  * [MetadataProvider] backed by Audible via [MetadataService] (which adds TTL caching +
@@ -29,6 +32,7 @@ internal class AudibleMetadataProvider(
         query: String,
         region: AudibleRegion?,
     ): AppResult<List<MetadataBook>> {
+        log.debug { "metadata lookup: source=AUDIBLE query='$query' region=${region?.name ?: "default+fallback"}" }
         val params = SearchParams(keywords = query)
         val result =
             if (region == null) {
@@ -36,22 +40,44 @@ internal class AudibleMetadataProvider(
             } else {
                 metadataService.search(region, params)
             }
-        return result.map { hits -> hits.map { it.toMetadataBook() } }
+        return result.map { hits ->
+            hits.map { it.toMetadataBook() }.also { books ->
+                log.debug { "metadata lookup result: source=AUDIBLE matches=${books.size}" }
+            }
+        }
     }
 
     override suspend fun getBook(
         id: String,
         region: AudibleRegion,
         refresh: Boolean,
-    ): AppResult<MetadataBook?> = metadataService.getBook(region, id, refresh = refresh).map { it?.toMetadataBook() }
+    ): AppResult<MetadataBook?> {
+        log.debug { "metadata lookup: source=AUDIBLE asin=$id region=${region.name} refresh=$refresh" }
+        return metadataService.getBook(region, id, refresh = refresh).map { book ->
+            book?.toMetadataBook().also { mapped ->
+                log.debug { "metadata lookup result: source=AUDIBLE asin=$id found=${mapped != null}" }
+            }
+        }
+    }
 
     override suspend fun getChapters(
         id: String,
         region: AudibleRegion,
-    ): AppResult<MetadataChapters?> =
-        metadataService.getBookChapters(region, id).map { chapters ->
-            if (chapters.isEmpty()) null else MetadataChapters(chapters = chapters.map { it.toMetadataChapter() })
+    ): AppResult<MetadataChapters?> {
+        log.debug { "metadata lookup: source=AUDIBLE chapters asin=$id region=${region.name}" }
+        return metadataService.getBookChapters(region, id).map { chapters ->
+            if (chapters.isEmpty()) {
+                log.debug { "metadata lookup result: source=AUDIBLE chapters asin=$id count=0" }
+                null
+            } else {
+                MetadataChapters(chapters = chapters.map { it.toMetadataChapter() }).also { result ->
+                    log.debug {
+                        "metadata lookup result: source=AUDIBLE chapters asin=$id count=${result.chapters.size}"
+                    }
+                }
+            }
         }
+    }
 }
 
 // ─── Audible → wire DTO mappers (moved from MetadataLookupServiceImpl) ─────────

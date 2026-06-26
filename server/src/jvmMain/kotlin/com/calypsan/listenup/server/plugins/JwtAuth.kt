@@ -4,6 +4,7 @@ import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.JwtVerificationException
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
@@ -11,6 +12,13 @@ import io.ktor.server.auth.AuthenticationConfig
 import io.ktor.server.auth.bearer
 import io.ktor.server.auth.principal
 import io.ktor.server.application.Application as KtorApplication
+
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.plugins.JwtAuth")
+
+/** Logs an auth rejection at WARN. [reason] must never contain the token or any secret. */
+internal fun logJwtRejection(reason: String) {
+    logger.warn { "auth rejected: $reason" }
+}
 
 /** Name of the bearer-JWT provider — referenced by route handlers. */
 const val JWT_PROVIDER = "jwt"
@@ -40,9 +48,13 @@ private fun AuthenticationConfig.bearerJwt(
                 try {
                     jwt.verify(credential.token)
                 } catch (_: JwtVerificationException) {
+                    logJwtRejection("token verification failed")
                     return@authenticate null
                 }
-            if (!sessions.isLive(claims.sessionId)) return@authenticate null
+            if (!sessions.isLive(claims.sessionId)) {
+                logJwtRejection("session no longer live for sessionId=${claims.sessionId}")
+                return@authenticate null
+            }
             UserPrincipal(claims.userId, claims.sessionId, claims.role)
         }
     }

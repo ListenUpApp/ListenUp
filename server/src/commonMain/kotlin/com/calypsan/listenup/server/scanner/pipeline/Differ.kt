@@ -3,8 +3,11 @@ package com.calypsan.listenup.server.scanner.pipeline
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.FileType
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+
+private val logger = KotlinLogging.logger {}
 
 /**
  * Stage 4 of the scanner pipeline: emits a [ChangeEventDto] per book that
@@ -53,6 +56,7 @@ internal class Differ {
 
             previous.forEach { previousBook ->
                 if (previousBook.candidate.rootRelPath !in matchedRoots) {
+                    logger.debug { "book removed: path=${previousBook.candidate.rootRelPath}" }
                     emit(ChangeEventDto.Removed(previousBook.candidate.rootRelPath))
                 }
             }
@@ -64,10 +68,14 @@ internal class Differ {
     ): ChangeEventDto? =
         when {
             previous == null -> {
+                logger.debug { "book added: path=${current.candidate.rootRelPath}" }
                 ChangeEventDto.Added(current)
             }
 
             previous.candidate.rootRelPath != current.candidate.rootRelPath -> {
+                logger.debug {
+                    "book moved: from=${previous.candidate.rootRelPath} to=${current.candidate.rootRelPath}"
+                }
                 ChangeEventDto.Moved(
                     from = previous.candidate.rootRelPath,
                     to = current.candidate.rootRelPath,
@@ -76,6 +84,7 @@ internal class Differ {
             }
 
             previous != current -> {
+                logger.debug { "book modified: path=${current.candidate.rootRelPath}" }
                 ChangeEventDto.Modified(
                     book = current,
                     previousRootRelPath = previous.candidate.rootRelPath,
