@@ -11,15 +11,14 @@ import Nuke
 enum ContributorImageRequest {
     @MainActor
     static func contributor(contributorId: String, targetPixels: CGFloat) async -> ImageRequest? {
-        let processors: [any ImageProcessing] =
-            targetPixels > 0 ? [ImageProcessors.Resize(width: targetPixels, unit: .pixels)] : []
+        let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
 
         let repository = KoinHelper.shared.getImageRepository()
 
         // Offline fast path: a previously cached photo on disk.
         if repository.contributorImageExists(contributorId: contributorId) {
             let path = repository.getContributorImagePath(contributorId: contributorId)
-            return ImageRequest(url: URL(fileURLWithPath: path), processors: processors)
+            return AuthenticatedImageRequest.localFile(path, processors: processors)
         }
 
         // No durable file yet — persist this streamed photo on disk for offline use (fire-and-forget,
@@ -30,11 +29,7 @@ enum ContributorImageRequest {
               let url = photoURL(base: base, contributorId: contributorId)
         else { return nil }
 
-        var urlRequest = URLRequest(url: url)
-        if let token = try? await KoinHelper.shared.accessToken() {
-            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        return ImageRequest(urlRequest: urlRequest, processors: processors)
+        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors)
     }
 
     /// The authenticated contributor-photo endpoint for a server base URL. Pure, so the endpoint
