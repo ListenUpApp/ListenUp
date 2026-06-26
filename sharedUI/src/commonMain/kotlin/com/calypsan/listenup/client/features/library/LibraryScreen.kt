@@ -207,6 +207,8 @@ private fun LibraryLoadedContent(
             bookIsFinished = state.bookIsFinished,
             isInSelectionMode = isInSelectionMode,
             selectedBookIds = selectedBookIds,
+            onCategorySelected = { onEvent(LibraryUiEvent.BooksCategoryChanged(it)) },
+            onDirectionToggle = { onEvent(LibraryUiEvent.BooksDirectionToggled) },
             onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
             onBookClick = { bookId ->
                 if (isInSelectionMode) multiSelect.toggleSelection(bookId) else onBookClick(bookId)

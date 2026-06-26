@@ -954,6 +954,7 @@ One beautiful library.</string>
     <string name="library_shelf_name">Shelf name</string>
     <string name="library_sort_ascending">Ascending</string>
     <string name="library_sort_descending">Descending</string>
+    <string name="library_sort_options">Sort options</string>
     <string name="library_summary">• %1$s</string>
     <string name="library_sync_failed">Sync Failed</string>
     <string name="library_title_count">%d titles</string>

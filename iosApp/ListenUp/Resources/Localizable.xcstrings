@@ -9531,6 +9531,16 @@
         }
       }
     },
+    "library.sort_options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort options"
+          }
+        }
+      }
+    },
     "library.summary": {
       "localizations": {
         "en": {
