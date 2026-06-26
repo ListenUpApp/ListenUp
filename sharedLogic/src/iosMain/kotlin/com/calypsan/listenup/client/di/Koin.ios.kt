@@ -119,6 +119,28 @@ private fun resolveDependencyWithParams(
 ): Any = KoinPlatform.getKoin().get(type, null) { parametersOf(*params.toTypedArray()) }
 
 /**
+ * Typed wrapper over [resolveDependency] that does the unchecked cast once. Kept **non-inline** for
+ * the same reason as [resolveDependency]: a `reified inline` resolver would inline `KoinPlatform.getKoin()`
+ * into every exported accessor and re-leak `org.koin.core.Koin` onto the Swift Export surface. The
+ * single cast here replaces the per-accessor `as` casts.
+ */
+private fun <T : Any> resolve(type: kotlin.reflect.KClass<T>): T {
+    @Suppress("UNCHECKED_CAST")
+    return resolveDependency(type) as T
+}
+
+/**
+ * Parameterized [resolve]. Same non-inline rationale as [resolveDependencyWithParams].
+ */
+private fun <T : Any> resolveWithParams(
+    type: kotlin.reflect.KClass<T>,
+    params: List<Any?>,
+): T {
+    @Suppress("UNCHECKED_CAST")
+    return resolveDependencyWithParams(type, params) as T
+}
+
+/**
  * Helper object for accessing dependencies from Swift.
  *
  * Provides strongly-typed accessors that are easier to use from Swift. Resolution goes through the
@@ -127,38 +149,32 @@ private fun resolveDependencyWithParams(
  * public surface. Every accessor returns a domain or presentation type, never a Koin type.
  */
 object KoinHelper {
-    fun getInstanceUseCase(): GetInstanceUseCase = resolveDependency(GetInstanceUseCase::class) as GetInstanceUseCase
+    fun getInstanceUseCase(): GetInstanceUseCase = resolve(GetInstanceUseCase::class)
 
-    fun getServerConnectViewModel(): ServerConnectViewModel =
-        resolveDependency(ServerConnectViewModel::class) as ServerConnectViewModel
+    fun getServerConnectViewModel(): ServerConnectViewModel = resolve(ServerConnectViewModel::class)
 
-    fun getLoginViewModel(): LoginViewModel = resolveDependency(LoginViewModel::class) as LoginViewModel
+    fun getLoginViewModel(): LoginViewModel = resolve(LoginViewModel::class)
 
-    fun getRegisterViewModel(): RegisterViewModel = resolveDependency(RegisterViewModel::class) as RegisterViewModel
+    fun getRegisterViewModel(): RegisterViewModel = resolve(RegisterViewModel::class)
 
-    fun getSetupViewModel(): SetupViewModel = resolveDependency(SetupViewModel::class) as SetupViewModel
+    fun getSetupViewModel(): SetupViewModel = resolve(SetupViewModel::class)
 
-    fun getClaimInviteViewModel(): ClaimInviteViewModel =
-        resolveDependency(ClaimInviteViewModel::class) as ClaimInviteViewModel
+    fun getClaimInviteViewModel(): ClaimInviteViewModel = resolve(ClaimInviteViewModel::class)
 
     fun getPendingApprovalViewModel(
         userId: String,
         email: String,
-    ): PendingApprovalViewModel =
-        resolveDependencyWithParams(PendingApprovalViewModel::class, listOf(userId, email)) as PendingApprovalViewModel
+    ): PendingApprovalViewModel = resolveWithParams(PendingApprovalViewModel::class, listOf(userId, email))
 
-    fun getServerSelectViewModel(): ServerSelectViewModel =
-        resolveDependency(ServerSelectViewModel::class) as ServerSelectViewModel
+    fun getServerSelectViewModel(): ServerSelectViewModel = resolve(ServerSelectViewModel::class)
 
-    fun getLibrarySetupViewModel(): LibrarySetupViewModel =
-        resolveDependency(LibrarySetupViewModel::class) as LibrarySetupViewModel
+    fun getLibrarySetupViewModel(): LibrarySetupViewModel = resolve(LibrarySetupViewModel::class)
 
-    fun getAppStartupViewModel(): AppStartupViewModel =
-        resolveDependency(AppStartupViewModel::class) as AppStartupViewModel
+    fun getAppStartupViewModel(): AppStartupViewModel = resolve(AppStartupViewModel::class)
 
-    fun getAuthSession(): AuthSession = resolveDependency(AuthSession::class) as AuthSession
+    fun getAuthSession(): AuthSession = resolve(AuthSession::class)
 
-    fun getServerConfig(): ServerConfig = resolveDependency(ServerConfig::class) as ServerConfig
+    fun getServerConfig(): ServerConfig = resolve(ServerConfig::class)
 
     /** The current access token as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun accessToken(): String? = getAuthSession().getAccessToken()?.value
@@ -166,108 +182,85 @@ object KoinHelper {
     /** The active server URL as a plain String for Swift (SKIE unboxes the value class). */
     suspend fun activeServerUrl(): String? = getServerConfig().getActiveUrl()?.raw
 
-    fun getUserRepository(): UserRepository = resolveDependency(UserRepository::class) as UserRepository
+    fun getUserRepository(): UserRepository = resolve(UserRepository::class)
 
-    fun getLibraryViewModel(): LibraryViewModel = resolveDependency(LibraryViewModel::class) as LibraryViewModel
+    fun getLibraryViewModel(): LibraryViewModel = resolve(LibraryViewModel::class)
 
-    fun getSyncRepository(): SyncRepository = resolveDependency(SyncRepository::class) as SyncRepository
+    fun getSyncRepository(): SyncRepository = resolve(SyncRepository::class)
 
-    fun getHomeViewModel(): HomeViewModel = resolveDependency(HomeViewModel::class) as HomeViewModel
+    fun getHomeViewModel(): HomeViewModel = resolve(HomeViewModel::class)
 
-    fun getHomeStatsViewModel(): HomeStatsViewModel = resolveDependency(HomeStatsViewModel::class) as HomeStatsViewModel
+    fun getHomeStatsViewModel(): HomeStatsViewModel = resolve(HomeStatsViewModel::class)
 
-    fun getSearchViewModel(): SearchViewModel = resolveDependency(SearchViewModel::class) as SearchViewModel
+    fun getSearchViewModel(): SearchViewModel = resolve(SearchViewModel::class)
 
-    fun getDiscoverViewModel(): DiscoverViewModel = resolveDependency(DiscoverViewModel::class) as DiscoverViewModel
+    fun getDiscoverViewModel(): DiscoverViewModel = resolve(DiscoverViewModel::class)
 
-    fun getLeaderboardViewModel(): LeaderboardViewModel =
-        resolveDependency(LeaderboardViewModel::class) as LeaderboardViewModel
+    fun getLeaderboardViewModel(): LeaderboardViewModel = resolve(LeaderboardViewModel::class)
 
-    fun getActivityFeedViewModel(): ActivityFeedViewModel =
-        resolveDependency(ActivityFeedViewModel::class) as ActivityFeedViewModel
+    fun getActivityFeedViewModel(): ActivityFeedViewModel = resolve(ActivityFeedViewModel::class)
 
-    fun getSeeAllSearchViewModel(): SeeAllSearchViewModel =
-        resolveDependency(SeeAllSearchViewModel::class) as SeeAllSearchViewModel
+    fun getSeeAllSearchViewModel(): SeeAllSearchViewModel = resolve(SeeAllSearchViewModel::class)
 
-    fun getSettingsViewModel(): SettingsViewModel = resolveDependency(SettingsViewModel::class) as SettingsViewModel
+    fun getSettingsViewModel(): SettingsViewModel = resolve(SettingsViewModel::class)
 
-    fun getDevicesViewModel(): DevicesViewModel = resolveDependency(DevicesViewModel::class) as DevicesViewModel
+    fun getDevicesViewModel(): DevicesViewModel = resolve(DevicesViewModel::class)
 
-    fun getAdminViewModel(): AdminViewModel = resolveDependency(AdminViewModel::class) as AdminViewModel
+    fun getAdminViewModel(): AdminViewModel = resolve(AdminViewModel::class)
 
-    fun getAdminSettingsViewModel(): AdminSettingsViewModel =
-        resolveDependency(AdminSettingsViewModel::class) as AdminSettingsViewModel
+    fun getAdminSettingsViewModel(): AdminSettingsViewModel = resolve(AdminSettingsViewModel::class)
 
-    fun getCreateInviteViewModel(): CreateInviteViewModel =
-        resolveDependency(CreateInviteViewModel::class) as CreateInviteViewModel
+    fun getCreateInviteViewModel(): CreateInviteViewModel = resolve(CreateInviteViewModel::class)
 
-    fun getABSImportHubViewModel(): ABSImportHubViewModel =
-        resolveDependency(ABSImportHubViewModel::class) as ABSImportHubViewModel
+    fun getABSImportHubViewModel(): ABSImportHubViewModel = resolve(ABSImportHubViewModel::class)
 
-    fun getImportFlowViewModel(): ImportFlowViewModel =
-        resolveDependency(ImportFlowViewModel::class) as ImportFlowViewModel
+    fun getImportFlowViewModel(): ImportFlowViewModel = resolve(ImportFlowViewModel::class)
 
-    fun getAdminInboxViewModel(): AdminInboxViewModel =
-        resolveDependency(AdminInboxViewModel::class) as AdminInboxViewModel
+    fun getAdminInboxViewModel(): AdminInboxViewModel = resolve(AdminInboxViewModel::class)
 
-    fun getAdminCollectionsViewModel(): AdminCollectionsViewModel =
-        resolveDependency(AdminCollectionsViewModel::class) as AdminCollectionsViewModel
+    fun getAdminCollectionsViewModel(): AdminCollectionsViewModel = resolve(AdminCollectionsViewModel::class)
 
     fun getAdminCollectionDetailViewModel(collectionId: String): AdminCollectionDetailViewModel =
-        resolveDependencyWithParams(
-            AdminCollectionDetailViewModel::class,
-            listOf(collectionId),
-        ) as AdminCollectionDetailViewModel
+        resolveWithParams(AdminCollectionDetailViewModel::class, listOf(collectionId))
 
-    fun getBookDetailViewModel(): BookDetailViewModel =
-        resolveDependency(BookDetailViewModel::class) as BookDetailViewModel
+    fun getBookDetailViewModel(): BookDetailViewModel = resolve(BookDetailViewModel::class)
 
     fun getBookReadersViewModel(bookId: String): BookReadersViewModel =
-        resolveDependencyWithParams(BookReadersViewModel::class, listOf(bookId)) as BookReadersViewModel
+        resolveWithParams(BookReadersViewModel::class, listOf(bookId))
 
-    fun getSeriesDetailViewModel(): SeriesDetailViewModel =
-        resolveDependency(SeriesDetailViewModel::class) as SeriesDetailViewModel
+    fun getSeriesDetailViewModel(): SeriesDetailViewModel = resolve(SeriesDetailViewModel::class)
 
-    fun getContributorDetailViewModel(): ContributorDetailViewModel =
-        resolveDependency(ContributorDetailViewModel::class) as ContributorDetailViewModel
+    fun getContributorDetailViewModel(): ContributorDetailViewModel = resolve(ContributorDetailViewModel::class)
 
-    fun getTagDetailViewModel(): TagDetailViewModel = resolveDependency(TagDetailViewModel::class) as TagDetailViewModel
+    fun getTagDetailViewModel(): TagDetailViewModel = resolve(TagDetailViewModel::class)
 
-    fun getShelfDetailViewModel(): ShelfDetailViewModel =
-        resolveDependency(ShelfDetailViewModel::class) as ShelfDetailViewModel
+    fun getShelfDetailViewModel(): ShelfDetailViewModel = resolve(ShelfDetailViewModel::class)
 
-    fun getCreateEditShelfViewModel(): CreateEditShelfViewModel =
-        resolveDependency(CreateEditShelfViewModel::class) as CreateEditShelfViewModel
+    fun getCreateEditShelfViewModel(): CreateEditShelfViewModel = resolve(CreateEditShelfViewModel::class)
 
-    fun getSeriesEditViewModel(): SeriesEditViewModel =
-        resolveDependency(SeriesEditViewModel::class) as SeriesEditViewModel
+    fun getSeriesEditViewModel(): SeriesEditViewModel = resolve(SeriesEditViewModel::class)
 
-    fun getContributorEditViewModel(): ContributorEditViewModel =
-        resolveDependency(ContributorEditViewModel::class) as ContributorEditViewModel
+    fun getContributorEditViewModel(): ContributorEditViewModel = resolve(ContributorEditViewModel::class)
 
-    fun getUserProfileViewModel(): UserProfileViewModel =
-        resolveDependency(UserProfileViewModel::class) as UserProfileViewModel
+    fun getUserProfileViewModel(): UserProfileViewModel = resolve(UserProfileViewModel::class)
 
-    fun getEditProfileViewModel(): EditProfileViewModel =
-        resolveDependency(EditProfileViewModel::class) as EditProfileViewModel
+    fun getEditProfileViewModel(): EditProfileViewModel = resolve(EditProfileViewModel::class)
 
-    fun getBookEditViewModel(): BookEditViewModel = resolveDependency(BookEditViewModel::class) as BookEditViewModel
+    fun getBookEditViewModel(): BookEditViewModel = resolve(BookEditViewModel::class)
 
-    fun getMetadataViewModel(): MetadataViewModel = resolveDependency(MetadataViewModel::class) as MetadataViewModel
+    fun getMetadataViewModel(): MetadataViewModel = resolve(MetadataViewModel::class)
 
-    fun getContributorMetadataViewModel(): ContributorMetadataViewModel =
-        resolveDependency(ContributorMetadataViewModel::class) as ContributorMetadataViewModel
+    fun getContributorMetadataViewModel(): ContributorMetadataViewModel = resolve(ContributorMetadataViewModel::class)
 
-    fun getPlaybackProgressReporter(): PlaybackProgressReporter =
-        resolveDependency(PlaybackProgressReporter::class) as PlaybackProgressReporter
+    fun getPlaybackProgressReporter(): PlaybackProgressReporter = resolve(PlaybackProgressReporter::class)
 
-    fun getBookRepository(): BookRepository = resolveDependency(BookRepository::class) as BookRepository
+    fun getBookRepository(): BookRepository = resolve(BookRepository::class)
 
-    fun getDocumentRepository(): DocumentRepository = resolveDependency(DocumentRepository::class) as DocumentRepository
+    fun getDocumentRepository(): DocumentRepository = resolve(DocumentRepository::class)
 
-    fun getImageStorage(): ImageStorage = resolveDependency(ImageStorage::class) as ImageStorage
+    fun getImageStorage(): ImageStorage = resolve(ImageStorage::class)
 
-    fun getImageRepository(): ImageRepository = resolveDependency(ImageRepository::class) as ImageRepository
+    fun getImageRepository(): ImageRepository = resolve(ImageRepository::class)
 
     /**
      * String-keyed [ImageRepository.ensureBookCoverCached] for the Swift boundary, where the
@@ -278,14 +271,13 @@ object KoinHelper {
         getImageRepository().ensureBookCoverCached(BookId(bookId))
     }
 
-    fun getDownloadService(): DownloadService = resolveDependency(DownloadService::class) as DownloadService
+    fun getDownloadService(): DownloadService = resolve(DownloadService::class)
 
-    fun getSleepTimerManager(): SleepTimerManager = resolveDependency(SleepTimerManager::class) as SleepTimerManager
+    fun getSleepTimerManager(): SleepTimerManager = resolve(SleepTimerManager::class)
 
-    fun getPlaybackPreparer(): PlaybackPreparer = resolveDependency(PlaybackPreparer::class) as PlaybackPreparer
+    fun getPlaybackPreparer(): PlaybackPreparer = resolve(PlaybackPreparer::class)
 
-    fun getPlaybackPreferences(): PlaybackPreferences =
-        resolveDependency(PlaybackPreferences::class) as PlaybackPreferences
+    fun getPlaybackPreferences(): PlaybackPreferences = resolve(PlaybackPreferences::class)
 }
 
 /**
