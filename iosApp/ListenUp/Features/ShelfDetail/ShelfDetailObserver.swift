@@ -12,13 +12,34 @@ enum ShelfDetailPhase: Equatable {
     case error(String)
 }
 
+/// A native, value-typed projection of `ShelfBook` for the shelf grid.
+///
+/// `ShelfBook` is a Swift-Export-bridged Kotlin object. Feeding it straight into the
+/// `LazyVGrid` means every SwiftUI diff/layout/scroll pass re-reads its properties across
+/// the Kotlin boundary (re-bridging UTF-16 strings) — the bug class that froze the Library
+/// grid for ~28s. Snapshot the fields the grid needs into plain Swift values once, here.
+/// See `BookRow.swift` for the canonical version of this pattern.
+struct ShelfBookRow: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let authorNames: [String]
+    let coverPath: String?
+
+    init(_ book: ShelfBook) {
+        self.id = book.id
+        self.title = book.title
+        self.authorNames = Array(book.authorNames)   // copy the bridged list into a Swift array
+        self.coverPath = book.coverPath
+    }
+}
+
 /// A flat projection of `ShelfDetailUiState`, computed once so the mapping is pure
 /// and unit-testable rather than buried in the observer's `apply`.
 struct ShelfDetailSnapshot: Equatable {
     var phase: ShelfDetailPhase = .loading
     var shelfName: String = ""
     var shelfDescription: String?
-    var books: [ShelfBook] = []
+    var books: [ShelfBookRow] = []
 
     var bookCount: Int { books.count }
 
@@ -38,7 +59,7 @@ struct ShelfDetailSnapshot: Equatable {
                 phase: .ready,
                 shelfName: r.detail.name,
                 shelfDescription: r.detail.description_,
-                books: Array(r.detail.books)
+                books: r.detail.books.map { ShelfBookRow($0) }
             )
         case .error(let errorState):
             return ShelfDetailSnapshot(phase: .error(errorState.message))
@@ -57,7 +78,7 @@ final class ShelfDetailObserver {
     private(set) var phase: ShelfDetailPhase = .loading
     private(set) var shelfName: String = ""
     private(set) var shelfDescription: String?
-    private(set) var books: [ShelfBook] = []
+    private(set) var books: [ShelfBookRow] = []
 
     var bookCount: Int { books.count }
 
