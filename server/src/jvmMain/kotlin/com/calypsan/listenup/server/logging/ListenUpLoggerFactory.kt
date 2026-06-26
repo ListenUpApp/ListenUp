@@ -12,16 +12,19 @@ import java.util.concurrent.ConcurrentHashMap
  * the lifetime of the JVM. Logger instances are cached by name; [getLogger] always
  * returns the same object for the same name.
  *
- * Level filtering is prefix-based:
- * - `io.netty.*` → [Level.WARN]
- * - `org.eclipse.jetty.*` → [Level.WARN]
- * - everything else → [Level.INFO]
+ * Level filtering delegates to [LogLevelConfig], which is built from environment variables
+ * at startup. `LISTENUP_LOG_LEVEL` sets the default level; per-package overrides are
+ * expressed as `LISTENUP_LOG_LEVEL_<pkg_with_underscores>`. The `io.netty.*` /
+ * `org.eclipse.jetty.*` WARN floor is always enforced regardless of env config.
  *
  * @param isJsonFormat `true` → JSON one-per-line; `false` → human-readable plain text.
+ * @param levelConfig  level resolution config, defaulting to INFO-everywhere if omitted.
  */
-class ListenUpLoggerFactory(
-    val isJsonFormat: Boolean,
-) : ILoggerFactory {
+class ListenUpLoggerFactory
+    internal constructor(
+        val isJsonFormat: Boolean,
+        private val levelConfig: LogLevelConfig = LogLevelConfig.DEFAULT,
+    ) : ILoggerFactory {
     private val cache = ConcurrentHashMap<String, ListenUpLogger>()
 
     /** Non-null only when a test has called [installTestCapture]. */
@@ -31,17 +34,8 @@ class ListenUpLoggerFactory(
 
     override fun getLogger(name: String): ListenUpLogger = cache.computeIfAbsent(name) { ListenUpLogger(it, this) }
 
-    /**
-     * Returns the minimum [Level] that should be emitted for [loggerName].
-     *
-     * Matching is prefix-based so sub-packages are suppressed automatically.
-     */
-    fun levelFor(loggerName: String): Level =
-        when {
-            loggerName.startsWith("io.netty") -> Level.WARN
-            loggerName.startsWith("org.eclipse.jetty") -> Level.WARN
-            else -> Level.INFO
-        }
+    /** Returns the minimum [Level] that should be emitted for [loggerName] (delegates to [LogLevelConfig]). */
+    fun levelFor(loggerName: String): Level = levelConfig.levelFor(loggerName)
 
     // ----- Test helpers -----------------------------------------------------
 
