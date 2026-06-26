@@ -17,7 +17,11 @@ public enum class ZipMethod { STORED, DEFLATE }
  * size or offset exceeds 32 bits. [close] calls [finish] if needed, then closes the sink. Pure commonMain.
  *
  * DEFLATE entries are fully streaming: the local header defers CRC and sizes to a trailing data descriptor
- * (flag bit 3), so content of any size compresses with bounded memory. STORED entries cannot use a data
+ * (flag bit 3), so content of any size compresses with bounded memory. The descriptor uses 8-byte sizes only
+ * when the entry exceeds 4 GiB — matching how `java.util.zip` auto-detects descriptor width from the inflated
+ * size (not from a local-header ZIP64 extra), so both its streaming `ZipInputStream` and random-access
+ * `ZipFile` read entries of any size; our `ZipReader` uses the authoritative central directory regardless.
+ * STORED entries cannot use a data
  * descriptor — `java.util.zip` rejects `STORED + EXT` — so a forward-only writer must know their size up
  * front; their content is buffered in memory, then a complete local header (real CRC/sizes, no descriptor)
  * precedes the bytes. STORED therefore costs one entry's worth of memory; reserve it for small or already
