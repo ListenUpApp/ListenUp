@@ -19,6 +19,8 @@ import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
@@ -451,16 +453,7 @@ private class DownloadSessionDelegate(
     )
 
     /** Lock protecting pendingDownloads and lastLoggedPct (accessed from coroutines + delegate queue) */
-    private val lock = platform.Foundation.NSRecursiveLock()
-
-    private inline fun <T> withLock(block: () -> T): T {
-        lock.lock()
-        try {
-            return block()
-        } finally {
-            lock.unlock()
-        }
-    }
+    private val lock = reentrantLock()
 
     private val pendingDownloads = mutableMapOf<ULong, PendingDownload>()
     private val lastLoggedPct = mutableMapOf<ULong, Int>()
@@ -477,7 +470,7 @@ private class DownloadSessionDelegate(
         destPath: String,
         bookId: String? = null,
     ) {
-        withLock {
+        lock.withLock {
             val taskId = task.taskIdentifier
             pendingDownloads[taskId] = PendingDownload(continuation, destPath)
             taskById[taskId] = task
@@ -496,7 +489,7 @@ private class DownloadSessionDelegate(
      */
     fun cancelTasksForBook(bookId: String): Int {
         val tasks =
-            withLock {
+            lock.withLock {
                 taskToBookId
                     .filterValues { it == bookId }
                     .keys
@@ -507,7 +500,7 @@ private class DownloadSessionDelegate(
     }
 
     private fun removePending(taskId: ULong): PendingDownload? =
-        withLock {
+        lock.withLock {
             lastLoggedPct.remove(taskId)
             taskToBookId.remove(taskId)
             taskById.remove(taskId)
@@ -529,7 +522,7 @@ private class DownloadSessionDelegate(
         didFinishDownloadingToURL: NSURL,
     ) {
         val taskId = downloadTask.taskIdentifier
-        val pending = withLock { pendingDownloads[taskId] } ?: return
+        val pending = lock.withLock { pendingDownloads[taskId] } ?: return
         val parts = downloadTask.taskDescription?.split("|") ?: return
         val audioFileId = parts.getOrNull(1) ?: return
         val filename = parts.getOrNull(2) ?: "unknown"
@@ -587,9 +580,9 @@ private class DownloadSessionDelegate(
         // Throttle DB writes — every 1%
         if (totalBytesExpectedToWrite > 0) {
             val pct = (totalBytesWritten * 100 / totalBytesExpectedToWrite).toInt()
-            val lastPct = withLock { lastLoggedPct[taskId] ?: -1 }
+            val lastPct = lock.withLock { lastLoggedPct[taskId] ?: -1 }
             if (pct >= lastPct + 1) {
-                withLock { lastLoggedPct[taskId] = pct }
+                lock.withLock { lastLoggedPct[taskId] = pct }
                 scope.launch {
                     downloadDao.updateProgress(audioFileId, totalBytesWritten, totalBytesExpectedToWrite)
                 }

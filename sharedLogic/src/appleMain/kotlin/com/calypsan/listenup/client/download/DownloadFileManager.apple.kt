@@ -4,6 +4,8 @@ import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.io.files.Path
 import platform.Foundation.NSDocumentDirectory
 import platform.Foundation.NSFileManager
+import platform.Foundation.NSFileSize
+import platform.Foundation.NSFileSystemFreeSize
 import platform.Foundation.NSURL
 import platform.Foundation.NSUserDomainMask
 
@@ -86,7 +88,7 @@ actual class DownloadFileManager {
             val file = enumerator.nextObject() as? String ?: break
             val filePath = Path(downloadDir, file).toString()
             val attrs = fileManager.attributesOfItemAtPath(filePath, error = null)
-            val size = attrs?.get("NSFileSize") as? Long ?: 0L
+            val size = attrs?.get(NSFileSize) as? Long ?: 0L
             totalSize += size
         }
         return totalSize
@@ -97,7 +99,7 @@ actual class DownloadFileManager {
     actual fun getFileSize(path: String): Long {
         if (!fileManager.fileExistsAtPath(path)) return 0L
         val attrs = fileManager.attributesOfItemAtPath(path, error = null)
-        return attrs?.get("NSFileSize") as? Long ?: 0L
+        return attrs?.get(NSFileSize) as? Long ?: 0L
     }
 
     actual fun moveFile(
@@ -119,7 +121,7 @@ actual class DownloadFileManager {
                 ).firstOrNull() as? NSURL ?: return 0L
 
         val attrs = fileManager.attributesOfFileSystemForPath(documentsUrl.path!!, error = null)
-        return attrs?.get("NSFileSystemFreeSize") as? Long ?: 0L
+        return attrs?.get(NSFileSystemFreeSize) as? Long ?: 0L
     }
 
     actual fun sweepOrphanedTempFiles(activeAudioFileIds: Set<String>): Int {
