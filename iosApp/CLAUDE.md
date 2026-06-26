@@ -108,6 +108,13 @@ before any non-trivial iOS work.
     Phase 2 brings the content screens up to the responsive bar one slice at a time.
     **And accessibility *is* "follows Apple guidelines":** honor Dynamic Type, VoiceOver, and the
     Liquid Glass accessibility settings — Reduce Transparency, Increase Contrast, Reduce Motion.
+    **Dynamic Type — fixed-font convention:** content text (titles, labels, captions, numerals
+    the user reads) uses a semantic `.font(.title3)`/`.subheadline`/`.caption`… style or
+    `@ScaledMetric`, so it scales with the user's text-size setting. A literal
+    `.font(.system(size:))` is allowed **only** for a decorative glyph in a fixed-size container
+    (a badge circle, an SF Symbol sized to its frame) and must carry a one-line
+    `// decorative fixed size` comment. The conversion is a phased rollout, one area per slice —
+    `LicensesView` is the reference precedent; see `plans/README.md` for remaining areas.
 
 ## Media & process
 

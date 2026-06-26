@@ -102,7 +102,7 @@ struct LicensesView: View {
             // Count + label
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(LicenseData.all.count)")
-                    .font(.system(size: 38, weight: .bold, design: .default))
+                    .font(.largeTitle.weight(.bold))
                     .foregroundStyle(.primary)
                 Text(String(localized: "licenses.count_suffix"))
                     .font(.headline)
@@ -126,7 +126,7 @@ struct LicensesView: View {
                 // Count + label
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(LicenseData.all.count)")
-                        .font(.system(size: 38, weight: .bold, design: .default))
+                        .font(.largeTitle.weight(.bold))
                         .foregroundStyle(.primary)
                     Text(String(localized: "licenses.count_suffix"))
                         .font(.headline)
@@ -154,10 +154,10 @@ struct LicensesView: View {
                         .fill(LicenseData.licenseColor(entry.spdxId))
                         .frame(width: 10, height: 10)
                     Text(entry.spdxId)
-                        .font(.system(size: 12.5, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.primary)
                     Text("\(entry.count)")
-                        .font(.system(size: 12))
+                        .font(.caption)
                         .foregroundStyle(Color.luLabel2)
                 }
             }
@@ -185,7 +185,7 @@ struct LicensesView: View {
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                 Text("v\(lib.version)")
-                    .font(.system(size: 12.5, design: .monospaced))
+                    .font(.caption.monospaced())
                     .foregroundStyle(Color.luLabel2)
             }
             Spacer(minLength: 8)
@@ -285,7 +285,7 @@ struct LicenseChip: View {
 
     var body: some View {
         Text(spdxId)
-            .font(.system(size: 12, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundStyle(LicenseData.licenseColor(spdxId))
             .padding(.horizontal, 11)
             .padding(.vertical, 4)
