@@ -40,12 +40,11 @@ struct SeriesRow: Identifiable, Equatable, Hashable {
 /// first-seen order. Pure and over `SeriesRow` (cheap Swift strings) so it's unit-tested and never
 /// re-bridges. Mirrors the books grid's `bookSections`. `firstId` is the scroll target id used by
 /// `SeriesContent` (`"series-<id>"`).
-func seriesAlphabetIndex(from series: [SeriesRow]) -> [(letter: String, firstId: String)] {
+func seriesAlphabetIndex(from series: [SeriesRow], ignoreArticles: Bool) -> [(letter: String, firstId: String)] {
     var index: [(letter: String, firstId: String)] = []
     var seen: Set<String> = []
     for row in series {
-        guard let first = row.name.first else { continue }
-        let letter = first.isLetter ? String(first).uppercased() : "#"
+        let letter = String(TitleSorting.sortLetter(row.name, ignoreArticles: ignoreArticles))
         if !seen.contains(letter) {
             seen.insert(letter)
             index.append((letter: letter, firstId: "series-\(row.id)"))

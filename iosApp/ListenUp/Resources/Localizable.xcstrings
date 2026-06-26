@@ -9391,6 +9391,16 @@
         }
       }
     },
+    "library.ignore_articles": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignore A, An, The"
+          }
+        }
+      }
+    },
     "library.ignoring_articles": {
       "localizations": {
         "en": {
@@ -9487,6 +9497,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shelf name"
+          }
+        }
+      }
+    },
+    "library.sort_ascending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ascending"
+          }
+        }
+      }
+    },
+    "library.sort_descending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descending"
           }
         }
       }

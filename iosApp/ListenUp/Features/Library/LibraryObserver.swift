@@ -18,6 +18,9 @@ final class LibraryObserver {
     private(set) var authorsSortState: SortState?
     private(set) var narrators: [ContributorRow] = []
     private(set) var narratorsSortState: SortState?
+    /// When true, leading articles (A, An, The) are ignored when sorting/grouping by Title/Name —
+    /// drives the "Title sort" toggle and the article-aware section letters. Shared, persisted state.
+    private(set) var ignoreTitleArticles: Bool = true
     private(set) var isLoading: Bool = true
     private(set) var isEmpty: Bool = false
     private(set) var isSyncing: Bool = false
@@ -75,6 +78,13 @@ final class LibraryObserver {
         viewModel.onEvent(event: LibraryUiEventNarratorsDirectionToggled.shared)
     }
 
+    /// Flip whether leading articles are ignored when sorting Title (Books) / Name (Series). The
+    /// shared ViewModel re-sorts and persists; `apply` updates `ignoreTitleArticles` and the grids
+    /// re-section.
+    func toggleIgnoreTitleArticles() {
+        viewModel.onEvent(event: LibraryUiEventToggleIgnoreTitleArticles.shared)
+    }
+
     // MARK: - State mapping
 
     private func apply(_ state: LibraryUiState) {
@@ -95,6 +105,7 @@ final class LibraryObserver {
             authorsSortState = l.authorsSortState
             narrators = l.narrators.map { ContributorRow($0) }
             narratorsSortState = l.narratorsSortState
+            ignoreTitleArticles = l.ignoreTitleArticles
             isEmpty = l.isEmpty
             isSyncing = l.isSyncing
         case .error(let e):
