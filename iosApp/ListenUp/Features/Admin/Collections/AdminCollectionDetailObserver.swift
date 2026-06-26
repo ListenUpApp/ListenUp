@@ -27,13 +27,7 @@ final class AdminCollectionDetailObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    deinit {
-        MainActor.assumeIsolated { bridge.cancelAll() }
-    }
-
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

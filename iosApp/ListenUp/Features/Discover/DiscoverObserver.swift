@@ -31,10 +31,7 @@ final class DiscoverObserver {
         bridge.bind(viewModel.currentlyListeningState) { [weak self] in self?.applyCurrentlyListening($0) }
     }
 
-    /// Stop observing. Call on teardown.
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

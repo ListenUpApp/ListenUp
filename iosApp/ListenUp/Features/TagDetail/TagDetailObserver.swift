@@ -66,12 +66,7 @@ final class TagDetailObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    deinit {
-        // Held in SwiftUI `@State` on a `@MainActor` view, so dealloc is main-thread.
-        MainActor.assumeIsolated { bridge.cancelAll() }
-    }
-
-    func stopObserving() { bridge.cancelAll() }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadTag(_ id: String) { viewModel.loadTag(tagId: id) }
 

@@ -24,7 +24,7 @@ final class SeeAllSearchObserver {
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
 
-    deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

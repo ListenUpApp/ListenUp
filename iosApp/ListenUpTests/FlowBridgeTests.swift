@@ -139,4 +139,19 @@ struct FlowBridgeTests {
         // Cancellation is normal teardown, not a failure — `onError` must stay silent.
         #expect(!onErrorCalled)
     }
+
+    /// The crux: `cancelAll()` is `nonisolated`, so calling it off the main actor must not
+    /// trap — this is the regression guard for the old `MainActor.assumeIsolated { … }`
+    /// teardown, which crashed when an observer's `deinit` ran off the main thread.
+    @Test func cancelAllIsSafeFromOffTheMainActor() async {
+        let bridge = FlowBridge()
+        var received: [Int] = []
+        bridge.bind(NumberSequence(values: [1, 2, 3])) { received.append($0) }
+        // Cancel from a detached task — i.e. NOT on the main actor. The old
+        // `assumeIsolated` path would trap here; `nonisolated cancelAll()` must not.
+        await Task.detached { bridge.cancelAll() }.value
+        try? await Task.sleep(for: .milliseconds(50))
+        // No crash, and delivery stopped — the cancellation took effect.
+        #expect(received.count < 3)
+    }
 }

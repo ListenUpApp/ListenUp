@@ -36,14 +36,7 @@ final class ImportFlowObserver {
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
 
-    deinit {
-        // Held in SwiftUI `@State` on a `@MainActor` view, so dealloc is main-thread.
-        MainActor.assumeIsolated { bridge.cancelAll() }
-    }
-
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

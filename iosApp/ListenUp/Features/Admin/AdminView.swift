@@ -46,10 +46,6 @@ struct AdminView: View {
             if admin == nil { admin = AdminObserver(viewModel: deps.createAdminViewModel()) }
             if settings == nil { settings = AdminSettingsObserver(viewModel: deps.createAdminSettingsViewModel()) }
         }
-        .onDisappear {
-            admin?.stopObserving()
-            settings?.stopObserving()
-        }
         .sheet(isPresented: $showingInviteSheet) {
             CreateInviteView(viewModel: deps.createCreateInviteViewModel())
         }

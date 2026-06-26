@@ -87,11 +87,9 @@ final class ContributorMetadataObserver {
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
     }
 
-    deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func start(contributorId: String) { viewModel.`init`(contributorId: contributorId) }
-    func stopObserving() { bridge.cancelAll() }
-
     // MARK: - Actions
 
     func updateQuery(_ text: String) {

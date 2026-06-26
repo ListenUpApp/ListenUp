@@ -45,7 +45,7 @@ struct ContributorMetadataView: View {
         }
         .onChange(of: observer?.didApply ?? false) { _, applied in if applied { dismiss() } }
         .onDisappear {
-            observer?.stopObserving()
+            // Release the observer; its deinit cancels the FlowBridge subscriptions.
             observer = nil
         }
     }

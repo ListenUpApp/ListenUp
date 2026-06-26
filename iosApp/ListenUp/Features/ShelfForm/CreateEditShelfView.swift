@@ -95,7 +95,7 @@ struct CreateEditShelfView: View {
             }
         }
         .onDisappear {
-            observer?.stopObserving()
+            // Release the observer; its deinit cancels the FlowBridge subscriptions.
             observer = nil
         }
     }

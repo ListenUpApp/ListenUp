@@ -28,7 +28,7 @@ final class SeriesEditObserver {
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
 
-    deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadSeries(seriesId: String) { viewModel.loadSeries(seriesId: seriesId) }
 

@@ -221,6 +221,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
         observeRouteChanges()
     }
 
+    // App-lifetime singleton, so this effectively never fires — uniform teardown shape.
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+
     /// Convenience initializer using `Dependencies` — wires the Kotlin adapters.
     convenience init(deps: Dependencies) {
         self.init(

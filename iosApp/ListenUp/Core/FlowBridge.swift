@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Shared
 
 /// Canonical bridge from a Kotlin flow into `@Observable` Swift state.
@@ -7,9 +8,16 @@ import Shared
 /// initializer, and the bridge manages each subscription as a structured-concurrency
 /// task — collecting on the main actor and cancelling them all together on teardown.
 /// Observers never hand-roll `Task { for await … }` loops.
+///
+/// Teardown is **nonisolated-safe**: `cancelAll()` can be called from any thread,
+/// including a `@MainActor` class's `nonisolated deinit`. The task list is guarded by
+/// an `OSAllocatedUnfairLock`, and `Task.cancel()` is itself thread-safe — so an
+/// observer's deinit cancels every subscription without an `assumeIsolated` hop.
 @MainActor
 final class FlowBridge {
-    private var tasks: [Task<Void, Never>] = []
+    // Lock-guarded so cancellation is isolation-free and callable from a nonisolated deinit.
+    // `Task.cancel()` is thread-safe; the lock only protects the array mutation.
+    private let tasks = OSAllocatedUnfairLock<[Task<Void, Never>]>(initialState: [])
 
     init() {}
 
@@ -47,7 +55,7 @@ final class FlowBridge {
                 onError?(error)
             }
         }
-        tasks.append(task)
+        tasks.withLock { $0.append(task) }
     }
 
     /// Bind a Swift Export `KotlinTypedFlow` (Kotlin `Flow`/`StateFlow`). It is not itself an
@@ -61,9 +69,12 @@ final class FlowBridge {
         bind(flow.asAsyncSequence(), onError: onError, to: sink)
     }
 
-    /// Cancel every subscription. Call from the owning observer's teardown.
-    func cancelAll() {
-        for task in tasks { task.cancel() }
-        tasks.removeAll()
+    /// Cancel every subscription. Safe to call from any thread (e.g. a nonisolated deinit) —
+    /// cancelling a `Task` needs no actor isolation; the lock guards the array mutation.
+    nonisolated func cancelAll() {
+        tasks.withLock { list in
+            for task in list { task.cancel() }
+            list.removeAll()
+        }
     }
 }

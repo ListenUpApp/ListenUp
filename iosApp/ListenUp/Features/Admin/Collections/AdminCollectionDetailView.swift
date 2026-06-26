@@ -40,9 +40,6 @@ struct AdminCollectionDetailView: View {
                 )
             }
         }
-        .onDisappear {
-            observer?.stopObserving()
-        }
     }
 
     // MARK: - Content

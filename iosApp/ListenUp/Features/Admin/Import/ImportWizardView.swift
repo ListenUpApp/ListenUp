@@ -68,7 +68,6 @@ struct ImportWizardView: View {
                 observer = ImportFlowObserver(viewModel: deps.createImportFlowViewModel())
             }
         }
-        .onDisappear { observer?.stopObserving() }
         .interactiveDismissDisabled(isInProgress)
     }
 

@@ -36,10 +36,7 @@ final class LeaderboardObserver {
         bridge.bind(viewModel.uiState) { [weak self] in self?.apply($0) }
     }
 
-    /// Stop observing. Call on teardown.
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

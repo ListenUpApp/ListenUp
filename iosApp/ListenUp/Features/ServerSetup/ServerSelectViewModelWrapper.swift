@@ -39,9 +39,7 @@ final class ServerSelectViewModelWrapper {
         bridge.bind(viewModel.navigationEvents) { [weak self] in self?.applyNavigation($0) }
     }
 
-    func stopObserving() {
-        bridge.cancelAll()
-    }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     // MARK: - Actions
 

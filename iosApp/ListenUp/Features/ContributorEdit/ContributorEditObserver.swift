@@ -30,7 +30,7 @@ final class ContributorEditObserver {
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
     }
 
-    deinit { MainActor.assumeIsolated { bridge.cancelAll() } }
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
 
     func loadContributor(contributorId: String) { viewModel.loadContributor(contributorId: contributorId) }
 
