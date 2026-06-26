@@ -24,6 +24,7 @@ class CastMediaItemFactoryTest : FunSpec({
         result.tracks[0].artworkUri shouldBe "http://s/cover?sig=3"
         result.tracks[0].title shouldBe "Book"
         result.droppedUncastable shouldBe 0
+        result.droppedUnmatched shouldBe 0
     }
 
     test("drops un-castable files and counts them") {
@@ -35,6 +36,7 @@ class CastMediaItemFactoryTest : FunSpec({
         result.tracks shouldHaveSize 1
         result.tracks[0].fileId shouldBe "f1"
         result.droppedUncastable shouldBe 1
+        result.droppedUnmatched shouldBe 0
     }
 
     test("preserves the order of the currently-loaded items") {
@@ -44,5 +46,52 @@ class CastMediaItemFactoryTest : FunSpec({
         )
         val result = factory.build(current, prepared, coverUrlAbsolute = null)
         result.tracks.map { it.fileId } shouldBe listOf("f1", "f2")
+    }
+
+    test("empty currentItems yields no tracks and no drops") {
+        val prepared = listOf(
+            CastPreparedFile(fileId = "f1", absoluteUrl = "u1", format = "mp3"),
+        )
+        val result = factory.build(emptyList(), prepared, coverUrlAbsolute = null)
+        result.tracks shouldHaveSize 0
+        result.droppedUncastable shouldBe 0
+        result.droppedUnmatched shouldBe 0
+    }
+
+    test("drops a current item with no matching prepared file and counts it as unmatched") {
+        val prepared = listOf(
+            CastPreparedFile(fileId = "f1", absoluteUrl = "u1", format = "mp3"),
+        )
+        val result = factory.build(current, prepared, coverUrlAbsolute = null)
+        result.tracks shouldHaveSize 1
+        result.tracks[0].fileId shouldBe "f1"
+        result.droppedUnmatched shouldBe 1
+        result.droppedUncastable shouldBe 0
+    }
+
+    test("propagates a null cover as a null artworkUri") {
+        val prepared = listOf(
+            CastPreparedFile(fileId = "f1", absoluteUrl = "u1", format = "mp3"),
+        )
+        val result = factory.build(current.take(1), prepared, coverUrlAbsolute = null)
+        result.tracks shouldHaveSize 1
+        result.tracks[0].artworkUri shouldBe null
+    }
+
+    test("distinguishes un-castable and unmatched drops in one build") {
+        val items = listOf(
+            CastSourceItem(fileId = "f1", title = "Book", artist = "Author", albumTitle = "Series"),
+            CastSourceItem(fileId = "f2", title = "Book", artist = "Author", albumTitle = "Series"),
+            CastSourceItem(fileId = "f3", title = "Book", artist = "Author", albumTitle = "Series"),
+        )
+        val prepared = listOf(
+            CastPreparedFile(fileId = "f1", absoluteUrl = "u1", format = "mp3"),
+            CastPreparedFile(fileId = "f2", absoluteUrl = "u2", format = "wma"),
+            // f3 deliberately absent → unmatched
+        )
+        val result = factory.build(items, prepared, coverUrlAbsolute = null)
+        result.tracks.map { it.fileId } shouldBe listOf("f1")
+        result.droppedUncastable shouldBe 1
+        result.droppedUnmatched shouldBe 1
     }
 })

@@ -11,7 +11,8 @@ package com.calypsan.listenup.client.playback.cast
  */
 fun castMimeType(format: String): String? =
     when (format.lowercase()) {
-        "m4b", "m4a", "mp4", "m4p", "aac" -> "audio/mp4"
+        "m4b", "m4a", "mp4", "m4p" -> "audio/mp4"
+        "aac" -> "audio/aac"
         "mp3" -> "audio/mpeg"
         "flac" -> "audio/flac"
         "wav", "wave" -> "audio/wav"

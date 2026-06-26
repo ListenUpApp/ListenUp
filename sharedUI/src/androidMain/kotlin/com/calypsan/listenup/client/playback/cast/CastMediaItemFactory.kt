@@ -30,19 +30,27 @@ data class CastTrack(
     val artworkUri: String?,
 )
 
-/** Result of a build: the castable tracks in queue order, plus how many files were dropped as un-castable. */
+/**
+ * Result of a build: the castable tracks in queue order, plus how many files were
+ * dropped and why. Both counts let the caller warn or fall back honestly instead of
+ * silently shipping a truncated queue to the TV.
+ */
 data class CastTracks(
     val tracks: List<CastTrack>,
     val droppedUncastable: Int,
+    val droppedUnmatched: Int,
 )
 
 /**
  * Builds the Cast queue. Zips the currently-loaded items (stable order +
  * on-TV metadata) with a fresh `/playback/prepare` result (network URLs +
- * formats), matched by file id. Files whose format Cast can't decode are
- * dropped and counted so the caller can warn/fallback. The on-TV artwork is the
- * signed network [coverUrlAbsolute] — a Cast device can't read the phone's
- * local `file://` cover.
+ * formats), matched by file id. The on-TV artwork is the signed network
+ * [coverUrlAbsolute] — a Cast device can't read the phone's local `file://` cover.
+ *
+ * A loaded item is dropped (never silently — every drop is counted) when either:
+ * - its format is one Cast can't decode → counted in [CastTracks.droppedUncastable];
+ * - no prepared file matches its id → counted in [CastTracks.droppedUnmatched]
+ *   (normally zero, because `/playback/prepare` should cover every loaded file).
  */
 class CastMediaItemFactory {
     fun build(
@@ -51,26 +59,35 @@ class CastMediaItemFactory {
         coverUrlAbsolute: String?,
     ): CastTracks {
         val preparedById = prepared.associateBy { it.fileId }
-        var dropped = 0
+        var droppedUncastable = 0
+        var droppedUnmatched = 0
         val tracks =
-            currentItems.mapNotNull { item ->
-                val file = preparedById[item.fileId] ?: return@mapNotNull null
-                val mime = castMimeType(file.format)
-                if (mime == null) {
-                    dropped++
-                    return@mapNotNull null
+            buildList {
+                for (item in currentItems) {
+                    val file = preparedById[item.fileId]
+                    if (file == null) {
+                        droppedUnmatched++
+                        continue
+                    }
+                    val mime = castMimeType(file.format)
+                    if (mime == null) {
+                        droppedUncastable++
+                        continue
+                    }
+                    add(
+                        CastTrack(
+                            fileId = item.fileId,
+                            uri = file.absoluteUrl,
+                            mimeType = mime,
+                            title = item.title,
+                            artist = item.artist,
+                            albumTitle = item.albumTitle,
+                            artworkUri = coverUrlAbsolute,
+                        ),
+                    )
                 }
-                CastTrack(
-                    fileId = item.fileId,
-                    uri = file.absoluteUrl,
-                    mimeType = mime,
-                    title = item.title,
-                    artist = item.artist,
-                    albumTitle = item.albumTitle,
-                    artworkUri = coverUrlAbsolute,
-                )
             }
-        return CastTracks(tracks, dropped)
+        return CastTracks(tracks, droppedUncastable, droppedUnmatched)
     }
 
     /** Assembles a [CastTrack] into a Media3 [MediaItem] with an explicit MIME type (CastPlayer requires it). */
