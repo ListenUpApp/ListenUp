@@ -59,6 +59,16 @@ enum BookFacetKind: CaseIterable, Hashable {
     }
 }
 
+/// One tappable classification chip: its display `name` and the facet `id` the tap navigates to.
+///
+/// A native value type mapped at the observer boundary (`BookDetailObserver.apply`) — never a
+/// bridged Kotlin object fed to a `ForEach`. Genres carry no id (they don't navigate) and are
+/// rendered from plain `[String]`; tags and moods carry their id so a tap can browse the facet.
+struct FacetChip: Identifiable, Equatable, Hashable {
+    let id: String
+    let name: String
+}
+
 /// A wrapping row of facet capsules for one classification axis (genre / tag / mood).
 ///
 /// Reuses the shared ``FlowLayout`` so the chips wrap responsively to the available
@@ -67,15 +77,25 @@ enum BookFacetKind: CaseIterable, Hashable {
 /// for moods. Each chip respects Dynamic Type and labels itself sensibly for
 /// VoiceOver; the leading symbols are decorative.
 ///
-/// Pure/presentational: it takes the values and the `kind`.
+/// When `destination` is supplied (tags and moods), each chip becomes a
+/// `NavigationLink` that browses the facet by id on the ambient stack — matching the
+/// view's other navigations; genres pass `nil` and render as static capsules.
+///
+/// Pure/presentational: it takes the chips, the `kind`, and an optional destination builder.
 struct BookFacetChips: View {
-    let values: [String]
+    let chips: [FacetChip]
     let kind: BookFacetKind
+    var destination: ((FacetChip) -> FacetDestination)?
 
     var body: some View {
         FlowLayout(spacing: 8) {
-            ForEach(values, id: \.self) { value in
-                chip(value)
+            ForEach(chips) { facetChip in
+                if let destination {
+                    NavigationLink(value: destination(facetChip)) { chip(facetChip.name) }
+                        .buttonStyle(.plain)
+                } else {
+                    chip(facetChip.name)
+                }
             }
         }
     }
@@ -103,6 +123,7 @@ struct BookFacetChips: View {
         .foregroundStyle(foreground)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(kind.accessibilityLabel(for: value))
+        .accessibilityAddTraits(destination != nil ? .isButton : [])
     }
 
     /// Capsule fill: neutral system fill for genres, coral-accented for moods.
@@ -123,16 +144,18 @@ struct BookFacetChips: View {
     ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             BookFacetChips(
-                values: ["Epic Fantasy", "Political", "Adventure"],
+                chips: ["Epic Fantasy", "Political", "Adventure"].map { FacetChip(id: $0, name: $0) },
                 kind: .genre
             )
             BookFacetChips(
-                values: ["Found Family", "Slow Burn", "Unreliable Narrator"],
-                kind: .tag
+                chips: ["Found Family", "Slow Burn", "Unreliable Narrator"].map { FacetChip(id: $0, name: $0) },
+                kind: .tag,
+                destination: { FacetDestination(kind: .tag, id: $0.id, name: $0.name) }
             )
             BookFacetChips(
-                values: ["Dark", "Epic", "Gritty", "Tense", "Atmospheric"],
-                kind: .mood
+                chips: ["Dark", "Epic", "Gritty", "Tense", "Atmospheric"].map { FacetChip(id: $0, name: $0) },
+                kind: .mood,
+                destination: { FacetDestination(kind: .mood, id: $0.id, name: $0.name) }
             )
         }
         .padding()

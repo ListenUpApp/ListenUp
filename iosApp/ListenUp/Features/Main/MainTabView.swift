@@ -166,6 +166,9 @@ private extension View {
             .navigationDestination(for: TagDestination.self) { destination in
                 TagDetailView(tagId: destination.id)
             }
+            .navigationDestination(for: FacetDestination.self) { destination in
+                FacetBooksView(kind: destination.kind, facetId: destination.id, facetName: destination.name)
+            }
             .navigationDestination(for: ShelfDestination.self) { destination in
                 ShelfDetailView(shelfId: destination.id)
             }

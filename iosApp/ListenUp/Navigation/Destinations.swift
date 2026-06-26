@@ -25,6 +25,32 @@ struct TagDestination: Hashable {
     let id: String
 }
 
+/// The flat classification axis a `FacetDestination` browses. A small native mirror of the
+/// shared `FacetKind` enum, kept `Hashable` so it can ride a `NavigationPath` (the bridged
+/// Kotlin `FacetKind` isn't `Hashable`); mapped to `Shared.FacetKind` at the VM `load` call.
+enum FacetBrowseKind: Hashable {
+    case tag
+    case mood
+
+    /// The shared-domain `FacetKind` this maps to, for `BrowseFacetViewModel.load`.
+    /// Swift Export emits the Kotlin enum cases verbatim (`Tag` / `Mood`).
+    var shared: FacetKind {
+        switch self {
+        case .tag: .Tag
+        case .mood: .Mood
+        }
+    }
+}
+
+/// Facet-browse screen — every book carrying a given Tag or Mood. One parameterized
+/// destination serves both axes; `kind` switches the look. `name` rides the route so the
+/// hero renders immediately while Room hydrates the authoritative name and book set.
+struct FacetDestination: Hashable {
+    let kind: FacetBrowseKind
+    let id: String
+    let name: String
+}
+
 /// Shelf detail screen — the books a user has curated onto one shelf.
 struct ShelfDestination: Hashable {
     let id: String
