@@ -25,9 +25,6 @@ compose-material3 = "1.11.0-alpha07"
 # Swift Export bridge upgrade UNIT — bump together, never piecemeal:
 #   kotlin  +  the Swift Export patcher (build-logic `SwiftExportSourcePatcher`, validated against
 #   THIS Kotlin)  +  kotlinx-rpc.
-# Bumping `kotlin` requires re-validating the patcher (Plan 001 / `SwiftExportSourcePatcherTest` is
-# the first gate — a codegen-shape drift fails the `*GenerateSPMPackage` check) AND a matching
-# kotlinx-rpc build. `ksp` also moves in lockstep (see its note below).
 kotlin = "2.4.0"
 ksp = "2.3.9"
 mokkery = "3.4.1"
@@ -54,7 +51,7 @@ coil = "3.5.0"
 media3 = "1.10.1"
 concurrent-futures = "1.3.0"
 markdown-renderer = "0.43.0"
-aboutlibraries = "14.2.1"
+aboutlibraries = "15.0.2"
 
 
 # Desktop
