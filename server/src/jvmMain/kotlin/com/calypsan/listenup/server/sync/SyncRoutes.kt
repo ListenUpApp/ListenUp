@@ -133,6 +133,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepo<Any>
         val page: Page<Any> = typedRepo.pullSince(userId, since, limit, extraWhere)
+        log.debug { "sync pull: domain=$domainName since=$since → ${page.items.size} rows userId=$userId" }
         // call.respond(page) would fail at runtime: kotlinx.serialization cannot
         // infer the concrete element serializer from the type-erased Page<Any>.
         // encodePageAsJson uses the concrete KSerializer<T> each repository provides.
@@ -159,6 +160,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepo<Any>
         val digest: DomainDigest = typedRepo.digest(userId, cursor, extraWhere)
+        log.debug { "sync digest: domain=$domainName cursor=$cursor → ${digest.count} rows userId=$userId" }
         call.respond(digest)
     }
 
@@ -195,6 +197,7 @@ private suspend fun ServerSSESession.streamFirehose(
     val lastEventId: Long? =
         call.request.headers["Last-Event-ID"]?.let { raw ->
             raw.toLongOrNull() ?: run {
+                log.debug { "sync stream cursor malformed for userId=$userId; sending CursorStale" }
                 sendCursorStale(bus.oldestRetainedRevision() ?: 0L)
                 return
             }
@@ -205,9 +208,12 @@ private suspend fun ServerSSESession.streamFirehose(
     // the bus has already evicted the events the client needs.
     // "clientCursor < oldestRetained" → stale; "null" → fresh subscriber, stream normally.
     if (lastEventId != null && oldestRetained != null && lastEventId < oldestRetained) {
+        log.debug { "sync stream cursor stale: userId=$userId lastEventId=$lastEventId oldestRetained=$oldestRetained; sending CursorStale" }
         sendCursorStale(oldestRetained)
         return
     }
+
+    log.info { "sync stream opened: userId=$userId" }
 
     // Comment-line keepalive every [heartbeatIntervalMillis] ms. The frames
     // (`:keepalive\r\n`) are ignored by the EventSource spec on the client
@@ -255,6 +261,7 @@ private suspend fun ServerSSESession.streamFirehose(
                 if (isLibraryFolderEventHidden(busEvent, role)) return@collect
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
+                log.trace { "sse emit: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} revision=${busEvent.event.revision}" }
                 send(
                     id = busEvent.event.revision.toString(),
                     event = busEvent.repo.domainName,
@@ -275,6 +282,7 @@ private suspend fun ServerSSESession.streamFirehose(
     } finally {
         heartbeatJob.cancel()
         controlJob.cancel()
+        log.info { "sync stream closed: userId=$userId" }
     }
 }
 

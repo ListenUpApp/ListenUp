@@ -2,10 +2,13 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+
+private val logger = KotlinLogging.logger {}
 
 private const val LIVE_TAIL_BUFFER = 256
 
@@ -88,7 +91,10 @@ class ChangeBus {
         repo: SyncableRepo<T>,
         event: SyncEvent<T>,
         userId: String? = null,
-    ) = emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
+    ) {
+        logger.debug { "change published: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
+        emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
+    }
 
     /**
      * Emits [event] (paired with [repo]) onto the live tail **immediately**, with no
@@ -107,6 +113,7 @@ class ChangeBus {
         event: SyncEvent<T>,
         userId: String? = null,
     ) {
+        logger.debug { "change emitted post-commit: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
         flow.tryEmit(BusEvent(repo, event, userId))
     }
 
@@ -119,7 +126,10 @@ class ChangeBus {
     suspend fun publishControl(
         control: SyncControl,
         userId: String,
-    ) = emitOrDefer { controlFlow.tryEmit(ControlFrame(control, userId)) }
+    ) {
+        logger.debug { "control published: type=${control::class.simpleName} userId=$userId" }
+        emitOrDefer { controlFlow.tryEmit(ControlFrame(control, userId)) }
+    }
 
     /**
      * Publishes a [control] frame to EVERY connected subscriber, addressed to the
@@ -127,8 +137,10 @@ class ChangeBus {
      * regardless of their own userId. Use for content-free nudges only — a
      * broadcast frame carries no per-user or per-resource data, so it cannot leak.
      */
-    suspend fun broadcastControl(control: SyncControl) =
+    suspend fun broadcastControl(control: SyncControl) {
+        logger.debug { "control broadcast: type=${control::class.simpleName}" }
         emitOrDefer { controlFlow.tryEmit(ControlFrame(control, BROADCAST)) }
+    }
 
     fun subscribeControl(): SharedFlow<ControlFrame> = controlFlow.asSharedFlow()
 
