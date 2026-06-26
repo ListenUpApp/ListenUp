@@ -93,4 +93,24 @@ class ZipFormatTest :
             parsed.compSize shouldBe null
             parsed.localOffset shouldBe null
         }
+
+        test("parseZip64ExtraFor assigns a lone compSize value (sentinel-aware, not positional)") {
+            // A CDH where only compSize == 0xFFFFFFFF, so the extra carries exactly ONE 8-byte value
+            // (the real compressed size). A positional parse would mis-assign it to uncompSize.
+            val extra = encodeZip64Extra(uncompSize = null, compSize = 4_500_000_000L, localOffset = null)
+            val parsed = parseZip64ExtraFor(extra, hasUncomp = false, hasComp = true, hasOffset = false)
+            parsed.compSize shouldBe 4_500_000_000L
+            parsed.uncompSize shouldBe null
+            parsed.localOffset shouldBe null
+        }
+
+        test("parseZip64ExtraFor assigns values in (uncomp, comp, offset) order to the sentinel fields") {
+            // uncompSize and localOffset are sentinels (comp is a real 32-bit value): the extra holds two
+            // values, the first → uncompSize, the second → localOffset.
+            val extra = encodeZip64Extra(uncompSize = 9_000_000_000L, compSize = null, localOffset = 7_000_000_000L)
+            val parsed = parseZip64ExtraFor(extra, hasUncomp = true, hasComp = false, hasOffset = true)
+            parsed.uncompSize shouldBe 9_000_000_000L
+            parsed.compSize shouldBe null
+            parsed.localOffset shouldBe 7_000_000_000L
+        }
     })

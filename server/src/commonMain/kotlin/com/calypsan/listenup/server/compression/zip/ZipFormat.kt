@@ -148,6 +148,56 @@ internal fun parseZip64Extra(extra: ByteArray): Zip64ExtraFields {
     return Zip64ExtraFields(uncompSize = null, compSize = null, localOffset = null)
 }
 
+/**
+ * Sentinel-aware variant of [parseZip64Extra] for the reader. A central-directory header carries a
+ * ZIP64 overflow value only for each base field whose 32-bit slot equals the 0xFFFFFFFF sentinel, and
+ * the 0x0001 record packs exactly those values in fixed order: uncompSize, then compSize, then
+ * localOffset. This walks to the 0x0001 record and assigns its i-th 8-byte value to the i-th field that
+ * [hasUncomp]/[hasComp]/[hasOffset] marks as a sentinel — so a record carrying only compSize (because
+ * uncompSize was a real 32-bit value) decodes to [Zip64ExtraFields.compSize], never mis-assigned to
+ * uncompSize the way a positional read would. A field marked sentinel but absent from the record (a
+ * short or truncated record) decodes to null; the caller treats that as malformed.
+ */
+internal fun parseZip64ExtraFor(
+    extra: ByteArray,
+    hasUncomp: Boolean,
+    hasComp: Boolean,
+    hasOffset: Boolean,
+): Zip64ExtraFields {
+    var pos = 0
+    while (pos + 4 <= extra.size) {
+        val id = (extra[pos].toInt() and 0xFF) or ((extra[pos + 1].toInt() and 0xFF) shl 8)
+        val size = (extra[pos + 2].toInt() and 0xFF) or ((extra[pos + 3].toInt() and 0xFF) shl 8)
+        val dataStart = pos + 4
+        val dataEnd = dataStart + size
+
+        if (dataEnd > extra.size) break // truncated record — stop
+
+        if (id == ZIP64_EXTRA_ID) {
+            val available = size / 8
+            var index = 0
+
+            fun nextValue(): Long? {
+                if (index >= available) return null
+                val off = dataStart + index * 8
+                var v = 0L
+                for (i in 0..7) v = v or ((extra[off + i].toLong() and 0xFFL) shl (i * 8))
+                index++
+                return v
+            }
+            // Left-to-right argument evaluation guarantees the values are consumed in field order.
+            return Zip64ExtraFields(
+                uncompSize = if (hasUncomp) nextValue() else null,
+                compSize = if (hasComp) nextValue() else null,
+                localOffset = if (hasOffset) nextValue() else null,
+            )
+        }
+
+        pos = dataEnd
+    }
+    return Zip64ExtraFields(uncompSize = null, compSize = null, localOffset = null)
+}
+
 // ── EOCD locator ─────────────────────────────────────────────────────────────────────────────────
 
 /**
