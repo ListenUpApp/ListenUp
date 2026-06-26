@@ -54,7 +54,7 @@ struct ActivityRow: View {
         let who = Text(item.who).fontWeight(.semibold).foregroundStyle(.primary)
         let action = Text(" \(item.action) ").foregroundStyle(.primary)
         if let book = item.book, !book.isEmpty {
-            let title = Text(book).fontWeight(.semibold).foregroundStyle(.luTint)
+            let title = Text(book).fontWeight(.semibold).foregroundStyle(Color.luTint)
             return Text("\(who)\(action)\(title)")
         }
         return Text("\(who)\(action)")
