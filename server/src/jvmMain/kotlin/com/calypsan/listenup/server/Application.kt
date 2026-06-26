@@ -60,6 +60,7 @@ import com.calypsan.listenup.server.plugins.installMaintenanceGate
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -76,6 +77,7 @@ import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.routes.adminRoutes
 import com.calypsan.listenup.server.routes.adminUserRoutes
 import com.calypsan.listenup.server.routes.audioRoutes
+import com.calypsan.listenup.server.routes.coverCastRoutes
 import com.calypsan.listenup.server.routes.authRoutes
 import com.calypsan.listenup.server.routes.backupRoutes
 import com.calypsan.listenup.server.routes.importRoutes
@@ -413,6 +415,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val searchReindexService by inject<SearchReindexService>()
     val audioFileLocator by inject<AudioFileLocator>()
     val audioUrlSigner by inject<AudioUrlSigner>()
+    val coverUrlSigner by inject<CoverUrlSigner>()
     val contributorRepository by inject<ContributorRepository>()
     val seriesRepository by inject<SeriesRepository>()
     val metadataLookupService by inject<MetadataLookupService>()
@@ -510,6 +513,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
         }
         scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
+        coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
 }
 

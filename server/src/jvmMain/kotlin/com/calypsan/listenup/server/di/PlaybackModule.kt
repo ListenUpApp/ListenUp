@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
@@ -70,6 +71,11 @@ fun playbackModule(): Module =
         single {
             AudioUrlSigner(
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
+            )
+        }
+        single {
+            CoverUrlSigner(
+                signingKey = CoverUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
             )
         }
         single { UserRoleLookup(db = get<ListenUpDatabase>()) }
