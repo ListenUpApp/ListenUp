@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.share.ShareTarget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -69,4 +70,33 @@ class DeepLinkManager {
      * Checks if there's a pending invite without consuming it.
      */
     fun hasPendingInvite(): Boolean = pendingInvite.value != null
+
+    /**
+     * Observable flow of the pending share-link / deep-link target.
+     *
+     * The generalized successor to [pendingInvite]: both platforms' routers observe this,
+     * run it through [com.calypsan.listenup.client.share.ShareTargetResolver], and act on the
+     * resolution. Null when nothing is pending. Phase 2 migrates invite reception onto this
+     * seam and retires [pendingInvite].
+     */
+    val pendingTarget: StateFlow<ShareTarget?>
+        field = MutableStateFlow<ShareTarget?>(null)
+
+    /**
+     * Stores a pending target to be processed by navigation. Called by the reception layer
+     * after [com.calypsan.listenup.client.share.ShareLinkCodec.decode] yields a target.
+     *
+     * @param target The decoded [ShareTarget] to hold until navigation consumes it.
+     */
+    fun setPendingTarget(target: ShareTarget) {
+        pendingTarget.value = target
+    }
+
+    /** Clears the pending target after navigation has consumed it (single-fire semantics). */
+    fun consumeTarget() {
+        pendingTarget.value = null
+    }
+
+    /** Checks whether a target is pending without consuming it. */
+    fun hasPendingTarget(): Boolean = pendingTarget.value != null
 }
