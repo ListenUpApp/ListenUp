@@ -66,6 +66,7 @@ enum ActivityFeedPhase: Equatable {
 /// fragment is optional — milestone/join activities have no book and render the phrase only.
 struct ActivityRowItem: Identifiable, Equatable {
     let id: String
+    let userId: String
     let who: String
     let initials: String
     let avatarColor: String
@@ -79,6 +80,7 @@ struct ActivityRowItem: Identifiable, Equatable {
 
     init(from model: ActivityUiModel) {
         self.id = model.id
+        self.userId = model.userId
         self.who = model.userDisplayName
         self.initials = LeaderboardRow.initials(from: model.userDisplayName)
         self.avatarColor = model.userAvatarColor
@@ -90,6 +92,7 @@ struct ActivityRowItem: Identifiable, Equatable {
 
     init(
         id: String,
+        userId: String,
         who: String,
         initials: String,
         avatarColor: String,
@@ -99,6 +102,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         occurredAt: Date
     ) {
         self.id = id
+        self.userId = userId
         self.who = who
         self.initials = initials
         self.avatarColor = avatarColor
