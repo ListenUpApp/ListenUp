@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.io
 
+import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.random.Random
@@ -56,3 +57,42 @@ internal fun Path.isUnder(base: Path): Boolean {
 
 private fun randomHex(): String =
     (0 until TEMP_NAME_HEX_CHARS).joinToString("") { Random.nextInt(HEX_RADIX).toString(HEX_RADIX) }
+
+/**
+ * Every regular file under [dir] (recursively), sorted by full path string — reproducing
+ * `java.nio.file.Files.walk(dir).filter(isRegularFile).sorted()`. Returns empty if [dir] is absent.
+ *
+ * The full-path sort (not a per-level name sort) is load-bearing: the backup image-prefix checksum
+ * is a rolling digest over these files in this exact order, and old archives were written in it.
+ */
+internal fun listRegularFilesRecursively(dir: Path): List<Path> {
+    if (!SystemFileSystem.exists(dir)) return emptyList()
+    val out = mutableListOf<Path>()
+    fun recurse(d: Path) {
+        for (child in SystemFileSystem.list(d)) {
+            if (SystemFileSystem.metadataOrNull(child)?.isDirectory == true) {
+                recurse(child)
+            } else {
+                out.add(child)
+            }
+        }
+    }
+    recurse(dir)
+    return out.sortedBy { it.toString() }
+}
+
+/** Recursively copies the tree at [src] into [dst] (created if absent). No-op if [src] is absent. */
+internal fun copyDirectoryRecursively(src: Path, dst: Path) {
+    if (!SystemFileSystem.exists(src)) return
+    SystemFileSystem.createDirectories(dst)
+    for (child in SystemFileSystem.list(src)) {
+        val target = Path(dst, child.name)
+        if (SystemFileSystem.metadataOrNull(child)?.isDirectory == true) {
+            copyDirectoryRecursively(child, target)
+        } else {
+            SystemFileSystem.source(child).use { input ->
+                SystemFileSystem.sink(target).buffered().use { it.transferFrom(input) }
+            }
+        }
+    }
+}
