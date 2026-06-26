@@ -17,7 +17,7 @@ import com.calypsan.listenup.client.data.local.migrations.MIGRATION_36_37
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_37_38
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_38_39
 import com.calypsan.listenup.client.data.local.migrations.MIGRATION_39_40
-import kotlinx.coroutines.Dispatchers
+import com.calypsan.listenup.core.IODispatcher
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import platform.Foundation.NSDocumentDirectory
@@ -32,7 +32,8 @@ import platform.Foundation.NSUserDomainMask
  * Uses NSDocumentDirectory instead of NSHomeDirectory to ensure write access
  * for the database lock file (.lck) on real devices.
  *
- * Note: Uses Dispatchers.Default instead of Dispatchers.IO since IO is internal on Native platforms.
+ * Room queries run on [IODispatcher], the single canonical background dispatcher — it resolves to
+ * the real elastic IO pool on every platform (including Native).
  */
 internal actual val platformDatabaseModule: Module =
     module {
@@ -51,7 +52,7 @@ internal actual val platformDatabaseModule: Module =
                 .databaseBuilder<ListenUpDatabase>(
                     name = dbFile,
                 ).setDriver(BundledSQLiteDriver())
-                .setQueryCoroutineContext(Dispatchers.Default)
+                .setQueryCoroutineContext(IODispatcher)
                 // Without this the FTS5 search tables are never created on Apple platforms,
                 // so every search and FTS rebuild fails with `no such table: books_fts`.
                 .addCallback(FtsTableCallback())
