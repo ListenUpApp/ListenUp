@@ -8,6 +8,8 @@ struct RecentlyAddedSection: View {
     let cardWidth: CGFloat
     /// Horizontal inset so the rail's first/last cards align with the screen's content margin.
     let horizontalInset: CGFloat
+    /// Screen-wide multi-select; `nil` disables selection for this rail.
+    var selection: BookSelectionObserver?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -33,7 +35,7 @@ struct RecentlyAddedSection: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
                         ForEach(books) { book in
-                            RecentlyAddedCard(book: book, width: cardWidth)
+                            RecentlyAddedCard(book: book, width: cardWidth, selection: selection)
                         }
                     }
                     .padding(.horizontal, horizontalInset)
