@@ -79,6 +79,7 @@ private fun AboutSectionCardLight() {
             onToggleDescriptionExpanded = { expanded = !expanded },
             onGenreClick = {},
             onTagClick = {},
+            onMoodClick = {},
             creditsSlot = { CreditsSlotSample() },
         )
     }
@@ -100,6 +101,7 @@ private fun AboutSectionCardDark() {
             onToggleDescriptionExpanded = { expanded = !expanded },
             onGenreClick = {},
             onTagClick = {},
+            onMoodClick = {},
             creditsSlot = { CreditsSlotSample() },
         )
     }
@@ -123,6 +125,7 @@ private fun AboutSectionFramelessLight() {
             onToggleDescriptionExpanded = { expanded = !expanded },
             onGenreClick = {},
             onTagClick = {},
+            onMoodClick = {},
         )
     }
 }
@@ -143,6 +146,7 @@ private fun AboutSectionFramelessDark() {
             onToggleDescriptionExpanded = { expanded = !expanded },
             onGenreClick = {},
             onTagClick = {},
+            onMoodClick = {},
         )
     }
 }

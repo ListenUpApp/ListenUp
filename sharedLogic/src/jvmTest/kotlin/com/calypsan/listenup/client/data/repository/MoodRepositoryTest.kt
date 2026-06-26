@@ -75,7 +75,12 @@ private fun withRepo(block: suspend (MoodRepositoryImpl, ListenUpDatabase) -> Un
         val db = createInMemoryTestDatabase()
         try {
             val moodRpcFactory: MoodRpcFactory = mock()
-            val repo = MoodRepositoryImpl(moodRpcFactory = moodRpcFactory, moodDao = db.moodDao())
+            val repo =
+                MoodRepositoryImpl(
+                    moodRpcFactory = moodRpcFactory,
+                    moodDao = db.moodDao(),
+                    bookMoodDao = db.bookMoodDao(),
+                )
             block(repo, db)
         } finally {
             db.close()

@@ -112,7 +112,8 @@ fun BookDetailScreen(
     onMetadataSearchClick: (bookId: String) -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
-    onTagClick: (tagId: String) -> Unit,
+    onTagClick: (tagId: String, tagName: String) -> Unit,
+    onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
@@ -173,6 +174,7 @@ fun BookDetailScreen(
                     onSeriesClick = onSeriesClick,
                     onContributorClick = onContributorClick,
                     onTagClick = onTagClick,
+                    onMoodClick = onMoodClick,
                     onUserProfileClick = onUserProfileClick,
                     onSeeAllReaders = onSeeAllReaders,
                 )
@@ -199,7 +201,8 @@ private fun BookDetailReadyContent(
     onMetadataSearchClick: (bookId: String) -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
-    onTagClick: (tagId: String) -> Unit,
+    onTagClick: (tagId: String, tagName: String) -> Unit,
+    onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
 ) {
@@ -279,6 +282,7 @@ private fun BookDetailReadyContent(
         onSeriesClick = onSeriesClick,
         onContributorClick = onContributorClick,
         onTagClick = onTagClick,
+        onMoodClick = onMoodClick,
         onSeeAllReaders = onSeeAllReaders,
     )
 
@@ -388,7 +392,8 @@ fun BookDetailContent(
     onDeleteClick: () -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
-    onTagClick: (tagId: String) -> Unit,
+    onTagClick: (tagId: String, tagName: String) -> Unit,
+    onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit = {},
 ) {
@@ -435,6 +440,7 @@ fun BookDetailContent(
             onSeriesClick = onSeriesClick,
             onContributorClick = onContributorClick,
             onTagClick = onTagClick,
+            onMoodClick = onMoodClick,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
         )
@@ -471,6 +477,7 @@ fun BookDetailContent(
             onSeriesClick = onSeriesClick,
             onContributorClick = onContributorClick,
             onTagClick = onTagClick,
+            onMoodClick = onMoodClick,
             onUserProfileClick = onUserProfileClick,
             onSeeAllReaders = onSeeAllReaders,
         )
@@ -522,7 +529,8 @@ private fun ImmersiveBookDetail(
     onDeleteClick: () -> Unit,
     onSeriesClick: (seriesId: String) -> Unit,
     onContributorClick: (contributorId: String) -> Unit,
-    onTagClick: (tagId: String) -> Unit,
+    onTagClick: (tagId: String, tagName: String) -> Unit,
+    onMoodClick: (moodId: String, moodName: String) -> Unit,
     onUserProfileClick: (userId: String) -> Unit,
     onSeeAllReaders: (bookId: String) -> Unit,
 ) {
@@ -643,7 +651,8 @@ private fun ImmersiveBookDetail(
                     isDescriptionExpanded = isDescriptionExpanded,
                     onToggleDescriptionExpanded = { isDescriptionExpanded = !isDescriptionExpanded },
                     onGenreClick = null,
-                    onTagClick = { tag -> onTagClick(tag.id) },
+                    onTagClick = { tag -> onTagClick(tag.id, tag.displayName()) },
+                    onMoodClick = { mood -> onMoodClick(mood.id, mood.displayName()) },
                     creditsSlot = null,
                     modifier = screenPadding.padding(top = 24.dp),
                 )

@@ -1348,6 +1348,16 @@
     "book_count": "%1$d book",
     "books_count": "%1$d books"
   },
+  "browse_facet": {
+    "kind_tag": "Tag",
+    "kind_mood": "Mood",
+    "books_label": "Books",
+    "total_label": "Total",
+    "no_books_tag": "No books with this tag.",
+    "no_books_mood": "No books in this mood.",
+    "unavailable_tag": "Tag unavailable",
+    "unavailable_mood": "Mood unavailable"
+  },
   "tag": {
     "book_count": "%1$d book",
     "books_count": "%1$d books",

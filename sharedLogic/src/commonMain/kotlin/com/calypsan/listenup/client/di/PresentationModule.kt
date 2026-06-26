@@ -162,6 +162,13 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
+        factory {
+            com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel(
+                tagRepository = get(),
+                moodRepository = get(),
+                bookRepository = get(),
+            )
+        }
         // AdminCollectionDetailViewModel - takes collectionId as parameter
         factory { params ->
             com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel(
