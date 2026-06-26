@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.backup
 
-import java.nio.file.Files
-import java.nio.file.Path
+import com.calypsan.listenup.server.io.fileIoDispatcher
+import kotlinx.coroutines.withContext
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * All filesystem locations the backup/restore domain uses, rooted at `$LISTENUP_HOME`.
@@ -15,40 +17,36 @@ class BackupPaths(
     private val homeDir: Path,
 ) {
     /** Directory where finished `.listenup.zip` archives are stored. */
-    val backupsDir: Path get() = homeDir.resolve("backups")
+    val backupsDir: Path get() = Path(homeDir, "backups")
 
     /** Scratch space for in-progress archive creation (inside `backupsDir` to keep renames atomic). */
-    val tmpDir: Path get() = backupsDir.resolve(".tmp")
+    val tmpDir: Path get() = Path(backupsDir, ".tmp")
 
     /** Safety-copy location: the pre-swap snapshot written before a restore begins. */
-    val rollbackDir: Path get() = homeDir.resolve("restore-rollback")
+    val rollbackDir: Path get() = Path(homeDir, "restore-rollback")
 
     /** Staging area where an incoming archive is extracted before being swapped in. */
-    val stagingDir: Path get() = homeDir.resolve("restore-staging")
+    val stagingDir: Path get() = Path(homeDir, "restore-staging")
 
-    /**
-     * The live SQLite database file.
-     *
-     * Matches `SQLITE_DB_FILENAME = "listenup.db"` from `DataHome.kt`.
-     * In production both this path and [com.calypsan.listenup.server.db.DatabaseHandle.dbPath]
-     * derive from the same `homeDir`, so they agree. Tests may diverge (temp JDBC URLs).
-     */
-    val dbFile: Path get() = homeDir.resolve("listenup.db")
+    /** The live SQLite database file. Matches `SQLITE_DB_FILENAME = "listenup.db"` from `DataHome.kt`. */
+    val dbFile: Path get() = Path(homeDir, "listenup.db")
 
     /** Directory containing book cover images managed by the server. */
-    val coversDir: Path get() = homeDir.resolve("covers")
+    val coversDir: Path get() = Path(homeDir, "covers")
 
     /** Directory containing user avatar images managed by the server. */
-    val avatarsDir: Path get() = homeDir.resolve("avatars")
+    val avatarsDir: Path get() = Path(homeDir, "avatars")
 
     /** Returns the archive path for a backup with the given [id] stem. */
-    fun archiveFor(id: String): Path = backupsDir.resolve("$id.listenup.zip")
+    fun archiveFor(id: String): Path = Path(backupsDir, "$id.listenup.zip")
 
     /**
      * Creates [backupsDir] and [tmpDir] if they do not already exist.
      * Other directories ([rollbackDir], [stagingDir]) are created on-demand by the orchestrator.
      */
-    fun ensureDirs() {
-        listOf(backupsDir, tmpDir).forEach { Files.createDirectories(it) }
+    suspend fun ensureDirs() {
+        withContext(fileIoDispatcher) {
+            listOf(backupsDir, tmpDir).forEach { SystemFileSystem.createDirectories(it) }
+        }
     }
 }

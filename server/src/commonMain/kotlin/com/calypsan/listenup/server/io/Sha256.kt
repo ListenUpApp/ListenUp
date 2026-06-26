@@ -25,12 +25,28 @@ internal fun hashSourceSha256(source: RawSource): String =
  * Incremental SHA-256 — fed bytes across multiple [update] calls, finalized once via [digestHex].
  * Follows the update/finalize shape of [com.calypsan.listenup.server.compression.Crc32]. Single-use:
  * [digestHex] releases the underlying hash function, so do not call [update] after it.
+ *
+ * [AutoCloseable] so a caller that abandons the digest mid-stream (an exception before [digestHex])
+ * still releases the native hash context — on Kotlin/Native the function wraps an openssl context
+ * that leaks if never closed. [close] is idempotent; [digestHex] closes on the success path.
  */
-internal class Sha256 {
+internal class Sha256 : AutoCloseable {
     private val fn = sha256Hasher.createHashFunction()
+    private var open = true
 
     fun update(bytes: ByteArray) = fn.update(bytes)
 
     /** Finalizes and returns the lowercase 64-char hex digest, releasing the function. */
-    fun digestHex(): String = fn.use { it.hashToByteArray().toHexString() }
+    fun digestHex(): String {
+        val hex = fn.hashToByteArray().toHexString()
+        close()
+        return hex
+    }
+
+    override fun close() {
+        if (open) {
+            open = false
+            fn.close()
+        }
+    }
 }
