@@ -248,6 +248,7 @@
     "ignore_articles": "Ignore A, An, The",
     "sort_ascending": "Ascending",
     "sort_descending": "Descending",
+    "sort_options": "Sort options",
     "contributors": "Contributors",
     "author_count": "%d authors",
     "narrator_count": "%d narrators",

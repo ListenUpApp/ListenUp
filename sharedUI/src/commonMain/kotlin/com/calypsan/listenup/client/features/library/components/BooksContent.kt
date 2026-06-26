@@ -198,7 +198,9 @@ private fun SectionHeader(
  * @param bookIsFinished Map of bookId to isFinished flag (authoritative completion status from server)
  * @param isInSelectionMode Whether multi-select mode is active
  * @param selectedBookIds Set of currently selected book IDs
- * @param onToggleIgnoreArticles Called when the "Title sort" toggle is tapped (article-aware sorting)
+ * @param onCategorySelected Called when the user selects a new sort category
+ * @param onDirectionToggle Called when the user toggles sort direction
+ * @param onToggleIgnoreArticles Called when the "Ignore articles" toggle is tapped (article-aware sorting)
  * @param onBookClick Callback when a book is clicked (navigates or toggles selection)
  * @param onBookLongPress Callback when a book is long-pressed (enters selection mode)
  * @param onRetry Callback when retry is clicked in error state
@@ -218,6 +220,8 @@ fun BooksContent(
     bookIsFinished: Map<BookId, Boolean> = emptyMap(),
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
+    onCategorySelected: (SortCategory) -> Unit,
+    onDirectionToggle: () -> Unit,
     onToggleIgnoreArticles: () -> Unit,
     onBookClick: (String) -> Unit,
     onBookLongPress: ((String) -> Unit)? = null,
@@ -260,11 +264,17 @@ fun BooksContent(
                     if (isServerScanning && scanProgress != null) {
                         ScanProgressBanner(scanProgress = scanProgress)
                     }
-                    LibrarySortBar(
+                    LibrarySortCard(
+                        state = sortState,
+                        categories = SortCategory.booksCategories,
                         count = books.size,
                         unit = "titles",
                         ignoreArticles = ignoreTitleArticles,
+                        showArticleToggle = sortState.category == SortCategory.TITLE,
+                        onCategorySelected = onCategorySelected,
+                        onDirectionToggle = onDirectionToggle,
                         onToggleArticles = onToggleIgnoreArticles,
+                        visible = true,
                         modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
                     )
                     BookGrid(

@@ -20,7 +20,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -30,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.design.components.AlphabetIndex
 import com.calypsan.listenup.client.design.components.AlphabetScrollbar
-import com.calypsan.listenup.client.design.components.SortSplitButton
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
 import com.calypsan.listenup.client.presentation.library.SortCategory
 import com.calypsan.listenup.client.presentation.library.SortState
@@ -73,12 +71,19 @@ fun SeriesContent(
             SeriesEmptyState()
         } else {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Mirrors the Books tab: the "Title sort" toggle flips article-aware name sorting.
-                LibrarySortBar(
+                // Mirrors the Books tab: one unified sort card holds category, direction, and the
+                // article toggle (article-aware name sorting) together.
+                LibrarySortCard(
+                    state = sortState,
+                    categories = SortCategory.seriesCategories,
                     count = series.size,
                     unit = "series",
                     ignoreArticles = ignoreArticles,
+                    showArticleToggle = sortState.category == SortCategory.NAME,
+                    onCategorySelected = onCategorySelected,
+                    onDirectionToggle = onDirectionToggle,
                     onToggleArticles = onToggleIgnoreArticles,
+                    visible = true,
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
                 )
 
@@ -100,21 +105,6 @@ fun SeriesContent(
                         derivedStateOf { gridState.isScrollInProgress }
                     }
 
-                    // Track scroll direction for button visibility
-                    var previousScrollOffset by remember { mutableIntStateOf(0) }
-                    val showSortButton by remember {
-                        derivedStateOf {
-                            val firstVisible = gridState.firstVisibleItemIndex
-                            val currentOffset = gridState.firstVisibleItemScrollOffset
-
-                            val isAtTop = firstVisible == 0 && currentOffset < 50
-                            val isScrollingUp = currentOffset < previousScrollOffset
-
-                            previousScrollOffset = currentOffset
-                            isAtTop || isScrollingUp || !gridState.isScrollInProgress
-                        }
-                    }
-
                     LazyVerticalGrid(
                         state = gridState,
                         columns = GridCells.Adaptive(minSize = 200.dp),
@@ -122,7 +112,7 @@ fun SeriesContent(
                             PaddingValues(
                                 start = 16.dp,
                                 end = 16.dp,
-                                top = 48.dp,
+                                top = 12.dp,
                                 bottom = 16.dp,
                             ),
                         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -140,19 +130,6 @@ fun SeriesContent(
                         }
                     }
 
-                    // Sort split button
-                    SortSplitButton(
-                        state = sortState,
-                        categories = SortCategory.seriesCategories,
-                        onCategorySelected = onCategorySelected,
-                        onDirectionToggle = onDirectionToggle,
-                        visible = showSortButton,
-                        modifier =
-                            Modifier
-                                .align(Alignment.TopStart)
-                                .padding(start = 16.dp, top = 8.dp),
-                    )
-
                     // Alphabet scrollbar (only for name sort)
                     // Anchored to TopEnd so it stays fixed relative to content start
                     if (alphabetIndex != null) {
@@ -165,7 +142,7 @@ fun SeriesContent(
                             modifier =
                                 Modifier
                                     .align(Alignment.TopEnd)
-                                    .padding(top = 56.dp, end = 4.dp, bottom = 0.dp),
+                                    .padding(top = 12.dp, end = 4.dp, bottom = 0.dp),
                         )
                     }
                 }
