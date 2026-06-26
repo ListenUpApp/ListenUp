@@ -471,17 +471,3 @@ internal fun UserStatusColumn.toContract(): UserStatus =
         UserStatusColumn.PENDING_APPROVAL -> UserStatus.PENDING_APPROVAL
         UserStatusColumn.DENIED -> UserStatus.DENIED
     }
-
-/**
- * Strategy for handlers asking "who is the current caller?" without coupling
- * [AuthServiceImpl] to Ktor types. The default is [None] (used in unit tests);
- * Phase D wires the Ktor-backed implementation that reads [UserPrincipal] from
- * `call.principal()`.
- */
-fun interface PrincipalProvider {
-    fun current(): UserPrincipal?
-
-    object None : PrincipalProvider {
-        override fun current(): UserPrincipal? = null
-    }
-}
