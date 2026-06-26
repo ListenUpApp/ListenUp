@@ -2711,6 +2711,16 @@
         }
       }
     },
+    "book.detail_insufficient_storage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not enough storage. Need %1$dMB, have %2$dMB available."
+          }
+        }
+      }
+    },
     "book.detail_language": {
       "localizations": {
         "en": {

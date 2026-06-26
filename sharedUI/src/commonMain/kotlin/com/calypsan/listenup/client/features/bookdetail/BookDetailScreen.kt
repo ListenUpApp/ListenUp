@@ -77,10 +77,13 @@ import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.presentation.error.localizedString
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_document_meta
 import listenup.composeapp.generated.resources.book_detail_document_viewer_coming_soon
+import listenup.composeapp.generated.resources.book_detail_insufficient_storage
 import listenup.composeapp.generated.resources.book_detail_scan_warning
 import listenup.composeapp.generated.resources.book_detail_supplementary_materials
 import listenup.composeapp.generated.resources.book_show_all_chapters
@@ -883,14 +886,14 @@ private suspend fun handleDownloadResult(
     showSnackbar: suspend (String) -> Unit,
 ) {
     if (result is AppResult.Failure) {
-        showSnackbar("Download failed: ${result.error.debugInfo ?: "Unknown error"}")
+        showSnackbar(result.error.localizedString())
         return
     }
     val outcome = (result as AppResult.Success).data
     if (outcome is DownloadOutcome.InsufficientStorage) {
-        val requiredMb = outcome.requiredBytes / 1_000_000
-        val availableMb = outcome.availableBytes / 1_000_000
-        showSnackbar("Not enough storage. Need ${requiredMb}MB, have ${availableMb}MB available.")
+        val requiredMb = (outcome.requiredBytes / 1_000_000).toInt()
+        val availableMb = (outcome.availableBytes / 1_000_000).toInt()
+        showSnackbar(getString(Res.string.book_detail_insufficient_storage, requiredMb, availableMb))
     }
     // DownloadOutcome.Started and DownloadOutcome.AlreadyDownloaded: no UI action needed
 }
