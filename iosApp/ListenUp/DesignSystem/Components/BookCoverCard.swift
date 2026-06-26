@@ -12,10 +12,16 @@ import SwiftUI
 struct BookCoverCard: View {
     let book: BookRow
     let progress: Float?
+    /// Whether the grid is in multi-select mode (shows a selection circle on every cover).
+    let isSelecting: Bool
+    /// Whether this book is currently selected (filled vs. empty circle).
+    let isSelected: Bool
 
-    init(book: BookRow, progress: Float? = nil) {
+    init(book: BookRow, progress: Float? = nil, isSelecting: Bool = false, isSelected: Bool = false) {
         self.book = book
         self.progress = progress
+        self.isSelecting = isSelecting
+        self.isSelected = isSelected
     }
 
     var body: some View {
@@ -47,6 +53,20 @@ struct BookCoverCard: View {
                             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .padding(6)
                             .accessibilityLabel(String(localized: "library.has_documents_badge"))
+                    }
+                }
+                // Selection circle — top-leading so it never clashes with the top-trailing
+                // documents badge. Shown only while the grid is in multi-select mode.
+                .overlay(alignment: .topLeading) {
+                    if isSelecting {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 22))
+                            .symbolRenderingMode(.palette)
+                            .foregroundStyle(.white, isSelected ? Color.listenUpOrange : Color.black.opacity(0.35))
+                            .padding(6)
+                            .accessibilityLabel(Text(isSelected
+                                ? String(localized: "common.selected")
+                                : String(localized: "common.not_selected")))
                     }
                 }
 
