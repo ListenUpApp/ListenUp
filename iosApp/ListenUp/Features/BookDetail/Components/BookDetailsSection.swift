@@ -12,6 +12,8 @@ import SwiftUI
 /// from the observer / `BookDetail`. Fields `BookDetail` doesn't expose simply
 /// aren't passed.
 struct BookDetailsSection: View {
+    /// Comma-joined author names; empty when none.
+    let authors: String
     /// Comma-joined narrator names; empty when none.
     let narrators: String
     /// Pre-formatted total length (e.g. "33h 50m"); empty when unknown.
@@ -64,6 +66,9 @@ struct BookDetailsSection: View {
     /// body never has to reason about empty values.
     private var rows: [(key: String, value: String, isCast: Bool)] {
         var result: [(String, String, Bool)] = []
+        if !authors.isEmpty {
+            result.append((String(localized: "book.detail_written_by"), authors, false))
+        }
         if !narrators.isEmpty {
             result.append((String(localized: "book.detail_narrated_by"), narrators, true))
         }
@@ -137,6 +142,7 @@ struct BookDetailsSection: View {
 
 #Preview("Details — full") {
     BookDetailsSection(
+        authors: "George R. R. Martin",
         narrators: "Roy Dotrice",
         lengthLabel: "33h 50m",
         chapterCount: 23,
@@ -154,6 +160,7 @@ struct BookDetailsSection: View {
 
 #Preview("Details — sparse (rows omitted)") {
     BookDetailsSection(
+        authors: "Brandon Sanderson",
         narrators: "Kate Reading, Michael Kramer",
         lengthLabel: "45h 30m",
         chapterCount: 0,

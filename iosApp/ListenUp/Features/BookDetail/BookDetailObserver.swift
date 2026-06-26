@@ -326,7 +326,8 @@ final class BookDetailObserver {
         durationMs = book.duration
         asin = book.asin
         publisher = book.publisher
-        language = book.language
+        // Show the real language name ("English"), not the stored code ("en").
+        language = book.language.map(LanguageName.display)
         header = BookDetailHeaderModel(
             coverBookId: book.idString,
             coverPath: book.coverPath,

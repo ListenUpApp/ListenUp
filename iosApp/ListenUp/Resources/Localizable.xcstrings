@@ -3861,6 +3861,16 @@
         }
       }
     },
+    "book.time_left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ left"
+          }
+        }
+      }
+    },
     "common.about": {
       "localizations": {
         "en": {
