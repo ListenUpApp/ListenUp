@@ -1,0 +1,40 @@
+package com.calypsan.listenup.client.share
+
+import com.calypsan.listenup.core.BookId
+
+/**
+ * A decoded share / deep-link target — what the user is trying to open.
+ *
+ * This is the generalized model: [Book] ships first; series and contributors slot in later
+ * as new variants with no change to the codec or resolver call sites. Parity between Android
+ * and iOS comes from both platforms decoding to — and resolving — this one type.
+ */
+sealed interface ShareTarget {
+    /**
+     * A shared book.
+     *
+     * @property bookId The server-scoped book id to open.
+     * @property serverInstanceId The stable `instanceId` of the server that produced the link,
+     *   or `null` for a legacy `listenup://book/{id}` link that carried no server context
+     *   (such a link resolves against the currently-connected server).
+     * @property serverUrl The source server's URL, for display and a possible future "connect"
+     *   action — never the identity key (URLs vary LAN-vs-remote). `null` when the link carried none.
+     */
+    data class Book(
+        val bookId: BookId,
+        val serverInstanceId: String?,
+        val serverUrl: String?,
+    ) : ShareTarget
+
+    /**
+     * An invite / join claim — the existing `listenup://join` link, unified into this model.
+     *
+     * @property serverUrl The server the invite is for (persisted before lookup so a fresh
+     *   install can reach it).
+     * @property code The invite code.
+     */
+    data class Invite(
+        val serverUrl: String,
+        val code: String,
+    ) : ShareTarget
+}
