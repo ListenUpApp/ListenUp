@@ -21,21 +21,7 @@ struct AuthFlowCoordinator: View {
 
 // MARK: - Navigation environment keys
 
-private struct NavigateToRegisterKey: EnvironmentKey {
-    nonisolated(unsafe) static let defaultValue: () -> Void = {}
-}
-
-private struct NavigateBackKey: EnvironmentKey {
-    nonisolated(unsafe) static let defaultValue: () -> Void = {}
-}
-
 extension EnvironmentValues {
-    var navigateToRegister: () -> Void {
-        get { self[NavigateToRegisterKey.self] }
-        set { self[NavigateToRegisterKey.self] = newValue }
-    }
-    var navigateBack: () -> Void {
-        get { self[NavigateBackKey.self] }
-        set { self[NavigateBackKey.self] = newValue }
-    }
+    @Entry var navigateToRegister: () -> Void = {}
+    @Entry var navigateBack: () -> Void = {}
 }

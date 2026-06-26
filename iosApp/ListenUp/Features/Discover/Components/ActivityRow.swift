@@ -51,10 +51,10 @@ struct ActivityRow: View {
 
     /// "**who** action **book**" — actor semibold, book in coral semibold.
     private var phrase: Text {
-        let who = Text(item.who).fontWeight(.semibold).foregroundColor(.primary)
-        let action = Text(" \(item.action) ").foregroundColor(.primary)
+        let who = Text(item.who).fontWeight(.semibold).foregroundStyle(.primary)
+        let action = Text(" \(item.action) ").foregroundStyle(.primary)
         if let book = item.book, !book.isEmpty {
-            let title = Text(book).fontWeight(.semibold).foregroundColor(.luTint)
+            let title = Text(book).fontWeight(.semibold).foregroundStyle(.luTint)
             return Text("\(who)\(action)\(title)")
         }
         return Text("\(who)\(action)")
