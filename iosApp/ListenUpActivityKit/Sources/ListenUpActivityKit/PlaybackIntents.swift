@@ -65,6 +65,7 @@ public struct ResumePlaybackIntent: LiveActivityIntent {
 
     public init() {}
 
+    @MainActor
     public func perform() async throws -> some IntentResult {
         guard let bookId = await lastPlayed.mostRecentBookId() else {
             throw ResumePlaybackError.nothingToResume
