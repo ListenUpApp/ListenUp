@@ -358,13 +358,19 @@ enum ImportProgressMath {
         return min(max(Double(done) / Double(total), 0), 1)
     }
 
+    /// Thousands-grouping formatter for `counterLabel`. Immutable once configured, so it's shared as
+    /// a `static let` rather than rebuilt on every progress tick.
+    private static let decimalFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        return formatter
+    }()
+
     /// `"343 / 2,751"`, or nil when no total is known. Thousands-grouped for legibility.
     static func counterLabel(done: Int, total: Int) -> String? {
         guard total > 0 else { return nil }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        let doneText = formatter.string(from: NSNumber(value: done)) ?? "\(done)"
-        let totalText = formatter.string(from: NSNumber(value: total)) ?? "\(total)"
+        let doneText = decimalFormatter.string(from: NSNumber(value: done)) ?? "\(done)"
+        let totalText = decimalFormatter.string(from: NSNumber(value: total)) ?? "\(total)"
         return "\(doneText) / \(totalText)"
     }
 }
