@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.core.resolveNameFields
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -144,12 +145,14 @@ class EditProfileViewModel(
                 // seeded FormState equals the initial FormState(), StateFlow conflates the
                 // identical assignment away, no re-emission arrives, and the screen is stuck
                 // on the spinner forever.
+                val (seedFirst, seedLast) = resolveNameFields(user.displayName, user.firstName, user.lastName)
+
                 val effectiveForm =
                     if (!formInitialized) {
                         formInitialized = true
                         FormState(
-                            firstName = user.firstName ?: "",
-                            lastName = user.lastName ?: "",
+                            firstName = seedFirst,
+                            lastName = seedLast,
                             tagline = user.tagline ?: "",
                         ).also { formFlow.value = it }
                     } else {
@@ -157,8 +160,8 @@ class EditProfileViewModel(
                     }
 
                 val isDirty =
-                    effectiveForm.firstName != (user.firstName ?: "") ||
-                        effectiveForm.lastName != (user.lastName ?: "") ||
+                    effectiveForm.firstName != seedFirst ||
+                        effectiveForm.lastName != seedLast ||
                         effectiveForm.tagline != (user.tagline ?: "") ||
                         effectiveForm.currentPassword.isNotEmpty() ||
                         effectiveForm.newPassword.isNotEmpty() ||
@@ -306,7 +309,8 @@ class EditProfileViewModel(
         user: User,
     ): Boolean {
         val changedTagline = form.tagline.takeIf { it != (user.tagline ?: "") }
-        val nameChanged = form.firstName != (user.firstName ?: "") || form.lastName != (user.lastName ?: "")
+        val (baselineFirst, baselineLast) = resolveNameFields(user.displayName, user.firstName, user.lastName)
+        val nameChanged = form.firstName != baselineFirst || form.lastName != baselineLast
         val passwordChange =
             if (anyPasswordField(form)) {
                 PasswordChange(currentPassword = form.currentPassword, newPassword = form.newPassword)
