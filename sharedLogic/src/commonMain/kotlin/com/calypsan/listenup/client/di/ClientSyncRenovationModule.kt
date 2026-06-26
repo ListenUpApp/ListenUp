@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
+import com.calypsan.listenup.client.data.sync.BookUpdateOpSender
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
@@ -108,6 +109,7 @@ internal val clientSyncRenovationModule =
                     mapOf(
                         "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
                         "listening_events" to ListeningEventOpSender(rpcFactory = get()),
+                        "books" to BookUpdateOpSender(rpcFactory = get()),
                     ),
             )
         }

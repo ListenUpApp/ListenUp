@@ -13,9 +13,9 @@ import com.calypsan.listenup.core.BookId
 /**
  * Client-side write surface for book editing.
  *
- * All methods dispatch via [com.calypsan.listenup.api.BookService] over RPC.
- * Authoritative state arrives back via the SSE sync engine; this interface
- * makes no optimistic Room writes.
+ * [updateBook] is offline-first; the remaining methods dispatch via
+ * [com.calypsan.listenup.api.BookService] over RPC, with authoritative state
+ * arriving back via the SSE sync engine (no optimistic Room writes).
  *
  * Wire-side DTOs ([BookUpdate], [BookContributorInput], [BookSeriesInput])
  * are passed through unchanged — the contract is the source of truth.
@@ -24,9 +24,10 @@ interface BookEditRepository {
     /**
      * Applies the PATCH payload [patch] to the book identified by [id].
      *
-     * Every non-null field on [patch] replaces the current value; null fields
-     * leave existing state untouched. The server emits an SSE event with the
-     * updated payload on success; clients update Room reactively.
+     * Offline-first: every non-null field is written to Room immediately and a
+     * durable pending op is enqueued, so the edit survives and replays on
+     * reconnect rather than failing offline. The authoritative state still
+     * arrives via the SSE sync engine and reconciles the optimistic write.
      */
     suspend fun updateBook(
         id: BookId,
