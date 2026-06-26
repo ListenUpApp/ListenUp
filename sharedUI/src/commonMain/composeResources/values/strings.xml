@@ -272,6 +272,7 @@ One beautiful library.</string>
     <string name="book_detail_finished">Finished</string>
     <string name="book_detail_format">Format</string>
     <string name="book_detail_full_cast">Full cast</string>
+    <string name="book_detail_insufficient_storage">Not enough storage. Need %1$dMB, have %2$dMB available.</string>
     <string name="book_detail_language">Language</string>
     <string name="book_detail_length">Length</string>
     <string name="book_detail_mark_as_complete">Mark as Complete</string>

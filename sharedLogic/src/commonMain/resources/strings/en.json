@@ -421,7 +421,8 @@
     "reader_scrubber_page_count": "%1$d",
     "detail_document_search": "Search",
     "detail_document_search_placeholder": "Search in document",
-    "detail_document_search_no_results": "No results"
+    "detail_document_search_no_results": "No results",
+    "detail_insufficient_storage": "Not enough storage. Need %1$dMB, have %2$dMB available."
   },
   "series": {
     "book_sequence": "Book %1$s",
