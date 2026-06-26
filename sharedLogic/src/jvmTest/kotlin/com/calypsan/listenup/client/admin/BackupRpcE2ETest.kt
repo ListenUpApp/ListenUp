@@ -38,6 +38,7 @@ import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -93,7 +94,7 @@ class BackupRpcE2ETest :
             handle.sqlDriver.execute(null, "CREATE TABLE IF NOT EXISTS restore_marker(v TEXT)", 0)
             handle.sqlDriver.execute(null, "INSERT INTO restore_marker(v) VALUES ('before-restore')", 0)
 
-            val paths = BackupPaths(homeDir)
+            val paths = BackupPaths(IoPath(homeDir.toString()))
             val archive =
                 BackupArchive(
                     paths = paths,
