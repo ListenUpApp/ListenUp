@@ -40,11 +40,14 @@ struct BootSequenceTests {
                         // test can assert the failure was handled, not propagated.
                         connectThrew = true
                     }
-                    gate.signal()
+                    // Keyed gate (not the predicate form): the "has it happened?" state lives
+                    // inside the gate, so the test's `wait(forKey:)` needs no `self`-capturing
+                    // closure crossing the `@MainActor` boundary (Swift 6 sending-closure trap).
+                    gate.fire("connectRealtime")
                 },
                 resumeDownloads: { [self] in
                     resumeCount += 1
-                    gate.signal()
+                    gate.fire("resumeDownloads")
                 }
             )
         }
@@ -59,7 +62,8 @@ struct BootSequenceTests {
         // The boot wiring's actual entry point (auth becomes `.authenticated`): fire-and-forget.
         controller.activate()
 
-        await recorder.gate.wait { recorder.resumeCount == 1 }
+        // `resumeDownloads` runs after `connectRealtime`, so awaiting its key proves both ran.
+        await recorder.gate.wait(forKey: "resumeDownloads")
         #expect(recorder.connectCount == 1)
         #expect(recorder.resumeCount == 1)
     }
