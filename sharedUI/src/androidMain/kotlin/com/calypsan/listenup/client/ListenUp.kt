@@ -41,6 +41,7 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
+import com.calypsan.listenup.client.playback.cast.CastPreparer
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -238,6 +239,9 @@ val playbackModule =
                 holder = get<MediaControllerHolder>().asControllerHolder(),
             )
         }
+
+        // Cast preparer — re-fetches signed network URLs when handing off to a Chromecast.
+        single { CastPreparer(playbackRpcFactory = get(), serverConfig = get()) }
     }
 
 /**

@@ -30,6 +30,10 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
+import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
+import com.calypsan.listenup.client.playback.cast.CastPreparer
+import com.calypsan.listenup.client.playback.cast.CastSessionController
+import com.calypsan.listenup.client.playback.cast.CastSourceItem
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -83,6 +87,7 @@ class PlaybackService : MediaLibraryService() {
     private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
     private var player: ExoPlayer? = null
     private var notificationProvider: AudiobookNotificationProvider? = null
+    private var castSessionController: CastSessionController? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
@@ -100,6 +105,7 @@ class PlaybackService : MediaLibraryService() {
     private val browseTreeProvider: BrowseTreeProvider by inject()
     private val voiceIntentResolver: VoiceIntentResolver by inject()
     private val homeRepository: HomeRepository by inject()
+    private val castPreparer: CastPreparer by inject()
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -115,7 +121,7 @@ class PlaybackService : MediaLibraryService() {
      * @return Book-relative position in milliseconds, or 0 if unavailable
      */
     private fun getBookRelativePosition(): Long {
-        val player = player ?: return 0L
+        val player = mediaLibrarySession?.player ?: player ?: return 0L
         val timeline = playbackManager.currentTimeline.value ?: return player.currentPosition
         return timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
     }
@@ -139,6 +145,7 @@ class PlaybackService : MediaLibraryService() {
 
         initializePlayer()
         initializeMediaSession()
+        initializeCast()
         initializeNotificationProvider()
 
         // Register callback for chapter changes to update notification
@@ -246,6 +253,90 @@ class PlaybackService : MediaLibraryService() {
         val provider = notificationProvider ?: return
         setMediaNotificationProvider(provider)
         logger.info { "Notification provider initialized" }
+    }
+
+    /**
+     * Initialize Cast if Google Play Services is present. On a de-Googled device
+     * this is a no-op — no cast button, local playback unaffected (never stranded).
+     */
+    private fun initializeCast() {
+        castSessionController =
+            CastSessionController.createOrNull(
+                context = this,
+                onConnected = { serviceScope.launch { handoffToCast() } },
+                onDisconnected = { serviceScope.launch { handoffToLocal() } },
+            )
+        if (castSessionController != null) logger.info { "Cast initialized" }
+    }
+
+    /** Local → Cast: re-fetch network URLs, build the cast queue at the current position, swap the session player. */
+    private suspend fun handoffToCast() {
+        val controller = castSessionController ?: return
+        val session = mediaLibrarySession ?: return
+        val local = player ?: return
+        val bookId = playbackManager.currentBookId.value ?: return
+
+        val prepared = castPreparer.prepareForCast(bookId)
+        if (prepared == null) {
+            logger.warn { "Cast prepare failed — staying local" }
+            return
+        }
+        // Snapshot the currently-loaded items for queue order + on-TV metadata.
+        val sourceItems =
+            (0 until local.mediaItemCount).map { i ->
+                val mi = local.getMediaItemAt(i)
+                CastSourceItem(
+                    fileId = mi.mediaId,
+                    title = mi.mediaMetadata.title?.toString(),
+                    artist = mi.mediaMetadata.artist?.toString(),
+                    albumTitle = mi.mediaMetadata.albumTitle?.toString(),
+                )
+            }
+        val factory = CastMediaItemFactory()
+        val built = factory.build(sourceItems, prepared.files, prepared.coverUrlAbsolute)
+        // Index-shift safety: only cast a complete, in-order queue. A dropped file would
+        // shift indices and resume on the wrong file — fall back to local instead.
+        if (built.tracks.size != sourceItems.size) {
+            logger.warn {
+                "Cannot cast this book (uncastable=${built.droppedUncastable}, " +
+                    "unmatched=${built.droppedUnmatched}) — staying local"
+            }
+            // TODO(cast): surface a user-facing "can't cast this format" message — needs an AppError subtype.
+            // Staying local is itself the never-stranded fallback.
+            return
+        }
+        val mediaItems = built.tracks.map { factory.toMediaItem(it) }
+        val wasPlaying = local.playWhenReady
+        val speed = local.playbackParameters.speed
+        val index = local.currentMediaItemIndex
+        val positionInItem = local.currentPosition
+
+        val cast = controller.castPlayer
+        cast.setMediaItems(mediaItems, index, positionInItem)
+        cast.playWhenReady = wasPlaying
+        cast.prepare()
+        cast.setPlaybackSpeed(speed) // routes via SpeedAwareCastPlayer → RemoteMediaClient.setPlaybackRate
+        session.player = cast
+        local.playWhenReady = false // release local audio focus; keep its items loaded for fast return
+        logger.info { "Swapped to Cast at index=$index pos=$positionInItem" }
+    }
+
+    /** Cast → Local: read cast position, seek the retained ExoPlayer there, swap back, persist progress. */
+    private fun handoffToLocal() {
+        val controller = castSessionController ?: return
+        val session = mediaLibrarySession ?: return
+        val local = player ?: return
+        // If the session isn't currently on the cast player, nothing to do (we never swapped).
+        if (session.player === local) return
+        val cast = controller.castPlayer
+        val index = cast.currentMediaItemIndex
+        val positionInItem = cast.currentPosition
+        val wasPlaying = cast.playWhenReady
+        local.seekTo(index, positionInItem)
+        local.playWhenReady = wasPlaying
+        session.player = local
+        logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
+        saveCurrentPosition() // existing method — persists through the normal recorder
     }
 
     /**
@@ -368,6 +459,8 @@ class PlaybackService : MediaLibraryService() {
         // when mediaLibrarySession was never built or was already null.
         mediaLibrarySession?.release()
         mediaLibrarySession = null
+        castSessionController?.release()
+        castSessionController = null
         player?.release()
         player = null
         notificationProvider = null
