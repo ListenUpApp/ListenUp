@@ -53,6 +53,7 @@ final class Dependencies {
     // MARK: - Library services
 
     var bookRepository: BookRepository { resolve { KoinHelper.shared.getBookRepository() } }
+    var homeRepository: HomeRepository { resolve { KoinHelper.shared.getHomeRepository() } }
     var documentRepository: DocumentRepository { resolve { KoinHelper.shared.getDocumentRepository() } }
     var imageStorage: ImageStorage { resolve { KoinHelper.shared.getImageStorage() } }
     var imageRepository: ImageRepository { resolve { KoinHelper.shared.getImageRepository() } }

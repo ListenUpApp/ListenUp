@@ -15,6 +15,14 @@ final class FakePlaybackController: PlaybackControlling {
     func playBook(id: String) { playedBookId = id }
 }
 
+/// Supplies a canned "last-played book id" for `ResumePlaybackIntent` routing tests.
+@MainActor
+final class FakeLastPlayedBookProvider: LastPlayedBookProviding {
+    var bookId: String?
+    init(bookId: String?) { self.bookId = bookId }
+    func mostRecentBookId() async -> String? { bookId }
+}
+
 /// Run serialized so parallel tests don't race on the shared AppDependencyManager
 /// dependency slot. @MainActor lets us construct FakePlaybackController and read
 /// its properties without await, and eliminates the actor-hop that made the
@@ -51,5 +59,29 @@ struct PlaybackIntentsTests {
         _ = try await intent.perform()
 
         #expect(fake.skippedBackward)
+    }
+
+    @Test func resumeIntentPlaysTheMostRecentBook() async throws {
+        let playback = FakePlaybackController()
+        let intent = ResumePlaybackIntent()
+        intent.playback = playback
+        intent.lastPlayed = FakeLastPlayedBookProvider(bookId: "book-99")
+
+        _ = try await intent.perform()
+
+        #expect(playback.playedBookId == "book-99")
+    }
+
+    @Test func resumeIntentThrowsWhenNothingToResume() async throws {
+        let playback = FakePlaybackController()
+        let intent = ResumePlaybackIntent()
+        intent.playback = playback
+        intent.lastPlayed = FakeLastPlayedBookProvider(bookId: nil)
+
+        await #expect(throws: ResumePlaybackError.nothingToResume) {
+            _ = try await intent.perform()
+        }
+
+        #expect(playback.playedBookId == nil)
     }
 }
