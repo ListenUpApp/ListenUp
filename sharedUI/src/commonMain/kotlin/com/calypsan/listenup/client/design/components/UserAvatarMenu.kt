@@ -2,6 +2,7 @@
 package com.calypsan.listenup.client.design.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,7 +114,7 @@ private fun UserAvatarPill(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            UserAvatar(userId = user.id.value, size = AvatarSize.Small)
+            UserAvatar(userId = user.id.value, size = AvatarSize.Small, fallbackName = user.displayName)
             Column {
                 Text(
                     text = user.displayName,
@@ -149,12 +150,20 @@ private fun UserAvatarCircle(
         )
     } else {
         Box(
+            contentAlignment = Alignment.Center,
             modifier =
                 Modifier
                     .size(AvatarSize.Medium.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-        )
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                    .clickable(onClick = onClick),
+        ) {
+            Text(
+                text = "?",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

@@ -176,6 +176,23 @@ class EditProfileViewModelTest :
             }
         }
 
+        test("save() with derived names and no edits does not call updateProfile") {
+            runTest {
+                val user = createUser(displayName = "Ada Lovelace", firstName = null, lastName = null, tagline = null)
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.save()
+                advanceUntilIdle()
+
+                verifySuspend(dev.mokkery.verify.VerifyMode.not) {
+                    fixture.profileEditRepository.updateProfile(any(), any(), any(), any())
+                }
+            }
+        }
+
         test("Ready reflects cached avatar path when avatar is an image") {
             runTest {
                 val user = createUser(avatarType = "image", avatarValue = "avatar.jpg")
