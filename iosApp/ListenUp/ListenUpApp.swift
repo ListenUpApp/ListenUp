@@ -48,12 +48,26 @@ private struct RootView: View {
                     activateSyncIfAuthenticated()
                     return
                 }
-                guard newPhase == .background || newPhase == .inactive else { return }
+                guard ScenePhasePolicy.shouldSavePosition(on: newPhase) else { return }
+
                 let coordinator = dependencies.playerCoordinator
-                let taskId = UIApplication.shared.beginBackgroundTask(withName: "save-position")
-                Task { @MainActor in
-                    await coordinator.saveCurrentPosition()
+                var taskId: UIBackgroundTaskIdentifier = .invalid
+                taskId = UIApplication.shared.beginBackgroundTask(withName: "save-position") {
+                    // Expiration handler: the system reclaimed our time — end the assertion to
+                    // avoid an unbalanced-background-task termination.
                     UIApplication.shared.endBackgroundTask(taskId)
+                    taskId = .invalid
+                }
+                guard taskId != .invalid else { return }   // background time denied; nothing to do
+
+                Task { @MainActor in
+                    defer {
+                        if taskId != .invalid {
+                            UIApplication.shared.endBackgroundTask(taskId)
+                            taskId = .invalid
+                        }
+                    }
+                    await coordinator.saveCurrentPosition()
                 }
             }
     }

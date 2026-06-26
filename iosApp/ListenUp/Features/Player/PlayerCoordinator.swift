@@ -28,6 +28,15 @@ enum RouteChangePolicy {
     }
 }
 
+/// Pure decision: should backgrounding to `newPhase` trigger a position save?
+/// Only the genuine `.background` transition should — `.inactive` fires constantly
+/// (Control Center, banners, app switcher) and would redundantly re-save (charter rule 13).
+enum ScenePhasePolicy {
+    static func shouldSavePosition(on newPhase: ScenePhase) -> Bool {
+        newPhase == .background
+    }
+}
+
 /// Pure chapter math — resolves a whole-book position to a chapter index.
 /// Split out so it is testable without a coordinator.
 enum ChapterMath {
