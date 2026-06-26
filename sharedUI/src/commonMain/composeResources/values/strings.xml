@@ -387,6 +387,7 @@ One beautiful library.</string>
     <string name="book_tag_add">Add Tag</string>
     <string name="book_tag_add_placeholder">Add tag...</string>
     <string name="book_tag_popular">Popular Tags</string>
+    <string name="book_time_left">%1$s left</string>
     <string name="common_about">About</string>
     <string name="common_accessibility_loading">Loading</string>
     <string name="common_account">Account</string>

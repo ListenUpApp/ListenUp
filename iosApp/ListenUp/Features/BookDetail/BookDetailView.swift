@@ -273,6 +273,7 @@ struct BookDetailView: View {
     private func detailsSection(_ observer: BookDetailObserver) -> some View {
         let audioFormat = observer.audioFormat
         return BookDetailsSection(
+            authors: observer.authors,
             narrators: observer.narrators,
             lengthLabel: observer.duration,
             chapterCount: observer.chapters.count,

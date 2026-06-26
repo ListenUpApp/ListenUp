@@ -69,6 +69,19 @@ struct BookCoverCard: View {
                                 : String(localized: "common.not_selected")))
                     }
                 }
+                // Time remaining for in-progress books — a small capsule above the progress bar.
+                .overlay(alignment: .bottomLeading) {
+                    if let progress, progress > 0, progress < 1, book.duration > 0 {
+                        Text(timeLeftLabel(progress: progress))
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.black.opacity(0.55), in: Capsule())
+                            .padding(.horizontal, 6)
+                            .padding(.bottom, 8)
+                    }
+                }
 
             // Progress bar overlay
             if let progress, progress > 0 {
@@ -95,6 +108,12 @@ struct BookCoverCard: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    /// "{Xh Ym} left" — remaining time derived from the book's total duration and listen progress.
+    private func timeLeftLabel(progress: Float) -> String {
+        let remaining = Int64(Double(book.duration) * Double(1 - progress))
+        return String(format: String(localized: "book.time_left"), DurationFormatting.hoursMinutes(ms: remaining))
     }
 
     // MARK: - Book Info

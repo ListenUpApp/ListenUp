@@ -272,6 +272,8 @@
     "detail_more_options": "More options",
     "detail_narrated_by": "Narrated by",
     "detail_narrated_by_prefix": "Narrated by ",
+    "detail_written_by": "Written by",
+    "time_left": "%1$s left",
     "detail_narrated_by_value": "Narrated by %1$s",
     "detail_series_pill_a11y": "Series, %1$s",
     "detail_chapter_label": "Ch. %1$d · %2$s",
