@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalForeignApi::class)
 
-package com.calypsan.listenup.server.embeddedmeta
+package com.calypsan.listenup.server.io
 
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
@@ -18,7 +18,7 @@ import platform.posix.lseek
 import platform.posix.open
 import platform.posix.read
 
-internal actual fun defaultSeekableSource(path: Path): SeekableAudioSource = PosixFileSource(path)
+internal actual fun openSeekableSource(path: Path): SeekableSource = PosixFileSource(path)
 
 /**
  * Posix-backed seekable source. The cursor is the OS file position — [seek] is an
@@ -27,7 +27,7 @@ internal actual fun defaultSeekableSource(path: Path): SeekableAudioSource = Pos
  */
 private class PosixFileSource(
     path: Path,
-) : SeekableAudioSource {
+) : SeekableSource {
     private val fd: Int =
         open(path.toString(), O_RDONLY).also { if (it < 0) throw IOException("open failed: $path") }
 

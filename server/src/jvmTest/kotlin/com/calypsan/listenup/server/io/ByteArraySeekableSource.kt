@@ -1,16 +1,16 @@
-package com.calypsan.listenup.server.embeddedmeta
+package com.calypsan.listenup.server.io
 
 import kotlinx.io.EOFException
 
 /**
- * In-memory [SeekableAudioSource] over a fixed byte array — the test-only
+ * In-memory [SeekableSource] over a fixed byte array — the test-only
  * counterpart to the production [RandomAccessFile][java.io.RandomAccessFile]
  * source. Lets parser tests drive a synthetic MP4/MP3 byte array (built by the
  * fixtures DSL) through the real parsing seam without touching the filesystem.
  */
-internal class ByteArraySeekableAudioSource(
+internal class ByteArraySeekableSource(
     private val data: ByteArray,
-) : SeekableAudioSource {
+) : SeekableSource {
     private var pos = 0L
 
     override val length: Long get() = data.size.toLong()

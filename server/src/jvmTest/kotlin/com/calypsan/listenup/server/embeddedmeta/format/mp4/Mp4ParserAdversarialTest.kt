@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
 import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -207,7 +207,7 @@ class Mp4ParserAdversarialTest :
     })
 
 /**
- * Synthetic [SeekableAudioSource] that reports a large [claimedLength] but
+ * Synthetic [SeekableSource] that reports a large [claimedLength] but
  * only physically holds the [header] bytes. A `readFully` confined to the
  * header is served verbatim; any read straying past it throws [IOException]
  * — it would have to materialise zero-fill the parser never legitimately
@@ -218,7 +218,7 @@ class Mp4ParserAdversarialTest :
 private class MoovHeaderOnlySource(
     private val header: ByteArray,
     private val claimedLength: Long,
-) : SeekableAudioSource {
+) : SeekableSource {
     var maxSingleReadBytes: Int = 0
         private set
 

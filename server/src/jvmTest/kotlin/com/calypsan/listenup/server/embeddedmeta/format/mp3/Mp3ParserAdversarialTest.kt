@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.embeddedmeta.format.mp3
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.domain.embeddedmeta.AudioFormat
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -260,7 +260,7 @@ class Mp3ParserAdversarialTest :
     })
 
 /**
- * Synthetic [SeekableAudioSource] that reports a large [claimedLength] but
+ * Synthetic [SeekableSource] that reports a large [claimedLength] but
  * only physically holds the [header] bytes. Reads inside the header are
  * served verbatim; reads past it are zero-filled *without ever
  * materialising the multi-hundred-MB body* — exactly like the
@@ -273,7 +273,7 @@ class Mp3ParserAdversarialTest :
 private class HeaderOnlySource(
     private val header: ByteArray,
     private val claimedLength: Long,
-) : SeekableAudioSource {
+) : SeekableSource {
     var maxSingleReadBytes: Int = 0
         private set
 

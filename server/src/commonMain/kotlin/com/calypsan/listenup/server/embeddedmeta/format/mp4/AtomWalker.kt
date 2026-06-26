@@ -1,7 +1,7 @@
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp4
 
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
 
 /**
@@ -191,7 +191,7 @@ internal object AtomWalker {
      * `moov`'s payload is then read back as a sub-range.
      */
     fun findTopLevelAtom(
-        source: SeekableAudioSource,
+        source: SeekableSource,
         type: String,
     ): TopLevelAtom? {
         val length = source.length

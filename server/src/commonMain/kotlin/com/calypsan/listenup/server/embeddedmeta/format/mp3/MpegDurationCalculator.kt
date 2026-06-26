@@ -1,7 +1,7 @@
 
 package com.calypsan.listenup.server.embeddedmeta.format.mp3
 
-import com.calypsan.listenup.server.embeddedmeta.SeekableAudioSource
+import com.calypsan.listenup.server.io.SeekableSource
 import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
 import kotlinx.io.IOException
 
@@ -57,7 +57,7 @@ internal data class MpegFrameInfo(
 @Suppress("MagicNumber")
 internal object MpegDurationCalculator {
     fun compute(
-        source: SeekableAudioSource,
+        source: SeekableSource,
         audioStart: Long,
         hasV1Footer: Boolean,
     ): MpegFrameInfo {
