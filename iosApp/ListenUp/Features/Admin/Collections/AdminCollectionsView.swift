@@ -3,25 +3,27 @@ import Shared
 
 /// Admin Collections list — browse, create, and delete shared book sets.
 ///
-/// Layout is width-responsive (rule 12): a 2-column grid on compact, a 4-column grid on
-/// regular. Each tile shows a folder icon, the collection name, the book count, and a globe
-/// badge for globally-accessible collections. Book cover images are not available on the list
-/// state (only `bookCount` is present), so the tile uses a folder SF Symbol instead of a
-/// `CoverStack`.
+/// Layout is width-responsive (rule 12): the grid's column count flows from the available
+/// width via `GridItem(.adaptive(minimum:))`, so it stays right at every point on the
+/// continuum — full-screen iPad, 1/2 + 1/3 Split View, Stage Manager — not a fixed N-column
+/// grid that crushes tiles in a narrow split view. Each tile shows a folder icon, the
+/// collection name, the book count, and a globe badge for globally-accessible collections.
+/// Book cover images are not available on the list state (only `bookCount` is present), so the
+/// tile uses a folder SF Symbol instead of a `CoverStack`.
 ///
 /// Collection creation is a sheet with a single name field; deletion is a swipe or
 /// long-press context menu that fires `deleteCollection`.
 struct AdminCollectionsView: View {
     @Environment(\.dependencies) private var deps
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @State private var observer: AdminCollectionsObserver?
     @State private var showingCreateSheet = false
     @State private var createName = ""
     @State private var pendingDeleteId: String?
 
-    private var isRegularWidth: Bool { horizontalSizeClass == .regular }
-    private var columnCount: Int { isRegularWidth ? 4 : 2 }
+    /// Width-driven columns: the count emerges from the available width. 160pt matches the
+    /// tile's natural footprint (the prior compact layout was ~2 columns on an iPhone).
+    private let gridColumns = [GridItem(.adaptive(minimum: 160), spacing: 12)]
 
     var body: some View {
         Group {
@@ -78,10 +80,7 @@ struct AdminCollectionsView: View {
     @ViewBuilder
     private func readyBody(observer: AdminCollectionsObserver, ready: AdminCollectionsReadyModel) -> some View {
         ScrollView {
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: columnCount),
-                spacing: 12
-            ) {
+            LazyVGrid(columns: gridColumns, spacing: 12) {
                 ForEach(ready.collections) { collection in
                     NavigationLink(value: AdminCollectionDetailDestination(collectionId: collection.id)) {
                         CollectionTile(

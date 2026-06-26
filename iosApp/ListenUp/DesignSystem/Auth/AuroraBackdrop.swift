@@ -10,27 +10,32 @@ struct AuroraBackdrop<Content: View>: View {
     @ViewBuilder var content: Content
 
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         ZStack {
             Color.auroraBase(scheme).ignoresSafeArea()
-            GeometryReader { proxy in
-                let w = proxy.size.width
-                let h = proxy.size.height
-                ZStack {
-                    orb(.listenUpOrange, opacity: deep ? 0.55 : 0.45,
-                        diameter: (wide ? 0.55 : 0.7) * w,
-                        at: CGPoint(x: wide ? 0.82 * w : 0.86 * w, y: 0.06 * h))
-                    orb(.auroraAmber, opacity: deep ? 0.42 : 0.38,
-                        diameter: (wide ? 0.5 : 0.62) * w,
-                        at: CGPoint(x: 0.08 * w, y: 0.95 * h))
-                    orb(.auroraEmber, opacity: deep ? 0.30 : 0.20,
-                        diameter: (wide ? 0.45 : 0.55) * w,
-                        at: CGPoint(x: (wide ? 0.45 : 0.38) * w, y: 0.5 * h))
+            // Reduce Transparency: drop the blurred orbs — the solid base + readability
+            // gradient carry the screen, no frosted bloom (rule 12, peer: CoverGlow).
+            if !reduceTransparency {
+                GeometryReader { proxy in
+                    let w = proxy.size.width
+                    let h = proxy.size.height
+                    ZStack {
+                        orb(.listenUpOrange, opacity: deep ? 0.55 : 0.45,
+                            diameter: (wide ? 0.55 : 0.7) * w,
+                            at: CGPoint(x: wide ? 0.82 * w : 0.86 * w, y: 0.06 * h))
+                        orb(.auroraAmber, opacity: deep ? 0.42 : 0.38,
+                            diameter: (wide ? 0.5 : 0.62) * w,
+                            at: CGPoint(x: 0.08 * w, y: 0.95 * h))
+                        orb(.auroraEmber, opacity: deep ? 0.30 : 0.20,
+                            diameter: (wide ? 0.45 : 0.55) * w,
+                            at: CGPoint(x: (wide ? 0.45 : 0.38) * w, y: 0.5 * h))
+                    }
+                    .blur(radius: wide ? 90 : 60)
                 }
-                .blur(radius: wide ? 90 : 60)
+                .ignoresSafeArea()
             }
-            .ignoresSafeArea()
 
             // Readability lift: gently darken/lighten the very top & bottom edges so
             // glass controls and edge text stay legible over the aurora.
