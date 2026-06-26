@@ -102,7 +102,6 @@ struct MiniPlayerBar: View {
 
     private var playPauseButton: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             observer.togglePlayback()
         } label: {
             Image(systemName: observer.isPlaying ? "pause.fill" : "play.fill")
@@ -115,5 +114,6 @@ struct MiniPlayerBar: View {
         .accessibilityLabel(observer.isPlaying
             ? String(localized: "player.pause")
             : String(localized: "player.play"))
+        .haptic(.toggleOn, trigger: observer.isPlaying)
     }
 }

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 /// Horizontal row of selectable glass-styled chips for library tab navigation.
 ///
@@ -36,6 +35,7 @@ struct LibraryChipRow: View {
                 }
             }
         }
+        .haptic(.selectionTick, trigger: selectedTab)
     }
 }
 
@@ -51,11 +51,8 @@ private struct LibraryChip: View {
     let isSelected: Bool
     let onTap: () -> Void
 
-    private let feedbackGenerator = UISelectionFeedbackGenerator()
-
     var body: some View {
         Button {
-            feedbackGenerator.selectionChanged()
             onTap()
         } label: {
             HStack(spacing: 6) {

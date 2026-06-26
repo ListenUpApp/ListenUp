@@ -114,8 +114,7 @@ struct LibraryView: View {
         .safeAreaInset(edge: .top) {
             LibraryChipRow(selectedTab: $selectedTab)
         }
-        // Haptic feedback on tab change
-        .sensoryFeedback(.selection, trigger: selectedTab)
+        // Tab-change haptic is emitted (gated) by LibraryChipRow's `.haptic` modifier.
     }
 
     // MARK: - Loading State
