@@ -5,5 +5,6 @@ import WidgetKit
 struct ListenUpWidgetBundle: WidgetBundle {
     var body: some Widget {
         AudiobookLiveActivityWidget()
+        ResumeAudiobookControl()
     }
 }

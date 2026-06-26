@@ -20,9 +20,17 @@ struct ListenUpShortcuts: AppShortcutsProvider {
             systemImageName: "play.circle.fill"
         )
         AppShortcut(
+            intent: ResumePlaybackIntent(),
+            phrases: [
+                "Resume my book in \(.applicationName)",
+                "Continue my audiobook in \(.applicationName)"
+            ],
+            shortTitle: "Resume Audiobook",
+            systemImageName: "play.fill"
+        )
+        AppShortcut(
             intent: TogglePlaybackIntent(),
             phrases: [
-                "Resume my audiobook in \(.applicationName)",
                 "Pause \(.applicationName)"
             ],
             shortTitle: "Play or Pause",

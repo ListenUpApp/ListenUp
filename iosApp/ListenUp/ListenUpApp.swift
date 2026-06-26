@@ -12,6 +12,8 @@ struct ListenUpApp: App {
         Log.info("ListenUp iOS app initialized")
         // Make the app's player available to the Live Activity intents.
         AppDependencyManager.shared.add(dependency: PlaybackController() as any PlaybackControlling)
+        // Make the "resume my book" read available to ResumePlaybackIntent (Siri / Control Center).
+        AppDependencyManager.shared.add(dependency: LastPlayedBookProvider() as any LastPlayedBookProviding)
     }
 
     var body: some Scene {

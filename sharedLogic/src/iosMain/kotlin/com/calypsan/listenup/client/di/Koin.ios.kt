@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -258,6 +259,8 @@ object KoinHelper {
     fun getPlaybackProgressReporter(): PlaybackProgressReporter = resolve(PlaybackProgressReporter::class)
 
     fun getBookRepository(): BookRepository = resolve(BookRepository::class)
+
+    fun getHomeRepository(): HomeRepository = resolve(HomeRepository::class)
 
     fun getDocumentRepository(): DocumentRepository = resolve(DocumentRepository::class)
 
