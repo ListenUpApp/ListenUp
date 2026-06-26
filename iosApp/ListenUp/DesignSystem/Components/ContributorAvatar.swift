@@ -145,7 +145,9 @@ struct ContributorAvatar: View {
 private struct ContributorPhotoLayer: View {
     let contributorId: String
     /// The contributor's content-addressed image path. Folded into the cache key and the task id so
-    /// a sync-driven photo change (new path) busts the cached image instead of serving the stale one.
+    /// a sync-driven photo change (new path) re-resolves and busts the cached image. On the
+    /// local-file branch the disk copy is dropped upstream by `ContributorSyncDomainHandler` when
+    /// `imagePath` changes, so the stale file is gone before this re-resolves.
     let imagePath: String?
 
     @Environment(\.displayScale) private var displayScale

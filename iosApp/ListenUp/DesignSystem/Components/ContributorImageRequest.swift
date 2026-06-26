@@ -40,8 +40,8 @@ enum ContributorImageRequest {
     /// The content-addressed Nuke cache key for a contributor photo. Folding the server's
     /// content-addressed `imagePath` (`contributors/{sha}.jpg`) into the key means a re-scraped
     /// photo (new path) busts the cached image instead of serving the stale one — mirroring the
-    /// Compose `contributorCacheKey` and `BookCoverImage`'s `coverHash` handling. Pure, so it's
-    /// unit-tested. `nil` imagePath falls back to a stable per-id key.
+    /// Compose `contributorCacheKey`. Pure, so it's unit-tested. `nil` imagePath falls back to a
+    /// stable per-id key.
     static func cacheKey(contributorId: String, imagePath: String?) -> String {
         "\(contributorId):\(imagePath ?? "contributor")"
     }
