@@ -85,7 +85,7 @@ struct ContributorEditView: View {
                 } message: {
                     Text(observer.error ?? "")
                 }
-                .sheet(isPresented: $showMergeSheet) {
+                .sheet(isPresented: $showMergeSheet, onDismiss: { observer.onMergeQueryChange("") }) {
                     ContributorMergeSheet(
                         candidates: observer.mergeCandidates,
                         query: observer.mergeQuery,
@@ -166,17 +166,17 @@ private struct AliasChip: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text(alias).font(.callout)
+            Text(alias).font(.callout).foregroundStyle(.primary)
             Button(action: onRemove) {
                 Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Color.luLabel2)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(String(format: String(localized: "contributor.remove_aliasname"), alias))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
-        .background(.thinMaterial, in: Capsule())
+        .background(Color.luFill, in: Capsule())
     }
 }
 
@@ -188,7 +188,6 @@ private struct ContributorMergeSheet: View {
     let onSelect: (String) -> Void
     let onDismiss: () -> Void
 
-    @State private var searchText: String = ""
     @State private var pendingTarget: MergeCandidate?
 
     var body: some View {
@@ -200,8 +199,10 @@ private struct ContributorMergeSheet: View {
             }
             .navigationTitle(String(localized: "contributor.merge_title"))
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(text: $searchText, prompt: String(localized: "contributor.merge_search_placeholder"))
-            .onChange(of: searchText) { _, value in onQueryChange(value) }
+            .searchable(
+                text: Binding(get: { query }, set: { onQueryChange($0) }),
+                prompt: String(localized: "contributor.merge_search_placeholder")
+            )
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(String(localized: "common.cancel")) { onDismiss() }

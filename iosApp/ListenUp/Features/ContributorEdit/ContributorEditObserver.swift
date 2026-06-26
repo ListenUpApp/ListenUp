@@ -22,7 +22,6 @@ final class ContributorEditObserver {
     private(set) var didFinish: Bool = false
     private(set) var aliases: [String] = []
     private(set) var mergeQuery: String = ""
-    private(set) var isMerging: Bool = false
     private(set) var mergeCandidates: [MergeCandidate] = []
 
     private let viewModel: ContributorEditViewModel
@@ -85,7 +84,6 @@ final class ContributorEditObserver {
         error = state.error
         aliases = Array(state.aliases)
         mergeQuery = state.mergeQuery
-        isMerging = state.mergeInProgress
     }
 
     private func applyNav(_ action: ContributorEditNavAction) {
