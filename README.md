@@ -29,41 +29,7 @@
   where you left off on any device.
 </p>
 
----
-
-## Screenshots
-
-<p align="center"><em>Screenshots coming soon.</em></p>
-
-<!--
-  READY TO GO: once you have the four images, commit them to .github/screenshots/
-  using the filenames referenced below, then delete the "coming soon" line above
-  and uncomment this block. Keep images phone-resolution and optimized
-  (~100–300 KB each — large PNGs bloat git history permanently).
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <img src=".github/screenshots/library-android.png" alt="Library" width="260" /><br />
-      <sub><b>Library</b> — browse your collection</sub>
-    </td>
-    <td align="center" width="50%">
-      <img src=".github/screenshots/player-ios.png" alt="Now Playing" width="260" /><br />
-      <sub><b>Now Playing</b> — chapters, speed &amp; sleep timer</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="50%">
-      <img src=".github/screenshots/discover-android.png" alt="Discover" width="260" /><br />
-      <sub><b>Discover</b> — search your server's catalog</sub>
-    </td>
-    <td align="center" width="50%">
-      <img src=".github/screenshots/social-ios.png" alt="Social" width="260" /><br />
-      <sub><b>Social</b> — activity feed &amp; leaderboard</sub>
-    </td>
-  </tr>
-</table>
--->
+<img src=".github/screenshots/listenup-hero-banner.webp" alt="Hero Banner">
 
 ---
 
