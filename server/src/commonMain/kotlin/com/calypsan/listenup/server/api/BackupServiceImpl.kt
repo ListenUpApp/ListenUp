@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.BackupService
+import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.dto.backup.RestoreResult
@@ -13,16 +14,16 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupPaths
 import com.calypsan.listenup.server.backup.RestoreOrchestrator
-import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Clock
-import java.nio.file.Files
 
 /**
  * Admin-only backup/restore surface. All methods are gated behind [requireAdmin].
@@ -63,17 +64,16 @@ class BackupServiceImpl(
 
     override suspend fun listBackups(): AppResult<List<BackupSummary>> {
         requireAdmin()?.let { return it }
-        return withContext(Dispatchers.IO) {
+        return withContext(fileIoDispatcher) {
             val backupsDir = paths.backupsDir
-            if (!Files.exists(backupsDir)) return@withContext AppResult.Success(emptyList())
+            if (!SystemFileSystem.exists(backupsDir)) return@withContext AppResult.Success(emptyList())
 
             val summaries =
-                Files
+                SystemFileSystem
                     .list(backupsDir)
-                    .filter { it.fileName.toString().endsWith(".listenup.zip") }
-                    .toList()
+                    .filter { it.name.endsWith(".listenup.zip") }
                     .mapNotNull { archivePath ->
-                        val stem = archivePath.fileName.toString().removeSuffix(".listenup.zip")
+                        val stem = archivePath.name.removeSuffix(".listenup.zip")
                         runCatching { summaryFrom(stem, archivePath) }.getOrNull()
                     }.sortedByDescending { it.createdAt }
 
@@ -83,9 +83,9 @@ class BackupServiceImpl(
 
     override suspend fun getBackup(id: BackupId): AppResult<BackupSummary> {
         requireAdmin()?.let { return it }
-        return withContext(Dispatchers.IO) {
+        return withContext(fileIoDispatcher) {
             val archivePath = paths.archiveFor(id.value)
-            if (!Files.exists(archivePath)) {
+            if (!SystemFileSystem.exists(archivePath)) {
                 return@withContext AppResult.Failure(BackupError.BackupNotFound())
             }
             AppResult.Success(summaryFrom(id.value, archivePath))
@@ -94,9 +94,10 @@ class BackupServiceImpl(
 
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
         requireAdmin()?.let { return it }
-        return withContext(Dispatchers.IO) {
+        return withContext(fileIoDispatcher) {
             val archivePath = paths.archiveFor(id.value)
-            val existed = Files.deleteIfExists(archivePath)
+            val existed = SystemFileSystem.exists(archivePath)
+            SystemFileSystem.delete(archivePath, mustExist = false)
             if (!existed) {
                 AppResult.Failure(BackupError.BackupNotFound())
             } else {
@@ -129,10 +130,10 @@ class BackupServiceImpl(
 
     private fun summaryFrom(
         id: String,
-        archivePath: java.nio.file.Path,
+        archivePath: Path,
     ): BackupSummary {
         val manifest = archive.open(archivePath)
-        val sizeBytes = Files.size(archivePath)
+        val sizeBytes = SystemFileSystem.metadataOrNull(archivePath)?.size ?: 0L
         return BackupSummary(
             id = BackupId(id),
             createdAt = manifest.createdAt,

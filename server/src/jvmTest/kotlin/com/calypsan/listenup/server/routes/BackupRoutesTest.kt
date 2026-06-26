@@ -139,7 +139,7 @@ class BackupRoutesTest :
                                 includeImages = false,
                                 onEvent = {},
                             )
-                        zipBytes = Files.readAllBytes(archivePath)
+                        zipBytes = Files.readAllBytes(java.nio.file.Path.of(archivePath.toString()))
                     } finally {
                         foreignFixture.close()
                         foreignFixture.homeDir.toFile().deleteRecursively()

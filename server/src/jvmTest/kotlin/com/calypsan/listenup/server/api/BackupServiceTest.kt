@@ -81,7 +81,7 @@ class BackupServiceTest :
                     result.shouldBeInstanceOf<AppResult.Success<BackupSummary>>()
                     val summary = result.data
                     val archivePath = fixture.paths.archiveFor(summary.id.value)
-                    archivePath.toFile().exists() shouldBe true
+                    java.io.File(archivePath.toString()).exists() shouldBe true
                     summary.includesImages shouldBe false
                 }
             }

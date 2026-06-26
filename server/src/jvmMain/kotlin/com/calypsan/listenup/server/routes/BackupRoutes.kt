@@ -32,6 +32,7 @@ import io.ktor.utils.io.jvm.javaio.copyTo
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Max accepted size for an uploaded `.listenup.zip` backup. Legitimate backups for large libraries
@@ -80,8 +81,8 @@ fun Route.backupRoutes(
             return@get call.respond(HttpStatusCode.BadRequest, "invalid backup id")
         }
 
-        val archivePath = paths.archiveFor(rawId)
-        if (!Files.isRegularFile(archivePath)) {
+        val archiveFile = java.io.File(paths.archiveFor(rawId).toString())
+        if (!archiveFile.isFile) {
             return@get call.respondBareAppError(BackupError.BackupNotFound())
         }
 
@@ -91,7 +92,7 @@ fun Route.backupRoutes(
                 .withParameter(ContentDisposition.Parameters.FileName, "$rawId.listenup.zip")
                 .toString(),
         )
-        call.respondFile(archivePath.toFile())
+        call.respondFile(archiveFile)
     }
 
     post(BackupRoutePaths.UPLOAD) {
@@ -112,7 +113,7 @@ private suspend fun ApplicationCall.handleUpload(
 ) {
     paths.ensureDirs()
     // Stream the upload to a temp file — never buffer multi-hundred-MB backups into memory.
-    val tmpFile = Files.createTempFile(paths.tmpDir, "upload-", ".listenup.zip")
+    val tmpFile = Files.createTempFile(java.nio.file.Path.of(paths.tmpDir.toString()), "upload-", ".listenup.zip")
     try {
         var received = false
         receiveMultipart(formFieldLimit = MAX_BACKUP_RESTORE_BYTES).forEachPart { part ->
@@ -131,19 +132,19 @@ private suspend fun ApplicationCall.handleUpload(
         }
 
         // Validate before staging — a corrupt archive must never land in backupsDir.
-        val manifest = validateUpload(archive, tmpFile) ?: return
+        val manifest = validateUpload(archive, IoPath(tmpFile.toString())) ?: return
 
         // Derive a filesystem-safe id from the manifest timestamp — never from the
         // client-supplied filename — to prevent path traversal.
         val safeId = deriveSafeId(manifest)
-        val dest = paths.archiveFor(safeId)
-        Files.move(tmpFile, dest, StandardCopyOption.REPLACE_EXISTING)
+        val destFile = java.io.File(paths.archiveFor(safeId).toString())
+        Files.move(tmpFile, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
 
         val summary =
             BackupSummary(
                 id = BackupId(safeId),
                 createdAt = manifest.createdAt,
-                sizeBytes = Files.size(dest),
+                sizeBytes = destFile.length(),
                 includesImages = manifest.includesImages,
                 schemaVersion = manifest.schemaVersion,
                 appVersion = manifest.appVersion,
@@ -165,7 +166,7 @@ private suspend fun ApplicationCall.handleUpload(
  */
 private suspend fun ApplicationCall.validateUpload(
     archive: BackupArchive,
-    tmpFile: java.nio.file.Path,
+    tmpFile: IoPath,
 ): BackupManifest? =
     try {
         archive.validate(tmpFile)
