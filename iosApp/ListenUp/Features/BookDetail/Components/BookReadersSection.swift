@@ -83,15 +83,7 @@ struct BookReadersSection: View {
     }
 
     private func avatar(_ reader: BookReaderRow) -> some View {
-        let tint = avatarColorForUserId(reader.id)
-        return Circle()
-            .fill(tint.opacity(0.2))
-            .frame(width: 44, height: 44)
-            .overlay {
-                Text(reader.initials)
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(tint)
-            }
+        UserAvatarView(userId: reader.id, fallbackName: reader.displayName, size: 44)
             .overlay {
                 // A coral ring marks the readers listening right now.
                 if reader.isReading {
