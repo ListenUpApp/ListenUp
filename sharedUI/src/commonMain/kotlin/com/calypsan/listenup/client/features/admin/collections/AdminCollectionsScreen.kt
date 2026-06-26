@@ -87,8 +87,6 @@ private const val CARD_PADDING_DP = 18
 private const val CARD_PADDING_WIDE_DP = 22
 private const val GRID_GAP_DP = 16
 private const val GRID_GAP_WIDE_DP = 20
-private const val GRID_COLS_NARROW = 2
-private const val GRID_COLS_WIDE = 4
 private const val FAB_SPACER_DP = 88
 private const val BADGE_SIZE_DP = 56
 private const val DELETE_TILE_SIZE_DP = 40
@@ -289,12 +287,11 @@ private fun CollectionsReadyContent(
                 modifier = Modifier.weight(1f).padding(innerPadding),
             )
         } else {
-            val cols = if (isWide) GRID_COLS_WIDE else GRID_COLS_NARROW
             val gap = if (isWide) GRID_GAP_WIDE_DP.dp else GRID_GAP_DP.dp
             val gridPad = if (isWide) 20.dp else 16.dp
 
             LazyVerticalGrid(
-                columns = GridCells.Fixed(cols),
+                columns = GridCells.Adaptive(minSize = 160.dp),
                 contentPadding =
                     PaddingValues(
                         start = gridPad,

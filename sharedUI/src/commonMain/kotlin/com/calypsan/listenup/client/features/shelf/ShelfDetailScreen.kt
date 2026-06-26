@@ -70,7 +70,6 @@ import com.calypsan.listenup.client.presentation.shelf.ShelfBookSort
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
 import com.calypsan.listenup.client.presentation.shelf.ShelfGridWidth
-import com.calypsan.listenup.client.presentation.shelf.shelfGridColumns
 import com.calypsan.listenup.client.presentation.shelf.sortShelfBooks
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_about
@@ -223,11 +222,10 @@ private fun ShelfDetailContent(
                 ShelfGridWidth.Compact
             }
         }
-    val columns = shelfGridColumns(gridWidth)
     val isWide = gridWidth != ShelfGridWidth.Compact
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(columns),
+        columns = GridCells.Adaptive(minSize = 160.dp),
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp),

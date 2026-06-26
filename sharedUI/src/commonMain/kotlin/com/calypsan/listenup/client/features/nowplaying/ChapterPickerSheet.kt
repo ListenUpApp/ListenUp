@@ -42,7 +42,11 @@ fun ChapterPickerSheet(
             modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            itemsIndexed(chapters) { index, chapter ->
+            itemsIndexed(
+                chapters,
+                key = { _, chapter -> chapter.id },
+                contentType = { _, _ -> "chapter" },
+            ) { index, chapter ->
                 PlayerChapterRow(
                     number = index + 1,
                     title = chapter.title,
