@@ -184,13 +184,8 @@ private fun LibraryLoadedContent(
     }
 
     // "In progress" view: titles with partial (started-but-unfinished) playback.
-    val booksInProgress =
-        remember(state.books, state.bookProgress, state.bookIsFinished) {
-            state.books.filter { book ->
-                val progress = state.bookProgress[book.id]
-                progress != null && progress > 0f && progress < 1f && state.bookIsFinished[book.id] != true
-            }
-        }
+    // Derived in the ViewModel's combine pipeline — no in-composition filter needed.
+    val booksInProgress = state.booksInProgress
 
     var selectedFilter by rememberSaveable { mutableStateOf(LibraryFilter.Books) }
     val isWide =
