@@ -42,4 +42,77 @@ class ShareLinkCodecTest :
             url shouldContain "server=https%3A%2F%2Flib.example.com"
             url shouldContain "code=JOIN9"
         }
+
+        test("decode parses the https /o form from the fragment") {
+            val target =
+                ShareLinkCodec.decode(
+                    "https://link.listenup.audio/o#t=book&b=book-abc&i=inst-123&u=https%3A%2F%2Flib.example.com",
+                )
+
+            target shouldBe
+                ShareTarget.Book(
+                    bookId = BookId("book-abc"),
+                    serverInstanceId = "inst-123",
+                    serverUrl = "https://lib.example.com",
+                )
+        }
+
+        test("decode falls back to the query when the fragment is absent") {
+            val target = ShareLinkCodec.decode("https://link.listenup.audio/o?t=book&b=book-xyz&i=inst-9")
+
+            target shouldBe
+                ShareTarget.Book(bookId = BookId("book-xyz"), serverInstanceId = "inst-9", serverUrl = null)
+        }
+
+        test("encode then decode round-trips a fully-populated book") {
+            val original =
+                ShareTarget.Book(
+                    bookId = BookId("book-abc"),
+                    serverInstanceId = "inst-123",
+                    serverUrl = "https://lib.example.com:8443/listenup",
+                )
+
+            ShareLinkCodec.decode(ShareLinkCodec.encode(original)) shouldBe original
+        }
+
+        test("encode then decode round-trips an invite") {
+            val original = ShareTarget.Invite(serverUrl = "https://lib.example.com", code = "JOIN9")
+
+            ShareLinkCodec.decode(ShareLinkCodec.encode(original)) shouldBe original
+        }
+
+        test("decode parses the legacy listenup book scheme with no server context") {
+            val target = ShareLinkCodec.decode("listenup://book/book-legacy")
+
+            target shouldBe
+                ShareTarget.Book(bookId = BookId("book-legacy"), serverInstanceId = null, serverUrl = null)
+        }
+
+        test("decode parses the legacy listenup join scheme") {
+            val target = ShareLinkCodec.decode("listenup://join?server=https%3A%2F%2Flib.example.com&code=ABC123")
+
+            target shouldBe ShareTarget.Invite(serverUrl = "https://lib.example.com", code = "ABC123")
+        }
+
+        test("decode returns null for an https link with an unknown type") {
+            ShareLinkCodec.decode("https://link.listenup.audio/o#t=podcast&b=x") shouldBe null
+        }
+
+        test("decode returns null for an https link missing the book id") {
+            ShareLinkCodec.decode("https://link.listenup.audio/o#t=book") shouldBe null
+        }
+
+        test("decode returns null for a join link missing the code") {
+            ShareLinkCodec.decode("listenup://join?server=https%3A%2F%2Flib.example.com") shouldBe null
+        }
+
+        test("decode returns null for a foreign https host") {
+            ShareLinkCodec.decode("https://evil.example.com/o#t=book&b=x") shouldBe null
+        }
+
+        test("decode returns null for blank or unrelated input") {
+            ShareLinkCodec.decode("") shouldBe null
+            ShareLinkCodec.decode("not a url") shouldBe null
+            ShareLinkCodec.decode("https://link.listenup.audio/other") shouldBe null
+        }
     })
