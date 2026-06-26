@@ -576,7 +576,6 @@ One beautiful library.</string>
     <string name="contributor_merge_body">This contributor\'s books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target\'s biography, image, and other details win.</string>
     <string name="contributor_merge_button">Merge with another author</string>
     <string name="contributor_merge_confirm">Merge</string>
-    <string name="contributor_merge_into">Merge into…</string>
     <string name="contributor_merge_search_placeholder">Search contributors…</string>
     <string name="contributor_merge_title">Merge into…</string>
     <string name="contributor_name_profile_image">%1$s profile image</string>

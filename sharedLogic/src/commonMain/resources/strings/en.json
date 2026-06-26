@@ -515,7 +515,6 @@
     "merge_body": "This contributor's books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target's biography, image, and other details win.",
     "merge_button": "Merge with another author",
     "merge_confirm": "Merge",
-    "merge_into": "Merge into…",
     "merge_search_placeholder": "Search contributors…",
     "merge_title": "Merge into…",
     "unmerge_aliasname": "Unmerge \"%1$s\"?",

@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CallMerge
 import androidx.compose.material.icons.filled.Close
@@ -16,7 +14,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -25,8 +22,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.design.components.ListenUpButton
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_cancel
 import listenup.composeapp.generated.resources.contributor_also_known_as
@@ -58,46 +55,32 @@ fun AliasesSection(
     aliases: List<String>,
     onUnmerge: (String) -> Unit,
     onMergeClick: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = modifier,
-    ) {
-        Text(
-            text = stringResource(Res.string.contributor_also_known_as),
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
-        )
-
-        if (aliases.isEmpty()) {
-            Text(
-                text = stringResource(Res.string.contributor_no_aliases_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        } else {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                aliases.forEach { alias ->
-                    AliasChip(
-                        alias = alias,
-                        onUnmerge = { onUnmerge(alias) },
-                    )
+    ContributorStudioCard(title = stringResource(Res.string.contributor_also_known_as)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (aliases.isEmpty()) {
+                Text(
+                    text = stringResource(Res.string.contributor_no_aliases_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    aliases.forEach { alias ->
+                        AliasChip(alias = alias, onUnmerge = { onUnmerge(alias) })
+                    }
                 }
             }
-        }
-
-        OutlinedButton(onClick = onMergeClick) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.CallMerge,
-                contentDescription = null,
-                modifier = Modifier.size(InputChipDefaults.AvatarSize),
+            ListenUpButton(
+                text = stringResource(Res.string.contributor_merge_button),
+                onClick = onMergeClick,
+                filled = false,
+                fillMaxWidth = false,
+                leadingIcon = Icons.AutoMirrored.Filled.CallMerge,
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(stringResource(Res.string.contributor_merge_button))
         }
     }
 }
