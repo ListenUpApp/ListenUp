@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://kotlinlang.org/docs/multiplatform.html"><img src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&logoColor=white" alt="Kotlin Multiplatform" /></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white" alt="Android" /></a>
-  <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-17%2B-000000?logo=apple&logoColor=white" alt="iOS" /></a>
+  <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-26%2B-000000?logo=apple&logoColor=white" alt="iOS" /></a>
   <a href="https://www.jetbrains.com/compose-multiplatform/"><img src="https://img.shields.io/badge/Compose-Multiplatform-4285F4?logo=jetpackcompose&logoColor=white" alt="Compose Multiplatform" /></a>
   <img src="https://img.shields.io/badge/status-beta%20v0.6.0-orange" alt="Beta v0.6.0" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="License" />
@@ -78,7 +78,7 @@
 ## Features
 
 - 🎧 **Audiobook playback** — chapter navigation, sleep timer, variable speed, resume anywhere
-- 📥 **Offline downloads** — download books and listen without a connection
+- 📥 **Offline First** — books and library content are downloaded for offline playback
 - 🔄 **Real-time sync** — progress syncs across your devices instantly via Server-Sent Events (SSE)
 - 📚 **Rich library** — browse by collection, contributor, series, or tag
 - 📖 **Shelves** — organize your library with your own custom shelves
@@ -86,7 +86,7 @@
 - 🔍 **Discover** — search and browse your server's catalog, with a local fallback when you're offline
 - 👥 **Social** — activity feed and listening leaderboard
 - 🛠️ **Admin tools** — manage collections, categories, the import inbox, and backups from the app
-- 🎨 **Modern design** — Material 3 Expressive with dynamic color on Android, native SwiftUI on iOS
+- 🎨 **Modern design** — Material 3 Expressive with dynamic color on Android, native SwiftUI and Liquid Glass on iOS
 
 ## Platforms
 
@@ -97,7 +97,7 @@ Beta ships on the two platforms below; more are on the way.
 | Android  | ✅ Beta | Media3 / ExoPlayer |
 | iOS      | ✅ Beta | AVFoundation |
 
-**Coming soon:** Desktop (JVM) and Android TV — both already build from this codebase and will graduate to supported releases after the mobile beta settles.
+**Coming soon:** Desktop (JVM and native macOS) and Android TV — both already build from this codebase and will graduate to supported releases after the mobile beta settles. Other platforms to be integrated soon.
 
 ## Getting the Beta
 
@@ -177,19 +177,19 @@ ListenUp follows **MVVM** with offline-first data flow and a clean separation be
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Language | [Kotlin 2.3](https://kotlinlang.org/) (Multiplatform) |
+| Layer | Technology                                                                                    |
+|-------|-----------------------------------------------------------------------------------------------|
+| Language | [Kotlin 2.4](https://kotlinlang.org/) (Multiplatform)                                         |
 | UI | [Compose Multiplatform](https://www.jetbrains.com/compose-multiplatform/), Material 3, Navigation 3 |
-| DI | [Koin](https://insert-koin.io/) |
-| Networking | [Ktor](https://ktor.io/) + [kotlinx.rpc](https://github.com/Kotlin/kotlinx-rpc) |
-| Client persistence | [Room](https://developer.android.com/training/data-storage/room) (Multiplatform) |
-| Server persistence | [SQLDelight](https://cashapp.github.io/sqldelight/) + SQLite |
-| Image loading | [Coil](https://coil-kt.github.io/coil/) |
-| Playback (Android) | [Media3 / ExoPlayer](https://developer.android.com/media/media3) |
-| Playback (iOS) | AVFoundation |
-| Serialization | [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization) |
-| Code quality | Detekt, Spotless (ktlint) |
+| DI | [Koin](https://insert-koin.io/)                                                               |
+| Networking | [Ktor](https://ktor.io/) + [kotlinx.rpc](https://github.com/Kotlin/kotlinx-rpc)               |
+| Client persistence | [Room](https://developer.android.com/training/data-storage/room) (Multiplatform)              |
+| Server persistence | [SQLDelight](https://cashapp.github.io/sqldelight/) + SQLite                                  |
+| Image loading | [Coil](https://coil-kt.github.io/coil/)                                                       |
+| Playback (Android) | [Media3 / ExoPlayer](https://developer.android.com/media/media3)                              |
+| Playback (iOS) | AVFoundation                                                                                  |
+| Serialization | [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization)                      |
+| Code quality | Detekt, Spotless (ktlint)                                                                     |
 
 ## License
 
