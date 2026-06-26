@@ -208,7 +208,10 @@ private suspend fun ServerSSESession.streamFirehose(
     // the bus has already evicted the events the client needs.
     // "clientCursor < oldestRetained" → stale; "null" → fresh subscriber, stream normally.
     if (lastEventId != null && oldestRetained != null && lastEventId < oldestRetained) {
-        log.debug { "sync stream cursor stale: userId=$userId lastEventId=$lastEventId oldestRetained=$oldestRetained; sending CursorStale" }
+        log.debug {
+            "sync stream cursor stale: userId=$userId lastEventId=$lastEventId " +
+                "oldestRetained=$oldestRetained; sending CursorStale"
+        }
         sendCursorStale(oldestRetained)
         return
     }
@@ -256,21 +259,26 @@ private suspend fun ServerSSESession.streamFirehose(
                 // Access gating: a live content event the subscriber may not see is dropped
                 // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
                 // [isCollectionEventHidden].
-                if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) {
-                    log.trace { "sse gated: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} userId=$userId reason=access" }
-                    return@collect
-                }
-                if (isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy)) {
-                    log.trace { "sse gated: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} userId=$userId reason=access" }
-                    return@collect
-                }
-                if (isLibraryFolderEventHidden(busEvent, role)) {
-                    log.trace { "sse gated: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} userId=$userId reason=access" }
+                val gatedReason =
+                    when {
+                        isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
+                        isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
+                        isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
+                        else -> null
+                    }
+                if (gatedReason != null) {
+                    log.trace {
+                        "sse gated: domain=${busEvent.repo.domainName} " +
+                            "event=${busEvent.event::class.simpleName} userId=$userId reason=$gatedReason"
+                    }
                     return@collect
                 }
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
-                log.trace { "sse emit: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} revision=${busEvent.event.revision}" }
+                log.trace {
+                    "sse emit: domain=${busEvent.repo.domainName} " +
+                        "event=${busEvent.event::class.simpleName} revision=${busEvent.event.revision}"
+                }
                 send(
                     id = busEvent.event.revision.toString(),
                     event = busEvent.repo.domainName,
