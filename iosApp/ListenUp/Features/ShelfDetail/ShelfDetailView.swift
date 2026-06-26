@@ -119,11 +119,11 @@ struct ShelfDetailView: View {
 
 /// A single book on a shelf — cover over title + authors.
 ///
-/// `ShelfBook` carries only display-critical fields (id, title, authors, cover path), so this
+/// `ShelfBookRow` carries only display-critical fields (id, title, authors, cover path), so this
 /// is a slim sibling of `BookCoverCard` (which needs a full `BookListItem`). Cover loading,
 /// auth, and BlurHash placeholders are reused via `BookCoverImage`.
 private struct ShelfBookCoverCard: View {
-    let book: ShelfBook
+    let book: ShelfBookRow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
