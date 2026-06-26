@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.SocialServiceImpl
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
@@ -72,6 +73,11 @@ fun playbackModule(): Module =
                 signingKey = AudioUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
             )
         }
+        single {
+            CoverUrlSigner(
+                signingKey = CoverUrlSigner.deriveSigningKey(get<JwtConfiguration>().secret),
+            )
+        }
         single { UserRoleLookup(db = get<ListenUpDatabase>()) }
         single(createdAtStart = true) { ActiveSessionRepository(db = get<ListenUpDatabase>(), bus = get()) }
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
@@ -125,6 +131,7 @@ fun playbackModule(): Module =
                 bookRepository = get<BookRepository>(),
                 audioFileLocator = get(),
                 audioUrlSigner = get(),
+                coverUrlSigner = get(),
                 playbackPositionRepository = get(),
                 listeningEventRepository = get(),
                 userStatsRepository = get(),

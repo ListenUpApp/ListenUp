@@ -22,6 +22,7 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.dto.PreparedPlayback
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
+import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -52,6 +53,7 @@ import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
@@ -62,6 +64,7 @@ class PlaybackServiceImplTest :
             val bookRepo: BookRepository,
             val positionRepo: PlaybackPositionRepository,
             val signer: AudioUrlSigner,
+            val coverSigner: CoverUrlSigner,
             val eventRepo: ListeningEventRepository,
             val statsRepo: UserStatsRepository,
             val accessPolicy: BookAccessPolicy,
@@ -88,6 +91,7 @@ class PlaybackServiceImplTest :
                 )
             val positionRepo = PlaybackPositionRepository(db = sql, bus = bus, registry = SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
+            val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
             val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
             val updater =
                 UserStatsUpdater(
@@ -106,6 +110,7 @@ class PlaybackServiceImplTest :
                 bookRepo = bookRepo,
                 positionRepo = positionRepo,
                 signer = signer,
+                coverSigner = coverSigner,
                 eventRepo = eventRepo,
                 statsRepo = statsRepo,
                 accessPolicy = BookAccessPolicy(sql, driver),
@@ -154,6 +159,7 @@ class PlaybackServiceImplTest :
                 bookRepository = bookRepo,
                 audioFileLocator = AudioFileLocator(sql),
                 audioUrlSigner = signer,
+                coverUrlSigner = coverSigner,
                 playbackPositionRepository = positionRepo,
                 listeningEventRepository = eventRepo,
                 userStatsRepository = statsRepo,
@@ -266,6 +272,35 @@ class PlaybackServiceImplTest :
                     val exp = params["exp"]?.toLong().shouldNotBeNull()
                     val sig = params["sig"].shouldNotBeNull()
                     deps.signer.verify(userId, "b1", file.fileId, exp, sig) shouldBe true
+                }
+            }
+        }
+
+        test("prepare returns a signed cover URL that the cover signer verifies") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                val deps = buildDeps(sql, driver)
+                runTest {
+                    deps.bookRepo.upsert(bookWithThreeFiles("b1"))
+                    deps.makeReachable("b1", "u1")
+
+                    val service = deps.service(sql, "u1")
+
+                    val result = service.prepare(BookId("b1"))
+                    val success = result.shouldBeInstanceOf<AppResult.Success<PreparedPlayback>>()
+
+                    // URL shape: /api/v1/cover-cast/{bookId}?u=...&exp=...&sig=...
+                    val coverUrl = success.data.coverUrl.shouldNotBeNull()
+                    coverUrl shouldStartWith "/api/v1/cover-cast/"
+                    val params =
+                        coverUrl.substringAfter("?").split("&").associate {
+                            it.substringBefore("=") to it.substringAfter("=")
+                        }
+                    val userId = params["u"].shouldNotBeNull()
+                    val exp = params["exp"]?.toLong().shouldNotBeNull()
+                    val sig = params["sig"].shouldNotBeNull()
+                    deps.coverSigner.verify(userId, "b1", exp, sig) shouldBe true
                 }
             }
         }

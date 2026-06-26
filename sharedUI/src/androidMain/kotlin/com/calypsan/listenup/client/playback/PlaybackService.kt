@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Bundle
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.concurrent.futures.CallbackToFutureAdapter
 import androidx.media3.common.AudioAttributes
@@ -30,6 +31,10 @@ import com.calypsan.listenup.client.composeapp.R
 import com.calypsan.listenup.client.automotive.BrowseTree
 import com.calypsan.listenup.client.automotive.BrowseTreeProvider
 import com.calypsan.listenup.client.automotive.CustomActions
+import com.calypsan.listenup.client.playback.cast.CastMediaItemFactory
+import com.calypsan.listenup.client.playback.cast.CastPreparer
+import com.calypsan.listenup.client.playback.cast.CastSessionController
+import com.calypsan.listenup.client.playback.cast.CastSourceItem
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
@@ -83,6 +88,13 @@ class PlaybackService : MediaLibraryService() {
     private var mediaLibrarySession: MediaLibraryService.MediaLibrarySession? = null
     private var player: ExoPlayer? = null
     private var notificationProvider: AudiobookNotificationProvider? = null
+    private var castSessionController: CastSessionController? = null
+
+    // True while the session player is the cast player. Main-thread only (set in the
+    // cast handoffs, read by the idle-timer guard). The PlayerListener is attached only
+    // to the local ExoPlayer, so cast play/pause never reaches it — this flag is how the
+    // idle timer learns to stand down while casting (see startIdleTimer).
+    private var casting = false
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var idleJob: Job? = null
@@ -100,6 +112,7 @@ class PlaybackService : MediaLibraryService() {
     private val browseTreeProvider: BrowseTreeProvider by inject()
     private val voiceIntentResolver: VoiceIntentResolver by inject()
     private val homeRepository: HomeRepository by inject()
+    private val castPreparer: CastPreparer by inject()
 
     // Current book ID is read from PlaybackManager (single source of truth)
     private val currentBookId: BookId?
@@ -112,10 +125,13 @@ class PlaybackService : MediaLibraryService() {
      * relative to the entire book for progress tracking. The PlaybackTimeline
      * handles this translation.
      *
+     * Reads the active session player — the local ExoPlayer normally, the cast
+     * player while casting — so position recording follows wherever audio is playing.
+     *
      * @return Book-relative position in milliseconds, or 0 if unavailable
      */
     private fun getBookRelativePosition(): Long {
-        val player = player ?: return 0L
+        val player = mediaLibrarySession?.player ?: player ?: return 0L
         val timeline = playbackManager.currentTimeline.value ?: return player.currentPosition
         return timeline.toBookPosition(player.currentMediaItemIndex, player.currentPosition)
     }
@@ -139,6 +155,7 @@ class PlaybackService : MediaLibraryService() {
 
         initializePlayer()
         initializeMediaSession()
+        initializeCast()
         initializeNotificationProvider()
 
         // Register callback for chapter changes to update notification
@@ -246,6 +263,118 @@ class PlaybackService : MediaLibraryService() {
         val provider = notificationProvider ?: return
         setMediaNotificationProvider(provider)
         logger.info { "Notification provider initialized" }
+    }
+
+    /**
+     * Initialize Cast if Google Play Services is present. On a de-Googled device
+     * this is a no-op — no cast button, local playback unaffected (never stranded).
+     */
+    private fun initializeCast() {
+        castSessionController =
+            CastSessionController.createOrNull(
+                context = this,
+                onConnected = { serviceScope.launch { handoffToCast() } },
+                onDisconnected = { serviceScope.launch { handoffToLocal() } },
+            )
+        if (castSessionController != null) logger.info { "Cast initialized" }
+    }
+
+    /** Local → Cast: re-fetch network URLs, build the cast queue at the current position, swap the session player. */
+    private suspend fun handoffToCast() {
+        val controller = castSessionController ?: return
+        val session = mediaLibrarySession ?: return
+        val local = player ?: return
+        val bookId = playbackManager.currentBookId.value ?: return
+
+        val prepared = castPreparer.prepareForCast(bookId)
+        if (prepared == null) {
+            logger.warn { "Cast prepare failed — staying local" }
+            // Honest-over-silent: the user tapped cast and nothing audible happened.
+            Toast.makeText(this, "Couldn't start casting.", Toast.LENGTH_LONG).show()
+            return
+        }
+        // Connect→disconnect race: the session can drop while prepareForCast suspends. Re-check
+        // before committing so we never swap onto a dead cast session with no path back.
+        if (!controller.isSessionAvailable) {
+            logger.warn { "Cast session gone during prepare — staying local" }
+            return
+        }
+        // Snapshot the currently-loaded items for queue order + on-TV metadata.
+        val sourceItems =
+            (0 until local.mediaItemCount).map { i ->
+                val mi = local.getMediaItemAt(i)
+                CastSourceItem(
+                    fileId = mi.mediaId,
+                    title = mi.mediaMetadata.title?.toString(),
+                    artist = mi.mediaMetadata.artist?.toString(),
+                    albumTitle = mi.mediaMetadata.albumTitle?.toString(),
+                )
+            }
+        val factory = CastMediaItemFactory()
+        val built = factory.build(sourceItems, prepared.files, prepared.coverUrlAbsolute)
+        // Index-shift safety: only cast a complete, in-order queue. A dropped file would
+        // shift indices and resume on the wrong file — fall back to local instead.
+        if (built.tracks.size != sourceItems.size) {
+            logger.warn {
+                "Cannot cast this book (uncastable=${built.droppedUncastable}, " +
+                    "unmatched=${built.droppedUnmatched}) — staying local"
+            }
+            // Honest-over-silent: tell the user why casting didn't start. Staying local is the
+            // never-stranded fallback. (A typed AppError + snackbar is a tracked follow-up; a
+            // Toast is the v1 honest-over-silent signal.)
+            Toast.makeText(this, "This book's format can't be cast.", Toast.LENGTH_LONG).show()
+            return
+        }
+        val mediaItems = built.tracks.map { factory.toMediaItem(it) }
+        val wasPlaying = local.playWhenReady
+        val speed = local.playbackParameters.speed
+        val index = local.currentMediaItemIndex
+        val positionInItem = local.currentPosition
+
+        // Commit to the swap. Set `casting` BEFORE pausing local, because pausing fires the
+        // local PlayerListener's onIsPlayingChanged(false) → startIdleTimer, which must stand
+        // down while casting (the cast player has no listener to ever cancel it). While casting
+        // the local player is paused, so periodic progress saves + listening-event recording
+        // pause too; the position is still persisted on disconnect via the cast-aware
+        // getBookRelativePosition(). (Tracked follow-up: drive the position job off
+        // session.player so cast time counts toward stats.)
+        casting = true
+        val cast = controller.castPlayer
+        cast.setMediaItems(mediaItems, index, positionInItem)
+        cast.playWhenReady = wasPlaying
+        cast.prepare()
+        cast.setPlaybackSpeed(speed) // routes via SpeedAwareCastPlayer → RemoteMediaClient.setPlaybackRate
+        session.player = cast
+        local.playWhenReady = false // release local audio focus; keep its items loaded for fast return
+        cancelIdleTimer() // belt-and-suspenders: the `casting` guard already blocks new timers
+        logger.info { "Swapped to Cast at index=$index pos=$positionInItem" }
+    }
+
+    /** Cast → Local: read cast position, seek the retained ExoPlayer there, swap back, persist progress. */
+    private fun handoffToLocal() {
+        val controller = castSessionController ?: return
+        val session = mediaLibrarySession ?: return
+        val local = player ?: return
+        // If the session isn't currently on the cast player, nothing to do (we never swapped).
+        if (session.player === local) return
+        val cast = controller.castPlayer
+        val index = cast.currentMediaItemIndex
+        val positionInItem = cast.currentPosition
+        val wasPlaying = cast.playWhenReady
+        // SpeedAwareCastPlayer mirrors the live receiver rate, so a speed change made while casting
+        // is carried back to the local player — otherwise saveCurrentPosition() below persists a
+        // stale speed.
+        val speed = cast.playbackParameters.speed
+        // Known v1 limitation: the retained local player still holds the book that was loaded
+        // at hand-off. If the user changed books on the cast device mid-session, swapping back
+        // could seek the wrong book. (Tracked follow-up.)
+        local.seekTo(index, positionInItem)
+        local.playWhenReady = wasPlaying
+        local.setPlaybackSpeed(speed)
+        session.player = local
+        casting = false // normal idle logic resumes now that the local player drives the session
+        logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
+        saveCurrentPosition() // existing method — persists through the normal recorder
     }
 
     /**
@@ -368,6 +497,8 @@ class PlaybackService : MediaLibraryService() {
         // when mediaLibrarySession was never built or was already null.
         mediaLibrarySession?.release()
         mediaLibrarySession = null
+        castSessionController?.release()
+        castSessionController = null
         player?.release()
         player = null
         notificationProvider = null
@@ -413,6 +544,13 @@ class PlaybackService : MediaLibraryService() {
         timeout: kotlin.time.Duration,
         reason: String,
     ) {
+        // Never idle-out while casting: the cast player lives inside THIS service's session,
+        // and its play/pause events never reach the local PlayerListener that would cancel the
+        // timer — so a timer started here (e.g. by the pause that hand-off triggers on the local
+        // player) would tear the cast session down after the timeout. The flag check is the
+        // robust guard because onIsPlayingChanged is posted asynchronously and could fire after
+        // a bare cancel. Covers every startIdleTimer path (pause, idle, book-finished, error).
+        if (casting) return
         idleJob?.cancel()
         idleJob =
             serviceScope.launch {
@@ -1130,8 +1268,12 @@ class PlaybackService : MediaLibraryService() {
             customCommand: SessionCommand,
             args: Bundle,
         ): ListenableFuture<SessionResult> {
+            // Route transport controls to the ACTIVE session player — the cast player while
+            // casting — so skip/chapter/speed reach the receiver, not the paused local player.
+            // Queue order is identical on both (the index-shift guard in handoffToCast ensures
+            // a 1:1 map), so the timeline's book-relative → index/offset math holds unchanged.
             val p =
-                player ?: return Futures.immediateFuture(
+                mediaLibrarySession?.player ?: player ?: return Futures.immediateFuture(
                     SessionResult(SessionResult.RESULT_ERROR_UNKNOWN),
                 )
             val chapters = playbackManager.chapters.value

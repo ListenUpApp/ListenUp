@@ -26,6 +26,8 @@ data class PreparedPlayback(
     val bookId: String,
     val audioFiles: List<PreparedAudioFile>,
     val resumePosition: PlaybackPositionSyncPayload?,
+    /** Server-relative, signature-authed cover URL a Cast receiver can fetch (no header). Null when not minted. */
+    val coverUrl: String? = null,
 )
 
 /**
