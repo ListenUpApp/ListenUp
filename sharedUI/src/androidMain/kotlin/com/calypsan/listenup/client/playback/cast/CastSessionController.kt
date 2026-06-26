@@ -33,6 +33,13 @@ class CastSessionController private constructor(
     private val onConnected: () -> Unit,
     private val onDisconnected: () -> Unit,
 ) {
+    /**
+     * Whether a Cast session is live right now. Read after a suspension (e.g. the network
+     * re-prepare) to confirm the session didn't drop in the gap before swapping onto it.
+     */
+    val isSessionAvailable: Boolean
+        get() = rawCastPlayer.isCastSessionAvailable
+
     init {
         rawCastPlayer.setSessionAvailabilityListener(
             object : SessionAvailabilityListener {
