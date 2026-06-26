@@ -30,6 +30,9 @@ import listenup.composeapp.generated.resources.discover_recently_added
 fun RecentlyAddedSection(
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    isInSelectionMode: Boolean = false,
+    selectedBookIds: Set<String> = emptySet(),
+    onBookLongPress: ((String) -> Unit)? = null,
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
     val state by viewModel.recentlyAddedState.collectAsStateWithLifecycle()
@@ -52,6 +55,9 @@ fun RecentlyAddedSection(
                 cover = book.toCoverModel(),
                 onClick = { onBookClick(book.id) },
                 cardWidth = 140.dp,
+                isInSelectionMode = isInSelectionMode,
+                isSelected = book.id in selectedBookIds,
+                onLongPress = onBookLongPress?.let { cb -> { cb(book.id) } },
             )
         }
     }

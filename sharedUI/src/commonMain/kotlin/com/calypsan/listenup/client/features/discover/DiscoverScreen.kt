@@ -44,14 +44,18 @@ import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
+import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
-import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
+import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -85,35 +89,56 @@ fun DiscoverScreen(
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
+    multiSelect: BookMultiSelectViewModel = koinViewModel(),
 ) {
     val shelvesState by viewModel.discoverShelvesState.collectAsStateWithLifecycle()
     val haptics = LocalHaptics.current
+    val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
+    val isInSelectionMode = selectionMode is SelectionMode.Active
+    val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
 
-    PullToRefreshBox(
-        isRefreshing = shelvesState is DiscoverShelvesUiState.Loading,
-        onRefresh = {
-            haptics.thresholdActivate()
-            viewModel.refresh()
-        },
+    // Handle back press to exit selection mode.
+    PlatformBackHandler(enabled = isInSelectionMode) {
+        multiSelect.exitSelectionMode()
+    }
+
+    Box(
         modifier =
             modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        // Discover content with leaderboard (always shows) and user shelves.
-        // The Loading / Error / empty-Ready cases all render no shelf list below the
-        // activity feed; only Ready-with-data surfaces user shelves.
-        val shelvesReady = shelvesState as? DiscoverShelvesUiState.Ready
-        DiscoverContent(
-            isLoading = shelvesState is DiscoverShelvesUiState.Loading,
-            users = shelvesReady?.users.orEmpty(),
-            isEmpty = shelvesReady?.isEmpty ?: false,
-            appHeader = appHeader,
-            contentPadding = contentPadding,
-            onShelfClick = onShelfClick,
-            onBookClick = onBookClick,
-            onUserProfileClick = onUserProfileClick,
-        )
+        PullToRefreshBox(
+            isRefreshing = shelvesState is DiscoverShelvesUiState.Loading,
+            onRefresh = {
+                haptics.thresholdActivate()
+                viewModel.refresh()
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            // Discover content with leaderboard (always shows) and user shelves.
+            // The Loading / Error / empty-Ready cases all render no shelf list below the
+            // activity feed; only Ready-with-data surfaces user shelves.
+            val shelvesReady = shelvesState as? DiscoverShelvesUiState.Ready
+            DiscoverContent(
+                isLoading = shelvesState is DiscoverShelvesUiState.Loading,
+                users = shelvesReady?.users.orEmpty(),
+                isEmpty = shelvesReady?.isEmpty ?: false,
+                appHeader = appHeader,
+                contentPadding = contentPadding,
+                onShelfClick = onShelfClick,
+                onBookClick = { id ->
+                    if (isInSelectionMode) multiSelect.toggleSelection(id) else onBookClick(id)
+                },
+                onUserProfileClick = onUserProfileClick,
+                isInSelectionMode = isInSelectionMode,
+                selectedBookIds = selectedBookIds,
+                onBookLongPress = multiSelect::enterSelectionMode,
+            )
+        }
+
+        // Multi-select overlay: top toolbar, picker sheets, and success feedback.
+        BookSelectionScaffold(multiSelect = multiSelect)
     }
 }
 
@@ -169,6 +194,9 @@ private fun DiscoverContent(
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
+    isInSelectionMode: Boolean = false,
+    selectedBookIds: Set<String> = emptySet(),
+    onBookLongPress: ((String) -> Unit)? = null,
 ) {
     val isWide =
         currentWindowAdaptiveInfo().windowSizeClass.isWidthAtLeastBreakpoint(
@@ -201,6 +229,9 @@ private fun DiscoverContent(
         item {
             DiscoverBooksSection(
                 onBookClick = onBookClick,
+                isInSelectionMode = isInSelectionMode,
+                selectedBookIds = selectedBookIds,
+                onBookLongPress = onBookLongPress,
             )
         }
 
@@ -208,6 +239,9 @@ private fun DiscoverContent(
         item {
             RecentlyAddedSection(
                 onBookClick = onBookClick,
+                isInSelectionMode = isInSelectionMode,
+                selectedBookIds = selectedBookIds,
+                onBookLongPress = onBookLongPress,
             )
         }
 
@@ -215,6 +249,9 @@ private fun DiscoverContent(
         item {
             CurrentlyListeningSection(
                 onBookClick = onBookClick,
+                isInSelectionMode = isInSelectionMode,
+                selectedBookIds = selectedBookIds,
+                onBookLongPress = onBookLongPress,
             )
         }
 
