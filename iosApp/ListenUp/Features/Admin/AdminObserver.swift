@@ -1,5 +1,5 @@
 import Foundation
-@preconcurrency import Shared
+import Shared
 
 /// Observes `AdminViewModel` — flattens the sealed `AdminUiState` into a SwiftUI-native
 /// `AdminPhase` (`loading` / `ready`) and surfaces the transient mutation error

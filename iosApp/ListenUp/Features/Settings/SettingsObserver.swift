@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `SettingsViewModel`, flattening the shared `SettingsUiState` into flat
 /// `@Observable` properties the SwiftUI settings screen binds to, and forwarding the

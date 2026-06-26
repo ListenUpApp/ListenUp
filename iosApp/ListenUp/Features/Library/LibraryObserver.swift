@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `LibraryViewModel` — flattens the sealed `LibraryUiState` into flat
 /// `@Observable` properties for all four library tabs. Thin over `FlowBridge`.

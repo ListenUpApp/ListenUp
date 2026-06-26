@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `SearchViewModel` — flattens the sealed `SearchUiState` into flat
 /// `@Observable` properties and projects the additive `selectedTypes` filter onto a
