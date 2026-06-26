@@ -12,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -41,7 +40,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.playback.NowPlayingState
 import listenup.composeapp.generated.resources.Res
-import listenup.composeapp.generated.resources.player_cast
 import listenup.composeapp.generated.resources.player_close_book
 import listenup.composeapp.generated.resources.player_collapse
 import listenup.composeapp.generated.resources.player_go_to_book
@@ -191,14 +189,8 @@ private fun WideTopBar(
             )
         }
 
-        // Cast icon button — tonal style (future feature, not yet wired).
-        IconButton(onClick = { /* cast not yet wired */ }) {
-            Icon(
-                imageVector = Icons.Default.Cast,
-                contentDescription = stringResource(Res.string.player_cast),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        // Cast / route-picker button — framework MediaRouteButton (auto-hides when no devices).
+        CastButton(modifier = Modifier.size(48.dp))
 
         overflowAnchor()
     }
@@ -240,7 +232,11 @@ private fun CompactTopBar(
             textAlign = TextAlign.Center,
         )
 
-        Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CastButton(modifier = Modifier.size(48.dp))
             overflowAnchor()
         }
     }
