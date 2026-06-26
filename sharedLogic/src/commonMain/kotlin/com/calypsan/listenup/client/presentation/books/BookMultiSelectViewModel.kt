@@ -61,34 +61,6 @@ class BookMultiSelectViewModel(
     val selectionMode: StateFlow<SelectionMode>
         field = MutableStateFlow<SelectionMode>(SelectionMode.None)
 
-    /**
-     * Number of currently selected books. Convenience for UI display (e.g. "3 selected").
-     */
-    val selectedCount: StateFlow<Int> =
-        selectionMode
-            .map { mode ->
-                when (mode) {
-                    is SelectionMode.None -> 0
-                    is SelectionMode.Active -> mode.selectedIds.size
-                }
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-                initialValue = 0,
-            )
-
-    /**
-     * Whether multi-select is currently active. Convenience for toggling UI affordances.
-     */
-    val isInSelectionMode: StateFlow<Boolean> =
-        selectionMode
-            .map { it is SelectionMode.Active }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-                initialValue = false,
-            )
-
     // ═══════════════════════════════════════════════════════════════════════
     // ADMIN STATE
     // ═══════════════════════════════════════════════════════════════════════
