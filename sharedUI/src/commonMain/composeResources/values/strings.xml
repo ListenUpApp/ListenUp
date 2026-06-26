@@ -940,6 +940,7 @@ One beautiful library.</string>
     <string name="library_exit_selection_mode">Exit selection mode</string>
     <string name="library_failed_to_load_library">Failed to load library</string>
     <string name="library_has_documents_badge">Has supplementary material</string>
+    <string name="library_ignore_articles">Ignore A, An, The</string>
     <string name="library_ignoring_articles"> · ignoring A · An · The</string>
     <string name="library_index_jump">Jump to %1$s</string>
     <string name="library_loading_your_library">Loading your library...</string>
@@ -950,6 +951,8 @@ One beautiful library.</string>
     <string name="library_series_count">%d series</string>
     <string name="library_shelf">Shelf</string>
     <string name="library_shelf_name">Shelf name</string>
+    <string name="library_sort_ascending">Ascending</string>
+    <string name="library_sort_descending">Descending</string>
     <string name="library_summary">• %1$s</string>
     <string name="library_sync_failed">Sync Failed</string>
     <string name="library_title_count">%d titles</string>

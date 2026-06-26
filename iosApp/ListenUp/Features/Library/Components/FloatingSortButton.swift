@@ -13,6 +13,9 @@ struct FloatingSortButton: View {
     let categories: [SortCategory]
     let onCategorySelected: (SortCategory) -> Void
     let onDirectionToggle: () -> Void
+    /// When the active sort is by Title, the menu shows an "Ignore A, An, The" toggle bound to these.
+    var ignoreTitleArticles: Bool? = nil
+    var onToggleIgnoreArticles: (() -> Void)? = nil
 
     @State private var isExpanded = false
 
@@ -34,15 +37,25 @@ struct FloatingSortButton: View {
 
             Divider()
 
-            // Direction toggle
+            // Direction toggle — shows the actual order (Ascending/Descending), not a vague "Direction".
             Button {
                 onDirectionToggle()
             } label: {
-                HStack {
-                    Text(String(localized: "common.direction"))
-                    Spacer()
-                    Text(sortState.directionLabel)
-                        .foregroundStyle(.secondary)
+                Label(
+                    sortState.direction == .ascending
+                        ? String(localized: "library.sort_ascending")
+                        : String(localized: "library.sort_descending"),
+                    systemImage: sortState.direction == .ascending ? "arrow.up" : "arrow.down"
+                )
+            }
+
+            // Title-sort article handling — only meaningful (and shown) when sorting by Title.
+            if sortState.category == .title,
+               let ignore = ignoreTitleArticles,
+               let onToggle = onToggleIgnoreArticles {
+                Divider()
+                Toggle(isOn: Binding(get: { ignore }, set: { _ in onToggle() })) {
+                    Text(String(localized: "library.ignore_articles"))
                 }
             }
         } label: {

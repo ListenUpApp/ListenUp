@@ -115,6 +115,8 @@ struct LibraryView: View {
                 onDirectionToggle: {
                     observer.toggleBooksSortDirection()
                 },
+                ignoreTitleArticles: observer.ignoreTitleArticles,
+                onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() },
                 onRefresh: {
                     observer.refresh()
                 },
@@ -132,7 +134,9 @@ struct LibraryView: View {
                 },
                 onDirectionToggle: {
                     observer.toggleSeriesSortDirection()
-                }
+                },
+                ignoreTitleArticles: observer.ignoreTitleArticles,
+                onToggleIgnoreArticles: { observer.toggleIgnoreTitleArticles() }
             )
             .tag(LibraryTab.series)
 

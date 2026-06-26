@@ -15,6 +15,10 @@ struct SeriesContent: View {
     let sortState: SortState?
     let onCategorySelected: (SortCategory) -> Void
     let onDirectionToggle: () -> Void
+    /// Name-sort article handling — shared toggle state + flip action (Series sorts by Name). Groups
+    /// "The Expanse" under E, matching the shared sort order.
+    let ignoreTitleArticles: Bool
+    let onToggleIgnoreArticles: () -> Void
 
     @Environment(\.horizontalSizeClass) private var sizeClass
 
@@ -112,7 +116,18 @@ struct SeriesContent: View {
             Button {
                 onDirectionToggle()
             } label: {
-                Text(String(localized: "common.direction"))
+                Label(
+                    sortState?.direction == .ascending
+                        ? String(localized: "library.sort_ascending")
+                        : String(localized: "library.sort_descending"),
+                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
+                )
+            }
+            if sortState?.category == .name {
+                Divider()
+                Toggle(isOn: Binding(get: { ignoreTitleArticles }, set: { _ in onToggleIgnoreArticles() })) {
+                    Text(String(localized: "library.ignore_articles"))
+                }
             }
         }
         .haptic(.selectionTick, trigger: sortState)
@@ -159,7 +174,7 @@ struct SeriesContent: View {
     /// `seriesAlphabetIndex` over the native `SeriesRow`, so the scrubber never re-bridges.
     private func buildAlphabetIndex() -> [(letter: String, firstId: String)] {
         guard sortState?.category == .name else { return [] }
-        return seriesAlphabetIndex(from: seriesList)
+        return seriesAlphabetIndex(from: seriesList, ignoreArticles: ignoreTitleArticles)
     }
 
     // MARK: - Empty State

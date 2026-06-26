@@ -157,7 +157,14 @@ struct ContributorListContent: View {
             Divider()
             Button {
                 onDirectionToggle()
-            } label: { Text(String(localized: "common.direction")) }
+            } label: {
+                Label(
+                    sortState?.direction == .ascending
+                        ? String(localized: "library.sort_ascending")
+                        : String(localized: "library.sort_descending"),
+                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
+                )
+            }
         }
         .haptic(.selectionTick, trigger: sortState)
     }

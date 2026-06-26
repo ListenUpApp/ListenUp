@@ -18,6 +18,10 @@ struct BooksContent: View {
     let errorMessage: String?
     let onCategorySelected: (SortCategory) -> Void
     let onDirectionToggle: () -> Void
+    /// Title-sort article handling — the shared toggle state + its flip action. When sorting by
+    /// Title, "The Hobbit" groups under H (ignoring the article); the section letters honor it too.
+    let ignoreTitleArticles: Bool
+    let onToggleIgnoreArticles: () -> Void
     let onRefresh: () -> Void
     /// Drives multi-select on the grid. When `isSelecting`, taps toggle selection instead of
     /// navigating; a long-press is the secondary entry into selection mode.
@@ -28,6 +32,9 @@ struct BooksContent: View {
     @State private var isScrolling = false
     @State private var scrollTarget: String?
     @State private var sections: [(letter: Character, books: [BookRow])] = []
+    /// The grid's available width, read via `.onGeometryChange`, used to derive the column count +
+    /// cell width. A phone-ish default avoids a collapsed first paint before the first layout.
+    @State private var contentWidth: CGFloat = 390
 
     private var layout: BooksLayout {
         BooksLayout.forRegularWidth(horizontalSizeClass == .regular)
@@ -59,83 +66,84 @@ struct BooksContent: View {
     private var booksGrid: some View {
         let letters = sections.map { String($0.letter) }
 
-        return GeometryReader { geo in
-            // The grid is a FLAT `LazyVStack` of a letter header + manually-chunked book rows — NOT a
-            // `LazyVGrid` nested inside the `LazyVStack`. That nesting made the scrubber's `scrollTo`
-            // spin the main thread forever on a large library: resolving the target offset across ~26
-            // nested lazy grids is a layout pass that never converges. One lazy container converges,
-            // exactly like the Series/Contributor tabs. The column count (derived from width here)
-            // replaces the old `GridItem(.adaptive(minimum: 150))` flow. See #alphabet-scrubber-hang.
-            let columnCount = gridColumnCount(forWidth: geo.size.width)
-            let cellWidth = gridCellWidth(forWidth: geo.size.width, columns: columnCount)
-            let rows = bookRows(columns: columnCount)
+        // The grid is a FLAT `LazyVStack` of a letter header + manually-chunked book rows — NOT a
+        // `LazyVGrid` nested inside the `LazyVStack`. That nesting made the scrubber's `scrollTo`
+        // spin the main thread forever on a large library: resolving the target offset across ~26
+        // nested lazy grids is a layout pass that never converges. One lazy container converges,
+        // exactly like the Series/Contributor tabs. The column count is width-driven (replacing the
+        // old `GridItem(.adaptive(minimum: 150))` flow); width is read via `.onGeometryChange` rather
+        // than a `GeometryReader` wrapper — the wrapper mispositioned the sort-button overlay behind
+        // the tab chips. See #alphabet-scrubber-hang.
+        let columnCount = gridColumnCount(forWidth: contentWidth)
+        let cellWidth = gridCellWidth(forWidth: contentWidth, columns: columnCount)
+        let rows = bookRows(columns: columnCount)
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: layout.gridSpacing) {
-                        if layout.usesInlineSort, sortState != nil {
-                            sortRow
-                        } else {
-                            // Spacer for the floating sort button.
-                            Color.clear.frame(height: 32)
-                        }
-
-                        ForEach(rows) { row in
-                            rowView(row, cellWidth: cellWidth)
-                        }
-                    }
-                    .padding(.horizontal, layout.sideMargin)
-                    // Extra padding at bottom so content scrolls above tab bar
-                    .padding(.bottom, 100)
-                }
-                .scrollContentBackground(.hidden)
-                .refreshable {
-                    onRefresh()
-                    try? await Task.sleep(for: .seconds(1))
-                }
-                .onScrollPhaseChange { _, newPhase in
-                    withAnimation(.easeOut(duration: 0.2)) {
-                        isScrolling = newPhase != .idle
-                    }
-                }
-                .task(id: scrollTarget) {
-                    guard let target = scrollTarget else { return }
-                    // Instant jump, NOT animated.
-                    proxy.scrollTo(target, anchor: .top)
-                    try? await Task.sleep(for: .milliseconds(300))
-                    guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
-                    scrollTarget = nil
-                }
-                // Alphabet scrubber overlay
-                .overlay(alignment: .trailing) {
-                    if layout.showsScrubber, shouldShowAlphabetIndex {
-                        SectionIndexBar(
-                            letters: letters,
-                            onLetterSelected: { letter in
-                                scrollTarget = "section-\(letter)"
-                            },
-                            isVisible: isScrolling
-                        )
-                        .padding(.trailing, 8)
-                        .padding(.vertical, 60)
-                    }
-                }
-                // Sort button overlay
-                .overlay(alignment: .topLeading) {
-                    if !layout.usesInlineSort, let sortState {
+        return ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: layout.gridSpacing) {
+                    if layout.usesInlineSort, sortState != nil {
+                        sortRow
+                    } else if let sortState {
+                        // Compact: the sort pill is the FIRST content row (it used to be a top-leading
+                        // overlay, which the `.page` TabView style hid behind the tab chips). As content
+                        // it insets below the chips like everything else, so it's actually visible.
                         FloatingSortButton(
                             sortState: sortState,
                             categories: sortCategories,
                             onCategorySelected: onCategorySelected,
-                            onDirectionToggle: onDirectionToggle
+                            onDirectionToggle: onDirectionToggle,
+                            ignoreTitleArticles: ignoreTitleArticles,
+                            onToggleIgnoreArticles: onToggleIgnoreArticles
                         )
-                        .padding(.leading, 16)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
+                    }
+
+                    ForEach(rows) { row in
+                        rowView(row, cellWidth: cellWidth)
                     }
                 }
-                .onChange(of: books, initial: true) { _, _ in
-                    sections = bookSections(from: books)
+                .padding(.horizontal, layout.sideMargin)
+                // Extra padding at bottom so content scrolls above tab bar
+                .padding(.bottom, 100)
+            }
+            .onGeometryChange(for: CGFloat.self, of: { $0.size.width }, action: { contentWidth = $0 })
+            .scrollContentBackground(.hidden)
+            .refreshable {
+                onRefresh()
+                try? await Task.sleep(for: .seconds(1))
+            }
+            .onScrollPhaseChange { _, newPhase in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    isScrolling = newPhase != .idle
                 }
+            }
+            .task(id: scrollTarget) {
+                guard let target = scrollTarget else { return }
+                // Instant jump, NOT animated.
+                proxy.scrollTo(target, anchor: .top)
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
+                scrollTarget = nil
+            }
+            // Alphabet scrubber overlay
+            .overlay(alignment: .trailing) {
+                if layout.showsScrubber, shouldShowAlphabetIndex {
+                    SectionIndexBar(
+                        letters: letters,
+                        onLetterSelected: { letter in
+                            scrollTarget = "section-\(letter)"
+                        },
+                        isVisible: isScrolling
+                    )
+                    .padding(.trailing, 8)
+                    .padding(.vertical, 60)
+                }
+            }
+            .onChange(of: books, initial: true) { _, _ in
+                sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
+            }
+            .onChange(of: ignoreTitleArticles) { _, _ in
+                sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
             }
         }
     }
@@ -251,7 +259,18 @@ struct BooksContent: View {
             Button {
                 onDirectionToggle()
             } label: {
-                Text(String(localized: "common.direction"))
+                Label(
+                    sortState?.direction == .ascending
+                        ? String(localized: "library.sort_ascending")
+                        : String(localized: "library.sort_descending"),
+                    systemImage: sortState?.direction == .ascending ? "arrow.up" : "arrow.down"
+                )
+            }
+            if sortState?.category == .title {
+                Divider()
+                Toggle(isOn: Binding(get: { ignoreTitleArticles }, set: { _ in onToggleIgnoreArticles() })) {
+                    Text(String(localized: "library.ignore_articles"))
+                }
             }
         }
         .haptic(.selectionTick, trigger: sortState)
