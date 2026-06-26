@@ -68,7 +68,7 @@ class ZipRoundTripTest :
             try {
                 ZipReader(p).use { zr ->
                     zr.entries().size shouldBe 70_000
-                    zr.openEntry(zr.entry("e69999")!!).buffered().readByteArray() shouldBe byteArrayOf((69_999).toByte())
+                    zr.openEntry(zr.entry("e69999")!!).buffered().readByteArray() shouldBe byteArrayOf(69_999.toByte())
                 }
                 java.util.zip
                     .ZipFile(File(p.toString()))
