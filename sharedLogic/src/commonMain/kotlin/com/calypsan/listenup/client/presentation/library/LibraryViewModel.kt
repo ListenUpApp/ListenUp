@@ -105,8 +105,8 @@ private data class BookSeriesSortKey(
  * Implements intelligent auto-sync: triggers initial sync automatically
  * if user is authenticated but has never synced before.
  *
- * Selection state is managed by [LibrarySelectionManager] which is shared
- * with [LibraryActionsViewModel] for coordinated batch operations.
+ * Multi-select selection state lives in [BookMultiSelectViewModel], a per-screen VM the
+ * Library screen drives independently of this content pipeline.
  */
 class LibraryViewModel(
     private val bookRepository: BookRepository,
@@ -117,7 +117,6 @@ class LibraryViewModel(
     private val authSession: AuthSession,
     private val libraryPreferences: LibraryPreferences,
     private val syncStatusRepository: SyncStatusRepository,
-    private val selectionManager: LibrarySelectionManager,
     // CPU-bound sort/filter of the library runs on this dispatcher, off the main thread. Defaulted
     // for production; tests inject their scheduler-backed dispatcher so the pipeline stays controllable.
     private val backgroundDispatcher: CoroutineDispatcher = Dispatchers.Default,
@@ -194,10 +193,9 @@ class LibraryViewModel(
             rawContent,
             progressSnapshot,
             syncSnapshot,
-            selectionManager.selectionMode,
-        ) { intentValue, content, progress, sync, selection ->
+        ) { intentValue, content, progress, sync ->
             val loaded: LibraryUiState =
-                buildLoaded(intentValue, content, progress, sync, selection)
+                buildLoaded(intentValue, content, progress, sync)
             loaded
         }
             // Under sync churn (e.g. post-import flood) the five upstream flows can emit faster than
@@ -352,29 +350,6 @@ class LibraryViewModel(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SELECTION ACTIONS (delegated to shared manager)
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Enter selection mode with the given book as the initial selection.
-     *
-     * @param bookId The ID of the book that was long-pressed
-     */
-    fun enterSelectionMode(bookId: String) = selectionManager.enterSelectionMode(bookId)
-
-    /**
-     * Toggle the selection state of a book.
-     *
-     * @param bookId The ID of the book to toggle
-     */
-    fun toggleBookSelection(bookId: String) = selectionManager.toggleSelection(bookId)
-
-    /**
-     * Exit selection mode and clear all selections.
-     */
-    fun exitSelectionMode() = selectionManager.exitSelectionMode()
-
-    // ═══════════════════════════════════════════════════════════════════════
     // PRIVATE HELPERS
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -411,7 +386,6 @@ class LibraryViewModel(
         content: RawContent,
         progress: ProgressSnapshot,
         sync: SyncSnapshot,
-        selection: SelectionMode,
     ): LibraryUiState.Loaded {
         val sortedBooks = sortBooks(content.books, intent.booksSortState, intent.ignoreTitleArticles)
         val visibleSeries =
@@ -445,7 +419,6 @@ class LibraryViewModel(
             syncState = sync.syncState,
             isServerScanning = sync.isServerScanning,
             scanProgress = sync.scanProgress,
-            selectionMode = selection,
         )
     }
 
@@ -689,17 +662,4 @@ sealed interface LibraryUiEvent {
     ) : LibraryUiEvent
 
     data object NarratorsDirectionToggled : LibraryUiEvent
-}
-
-/**
- * Selection mode state for multi-select functionality.
- */
-sealed interface SelectionMode {
-    /** No selection active - normal library behavior. */
-    data object None : SelectionMode
-
-    /** Multi-select mode is active with the given selected book IDs. */
-    data class Active(
-        val selectedIds: Set<String>,
-    ) : SelectionMode
 }

@@ -54,8 +54,6 @@ sealed interface LibraryUiState {
         val syncState: SyncState,
         val isServerScanning: Boolean,
         val scanProgress: ScanProgressState?,
-        // Selection
-        val selectionMode: SelectionMode,
     ) : LibraryUiState {
         /** Whether the library is empty (loaded but contains no books). */
         val isEmpty: Boolean
@@ -64,18 +62,6 @@ sealed interface LibraryUiState {
         /** Whether a sync operation is currently in progress. */
         val isSyncing: Boolean
             get() = syncState is SyncState.Syncing || syncState is SyncState.Progress
-
-        /** Whether selection mode is currently active. */
-        val isSelectionActive: Boolean
-            get() = selectionMode is SelectionMode.Active
-
-        /** The number of currently selected books, or 0 if not in selection mode. */
-        val selectedCount: Int
-            get() =
-                when (val mode = selectionMode) {
-                    is SelectionMode.None -> 0
-                    is SelectionMode.Active -> mode.selectedIds.size
-                }
     }
 
     /** Catastrophic load failure (rarely hit). */

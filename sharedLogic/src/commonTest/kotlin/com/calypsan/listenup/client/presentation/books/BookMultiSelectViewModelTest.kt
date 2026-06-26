@@ -40,9 +40,8 @@ import kotlinx.coroutines.test.setMain
 /**
  * Tests for [BookMultiSelectViewModel].
  *
- * Ported from LibraryActionsViewModelTest with the selection state now owned by the VM
- * (no shared manager), plus a new case proving [addSelectedToCollection] delegates to
- * [AddBooksToCollectionUseCase] with the currently-selected ids.
+ * Selection state is owned by the VM itself (no shared manager); [addSelectedToCollection]
+ * delegates to [AddBooksToCollectionUseCase] with the currently-selected ids.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BookMultiSelectViewModelTest :

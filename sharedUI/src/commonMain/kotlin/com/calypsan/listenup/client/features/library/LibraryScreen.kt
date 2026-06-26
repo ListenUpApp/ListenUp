@@ -1,8 +1,5 @@
 package com.calypsan.listenup.client.features.library
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +17,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,20 +33,18 @@ import com.calypsan.listenup.client.design.haptics.LocalHaptics
 import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.features.library.components.AuthorsContent
+import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.library.components.BooksContent
 import com.calypsan.listenup.client.features.library.components.LibraryFilterChips
 import com.calypsan.listenup.client.features.library.components.NarratorsContent
-import com.calypsan.listenup.client.features.library.components.SelectionToolbar
 import com.calypsan.listenup.client.features.library.components.SeriesContent
 import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
-import com.calypsan.listenup.client.presentation.library.LibraryActionEvent
-import com.calypsan.listenup.client.presentation.library.LibraryActionsViewModel
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.client.presentation.library.LibraryUiEvent
 import com.calypsan.listenup.client.presentation.library.LibraryUiState
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
-import com.calypsan.listenup.client.presentation.library.SelectionMode
-import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
 /**
@@ -73,6 +67,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * @param appHeader The shell header slot, rendered above the filter chips
  * @param modifier Modifier from parent (includes scaffold padding)
  * @param viewModel The LibraryViewModel (injected via Koin)
+ * @param multiSelect The per-screen multi-select ViewModel (injected via Koin)
  */
 @Composable
 fun LibraryScreen(
@@ -83,7 +78,7 @@ fun LibraryScreen(
     appHeader: AppHeaderSlot,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = koinViewModel(),
-    actionsViewModel: LibraryActionsViewModel = koinViewModel(),
+    multiSelect: BookMultiSelectViewModel = koinViewModel(),
 ) {
     // Trigger intelligent auto-sync when screen becomes visible (only once)
     LaunchedEffect(Unit) {
@@ -108,16 +103,13 @@ fun LibraryScreen(
         is LibraryUiState.Loaded -> {
             LibraryLoadedContent(
                 state = state,
-                actionsViewModel = actionsViewModel,
+                multiSelect = multiSelect,
                 onBookClick = onBookClick,
                 onSeriesClick = onSeriesClick,
                 onAuthorClick = onAuthorClick,
                 onNarratorClick = onNarratorClick,
                 appHeader = appHeader,
                 onEvent = viewModel::onEvent,
-                onEnterSelectionMode = viewModel::enterSelectionMode,
-                onToggleBookSelection = viewModel::toggleBookSelection,
-                onExitSelectionMode = viewModel::exitSelectionMode,
                 modifier = modifier,
             )
         }
@@ -172,52 +164,24 @@ private fun LibraryErrorContent(
 @Composable
 private fun LibraryLoadedContent(
     state: LibraryUiState.Loaded,
-    actionsViewModel: LibraryActionsViewModel,
+    multiSelect: BookMultiSelectViewModel,
     onBookClick: (String) -> Unit,
     onSeriesClick: (String) -> Unit,
     onAuthorClick: (String) -> Unit,
     onNarratorClick: (String) -> Unit,
     appHeader: AppHeaderSlot,
     onEvent: (LibraryUiEvent) -> Unit,
-    onEnterSelectionMode: (String) -> Unit,
-    onToggleBookSelection: (String) -> Unit,
-    onExitSelectionMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
-    val selectionMode = state.selectionMode
+    val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
     val isInSelectionMode = selectionMode is SelectionMode.Active
-    val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds ?: emptySet()
-
-    // Action VM state
-    val isAdmin by actionsViewModel.isAdmin.collectAsStateWithLifecycle()
-    val collections by actionsViewModel.collections.collectAsStateWithLifecycle()
-    val isAddingToCollection by actionsViewModel.isAddingToCollection.collectAsStateWithLifecycle()
-    val myShelves by actionsViewModel.myShelves.collectAsStateWithLifecycle()
-    val isAddingToShelf by actionsViewModel.isAddingToShelf.collectAsStateWithLifecycle()
-
-    // Collection and shelf picker sheet state
-    var showCollectionPicker by remember { mutableStateOf(false) }
-    var showShelfPicker by remember { mutableStateOf(false) }
+    val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
 
     // Handle back press to exit selection mode
     PlatformBackHandler(enabled = isInSelectionMode) {
-        onExitSelectionMode()
+        multiSelect.exitSelectionMode()
     }
-
-    // Notify actions VM when selection mode is entered (to refresh collections for admins)
-    LaunchedEffect(selectionMode) {
-        if (selectionMode is SelectionMode.Active) {
-            actionsViewModel.onSelectionModeEntered()
-        }
-    }
-
-    // Snackbar feedback for collection/shelf actions; dismisses the relevant picker on success.
-    LibraryActionFeedback(
-        actionsViewModel = actionsViewModel,
-        onCollectionActionHandled = { showCollectionPicker = false },
-        onShelfActionHandled = { showShelfPicker = false },
-    )
 
     // "In progress" view: titles with partial (started-but-unfinished) playback.
     val booksInProgress =
@@ -250,9 +214,9 @@ private fun LibraryLoadedContent(
             selectedBookIds = selectedBookIds,
             onToggleIgnoreArticles = { onEvent(LibraryUiEvent.ToggleIgnoreTitleArticles) },
             onBookClick = { bookId ->
-                if (isInSelectionMode) onToggleBookSelection(bookId) else onBookClick(bookId)
+                if (isInSelectionMode) multiSelect.toggleSelection(bookId) else onBookClick(bookId)
             },
-            onBookLongPress = { bookId -> onEnterSelectionMode(bookId) },
+            onBookLongPress = multiSelect::enterSelectionMode,
             onRetry = { onEvent(LibraryUiEvent.RefreshRequested) },
         )
     }
@@ -320,109 +284,7 @@ private fun LibraryLoadedContent(
             }
         }
 
-        // Selection toolbar (overlays at top)
-        AnimatedVisibility(
-            visible = isInSelectionMode,
-            enter = slideInVertically { -it },
-            exit = slideOutVertically { -it },
-            modifier = Modifier.align(Alignment.TopCenter),
-        ) {
-            SelectionToolbar(
-                selectedCount = selectedBookIds.size,
-                onAddToShelf = { showShelfPicker = true },
-                onAddToCollection =
-                    if (isAdmin) {
-                        { showCollectionPicker = true }
-                    } else {
-                        null
-                    },
-                onClose = { onExitSelectionMode() },
-            )
-        }
-    }
-
-    // Collection picker sheet. Collections are admin-managed — gate the picker
-    // presentation on isAdmin as defense-in-depth. The multi-select flow adds existing
-    // collections only; inline create lives on the Book Detail picker (canCreate = false here).
-    if (showCollectionPicker && isAdmin) {
-        CollectionPickerSheet(
-            collections = collections,
-            selectedBookCount = selectedBookIds.size,
-            onCollectionSelected = { collectionId ->
-                actionsViewModel.addSelectedToCollection(collectionId)
-            },
-            onCreateAndAddToCollection = {},
-            onDismiss = { showCollectionPicker = false },
-            isLoading = isAddingToCollection,
-        )
-    }
-
-    // Shelf picker sheet
-    if (showShelfPicker) {
-        ShelfPickerSheet(
-            shelves = myShelves,
-            selectedBookCount = selectedBookIds.size,
-            onShelfSelected = { shelfId ->
-                actionsViewModel.addSelectedToShelf(shelfId)
-            },
-            onCreateAndAddToShelf = { name ->
-                actionsViewModel.createShelfAndAddBooks(name)
-            },
-            onDismiss = { showShelfPicker = false },
-            isLoading = isAddingToShelf,
-        )
-    }
-}
-
-/**
- * Collects [LibraryActionsViewModel.events] and surfaces snackbar feedback for collection/shelf
- * actions. On a successful add it dismisses the matching picker via [onCollectionActionHandled] /
- * [onShelfActionHandled]. Snackbars are launched on a dedicated scope so they outlive the collect.
- */
-@Composable
-private fun LibraryActionFeedback(
-    actionsViewModel: LibraryActionsViewModel,
-    onCollectionActionHandled: () -> Unit,
-    onShelfActionHandled: () -> Unit,
-) {
-    val snackbarHostState = LocalSnackbarHostState.current
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(Unit) {
-        actionsViewModel.events.collect { event ->
-            when (event) {
-                is LibraryActionEvent.BooksAddedToCollection -> {
-                    onCollectionActionHandled()
-                    val message =
-                        if (event.count == 1) {
-                            "1 book added to collection"
-                        } else {
-                            "${event.count} books added to collection"
-                        }
-                    scope.launch { snackbarHostState.showSnackbar(message) }
-                }
-
-                is LibraryActionEvent.AddToCollectionFailed -> {
-                    scope.launch { snackbarHostState.showSnackbar("Failed to add: ${event.message}") }
-                }
-
-                is LibraryActionEvent.BooksAddedToShelf -> {
-                    onShelfActionHandled()
-                    val message =
-                        if (event.count == 1) "1 book added to shelf" else "${event.count} books added to shelf"
-                    scope.launch { snackbarHostState.showSnackbar(message) }
-                }
-
-                is LibraryActionEvent.ShelfCreatedAndBooksAdded -> {
-                    onShelfActionHandled()
-                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
-                    scope.launch { snackbarHostState.showSnackbar("Created \"${event.shelfName}\" with $bookText") }
-                }
-
-                is LibraryActionEvent.AddToShelfFailed -> {
-                    scope.launch { snackbarHostState.showSnackbar("Failed to add: ${event.message}") }
-                }
-            }
-        }
+        // Multi-select overlay: top toolbar, picker sheets, and success feedback.
+        BookSelectionScaffold(multiSelect = multiSelect)
     }
 }
