@@ -6,8 +6,6 @@
   </picture>
 </p>
 
-<img src=".github/screenshots/listenup-hero-banner.webp" alt="Hero Banner">
-
 <p align="center">
   <strong>A modern, offline-first audiobook player for Android &amp; iOS</strong>
 </p>
@@ -20,6 +18,8 @@
   <img src="https://img.shields.io/badge/status-beta%20v0.6.0-orange" alt="Beta v0.6.0" />
   <img src="https://img.shields.io/badge/License-AGPL--3.0-blue" alt="License" />
 </p>
+
+<img src=".github/screenshots/listenup-hero-banner.webp" alt="Hero Banner">
 
 <p align="center">
   ListenUp is a <strong>self-hosted audiobook platform</strong>: native apps for Android and iOS, backed by a
@@ -54,7 +54,7 @@
 - 🎨 **Modern design** — Material 3 Expressive with dynamic color on Android, native SwiftUI and Liquid Glass on iOS
 
 ## Platforms
-
+<img src=".github/screenshots/listenup-book-detail.webp" alt="Book Detail">
 Beta ships on the two platforms below; more are on the way.
 
 | Platform | Status | Audio Engine |
@@ -62,7 +62,7 @@ Beta ships on the two platforms below; more are on the way.
 | Android  | ✅ Beta | Media3 / ExoPlayer |
 | iOS      | ✅ Beta | AVFoundation |
 
-**Coming soon:** Desktop (JVM and native macOS) and Android TV — both already build from this codebase and will graduate to supported releases after the mobile beta settles. Other platforms to be integrated soon.
+**Coming soon:** Desktop (JVM and native macOS) and" Android TV — both already build from this codebase and will graduate to supported releases after the mobile beta settles. Other platforms to be integrated soon.
 
 ## Getting the Beta
 
