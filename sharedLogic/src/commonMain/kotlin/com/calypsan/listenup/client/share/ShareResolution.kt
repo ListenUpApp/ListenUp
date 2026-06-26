@@ -13,16 +13,25 @@ import com.calypsan.listenup.core.BookId
  */
 sealed interface ShareResolution {
     /** The book is on the connected server — open Book Detail (fetch-on-demand if not yet synced). */
-    data class OpenBook(val bookId: BookId) : ShareResolution
+    data class OpenBook(
+        val bookId: BookId,
+    ) : ShareResolution
 
     /** A join link — present the invite-claim flow for [serverUrl] / [code]. */
-    data class OpenInviteClaim(val serverUrl: String, val code: String) : ShareResolution
+    data class OpenInviteClaim(
+        val serverUrl: String,
+        val code: String,
+    ) : ShareResolution
 
     /** The link points at a different ListenUp server than the one the user is signed in to. */
-    data class WrongServer(val serverUrl: String?) : ShareResolution
+    data class WrongServer(
+        val serverUrl: String?,
+    ) : ShareResolution
 
     /** No server is connected — the user must sign in to the host server first. */
-    data class NotConnected(val serverUrl: String?) : ShareResolution
+    data class NotConnected(
+        val serverUrl: String?,
+    ) : ShareResolution
 
     /** Same server, but the user is not permitted to see this book (decided at open time). */
     data object NoAccess : ShareResolution
