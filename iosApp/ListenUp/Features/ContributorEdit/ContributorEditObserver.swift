@@ -20,6 +20,10 @@ final class ContributorEditObserver {
     private(set) var isUploadingImage: Bool = false
     private(set) var error: String?
     private(set) var didFinish: Bool = false
+    private(set) var aliases: [String] = []
+    private(set) var mergeQuery: String = ""
+    private(set) var isMerging: Bool = false
+    private(set) var mergeCandidates: [MergeCandidate] = []
 
     private let viewModel: ContributorEditViewModel
     private let bridge = FlowBridge()
@@ -28,6 +32,9 @@ final class ContributorEditObserver {
         self.viewModel = viewModel
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.navActions) { [weak self] in self?.applyNav($0) }
+        bridge.bind(viewModel.mergeCandidates) { [weak self] candidates in
+            self?.mergeCandidates = candidates.map(MergeCandidate.init)
+        }
     }
 
     deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
@@ -56,6 +63,13 @@ final class ContributorEditObserver {
     func onSave() { viewModel.onEvent(event: ContributorEditUiEventSave.shared) }
     func onCancel() { viewModel.onEvent(event: ContributorEditUiEventCancel.shared) }
     func onDismissError() { viewModel.onEvent(event: ContributorEditUiEventDismissError.shared) }
+    func onMergeQueryChange(_ value: String) { viewModel.onMergeQueryChange(query: value) }
+    func onMergeInto(_ targetId: String) {
+        viewModel.onEvent(event: ContributorEditUiEventMergeInto(targetId: ContributorId(value: targetId)))
+    }
+    func onUnmergeAlias(_ aliasName: String) {
+        viewModel.onEvent(event: ContributorEditUiEventUnmergeAlias(aliasName: aliasName))
+    }
 
     private func apply(_ state: ContributorEditUiState) {
         isLoading = state.isLoading
@@ -69,6 +83,9 @@ final class ContributorEditObserver {
         isSaving = state.isSaving
         isUploadingImage = state.isUploadingImage
         error = state.error
+        aliases = Array(state.aliases)
+        mergeQuery = state.mergeQuery
+        isMerging = state.mergeInProgress
     }
 
     private func applyNav(_ action: ContributorEditNavAction) {
