@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// Observes `SeeAllSearchViewModel` — flattens the sealed `SeeAllSearchUiState` into a flat
 /// `SeeAllPhase`, and drains tapped-hit `SearchNavAction`s into a one-shot `pendingNavigation`.

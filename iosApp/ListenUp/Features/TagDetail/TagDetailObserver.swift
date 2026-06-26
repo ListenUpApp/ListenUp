@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The render phase of the tag detail screen, flattened from `TagDetailUiState`.
 ///

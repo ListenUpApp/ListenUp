@@ -1,5 +1,5 @@
 import SwiftUI
-@preconcurrency import Shared
+import Shared
 
 /// The render phase for the Devices screen, flattened from `DevicesUiState`.
 enum DevicesPhase {
