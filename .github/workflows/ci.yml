@@ -180,17 +180,16 @@ jobs:
           path: ${{ runner.temp }}/ios-test.xcresult
           retention-days: 7
 
-      # Records the iOS framework's exported Objective-C surface so export-surface
-      # regressions are visible. Informational for now (continue-on-error) — once a
-      # real run confirms the mangled names, the regression list in the script
-      # becomes a hard gate. See CLAUDE.md "Export Surface".
-      - name: Export-surface inventory (informational)
+      # Gates the iOS Swift Export surface — the flat-typealias layer the patcher
+      # appends onto the generated `Shared.swift` (the caller-facing `import Shared`
+      # surface), NOT the ObjC `Shared.h`. The xcodebuild step above already
+      # generated + patched the SPM package, so the script auto-discovers
+      # `sharedLogic/build/SPMPackage/**/Shared.swift` and diffs it against the
+      # committed baseline (scripts/export-surface-baseline.txt), failing on a banned
+      # name or an unreviewed addition. See CLAUDE.md "Export Surface".
+      - name: Export-surface inventory (gate)
         if: always()
-        continue-on-error: true
-        run: |
-          ./gradlew :sharedLogic:linkReleaseFrameworkIosArm64 --no-daemon
-          bash scripts/export-surface-inventory.sh \
-            sharedLogic/build/bin/iosArm64/releaseFramework/Shared.framework/Headers/Shared.h
+        run: bash scripts/export-surface-inventory.sh
 
   # ── Build ────────────────────────────────────────────────────────────────────
   build-server-native:
