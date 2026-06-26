@@ -32,6 +32,7 @@ internal suspend inline fun <reified T : Any> ApplicationCall.respondAppResult(r
             status = HttpStatusCode.OK
             body = result
         }
+
         is AppResult.Failure -> {
             val typed = result.error.withCorrelationId(callId)
             status = typed.toHttpStatus()

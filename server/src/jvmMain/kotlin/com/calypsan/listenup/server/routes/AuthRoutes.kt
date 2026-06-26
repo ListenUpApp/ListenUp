@@ -92,4 +92,3 @@ private fun AuthServiceImpl.asCaller(call: ApplicationCall): AuthServiceImpl =
  */
 private fun AuthServiceImpl.withUa(call: ApplicationCall): AuthServiceImpl =
     withUserAgent(call.request.headers[HttpHeaders.UserAgent])
-

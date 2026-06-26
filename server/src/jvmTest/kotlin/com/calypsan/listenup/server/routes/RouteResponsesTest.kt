@@ -52,7 +52,8 @@ class RouteResponsesTest :
                     client.get("/fail")
                 }
                 val event =
-                    capture.events.firstOrNull { it.level == Level.ERROR && it.message.contains(FIVE_XX_ERROR.code) }
+                    capture.events
+                        .firstOrNull { it.level == Level.ERROR && it.message.contains(FIVE_XX_ERROR.code) }
                         .shouldNotBeNull()
                 event.level shouldBe Level.ERROR
             } finally {

@@ -113,7 +113,9 @@ class ChangeBus {
         event: SyncEvent<T>,
         userId: String? = null,
     ) {
-        log.debug { "change emitted post-commit: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
+        log.debug {
+            "change emitted post-commit: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}"
+        }
         flow.tryEmit(BusEvent(repo, event, userId))
     }
 

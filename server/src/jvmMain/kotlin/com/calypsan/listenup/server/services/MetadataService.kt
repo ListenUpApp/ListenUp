@@ -93,15 +93,18 @@ internal class MetadataService(
         }
         if (defaultRegion == AudibleRegion.US) return primaryResult
         when (primaryResult) {
-            is AppResult.Failure ->
+            is AppResult.Failure -> {
                 log.warn {
                     "metadata provider failed: source=AUDIBLE region=$defaultRegion " +
                         "(${primaryResult.error.code}) — falling back to US"
                 }
-            is AppResult.Success ->
+            }
+
+            is AppResult.Success -> {
                 log.debug {
                     "metadata lookup: source=AUDIBLE region=$defaultRegion returned 0 results — falling back to US"
                 }
+            }
         }
         return search(AudibleRegion.US, params)
     }

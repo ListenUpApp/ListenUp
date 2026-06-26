@@ -73,7 +73,9 @@ internal class Differ {
             }
 
             previous.candidate.rootRelPath != current.candidate.rootRelPath -> {
-                logger.debug { "book moved: from=${previous.candidate.rootRelPath} to=${current.candidate.rootRelPath}" }
+                logger.debug {
+                    "book moved: from=${previous.candidate.rootRelPath} to=${current.candidate.rootRelPath}"
+                }
                 ChangeEventDto.Moved(
                     from = previous.candidate.rootRelPath,
                     to = current.candidate.rootRelPath,

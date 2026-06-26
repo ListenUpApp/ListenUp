@@ -62,11 +62,15 @@ class CoverSearchService(
     ): List<CoverOption> {
         log.debug { "cover search: source=${provider.source.name} title='${book.title}' author='${book.author}'" }
         return when (val r = provider.searchCovers(book, region)) {
-            is AppResult.Failure -> throw SourceException(r.error)
-            is AppResult.Success ->
+            is AppResult.Failure -> {
+                throw SourceException(r.error)
+            }
+
+            is AppResult.Success -> {
                 r.data.map { option(provider.source, it.url, it.sourceId) }.also { opts ->
                     log.debug { "cover search result: source=${provider.source.name} candidates=${opts.size}" }
                 }
+            }
         }
     }
 

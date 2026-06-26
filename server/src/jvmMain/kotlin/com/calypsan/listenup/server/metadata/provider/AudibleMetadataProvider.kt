@@ -71,7 +71,9 @@ internal class AudibleMetadataProvider(
                 null
             } else {
                 MetadataChapters(chapters = chapters.map { it.toMetadataChapter() }).also { result ->
-                    log.debug { "metadata lookup result: source=AUDIBLE chapters asin=$id count=${result.chapters.size}" }
+                    log.debug {
+                        "metadata lookup result: source=AUDIBLE chapters asin=$id count=${result.chapters.size}"
+                    }
                 }
             }
         }

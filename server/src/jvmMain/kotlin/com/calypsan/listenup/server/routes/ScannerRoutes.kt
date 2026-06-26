@@ -50,4 +50,3 @@ fun Route.scannerRoutes(
         }
     }
 }
-
