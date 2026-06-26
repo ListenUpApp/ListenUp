@@ -97,7 +97,8 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     }
 }
 
-final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
+@MainActor
+final class FakeSleepTiming: SleepTiming {
     let stateStream: AsyncStream<SleepTimingState>
     private let stateContinuation: AsyncStream<SleepTimingState>.Continuation
     let fired: AsyncStream<Void>
@@ -116,24 +117,31 @@ final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
         fired = AsyncStream { fc = $0 }; firedContinuation = fc
     }
     func emitFired() { firedContinuation.yield(()) }
-    func onFadeCompleted() { fadeCompletedCount += 1; gate.signal() }
-    func onChapterChanged(newChapterIndex: Int) { chapterChanges.append(newChapterIndex); gate.signal() }
+    func onFadeCompleted() { fadeCompletedCount += 1; gate.fire("fadeCompleted") }
+    func onChapterChanged(newChapterIndex: Int) {
+        chapterChanges.append(newChapterIndex); gate.fire("chapter-\(newChapterIndex)")
+    }
     func setDurationTimer(minutes: Int) {}
     func setEndOfChapterTimer() {}
     func cancelTimer() {}
 
+    // The fake is `@MainActor` (its `SleepTiming` protocol is), so a predicate closure
+    // reading `self` can't cross into the non-isolated gate. Use the keyed API, which keeps
+    // the "did it fire?" state inside the gate — no main-actor `self` in the sent closure.
+
     /// Suspend until the fade-completed callback has fired exactly once.
     func waitForFadeCompleted() async {
-        await gate.wait { [weak self] in (self?.fadeCompletedCount ?? 0) >= 1 }
+        await gate.wait(forKey: "fadeCompleted")
     }
 
     /// Suspend until a chapter change to `index` has been recorded.
     func waitForChapterChange(to index: Int) async {
-        await gate.wait { [weak self] in self?.chapterChanges.contains(index) ?? false }
+        await gate.wait(forKey: "chapter-\(index)")
     }
 }
 
-final class FakeSkipIntervalProviding: SkipIntervalProviding, @unchecked Sendable {
+@MainActor
+final class FakeSkipIntervalProviding: SkipIntervalProviding {
     let forwardSeconds: AsyncStream<Int>
     private let forwardContinuation: AsyncStream<Int>.Continuation
     let backwardSeconds: AsyncStream<Int>

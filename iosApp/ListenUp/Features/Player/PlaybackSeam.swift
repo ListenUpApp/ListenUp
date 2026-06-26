@@ -67,7 +67,12 @@ protocol PlaybackProgressReporting: Sendable {
 
 /// The sleep timer, projected as native streams. `stateStream` mirrors the KMP
 /// `state`; `fired` emits when the timer reaches zero and the consumer must fade+pause.
-protocol SleepTiming: Sendable {
+///
+/// `@MainActor`-isolated: the conformer holds a non-`Sendable` Kotlin manager and a
+/// main-actor `FlowBridge`, and the sole consumer (`PlayerCoordinator`) is `@MainActor`.
+/// Isolation lets the type system enforce that invariant instead of an `@unchecked` comment.
+@MainActor
+protocol SleepTiming {
     var stateStream: AsyncStream<SleepTimingState> { get }
     var fired: AsyncStream<Void> { get }
     func setDurationTimer(minutes: Int)
@@ -86,7 +91,11 @@ enum SleepTimingState: Sendable, Equatable {
 /// The user's skip-interval settings, projected as native streams. Each stream emits
 /// the current value immediately and re-emits whenever the setting is written from any
 /// surface (e.g. the Settings screen) — so a change lands on the player live, mid-session.
-protocol SkipIntervalProviding: Sendable {
+///
+/// `@MainActor`-isolated: the conformer holds a main-actor `FlowBridge` and the sole
+/// consumer (`PlayerCoordinator`) is `@MainActor` — isolation enforces it, no `@unchecked`.
+@MainActor
+protocol SkipIntervalProviding {
     /// Forward skip interval in seconds. Emits current value, then on every change.
     var forwardSeconds: AsyncStream<Int> { get }
     /// Backward skip interval in seconds. Emits current value, then on every change.

@@ -40,7 +40,14 @@ struct DevicesView: View {
             Button(String(localized: "devices.sign_out_everywhere"), role: .destructive) {
                 observer?.signOutEverywhere(onDone: {
                     // Clearing auth tokens routes the app back to login via AuthStateObserver.
-                    Task { try? await deps.authSession.clearAuthTokens() }
+                    Task {
+                        do {
+                            try await deps.authSession.clearAuthTokens()
+                        } catch is CancellationError {
+                        } catch {
+                            Log.error("clearAuthTokens failed after sign-out-everywhere", error: error)
+                        }
+                    }
                 })
             }
             Button(String(localized: "common.cancel"), role: .cancel) {}
