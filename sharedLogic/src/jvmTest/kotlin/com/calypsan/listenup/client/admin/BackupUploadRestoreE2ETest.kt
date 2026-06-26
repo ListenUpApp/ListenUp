@@ -273,7 +273,10 @@ private suspend fun buildForeignBackupZipBytes(): ByteArray {
                     onEvent = {},
                 )
 
-            return Files.readAllBytes(java.nio.file.Path.of(archivePath.toString()))
+            return Files.readAllBytes(
+                java.nio.file.Path
+                    .of(archivePath.toString()),
+            )
         } finally {
             handle.close()
         }

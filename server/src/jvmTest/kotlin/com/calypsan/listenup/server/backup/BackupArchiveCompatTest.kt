@@ -50,9 +50,10 @@ class BackupArchiveCompatTest :
                     ZipFile(File(produced.toString())).use { jdk ->
                         jdk.getEntry("manifest.json") shouldNotBe null
                         jdk.getEntry("listenup.db") shouldNotBe null
-                        val manifest = BackupManifest.fromJson(
-                            jdk.getInputStream(jdk.getEntry("manifest.json")).readBytes().decodeToString(),
-                        )
+                        val manifest =
+                            BackupManifest.fromJson(
+                                jdk.getInputStream(jdk.getEntry("manifest.json")).readBytes().decodeToString(),
+                            )
                         val dbBytes = jdk.getInputStream(jdk.getEntry("listenup.db")).readBytes()
                         MessageDigest.getInstance("SHA-256").digest(dbBytes).toHexString() shouldBe manifest.checksums["db"]
                     }
@@ -68,8 +69,16 @@ private fun deleteRecursivelyIfExists(p: kotlinx.io.files.Path) {
     SystemFileSystem.delete(p, mustExist = false)
 }
 
-private fun repackWithJavaUtilZip(src: kotlinx.io.files.Path, dst: kotlinx.io.files.Path) {
-    ZipOutputStream(Files.newOutputStream(java.nio.file.Path.of(dst.toString()))).use { out ->
+private fun repackWithJavaUtilZip(
+    src: kotlinx.io.files.Path,
+    dst: kotlinx.io.files.Path,
+) {
+    ZipOutputStream(
+        Files.newOutputStream(
+            java.nio.file.Path
+                .of(dst.toString()),
+        ),
+    ).use { out ->
         ZipFile(File(src.toString())).use { zf ->
             zf.entries().asSequence().forEach { e ->
                 out.putNextEntry(ZipEntry(e.name))

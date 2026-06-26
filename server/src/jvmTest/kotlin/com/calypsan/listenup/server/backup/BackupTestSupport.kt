@@ -114,8 +114,16 @@ fun DatabaseHandle.queryScalarString(sql: String): String? =
  * flipped), causing its SHA-256 to differ from the manifest's stored checksum.
  */
 fun tamperOneByteInsideZip(archive: IoPath) {
-    val archiveNio = java.nio.file.Path.of(archive.toString())
-    val tmp = Files.createTempFile(java.nio.file.Path.of(archive.parent!!.toString()), "tamper-", ".zip")
+    val archiveNio =
+        java.nio.file.Path
+            .of(archive.toString())
+    val tmp =
+        Files.createTempFile(
+            java.nio.file.Path
+                .of(archive.parent!!.toString()),
+            "tamper-",
+            ".zip",
+        )
     try {
         writeZipWithTamperedDb(archiveNio, tmp)
         Files.move(tmp, archiveNio, StandardCopyOption.REPLACE_EXISTING)
@@ -161,8 +169,17 @@ fun repackWithTraversalEntry(
     archive: IoPath,
     dest: IoPath,
 ) {
-    ZipOutputStream(Files.newOutputStream(java.nio.file.Path.of(dest.toString()))).use { out ->
-        ZipFile(java.nio.file.Path.of(archive.toString()).toFile()).use { zf ->
+    ZipOutputStream(
+        Files.newOutputStream(
+            java.nio.file.Path
+                .of(dest.toString()),
+        ),
+    ).use { out ->
+        ZipFile(
+            java.nio.file.Path
+                .of(archive.toString())
+                .toFile(),
+        ).use { zf ->
             zf.entries().asSequence().forEach { entry ->
                 out.putNextEntry(ZipEntry(entry.name))
                 out.write(zf.getInputStream(entry).readBytes())

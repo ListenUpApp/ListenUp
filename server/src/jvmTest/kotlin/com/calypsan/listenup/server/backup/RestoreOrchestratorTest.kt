@@ -107,7 +107,12 @@ class RestoreOrchestratorTest :
                     // Write the malicious archive to the expected path
                     fixture.paths.ensureDirs()
                     val archivePath = fixture.paths.archiveFor("mal1")
-                    ZipOutputStream(Files.newOutputStream(java.nio.file.Path.of(archivePath.toString()))).use { zip ->
+                    ZipOutputStream(
+                        Files.newOutputStream(
+                            java.nio.file.Path
+                                .of(archivePath.toString()),
+                        ),
+                    ).use { zip ->
                         zip.putNextEntry(ZipEntry("listenup.db"))
                         zip.write(garbageBytes)
                         zip.closeEntry()
@@ -287,10 +292,20 @@ private fun rebuildArchiveWithManifest(
     dest: Path,
     newManifest: BackupManifest,
 ) {
-    ZipOutputStream(Files.newOutputStream(java.nio.file.Path.of(dest.toString()))).use { out ->
-        java.util.zip.ZipFile(java.nio.file.Path.of(source.toString()).toFile()).use { zf ->
-            copyEntriesReplacingManifest(out, zf, newManifest)
-        }
+    ZipOutputStream(
+        Files.newOutputStream(
+            java.nio.file.Path
+                .of(dest.toString()),
+        ),
+    ).use { out ->
+        java.util.zip
+            .ZipFile(
+                java.nio.file.Path
+                    .of(source.toString())
+                    .toFile(),
+            ).use { zf ->
+                copyEntriesReplacingManifest(out, zf, newManifest)
+            }
     }
 }
 

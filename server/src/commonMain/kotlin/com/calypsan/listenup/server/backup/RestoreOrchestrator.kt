@@ -187,8 +187,16 @@ class RestoreOrchestrator(
                 swapFile(rollbackDb, paths.dbFile)
                 deleteDbSidecars()
             }
-            if (rollbackCovers != null && SystemFileSystem.exists(rollbackCovers)) swapDir(rollbackCovers, paths.coversDir)
-            if (rollbackAvatars != null && SystemFileSystem.exists(rollbackAvatars)) swapDir(rollbackAvatars, paths.avatarsDir)
+            if (rollbackCovers != null &&
+                SystemFileSystem.exists(rollbackCovers)
+            ) {
+                swapDir(rollbackCovers, paths.coversDir)
+            }
+            if (rollbackAvatars != null &&
+                SystemFileSystem.exists(rollbackAvatars)
+            ) {
+                swapDir(rollbackAvatars, paths.avatarsDir)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

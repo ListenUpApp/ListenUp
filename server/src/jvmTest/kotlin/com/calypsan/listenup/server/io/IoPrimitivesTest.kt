@@ -21,7 +21,10 @@ class IoPrimitivesTest :
             return p
         }
 
-        fun write(path: Path, bytes: ByteArray) {
+        fun write(
+            path: Path,
+            bytes: ByteArray,
+        ) {
             path.parent?.let { SystemFileSystem.createDirectories(it) }
             SystemFileSystem.sink(path).buffered().use { it.write(bytes) }
         }
@@ -29,9 +32,21 @@ class IoPrimitivesTest :
         test("incremental Sha256 matches JDK MessageDigest over chunked updates") {
             val a = ByteArray(1000) { (it % 7).toByte() }
             val b = ByteArray(500) { (it % 13).toByte() }
-            val jdk = MessageDigest.getInstance("SHA-256").apply { update(a); update(b) }.digest().toHexString()
+            val jdk =
+                MessageDigest
+                    .getInstance("SHA-256")
+                    .apply {
+                        update(a)
+                        update(b)
+                    }.digest()
+                    .toHexString()
 
-            val ours = Sha256().apply { update(a); update(b) }.digestHex()
+            val ours =
+                Sha256()
+                    .apply {
+                        update(a)
+                        update(b)
+                    }.digestHex()
 
             ours shouldBe jdk
         }

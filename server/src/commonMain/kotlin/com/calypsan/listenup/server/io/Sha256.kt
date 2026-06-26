@@ -18,8 +18,7 @@ internal fun hashFileSha256(path: Path): String =
     SystemFileSystem.source(path).use { source -> sha256Hasher.hashBlocking(source).toByteArray().toHexString() }
 
 /** Lowercase 64-char hex SHA-256 of all bytes drained from [source] (one-shot, streamed). */
-internal fun hashSourceSha256(source: RawSource): String =
-    sha256Hasher.hashBlocking(source).toByteArray().toHexString()
+internal fun hashSourceSha256(source: RawSource): String = sha256Hasher.hashBlocking(source).toByteArray().toHexString()
 
 /**
  * Incremental SHA-256 — fed bytes across multiple [update] calls, finalized once via [digestHex].

@@ -68,6 +68,7 @@ private fun randomHex(): String =
 internal fun listRegularFilesRecursively(dir: Path): List<Path> {
     if (!SystemFileSystem.exists(dir)) return emptyList()
     val out = mutableListOf<Path>()
+
     fun recurse(d: Path) {
         for (child in SystemFileSystem.list(d)) {
             if (SystemFileSystem.metadataOrNull(child)?.isDirectory == true) {
@@ -82,7 +83,10 @@ internal fun listRegularFilesRecursively(dir: Path): List<Path> {
 }
 
 /** Recursively copies the tree at [src] into [dst] (created if absent). No-op if [src] is absent. */
-internal fun copyDirectoryRecursively(src: Path, dst: Path) {
+internal fun copyDirectoryRecursively(
+    src: Path,
+    dst: Path,
+) {
     if (!SystemFileSystem.exists(src)) return
     SystemFileSystem.createDirectories(dst)
     for (child in SystemFileSystem.list(src)) {
