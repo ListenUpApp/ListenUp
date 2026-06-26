@@ -215,6 +215,14 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
     notCompatibleWithConfigurationCache(
         "Swift export (Alpha) SPM package generation and its post-gen codegen-bug patch are not configuration-cache compatible.",
     )
+    // Never report UP-TO-DATE. KGP doesn't declare commonMain / `:contract` Kotlin sources as
+    // inputs of SPM generation, so after a shared-code edit Gradle can skip this task — leaving
+    // Xcode to link a STALE framework (old types, no compile error). The only prior workaround was
+    // an undocumented `rm -rf sharedLogic/build/{SwiftExport,SPMPackage}`. The post-gen patcher
+    // `doLast` below is idempotent (re-running on already-patched output is a no-op), so always
+    // regenerating composes cleanly. Mirrors the always-verify gate in
+    // `listenup.localization.gradle.kts`.
+    outputs.upToDateWhen { false }
     val spmPackageDir = project.layout.buildDirectory.dir("SPMPackage")
     doLast {
         val counts =
