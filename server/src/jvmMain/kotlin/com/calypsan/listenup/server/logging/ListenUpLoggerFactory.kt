@@ -32,16 +32,37 @@ class ListenUpLoggerFactory
     var testCapture: TestCapture? = null
         internal set
 
+    /**
+     * When non-null, overrides the configured minimum level for every logger so that tests
+     * can assert on DEBUG-level log output regardless of the configured default (INFO).
+     * Set by [installTestCapture] and cleared by [removeTestCapture].
+     */
+    @Volatile
+    internal var testMinLevel: Level? = null
+
     override fun getLogger(name: String): ListenUpLogger = cache.computeIfAbsent(name) { ListenUpLogger(it, this) }
 
-    /** Returns the minimum [Level] that should be emitted for [loggerName] (delegates to [LogLevelConfig]). */
-    fun levelFor(loggerName: String): Level = levelConfig.levelFor(loggerName)
+    /**
+     * Returns the minimum [Level] that should be emitted for [loggerName].
+     *
+     * When [testMinLevel] is set (i.e. a test capture is active) it takes the lower (more
+     * permissive) of the override and the configured level, so that DEBUG events are visible
+     * to test assertions without changing the production configuration.
+     */
+    fun levelFor(loggerName: String): Level {
+        val override = testMinLevel
+        val configured = levelConfig.levelFor(loggerName)
+        return if (override != null && override.toInt() < configured.toInt()) override else configured
+    }
 
     // ----- Test helpers -----------------------------------------------------
 
     companion object {
         /**
          * Installs a fresh [TestCapture] on the current factory and returns it.
+         *
+         * Also lowers the effective log level to [Level.DEBUG] for the duration of the capture
+         * so that tests can assert on DEBUG-level output regardless of the production default.
          *
          * Must be paired with [removeTestCapture] in a `finally` block.
          */
@@ -54,15 +75,18 @@ class ListenUpLoggerFactory
                     )
             val capture = TestCapture()
             factory.testCapture = capture
+            factory.testMinLevel = Level.DEBUG
             return capture
         }
 
         /**
-         * Removes any installed [TestCapture], returning the factory to normal stdout-only logging.
+         * Removes any installed [TestCapture] and restores the configured log level,
+         * returning the factory to normal stdout-only logging.
          */
         fun removeTestCapture() {
             val factory = LoggerFactory.getILoggerFactory() as? ListenUpLoggerFactory ?: return
             factory.testCapture = null
+            factory.testMinLevel = null
         }
     }
 }
