@@ -22,7 +22,7 @@ struct CurrentlyListeningCard: View {
                     .bookSelectionCircle(bookId: row.bookId, selection: selection)
 
                 HStack(spacing: 8) {
-                    InitialsAvatar(initials: row.initials, size: 26, tint: Color(hex: row.avatarColor))
+                    UserAvatarView(userId: row.userId, fallbackName: row.displayName, avatarColor: row.avatarColor, size: 26)
 
                     Text(row.displayName)
                         .font(.subheadline.weight(.medium))
