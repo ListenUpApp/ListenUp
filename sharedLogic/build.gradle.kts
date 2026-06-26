@@ -288,3 +288,26 @@ dependencies {
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
 }
+
+// ---- Swift Export worker classpath: IntellijCoroutines fix --------------------------------
+// `embedSwiftExportForXcode` runs the Kotlin Analysis API in a Gradle worker whose classpath is
+// resolved by the `swiftExportClasspathResolvable` configuration. That worker requires
+// `kotlinx.coroutines.internal.intellij.IntellijCoroutines`, which ships ONLY in the JetBrains
+// "intellij deps" coroutines variant — NOT in standard kotlinx-coroutines. The worker otherwise
+// resolves standard `kotlinx-coroutines-core-jvm` (1.8.0, pulled transitively by the Analysis API),
+// so a COLD Swift-export build crashes with `NoClassDefFoundError: …/IntellijCoroutines` (warm
+// Konan/worker caches hide it — which is why the iOS lane looked green until a cache-miss rebuild).
+// Redirect coroutines-core to the intellij variant on THIS worker configuration only; the app's own
+// coroutines (and every other configuration) are untouched.
+configurations.matching { it.name == "swiftExportClasspathResolvable" }.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.jetbrains.kotlinx" &&
+            (requested.name == "kotlinx-coroutines-core" || requested.name == "kotlinx-coroutines-core-jvm")
+        ) {
+            useTarget("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm:1.10.2-intellij-1")
+            because(
+                "Swift Export's Analysis API worker needs IntellijCoroutines (only in the intellij coroutines variant)",
+            )
+        }
+    }
+}
