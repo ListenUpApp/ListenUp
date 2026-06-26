@@ -39,6 +39,9 @@ import listenup.composeapp.generated.resources.discover_discover_something_new
 fun DiscoverBooksSection(
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    isInSelectionMode: Boolean = false,
+    selectedBookIds: Set<String> = emptySet(),
+    onBookLongPress: ((String) -> Unit)? = null,
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
     val state by viewModel.discoverBooksState.collectAsStateWithLifecycle()
@@ -79,6 +82,9 @@ fun DiscoverBooksSection(
                         stringResource(Res.string.discover_book_1_of_series, series)
                     },
                 cardWidth = 140.dp,
+                isInSelectionMode = isInSelectionMode,
+                isSelected = book.id in selectedBookIds,
+                onLongPress = onBookLongPress?.let { cb -> { cb(book.id) } },
             )
         }
     }

@@ -32,13 +32,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
+import com.calypsan.listenup.client.design.util.PlatformBackHandler
 import com.calypsan.listenup.client.features.home.components.ContinueListeningRow
 import com.calypsan.listenup.client.features.home.components.EmptyContinueListening
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.home.components.HomeStatsSection
 import com.calypsan.listenup.client.features.home.components.MyShelvesRow
+import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
+import com.calypsan.listenup.client.presentation.books.SelectionMode
 import com.calypsan.listenup.client.presentation.home.HomeUiState
 import com.calypsan.listenup.client.presentation.home.HomeViewModel
 import com.calypsan.listenup.client.design.haptics.LocalHaptics
@@ -71,6 +75,7 @@ fun HomeScreen(
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
+    multiSelect: BookMultiSelectViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -130,6 +135,7 @@ fun HomeScreen(
                     state = s,
                     isWide = isWide,
                     playingBookId = playingBookId?.value,
+                    multiSelect = multiSelect,
                     appHeader = appHeader,
                     onRefresh = { viewModel.refresh() },
                     onBookClick = onBookClick,
@@ -149,6 +155,7 @@ private fun HomeContent(
     state: HomeUiState.Ready,
     isWide: Boolean,
     playingBookId: String?,
+    multiSelect: BookMultiSelectViewModel,
     appHeader: AppHeaderSlot,
     onRefresh: () -> Unit,
     onBookClick: (String) -> Unit,
@@ -159,56 +166,74 @@ private fun HomeContent(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalHaptics.current
+    val selectionMode by multiSelect.selectionMode.collectAsStateWithLifecycle()
+    val isInSelectionMode = selectionMode is SelectionMode.Active
+    val selectedBookIds = (selectionMode as? SelectionMode.Active)?.selectedIds.orEmpty()
 
-    PullToRefreshBox(
-        isRefreshing = state.isLoading,
-        onRefresh = {
-            haptics.thresholdActivate()
-            onRefresh()
-        },
-        modifier = modifier.fillMaxSize(),
-    ) {
-        // The shell's system-bar/nav insets are applied *inside* the scroll so content scrolls
-        // edge-to-edge under the bars and rests clear of them — not clipped by an outer pad.
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(contentPadding),
-            verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+    // Handle back press to exit selection mode.
+    PlatformBackHandler(enabled = isInSelectionMode) {
+        multiSelect.exitSelectionMode()
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            isRefreshing = state.isLoading,
+            onRefresh = {
+                haptics.thresholdActivate()
+                onRefresh()
+            },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            // The shell header scrolls away with the page; the greeting is its leading hero.
-            appHeader {
-                HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
-            }
+            // The shell's system-bar/nav insets are applied *inside* the scroll so content scrolls
+            // edge-to-edge under the bars and rests clear of them — not clipped by an outer pad.
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
+                        .padding(contentPadding),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
+            ) {
+                // The shell header scrolls away with the page; the greeting is its leading hero.
+                appHeader {
+                    HomeHeader(timeGreeting = state.timeGreeting, userName = state.userName, isWide = isWide)
+                }
 
-            if (state.hasContinueListening) {
-                ContinueListeningRow(
-                    items = state.continueListening,
-                    onBookClick = onBookClick,
-                    playingBookId = playingBookId,
-                )
-            } else {
-                EmptyContinueListening(onBrowseLibrary = onNavigateToLibrary)
-            }
+                if (state.hasContinueListening) {
+                    ContinueListeningRow(
+                        items = state.continueListening,
+                        onBookClick = { bookId ->
+                            if (isInSelectionMode) multiSelect.toggleSelection(bookId) else onBookClick(bookId)
+                        },
+                        playingBookId = playingBookId,
+                        isInSelectionMode = isInSelectionMode,
+                        selectedBookIds = selectedBookIds,
+                        onBookLongPress = multiSelect::enterSelectionMode,
+                    )
+                } else {
+                    EmptyContinueListening(onBrowseLibrary = onNavigateToLibrary)
+                }
 
-            if (isWide) {
-                HomeContentWide(
-                    state = state,
-                    onShelfClick = onShelfClick,
-                    onSeeAllShelves = onSeeAllShelves,
-                )
-            } else {
-                HomeContentCompact(
-                    state = state,
-                    onShelfClick = onShelfClick,
-                    onSeeAllShelves = onSeeAllShelves,
-                )
-            }
+                if (isWide) {
+                    HomeContentWide(
+                        state = state,
+                        onShelfClick = onShelfClick,
+                        onSeeAllShelves = onSeeAllShelves,
+                    )
+                } else {
+                    HomeContentCompact(
+                        state = state,
+                        onShelfClick = onShelfClick,
+                        onSeeAllShelves = onSeeAllShelves,
+                    )
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
+
+        // Multi-select overlay: top toolbar, picker sheets, and success feedback.
+        BookSelectionScaffold(multiSelect = multiSelect)
     }
 }
 

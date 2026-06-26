@@ -3,13 +3,12 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
 import com.calypsan.listenup.client.presentation.home.HomeStatsViewModel
-import com.calypsan.listenup.client.presentation.library.LibraryActionsViewModel
-import com.calypsan.listenup.client.presentation.library.LibrarySelectionManager
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.download.DownloadFileManager
 import com.calypsan.listenup.client.download.DownloadFileManagerStorageAdapter
@@ -238,9 +237,6 @@ internal val adminPresentationModule =
  */
 internal val libraryPresentationModule =
     module {
-        // Shared selection state - singleton so both ViewModels observe the same state
-        single { LibrarySelectionManager() }
-
         // factory (NOT single): koinViewModel() then scopes a fresh instance to each
         // ViewModelStore. A singleton VM is fatal here — when the first owning store is cleared
         // (e.g. onboarding's backStack.clear()), onCleared() cancels the singleton's viewModelScope,
@@ -259,19 +255,20 @@ internal val libraryPresentationModule =
                 authSession = get(),
                 libraryPreferences = get(),
                 syncStatusRepository = get(),
-                selectionManager = get(),
             )
         }
 
-        // factory — shares selection with LibraryViewModel via the singleton LibrarySelectionManager.
+        // Per-screen multi-select VM. Owns its own selection state (no shared manager), so it is a
+        // plain factory scoped to the consuming ViewModelStore like the Library VM above.
         factory {
-            LibraryActionsViewModel(
-                selectionManager = get(),
+            BookMultiSelectViewModel(
                 userRepository = get(),
                 collectionRepository = get(),
                 shelfRepository = get(),
                 addBooksToShelfUseCase = get(),
+                addBooksToCollectionUseCase = get(),
                 createShelfUseCase = get(),
+                errorBus = get(),
             )
         }
 

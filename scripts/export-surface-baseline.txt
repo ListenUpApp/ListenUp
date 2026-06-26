@@ -92,6 +92,8 @@ BookId
 BookListeningDuration
 BookListItem
 BookMetadata
+BookMultiSelectEvent
+BookMultiSelectViewModel
 BookReaders
 BookReadersRepository
 BookReadersUiState
@@ -275,8 +277,6 @@ LeaderboardSnapshot
 LeaderboardUiState
 LeaderboardViewModel
 Library
-LibraryActionEvent
-LibraryActionsViewModel
 LibraryAdminRpcFactory
 LibraryAdminService
 LibraryCounts
@@ -287,7 +287,6 @@ LibraryPreferences
 LibraryReadiness
 LibraryRepository
 LibraryResetHelper
-LibrarySelectionManager
 LibrarySettingsUiState
 LibrarySettingsViewModel
 LibrarySetupNavAction

@@ -1,15 +1,17 @@
-package com.calypsan.listenup.client.presentation.library
+package com.calypsan.listenup.client.presentation.books
 
-import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
+import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -25,59 +27,46 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
+private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
 /**
- * ViewModel for Library batch actions (collections and shelves).
+ * Reusable per-screen ViewModel for multi-select and bulk add-to-shelf / add-to-collection.
  *
- * Handles all batch operations on selected books:
- * - Adding books to admin collections
- * - Adding books to user shelves
- * - Creating new shelves with selected books
+ * Any books-bearing screen (Library, Home, Discover) can drive multi-select through this single
+ * VM: it owns the [selectionMode] state directly (no shared manager) and exposes the same bulk
+ * action surface for admins (collections) and all users (shelves).
  *
- * Observes [LibrarySelectionManager] for the current selection state,
- * which is shared with [LibraryViewModel].
+ * Selection state lives in a [MutableStateFlow] private to the VM; entering selection seeds it
+ * with the long-pressed book, toggling adds/removes and auto-exits when the last book is
+ * deselected. Successful bulk actions clear the selection and emit a one-shot [events] feedback
+ * event; failures keep the selection and surface the typed error on the global [errorBus].
  */
-class LibraryActionsViewModel(
-    private val selectionManager: LibrarySelectionManager,
+class BookMultiSelectViewModel(
     private val userRepository: UserRepository,
     private val collectionRepository: CollectionRepository,
     private val shelfRepository: ShelfRepository,
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
+    private val addBooksToCollectionUseCase: AddBooksToCollectionUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
+    private val errorBus: ErrorBus,
 ) : ViewModel() {
     // ═══════════════════════════════════════════════════════════════════════
-    // SELECTION STATE (observed from shared manager)
+    // SELECTION STATE (owned by this VM)
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Current selection mode, observed from the shared [LibrarySelectionManager].
+     * Current selection mode. [SelectionMode.None] when idle, [SelectionMode.Active] while the
+     * user is multi-selecting.
      */
-    val selectionMode: StateFlow<SelectionMode> = selectionManager.selectionMode
-
-    /**
-     * Number of currently selected books.
-     * Convenience property for UI display (e.g., "3 selected").
-     */
-    val selectedCount: StateFlow<Int> =
-        selectionMode
-            .map { mode ->
-                when (mode) {
-                    is SelectionMode.None -> 0
-                    is SelectionMode.Active -> mode.selectedIds.size
-                }
-            }.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = 0,
-            )
+    val selectionMode: StateFlow<SelectionMode>
+        field = MutableStateFlow<SelectionMode>(SelectionMode.None)
 
     // ═══════════════════════════════════════════════════════════════════════
     // ADMIN STATE
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Whether the current user is an admin (isRoot).
-     * Only admins can use multi-select to add books to collections.
+     * Whether the current user is an admin. Only admins may add books to collections.
      */
     val isAdmin: StateFlow<Boolean> =
         userRepository
@@ -85,12 +74,12 @@ class LibraryActionsViewModel(
             .map { user -> user?.isAdmin == true }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
                 initialValue = false,
             )
 
     /**
-     * Observable list of collections for the collection picker.
+     * Observable list of collections for the collection picker (system collections excluded).
      * Only relevant for admins.
      */
     val collections: StateFlow<List<Collection>> =
@@ -99,7 +88,7 @@ class LibraryActionsViewModel(
             .map { all -> all.filterNot { it.isSystem } }
             .stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
                 initialValue = emptyList(),
             )
 
@@ -108,8 +97,7 @@ class LibraryActionsViewModel(
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Observable list of the current user's shelves for the shelf picker.
-     * Available to all users (not just admins).
+     * Observable list of the current user's shelves for the shelf picker. Available to all users.
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val myShelves: StateFlow<List<Shelf>> =
@@ -123,7 +111,7 @@ class LibraryActionsViewModel(
                 }
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
                 initialValue = emptyList(),
             )
 
@@ -131,15 +119,11 @@ class LibraryActionsViewModel(
     // OPERATION STATE
     // ═══════════════════════════════════════════════════════════════════════
 
-    /**
-     * Whether an add-to-collection operation is in progress.
-     */
+    /** Whether an add-to-collection operation is in progress. */
     val isAddingToCollection: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
-    /**
-     * Whether an add-to-shelf operation is in progress.
-     */
+    /** Whether an add-to-shelf operation is in progress. */
     val isAddingToShelf: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
@@ -147,24 +131,54 @@ class LibraryActionsViewModel(
     // EVENTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    private val eventsChannel = Channel<LibraryActionEvent>(Channel.BUFFERED)
+    private val eventsChannel = Channel<BookMultiSelectEvent>(Channel.BUFFERED)
 
-    /**
-     * One-time events for UI feedback (snackbars, toasts).
-     */
-    val events: Flow<LibraryActionEvent> = eventsChannel.receiveAsFlow()
+    /** One-shot events for UI feedback (snackbars, toasts). */
+    val events: Flow<BookMultiSelectEvent> = eventsChannel.receiveAsFlow()
 
     // ═══════════════════════════════════════════════════════════════════════
-    // LIFECYCLE
+    // SELECTION ACTIONS
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Called when selection mode is entered.
-     * Refreshes collections for admins to ensure picker has up-to-date data.
+     * Enter selection mode with the given book as the initial selection.
+     *
+     * @param initialBookId The ID of the book that was long-pressed.
      */
-    fun onSelectionModeEntered() {
-        // Collections are now Room-authoritative (kept current by the sync engine);
-        // no manual refresh needed — the observed [collections] flow is always live.
+    fun enterSelectionMode(initialBookId: String) {
+        selectionMode.value = SelectionMode.Active(selectedIds = setOf(initialBookId))
+        logger.debug { "Entered selection mode with book: $initialBookId" }
+    }
+
+    /**
+     * Toggle the selection state of a book. Deselecting the last book exits selection mode.
+     *
+     * @param bookId The ID of the book to toggle.
+     */
+    fun toggleSelection(bookId: String) {
+        val current = selectionMode.value
+        if (current !is SelectionMode.Active) return
+
+        val newSelectedIds =
+            if (bookId in current.selectedIds) {
+                current.selectedIds - bookId
+            } else {
+                current.selectedIds + bookId
+            }
+
+        selectionMode.value =
+            if (newSelectedIds.isEmpty()) {
+                logger.debug { "No books selected, exiting selection mode" }
+                SelectionMode.None
+            } else {
+                SelectionMode.Active(selectedIds = newSelectedIds)
+            }
+    }
+
+    /** Exit selection mode and clear all selections. */
+    fun exitSelectionMode() {
+        selectionMode.value = SelectionMode.None
+        logger.debug { "Exited selection mode" }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -172,34 +186,31 @@ class LibraryActionsViewModel(
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Add all selected books to the specified collection.
-     * Dispatches each add through [collectionRepository] (one idempotent RPC per book) and
-     * emits a success/error event; Room is updated by the SSE echo, not an optimistic write.
+     * Add all selected books to the specified collection via [AddBooksToCollectionUseCase].
+     * Clears the selection on success; surfaces the error on the [errorBus] and keeps the
+     * selection on failure.
      *
-     * @param collectionId The ID of the collection to add books to
+     * @param collectionId The ID of the collection to add books to.
      */
     fun addSelectedToCollection(collectionId: String) {
-        val selectedIds = selectionManager.getSelectedIds()
+        val selectedIds = currentSelectedIds()
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
             isAddingToCollection.value = true
             val bookIds = selectedIds.toList()
 
-            // The RPC surface adds one book at a time (idempotent); dispatch each and
-            // fail fast on the first error. SSE echoes update Room — no optimistic write.
-            val failure =
-                bookIds
-                    .map { collectionRepository.addBook(collectionId, it) }
-                    .firstOrNull { it is AppResult.Failure } as? AppResult.Failure
+            when (val result = addBooksToCollectionUseCase(collectionId, bookIds)) {
+                is AppResult.Success -> {
+                    logger.info { "Added ${bookIds.size} books to collection $collectionId" }
+                    eventsChannel.send(BookMultiSelectEvent.BooksAddedToCollection(bookIds.size))
+                    clearSelection()
+                }
 
-            if (failure == null) {
-                logger.info { "Added ${bookIds.size} books to collection $collectionId" }
-                eventsChannel.send(LibraryActionEvent.BooksAddedToCollection(bookIds.size))
-                selectionManager.clearAfterAction()
-            } else {
-                logger.error { "Failed to add books to collection: ${failure.message}" }
-                eventsChannel.send(LibraryActionEvent.AddToCollectionFailed(failure.message))
+                is AppResult.Failure -> {
+                    logger.error { "Failed to add books to collection: ${result.message}" }
+                    errorBus.emit(result.error)
+                }
             }
 
             isAddingToCollection.value = false
@@ -211,13 +222,14 @@ class LibraryActionsViewModel(
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * Add all selected books to the specified shelf.
-     * Uses AddBooksToShelfUseCase and emits success/error events.
+     * Add all selected books to the specified shelf via [AddBooksToShelfUseCase].
+     * Clears the selection on success; surfaces the error on the [errorBus] and keeps the
+     * selection on failure.
      *
-     * @param shelfId The ID of the shelf to add books to
+     * @param shelfId The ID of the shelf to add books to.
      */
     fun addSelectedToShelf(shelfId: String) {
-        val selectedIds = selectionManager.getSelectedIds()
+        val selectedIds = currentSelectedIds()
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
@@ -227,13 +239,13 @@ class LibraryActionsViewModel(
             when (val result = addBooksToShelfUseCase(shelfId, bookIds)) {
                 is AppResult.Success -> {
                     logger.info { "Added ${bookIds.size} books to shelf $shelfId" }
-                    eventsChannel.send(LibraryActionEvent.BooksAddedToShelf(bookIds.size))
-                    selectionManager.clearAfterAction()
+                    eventsChannel.send(BookMultiSelectEvent.BooksAddedToShelf(bookIds.size))
+                    clearSelection()
                 }
 
                 is AppResult.Failure -> {
                     logger.error { "Failed to add books to shelf: ${result.message}" }
-                    eventsChannel.send(LibraryActionEvent.AddToShelfFailed(result.message))
+                    errorBus.emit(result.error)
                 }
             }
 
@@ -242,90 +254,98 @@ class LibraryActionsViewModel(
     }
 
     /**
-     * Create a new shelf and add all selected books to it.
-     * First creates the shelf via use case, then adds the books.
+     * Create a new shelf and add all selected books to it. Creates the shelf, then adds the books.
+     * Clears the selection on success; surfaces the error on the [errorBus] and keeps the
+     * selection on any failure.
      *
-     * @param name The name for the new shelf
+     * @param name The name for the new shelf.
      */
     fun createShelfAndAddBooks(name: String) {
-        val selectedIds = selectionManager.getSelectedIds()
+        val selectedIds = currentSelectedIds()
         if (selectedIds.isEmpty()) return
 
         viewModelScope.launch {
             isAddingToShelf.value = true
             val bookIds = selectedIds.toList()
 
-            // Create the shelf
             when (val createResult = createShelfUseCase(name, null)) {
                 is AppResult.Success -> {
                     val newShelf = createResult.data
                     logger.info { "Created shelf '${newShelf.name}' with id ${newShelf.id}" }
 
-                    // Add books to the new shelf
                     when (val addResult = addBooksToShelfUseCase(newShelf.id, bookIds)) {
                         is AppResult.Success -> {
                             logger.info { "Added ${bookIds.size} books to new shelf ${newShelf.id}" }
                             eventsChannel.send(
-                                LibraryActionEvent.ShelfCreatedAndBooksAdded(newShelf.name, bookIds.size),
+                                BookMultiSelectEvent.ShelfCreatedAndBooksAdded(newShelf.name, bookIds.size),
                             )
-                            selectionManager.clearAfterAction()
+                            clearSelection()
                         }
 
                         is AppResult.Failure -> {
                             logger.error { "Failed to add books to new shelf: ${addResult.message}" }
-                            eventsChannel.send(LibraryActionEvent.AddToShelfFailed(addResult.message))
+                            errorBus.emit(addResult.error)
                         }
                     }
                 }
 
                 is AppResult.Failure -> {
                     logger.error { "Failed to create shelf: ${createResult.message}" }
-                    eventsChannel.send(LibraryActionEvent.AddToShelfFailed(createResult.message))
+                    errorBus.emit(createResult.error)
                 }
             }
 
             isAddingToShelf.value = false
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRIVATE HELPERS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    private fun currentSelectedIds(): Set<String> =
+        when (val mode = selectionMode.value) {
+            is SelectionMode.None -> emptySet()
+            is SelectionMode.Active -> mode.selectedIds
+        }
+
+    private fun clearSelection() {
+        selectionMode.value = SelectionMode.None
+        logger.debug { "Cleared selection after action" }
+    }
 }
 
 /**
- * One-time events emitted by [LibraryActionsViewModel] for UI feedback.
+ * Selection mode state for multi-select functionality.
  */
-sealed interface LibraryActionEvent {
-    /**
-     * Books were successfully added to a collection.
-     */
+sealed interface SelectionMode {
+    /** No selection active - normal browsing behavior. */
+    data object None : SelectionMode
+
+    /** Multi-select mode is active with the given selected book IDs. */
+    data class Active(
+        val selectedIds: Set<String>,
+    ) : SelectionMode
+}
+
+/**
+ * One-shot success events emitted by [BookMultiSelectViewModel] for UI feedback (dismiss picker,
+ * clear selection, show a confirmation). Failures are surfaced on the global [ErrorBus], not here.
+ */
+sealed interface BookMultiSelectEvent {
+    /** Books were successfully added to a collection. */
     data class BooksAddedToCollection(
         val count: Int,
-    ) : LibraryActionEvent
+    ) : BookMultiSelectEvent
 
-    /**
-     * Failed to add books to a collection.
-     */
-    data class AddToCollectionFailed(
-        val message: String,
-    ) : LibraryActionEvent
-
-    /**
-     * Books were successfully added to a shelf.
-     */
+    /** Books were successfully added to a shelf. */
     data class BooksAddedToShelf(
         val count: Int,
-    ) : LibraryActionEvent
+    ) : BookMultiSelectEvent
 
-    /**
-     * A new shelf was created and books were added to it.
-     */
+    /** A new shelf was created and books were added to it. */
     data class ShelfCreatedAndBooksAdded(
         val shelfName: String,
         val bookCount: Int,
-    ) : LibraryActionEvent
-
-    /**
-     * Failed to add books to a shelf.
-     */
-    data class AddToShelfFailed(
-        val message: String,
-    ) : LibraryActionEvent
+    ) : BookMultiSelectEvent
 }

@@ -31,6 +31,9 @@ import listenup.composeapp.generated.resources.discover_what_others_are_listenin
 fun CurrentlyListeningSection(
     onBookClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    isInSelectionMode: Boolean = false,
+    selectedBookIds: Set<String> = emptySet(),
+    onBookLongPress: ((String) -> Unit)? = null,
     viewModel: DiscoverViewModel = koinViewModel(),
 ) {
     val state by viewModel.currentlyListeningState.collectAsStateWithLifecycle()
@@ -61,6 +64,9 @@ fun CurrentlyListeningSection(
                         avatarColor = session.avatarColor,
                     ),
                 cardWidth = 140.dp,
+                isInSelectionMode = isInSelectionMode,
+                isSelected = session.bookId in selectedBookIds,
+                onLongPress = onBookLongPress?.let { cb -> { cb(session.bookId) } },
             )
         }
     }

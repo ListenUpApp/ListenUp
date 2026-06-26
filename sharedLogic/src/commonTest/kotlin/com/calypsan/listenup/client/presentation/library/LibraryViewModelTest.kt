@@ -162,7 +162,6 @@ class LibraryViewModelTest :
             val libraryPreferences: LibraryPreferences = mock()
             val syncStatusRepository: SyncStatusRepository = mock()
             val playbackPositionRepository: PlaybackPositionRepository = mock()
-            val selectionManager: LibrarySelectionManager = LibrarySelectionManager()
 
             val syncStateFlow = MutableStateFlow<SyncState>(SyncState.Idle)
 
@@ -176,7 +175,6 @@ class LibraryViewModelTest :
                     authSession = authSession,
                     libraryPreferences = libraryPreferences,
                     syncStatusRepository = syncStatusRepository,
-                    selectionManager = selectionManager,
                     backgroundDispatcher = testDispatcher,
                 )
         }
