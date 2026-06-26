@@ -141,6 +141,15 @@ class BookMultiSelectViewModel(
     // ═══════════════════════════════════════════════════════════════════════
 
     /**
+     * Enter selection mode with no books selected. Used by the native "Select" affordance, which
+     * arms multi-select before any book is tapped; the user then taps books to build the selection.
+     */
+    fun enterSelectionMode() {
+        selectionMode.value = SelectionMode.Active(selectedIds = emptySet())
+        logger.debug { "Entered selection mode with no initial selection" }
+    }
+
+    /**
      * Enter selection mode with the given book as the initial selection.
      *
      * @param initialBookId The ID of the book that was long-pressed.

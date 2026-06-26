@@ -40,6 +40,7 @@ import com.calypsan.listenup.client.presentation.auth.SetupViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
 import com.calypsan.listenup.client.presentation.bookdetail.BookReadersViewModel
 import com.calypsan.listenup.client.presentation.bookedit.BookEditViewModel
+import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.contributoredit.ContributorEditViewModel
@@ -224,6 +225,8 @@ object KoinHelper {
         resolveWithParams(AdminCollectionDetailViewModel::class, listOf(collectionId))
 
     fun getBookDetailViewModel(): BookDetailViewModel = resolve(BookDetailViewModel::class)
+
+    fun getBookMultiSelectViewModel(): BookMultiSelectViewModel = resolve(BookMultiSelectViewModel::class)
 
     fun getBookReadersViewModel(bookId: String): BookReadersViewModel =
         resolveWithParams(BookReadersViewModel::class, listOf(bookId))

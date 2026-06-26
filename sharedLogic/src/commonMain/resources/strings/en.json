@@ -69,6 +69,7 @@
     "not_found": "%1$s not found",
     "offline": "Offline",
     "ok": "OK",
+    "not_selected": "Not selected",
     "online": "Online",
     "open": "Open",
     "percent": "%1$d%",
@@ -91,6 +92,7 @@
     "search": "Search",
     "search_languages": "Search languages...",
     "see_all": "See all",
+    "select": "Select",
     "select_category": "Select category",
     "select_date": "Select date",
     "selected": "Selected",
@@ -625,6 +627,11 @@
     "tab_all": "All",
     "try_a_different_search_term": "Try a different search term",
     "unavailable": "Search Unavailable"
+  },
+  "selection": {
+    "add_n_to_collection": "Add %1$d to a collection",
+    "add_n_to_shelf": "Add %1$d to a shelf",
+    "n_selected": "%1$d selected"
   },
   "discover": {
     "activity": "Activity",
