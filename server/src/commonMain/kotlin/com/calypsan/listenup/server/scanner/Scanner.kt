@@ -92,6 +92,7 @@ internal class Scanner(
     suspend fun runFullScan(): ScanResult {
         val correlationId = correlationIdFactory()
         val started = clock()
+        logger.info { "scan started: library=${library.id.value} corr=$correlationId" }
         // Use the first folder path as the canonical rootPath for the ScanResult
         // and event label; all folders are walked but share a single correlation id.
         val primaryRootPath = library.folders.firstOrNull()?.rootPath ?: library.id.value
@@ -210,6 +211,7 @@ internal class Scanner(
     suspend fun runIncremental(bookRoot: Path) {
         val correlationId = correlationIdFactory()
         val started = clock()
+        logger.info { "incremental scan started: library=${library.id.value} root=$bookRoot corr=$correlationId" }
         eventBus.emit(ScanEvent.Started(correlationId, library.id, bookRoot.toString()))
 
         // Identify which folder owns this subtree to compute the relative path.
@@ -299,6 +301,10 @@ internal class Scanner(
             )
         // Store a stripped copy in lastResult so artwork bytes are not retained between scans.
         lastResult = incrementalResult.copy(books = patchedStripped)
+        logger.info {
+            "incremental scan complete: library=${library.id.value} root=$bookRoot" +
+                " books=${books.size} changes=${changes.size} errors=${errors.size} in ${durationMs}ms corr=$correlationId"
+        }
         // BookPersister emits ScanEvent.Completed after persisting this incremental result.
         scanResultBus.emit(incrementalResult)
     }
@@ -349,6 +355,9 @@ internal class Scanner(
                 val previous = previousByPath[candidate.rootRelPath] ?: return@partition false
                 fingerprintMatches(candidate, previous.candidate)
             }
+        logger.debug {
+            "scan cache: library=${library.id.value} hits=${cacheHits.size} misses=${toAnalyze.size} total=${candidates.size}"
+        }
 
         // Accept all cache hits immediately — no parse, no IO.
         for (cached in cacheHits) {
@@ -367,7 +376,11 @@ internal class Scanner(
                     currentFile = book.candidate.rootRelPath
                     recent.addLast(ScanBookRef(title = book.title, author = book.authors.firstOrNull().orEmpty()))
                     while (recent.size > RECENT_BOOKS_CAP) recent.removeFirst()
-                }.onFailure { errors += toScanError(it, errorRoot) }
+                }.onFailure { t ->
+                    val relPath = (t as? BookAnalysisFailure)?.rootRelPath ?: errorRoot.toString()
+                    logger.warn(t) { "analyze failed: path=$relPath library=${library.id.value}" }
+                    errors += toScanError(t, errorRoot)
+                }
             val now = clock()
             if (now - lastEmit >= PROGRESS_THROTTLE_MS) {
                 emitProgress(
