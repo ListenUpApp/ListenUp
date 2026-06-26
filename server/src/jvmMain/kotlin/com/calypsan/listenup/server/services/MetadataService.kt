@@ -22,7 +22,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-private val logger = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 /**
  * Orchestrator for external metadata lookups. Wraps [AudibleApi] + [ITunesApi]
@@ -94,12 +94,12 @@ internal class MetadataService(
         if (defaultRegion == AudibleRegion.US) return primaryResult
         when (primaryResult) {
             is AppResult.Failure ->
-                logger.warn {
+                log.warn {
                     "metadata provider failed: source=AUDIBLE region=$defaultRegion " +
                         "(${primaryResult.error.code}) — falling back to US"
                 }
             is AppResult.Success ->
-                logger.debug {
+                log.debug {
                     "metadata lookup: source=AUDIBLE region=$defaultRegion returned 0 results — falling back to US"
                 }
         }

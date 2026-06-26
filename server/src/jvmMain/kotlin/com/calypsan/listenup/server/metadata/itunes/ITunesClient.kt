@@ -13,7 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
-private val logger = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 /**
  * Ktor-backed adapter for the iTunes Search API. Used **only** for cover art —
@@ -95,7 +95,7 @@ class ITunesClient(
         author: String,
     ): AppResult<List<ITunesSearchResult>> =
         try {
-            logger.debug { "iTunes cover search: title='$title' author='$author'" }
+            log.debug { "iTunes cover search: title='$title' author='$author'" }
             rateLimiter.await()
             val response =
                 httpClient.get(SEARCH_BASE_URL) {
@@ -108,7 +108,7 @@ class ITunesClient(
                 HttpStatusCode.OK -> {
                     try {
                         val results = json.decodeFromString<ITunesSearchResponse>(response.bodyAsText()).results
-                        logger.debug { "iTunes cover search result: matches=${results.size}" }
+                        log.debug { "iTunes cover search result: matches=${results.size}" }
                         AppResult.Success(results)
                     } catch (e: SerializationException) {
                         AppResult.Failure(MetadataError.Malformed(debugInfo = e.message))
@@ -119,12 +119,12 @@ class ITunesClient(
                 }
 
                 HttpStatusCode.TooManyRequests -> {
-                    logger.warn { "iTunes cover search rate-limited: title='$title'" }
+                    log.warn { "iTunes cover search rate-limited: title='$title'" }
                     AppResult.Failure(MetadataError.ExternalRateLimited())
                 }
 
                 else -> {
-                    logger.warn { "iTunes cover search failed: title='$title' status=${response.status.value}" }
+                    log.warn { "iTunes cover search failed: title='$title' status=${response.status.value}" }
                     AppResult.Failure(
                         MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )
@@ -133,7 +133,7 @@ class ITunesClient(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "iTunes cover search network failure: title='$title'" }
+            log.warn(e) { "iTunes cover search network failure: title='$title'" }
             AppResult.Failure(MetadataError.ExternalUnavailable(debugInfo = e.message))
         }
 

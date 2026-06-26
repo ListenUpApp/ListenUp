@@ -21,7 +21,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
-private val logger = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 /**
  * SQLDelight twin of [SyncableRepository] — the abstract base every syncable
@@ -232,7 +232,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
             if (!suppressed) {
                 deferEmit(event, userId)
             } else {
-                logger.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
+                log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
             }
 
             AppResult.Success(saved)
@@ -341,7 +341,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                         userId = userId,
                     )
                 } else {
-                    logger.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
+                    log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
                 }
                 AppResult.Success(Unit)
             }

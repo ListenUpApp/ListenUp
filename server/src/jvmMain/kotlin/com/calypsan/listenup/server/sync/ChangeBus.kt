@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-private val logger = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 private const val LIVE_TAIL_BUFFER = 256
 
@@ -92,7 +92,7 @@ class ChangeBus {
         event: SyncEvent<T>,
         userId: String? = null,
     ) {
-        logger.debug { "change published: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
+        log.debug { "change published: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
         emitOrDefer { flow.tryEmit(BusEvent(repo, event, userId)) }
     }
 
@@ -113,7 +113,7 @@ class ChangeBus {
         event: SyncEvent<T>,
         userId: String? = null,
     ) {
-        logger.debug { "change emitted post-commit: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
+        log.debug { "change emitted post-commit: domain=${repo.domainName} event=${event::class.simpleName} id=${event.id}" }
         flow.tryEmit(BusEvent(repo, event, userId))
     }
 
@@ -127,7 +127,7 @@ class ChangeBus {
         control: SyncControl,
         userId: String,
     ) {
-        logger.debug { "control published: type=${control::class.simpleName} userId=$userId" }
+        log.debug { "control published: type=${control::class.simpleName} userId=$userId" }
         emitOrDefer { controlFlow.tryEmit(ControlFrame(control, userId)) }
     }
 
@@ -138,7 +138,7 @@ class ChangeBus {
      * broadcast frame carries no per-user or per-resource data, so it cannot leak.
      */
     suspend fun broadcastControl(control: SyncControl) {
-        logger.debug { "control broadcast: type=${control::class.simpleName}" }
+        log.debug { "control broadcast: type=${control::class.simpleName}" }
         emitOrDefer { controlFlow.tryEmit(ControlFrame(control, BROADCAST)) }
     }
 

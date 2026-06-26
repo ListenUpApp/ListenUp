@@ -191,7 +191,7 @@ internal class Scanner(
         // books are persisted (see BookPersister.persist). The Scanner must NOT emit Completed here
         // — that would signal "done" before any book is queryable.
         scanResultBus.emit(result)
-        logger.info { "scan walk complete [library=${library.id.value}]: ${formatScanCompleteLog(result.toSummary())}" }
+        logger.info { "scan walk complete [library=${library.id.value}]: ${formatScanCompleteLog(result.toSummary())} corr=$correlationId" }
         return result
     }
 

@@ -16,7 +16,7 @@ import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.services.MetadataService
 import io.github.oshai.kotlinlogging.KotlinLogging
 
-private val logger = KotlinLogging.logger {}
+private val log = KotlinLogging.logger {}
 
 /**
  * [MetadataProvider] backed by Audible via [MetadataService] (which adds TTL caching +
@@ -32,7 +32,7 @@ internal class AudibleMetadataProvider(
         query: String,
         region: AudibleRegion?,
     ): AppResult<List<MetadataBook>> {
-        logger.debug { "metadata lookup: source=AUDIBLE query='$query' region=${region?.name ?: "default+fallback"}" }
+        log.debug { "metadata lookup: source=AUDIBLE query='$query' region=${region?.name ?: "default+fallback"}" }
         val params = SearchParams(keywords = query)
         val result =
             if (region == null) {
@@ -42,7 +42,7 @@ internal class AudibleMetadataProvider(
             }
         return result.map { hits ->
             hits.map { it.toMetadataBook() }.also { books ->
-                logger.debug { "metadata lookup result: source=AUDIBLE matches=${books.size}" }
+                log.debug { "metadata lookup result: source=AUDIBLE matches=${books.size}" }
             }
         }
     }
@@ -52,10 +52,10 @@ internal class AudibleMetadataProvider(
         region: AudibleRegion,
         refresh: Boolean,
     ): AppResult<MetadataBook?> {
-        logger.debug { "metadata lookup: source=AUDIBLE asin=$id region=${region.name} refresh=$refresh" }
+        log.debug { "metadata lookup: source=AUDIBLE asin=$id region=${region.name} refresh=$refresh" }
         return metadataService.getBook(region, id, refresh = refresh).map { book ->
             book?.toMetadataBook().also { mapped ->
-                logger.debug { "metadata lookup result: source=AUDIBLE asin=$id found=${mapped != null}" }
+                log.debug { "metadata lookup result: source=AUDIBLE asin=$id found=${mapped != null}" }
             }
         }
     }
@@ -64,14 +64,14 @@ internal class AudibleMetadataProvider(
         id: String,
         region: AudibleRegion,
     ): AppResult<MetadataChapters?> {
-        logger.debug { "metadata lookup: source=AUDIBLE chapters asin=$id region=${region.name}" }
+        log.debug { "metadata lookup: source=AUDIBLE chapters asin=$id region=${region.name}" }
         return metadataService.getBookChapters(region, id).map { chapters ->
             if (chapters.isEmpty()) {
-                logger.debug { "metadata lookup result: source=AUDIBLE chapters asin=$id count=0" }
+                log.debug { "metadata lookup result: source=AUDIBLE chapters asin=$id count=0" }
                 null
             } else {
                 MetadataChapters(chapters = chapters.map { it.toMetadataChapter() }).also { result ->
-                    logger.debug { "metadata lookup result: source=AUDIBLE chapters asin=$id count=${result.chapters.size}" }
+                    log.debug { "metadata lookup result: source=AUDIBLE chapters asin=$id count=${result.chapters.size}" }
                 }
             }
         }

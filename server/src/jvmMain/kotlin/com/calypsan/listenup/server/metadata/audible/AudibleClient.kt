@@ -325,6 +325,7 @@ class AudibleClient(
                 }
 
                 else -> {
+                    logger.warn { "Audible web request server error: region=$region path=$path status=${response.status.value}" }
                     AppResult.Failure(
                         MetadataError.ExternalUnavailable(debugInfo = "HTTP ${response.status.value}"),
                     )

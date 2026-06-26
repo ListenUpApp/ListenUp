@@ -256,9 +256,18 @@ private suspend fun ServerSSESession.streamFirehose(
                 // Access gating: a live content event the subscriber may not see is dropped
                 // before send. ROOT/ADMIN and tombstones bypass — see [isBookEventHidden] /
                 // [isCollectionEventHidden].
-                if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
-                if (isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy)) return@collect
-                if (isLibraryFolderEventHidden(busEvent, role)) return@collect
+                if (isBookEventHidden(busEvent, userId, role, bookAccessPolicy)) {
+                    log.trace { "sse gated: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} userId=$userId reason=access" }
+                    return@collect
+                }
+                if (isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy)) {
+                    log.trace { "sse gated: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} userId=$userId reason=access" }
+                    return@collect
+                }
+                if (isLibraryFolderEventHidden(busEvent, role)) {
+                    log.trace { "sse gated: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} userId=$userId reason=access" }
+                    return@collect
+                }
                 // Type-bound: repo and event match by construction, so the repo's
                 // serializer is guaranteed to fit the event's payload type.
                 log.trace { "sse emit: domain=${busEvent.repo.domainName} event=${busEvent.event::class.simpleName} revision=${busEvent.event.revision}" }
