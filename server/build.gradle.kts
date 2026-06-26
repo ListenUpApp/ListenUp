@@ -42,6 +42,11 @@ kotlin {
                 }
             }
         }
+        // Provide the system library search path for the K/N bundled ld.lld linker. On Arch
+        // Linux libraries live in /usr/lib; the bundled ld.lld has no default sysroot and won't
+        // find libsqlite3/libargon2 without this. On Debian/Ubuntu the same path also resolves
+        // (multiarch .so is at /usr/lib/x86_64-linux-gnu but /usr/lib contains symlinks).
+        binaries.all { linkerOpts("-L/usr/lib") }
     }
 
     // Mirror the `listenup.jvm` convention plugin: apply the project-wide compiler-args triple
@@ -160,8 +165,19 @@ kotlin {
 
         val commonTest by getting {
             dependencies {
+                implementation(kotlin("test"))
                 implementation(libs.kotest.framework.engine)
                 implementation(libs.kotest.assertions.core)
+                implementation(libs.ktor.server.test.host)
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.content.negotiation)
+                implementation(libs.kotlinx.rpc.krpc.ktor.client)
+                implementation(libs.kotlinx.rpc.krpc.client)
+                implementation(libs.kotlinx.coroutines.test)
+                // Server-side RPC transport + JSON serialization — needed by the native spike
+                // test which sets up a minimal testApplication with a live PingService.
+                implementation(libs.kotlinx.rpc.krpc.ktor.server)
+                implementation(libs.kotlinx.rpc.krpc.serialization.json)
             }
         }
 
