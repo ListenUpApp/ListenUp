@@ -130,6 +130,25 @@ class BookMultiSelectViewModelTest :
             }
         }
 
+        test("enterSelectionMode (no-arg) activates with an empty selection") {
+            runTest {
+                val viewModel = createFixture().build()
+                viewModel.enterSelectionMode()
+                val mode = viewModel.selectionMode.value.shouldBeInstanceOf<SelectionMode.Active>()
+                mode.selectedIds.shouldBeEmpty()
+            }
+        }
+
+        test("enterSelectionMode (no-arg) then toggleSelection builds the first selection") {
+            runTest {
+                val viewModel = createFixture().build()
+                viewModel.enterSelectionMode()
+                viewModel.toggleSelection("book-1")
+                val mode = viewModel.selectionMode.value.shouldBeInstanceOf<SelectionMode.Active>()
+                mode.selectedIds shouldBe setOf("book-1")
+            }
+        }
+
         test("enterSelectionMode activates with the initial book") {
             runTest {
                 val viewModel = createFixture().build()
