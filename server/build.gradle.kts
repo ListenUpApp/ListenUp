@@ -109,6 +109,15 @@ kotlin {
                 implementation(libs.kotlinx.rpc.krpc.server)
                 implementation(libs.kotlinx.rpc.krpc.ktor.server)
                 implementation(libs.kotlinx.rpc.krpc.serialization.json)
+                // Ktor plugins consumed by the commonMain `plugins/` + `foundation/` skeleton —
+                // all publish linuxX64 variants. `ktor-server-call-logging` is the lone JVM-only
+                // plugin and stays in jvmMain (see installCallLogging).
+                implementation(libs.ktor.server.resources)
+                implementation(libs.ktor.server.status.pages)
+                implementation(libs.ktor.server.auth)
+                implementation(libs.ktor.server.sse)
+                implementation(libs.ktor.server.call.id)
+                implementation(libs.ktor.server.rate.limit)
             }
         }
 
@@ -122,20 +131,12 @@ kotlin {
 
         val jvmMain by getting {
             dependencies {
-                // Ktor server core + CIO engine + content-negotiation + serialization-json
-                // are in commonMain (moved there for the linuxX64 native CIO-server spike).
-                // JVM-only Ktor plugins below:
-                implementation(libs.ktor.server.resources)
-                implementation(libs.ktor.server.status.pages)
+                // Ktor server core + CIO engine + content-negotiation + serialization-json plus
+                // the resources/status-pages/auth/sse/call-id/rate-limit plugins are in commonMain
+                // (moved there for the native HTTP foundation). JVM-only Ktor plugins below:
                 implementation(libs.ktor.server.call.logging)
-                implementation(libs.ktor.server.auth)
-                implementation(libs.ktor.server.sse)
                 implementation(libs.ktor.server.partial.content)
                 implementation(libs.ktor.server.auto.head.response)
-
-                // Ktor plugins (call-id, rate limit)
-                implementation(libs.ktor.server.call.id)
-                implementation(libs.ktor.server.rate.limit)
 
                 // Persistence
                 implementation(libs.sqlite.jdbc)
@@ -175,20 +176,15 @@ kotlin {
                 implementation(kotlin("test"))
                 implementation(libs.kotest.framework.engine)
                 implementation(libs.kotest.assertions.core)
+                // FoundationSmokeTest: testApplication (REST/SSE/auth) + a real CIO client over
+                // WebSocket for the kotlinx.rpc smoke (the server transport comes from commonMain).
                 implementation(libs.ktor.server.test.host)
                 implementation(libs.ktor.client.core)
-                implementation(libs.ktor.client.content.negotiation)
-                implementation(libs.kotlinx.rpc.krpc.ktor.client)
-                implementation(libs.kotlinx.rpc.krpc.client)
-                implementation(libs.kotlinx.coroutines.test)
-                // Server-side RPC transport + JSON serialization — needed by the native spike
-                // test which sets up a minimal testApplication with a live PingService.
-                implementation(libs.kotlinx.rpc.krpc.ktor.server)
-                implementation(libs.kotlinx.rpc.krpc.serialization.json)
-                // Real CIO client + WebSocket support — used by NativeCioRpcSpikeTest to connect
-                // to a real embeddedServer(CIO) on both JVM and linuxX64.
                 implementation(libs.ktor.client.cio)
                 implementation(libs.ktor.client.websockets)
+                implementation(libs.kotlinx.rpc.krpc.ktor.client)
+                implementation(libs.kotlinx.rpc.krpc.client)
+                implementation(libs.kotlinx.rpc.krpc.serialization.json)
             }
         }
 

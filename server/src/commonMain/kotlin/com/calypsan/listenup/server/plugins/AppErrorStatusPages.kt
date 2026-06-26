@@ -36,10 +36,10 @@ import io.ktor.server.plugins.callid.callId
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.uri
 import io.ktor.server.response.respond
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import org.slf4j.LoggerFactory
 
-private val logger = LoggerFactory.getLogger("AppErrorStatusPages")
+private val logger = KotlinLogging.logger("AppErrorStatusPages")
 
 /**
  * Surfaces unexpected throwables — genuine bugs, framework errors, OOM —
@@ -59,11 +59,11 @@ fun Application.installAppErrorStatusPages() {
             // normal, not a server fault: log at DEBUG and don't dress it up as a 500 on an
             // already-committed response.
             if (isClientDisconnect(ex)) {
-                logger.debug("client disconnected mid-response on {} — {}", call.request.uri, ex.toString())
+                logger.debug { "client disconnected mid-response on ${call.request.uri} — $ex" }
                 return@exception
             }
             val correlationId = call.callId
-            logger.error("unhandled exception on {} correlationId={}", call.request.uri, correlationId, ex)
+            logger.error(ex) { "unhandled exception on ${call.request.uri} correlationId=$correlationId" }
             val body: AppError = InternalError(correlationId)
             call.respond(HttpStatusCode.InternalServerError, body)
         }

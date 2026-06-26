@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.plugins
 
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.JwtVerificationException
-import com.calypsan.listenup.server.auth.SessionService
+import com.calypsan.listenup.server.auth.SessionLiveness
 import com.calypsan.listenup.server.auth.UserPrincipal
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.server.application.ApplicationCall
@@ -31,16 +31,16 @@ const val JWT_PROVIDER = "jwt"
  */
 fun KtorApplication.installJwtAuth(
     jwt: JwtConfiguration,
-    sessions: SessionService,
+    sessionLiveness: SessionLiveness,
 ) {
     install(Authentication) {
-        bearerJwt(jwt, sessions)
+        bearerJwt(jwt, sessionLiveness)
     }
 }
 
 private fun AuthenticationConfig.bearerJwt(
     jwt: JwtConfiguration,
-    sessions: SessionService,
+    sessionLiveness: SessionLiveness,
 ) {
     bearer(JWT_PROVIDER) {
         authenticate { credential ->
@@ -51,7 +51,7 @@ private fun AuthenticationConfig.bearerJwt(
                     logJwtRejection("token verification failed")
                     return@authenticate null
                 }
-            if (!sessions.isLive(claims.sessionId)) {
+            if (!sessionLiveness.isLive(claims.sessionId)) {
                 logJwtRejection("session no longer live for sessionId=${claims.sessionId}")
                 return@authenticate null
             }
