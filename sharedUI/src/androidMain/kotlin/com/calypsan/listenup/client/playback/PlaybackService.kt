@@ -226,7 +226,12 @@ class PlaybackService : MediaLibraryService() {
                 )
             }
 
-        val builder = MediaLibrarySession.Builder(this, player!!, LibrarySessionCallback())
+        val activePlayer =
+            player ?: run {
+                logger.error { "initializeMediaSession called before player init" }
+                return
+            }
+        val builder = MediaLibrarySession.Builder(this, activePlayer, LibrarySessionCallback())
         if (sessionIntent != null) {
             builder.setSessionActivity(sessionIntent)
         }
@@ -238,7 +243,8 @@ class PlaybackService : MediaLibraryService() {
 
     private fun initializeNotificationProvider() {
         notificationProvider = AudiobookNotificationProvider(this, playbackManager)
-        setMediaNotificationProvider(notificationProvider!!)
+        val provider = notificationProvider ?: return
+        setMediaNotificationProvider(provider)
         logger.info { "Notification provider initialized" }
     }
 
@@ -357,11 +363,12 @@ class PlaybackService : MediaLibraryService() {
         // Clear chapter change callback to avoid memory leaks
         playbackManager.onChapterChanged = null
 
-        mediaLibrarySession?.run {
-            player.release()
-            release()
-            mediaLibrarySession = null
-        }
+        // Release session before player — the session holds a reference to the player.
+        // player?.release() runs unconditionally so the native decoder is freed even
+        // when mediaLibrarySession was never built or was already null.
+        mediaLibrarySession?.release()
+        mediaLibrarySession = null
+        player?.release()
         player = null
         notificationProvider = null
 
