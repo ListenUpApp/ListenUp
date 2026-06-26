@@ -1,8 +1,7 @@
 package com.calypsan.listenup.server.backup
 
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.delay
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Tracks whether a restore is in progress (the "gate") and the count of in-flight
@@ -12,15 +11,15 @@ import java.util.concurrent.atomic.AtomicInteger
  * run at a time. [drain] polls until all requests that were admitted before the gate
  * was raised have completed, or until [timeoutMs] elapses.
  *
- * Thread-safe: all state is held in [AtomicBoolean] / [AtomicInteger] and the public
- * API is safe to call from any coroutine dispatcher.
+ * Thread-safe: all state is held in atomicfu atomics; the public API is safe to call
+ * from any coroutine dispatcher.
  */
 class MaintenanceState {
-    private val active = AtomicBoolean(false)
-    private val inFlight = AtomicInteger(0)
+    private val active = atomic(false)
+    private val inFlight = atomic(0)
 
     /** `true` when a restore is in progress and the gate is raised. */
-    val isActive: Boolean get() = active.get()
+    val isActive: Boolean get() = active.value
 
     /**
      * Raises the maintenance gate, preventing new requests from reaching route handlers.
@@ -28,19 +27,21 @@ class MaintenanceState {
      * @return `true` if the gate was successfully raised; `false` if a restore is already
      *   running (single-flight guarantee).
      */
-    fun enter(): Boolean = active.compareAndSet(false, true)
+    fun enter(): Boolean = active.compareAndSet(expect = false, update = true)
 
     /** Lowers the maintenance gate, allowing normal request processing to resume. */
-    fun exit() = active.set(false)
+    fun exit() {
+        active.value = false
+    }
 
     /** Records that a request has been admitted past the gate (called before the route handler). */
-    fun beginRequest() = inFlight.incrementAndGet()
+    fun beginRequest(): Int = inFlight.incrementAndGet()
 
     /** Records that an admitted request has completed (called after the route handler). */
-    fun endRequest() = inFlight.decrementAndGet()
+    fun endRequest(): Int = inFlight.decrementAndGet()
 
     /** Returns the current count of in-flight non-allowlisted requests. Intended for testing. */
-    fun inFlightCount(): Int = inFlight.get()
+    fun inFlightCount(): Int = inFlight.value
 
     /**
      * Waits until all in-flight requests drain to zero or [timeoutMs] elapses.
@@ -53,10 +54,10 @@ class MaintenanceState {
         stepMs: Long = 50,
     ): Boolean {
         var waited = 0L
-        while (inFlight.get() > 0 && waited < timeoutMs) {
+        while (inFlight.value > 0 && waited < timeoutMs) {
             delay(stepMs)
             waited += stepMs
         }
-        return inFlight.get() == 0
+        return inFlight.value == 0
     }
 }

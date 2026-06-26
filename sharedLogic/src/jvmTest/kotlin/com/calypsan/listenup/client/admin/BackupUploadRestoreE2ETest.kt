@@ -40,6 +40,7 @@ import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
 import io.ktor.utils.io.ByteReadChannel
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.rpc.krpc.ktor.client.installKrpc
@@ -254,7 +255,7 @@ private suspend fun buildForeignBackupZipBytes(): ByteArray {
             handle.sqlDriver.execute(null, "CREATE TABLE IF NOT EXISTS seed(v TEXT)", 0)
             handle.sqlDriver.execute(null, "INSERT INTO seed(v) VALUES ('foreign')", 0)
 
-            val paths = BackupPaths(foreignHomeDir)
+            val paths = BackupPaths(IoPath(foreignHomeDir.toString()))
             val archive =
                 BackupArchive(
                     paths = paths,
@@ -272,7 +273,10 @@ private suspend fun buildForeignBackupZipBytes(): ByteArray {
                     onEvent = {},
                 )
 
-            return Files.readAllBytes(archivePath)
+            return Files.readAllBytes(
+                java.nio.file.Path
+                    .of(archivePath.toString()),
+            )
         } finally {
             handle.close()
         }

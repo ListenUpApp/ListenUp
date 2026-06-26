@@ -6,15 +6,16 @@ import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.server.db.DatabaseHandle
+import com.calypsan.listenup.server.io.copyDirectoryRecursively
+import com.calypsan.listenup.server.io.deleteRecursively
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.withContext
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
 
@@ -35,9 +36,9 @@ class RestoreOrchestrator(
     private val eventBus: MutableSharedFlow<BackupEvent>,
 ) {
     suspend fun restore(id: BackupId): AppResult<RestoreResult> =
-        withContext(Dispatchers.IO) {
+        withContext(fileIoDispatcher) {
             val archivePath = paths.archiveFor(id.value)
-            if (!Files.exists(archivePath)) {
+            if (!SystemFileSystem.exists(archivePath)) {
                 return@withContext AppResult.Failure(BackupError.BackupNotFound())
             }
 
@@ -67,16 +68,16 @@ class RestoreOrchestrator(
                 maintenance.drain()
 
                 // 3. Safety copy (pool still live)
-                Files.createDirectories(paths.rollbackDir)
-                val rollbackDb = paths.rollbackDir.resolve("listenup.db")
-                Files.deleteIfExists(rollbackDb)
-                dbHandle.vacuumInto(rollbackDb.toAbsolutePath().toString())
-                val rollbackCovers = copyDirAside(paths.coversDir, paths.rollbackDir.resolve("covers"))
-                val rollbackAvatars = copyDirAside(paths.avatarsDir, paths.rollbackDir.resolve("avatars"))
+                SystemFileSystem.createDirectories(paths.rollbackDir)
+                val rollbackDb = Path(paths.rollbackDir, "listenup.db")
+                SystemFileSystem.delete(rollbackDb, mustExist = false)
+                dbHandle.vacuumInto(rollbackDb.toString())
+                val rollbackCovers = copyDirAside(paths.coversDir, Path(paths.rollbackDir, "covers"))
+                val rollbackAvatars = copyDirAside(paths.avatarsDir, Path(paths.rollbackDir, "avatars"))
 
                 // 4. Extract snapshot to staging
-                if (Files.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
-                Files.createDirectories(paths.stagingDir)
+                if (SystemFileSystem.exists(paths.stagingDir)) deleteRecursively(paths.stagingDir)
+                SystemFileSystem.createDirectories(paths.stagingDir)
                 archive.extractTo(archivePath, paths.stagingDir)
 
                 // 5. Swap — NonCancellable so a cancellation mid-swap cannot leave the
@@ -87,13 +88,11 @@ class RestoreOrchestrator(
                     eventBus.tryEmit(BackupEvent.Swapping)
                     dbHandle.closePool()
                     try {
-                        val dbFileName = paths.dbFile.fileName.toString()
-                        swapFile(paths.stagingDir.resolve("listenup.db"), paths.dbFile)
-                        Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-wal"))
-                        Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-shm"))
+                        swapFile(Path(paths.stagingDir, "listenup.db"), paths.dbFile)
+                        deleteDbSidecars()
                         if (manifest.includesImages) {
-                            swapDir(paths.stagingDir.resolve("covers"), paths.coversDir)
-                            swapDir(paths.stagingDir.resolve("avatars"), paths.avatarsDir)
+                            swapDir(Path(paths.stagingDir, "covers"), paths.coversDir)
+                            swapDir(Path(paths.stagingDir, "avatars"), paths.avatarsDir)
                         }
                         dbHandle.reopenPool()
 
@@ -130,33 +129,24 @@ class RestoreOrchestrator(
         }
 
     /**
-     * Copies [src] directory aside to [dest], creating [dest] if it doesn't exist.
-     * Returns the dest path (or null if src doesn't exist — nothing to copy).
+     * Copies [src] directory aside to [dest]. Returns [dest] (or null if [src] doesn't exist —
+     * nothing to copy).
      */
     private fun copyDirAside(
         src: Path,
         dest: Path,
     ): Path? {
-        if (!Files.exists(src)) return null
-        Files.createDirectories(dest)
-        Files.walk(src).forEach { srcPath ->
-            val relative = src.relativize(srcPath)
-            val destPath = dest.resolve(relative)
-            if (Files.isDirectory(srcPath)) {
-                Files.createDirectories(destPath)
-            } else {
-                Files.copy(srcPath, destPath, StandardCopyOption.REPLACE_EXISTING)
-            }
-        }
+        if (!SystemFileSystem.exists(src)) return null
+        copyDirectoryRecursively(src, dest)
         return dest
     }
 
-    /** Moves [src] to [dest], replacing any existing file at [dest]. */
+    /** Moves [src] to [dest], replacing any existing file at [dest] (same-filesystem atomic rename). */
     private fun swapFile(
         src: Path,
         dest: Path,
     ) {
-        Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING)
+        SystemFileSystem.atomicMove(src, dest)
     }
 
     /**
@@ -167,18 +157,17 @@ class RestoreOrchestrator(
         src: Path,
         dest: Path,
     ) {
-        if (!Files.exists(src)) return
-        if (Files.exists(dest)) deleteRecursively(dest)
-        Files.move(src, dest, StandardCopyOption.REPLACE_EXISTING)
+        if (!SystemFileSystem.exists(src)) return
+        if (SystemFileSystem.exists(dest)) deleteRecursively(dest)
+        SystemFileSystem.atomicMove(src, dest)
     }
 
-    /** Recursively deletes [path] and all children. No-op if [path] doesn't exist. */
-    private fun deleteRecursively(path: Path) {
-        if (!Files.exists(path)) return
-        Files
-            .walk(path)
-            .sorted(Comparator.reverseOrder())
-            .forEach { Files.deleteIfExists(it) }
+    /** Deletes the SQLite `-wal` / `-shm` sidecar files next to the live db, if present. */
+    private fun deleteDbSidecars() {
+        val parent = paths.dbFile.parent ?: return
+        val name = paths.dbFile.name
+        SystemFileSystem.delete(Path(parent, "$name-wal"), mustExist = false)
+        SystemFileSystem.delete(Path(parent, "$name-shm"), mustExist = false)
     }
 
     /**
@@ -194,14 +183,20 @@ class RestoreOrchestrator(
         rollbackAvatars: Path?,
     ) {
         try {
-            if (Files.exists(rollbackDb)) {
+            if (SystemFileSystem.exists(rollbackDb)) {
                 swapFile(rollbackDb, paths.dbFile)
-                val dbFileName = paths.dbFile.fileName.toString()
-                Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-wal"))
-                Files.deleteIfExists(paths.dbFile.resolveSibling("$dbFileName-shm"))
+                deleteDbSidecars()
             }
-            if (rollbackCovers != null && Files.exists(rollbackCovers)) swapDir(rollbackCovers, paths.coversDir)
-            if (rollbackAvatars != null && Files.exists(rollbackAvatars)) swapDir(rollbackAvatars, paths.avatarsDir)
+            if (rollbackCovers != null &&
+                SystemFileSystem.exists(rollbackCovers)
+            ) {
+                swapDir(rollbackCovers, paths.coversDir)
+            }
+            if (rollbackAvatars != null &&
+                SystemFileSystem.exists(rollbackAvatars)
+            ) {
+                swapDir(rollbackAvatars, paths.avatarsDir)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Koin module for the backup/restore slice.
@@ -37,7 +38,7 @@ fun backupModule(
     appVersion: String = ServerIdentity.VERSION,
 ): Module =
     module {
-        single { BackupPaths(homeDir) }
+        single { BackupPaths(IoPath(homeDir.toString())) }
 
         // Qualified by name because Koin keys on the erased KClass — an unqualified
         // MutableSharedFlow<BackupEvent> would collide with the scan/import event buses.

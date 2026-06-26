@@ -12,6 +12,9 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
 import kotlin.random.Random
+import kotlinx.io.buffered
+import kotlinx.io.files.Path as IoPath
+import kotlinx.io.files.SystemFileSystem
 
 /** Fixture wiring a real [DatabaseHandle] + [BackupPaths] + [BackupArchive] in a temp home dir. */
 class BackupTestFixture(
@@ -53,12 +56,12 @@ fun backupTestFixture(
         "INSERT INTO dummy_seed(v) VALUES ('seed')",
     )
 
-    val paths = BackupPaths(resolvedHomeDir)
+    val paths = BackupPaths(IoPath(resolvedHomeDir.toString()))
 
     if (withImages) {
         val coversDir = paths.coversDir
-        Files.createDirectories(coversDir)
-        Files.write(coversDir.resolve("cover1.jpg"), byteArrayOf(1, 2, 3, 4, 5))
+        SystemFileSystem.createDirectories(coversDir)
+        SystemFileSystem.sink(IoPath(coversDir, "cover1.jpg")).buffered().use { it.write(byteArrayOf(1, 2, 3, 4, 5)) }
     }
 
     val archive =
@@ -110,11 +113,20 @@ fun DatabaseHandle.queryScalarString(sql: String): String? =
  * Rewrites [archive] so the `listenup.db` entry's bytes are mutated (one byte
  * flipped), causing its SHA-256 to differ from the manifest's stored checksum.
  */
-fun tamperOneByteInsideZip(archive: Path) {
-    val tmp = Files.createTempFile(archive.parent, "tamper-", ".zip")
+fun tamperOneByteInsideZip(archive: IoPath) {
+    val archiveNio =
+        java.nio.file.Path
+            .of(archive.toString())
+    val tmp =
+        Files.createTempFile(
+            java.nio.file.Path
+                .of(archive.parent!!.toString()),
+            "tamper-",
+            ".zip",
+        )
     try {
-        writeZipWithTamperedDb(archive, tmp)
-        Files.move(tmp, archive, StandardCopyOption.REPLACE_EXISTING)
+        writeZipWithTamperedDb(archiveNio, tmp)
+        Files.move(tmp, archiveNio, StandardCopyOption.REPLACE_EXISTING)
     } catch (e: Exception) {
         Files.deleteIfExists(tmp)
         throw e
@@ -148,17 +160,34 @@ private fun flipDbBytes(
 }
 
 /**
- * Builds a zip at [dest] containing one entry named [entryName] — intended to test
- * ZIP-slip: pass `"../escape.txt"` to produce an archive that [BackupArchive.extractTo]
- * must reject.
+ * Repacks the real [archive] into [dest], copying every entry verbatim and then ADDING a
+ * `../escape.txt` traversal entry. Because the manifest is preserved, [BackupArchive.open] succeeds
+ * and extraction reaches the [com.calypsan.listenup.server.compression.zip.isSafeEntryName] guard —
+ * proving the ZIP-slip branch fires (not the "manifest missing" branch).
  */
-fun buildMaliciousZip(
-    dest: Path,
-    entryName: String,
+fun repackWithTraversalEntry(
+    archive: IoPath,
+    dest: IoPath,
 ) {
-    ZipOutputStream(Files.newOutputStream(dest)).use { zip ->
-        zip.putNextEntry(ZipEntry(entryName))
-        zip.write(Random.nextBytes(16))
-        zip.closeEntry()
+    ZipOutputStream(
+        Files.newOutputStream(
+            java.nio.file.Path
+                .of(dest.toString()),
+        ),
+    ).use { out ->
+        ZipFile(
+            java.nio.file.Path
+                .of(archive.toString())
+                .toFile(),
+        ).use { zf ->
+            zf.entries().asSequence().forEach { entry ->
+                out.putNextEntry(ZipEntry(entry.name))
+                out.write(zf.getInputStream(entry).readBytes())
+                out.closeEntry()
+            }
+        }
+        out.putNextEntry(ZipEntry("../escape.txt"))
+        out.write(Random.nextBytes(16))
+        out.closeEntry()
     }
 }
