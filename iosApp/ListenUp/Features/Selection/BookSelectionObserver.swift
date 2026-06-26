@@ -97,9 +97,7 @@ final class BookSelectionObserver {
 
     // MARK: - Selection actions
 
-    /// Arm selection mode with nothing selected (the native "Select" button). The user then
-    /// taps books to build the selection.
-    func startSelecting() { viewModel.enterSelectionMode() }
+    /// Enter selection mode seeded with one book — the long-press entry point on a cover.
     func enter(_ bookId: String) { viewModel.enterSelectionMode(initialBookId: bookId) }
     func toggle(_ bookId: String) { viewModel.toggleSelection(bookId: bookId) }
     func exit() { viewModel.exitSelectionMode() }

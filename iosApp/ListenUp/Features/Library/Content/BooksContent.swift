@@ -59,89 +59,153 @@ struct BooksContent: View {
     private var booksGrid: some View {
         let letters = sections.map { String($0.letter) }
 
-        return ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 20) {
-                    if layout.usesInlineSort, sortState != nil {
-                        sortRow
-                    } else {
-                        // Spacer for sort button
-                        Color.clear.frame(height: 32)
-                    }
+        return GeometryReader { geo in
+            // The grid is a FLAT `LazyVStack` of a letter header + manually-chunked book rows — NOT a
+            // `LazyVGrid` nested inside the `LazyVStack`. That nesting made the scrubber's `scrollTo`
+            // spin the main thread forever on a large library: resolving the target offset across ~26
+            // nested lazy grids is a layout pass that never converges. One lazy container converges,
+            // exactly like the Series/Contributor tabs. The column count (derived from width here)
+            // replaces the old `GridItem(.adaptive(minimum: 150))` flow. See #alphabet-scrubber-hang.
+            let columnCount = gridColumnCount(forWidth: geo.size.width)
+            let cellWidth = gridCellWidth(forWidth: geo.size.width, columns: columnCount)
+            let rows = bookRows(columns: columnCount)
 
-                    ForEach(sections, id: \.letter) { section in
-                        let sectionId = "section-\(section.letter)"
-
-                        VStack(alignment: .leading, spacing: 16) {
-                            // Section header
-                            Text(String(section.letter))
-                                .font(.title2.bold())
-                                .foregroundStyle(.primary)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-
-                            // Books grid
-                            LazyVGrid(columns: columns, spacing: layout.gridSpacing) {
-                                ForEach(section.books) { book in
-                                    bookCell(book)
-                                }
-                            }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: layout.gridSpacing) {
+                        if layout.usesInlineSort, sortState != nil {
+                            sortRow
+                        } else {
+                            // Spacer for the floating sort button.
+                            Color.clear.frame(height: 32)
                         }
-                        .id(sectionId)
+
+                        ForEach(rows) { row in
+                            rowView(row, cellWidth: cellWidth)
+                        }
+                    }
+                    .padding(.horizontal, layout.sideMargin)
+                    // Extra padding at bottom so content scrolls above tab bar
+                    .padding(.bottom, 100)
+                }
+                .scrollContentBackground(.hidden)
+                .refreshable {
+                    onRefresh()
+                    try? await Task.sleep(for: .seconds(1))
+                }
+                .onScrollPhaseChange { _, newPhase in
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        isScrolling = newPhase != .idle
                     }
                 }
-                .padding(.horizontal, layout.sideMargin)
-                // Extra padding at bottom so content scrolls above tab bar
-                .padding(.bottom, 100)
-            }
-            .scrollContentBackground(.hidden)
-            .refreshable {
-                onRefresh()
-                try? await Task.sleep(for: .seconds(1))
-            }
-            .onScrollPhaseChange { _, newPhase in
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isScrolling = newPhase != .idle
+                .task(id: scrollTarget) {
+                    guard let target = scrollTarget else { return }
+                    // Instant jump, NOT animated.
+                    proxy.scrollTo(target, anchor: .top)
+                    try? await Task.sleep(for: .milliseconds(300))
+                    guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
+                    scrollTarget = nil
+                }
+                // Alphabet scrubber overlay
+                .overlay(alignment: .trailing) {
+                    if layout.showsScrubber, shouldShowAlphabetIndex {
+                        SectionIndexBar(
+                            letters: letters,
+                            onLetterSelected: { letter in
+                                scrollTarget = "section-\(letter)"
+                            },
+                            isVisible: isScrolling
+                        )
+                        .padding(.trailing, 8)
+                        .padding(.vertical, 60)
+                    }
+                }
+                // Sort button overlay
+                .overlay(alignment: .topLeading) {
+                    if !layout.usesInlineSort, let sortState {
+                        FloatingSortButton(
+                            sortState: sortState,
+                            categories: sortCategories,
+                            onCategorySelected: onCategorySelected,
+                            onDirectionToggle: onDirectionToggle
+                        )
+                        .padding(.leading, 16)
+                        .padding(.top, 8)
+                    }
+                }
+                .onChange(of: books, initial: true) { _, _ in
+                    sections = bookSections(from: books)
                 }
             }
-            .task(id: scrollTarget) {
-                guard let target = scrollTarget else { return }
-                // Instant jump, NOT animated: animating a scrollTo across a large lazy list
-                // freezes the main thread on every scrubber letter-change (#alphabet-scrubber-hang).
-                proxy.scrollTo(target, anchor: .top)
-                try? await Task.sleep(for: .milliseconds(300))
-                guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
-                scrollTarget = nil
+        }
+    }
+
+    /// One element of the flattened Books grid: a letter header, or a row of up-to-`columns` cells.
+    /// Flattening to a single lazy container (instead of `LazyVGrid` nested in `LazyVStack`) is what
+    /// stops the alphabet scrubber's `scrollTo` from hanging the main thread on a large library.
+    private enum BooksGridRow: Identifiable {
+        case header(Character)
+        case cells(letter: Character, index: Int, books: [BookRow])
+
+        var id: String {
+            switch self {
+            case .header(let letter): return "section-\(letter)"
+            case .cells(let letter, let index, _): return "row-\(letter)-\(index)"
             }
-            // Alphabet scrubber overlay
-            .overlay(alignment: .trailing) {
-                if layout.showsScrubber, shouldShowAlphabetIndex {
-                    SectionIndexBar(
-                        letters: letters,
-                        onLetterSelected: { letter in
-                            scrollTarget = "section-\(letter)"
-                        },
-                        isVisible: isScrolling
-                    )
-                    .padding(.trailing, 8)
-                    .padding(.vertical, 60)
+        }
+    }
+
+    /// Width-driven column count, mirroring the previous `GridItem(.adaptive(minimum: 150))` flow.
+    private func gridColumnCount(forWidth width: CGFloat) -> Int {
+        let usable = width - layout.sideMargin * 2
+        guard usable > 0 else { return 1 }
+        let minCell: CGFloat = 150
+        return max(1, Int((usable + layout.gridSpacing) / (minCell + layout.gridSpacing)))
+    }
+
+    /// Exact cell width so a short final row's cards keep their column width (left-aligned) instead
+    /// of stretching — the manual-grid equivalent of `LazyVGrid`'s fixed tracks.
+    private func gridCellWidth(forWidth width: CGFloat, columns: Int) -> CGFloat {
+        guard columns > 0 else { return max(0, width) }
+        let usable = width - layout.sideMargin * 2 - CGFloat(columns - 1) * layout.gridSpacing
+        return max(0, usable / CGFloat(columns))
+    }
+
+    /// Flatten `sections` into header + chunked-row items so the grid renders in ONE lazy container.
+    private func bookRows(columns: Int) -> [BooksGridRow] {
+        guard columns > 0 else { return [] }
+        var rows: [BooksGridRow] = []
+        for section in sections {
+            rows.append(.header(section.letter))
+            var index = 0
+            var start = 0
+            while start < section.books.count {
+                let end = min(start + columns, section.books.count)
+                rows.append(.cells(letter: section.letter, index: index, books: Array(section.books[start ..< end])))
+                start = end
+                index += 1
+            }
+        }
+        return rows
+    }
+
+    @ViewBuilder
+    private func rowView(_ row: BooksGridRow, cellWidth: CGFloat) -> some View {
+        switch row {
+        case .header(let letter):
+            Text(String(letter))
+                .font(.title2.bold())
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 8)
+        case .cells(_, _, let books):
+            HStack(alignment: .top, spacing: layout.gridSpacing) {
+                ForEach(books) { book in
+                    bookCell(book)
+                        .frame(width: cellWidth)
                 }
             }
-            // Sort button overlay
-            .overlay(alignment: .topLeading) {
-                if !layout.usesInlineSort, let sortState {
-                    FloatingSortButton(
-                        sortState: sortState,
-                        categories: sortCategories,
-                        onCategorySelected: onCategorySelected,
-                        onDirectionToggle: onDirectionToggle
-                    )
-                    .padding(.leading, 16)
-                    .padding(.top, 8)
-                }
-            }
-            .onChange(of: books, initial: true) { _, _ in
-                sections = bookSections(from: books)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

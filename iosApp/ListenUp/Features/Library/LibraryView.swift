@@ -57,47 +57,39 @@ struct LibraryView: View {
             }
             .buttonStyle(.plain)
         }
-        // Multi-select is only offered on the Books tab.
-        if let selection, selectedTab == .books {
+        // Multi-select on the Books tab is entered by long-pressing a cover (see BooksContent),
+        // so the toolbar surfaces only a "Done" exit + the action bar once selecting — no idle
+        // "Select" button cluttering the nav bar beside the profile avatar.
+        if let selection, selectedTab == .books, selection.isSelecting {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(selection.isSelecting
-                    ? String(localized: "common.done")
-                    : String(localized: "common.select")) {
-                    if selection.isSelecting {
-                        selection.exit()
-                    } else {
-                        selection.startSelecting()
-                    }
-                }
+                Button(String(localized: "common.done")) { selection.exit() }
             }
-            if selection.isSelecting {
-                ToolbarItemGroup(placement: .bottomBar) {
+            ToolbarItemGroup(placement: .bottomBar) {
+                Button {
+                    selection.showShelfPicker = true
+                } label: {
+                    Label(String(localized: "book.detail_add_to_shelf"),
+                          systemImage: "rectangle.stack.badge.plus")
+                }
+                .disabled(selection.selectedBookIds.isEmpty)
+
+                Spacer()
+
+                Text(String(format: String(localized: "selection.n_selected"),
+                            selection.selectedBookIds.count))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                if selection.isAdmin {
                     Button {
-                        selection.showShelfPicker = true
+                        selection.showCollectionPicker = true
                     } label: {
-                        Label(String(localized: "book.detail_add_to_shelf"),
-                              systemImage: "rectangle.stack.badge.plus")
+                        Label(String(localized: "book.detail_add_to_collection"),
+                              systemImage: "folder.badge.plus")
                     }
                     .disabled(selection.selectedBookIds.isEmpty)
-
-                    Spacer()
-
-                    Text(String(format: String(localized: "selection.n_selected"),
-                                selection.selectedBookIds.count))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-
-                    Spacer()
-
-                    if selection.isAdmin {
-                        Button {
-                            selection.showCollectionPicker = true
-                        } label: {
-                            Label(String(localized: "book.detail_add_to_collection"),
-                                  systemImage: "folder.badge.plus")
-                        }
-                        .disabled(selection.selectedBookIds.isEmpty)
-                    }
                 }
             }
         }

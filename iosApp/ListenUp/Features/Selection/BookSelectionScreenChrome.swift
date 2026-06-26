@@ -1,9 +1,13 @@
 import SwiftUI
 
-/// Screen-level multi-select chrome — the native Select/Done toolbar button, the bottom action bar
+/// Screen-level multi-select chrome — a "Done" toolbar button, the bottom action bar
 /// (Add to Shelf / count / admin-only Add to Collection), and the two bulk picker sheets — hosted
-/// over a books-bearing screen. Mirrors `LibraryView`'s inline structure (Task 6) so Home + Discover
-/// behave identically, and keeps that wiring in one place instead of re-rolling it per screen.
+/// over a books-bearing screen. Keeps that wiring in one place instead of re-rolling it per screen.
+///
+/// Entry into selection is **long-press a cover** (`SelectableBookCard.onLongPressGesture`); there
+/// is deliberately no idle "Select" button here — on Home/Discover it collided with the profile
+/// avatar in the top bar. The toolbar surfaces only once selecting, as a "Done" exit. (The Library
+/// grid keeps its own explicit Select button — it's the natural bulk surface.)
 ///
 /// `selection` is optional so the screen's `@State` (constructed in `.onAppear`) can be passed
 /// straight through; when `nil` the chrome is a no-op.
@@ -39,18 +43,10 @@ struct BookSelectionScreenChrome: ViewModifier {
 
     @ToolbarContentBuilder
     private func toolbar(_ selection: BookSelectionObserver) -> some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button(selection.isSelecting
-                ? String(localized: "common.done")
-                : String(localized: "common.select")) {
-                if selection.isSelecting {
-                    selection.exit()
-                } else {
-                    selection.startSelecting()
-                }
-            }
-        }
         if selection.isSelecting {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(String(localized: "common.done")) { selection.exit() }
+            }
             ToolbarItemGroup(placement: .bottomBar) {
                 Button {
                     selection.showShelfPicker = true
