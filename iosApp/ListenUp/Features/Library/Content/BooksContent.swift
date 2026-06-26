@@ -19,6 +19,9 @@ struct BooksContent: View {
     let onCategorySelected: (SortCategory) -> Void
     let onDirectionToggle: () -> Void
     let onRefresh: () -> Void
+    /// Drives multi-select on the grid. When `isSelecting`, taps toggle selection instead of
+    /// navigating; a long-press is the secondary entry into selection mode.
+    let selection: BookSelectionObserver
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -79,10 +82,7 @@ struct BooksContent: View {
                             // Books grid
                             LazyVGrid(columns: columns, spacing: layout.gridSpacing) {
                                 ForEach(section.books) { book in
-                                    NavigationLink(value: BookDestination(id: book.id)) {
-                                        BookCoverCard(book: book, progress: bookProgress[book.id])
-                                    }
-                                    .buttonStyle(.plain)
+                                    bookCell(book)
                                 }
                             }
                         }
@@ -142,6 +142,26 @@ struct BooksContent: View {
             .onChange(of: books, initial: true) { _, _ in
                 sections = bookSections(from: books)
             }
+        }
+    }
+
+    /// A single grid cell. While selecting, the cover toggles selection on tap; otherwise it
+    /// navigates to the detail screen and a long-press is the secondary entry into selection mode.
+    @ViewBuilder
+    private func bookCell(_ book: BookRow) -> some View {
+        let card = BookCoverCard(
+            book: book,
+            progress: bookProgress[book.id],
+            isSelecting: selection.isSelecting,
+            isSelected: selection.isSelected(book.id)
+        )
+        if selection.isSelecting {
+            Button { selection.toggle(book.id) } label: { card }
+                .buttonStyle(.plain)
+        } else {
+            NavigationLink(value: BookDestination(id: book.id)) { card }
+                .buttonStyle(.plain)
+                .onLongPressGesture { selection.enter(book.id) }
         }
     }
 

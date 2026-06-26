@@ -15,40 +15,99 @@ struct LibraryView: View {
     @Environment(\.dependencies) private var deps
 
     @State private var observer: LibraryObserver?
+    @State private var selection: BookSelectionObserver?
     @State private var selectedTab: LibraryTab = .books
 
     private var user: User? { userObserver.user }
 
     var body: some View {
         Group {
-            if let observer {
-                libraryContent(observer: observer)
+            if let observer, let selection {
+                libraryContent(observer: observer, selection: selection)
             } else {
                 loadingState
             }
         }
         .navigationTitle(String(localized: "common.library"))
         .navigationBarTitleDisplayMode(.large)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                NavigationLink(value: UserProfileDestination()) {
-                    UserAvatarView(user: user, size: 32)
-                }
-                .buttonStyle(.plain)
-            }
-        }
+        .toolbar { libraryToolbar }
+        .modifier(SelectionSheets(selection: selection))
         .onAppear {
             if observer == nil {
                 observer = LibraryObserver(viewModel: deps.libraryViewModel)
             }
+            if selection == nil {
+                selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
+            }
             observer?.onScreenVisible()
+        }
+        // Leaving the Books tab cancels any in-progress selection so the bottom bar and circles
+        // don't linger over the Series/Authors/Narrators tabs (which aren't selectable).
+        .onChange(of: selectedTab) { _, newTab in
+            if newTab != .books { selection?.exit() }
+        }
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var libraryToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            NavigationLink(value: UserProfileDestination()) {
+                UserAvatarView(user: user, size: 32)
+            }
+            .buttonStyle(.plain)
+        }
+        // Multi-select is only offered on the Books tab.
+        if let selection, selectedTab == .books {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(selection.isSelecting
+                    ? String(localized: "common.done")
+                    : String(localized: "common.select")) {
+                    if selection.isSelecting {
+                        selection.exit()
+                    } else {
+                        selection.startSelecting()
+                    }
+                }
+            }
+            if selection.isSelecting {
+                ToolbarItemGroup(placement: .bottomBar) {
+                    Button {
+                        selection.showShelfPicker = true
+                    } label: {
+                        Label(String(localized: "book.detail_add_to_shelf"),
+                              systemImage: "rectangle.stack.badge.plus")
+                    }
+                    .disabled(selection.selectedBookIds.isEmpty)
+
+                    Spacer()
+
+                    Text(String(format: String(localized: "selection.n_selected"),
+                                selection.selectedBookIds.count))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    if selection.isAdmin {
+                        Button {
+                            selection.showCollectionPicker = true
+                        } label: {
+                            Label(String(localized: "book.detail_add_to_collection"),
+                                  systemImage: "folder.badge.plus")
+                        }
+                        .disabled(selection.selectedBookIds.isEmpty)
+                    }
+                }
+            }
         }
     }
 
     // MARK: - Main Content
 
     @ViewBuilder
-    private func libraryContent(observer: LibraryObserver) -> some View {
+    private func libraryContent(observer: LibraryObserver, selection: BookSelectionObserver) -> some View {
         // Swipeable content - extends edge to edge
         TabView(selection: $selectedTab) {
             // Books Tab
@@ -67,7 +126,8 @@ struct LibraryView: View {
                 },
                 onRefresh: {
                     observer.refresh()
-                }
+                },
+                selection: selection
             )
             .tag(LibraryTab.books)
 
@@ -136,6 +196,40 @@ struct LibraryView: View {
         .ignoresSafeArea(edges: .bottom)
         .safeAreaInset(edge: .top) {
             LibraryChipRow(selectedTab: .constant(.books))
+        }
+    }
+}
+
+// MARK: - Selection sheets
+
+/// Hosts the two bulk picker sheets, bound to the shared `BookSelectionObserver`. Extracted into a
+/// modifier so the body's `Group`/toolbar stays readable; a no-op when `selection` is nil.
+private struct SelectionSheets: ViewModifier {
+    let selection: BookSelectionObserver?
+
+    func body(content: Content) -> some View {
+        if let selection {
+            content
+                .sheet(isPresented: Binding(
+                    get: { selection.showShelfPicker },
+                    set: { selection.showShelfPicker = $0 }
+                )) {
+                    BulkShelfPickerSheet(
+                        observer: selection,
+                        count: selection.selectedBookIds.count
+                    ) { selection.showShelfPicker = false }
+                }
+                .sheet(isPresented: Binding(
+                    get: { selection.isAdmin && selection.showCollectionPicker },
+                    set: { selection.showCollectionPicker = $0 }
+                )) {
+                    BulkCollectionPickerSheet(
+                        observer: selection,
+                        count: selection.selectedBookIds.count
+                    ) { selection.showCollectionPicker = false }
+                }
+        } else {
+            content
         }
     }
 }
