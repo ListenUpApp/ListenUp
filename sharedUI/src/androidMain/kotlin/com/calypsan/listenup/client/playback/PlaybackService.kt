@@ -361,11 +361,16 @@ class PlaybackService : MediaLibraryService() {
         val index = cast.currentMediaItemIndex
         val positionInItem = cast.currentPosition
         val wasPlaying = cast.playWhenReady
+        // SpeedAwareCastPlayer mirrors the live receiver rate, so a speed change made while casting
+        // is carried back to the local player — otherwise saveCurrentPosition() below persists a
+        // stale speed.
+        val speed = cast.playbackParameters.speed
         // Known v1 limitation: the retained local player still holds the book that was loaded
         // at hand-off. If the user changed books on the cast device mid-session, swapping back
         // could seek the wrong book. (Tracked follow-up.)
         local.seekTo(index, positionInItem)
         local.playWhenReady = wasPlaying
+        local.setPlaybackSpeed(speed)
         session.player = local
         casting = false // normal idle logic resumes now that the local player drives the session
         logger.info { "Swapped back to local at index=$index pos=$positionInItem" }
