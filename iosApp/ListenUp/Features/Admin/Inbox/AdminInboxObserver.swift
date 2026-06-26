@@ -101,10 +101,7 @@ struct InboxBookRowModel: Identifiable {
     let durationMs: Int64
 
     var formattedDuration: String {
-        let totalMinutes = Int(durationMs / 60_000)
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+        DurationFormatting.hoursMinutes(ms: durationMs)
     }
 
     init(from item: InboxBookItem) {

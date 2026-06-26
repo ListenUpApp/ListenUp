@@ -73,15 +73,16 @@ struct ContributorListContent: View {
             .onScrollPhaseChange { _, newPhase in
                 withAnimation(.easeOut(duration: 0.2)) { isScrolling = newPhase != .idle }
             }
-            .onChange(of: scrollTarget) { _, newTarget in
-                if let target = newTarget {
-                    // Instant jump, NOT animated: animating a scrollTo across a large lazy list
-                    // forces SwiftUI to lay out the whole intervening range to run the animation,
-                    // freezing the main thread on every scrubber letter-change. Native section
-                    // indexes jump instantly (#alphabet-scrubber-hang).
-                    proxy.scrollTo(target, anchor: .top)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { scrollTarget = nil }
-                }
+            .task(id: scrollTarget) {
+                guard let target = scrollTarget else { return }
+                // Instant jump, NOT animated: animating a scrollTo across a large lazy list
+                // forces SwiftUI to lay out the whole intervening range to run the animation,
+                // freezing the main thread on every scrubber letter-change. Native section
+                // indexes jump instantly (#alphabet-scrubber-hang).
+                proxy.scrollTo(target, anchor: .top)
+                try? await Task.sleep(for: .milliseconds(300))
+                guard !Task.isCancelled else { return }   // a newer target replaced us — don't stomp it
+                scrollTarget = nil
             }
             .overlay(alignment: .trailing) {
                 if !scrubberLetters.isEmpty {

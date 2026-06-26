@@ -1,0 +1,26 @@
+import Foundation
+
+/// One home for millisecond→string duration formatting, replacing the hand-rolled copies
+/// scattered across rows, observers, and the player. Output is intentionally identical to the
+/// prior inline implementations (this was a dedup, not a behavior change). Negatives clamp to
+/// zero — durations are never negative.
+enum DurationFormatting {
+    /// `"15h 54m"` / `"54m"` — hours dropped when zero, sub-minute rounds down to `"0m"`.
+    static func hoursMinutes(ms: Int64) -> String {
+        let totalMinutes = max(0, ms / 60_000)
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
+    }
+
+    /// `"1:05:09"` / `"5:09"` — clock form for scrubber/now-playing labels. Hours dropped when zero.
+    static func clock(ms: Int64) -> String {
+        let totalSeconds = max(0, ms / 1000)
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let seconds = totalSeconds % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            : String(format: "%d:%02d", minutes, seconds)
+    }
+}

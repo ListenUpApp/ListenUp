@@ -39,16 +39,16 @@ struct PDFKitView: UIViewRepresentable {
            let page = document.page(at: target),
            uiView.currentPage !== page {
             uiView.go(to: page)
-            DispatchQueue.main.async { goToPage = nil }
+            Task { @MainActor in goToPage = nil }
         }
         if clearHighlight {
             uiView.highlightedSelections = []
-            DispatchQueue.main.async { clearHighlight = false }
+            Task { @MainActor in clearHighlight = false }
         } else if let sel = highlightSelection {
             uiView.go(to: sel)
             uiView.setCurrentSelection(sel, animate: false)
             uiView.highlightedSelections = [sel]
-            DispatchQueue.main.async { highlightSelection = nil }
+            Task { @MainActor in highlightSelection = nil }
         }
     }
 

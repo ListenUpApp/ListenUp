@@ -14,6 +14,7 @@ struct SectionIndexBar: View {
 
     @State private var selectedLetter: String?
     @State private var isDragging = false
+    @State private var endDragTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -103,13 +104,16 @@ struct SectionIndexBar: View {
     }
 
     private func endDrag() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+        endDragTask?.cancel()
+        endDragTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            selectedLetter = nil
+            try? await Task.sleep(for: .milliseconds(200))   // 0.3s + 0.2s = the original 0.5s point
+            guard !Task.isCancelled else { return }
             withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) {
                 isDragging = false
             }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            selectedLetter = nil
         }
     }
 }

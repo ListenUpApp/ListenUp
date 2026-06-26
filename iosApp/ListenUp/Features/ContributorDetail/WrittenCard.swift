@@ -30,18 +30,11 @@ struct WrittenCard: View {
                 .font(.footnote)
                 .foregroundStyle(Color.luLabel2)
                 .lineLimit(1)
-            Text(formatDuration(book.duration))
+            Text(DurationFormatting.hoursMinutes(ms: book.duration))
                 .font(.caption)
                 .foregroundStyle(Color.luLabel3)
                 .padding(.top, 1)
         }
         .frame(width: width)
-    }
-
-    private func formatDuration(_ ms: Int64) -> String {
-        let totalMinutes = Int(ms / 60_000)
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        return hours > 0 ? "\(hours)h \(minutes)m" : "\(minutes)m"
     }
 }

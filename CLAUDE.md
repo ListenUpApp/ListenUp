@@ -257,6 +257,8 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 
 **†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
 
+> **iOS local gate:** `Build (iOS)` (`xcodebuild build`) does **not** compile `ListenUpTests`. Before pushing iOS changes from a Mac, also run `xcodebuild build-for-testing` (or the full `Test (iOS)` command) so test-target drift can't slip to CI.
+
 Rules:
 
 - Every applicable command above must pass before `git push` (iOS gates skipped only when off a Mac).
