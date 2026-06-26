@@ -19,7 +19,10 @@ import Testing
 struct BootSequenceTests {
 
     /// Records the two boot side effects via an `AsyncGate` so the fire-and-forget `activate()`
-    /// can be awaited by causality rather than a wall-clock sleep.
+    /// can be awaited by causality rather than a wall-clock sleep. `@MainActor`-isolated so it
+    /// can construct the `@MainActor`-isolated `SyncSessionController` (the outer suite's
+    /// `@MainActor` does not propagate into a nested type).
+    @MainActor
     private final class BootRecorder: @unchecked Sendable {
         private(set) var connectCount = 0
         private(set) var resumeCount = 0
