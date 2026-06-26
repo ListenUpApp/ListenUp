@@ -116,26 +116,16 @@ struct ImportFlowObserverTests {
 
     // MARK: - Hub stage classification
 
-    @Test func stageMapsAnalyzingStatuses() {
-        #expect(ImportStage.from(status: "analyzing") == .analyzing)
-        #expect(ImportStage.from(status: "ANALYZING") == .analyzing)
-    }
-
+    /// The four real `ImportStatus` cases each map to the correct display stage. These are the
+    /// only values the contract enum can emit, so the switch is exhaustive on them.
     @Test func stageMapsPendingStatuses() {
-        #expect(ImportStage.from(status: "uploaded") == .pending)
-        #expect(ImportStage.from(status: "analyzed") == .pending)
-        #expect(ImportStage.from(status: "pending") == .pending)
+        #expect(ImportStage.from(status: .uploaded) == .pending)
+        #expect(ImportStage.from(status: .analyzed) == .pending)
     }
 
     @Test func stageMapsReadyAndImported() {
-        #expect(ImportStage.from(status: "mapped") == .ready)
-        #expect(ImportStage.from(status: "ready") == .ready)
-        #expect(ImportStage.from(status: "applied") == .imported)
-        #expect(ImportStage.from(status: "imported") == .imported)
-    }
-
-    @Test func unknownStatusPassesThrough() {
-        #expect(ImportStage.from(status: "weird") == .other("weird"))
+        #expect(ImportStage.from(status: .mapped) == .ready)
+        #expect(ImportStage.from(status: .applied) == .imported)
     }
 
     // MARK: - Helpers
