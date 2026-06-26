@@ -15,4 +15,11 @@ class ZipEntryNamesTest :
             isSafeEntryName("a/../b") shouldBe false
             isSafeEntryName("") shouldBe false
         }
+
+        test("isSafeEntryName rejects names containing control characters") {
+            isSafeEntryName("x\u0000.txt") shouldBe false // NUL
+            isSafeEntryName("x\u0001.txt") shouldBe false // SOH
+            isSafeEntryName("..") shouldBe false
+            isSafeEntryName("foo/") shouldBe true
+        }
     })

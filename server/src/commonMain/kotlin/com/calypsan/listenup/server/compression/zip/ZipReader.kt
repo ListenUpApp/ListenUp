@@ -59,7 +59,7 @@ public class ZipReader(
         }
 
     /** The entries listed in the central directory, in directory order. */
-    public fun entries(): List<ZipEntryInfo> = parsedEntries
+    public fun entries(): List<ZipEntryInfo> = parsedEntries.toList()
 
     /** The entry named [name], or null if no entry has that exact name. */
     public fun entry(name: String): ZipEntryInfo? = parsedEntries.firstOrNull { it.name == name }
@@ -72,16 +72,34 @@ public class ZipReader(
      * past the end of the file.
      */
     public fun openEntry(entry: ZipEntryInfo): RawSource {
-        source.seek(entry.localHeaderOffset)
-        val lfh = Buffer().apply { write(source.readFully(LFH_FIXED_SIZE)) }
+        // Range-check the offset against the live file length first: the directory was validated at
+        // construction, but the file may have been truncated since (disk rot, partial write), and a
+        // crafted ZIP64 offset must never reach a raw read. `source.length - LFH_FIXED_SIZE` can't
+        // overflow; if the file is now shorter than a header, every non-negative offset is rejected.
+        if (entry.localHeaderOffset < 0 || entry.localHeaderOffset > source.length - LFH_FIXED_SIZE) {
+            throw MalformedZipException("local header offset ${entry.localHeaderOffset} out of range")
+        }
+        val lfh =
+            try {
+                source.seek(entry.localHeaderOffset)
+                Buffer().apply { write(source.readFully(LFH_FIXED_SIZE)) }
+            } catch (e: Exception) {
+                // The only failure the reads above can raise is a short/EOF read — meaning the file was
+                // truncated between the range check and this read (TOCTOU). Surface it as a malformed
+                // archive, never a raw EOFException.
+                throw MalformedZipException("entry '${entry.name}' has a truncated local header", e)
+            }
         if (lfh.readU32LE() != LFH_SIG) {
             throw MalformedZipException("entry '${entry.name}' has no local file header")
         }
         lfh.skip(LFH_PRE_NAME_LEN_BYTES) // straight to the nameLen/extraLen fields at offsets 26/28
         val nameLen = lfh.readU16LE()
         val extraLen = lfh.readU16LE()
+        // localHeaderOffset ≤ length − 30 and nameLen/extraLen are u16, so the sum can't overflow a Long.
         val dataStart = entry.localHeaderOffset + LFH_FIXED_SIZE + nameLen + extraLen
-        if (dataStart < 0 || dataStart + entry.compressedSize > source.length) {
+        if (dataStart < 0 || dataStart > source.length ||
+            entry.compressedSize < 0 || entry.compressedSize > source.length - dataStart
+        ) {
             throw MalformedZipException("entry '${entry.name}' data runs past end of file")
         }
         val bounded = BoundedEntrySource(entry.name, dataStart, entry.compressedSize)
@@ -116,6 +134,9 @@ public class ZipReader(
         var totalEntries: Long = totalEntries16.toLong()
         var cdSize: Long = cdSize32
         var cdOffset: Long = cdOffset32
+        // The directory must end exactly where its terminator begins: the classic EOCD when not ZIP64,
+        // the ZIP64 EOCD record when it is. This anchor is resolved alongside the sizes below.
+        var anchorOffset: Long = eocdAbs
 
         val needsZip64 =
             totalEntries16 == ZIP16_MAX || cdSize32 == ZIP64_U32_MAX || cdOffset32 == ZIP64_U32_MAX
@@ -124,9 +145,12 @@ public class ZipReader(
             totalEntries = z64.totalEntries
             cdSize = z64.cdSize
             cdOffset = z64.cdOffset
+            anchorOffset = z64.zip64EocdOffset
         }
 
-        if (cdOffset < 0 || cdSize < 0 || cdOffset > fileLen || cdOffset + cdSize > fileLen) {
+        // Operand-first bounds that can't overflow a Long: `fileLen - cdOffset` is safe once cdOffset is
+        // pinned to 0..fileLen, so cdSize is compared against the real remaining space, never a wrapped sum.
+        if (cdOffset < 0 || cdOffset > fileLen || cdSize < 0 || cdSize > fileLen - cdOffset) {
             throw MalformedZipException(
                 "central directory out of range (offset=$cdOffset size=$cdSize fileLen=$fileLen)",
             )
@@ -134,16 +158,36 @@ public class ZipReader(
         if (totalEntries < 0 || totalEntries > Int.MAX_VALUE) {
             throw MalformedZipException("implausible central-directory entry count ($totalEntries)")
         }
+        // Cross-check the declared directory size against the entry count BEFORE buffering it: every
+        // central-directory header is ≥ CDH_FIXED_SIZE and ≤ that plus a name/extra/comment of ≤ 65535
+        // each, so a crafted `cdSize = fileLen` with one entry rejects in O(1) instead of allocating the
+        // whole file onto the heap. (totalEntries is already pinned to 0..Int.MAX_VALUE, so no overflow.)
+        val maxCdSize = totalEntries * (CDH_FIXED_SIZE + 3L * ZIP16_MAX)
+        if (cdSize > maxCdSize) {
+            throw MalformedZipException(
+                "central directory size $cdSize implausible for $totalEntries entries",
+            )
+        }
+        // Self-consistency anchor: the directory must abut its terminator. This stops a stray EOCD-shaped
+        // signature embedded in entry data from redirecting the parser at attacker-chosen bytes. Safe to
+        // sum here because the range guard above already bounded both operands to ≤ fileLen.
+        if (cdOffset + cdSize != anchorOffset) {
+            throw MalformedZipException("central directory does not abut the end-of-central-directory record")
+        }
 
         val cd = readExactly(cdOffset, cdSize)
         return parseHeaders(cd, totalEntries.toInt(), fileLen)
     }
 
-    /** The three count/size/offset values recovered from a ZIP64 end-of-central-directory record. */
+    /**
+     * The count/size/offset values recovered from a ZIP64 end-of-central-directory record, plus
+     * [zip64EocdOffset] — the record's own absolute offset, which the directory must abut.
+     */
     private class Zip64Eocd(
         val totalEntries: Long,
         val cdSize: Long,
         val cdOffset: Long,
+        val zip64EocdOffset: Long,
     )
 
     /**
@@ -161,7 +205,9 @@ public class ZipReader(
         if (locator.readU32LE() != ZIP64_LOCATOR_SIG) throw MalformedZipException("bad ZIP64 EOCD locator signature")
         locator.skip(4) // diskWithZip64Eocd
         val zip64EocdOffset = locator.readU64LE()
-        if (zip64EocdOffset < 0 || zip64EocdOffset + ZIP64_EOCD_SIZE > fileLen) {
+        // Operand-first bound: `fileLen - ZIP64_EOCD_SIZE` can't overflow, and a u64 offset near Long.MAX
+        // (or negative) is rejected before any seek.
+        if (zip64EocdOffset < 0 || zip64EocdOffset > fileLen - ZIP64_EOCD_SIZE) {
             throw MalformedZipException("ZIP64 EOCD offset out of range ($zip64EocdOffset)")
         }
         source.seek(zip64EocdOffset)
@@ -172,7 +218,7 @@ public class ZipReader(
         val totalEntries = z.readU64LE()
         val cdSize = z.readU64LE()
         val cdOffset = z.readU64LE()
-        return Zip64Eocd(totalEntries, cdSize, cdOffset)
+        return Zip64Eocd(totalEntries, cdSize, cdOffset, zip64EocdOffset)
     }
 
     /** Parses [count] central-directory headers out of [cd], resolving ZIP64 overflow per entry. */
@@ -218,7 +264,7 @@ public class ZipReader(
 
             val (compSize, uncompSize, localOffset) =
                 resolveZip64(name, extra, compSize32, uncompSize32, localOffset32)
-            if (localOffset < 0 || localOffset + LFH_FIXED_SIZE > fileLen) {
+            if (localOffset < 0 || localOffset > fileLen - LFH_FIXED_SIZE) {
                 throw MalformedZipException("local header offset out of range for '$name'")
             }
             if (compSize < 0 || compSize > fileLen || uncompSize < 0) {
