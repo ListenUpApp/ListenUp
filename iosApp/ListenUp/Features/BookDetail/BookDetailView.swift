@@ -61,7 +61,7 @@ struct BookDetailView: View {
                     bookId: bookId,
                     title: observer.title,
                     author: observer.heroAuthors.first?.name ?? "",
-                    asin: observer.book?.asin
+                    asin: observer.asin
                 )
             }
         }
@@ -125,7 +125,7 @@ struct BookDetailView: View {
     private func compactContent(_ observer: BookDetailObserver) -> some View {
         VStack(spacing: 24) {
             BookDetailHero(
-                book: observer.book,
+                header: observer.header,
                 title: observer.title,
                 subtitle: observer.subtitle,
                 series: observer.series,
@@ -183,7 +183,7 @@ struct BookDetailView: View {
         HStack(alignment: .top, spacing: 44) {
             VStack(spacing: 20) {
                 BookDetailHero(
-                    book: observer.book,
+                    header: observer.header,
                     title: observer.title,
                     subtitle: observer.subtitle,
                     series: observer.series,
@@ -276,9 +276,9 @@ struct BookDetailView: View {
             narrators: observer.narrators,
             lengthLabel: observer.duration,
             chapterCount: observer.chapters.count,
-            publisher: observer.book?.publisher,
+            publisher: observer.publisher,
             released: observer.year.map(String.init),
-            language: observer.book?.language,
+            language: observer.language,
             format: audioFormat.format,
             bitrate: audioFormat.bitrate,
             sampleRate: audioFormat.sampleRate,

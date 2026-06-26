@@ -1,5 +1,4 @@
 import SwiftUI
-@preconcurrency import Shared
 
 /// Centered hero for the redesigned Book Detail screen.
 ///
@@ -12,8 +11,9 @@ import SwiftUI
 /// (`SeriesDestination`, `ContributorDestination`). The assembly screen wires it to
 /// `BookDetailObserver`.
 struct BookDetailHero: View {
-    /// The book, used only to resolve the series-pill navigation target.
-    let book: BookDetail?
+    /// The book's cover-lookup fields and series-pill navigation target, projected to a
+    /// native value at the observer boundary so the hero never re-bridges the Kotlin object.
+    let header: BookDetailHeaderModel?
     let title: String
     /// Optional book subtitle, shown under the title when present.
     let subtitle: String?
@@ -83,13 +83,17 @@ struct BookDetailHero: View {
         ZStack {
             // A soft halo of the cover's own colours, contained directly behind the crisp cover.
             CoverGlow(
-                bookId: book?.idString,
-                coverPath: book?.coverPath,
-                blurHash: book?.coverBlurHash,
+                bookId: header?.coverBookId,
+                coverPath: header?.coverPath,
+                blurHash: header?.coverBlurHash,
                 size: coverSize
             )
 
-            BookCoverImage(bookId: book?.idString, coverPath: book?.coverPath, blurHash: book?.coverBlurHash)
+            BookCoverImage(
+                bookId: header?.coverBookId,
+                coverPath: header?.coverPath,
+                blurHash: header?.coverBlurHash
+            )
                 .frame(width: coverSize, height: coverSize)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .shadow(color: .black.opacity(0.18), radius: 16, x: 0, y: 8)
@@ -100,7 +104,7 @@ struct BookDetailHero: View {
     // MARK: - Series pill
 
     private func seriesPill(_ series: String) -> some View {
-        NavigationLink(value: SeriesDestination(id: book?.seriesId ?? "")) {
+        NavigationLink(value: SeriesDestination(id: header?.seriesId ?? "")) {
             HStack(spacing: 6) {
                 Image(systemName: "book")
                     .font(.caption2.weight(.semibold))
@@ -232,12 +236,12 @@ struct BookDetailHero: View {
 // MARK: - Preview
 
 #Preview("Hero") {
-    // Kotlin objects can't be constructed in previews, so `book` is nil and the
-    // narrator chips fall back to the plain text path.
+    // `header` is nil so no cover loads, and the narrator chips fall back to the plain
+    // text path.
     ScrollView {
         VStack(spacing: 40) {
             BookDetailHero(
-                book: nil,
+                header: nil,
                 title: "A Game of Thrones",
                 subtitle: "A Song of Ice and Fire, Book One",
                 series: "A Song of Ice and Fire · Book 1",
@@ -252,7 +256,7 @@ struct BookDetailHero: View {
             )
 
             BookDetailHero(
-                book: nil,
+                header: nil,
                 title: "The Way of Kings",
                 subtitle: nil,
                 series: nil,
