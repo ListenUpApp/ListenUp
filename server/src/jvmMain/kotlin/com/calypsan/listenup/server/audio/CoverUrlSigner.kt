@@ -24,11 +24,14 @@ import kotlin.time.Duration.Companion.hours
  * audio signer's label, ensuring an audio signature can never authorize a
  * cover request and vice versa.
  *
+ * This class deliberately mirrors [AudioUrlSigner]; the constant-time
+ * comparison and the hex-length guard must stay in sync between the two
+ * (a shared base is a deferred follow-up).
+ *
  * @param signingKey derived from the JWT secret so operators manage no new
  *   secret: `HMAC-SHA256(jwtSecret, "listenup-cover-url-v1")`.
  * @param ttl default 12h — consistent with [AudioUrlSigner].
  */
-@OptIn(kotlin.time.ExperimentalTime::class)
 class CoverUrlSigner(
     signingKey: ByteArray,
     private val ttl: Duration = 12.hours,
