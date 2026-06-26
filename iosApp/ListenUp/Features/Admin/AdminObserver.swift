@@ -197,16 +197,11 @@ enum AdminRoleFormat {
 // MARK: - ISO date parsing
 
 /// Parses the server's ISO-8601 timestamps (the admin domain carries dates as ISO strings).
-/// Tolerant of a fractional-seconds suffix, which `ISO8601DateFormatter` rejects by default.
+/// Tolerant of a fractional-seconds suffix, which the plain internet-date style rejects.
+/// Uses value-type `Date.ISO8601FormatStyle` parse styles — no shared mutable formatter.
 enum ISO8601DateParser {
-    nonisolated(unsafe) private static let plain = ISO8601DateFormatter()
-    nonisolated(unsafe) private static let fractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
     static func date(from string: String) -> Date? {
-        fractional.date(from: string) ?? plain.date(from: string)
+        (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string))
+            ?? (try? Date.ISO8601FormatStyle().parse(string))
     }
 }

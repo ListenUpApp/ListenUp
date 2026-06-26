@@ -1,3 +1,4 @@
+import os
 import PDFKit
 import SwiftUI
 
@@ -13,24 +14,20 @@ struct PdfSearchHit: Identifiable {
 /// Owns the PDFKit async find lifecycle for one document. Debounced, cancel-on-new-query.
 ///
 /// **Threading:** PDFKit's `beginFindString` searches asynchronously and posts
-/// `PDFDocumentDidFindMatch` / `PDFDocumentDidEndFind` from a background thread. We register
-/// observers using the **closure form** (`addObserver(forName:object:queue:using:)`) with
-/// `queue: .main`, which causes NotificationCenter to dispatch every callback on the main
-/// queue regardless of the posting thread. This makes delivery main-thread-safe without any
-/// hops or assertions.
+/// `PDFDocumentDidFindMatch` / `PDFDocumentDidEndFind` from a background thread. Instead of
+/// closure observers, we drain `NotificationCenter.default.notifications(named:object:)` in
+/// two `@MainActor` `Task`s the controller owns. The `for await` loop bodies run on the main
+/// actor, so the (non-`Sendable`) `PDFSelection` is created and read there — no thread hop and
+/// no isolation-assertion, no transfer wrapper.
 ///
-/// **Swift 6 / non-Sendable `PDFSelection`:** `PDFSelection` is not `Sendable` because
-/// PDFKit predates Swift concurrency annotations. The `queue: .main` closure runs on the
-/// main thread, so the selection is both created and read there. `SelectionTransfer` is a
-/// confined one-shot wrapper that satisfies the `@Sendable` closure requirement without
-/// crossing any thread boundary — the wrapped value is extracted immediately on the same
-/// main-queue invocation it arrived on.
+/// **Task lifecycle:** the two drain tasks are stored in a `Sendable`, lock-guarded box so the
+/// nonisolated `deinit` of this `@MainActor` class can cancel them without touching main-actor
+/// state. Cancelling the task ends its `for await`, which unsubscribes from NotificationCenter.
 ///
-/// **Observer token storage:** The tokens are held in a `nonisolated(unsafe)` array because
-/// `deinit` on a `@MainActor` class is nonisolated in Swift 6 and cannot read main-actor
-/// properties. The access pattern is safe: `setup()` writes the array once on the main actor
-/// before any notification can fire; `deinit` reads it once after all callers have released
-/// their last reference. No concurrent access is possible.
+/// **Match vs. end ordering:** matches arrive on one stream and are appended in post order, so
+/// no highlight is missed or duplicated. `isSearching` clears off the separate end stream; the
+/// only observable divergence from synchronous `queue: .main` delivery is that the spinner may
+/// hide a hair before the very last buffered match lands — benign (hits still populate after).
 ///
 /// **Hit cap:** results are capped at `maxHits` to bound memory and snippet-computation
 /// cost for common queries in large documents.
@@ -43,24 +40,15 @@ final class PdfSearchController {
 
     private let document: PDFDocument
     private var debounceTask: Task<Void, Never>?
-    // nonisolated(unsafe) is intentional: written once in setup() on the main actor before
-    // any notification fires; read once in deinit after all strong references are gone.
-    // No concurrent access is possible, so this is safe despite the annotation.
-    // (Plain `nonisolated` can't apply to this @Observable mutable stored property; the
-    //  "has no effect" warning is a known false-positive here.)
-    nonisolated(unsafe) private var observerTokens: [NSObjectProtocol] = []
+
+    /// Lock-guarded handles to the two notification-drain tasks. `Sendable`, so the nonisolated
+    /// `deinit` can cancel them; the lock is the synchronization boundary for the start/teardown
+    /// race between `init` (main actor) and `deinit` (nonisolated).
+    private let drainTasks = OSAllocatedUnfairLock<[Task<Void, Never>]>(initialState: [])
 
     /// Maximum number of search hits retained. Once reached, further matches are dropped
     /// and the find is cancelled to avoid unbounded growth on common queries.
     private let maxHits = 500
-
-    /// One-shot transfer of a `PDFSelection` from a `queue: .main` notification closure
-    /// into the `@MainActor`-isolated append method. The selection is always created and
-    /// read on the main thread; this wrapper satisfies `@Sendable` for the notification
-    /// block while keeping the value main-confined.
-    private struct SelectionTransfer: @unchecked Sendable {
-        let selection: PDFSelection
-    }
 
     init(document: PDFDocument) {
         self.document = document
@@ -68,39 +56,33 @@ final class PdfSearchController {
     }
 
     private func setup() {
-        // `object: document` scopes both notifications to this document instance only.
-        // `queue: .main` guarantees main-thread delivery regardless of PDFKit's posting thread.
-        let matchObserver = NotificationCenter.default.addObserver(
-            forName: .PDFDocumentDidFindMatch,
-            object: document,
-            queue: .main
-        ) { [weak self] note in
-            guard let self,
-                  let sel = note.userInfo?[PDFDocumentFoundSelectionKey] as? PDFSelection
-            else { return }
-            let transfer = SelectionTransfer(selection: sel)
-            // The queue: .main registration guarantees this block runs on the main queue,
-            // which is the main actor's executor, so assumeIsolated is sound here.
-            MainActor.assumeIsolated {
-                self.appendHit(transfer.selection)
+        // `object: document` scopes each stream to this document instance only.
+        let matchTask = Task { [weak self, document] in
+            let matches = NotificationCenter.default.notifications(
+                named: .PDFDocumentDidFindMatch, object: document
+            )
+            for await note in matches {
+                guard let self else { return }
+                guard let sel = note.userInfo?[PDFDocumentFoundSelectionKey] as? PDFSelection
+                else { continue }
+                self.appendHit(sel)
             }
         }
-        let endObserver = NotificationCenter.default.addObserver(
-            forName: .PDFDocumentDidEndFind,
-            object: document,
-            queue: .main
-        ) { [weak self] _ in
-            guard let self else { return }
-            MainActor.assumeIsolated {
+        let endTask = Task { [weak self, document] in
+            let ends = NotificationCenter.default.notifications(
+                named: .PDFDocumentDidEndFind, object: document
+            )
+            for await _ in ends {
+                guard let self else { return }
                 self.isSearching = false
             }
         }
-        observerTokens = [matchObserver, endObserver]
+        drainTasks.withLock { $0 = [matchTask, endTask] }
     }
 
     deinit {
-        for token in observerTokens {
-            NotificationCenter.default.removeObserver(token)
+        drainTasks.withLock { tasks in
+            for task in tasks { task.cancel() }
         }
     }
 
