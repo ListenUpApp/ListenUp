@@ -181,7 +181,14 @@ actor AudioEngine: PlaybackEngine {
         queue = (startIndex..<segments.count).map { index in
             (item: AVPlayerItem(url: segments[index].url), segmentIndex: index)
         }
-        for entry in queue where player.canInsert(entry.item, after: nil) {
+        for entry in queue {
+            guard player.canInsert(entry.item, after: nil) else {
+                // A rejected segment would silently skip audio and corrupt the user's place.
+                // Surface it as a playback failure rather than dropping it without a trace.
+                Log.error("AVQueuePlayer rejected segment \(entry.segmentIndex); aborting queue build")
+                continuation.yield(.failed(message: "Couldn't start audio playback."))
+                return
+            }
             player.insert(entry.item, after: nil)
         }
     }
