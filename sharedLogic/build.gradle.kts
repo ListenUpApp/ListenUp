@@ -182,6 +182,19 @@ tasks.named<Test>("jvmTest") {
     maxHeapSize = "2g"
 }
 
+// androidHostTest compiles commonTest sources (which include Konsist rules) but is not part
+// of the jvmTest source set tree, so konsist isn't on its classpath by default. Add it
+// directly to the generated configuration. The JUnit 5 runner mirrors jvmTest so that
+// Kotest FunSpec specs execute identically on both host-test surfaces.
+dependencies {
+    "androidHostTestImplementation"(libs.konsist)
+    "androidHostTestImplementation"(libs.kotest.runner.junit5)
+}
+
+tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
+    if (this is Test) useJUnitPlatform()
+}
+
 // Define Room Schema location (optional but good practice)
 room {
     schemaDirectory("$projectDir/schemas")
