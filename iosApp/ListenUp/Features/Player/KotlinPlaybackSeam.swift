@@ -8,29 +8,41 @@ struct KotlinPlaybackPreparing: PlaybackPreparing {
     let preparer: PlaybackPreparer
 
     func prepare(bookId: String) async -> PreparedPlayback? {
-        guard let prepared = try? await preparer.prepare(
-            bookId: BookId(value: bookId)
-        ) else { return nil }
-        return PreparedPlayback(
-            bookTitle: prepared.bookTitle,
-            bookAuthor: prepared.bookAuthor,
-            bookNarrator: prepared.bookNarrator,
-            coverPath: prepared.coverPath,
-            resumeSpeed: prepared.resumeSpeed,
-            resumePositionMs: prepared.resumePositionMs,
-            chapters: Array(prepared.chapters),
-            timeline: PreparedTimeline(
-                totalDurationMs: prepared.timeline.totalDurationMs,
-                files: prepared.timeline.files.map { file in
-                    PreparedFile(
-                        localPath: file.localPath,
-                        streamingUrl: file.streamingUrl,
-                        durationMs: file.durationMs,
-                        startOffsetMs: file.startOffsetMs
-                    )
-                }
+        // The Kotlin `prepare` returns `PreparedPlayback?` (nullable), logging its own
+        // failures and returning `nil`. Swift Export exposes it as `async throws`, so an
+        // infra fault (auth/network) can still throw. Split the two so a thrown error is
+        // surfaced (no longer silently dropped); type inference avoids naming the bridged
+        // Kotlin type, which collides with the native `PreparedPlayback` struct below.
+        do {
+            guard let prepared = try await preparer.prepare(bookId: BookId(value: bookId)) else {
+                return nil
+            }
+            return PreparedPlayback(
+                bookTitle: prepared.bookTitle,
+                bookAuthor: prepared.bookAuthor,
+                bookNarrator: prepared.bookNarrator,
+                coverPath: prepared.coverPath,
+                resumeSpeed: prepared.resumeSpeed,
+                resumePositionMs: prepared.resumePositionMs,
+                chapters: Array(prepared.chapters),
+                timeline: PreparedTimeline(
+                    totalDurationMs: prepared.timeline.totalDurationMs,
+                    files: prepared.timeline.files.map { file in
+                        PreparedFile(
+                            localPath: file.localPath,
+                            streamingUrl: file.streamingUrl,
+                            durationMs: file.durationMs,
+                            startOffsetMs: file.startOffsetMs
+                        )
+                    }
+                )
             )
-        )
+        } catch is CancellationError {
+            return nil
+        } catch {
+            Log.error("PlaybackPreparer.prepare failed for \(bookId)", error: error)
+            return nil
+        }
     }
 }
 
@@ -64,7 +76,8 @@ struct KotlinProgressReporting: PlaybackProgressReporting {
 
 /// Bridges the KMP `SleepTimerManager`'s `StateFlow`/`Channel` into native
 /// `AsyncStream`s via the existing `FlowBridge` collection mechanism.
-final class KotlinSleepTiming: SleepTiming, @unchecked Sendable {
+@MainActor
+final class KotlinSleepTiming: SleepTiming {
     private let manager: SleepTimerManager
     private let bridge: FlowBridge
     let stateStream: AsyncStream<SleepTimingState>
@@ -72,10 +85,6 @@ final class KotlinSleepTiming: SleepTiming, @unchecked Sendable {
     let fired: AsyncStream<Void>
     private let firedContinuation: AsyncStream<Void>.Continuation
 
-    // `@MainActor`: the only construction site is `Dependencies.playerCoordinator`
-    // (main-actor), and `FlowBridge` is main-actor-isolated. The protocol's
-    // requirements stay nonisolated; only construction is pinned to the main actor.
-    @MainActor
     init(manager: SleepTimerManager) {
         self.manager = manager
         self.bridge = FlowBridge()
@@ -117,16 +126,14 @@ final class KotlinSleepTiming: SleepTiming, @unchecked Sendable {
 /// Bridges `PlaybackPreferences`' reactive skip-interval `Flow<Int>`s into native
 /// `AsyncStream<Int>`s. The shared store emits the current value on first collect and
 /// re-emits on every write (from any surface), so the player tracks the setting live.
-final class KotlinSkipIntervalProviding: SkipIntervalProviding, @unchecked Sendable {
+@MainActor
+final class KotlinSkipIntervalProviding: SkipIntervalProviding {
     private let bridge: FlowBridge
     let forwardSeconds: AsyncStream<Int>
     private let forwardContinuation: AsyncStream<Int>.Continuation
     let backwardSeconds: AsyncStream<Int>
     private let backwardContinuation: AsyncStream<Int>.Continuation
 
-    // `@MainActor`: constructed only from `Dependencies.playerCoordinator` (main actor);
-    // `FlowBridge` is main-actor-isolated. The protocol requirements stay nonisolated.
-    @MainActor
     init(preferences: PlaybackPreferences) {
         self.bridge = FlowBridge()
         var fc: AsyncStream<Int>.Continuation!
@@ -165,8 +172,16 @@ struct KotlinBookDocumentProviding: BookDocumentProviding {
         // `observeDocuments` is a Kotlin Flow; Swift Export exposes it as an AsyncSequence
         // via `asAsyncSequence()`. Take the first emission — the Room store reflects the
         // last sync, so one read is sufficient here (the coordinator re-reads on each book load).
-        guard let docs = try? await repository.observeDocuments(bookId: BookId(value: bookId))
-            .asAsyncSequence().first(where: { _ in true }) else {
+        let docs: [BookDocument]
+        do {
+            // No emission (no docs yet) → nil → empty list, distinct from a thrown query error.
+            docs = try await repository.observeDocuments(bookId: BookId(value: bookId))
+                .asAsyncSequence().first(where: { _ in true }) ?? []
+        } catch is CancellationError {
+            return nil
+        } catch {
+            // A thrown Flow/DB error is no longer conflated with "no PDF" — surface why.
+            Log.warning("observeDocuments failed for \(bookId): \(error.localizedDescription)")
             return nil
         }
         // `BookDocument.format` is a plain Kotlin String; Swift Export exposes it directly.

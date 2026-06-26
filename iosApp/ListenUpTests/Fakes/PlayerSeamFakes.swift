@@ -97,7 +97,8 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
     }
 }
 
-final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
+@MainActor
+final class FakeSleepTiming: SleepTiming {
     let stateStream: AsyncStream<SleepTimingState>
     private let stateContinuation: AsyncStream<SleepTimingState>.Continuation
     let fired: AsyncStream<Void>
@@ -133,7 +134,8 @@ final class FakeSleepTiming: SleepTiming, @unchecked Sendable {
     }
 }
 
-final class FakeSkipIntervalProviding: SkipIntervalProviding, @unchecked Sendable {
+@MainActor
+final class FakeSkipIntervalProviding: SkipIntervalProviding {
     let forwardSeconds: AsyncStream<Int>
     private let forwardContinuation: AsyncStream<Int>.Continuation
     let backwardSeconds: AsyncStream<Int>
