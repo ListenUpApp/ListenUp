@@ -107,15 +107,16 @@ enum ImportStage: Equatable {
     case imported
     case other(String)
 
-    /// Pure: classify the wire `status` string into a display stage. Mirrors the Android
-    /// hub's status badges.
-    static func from(status: String) -> ImportStage {
-        switch status.lowercased() {
-        case "analyzing": return .analyzing
-        case "uploaded", "pending", "analyzed": return .pending
-        case "mapped", "ready": return .ready
-        case "applied", "imported": return .imported
-        default: return .other(status)
+    /// Pure: classify the typed `ImportStatus` into a display stage. Mirrors the Android
+    /// hub's status badges. Switches on the bridged Kotlin enum so the four real lifecycle
+    /// states (`uploaded`/`analyzed`/`mapped`/`applied`) are exhaustive and a contract change
+    /// surfaces at compile time. (Swift Export camelCases the Kotlin `SCREAMING_SNAKE` cases.)
+    static func from(status: ImportStatus) -> ImportStage {
+        switch status {
+        case .uploaded, .analyzed: return .pending
+        case .mapped: return .ready
+        case .applied: return .imported
+        @unknown default: return .other(status.description)
         }
     }
 }
@@ -131,7 +132,7 @@ struct ImportSummaryRowModel: Identifiable, Equatable {
     init(from summary: ImportSummary) {
         self.id = summary.idString
         self.createdAt = Date(timeIntervalSince1970: Double(summary.createdAt) / 1000)
-        self.stage = ImportStage.from(status: summary.statusName)
+        self.stage = ImportStage.from(status: summary.status)
         self.bookCount = Int(summary.bookCount)
     }
 
