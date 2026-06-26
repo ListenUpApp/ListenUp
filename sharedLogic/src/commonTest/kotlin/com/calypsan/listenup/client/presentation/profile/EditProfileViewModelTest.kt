@@ -147,7 +147,7 @@ class EditProfileViewModelTest :
                 // FormState equal to the initial FormState(). The old code mutated formFlow to
                 // that identical value and waited for a re-emission that StateFlow conflated
                 // away — leaving the Edit Profile screen stuck on the Loading spinner forever.
-                val user = createUser(firstName = null, lastName = null, tagline = null)
+                val user = createUser(displayName = "", firstName = null, lastName = null, tagline = null)
                 val fixture = createFixture().apply { configure(currentUser = user) }
                 val viewModel = fixture.build()
                 keepStateHot(viewModel)
@@ -158,6 +158,38 @@ class EditProfileViewModelTest :
                 ready.lastName shouldBe ""
                 ready.tagline shouldBe ""
                 ready.isDirty shouldBe false
+            }
+        }
+
+        test("Ready seeds first/last from displayName when stored names are null") {
+            runTest {
+                val user = createUser(displayName = "Ada Lovelace", firstName = null, lastName = null)
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
+                ready.firstName shouldBe "Ada"
+                ready.lastName shouldBe "Lovelace"
+                ready.isDirty shouldBe false
+            }
+        }
+
+        test("save() with derived names and no edits does not call updateProfile") {
+            runTest {
+                val user = createUser(displayName = "Ada Lovelace", firstName = null, lastName = null, tagline = null)
+                val fixture = createFixture().apply { configure(currentUser = user) }
+                val viewModel = fixture.build()
+                keepStateHot(viewModel)
+                advanceUntilIdle()
+
+                viewModel.save()
+                advanceUntilIdle()
+
+                verifySuspend(dev.mokkery.verify.VerifyMode.not) {
+                    fixture.profileEditRepository.updateProfile(any(), any(), any(), any())
+                }
             }
         }
 
