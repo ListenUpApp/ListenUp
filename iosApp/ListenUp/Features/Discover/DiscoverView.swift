@@ -21,10 +21,14 @@ import Shared
 struct DiscoverView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dependencies) private var deps
 
     @State private var discover: DiscoverObserver?
     @State private var leaderboard: LeaderboardObserver?
     @State private var activity: ActivityFeedObserver?
+    /// One observer shared across all of Discover's book rails → screen-wide selection (de-dup by
+    /// id is automatic via the shared `Set` in the VM).
+    @State private var selection: BookSelectionObserver?
 
     private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -50,10 +54,14 @@ struct DiscoverView: View {
                 .buttonStyle(.plain)
             }
         }
+        .bookSelectionChrome(selection)
         .onAppear {
             if discover == nil { discover = DiscoverObserver() }
             if leaderboard == nil { leaderboard = LeaderboardObserver() }
             if activity == nil { activity = ActivityFeedObserver() }
+            if selection == nil {
+                selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
+            }
             leaderboard?.setCurrentUserId(user?.idString)
         }
         .onChange(of: user?.idString) { _, newId in
@@ -74,19 +82,22 @@ struct DiscoverView: View {
                 NewForYouSection(
                     phase: discover.newForYou,
                     cardWidth: railCardWidth,
-                    horizontalInset: horizontalInset
+                    horizontalInset: horizontalInset,
+                    selection: selection
                 )
 
                 RecentlyAddedSection(
                     phase: discover.recentlyAdded,
                     cardWidth: railCardWidth,
-                    horizontalInset: horizontalInset
+                    horizontalInset: horizontalInset,
+                    selection: selection
                 )
 
                 CurrentlyListeningSection(
                     phase: discover.currentlyListening,
                     cardWidth: railCardWidth,
-                    horizontalInset: horizontalInset
+                    horizontalInset: horizontalInset,
+                    selection: selection
                 )
 
                 socialSections(leaderboard: leaderboard, activity: activity)

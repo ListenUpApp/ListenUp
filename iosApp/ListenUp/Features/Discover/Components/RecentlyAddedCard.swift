@@ -4,9 +4,13 @@ import SwiftUI
 /// calmer relative "added" caption ("2d ago"). Tapping navigates to the book's detail.
 /// Width is width-driven by the caller (wider on iPad) so the rail reads as a real layout
 /// at every size.
+///
+/// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
+/// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
 struct RecentlyAddedCard: View {
     let book: RecentlyAddedBook
     let width: CGFloat
+    var selection: BookSelectionObserver?
 
     private static let relativeFormatter: RelativeDateTimeFormatter = {
         let formatter = RelativeDateTimeFormatter()
@@ -19,12 +23,13 @@ struct RecentlyAddedCard: View {
     }
 
     var body: some View {
-        NavigationLink(value: BookDestination(id: book.id)) {
+        SelectableBookCard(bookId: book.id, selection: selection) {
             VStack(alignment: .leading, spacing: 8) {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, blurHash: book.blurHash)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                    .bookSelectionCircle(bookId: book.id, selection: selection)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(book.title)
@@ -40,7 +45,6 @@ struct RecentlyAddedCard: View {
             .frame(width: width, alignment: .leading)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(book.title)
         .accessibilityValue(addedLabel)

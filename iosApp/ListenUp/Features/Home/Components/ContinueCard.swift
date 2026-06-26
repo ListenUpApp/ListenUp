@@ -7,18 +7,22 @@ import SwiftUI
 ///
 /// When `item.isLoading` is true the card renders a shimmer skeleton instead of real content —
 /// a sync is in flight and the book's data hasn't landed yet.
+///
+/// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
+/// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
+/// Loading skeletons never participate in selection.
 struct ContinueCard: View {
     let item: ContinueItem
     let width: CGFloat
+    var selection: BookSelectionObserver?
 
     var body: some View {
         if item.isLoading {
             skeleton
         } else {
-            NavigationLink(value: BookDestination(id: item.id)) {
+            SelectableBookCard(bookId: item.id, selection: selection) {
                 content
             }
-            .buttonStyle(.pressScaleCard)
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(item.title), \(item.author)")
             .accessibilityValue(String(format: String(localized: "home.progress_percent"), item.progressPercent))
@@ -41,6 +45,7 @@ struct ContinueCard: View {
                         .background(.regularMaterial, in: Circle())
                         .padding(8)
                 }
+                .bookSelectionCircle(bookId: item.id, selection: selection)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)

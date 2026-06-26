@@ -3,17 +3,22 @@ import SwiftUI
 /// A cover card in the "New for You" rail: a rounded cover with the author below and
 /// a calmer caption. Tapping navigates to the book's detail. Width is width-driven by
 /// the caller (wider on iPad) so the rail reads as a real layout at every size.
+///
+/// When `selection` is supplied and selecting, the cover shows a selection circle and a tap toggles
+/// selection instead of navigating; a long-press is the secondary entry. `nil` = navigation only.
 struct DiscoverCoverCard: View {
     let book: DiscoverBook
     let width: CGFloat
+    var selection: BookSelectionObserver?
 
     var body: some View {
-        NavigationLink(value: BookDestination(id: book.id)) {
+        SelectableBookCard(bookId: book.id, selection: selection) {
             VStack(alignment: .leading, spacing: 8) {
                 BookCoverImage(bookId: book.id, coverPath: book.coverPath, blurHash: book.blurHash)
                     .frame(width: width, height: width)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
                     .shadow(color: .black.opacity(0.12), radius: 6, x: 0, y: 3)
+                    .bookSelectionCircle(bookId: book.id, selection: selection)
 
                 if let author = book.author, !author.isEmpty {
                     Text(author)
@@ -30,7 +35,6 @@ struct DiscoverCoverCard: View {
             .frame(width: width, alignment: .leading)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.pressScaleCard)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(book.author.map { "\(book.title), \($0)" } ?? book.title)
     }

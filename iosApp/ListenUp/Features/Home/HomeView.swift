@@ -16,9 +16,13 @@ import Shared
 struct HomeView: View {
     @Environment(CurrentUserObserver.self) private var userObserver
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.dependencies) private var deps
 
     @State private var home: HomeViewModelWrapper?
     @State private var stats: HomeStatsObserver?
+    /// One observer shared across Home's book carousels → screen-wide selection (de-dup by id is
+    /// automatic via the shared `Set` in the VM).
+    @State private var selection: BookSelectionObserver?
 
     private var user: User? { userObserver.user }
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
@@ -44,9 +48,13 @@ struct HomeView: View {
                 .buttonStyle(.plain)
             }
         }
+        .bookSelectionChrome(selection)
         .onAppear {
             if home == nil { home = HomeViewModelWrapper() }
             if stats == nil { stats = HomeStatsObserver() }
+            if selection == nil {
+                selection = BookSelectionObserver(viewModel: deps.createBookMultiSelectViewModel())
+            }
         }
     }
 
@@ -143,7 +151,7 @@ struct HomeView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
                         ForEach(items) { item in
-                            ContinueCard(item: item, width: continueCardWidth)
+                            ContinueCard(item: item, width: continueCardWidth, selection: selection)
                         }
                     }
                     .padding(.horizontal, horizontalInset)
