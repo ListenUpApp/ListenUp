@@ -49,7 +49,8 @@ import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
 import com.calypsan.listenup.server.seed.SeedRunner
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.installAppErrorStatusPages
-import com.calypsan.listenup.server.plugins.installCallIdAndLogging
+import com.calypsan.listenup.server.plugins.installCallId
+import com.calypsan.listenup.server.plugins.installCallLogging
 import com.calypsan.listenup.server.plugins.installJwtAuth
 import com.calypsan.listenup.server.plugins.installRateLimiting
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
@@ -317,7 +318,8 @@ private fun Application.installDependencies(
  * after [install] of Koin in [module] because each reads a Koin-provided collaborator.
  */
 private fun Application.installRequestPipeline() {
-    installCallIdAndLogging()
+    installCallId()
+    installCallLogging()
     installRateLimiting()
     installAppErrorStatusPages()
 }
@@ -353,7 +355,7 @@ fun Application.module() {
 
     val jwt by inject<JwtConfiguration>()
     val sessions by inject<SessionService>()
-    installJwtAuth(jwt, sessions)
+    installJwtAuth(jwt, sessions::isLive)
 
     installAppRoutes(homeDir)
 

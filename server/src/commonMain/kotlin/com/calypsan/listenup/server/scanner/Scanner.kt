@@ -32,7 +32,6 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlin.time.Clock
-import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
@@ -80,7 +79,6 @@ internal class Scanner(
     private val sidecarParsers: List<SidecarParser> = emptyList(),
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: () -> Long = { Clock.System.now().toEpochMilliseconds() },
-    @OptIn(ExperimentalUuidApi::class)
     private val correlationIdFactory: () -> String = { Uuid.random().toString() },
     private val coverSpool: CoverSpool? = null,
 ) : ScannerResultPort {

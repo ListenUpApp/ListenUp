@@ -2,29 +2,19 @@ package com.calypsan.listenup.server.plugins
 
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
-import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.callIdMdc
 import io.ktor.server.plugins.calllogging.CallLogging
 import org.slf4j.event.Level
-import java.util.UUID
-
-private const val REQUEST_ID_HEADER = "X-Request-Id"
-private const val MDC_KEY = "correlationId"
 
 /**
- * Generates a per-request correlation id, surfaces it on the response as
- * `X-Request-Id`, and binds it into the SLF4J MDC under `correlationId` for
- * the duration of the request scope.
+ * JVM request logging: binds the correlation id (from [installCallId]) into the SLF4J MDC under
+ * [MDC_KEY] and logs each request at INFO.
  *
- * The MDC value flows into the log pattern and into [io.ktor.server.plugins.callid.callId]
- * (used by `AppErrorStatusPages` to stamp the id onto wire errors).
+ * JVM-only — `ktor-server-call-logging` has no native artifact, so the native server omits this
+ * and installs only [installCallId]. Install order on the JVM is [installCallId] then
+ * [installCallLogging] so the correlation id exists before the MDC binding reads it.
  */
-fun Application.installCallIdAndLogging() {
-    install(CallId) {
-        generate { UUID.randomUUID().toString() }
-        verify { it.isNotBlank() }
-        replyToHeader(headerName = REQUEST_ID_HEADER)
-    }
+fun Application.installCallLogging() {
     install(CallLogging) {
         level = Level.INFO
         callIdMdc(MDC_KEY)
