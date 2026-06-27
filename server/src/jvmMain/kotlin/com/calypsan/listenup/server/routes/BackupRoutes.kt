@@ -11,9 +11,11 @@ import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupManifest
 import com.calypsan.listenup.server.backup.BackupPaths
 import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.io.respondSeekable
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.ContentDisposition
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
@@ -24,7 +26,6 @@ import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
@@ -81,8 +82,8 @@ fun Route.backupRoutes(
             return@get call.respond(HttpStatusCode.BadRequest, "invalid backup id")
         }
 
-        val archiveFile = java.io.File(paths.archiveFor(rawId).toString())
-        if (!archiveFile.isFile) {
+        val archivePath = paths.archiveFor(rawId)
+        if (!java.io.File(archivePath.toString()).isFile) {
             return@get call.respondBareAppError(BackupError.BackupNotFound())
         }
 
@@ -92,7 +93,7 @@ fun Route.backupRoutes(
                 .withParameter(ContentDisposition.Parameters.FileName, "$rawId.listenup.zip")
                 .toString(),
         )
-        call.respondFile(archiveFile)
+        call.respondSeekable(archivePath, ContentType.Application.Zip)
     }
 
     post(BackupRoutePaths.UPLOAD) {

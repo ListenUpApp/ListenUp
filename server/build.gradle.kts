@@ -118,6 +118,9 @@ kotlin {
                 implementation(libs.ktor.server.sse)
                 implementation(libs.ktor.server.call.id)
                 implementation(libs.ktor.server.rate.limit)
+                // PartialContent — byte-range/seek support behind the file-response seam
+                // (respondSeekable). Publishes a linuxX64 variant.
+                implementation(libs.ktor.server.partial.content)
             }
         }
 
@@ -135,7 +138,6 @@ kotlin {
                 // the resources/status-pages/auth/sse/call-id/rate-limit plugins are in commonMain
                 // (moved there for the native HTTP foundation). JVM-only Ktor plugins below:
                 implementation(libs.ktor.server.call.logging)
-                implementation(libs.ktor.server.partial.content)
                 implementation(libs.ktor.server.auto.head.response)
 
                 // Persistence
