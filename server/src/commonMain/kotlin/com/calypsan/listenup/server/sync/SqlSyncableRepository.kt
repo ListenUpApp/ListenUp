@@ -10,7 +10,7 @@ import app.cash.sqldelight.TransactionCallbacks
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.security.MessageDigest
+import com.calypsan.listenup.server.io.hashBytesSha256
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.KSerializer
@@ -439,13 +439,9 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
             if (rows.isEmpty()) {
                 DomainDigest(cursor = cursor, count = 0, hash = "")
             } else {
-                val md = MessageDigest.getInstance("SHA-256")
                 val joined =
                     rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
-                val hex =
-                    md
-                        .digest(joined.toByteArray(Charsets.UTF_8))
-                        .toHexString()
+                val hex = hashBytesSha256(joined.encodeToByteArray())
                 DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
             }
         }
