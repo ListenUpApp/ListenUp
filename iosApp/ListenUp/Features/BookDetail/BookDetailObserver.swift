@@ -78,6 +78,9 @@ final class BookDetailObserver {
     /// derived from the book's primary audio file. Fields are nil when their datum is absent.
     private(set) var audioFormat = AudioFormatDisplay(format: nil, bitrate: nil, sampleRate: nil, channels: nil)
 
+    /// Pre-built share link for this book. Populated once per book load via `buildShareURL`.
+    private(set) var shareURL: URL?
+
     // MARK: - Download state
 
     private(set) var downloadState: DownloadUIState = .notDownloaded
@@ -341,6 +344,27 @@ final class BookDetailObserver {
         if observingDownloadForBookId != book.idString {
             observingDownloadForBookId = book.idString
             observeDownloadStatus(bookId: book.idString)
+            Task { await buildShareURL(bookId: book.idString) }
+        }
+    }
+
+    private func buildShareURL(bookId: String) async {
+        guard let result = try? await Dependencies.shared.getInstanceUseCase.invoke(forceRefresh: false) else { return }
+        switch appResultCase(result) {
+        case .success(let success):
+            guard let instance = success.data as? Instance else { return }
+            let baseUrl = instance.remoteUrl ?? instance.localUrl
+            let trimmed = baseUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
+            let raw = ShareLinkCodec.shared.encode(
+                target: ShareTargetBook(
+                    bookId: BookId(value: bookId),
+                    serverInstanceId: instance.id.value,
+                    serverUrl: trimmed
+                )
+            )
+            shareURL = URL(string: raw)
+        case .failure, .unknown:
+            break
         }
     }
 
