@@ -204,7 +204,6 @@ class ImageDownloaderTest :
                 val userId = "user-1"
                 var apiCalls = 0
                 every { fixture.imageStorage.userAvatarExists(userId) } returns false
-                everySuspend { fixture.imageStorage.deleteUserAvatar(userId) } returns AppResult.Success(Unit)
                 everySuspend { fixture.imageApi.downloadUserAvatar(userId) } calls {
                     apiCalls++
                     Failure(Exception("Not found"))

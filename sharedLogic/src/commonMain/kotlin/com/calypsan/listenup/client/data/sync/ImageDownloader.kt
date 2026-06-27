@@ -33,15 +33,28 @@ internal class ImageDownloader(
     // Per-userId serialization so a post-scan fan-out of concurrent avatar requests
     // collapses to a single network fetch + save instead of stampeding the server
     // (and deadlocking the iOS AppResult suspend bridge).
+    // Both collections grow unbounded but are bounded by distinct users seen this session —
+    // acceptable for the small self-hosted userbase.
     private val avatarDownloadMutexes = mutableMapOf<String, Mutex>()
     private val avatarDownloadMutexesGuard = Mutex()
 
     // Session negative cache: a 404 means the user has no image avatar, so repeated
-    // triggers must not keep re-hitting the server.
+    // triggers must not keep re-hitting the server. Distinct users run concurrently on the
+    // multi-threaded appScope, so every access is guarded (the per-user mutex only serializes
+    // the same userId).
     private val avatarsKnownMissing = mutableSetOf<String>()
 
     private suspend fun avatarMutexFor(userId: String): Mutex =
         avatarDownloadMutexesGuard.withLock { avatarDownloadMutexes.getOrPut(userId) { Mutex() } }
+
+    private suspend fun markAvatarMissing(userId: String) =
+        avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.add(userId) }
+
+    private suspend fun clearAvatarMissing(userId: String) =
+        avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.remove(userId) }
+
+    private suspend fun isAvatarKnownMissing(userId: String): Boolean =
+        avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.contains(userId) }
 
     /**
      * Delete a book's cover from local storage.
@@ -289,7 +302,7 @@ internal class ImageDownloader(
         avatarMutexFor(userId).withLock {
             // A forced refresh clears any prior negative-cache verdict and the stale file.
             if (forceRefresh) {
-                avatarsKnownMissing.remove(userId)
+                clearAvatarMissing(userId)
                 if (imageStorage.userAvatarExists(userId)) {
                     // Best-effort cleanup before re-download; the fresh file overwrites a failed delete anyway.
                     val _ = imageStorage.deleteUserAvatar(userId)
@@ -304,7 +317,7 @@ internal class ImageDownloader(
             }
 
             // Negative cache: the server already told us this user has no avatar this session.
-            if (!forceRefresh && userId in avatarsKnownMissing) {
+            if (!forceRefresh && isAvatarKnownMissing(userId)) {
                 logger.info { "Avatar known missing for user $userId, skipping download" }
                 return@withLock AppResult.Success(false)
             }
@@ -315,7 +328,7 @@ internal class ImageDownloader(
             val downloadResult = imageApi.downloadUserAvatar(userId)
             if (downloadResult is AppResult.Failure) {
                 // 404 is expected for users without custom avatars - don't log as error
-                avatarsKnownMissing.add(userId)
+                markAvatarMissing(userId)
                 logger.info { "Avatar not available for user $userId: ${downloadResult.message}" }
                 return@withLock AppResult.Success(false)
             }
@@ -331,7 +344,7 @@ internal class ImageDownloader(
                 return@withLock saveResult
             }
 
-            avatarsKnownMissing.remove(userId)
+            clearAvatarMissing(userId)
             logger.info { "Successfully downloaded and saved avatar for user $userId" }
             AppResult.Success(true)
         }
