@@ -171,7 +171,6 @@ internal class AdminRepositoryImpl(
         }
 
     override suspend fun createInvite(
-        name: String,
         email: String,
         role: String,
         expiresInDays: Int,
@@ -182,8 +181,11 @@ internal class AdminRepositoryImpl(
                 .adminService()
                 .createInvite(
                     email = email,
-                    displayName = name,
-                    role = UserRole.valueOf(role),
+                    // The admin no longer names the invitee — they choose a display name when they
+                    // claim. The email's local part is a non-blank placeholder that satisfies the
+                    // server's display_name invariant until the claimer overrides it.
+                    displayName = email.substringBefore('@'),
+                    role = role.toInviteRole(),
                     expiresInDays = expiresInDays,
                 ).map { it.toInviteInfo(serverUrl) }
         }
@@ -276,6 +278,16 @@ internal class AdminRepositoryImpl(
 // ═══════════════════════════════════════════════════════════════════════════
 // CONVERSION FUNCTIONS
 // ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Maps the create-invite form's role token to the wire [UserRole].
+ *
+ * The form emits lowercase strings (`"member"`/`"admin"`); a case-insensitive match avoids the
+ * `IllegalArgumentException` that `UserRole.valueOf("member")` raised (it requires the exact enum
+ * names). Anything that isn't an explicit admin grant falls back to the least-privileged MEMBER.
+ */
+private fun String.toInviteRole(): UserRole =
+    if (trim().equals("admin", ignoreCase = true)) UserRole.ADMIN else UserRole.MEMBER
 
 /**
  * Convert the contract [ContractLibrary] (returned by [com.calypsan.listenup.api.LibraryAdminService])

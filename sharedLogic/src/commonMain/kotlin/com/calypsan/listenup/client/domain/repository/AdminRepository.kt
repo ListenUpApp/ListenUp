@@ -105,14 +105,15 @@ interface AdminRepository {
     /**
      * Create a new invite code.
      *
-     * @param name Display name for the invite
+     * The invitee names their own account when they claim the invite, so no display name is
+     * collected here — the admin only supplies the email the invite is bound to.
+     *
      * @param email Email to restrict the invite to
      * @param role Role to assign to users who use this invite
      * @param expiresInDays Number of days until the invite expires
      * @return [AppResult] carrying the created invite, or a failure.
      */
     suspend fun createInvite(
-        name: String,
         email: String,
         role: String = "member",
         expiresInDays: Int = 7,

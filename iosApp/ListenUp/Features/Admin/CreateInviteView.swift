@@ -19,7 +19,6 @@ struct CreateInviteView: View {
     let viewModel: CreateInviteViewModel
     @State private var observer: CreateInviteObserver?
 
-    @State private var name = ""
     @State private var email = ""
     @State private var role: InviteRole = .member
     @State private var expiresInDays = 7
@@ -82,15 +81,6 @@ struct CreateInviteView: View {
         VStack(alignment: .leading, spacing: 0) {
             AdminSectionHeader(String(localized: "admin.whos_joining"))
             VStack(spacing: 0) {
-                AppTextField(
-                    placeholder: String(localized: "common.name"),
-                    text: $name,
-                    label: String(localized: "common.name"),
-                    icon: "person",
-                    error: validationField == .name ? String(localized: "admin.name_is_required") : nil,
-                    isLast: false,
-                    autocapitalization: .words
-                )
                 AppTextField(
                     placeholder: String(localized: "common.email"),
                     text: $email,
@@ -177,11 +167,10 @@ struct CreateInviteView: View {
     // MARK: - Actions
 
     private func submit(observer: CreateInviteObserver) {
-        observer.createInvite(name: name, email: email, role: role, expiresInDays: expiresInDays)
+        observer.createInvite(email: email, role: role, expiresInDays: expiresInDays)
     }
 
     private func resetForm() {
-        name = ""
         email = ""
         role = .member
         expiresInDays = 7

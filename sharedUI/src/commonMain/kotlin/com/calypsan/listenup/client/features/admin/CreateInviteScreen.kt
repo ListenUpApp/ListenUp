@@ -18,7 +18,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Mail
@@ -47,7 +46,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
@@ -90,7 +88,6 @@ import listenup.composeapp.generated.resources.admin_name_is_invited
 import listenup.composeapp.generated.resources.admin_whos_joining
 import listenup.composeapp.generated.resources.common_admin
 import listenup.composeapp.generated.resources.common_copy
-import listenup.composeapp.generated.resources.common_display_name
 import listenup.composeapp.generated.resources.common_done
 import listenup.composeapp.generated.resources.common_email_address
 import listenup.composeapp.generated.resources.common_member
@@ -218,10 +215,9 @@ fun CreateInviteScreen(
 @Composable
 private fun CreateInviteForm(
     status: CreateInviteStatus,
-    onSubmit: (String, String, String, Int) -> Unit,
+    onSubmit: (String, String, Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var name by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var role by remember { mutableStateOf(ROLE_MEMBER) }
     var expiresInDays by remember { mutableIntStateOf(7) }
@@ -241,13 +237,11 @@ private fun CreateInviteForm(
     val sections: @Composable () -> Unit = {
         Column(verticalArrangement = Arrangement.spacedBy(28.dp)) {
             WhosJoiningSection(
-                name = name,
-                onNameChange = { name = it },
                 email = email,
                 onEmailChange = { email = it },
                 isSubmitting = isSubmitting,
                 validationField = validationField,
-                onSubmit = { onSubmit(name, email, role, expiresInDays) },
+                onSubmit = { onSubmit(email, role, expiresInDays) },
             )
             AccessLevelSection(
                 role = role,
@@ -263,7 +257,7 @@ private fun CreateInviteForm(
 
     val submitButton: @Composable () -> Unit = {
         ListenUpButton(
-            onClick = { onSubmit(name, email, role, expiresInDays) },
+            onClick = { onSubmit(email, role, expiresInDays) },
             text = stringResource(Res.string.admin_create_invite),
             leadingIcon = Icons.AutoMirrored.Outlined.Send,
             enabled = !isSubmitting,
@@ -303,8 +297,6 @@ private fun CreateInviteForm(
 
 @Composable
 private fun WhosJoiningSection(
-    name: String,
-    onNameChange: (String) -> Unit,
     email: String,
     onEmailChange: (String) -> Unit,
     isSubmitting: Boolean,
@@ -317,19 +309,6 @@ private fun WhosJoiningSection(
             label = stringResource(Res.string.admin_whos_joining),
             icon = Icons.Outlined.PersonAdd,
             accent = MaterialTheme.colorScheme.primary,
-        )
-        ListenUpTextField(
-            value = name,
-            onValueChange = onNameChange,
-            label = stringResource(Res.string.common_display_name),
-            leadingIcon = Icons.Outlined.Badge,
-            enabled = !isSubmitting,
-            isError = validationField == CreateInviteField.NAME,
-            supportingText =
-                if (validationField == CreateInviteField.NAME) "Name is required" else "The person's display name",
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
-            modifier = Modifier.fillMaxWidth(),
         )
         ListenUpTextField(
             value = email,

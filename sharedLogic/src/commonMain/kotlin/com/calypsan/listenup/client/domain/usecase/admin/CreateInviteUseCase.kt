@@ -8,30 +8,24 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 /**
  * Creates a new invite code.
  *
- * Validates that name is not blank and email is valid before creating.
+ * Validates that the email is well-formed before creating. No display name is collected — the
+ * invitee names their own account when they claim the invite.
  */
 open class CreateInviteUseCase(
     private val adminRepository: AdminRepository,
 ) {
     open suspend operator fun invoke(
-        name: String,
         email: String,
         role: String = "member",
         expiresInDays: Int = 7,
     ): AppResult<InviteInfo> {
-        val trimmedName = name.trim()
         val trimmedEmail = email.trim()
-
-        if (trimmedName.isBlank()) {
-            return validationError("Name is required")
-        }
 
         if (!isValidEmail(trimmedEmail)) {
             return validationError("Invalid email address")
         }
 
         return adminRepository.createInvite(
-            name = trimmedName,
             email = trimmedEmail,
             role = role,
             expiresInDays = expiresInDays,

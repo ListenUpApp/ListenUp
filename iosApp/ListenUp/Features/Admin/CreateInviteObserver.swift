@@ -33,9 +33,8 @@ final class CreateInviteObserver {
 
     // MARK: - Actions
 
-    func createInvite(name: String, email: String, role: InviteRole, expiresInDays: Int) {
+    func createInvite(email: String, role: InviteRole, expiresInDays: Int) {
         viewModel.createInvite(
-            name: name,
             email: email,
             role: role.wireValue,
             expiresInDays: Int32(expiresInDays)
@@ -138,12 +137,10 @@ enum InviteRole: CaseIterable, Identifiable {
 /// Which form field a validation failure highlights. A native mirror of the shared
 /// `CreateInviteField` (which doesn't bridge as a clean Swift enum for view code).
 enum InviteField: Equatable {
-    case name
     case email
 
     init(from field: CreateInviteField) {
         switch field {
-        case .name: self = .name
         case .email: self = .email
         }
     }

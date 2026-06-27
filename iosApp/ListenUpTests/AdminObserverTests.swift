@@ -47,10 +47,7 @@ struct AdminObserverTests {
 
     // MARK: - Validation field routing
 
-    @Test func validationErrorRoutesToNamedField() {
-        let nameFailure = InviteFailure(from: CreateInviteErrorTypeValidationError(field: .name))
-        #expect(nameFailure == .validation(.name))
-
+    @Test func validationErrorRoutesToEmailField() {
         let emailFailure = InviteFailure(from: CreateInviteErrorTypeValidationError(field: .email))
         #expect(emailFailure == .validation(.email))
     }
