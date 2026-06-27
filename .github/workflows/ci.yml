@@ -65,7 +65,12 @@ jobs:
   test-jvm:
     name: Test (JVM)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # 45m (matching the macOS lanes) leaves headroom for a cold serial compile+test run while
+    # still killing a genuine deadlock. The job runs --no-parallel (see "Run JVM tests"): the
+    # private runner has ~7GB RAM and org.gradle.jvmargs (4G) + kotlin.daemon.jvmargs (3G) already
+    # sum to it, so concurrent Kotlin compiles of the test source sets used to GC-thrash for ~25m
+    # and trip the old 30m cap. Serial execution trades a few minutes for not thrashing.
+    timeout-minutes: 45
 
     steps:
       - name: Checkout code
@@ -95,8 +100,12 @@ jobs:
       # compileCommonMainKotlinMetadata type-checks :sharedLogic commonMain against the COMMON
       # (all-targets-intersection) stdlib, so JVM-only stdlib in shared code (e.g. toSortedSet(),
       # java.*) fails here on Linux instead of late on the macOS iOS lane.
+      # --no-parallel: this runs five compile+test tasks across four modules; on the ~7GB/2-core
+      # private runner, parallel Kotlin compilation of the test source sets pushed the gradle JVM
+      # + kotlin daemon heaps past RAM and intermittently GC-thrashed the build to a ~25m stall.
+      # Serial execution keeps peak memory to one module's compile at a time.
       - name: Run JVM tests
-        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest --no-daemon
+        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest --no-daemon --no-parallel
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
