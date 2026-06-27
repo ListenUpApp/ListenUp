@@ -78,6 +78,8 @@ import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.presentation.error.localizedString
+import com.calypsan.listenup.client.share.ShareLinkCodec
+import com.calypsan.listenup.client.share.ShareTarget
 import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -243,8 +245,14 @@ private fun BookDetailReadyContent(
                 val result = instanceRepository.getInstance()
                 if (result is AppResult.Success) {
                     val instance = result.data
-                    val baseUrl = (instance.remoteUrl ?: instance.localUrl)?.trimEnd('/') ?: return@launch
-                    val url = "$baseUrl/share/book/${book.id.value}"
+                    val url =
+                        ShareLinkCodec.encode(
+                            ShareTarget.Book(
+                                bookId = book.id,
+                                serverInstanceId = instance.id.value,
+                                serverUrl = (instance.remoteUrl ?: instance.localUrl)?.trimEnd('/'),
+                            ),
+                        )
                     val text = "Check out ${book.title} on ListenUp!\n$url"
                     platformActions.shareText(text, url)
                 }
