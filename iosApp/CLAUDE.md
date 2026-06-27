@@ -72,6 +72,13 @@ before any non-trivial iOS work.
      `SearchRow`, `RoleSectionRow`, `EditableRelation`. If the observer still needs the raw Kotlin
      object (e.g. for an id→object lookup on a remove/tap action), keep it as private observer
      state, off the diff path — never in the `ForEach`.
+   - **Never `await` an `AppResult`-returning Kotlin suspend from Swift.** It traps in the Swift Export
+     bridge (`__createProtocolWrapper(...) as! any AppResult` cast failure → frozen UI). Consume
+     `AppResult` in Kotlin and expose a plain-typed `*OrNull` accessor (see `AppResult.valueOrNull` +
+     the `getInstanceOrNull`/`getResumeBookOrNull`/`downloadBookOrNull`/`ensureLocalPathOrNull`
+     precedents); Swift `await`s the plain optional. Enforced by `scripts/check-no-appresult-await.sh`
+     in the `Test (iOS)` CI job. (Plain-typed suspends — `String?`, domain types, `Flow`,
+     fire-and-forget `Unit` — are fine.)
 9. **Native, type-safe navigation.** `NavigationStack` + value-typed routes; sheets,
    `presentationDetents`, and inspectors over ported screens.
 10. **Errors the iOS way.** The shared typed `AppError` crosses the boundary, but iOS maps
