@@ -57,7 +57,9 @@ interface InstanceRepository {
      * never `await` the `AppResult`-returning [getInstance] (Swift Export bridge trap). Android/server use [getInstance].
      */
     suspend fun getInstanceOrNull(forceRefresh: Boolean = false): Instance? =
-        getInstance(forceRefresh).valueOrNull { instanceRepositoryLogger.warn { "getInstanceOrNull: ${it.message}" } }
+        getInstance(forceRefresh).valueOrNull {
+            instanceRepositoryLogger.warn { "getInstanceOrNull: ${it.debugInfo ?: it.message}" }
+        }
 
     /**
      * Verifies a server URL is a valid ListenUp instance before authentication.

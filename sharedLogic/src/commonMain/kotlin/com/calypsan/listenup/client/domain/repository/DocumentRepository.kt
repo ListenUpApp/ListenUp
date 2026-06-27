@@ -76,5 +76,5 @@ interface DocumentRepository {
         ensureLocal(
             bookId,
             docId,
-        ).valueOrNull { documentRepositoryLogger.warn { "ensureLocalPathOrNull: ${it.message}" } }
+        ).valueOrNull { documentRepositoryLogger.warn { "ensureLocalPathOrNull: ${it.debugInfo ?: it.message}" } }
 }

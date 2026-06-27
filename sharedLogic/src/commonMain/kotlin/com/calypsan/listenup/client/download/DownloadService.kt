@@ -51,7 +51,9 @@ interface DownloadService {
      * Swift — never `await` the `AppResult`-returning [downloadBook] (Swift Export bridge trap).
      */
     suspend fun downloadBookOrNull(bookId: BookId): DownloadOutcome? =
-        downloadBook(bookId).valueOrNull { downloadServiceLogger.warn { "downloadBookOrNull: ${it.message}" } }
+        downloadBook(
+            bookId,
+        ).valueOrNull { downloadServiceLogger.warn { "downloadBookOrNull: ${it.debugInfo ?: it.message}" } }
 
     /**
      * Cancel active download for a book.

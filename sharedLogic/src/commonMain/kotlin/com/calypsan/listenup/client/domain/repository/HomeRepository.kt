@@ -33,8 +33,8 @@ interface HomeRepository {
      * never `await` the `AppResult`-returning [getContinueListening] (Swift Export bridge trap).
      */
     suspend fun getResumeBookOrNull(): ContinueListeningBook? =
-        getContinueListening(limit = 1)
-            .valueOrNull { homeRepositoryLogger.warn { "getResumeBookOrNull: ${it.message}" } }
+        getContinueListening(limit = 5)
+            .valueOrNull { homeRepositoryLogger.warn { "getResumeBookOrNull: ${it.debugInfo ?: it.message}" } }
             ?.firstOrNull()
 
     /**
