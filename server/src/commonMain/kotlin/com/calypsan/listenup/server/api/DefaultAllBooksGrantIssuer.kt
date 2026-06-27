@@ -21,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * intentionally receive no grant — calling [grantDefaultAllBooks] for them is a no-op.
  *
  * Injected as a nullable parameter in [com.calypsan.listenup.server.auth.AuthServiceImpl] and
- * [InviteServiceImpl] so those modules assemble independently of the collections module
+ * [com.calypsan.listenup.server.api.InviteServiceImpl] so those modules assemble independently of the collections module
  * (phased startup, test containers). A null value silently skips grant issuance.
  */
 class DefaultAllBooksGrantIssuer(
