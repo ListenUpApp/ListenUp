@@ -37,6 +37,8 @@ import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_retry
+import listenup.composeapp.generated.resources.error_book_not_connected
+import listenup.composeapp.generated.resources.error_book_wrong_server
 import listenup.composeapp.generated.resources.startup_setup_check_failed_message
 import listenup.composeapp.generated.resources.startup_setup_check_failed_title
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -49,7 +51,9 @@ import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
+import com.calypsan.listenup.client.share.ShareResolution
 import com.calypsan.listenup.client.share.ShareTarget
+import com.calypsan.listenup.client.share.ShareTargetResolver
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
@@ -528,6 +532,8 @@ private fun AuthenticatedNavigation(
     syncRepository: SyncRepository = koinInject(),
     shortcutActionManager: ShortcutActionManager = koinInject(),
     homeRepository: HomeRepository = koinInject(),
+    serverConfig: ServerConfig = koinInject(),
+    deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
 
@@ -577,6 +583,13 @@ private fun AuthenticatedNavigation(
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
 
+    fun resetToShell() {
+        if (backStack.lastOrNull() != Shell) {
+            backStack.clear()
+            backStack.add(Shell)
+        }
+    }
+
     // Hoisted sign-out action shared by shell and settings entries.
     // Clear library data before signing out so the next login (same or different user)
     // always starts with fresh data.
@@ -585,6 +598,36 @@ private fun AuthenticatedNavigation(
             libraryResetHelper.clearLibraryData()
             authSession.clearAuthTokens()
         }
+    }
+
+    // Resolve a pending BOOK share-link target against the connected server.
+    // Invite targets are handled at the top level; this block ignores them.
+    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
+    val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
+    val notConnectedMessage = stringResource(Res.string.error_book_not_connected)
+    LaunchedEffect(pendingTarget) {
+        val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
+        when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
+            is ShareResolution.OpenBook -> {
+                resetToShell()
+                backStack.add(BookDetail(resolution.bookId.value))
+            }
+
+            is ShareResolution.WrongServer -> {
+                snackbarHostState.showSnackbar(wrongServerMessage)
+            }
+
+            is ShareResolution.NotConnected -> {
+                snackbarHostState.showSnackbar(notConnectedMessage)
+            }
+
+            // OpenInviteClaim handled at top level; NoAccess not produced by the pure resolver
+            // (an inaccessible book opens Book Detail, which shows its own empty state).
+            else -> {
+                Unit
+            }
+        }
+        deepLinkManager.consumeTarget()
     }
 
     ShortcutActionEffect(
