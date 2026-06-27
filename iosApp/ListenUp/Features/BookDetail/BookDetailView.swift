@@ -330,6 +330,19 @@ struct BookDetailView: View {
                     }
                 }
 
+                if let shareURL = observer?.shareURL {
+                    ShareLink(
+                        item: shareURL,
+                        subject: Text(observer?.title ?? ""),
+                        message: Text(String(
+                            format: String(localized: "common.share_book_text"),
+                            observer?.title ?? ""
+                        ))
+                    ) {
+                        Label(String(localized: "common.share"), systemImage: "square.and.arrow.up")
+                    }
+                }
+
                 if observer?.startedAtMs != nil || observer?.isComplete == true {
                     Button(role: .destructive) {
                         showDiscardConfirmation = true

@@ -11,6 +11,7 @@ struct ClaimInviteView: View {
     // MARK: - Configuration
 
     let onDismiss: () -> Void
+    private let deepLinkSeed: (serverURL: String, code: String)?
 
     // MARK: - State
 
@@ -18,11 +19,21 @@ struct ClaimInviteView: View {
     @State private var code = ""
     @State private var displayName = ""
     @State private var password = ""
+    @State private var didStart = false
 
     // MARK: - Initialization
 
     init(onDismiss: @escaping () -> Void) {
         self.onDismiss = onDismiss
+        self.deepLinkSeed = nil
+        _wrapper = State(initialValue: ClaimInviteViewModelWrapper(
+            viewModel: Dependencies.shared.claimInviteViewModel
+        ))
+    }
+
+    init(deepLinkServerURL: String, deepLinkCode: String, onDismiss: @escaping () -> Void) {
+        self.onDismiss = onDismiss
+        self.deepLinkSeed = (deepLinkServerURL, deepLinkCode)
         _wrapper = State(initialValue: ClaimInviteViewModelWrapper(
             viewModel: Dependencies.shared.claimInviteViewModel
         ))
@@ -31,15 +42,23 @@ struct ClaimInviteView: View {
     // MARK: - Body
 
     var body: some View {
-        switch wrapper.phase {
-        case .codeEntry:
-            codeEntryScreen
-        case .lookingUp, .submitting, .claimed:
-            loadingScreen
-        case .preview:
-            previewScreen
-        case .error(let message):
-            errorScreen(message: message)
+        Group {
+            switch wrapper.phase {
+            case .codeEntry:
+                codeEntryScreen
+            case .lookingUp, .submitting, .claimed:
+                loadingScreen
+            case .preview:
+                previewScreen
+            case .error(let message):
+                errorScreen(message: message)
+            }
+        }
+        .onAppear {
+            if let seed = deepLinkSeed, !didStart {
+                didStart = true
+                wrapper.start(serverURL: seed.serverURL, code: seed.code)
+            }
         }
     }
 
