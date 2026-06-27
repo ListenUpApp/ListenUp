@@ -23,5 +23,16 @@
 	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.calypsan.listenup.client.ios</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>listenup</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
