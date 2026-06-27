@@ -28,8 +28,8 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.Invites
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
 
@@ -295,10 +295,10 @@ class InviteServiceImpl(
     private fun UserRole.isAdmin(): Boolean = this == UserRole.ROOT || this == UserRole.ADMIN
 
     // UUIDv4 mirrors AuthServiceImpl.newUserId — TEXT primary key with no time-ordered scan path.
-    private fun newInviteId(): String = UUID.randomUUID().toString()
+    private fun newInviteId(): String = Uuid.random().toString()
 
     // Claimed accounts get the same id shape as AuthServiceImpl.register's users.
-    private fun newUserId(): String = UUID.randomUUID().toString()
+    private fun newUserId(): String = Uuid.random().toString()
 
     private companion object {
         const val DEFAULT_EXPIRY_DAYS = 7

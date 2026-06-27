@@ -9,8 +9,8 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.ExperimentalTime
@@ -206,9 +206,9 @@ class SessionService(
                 .toInt()
         }
 
-    private fun newSessionId(): String = UUID.randomUUID().toString()
+    private fun newSessionId(): String = Uuid.random().toString()
 
-    private fun newFamilyId(): String = UUID.randomUUID().toString()
+    private fun newFamilyId(): String = Uuid.random().toString()
 
     companion object {
         private val DEFAULT_REFRESH_TTL: Duration = 30.days

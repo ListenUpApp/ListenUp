@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.auth
 
-import java.util.concurrent.ConcurrentHashMap
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -35,15 +36,18 @@ sealed interface RegistrationDecision {
  * self-hosted instance that set is trivially small, so no eviction is needed.
  */
 class RegistrationBroadcaster {
-    private val flows = ConcurrentHashMap<String, MutableSharedFlow<RegistrationDecision>>()
+    private val lock = SynchronizedObject()
+    private val flows = HashMap<String, MutableSharedFlow<RegistrationDecision>>()
 
     private fun flowFor(userId: String): MutableSharedFlow<RegistrationDecision> =
-        flows.getOrPut(userId) {
-            MutableSharedFlow(
-                replay = 0,
-                extraBufferCapacity = DECISION_BUFFER,
-                onBufferOverflow = BufferOverflow.DROP_OLDEST,
-            )
+        synchronized(lock) {
+            flows.getOrPut(userId) {
+                MutableSharedFlow(
+                    replay = 0,
+                    extraBufferCapacity = DECISION_BUFFER,
+                    onBufferOverflow = BufferOverflow.DROP_OLDEST,
+                )
+            }
         }
 
     /** A live stream of decisions for [userId]. The SSE route collects until a terminal decision. */
@@ -54,6 +58,7 @@ class RegistrationBroadcaster {
         userId: String,
         decision: RegistrationDecision,
     ) {
-        flows[userId]?.tryEmit(decision)
+        val flow = synchronized(lock) { flows[userId] }
+        flow?.tryEmit(decision)
     }
 }
