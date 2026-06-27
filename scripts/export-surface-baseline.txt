@@ -457,7 +457,12 @@ SetupErrorType
 SetupField
 SetupUiState
 SetupViewModel
+ShareLinkCodec
+ShareLinkConstants
 SharePermission
+ShareResolution
+ShareTarget
+ShareTargetResolver
 Shelf
 ShelfBook
 ShelfBookSort
