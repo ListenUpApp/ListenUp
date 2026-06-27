@@ -14,8 +14,8 @@ struct SeriesDetailObserverTests {
 /// Pins the Series-detail CTA label. The regression: a never-started series still has a
 /// `resumeTarget` (the first book), so the label showed "Continue" even though nothing had
 /// been played. The label now reads "Start …" until the user has any progress. The observer
-/// needs live KMP state to construct, so — per the established pattern
-/// (e.g. `BookDetailObserver.downloadThrowMessage`) — the decision is pinned at its pure seam.
+/// needs live KMP state to construct, so — per the established pattern — the decision is
+/// pinned at its pure seam (`SeriesDetailObserver.continueLabel`).
 @Suite("SeriesDetail Continue CTA")
 struct SeriesDetailContinueLabelTests {
     @Test func emptySeriesStartsListening() {

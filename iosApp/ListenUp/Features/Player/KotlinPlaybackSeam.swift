@@ -189,24 +189,8 @@ struct KotlinBookDocumentProviding: BookDocumentProviding {
     }
 
     func ensureLocalPath(bookId: String, docId: String) async -> String? {
-        // The Kotlin suspend fun is exposed as `async throws`; failures via AppResult
-        // come back as `.failure`, not as thrown exceptions. Drop thrown errors (infra faults).
-        guard let result = try? await repository.ensureLocal(bookId: BookId(value: bookId), docId: docId) else {
-            return nil
-        }
-        // `AppResult<String>` erases its generic to `any AppResult` over Swift Export. Fold it via the
-        // generated typed accessor (both branches compiler-forced); the success `data` is type-erased
-        // to `any _KotlinBridgeable?` and the payload here is a Kotlin String.
-        switch appResultCase(result) {
-        case .success(let success):
-            return success.data as? String
-        case .failure(let failure):
-            // A typed `.failure` is no longer silently dropped — surface why the PDF won't localize.
-            Log.error("ensureLocal failed for \(docId): \(failure.error.message)")
-            return nil
-        case .unknown:
-            Log.error("ensureLocal returned an unexpected AppResult case for \(docId)")
-            return nil
-        }
+        // iOS-safe accessor: AppResult is folded in Kotlin. A failure (or thrown infra fault) → nil.
+        // `try?` already flattens the bridged `String?` to a single optional, so no `?? nil` is needed.
+        try? await repository.ensureLocalPathOrNull(bookId: BookId(value: bookId), docId: docId)
     }
 }
