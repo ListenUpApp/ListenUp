@@ -22,15 +22,10 @@ final class DeepLinkRouter {
     private(set) var outcome: Outcome = .none
 
     private let deepLinkManager: DeepLinkManager
-    private let serverConfig: ServerConfig
     private let bridge = FlowBridge()
 
-    init(
-        deepLinkManager: DeepLinkManager = Dependencies.shared.deepLinkManager,
-        serverConfig: ServerConfig = Dependencies.shared.serverConfig
-    ) {
+    init(deepLinkManager: DeepLinkManager = Dependencies.shared.deepLinkManager) {
         self.deepLinkManager = deepLinkManager
-        self.serverConfig = serverConfig
         bridge.bind(deepLinkManager.pendingTarget) { [weak self] target in
             self?.resolve(target)
         }
@@ -65,7 +60,7 @@ final class DeepLinkRouter {
     }
 
     private func resolveBook(_ book: ShareTargetBook) async {
-        let connectedId = try? await serverConfig.getConnectedServerId()
+        let connectedId = try? await Dependencies.shared.serverConfig.getConnectedServerId()
         switch onEnum(of: ShareTargetResolver.shared.resolve(target: book, connectedInstanceId: connectedId)) {
         case .openBook(let open):
             outcome = .openBook(id: open.bookId.value)
