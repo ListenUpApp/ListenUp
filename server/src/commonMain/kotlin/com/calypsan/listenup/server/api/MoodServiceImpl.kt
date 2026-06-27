@@ -18,8 +18,8 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.MoodSlug
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -137,7 +137,7 @@ internal class MoodServiceImpl(
                 ?: run {
                     val newMood =
                         Mood(
-                            id = UUID.randomUUID().toString(),
+                            id = Uuid.random().toString(),
                             name = name.trim(),
                             slug = slug,
                             revision = 0L,
