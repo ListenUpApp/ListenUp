@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CoverSource as SyncCoverSource
-import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
@@ -141,7 +140,9 @@ class BookPersister internal constructor(
                 // OOM means the JVM heap is compromised. We still emit Completed with the partial
                 // counts gathered so far (stored in the thrown PersistAbortedByOom) so clients get
                 // honest numbers, then rethrow so the process can surface the failure.
-                val partial = (e as? PersistAbortedByOom)?.counts ?: PersistCounts(0, 0)
+                val partial =
+                    (e as? PersistAbortedByOom)?.result?.let { PersistCounts(it.persisted, it.failed) }
+                        ?: PersistCounts(0, 0)
                 eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
                 throw e
             }
@@ -225,17 +226,28 @@ class BookPersister internal constructor(
             }
         val toPersist = changedBooks.size
 
-        // Resolve every contributor and series across the whole scan to a stable id ONCE, before the
-        // per-book loop — collapsing the per-book resolveOrCreate transaction storm (a SELECT, plus a
-        // create txn per new name, per contributor/series per book) into one bulk SELECT per catalogue.
-        // The returned dedup-key → id maps thread into each persistOne so a book's contributors/series
-        // resolve from memory, not the database. Brand-new names still create + emit identically.
+        // Resolve every contributor, series, AND distinct genre string across the whole scan to a
+        // stable id ONCE, before the write loop — collapsing the per-book resolveOrCreate transaction
+        // storm (a SELECT, plus a create txn per new name, per contributor/series/genre per book) into
+        // one bulk resolve per catalogue. The maps thread into the batched write so a book's
+        // contributors/series/genres resolve from memory, not the database. Brand-new names still
+        // create + emit identically.
         val identityMaps = ingest.resolveScanIdentities(changedBooks)
 
-        val persistProgressStride = maxOf(1, toPersist / PERSIST_PROGRESS_TICKS)
-        var processed = 0
+        // Extract every changed book's cover bytes OFF the write transaction (filesystem/embedded
+        // reads must not run inside a SQLDelight transaction), keyed by rootRelPath. The batched write
+        // path stores each cover file after the book id is known, exactly as the per-book path did.
+        val coversByBook =
+            buildMap {
+                for (book in changedBooks) {
+                    extractPendingCover(book, scanRoot)?.let { put(book.candidate.rootRelPath, it) }
+                }
+            }
 
-        suspend fun emitPersistProgress() {
+        val persistProgressStride = maxOf(1, toPersist / PERSIST_PROGRESS_TICKS)
+        var lastTickAt = -1
+
+        suspend fun emitPersistProgress(processed: Int) {
             eventBus.emit(
                 ScanEvent.Progress(
                     correlationId = result.correlationId,
@@ -249,65 +261,49 @@ class BookPersister internal constructor(
             )
         }
 
-        // Persist one changed book and count the outcome. An OutOfMemoryError aborts the whole
-        // scan: the heap is compromised, so we wrap the partial counts in PersistAbortedByOom and
-        // rethrow rather than swallowing it per-book.
-        suspend fun persistCounted(book: AnalyzedBook) {
-            val bookId =
-                try {
-                    persistOne(book, libraryId, folderId, scanRoot, systemCollectionId, identityMaps)
-                } catch (e: OutOfMemoryError) {
-                    failed++
-                    throw PersistAbortedByOom(PersistCounts(persisted, failed), e)
-                }
-            if (bookId != null) persisted++ else failed++
-            // Drive the bar by books processed (persisted + failed) so it reaches the total even when
-            // some books fail; throttled to ~PERSIST_PROGRESS_TICKS ticks for a large library.
-            processed++
-            if (processed % persistProgressStride == 0) emitPersistProgress()
-        }
-
         // Initial tick at 0 so the UI leaves the 100%-analyze state the moment persistence begins.
-        if (toPersist > 0) emitPersistProgress()
+        if (toPersist > 0) emitPersistProgress(0)
 
-        // Persist only the books that actually changed. Added/Modified/Moved each carry the changed
-        // AnalyzedBook in the ChangeEventDto, but artwork-stripped — so we re-resolve the cover-bearing
-        // copy from result.books (by rootRelPath) before persisting, restoring embedded covers.
+        // Batched persist: identity/genre/cover resolution + bulk existence in a suspend prepare phase,
+        // then chunked write transactions (O(chunks), not O(books)). The progress callback fires per
+        // chunk; we throttle emission to ~PERSIST_PROGRESS_TICKS ticks for a large library.
+        val persistResult =
+            ingest.resolveOrInsertAll(
+                libraryId = libraryId,
+                folderId = folderId,
+                books = changedBooks,
+                coversByBook = coversByBook,
+                systemCollectionId = systemCollectionId,
+                identityMaps = identityMaps,
+            ) { processed, failedSoFar ->
+                failed = failedSoFar
+                if (processed - lastTickAt >= persistProgressStride || processed == toPersist) {
+                    lastTickAt = processed
+                    emitPersistProgress(processed)
+                }
+            }
+        persisted = persistResult.persisted
+        failed = persistResult.failed
+
+        // Incremental Removed changes tombstone the book at their path immediately so deletions reflow
+        // without waiting for the next Full scan. Idempotent: a no-op when the book is already deleted
+        // or never existed. For Full scans the softDeleteAbsentByPaths sweep below would catch it too,
+        // so the overlap is harmless.
         for (change in result.changes) {
-            when (change) {
-                is ChangeEventDto.Added -> {
-                    persistCounted(coverBearing(change.book))
-                }
-
-                is ChangeEventDto.Modified -> {
-                    persistCounted(coverBearing(change.book))
-                }
-
-                is ChangeEventDto.Moved -> {
-                    persistCounted(coverBearing(change.book))
-                }
-
-                is ChangeEventDto.Removed -> {
-                    // Explicitly tombstone the book at this path so incremental-scan deletions
-                    // reflow immediately without waiting for the next Full scan. The call is
-                    // idempotent: a no-op when the book is already deleted or never existed.
-                    // For Full scans the softDeleteAbsentByPaths sweep below would catch it
-                    // anyway, so the overlap is harmless (soft-deleting an already-deleted book
-                    // is a no-op there too).
-                    try {
-                        ingest.softDeleteByPath(libraryId, change.rootRelPath)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Throwable) {
-                        log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
-                    }
+            if (change is ChangeEventDto.Removed) {
+                try {
+                    ingest.softDeleteByPath(libraryId, change.rootRelPath)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
                 }
             }
         }
 
         // Final tick at the total so the bar lands on 100% before the terminal Completed, even if the
-        // last stride boundary didn't fall exactly on the final book.
-        if (toPersist > 0) emitPersistProgress()
+        // last chunk boundary didn't fall exactly on the final book.
+        if (toPersist > 0 && lastTickAt != toPersist) emitPersistProgress(toPersist)
 
         if (result.scope is ScanScope.Full) {
             // Path-based sweep is safe: every book present on disk (including any that failed
@@ -360,58 +356,6 @@ class BookPersister internal constructor(
             log.warn(e) {
                 "System collection resolution failed for library ${libraryId.value}; scanning without collection membership"
             }
-            null
-        }
-
-    /**
-     * Persists one scanned book, contained against its own failure: a typed
-     * failure or an escaped exception is logged and counted, never aborting the
-     * rest of the scan. Returns the resolved [BookId] when the aggregate landed
-     * (so the caller can track it for the tombstone sweep), or null otherwise.
-     *
-     * Cover bytes are extracted from [analyzed] BEFORE calling [BookIngestPort.resolveOrInsert]
-     * so the file read happens outside the DB transaction. The [PendingCover] is passed
-     * to [BookIngestPort.resolveOrInsert], which stores the file to the managed cover
-     * store after the stable [BookId] is known.
-     */
-    private suspend fun persistOne(
-        analyzed: AnalyzedBook,
-        libraryId: LibraryId,
-        folderId: FolderId,
-        scanRoot: JPath,
-        systemCollectionId: String?,
-        identityMaps: ScanIdentityMaps,
-    ): BookId? =
-        try {
-            val pending = extractPendingCover(analyzed, scanRoot)
-            when (
-                val r =
-                    ingest.resolveOrInsert(
-                        libraryId,
-                        folderId,
-                        analyzed,
-                        pending,
-                        systemCollectionId,
-                        identityMaps.contributors,
-                        identityMaps.series,
-                    )
-            ) {
-                is AppResult.Success -> {
-                    r.data.bookId
-                }
-
-                is AppResult.Failure -> {
-                    log.warn { "Book persist failed: ${analyzed.candidate.rootRelPath} — ${r.error.code}; continuing" }
-                    null
-                }
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: OutOfMemoryError) {
-            // Propagate — heap is compromised; persistAll must stop the loop.
-            throw e
-        } catch (e: Throwable) {
-            log.warn(e) { "Book persist threw: ${analyzed.candidate.rootRelPath} — continuing" }
             null
         }
 
@@ -506,13 +450,3 @@ internal data class PersistCounts(
  */
 internal fun ScanResult.toSummary(counts: PersistCounts): com.calypsan.listenup.api.dto.scanner.ScanResultSummary =
     toSummary().copy(persisted = counts.persisted, failed = counts.failed)
-
-/**
- * Thrown by [BookPersister.persistAll] when an [OutOfMemoryError] forces an early stop.
- * Wraps the partial [counts] accumulated before the OOM so the caller can emit an honest
- * [ScanEvent.Completed] before rethrowing the underlying [OutOfMemoryError].
- */
-internal class PersistAbortedByOom(
-    val counts: PersistCounts,
-    cause: OutOfMemoryError,
-) : OutOfMemoryError(cause.message)

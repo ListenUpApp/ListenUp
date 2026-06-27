@@ -35,6 +35,17 @@ class BookWriteExtras(
      * branch writes it through. The scanner never sets this.
      */
     val createdAtOverride: Long? = null,
+    /**
+     * Pre-resolved genre ids for this book (#batched-scan persist). Non-null only on the batched
+     * scan-persist path, where every distinct raw genre string was resolved ONCE up front (alias →
+     * normalize → auto-create) in the suspend prepare phase. When present,
+     * [BookRepository.writePayload] writes the `book_genres` junctions IN the same SQLDelight
+     * transaction as the book row (via [BookGenreWriter.writeJunctions]) instead of the per-book
+     * post-commit `processGenreStrings` pass — so a genred book is one commit, not ~6. Null on every
+     * single-book path (metadata apply / `setBookGenres`), which keeps the separate `processGenreStrings`
+     * call. An empty list is meaningful: it wipes the book's genres (a rescan that dropped every string).
+     */
+    val genreIds: List<String>? = null,
 ) {
     companion object {
         /** The extras active on the current transaction thread, or null when none is installed. */
