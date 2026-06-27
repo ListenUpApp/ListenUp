@@ -11,8 +11,10 @@ import Shared
 ///   player under a shared `@Namespace` (replacing the accessory + fullScreenCover)
 struct MainTabView: View {
     @Environment(\.dependencies) private var deps
+    @Environment(DeepLinkRouter.self) private var deepLinkRouter
     @State private var selectedTab: Tab = .home
     @State private var playerCoordinator: PlayerCoordinator?
+    @State private var bookLinkError: BookLinkError?
 
     /// Per-tab navigation paths so the player overlay can push a destination onto the
     /// *active* tab's stack (and so each tab keeps its own independent history).
@@ -35,6 +37,17 @@ struct MainTabView: View {
     /// Height reserved below tab content for the collapsed mini bar (bar + clearance).
     private var miniBarInset: CGFloat {
         MiniPlayerBar.barHeight + MiniPlayerBar.tabBarClearance
+    }
+
+    private enum BookLinkError: Identifiable {
+        case wrongServer, notConnected
+        var id: Int { self == .wrongServer ? 0 : 1 }
+        var message: String {
+            switch self {
+            case .wrongServer: String(localized: "error.book_wrong_server")
+            case .notConnected: String(localized: "error.book_not_connected")
+            }
+        }
     }
 
     var body: some View {
@@ -68,6 +81,24 @@ struct MainTabView: View {
             if playerCoordinator == nil {
                 playerCoordinator = deps.playerCoordinator
             }
+        }
+        .onChange(of: deepLinkRouter.outcome) { _, outcome in
+            switch outcome {
+            case .openBook(let id):
+                paths[selectedTab, default: NavigationPath()].append(BookDestination(id: id))
+                deepLinkRouter.consume()
+            case .wrongServer:
+                bookLinkError = .wrongServer
+                deepLinkRouter.consume()
+            case .notConnected:
+                bookLinkError = .notConnected
+                deepLinkRouter.consume()
+            case .none, .claimInvite:
+                break
+            }
+        }
+        .alert(item: $bookLinkError) { error in
+            Alert(title: Text(error.message))
         }
     }
 
