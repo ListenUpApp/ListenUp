@@ -164,7 +164,7 @@ struct KotlinBookCoverProviding: BookCoverProviding {
 }
 
 /// Adapts `DocumentRepository` to `BookDocumentProviding`. Takes the first emission from
-/// `observeDocuments` (a one-shot read) and calls `ensureLocal` to download on demand.
+/// `observeDocuments` (a one-shot read) and calls `ensureLocalPathOrNull` to download on demand.
 struct KotlinBookDocumentProviding: BookDocumentProviding {
     let repository: DocumentRepository
 

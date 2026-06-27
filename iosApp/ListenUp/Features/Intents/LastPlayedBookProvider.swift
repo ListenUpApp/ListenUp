@@ -2,9 +2,10 @@ import ListenUpActivityKit
 @preconcurrency import Shared
 
 /// The app's `LastPlayedBookProviding` implementation — reads
-/// `HomeRepository.getContinueListening(1)`, the same offline-first "Continue
-/// Listening" source the Home screen renders. The top item is, by definition,
-/// "resume my book"; its `bookId` feeds `ResumePlaybackIntent`.
+/// `HomeRepository.getResumeBookOrNull()`, the same offline-first "Continue
+/// Listening" source the Home screen renders (it fetches a window and takes the
+/// first). The top item is, by definition, "resume my book"; its `bookId` feeds
+/// `ResumePlaybackIntent`.
 /// Registered with `AppDependencyManager` at launch (see `ListenUpApp`).
 @MainActor
 struct LastPlayedBookProvider: LastPlayedBookProviding {

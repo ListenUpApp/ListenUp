@@ -182,8 +182,7 @@ final class BookDetailObserver {
         Task {
             if (try? await downloadService.downloadBookOrNull(bookId: book.id)) == nil {
                 // Failure was folded + logged in Kotlin; surface a generic message (no AppResult here).
-                downloadError = String(localized: "book_detail.download_failed",
-                                       defaultValue: "Couldn't start the download. Please try again.")
+                downloadError = String(localized: "book.detail_download_failed")
                 Log.error("downloadBook failed for \(book.idString)")
             }
         }

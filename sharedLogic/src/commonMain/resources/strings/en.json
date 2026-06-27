@@ -270,6 +270,7 @@
     "detail_discard_progress": "Discard Progress",
     "detail_download": "Download",
     "detail_download_book": "Download book",
+    "detail_download_failed": "Couldn't start the download. Please try again.",
     "detail_downloaded": "Downloaded",
     "detail_edit_book": "Edit Book",
     "detail_find_metadata": "Find Metadata",
