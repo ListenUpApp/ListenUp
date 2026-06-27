@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.ContentType
+import io.ktor.http.defaultForFilePath
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.PartData
@@ -36,8 +37,8 @@ import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.patch
 import io.ktor.server.resources.put
+import com.calypsan.listenup.server.io.respondSeekable
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondFile
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get as routingGet
 import io.ktor.utils.io.toByteArray
@@ -283,8 +284,9 @@ private suspend fun ApplicationCall.respondGatedCover(
  * [respondGatedCover]: a book the caller can't reach — or a missing document row/file —
  * answers 404, never 403, so it can't be used to probe a private book's existence. The
  * document `hash` is the strong `ETag`; a matching `If-None-Match` short-circuits to 304.
- * Otherwise `respondFile` streams the bytes, cooperating with the `PartialContent` plugin
- * (installed at the application level) for byte-range/resume.
+ * Otherwise `respondSeekable` streams the bytes (content-type inferred from the file extension),
+ * cooperating with the `PartialContent` plugin (installed at the application level) for
+ * byte-range/resume.
  */
 private suspend fun ApplicationCall.respondGatedDocument(
     bookId: BookId,
@@ -303,8 +305,6 @@ private suspend fun ApplicationCall.respondGatedDocument(
         respond(HttpStatusCode.NotModified)
         return
     }
-    val file = java.io.File(location.path.toString())
-    if (!file.isFile) return respond(HttpStatusCode.NotFound)
     response.headers.append(HttpHeaders.ETag, etag)
-    respondFile(file)
+    respondSeekable(location.path, ContentType.defaultForFilePath(location.path.name))
 }

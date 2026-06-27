@@ -1,14 +1,17 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.io.respondSeekable
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.defaultForFilePath
 import io.ktor.server.application.call
 import io.ktor.server.response.respond
-import io.ktor.server.response.respondPath
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 
 /**
  * Routes that serve contributor photos and series cover images from local
@@ -32,8 +35,8 @@ fun Route.metadataImageRoutes(
         val contributor = contributorRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = contributor.imagePath ?: return@get call.respond(HttpStatusCode.NotFound)
         val absolute = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
-        if (!absolute.toFile().isFile) return@get call.respond(HttpStatusCode.NotFound)
-        call.respondPath(absolute)
+        val path = IoPath(absolute.toString())
+        call.respondSeekable(path, ContentType.defaultForFilePath(path.name))
     }
 
     get("/api/v1/series/{id}/cover") {
@@ -41,8 +44,8 @@ fun Route.metadataImageRoutes(
         val series = seriesRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = series.coverPath ?: return@get call.respond(HttpStatusCode.NotFound)
         val absolute = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
-        if (!absolute.toFile().isFile) return@get call.respond(HttpStatusCode.NotFound)
-        call.respondPath(absolute)
+        val path = IoPath(absolute.toString())
+        call.respondSeekable(path, ContentType.defaultForFilePath(path.name))
     }
 }
 

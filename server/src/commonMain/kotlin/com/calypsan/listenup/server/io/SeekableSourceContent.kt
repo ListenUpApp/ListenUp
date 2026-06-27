@@ -25,8 +25,7 @@ internal class SeekableSourceContent(
 
     override fun readFrom(): ByteReadChannel = streamWindow(0, length)
 
-    override fun readFrom(range: LongRange): ByteReadChannel =
-        streamWindow(range.first, range.last - range.first + 1)
+    override fun readFrom(range: LongRange): ByteReadChannel = streamWindow(range.first, range.last - range.first + 1)
 
     private fun streamWindow(
         offset: Long,
