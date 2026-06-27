@@ -17,8 +17,8 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.OwnedShelf
 import com.calypsan.listenup.server.sync.ShelfBookRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 private const val MAX_NAME_LENGTH = 200
 private const val DISCOVER_LIMIT_MIN = 1
@@ -71,7 +71,7 @@ internal class ShelfServiceImpl(
         val now = clock.now().toEpochMilliseconds()
         val payload =
             ShelfSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 name = trimmed,
                 description = description,
                 isPrivate = isPrivate,
@@ -281,10 +281,12 @@ internal class ShelfServiceImpl(
 
     /** Owner-gate outcome: [Allowed] carries the loaded shelf; [Denied] carries the typed failure. */
     private sealed interface OwnerGate {
+        /** Ownership passed; carries the loaded [OwnedShelf] for the operation to act on. */
         data class Allowed(
             val owned: OwnedShelf,
         ) : OwnerGate
 
+        /** Ownership failed; carries the typed [ShelfError] to return to the caller. */
         data class Denied(
             val error: ShelfError,
         ) : OwnerGate

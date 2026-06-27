@@ -6,8 +6,8 @@ import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Shelves
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
 
 /**
@@ -231,7 +231,7 @@ class ShelfRepository(
         val now = clock.now().toEpochMilliseconds()
         val payload =
             ShelfSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 name = "To Read",
                 description = "",
                 isPrivate = false,
