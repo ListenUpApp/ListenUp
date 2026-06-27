@@ -12,6 +12,7 @@ struct UserAvatarView: View {
     private let userId: String?
     private let fallbackName: String
     private let avatarColorHex: String?
+    private let hasImageAvatar: Bool
     private let size: CGFloat
 
     /// Render from a known Kotlin `User`. Used by toolbars / profile screens.
@@ -19,20 +20,30 @@ struct UserAvatarView: View {
         self.userId = user?.idString
         self.fallbackName = user?.displayName ?? ""
         self.avatarColorHex = user?.avatarColor
+        self.hasImageAvatar = user?.hasImageAvatar ?? false
         self.size = size
     }
 
     /// Render from primitives — for list rows that carry only the user's id (per iOS rule 8,
     /// we never put a bridged Kotlin `User` in a `ForEach`). Resolves the picture by `userId`,
-    /// falling back to initials derived from `fallbackName`.
-    init(userId: String, fallbackName: String, avatarColor: String? = nil, size: CGFloat = 36) {
+    /// falling back to initials derived from `fallbackName`. `hasImageAvatar` defaults to `true`
+    /// because list rows can't cheaply know the avatar type; a 404 negative-caches in the shared
+    /// downloader, so an auto-avatar user just falls back to initials after one cheap miss.
+    init(
+        userId: String,
+        fallbackName: String,
+        avatarColor: String? = nil,
+        hasImageAvatar: Bool = true,
+        size: CGFloat = 36
+    ) {
         self.userId = userId
         self.fallbackName = fallbackName
         self.avatarColorHex = avatarColor
+        self.hasImageAvatar = hasImageAvatar
         self.size = size
     }
 
-    /// The user's image avatar, read off the main thread by [loadAvatar] — downloading + persisting
+    /// The user's image avatar, read off the main thread by [loadAvatar] — fire-and-forget caching
     /// it on first appearance so it renders now and survives offline. Until it lands (or for an
     /// auto/initials avatar), the initials fallback shows.
     @State private var avatarImage: UIImage?
@@ -52,7 +63,7 @@ struct UserAvatarView: View {
             }
         }
         .task(id: userId) {
-            guard let userId else {
+            guard let userId, hasImageAvatar else {
                 avatarImage = nil
                 return
             }
@@ -60,16 +71,24 @@ struct UserAvatarView: View {
         }
     }
 
-    /// `nonisolated async` ⇒ the download, disk read, and decode run off the main actor. Persists
-    /// the image avatar to the durable store on first appearance (no-op once cached) and loads it;
-    /// returns nil if no avatar is available. `downloadUserAvatar` saves on success.
+    /// `nonisolated async` ⇒ disk read + decode run off the main actor. Does NOT await the bridged
+    /// `downloadUserAvatar` suspend (that AppResult suspend-bridge deadlocks under the post-scan
+    /// concurrent fan-out). Instead fire-and-forgets `ensureUserAvatarCached` (the cover/contributor/
+    /// Compose pattern) and briefly polls for the downloaded file to land.
     private nonisolated static func loadAvatar(userId: String) async -> UIImage? {
         let repository = Dependencies.shared.imageRepository
-        if !repository.userAvatarExists(userId: userId) {
-            _ = try? await repository.downloadUserAvatar(userId: userId, forceRefresh: false)
+        if repository.userAvatarExists(userId: userId) {
+            return UIImage(contentsOfFile: repository.getUserAvatarPath(userId: userId))
         }
-        guard repository.userAvatarExists(userId: userId) else { return nil }
-        return UIImage(contentsOfFile: repository.getUserAvatarPath(userId: userId))
+        repository.ensureUserAvatarCached(userId: userId)
+        for _ in 0..<8 {
+            try? await Task.sleep(for: .milliseconds(250))
+            if Task.isCancelled { return nil }
+            if repository.userAvatarExists(userId: userId) {
+                return UIImage(contentsOfFile: repository.getUserAvatarPath(userId: userId))
+            }
+        }
+        return nil
     }
 
     // MARK: - Private Views

@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
 
@@ -28,6 +30,32 @@ internal class ImageDownloader(
     private val imageApi: ImageApiContract,
     private val imageStorage: ImageStorage,
 ) : ImageDownloaderContract {
+    // Per-userId serialization so a post-scan fan-out of concurrent avatar requests
+    // collapses to a single network fetch + save instead of stampeding the server
+    // (and deadlocking the iOS AppResult suspend bridge).
+    // Both collections grow unbounded but are bounded by distinct users seen this session —
+    // acceptable for the small self-hosted userbase.
+    private val avatarDownloadMutexes = mutableMapOf<String, Mutex>()
+    private val avatarDownloadMutexesGuard = Mutex()
+
+    // Session negative cache: a 404 means the user has no image avatar, so repeated
+    // triggers must not keep re-hitting the server. Distinct users run concurrently on the
+    // multi-threaded appScope, so every access is guarded (the per-user mutex only serializes
+    // the same userId).
+    private val avatarsKnownMissing = mutableSetOf<String>()
+
+    private suspend fun avatarMutexFor(userId: String): Mutex =
+        avatarDownloadMutexesGuard.withLock { avatarDownloadMutexes.getOrPut(userId) { Mutex() } }
+
+    private suspend fun markAvatarMissing(userId: String) =
+        avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.add(userId) }
+
+    private suspend fun clearAvatarMissing(userId: String) =
+        avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.remove(userId) }
+
+    private suspend fun isAvatarKnownMissing(userId: String): Boolean =
+        avatarDownloadMutexesGuard.withLock { avatarsKnownMissing.contains(userId) }
+
     /**
      * Delete a book's cover from local storage.
      *
@@ -270,44 +298,56 @@ internal class ImageDownloader(
     override suspend fun downloadUserAvatar(
         userId: String,
         forceRefresh: Boolean,
-    ): AppResult<Boolean> {
-        // Skip if already exists locally (unless forcing refresh)
-        if (!forceRefresh && imageStorage.userAvatarExists(userId)) {
-            logger.info { "Avatar already exists locally for user $userId" }
-            return AppResult.Success(false)
+    ): AppResult<Boolean> =
+        avatarMutexFor(userId).withLock {
+            // A forced refresh clears any prior negative-cache verdict and the stale file.
+            if (forceRefresh) {
+                clearAvatarMissing(userId)
+                if (imageStorage.userAvatarExists(userId)) {
+                    // Best-effort cleanup before re-download; the fresh file overwrites a failed delete anyway.
+                    val _ = imageStorage.deleteUserAvatar(userId)
+                    logger.info { "Deleted old avatar for user $userId before refresh" }
+                }
+            }
+
+            // Re-check inside the lock: a coalesced earlier caller may have just saved the file.
+            if (!forceRefresh && imageStorage.userAvatarExists(userId)) {
+                logger.info { "Avatar already exists locally for user $userId" }
+                return@withLock AppResult.Success(false)
+            }
+
+            // Negative cache: the server already told us this user has no avatar this session.
+            if (!forceRefresh && isAvatarKnownMissing(userId)) {
+                logger.info { "Avatar known missing for user $userId, skipping download" }
+                return@withLock AppResult.Success(false)
+            }
+
+            logger.info { "Downloading avatar for user $userId..." }
+
+            // Download from server
+            val downloadResult = imageApi.downloadUserAvatar(userId)
+            if (downloadResult is AppResult.Failure) {
+                // 404 is expected for users without custom avatars - don't log as error
+                markAvatarMissing(userId)
+                logger.info { "Avatar not available for user $userId: ${downloadResult.message}" }
+                return@withLock AppResult.Success(false)
+            }
+
+            // Save to local storage
+            val imageBytes = (downloadResult as AppResult.Success).data
+            logger.info { "Downloaded ${imageBytes.size} bytes for user $userId, saving..." }
+
+            val saveResult = imageStorage.saveUserAvatar(userId, imageBytes)
+
+            if (saveResult is AppResult.Failure) {
+                logger.error { "Failed to save avatar for user $userId: ${saveResult.message}" }
+                return@withLock saveResult
+            }
+
+            clearAvatarMissing(userId)
+            logger.info { "Successfully downloaded and saved avatar for user $userId" }
+            AppResult.Success(true)
         }
-
-        // Delete existing if force refresh
-        if (forceRefresh && imageStorage.userAvatarExists(userId)) {
-            // Best-effort cleanup before re-download; the fresh file overwrites a failed delete anyway.
-            val _ = imageStorage.deleteUserAvatar(userId)
-            logger.info { "Deleted old avatar for user $userId before refresh" }
-        }
-
-        logger.info { "Downloading avatar for user $userId..." }
-
-        // Download from server
-        val downloadResult = imageApi.downloadUserAvatar(userId)
-        if (downloadResult is AppResult.Failure) {
-            // 404 is expected for users without custom avatars - don't log as error
-            logger.info { "Avatar not available for user $userId: ${downloadResult.message}" }
-            return AppResult.Success(false)
-        }
-
-        // Save to local storage
-        val imageBytes = (downloadResult as AppResult.Success).data
-        logger.info { "Downloaded ${imageBytes.size} bytes for user $userId, saving..." }
-
-        val saveResult = imageStorage.saveUserAvatar(userId, imageBytes)
-
-        if (saveResult is AppResult.Failure) {
-            logger.error { "Failed to save avatar for user $userId: ${saveResult.message}" }
-            return saveResult
-        }
-
-        logger.info { "Successfully downloaded and saved avatar for user $userId" }
-        return AppResult.Success(true)
-    }
 
     /**
      * Get the local file path for a user's avatar image.
