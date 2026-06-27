@@ -30,6 +30,7 @@ private struct RootView: View {
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
+    @State private var deepLinkRouter = DeepLinkRouter()
     @State private var syncSession: SyncSessionController?
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
@@ -38,6 +39,20 @@ private struct RootView: View {
         content
             .environment(currentUser)
             .environment(hapticsSettings)
+            .environment(deepLinkRouter)
+            .onOpenURL { url in
+                deepLinkRouter.receive(url: url)
+            }
+            .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                if let url = activity.webpageURL { deepLinkRouter.receive(url: url) }
+            }
+            .sheet(isPresented: invitePresented) {
+                if case .claimInvite(let serverURL, let code) = deepLinkRouter.outcome {
+                    ClaimInviteView(deepLinkServerURL: serverURL, deepLinkCode: code) {
+                        deepLinkRouter.consume()
+                    }
+                }
+            }
             .animation(.smooth(duration: 0.3), value: auth.state)
             // Start realtime sync once authenticated (initial pull + SSE firehose), mirroring the
             // Compose `MainActivity`/`AppShell`. Without this the library never populates on iOS.
@@ -72,6 +87,13 @@ private struct RootView: View {
                     await coordinator.saveCurrentPosition()
                 }
             }
+    }
+
+    private var invitePresented: Binding<Bool> {
+        Binding(
+            get: { if case .claimInvite = deepLinkRouter.outcome { true } else { false } },
+            set: { presented in if !presented { deepLinkRouter.consume() } }
+        )
     }
 
     /// Connect realtime sync + resume downloads when authenticated. Lazily builds the controller
