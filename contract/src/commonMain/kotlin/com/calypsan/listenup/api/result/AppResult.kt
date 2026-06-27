@@ -157,7 +157,10 @@ inline fun <T> AppResult<T>.recover(recovery: (AppError) -> T): AppResult<T> =
  */
 inline fun <T> AppResult<T>.valueOrNull(onFailure: (AppError) -> Unit = {}): T? =
     when (this) {
-        is AppResult.Success -> data
+        is AppResult.Success -> {
+            data
+        }
+
         is AppResult.Failure -> {
             onFailure(error)
             null
