@@ -263,7 +263,6 @@ InboxRepository
 Instance
 InstanceId
 InstanceRepository
-InviteDeepLink
 InviteInfo
 InvitePreview
 InviteRepository

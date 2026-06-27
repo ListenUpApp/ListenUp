@@ -127,7 +127,9 @@
     "not_found": "Not found.",
     "transport_network_unavailable": "Can't reach the server. Check your connection.",
     "transport_timeout": "The request took too long. Please try again.",
-    "auth_session_expired": "Your session expired. Please sign in again."
+    "auth_session_expired": "Your session expired. Please sign in again.",
+    "book_wrong_server": "This book is on a different ListenUp server than the one you're signed in to.",
+    "book_not_connected": "Sign in to the server that hosts this book to open it."
   },
   "auth": {
     "admin_account_subtitle": "You're creating the first account on this server.",

@@ -680,6 +680,8 @@ One beautiful library.</string>
     <string name="edit_set_date">Set date</string>
     <string name="edit_uploading_image">Uploading image</string>
     <string name="error_auth_session_expired">Your session expired. Please sign in again.</string>
+    <string name="error_book_not_connected">Sign in to the server that hosts this book to open it.</string>
+    <string name="error_book_wrong_server">This book is on a different ListenUp server than the one you\'re signed in to.</string>
     <string name="error_conflict">That resource is in use or already exists.</string>
     <string name="error_forbidden">You don\'t have permission to do that.</string>
     <string name="error_not_found">Not found.</string>

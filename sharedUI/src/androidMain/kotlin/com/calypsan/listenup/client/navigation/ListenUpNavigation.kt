@@ -37,6 +37,8 @@ import kotlinx.coroutines.CoroutineScope
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.common_retry
+import listenup.composeapp.generated.resources.error_book_not_connected
+import listenup.composeapp.generated.resources.error_book_wrong_server
 import listenup.composeapp.generated.resources.startup_setup_check_failed_message
 import listenup.composeapp.generated.resources.startup_setup_check_failed_title
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -49,6 +51,9 @@ import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
+import com.calypsan.listenup.client.share.ShareResolution
+import com.calypsan.listenup.client.share.ShareTarget
+import com.calypsan.listenup.client.share.ShareTargetResolver
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
@@ -123,20 +128,20 @@ fun ListenUpNavigation(
         }
     }
 
-    // Observe pending invite deep link
-    val pendingInvite by deepLinkManager.pendingInvite.collectAsStateWithLifecycle()
+    // Observe the pending share-link target (invite branch handled here, pre-auth, as before).
+    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
 
     // Observe auth state changes
     val authState by authSession.authState.collectAsStateWithLifecycle()
 
     // Check for pending invite BEFORE auth state routing
     // This allows invite claiming even when already authenticated
-    pendingInvite?.let { invite ->
+    (pendingTarget as? ShareTarget.Invite)?.let { invite ->
         JoinNavigation(
             serverUrl = invite.serverUrl,
             inviteCode = invite.code,
-            onComplete = { deepLinkManager.consumeInvite() },
-            onCancel = { deepLinkManager.consumeInvite() },
+            onComplete = { deepLinkManager.consumeTarget() },
+            onCancel = { deepLinkManager.consumeTarget() },
         )
         return
     }
@@ -427,6 +432,18 @@ private fun LoginNavigation(
 }
 
 /**
+ * Resets navigation to the [Shell] root, clearing any detail screens on the way. No-op when the
+ * shell is already the top of the back stack. Shared by shortcut routing and share-link routing so
+ * "land the user on a known root before pushing a detail" has exactly one definition.
+ */
+private fun resetToShell(backStack: NavBackStack<NavKey>) {
+    if (backStack.lastOrNull() != Shell) {
+        backStack.clear()
+        backStack.add(Shell)
+    }
+}
+
+/**
  * Routes a launcher/shortcut [ShortcutAction] to the right playback or navigation effect.
  *
  * Extracted from [AuthenticatedNavigation] so the composable's cyclomatic complexity stays
@@ -441,13 +458,6 @@ private suspend fun handleShortcutAction(
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
 ) {
-    fun resetToShell() {
-        if (backStack.lastOrNull() != Shell) {
-            backStack.clear()
-            backStack.add(Shell)
-        }
-    }
-
     when (action) {
         is ShortcutAction.Resume -> {
             // Get the most recent book and play it
@@ -460,7 +470,7 @@ private suspend fun handleShortcutAction(
             } else {
                 logger.warn { "No recent book to resume" }
                 // Navigate to library as fallback
-                resetToShell()
+                resetToShell(backStack)
                 onSelectShellDestination(ShellDestination.Library)
             }
         }
@@ -473,14 +483,14 @@ private suspend fun handleShortcutAction(
 
         is ShortcutAction.Search -> {
             // Navigate to library (search tab)
-            resetToShell()
+            resetToShell(backStack)
             onSelectShellDestination(ShellDestination.Library)
         }
 
         is ShortcutAction.NavigateToBook -> {
             logger.info { "Navigating to book: ${'$'}{action.bookId}" }
             // Ensure we're on Shell first, then navigate to book detail
-            resetToShell()
+            resetToShell(backStack)
             backStack.add(BookDetail(action.bookId))
         }
 
@@ -497,7 +507,7 @@ private suspend fun handleShortcutAction(
 
         is ShortcutAction.NavigateToAbsImport -> {
             logger.info { "Navigating to ABS import: ${action.importId}" }
-            resetToShell()
+            resetToShell(backStack)
             backStack.add(AdminBackups)
             backStack.add(ImportFlow)
         }
@@ -527,6 +537,8 @@ private fun AuthenticatedNavigation(
     syncRepository: SyncRepository = koinInject(),
     shortcutActionManager: ShortcutActionManager = koinInject(),
     homeRepository: HomeRepository = koinInject(),
+    serverConfig: ServerConfig = koinInject(),
+    deepLinkManager: DeepLinkManager = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
 
@@ -584,6 +596,36 @@ private fun AuthenticatedNavigation(
             libraryResetHelper.clearLibraryData()
             authSession.clearAuthTokens()
         }
+    }
+
+    // Resolve a pending BOOK share-link target against the connected server.
+    // Invite targets are handled at the top level; this block ignores them.
+    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
+    val wrongServerMessage = stringResource(Res.string.error_book_wrong_server)
+    val notConnectedMessage = stringResource(Res.string.error_book_not_connected)
+    LaunchedEffect(pendingTarget) {
+        val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
+        when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
+            is ShareResolution.OpenBook -> {
+                resetToShell(backStack)
+                backStack.add(BookDetail(resolution.bookId.value))
+            }
+
+            is ShareResolution.WrongServer -> {
+                snackbarHostState.showSnackbar(wrongServerMessage)
+            }
+
+            is ShareResolution.NotConnected -> {
+                snackbarHostState.showSnackbar(notConnectedMessage)
+            }
+
+            // OpenInviteClaim handled at top level; NoAccess not produced by the pure resolver
+            // (an inaccessible book opens Book Detail, which shows its own empty state).
+            else -> {}
+        }
+        // consumeTarget after showSnackbar (which suspends until dismissed) so the link stays live
+        // until the user has actually seen the error.
+        deepLinkManager.consumeTarget()
     }
 
     ShortcutActionEffect(
