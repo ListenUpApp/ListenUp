@@ -3,17 +3,21 @@ package com.calypsan.listenup.client.navigation.entries
 import androidx.navigation3.runtime.EntryProviderScope
 import androidx.navigation3.runtime.NavBackStack
 import androidx.navigation3.runtime.NavKey
+import com.calypsan.listenup.client.domain.model.FacetKind
+import com.calypsan.listenup.client.features.browsefacet.FacetBooksScreen
 import com.calypsan.listenup.client.features.documentviewer.DocumentViewerScreen
 import com.calypsan.listenup.client.navigation.BookDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BookReaders
+import com.calypsan.listenup.client.navigation.BrowseFacet
 import com.calypsan.listenup.client.navigation.ContributorDetail
 import com.calypsan.listenup.client.navigation.DocumentViewer
 import com.calypsan.listenup.client.navigation.MatchPreview
 import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.SeriesDetail
-import com.calypsan.listenup.client.navigation.TagDetail
 import com.calypsan.listenup.client.navigation.UserProfile
+import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
+import org.koin.compose.viewmodel.koinViewModel
 
 /** Book navigation entries. */
 internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavKey>) {
@@ -35,8 +39,11 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
             onContributorClick = { contributorId ->
                 backStack.add(ContributorDetail(contributorId))
             },
-            onTagClick = { tagId ->
-                backStack.add(TagDetail(tagId))
+            onTagClick = { tagId, tagName ->
+                backStack.add(BrowseFacet(kind = FacetKind.Tag, facetId = tagId, facetName = tagName))
+            },
+            onMoodClick = { moodId, moodName ->
+                backStack.add(BrowseFacet(kind = FacetKind.Mood, facetId = moodId, facetName = moodName))
             },
             onUserProfileClick = { userId ->
                 backStack.add(UserProfile(userId))
@@ -55,6 +62,21 @@ internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavK
             onBack = {
                 backStack.removeAt(backStack.lastIndex)
             },
+        )
+    }
+    entry<BrowseFacet> { args ->
+        val viewModel: BrowseFacetViewModel = koinViewModel()
+        FacetBooksScreen(
+            kind = args.kind,
+            facetId = args.facetId,
+            facetName = args.facetName,
+            onBackClick = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+            onBookClick = { bookId ->
+                backStack.add(BookDetail(bookId))
+            },
+            viewModel = viewModel,
         )
     }
     entry<BookReaders> { args ->

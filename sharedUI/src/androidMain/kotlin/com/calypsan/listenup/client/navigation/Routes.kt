@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.navigation
 
 import androidx.navigation3.runtime.NavKey
 import com.calypsan.listenup.api.metadata.AudibleRegion
+import com.calypsan.listenup.client.domain.model.FacetKind
 import kotlinx.serialization.Serializable
 
 /**
@@ -275,6 +276,23 @@ data object AdminCategories : Route
  */
 @Serializable
 data object BrowseGenre : Route
+
+/**
+ * Facet-browse screen — every book carrying a flat facet (a Tag or a Mood), reached by tapping a
+ * tag/mood chip on Book Detail. One parameterized route over both flat axes; genres keep
+ * [BrowseGenre]. The [facetName] travels on the route so the hero renders immediately while the
+ * Room observation hydrates the authoritative name and book set.
+ *
+ * @property kind Which flat classification axis this browse lists.
+ * @property facetId The tag or mood ID to list books for.
+ * @property facetName The facet's display name, for the immediate hero label.
+ */
+@Serializable
+data class BrowseFacet(
+    val kind: FacetKind,
+    val facetId: String,
+    val facetName: String,
+) : Route
 
 /**
  * Admin user detail screen - view and edit a user's details and permissions.

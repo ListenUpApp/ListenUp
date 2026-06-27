@@ -330,6 +330,7 @@ private fun AboutSectionGallery() {
         onToggleDescriptionExpanded = {},
         onGenreClick = {},
         onTagClick = {},
+        onMoodClick = {},
         modifier = horizontalGutter(),
     )
 
@@ -345,6 +346,7 @@ private fun AboutSectionGallery() {
         onToggleDescriptionExpanded = {},
         onGenreClick = {},
         onTagClick = {},
+        onMoodClick = {},
         modifier = horizontalGutter(),
         creditsSlot = null,
     )

@@ -52,6 +52,13 @@ private fun sampleRoutes(): List<Route> =
         add(MetadataSearch(bookId = "test-book-id"))
         add(SeriesDetail(seriesId = "test-series-id"))
         add(TagDetail(tagId = "test-tag-id"))
+        add(
+            BrowseFacet(
+                kind = com.calypsan.listenup.client.domain.model.FacetKind.Tag,
+                facetId = "test-tag-id",
+                facetName = "Staff Pick",
+            ),
+        )
         add(SeriesEdit(seriesId = "test-series-id"))
         add(ContributorDetail(contributorId = "test-contributor-id"))
         add(ContributorBooks(contributorId = "test-contributor-id", role = "author"))

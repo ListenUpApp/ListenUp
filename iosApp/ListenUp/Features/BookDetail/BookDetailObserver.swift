@@ -54,8 +54,8 @@ final class BookDetailObserver {
     private(set) var heroAuthors: [CastMember] = []
     private(set) var heroNarrators: [CastMember] = []
     private(set) var genres: [String] = []
-    private(set) var tags: [String] = []
-    private(set) var moods: [String] = []
+    private(set) var tags: [FacetChip] = []
+    private(set) var moods: [FacetChip] = []
 
     // MARK: - Projected from `book`
 
@@ -292,8 +292,8 @@ final class BookDetailObserver {
             isComplete = r.isComplete
             chapters = r.chapters.map { BookChapterRow($0) }
             genres = Array(r.genresList)
-            tags = r.tags.map { $0.name }
-            moods = r.moods.map { $0.name }
+            tags = r.tags.map { FacetChip(id: $0.id, name: $0.name) }
+            moods = r.moods.map { FacetChip(id: $0.id, name: $0.name) }
             showShelfPicker = r.showShelfPicker
             isAddingToShelf = r.isAddingToShelf
             shelfError = r.shelfError

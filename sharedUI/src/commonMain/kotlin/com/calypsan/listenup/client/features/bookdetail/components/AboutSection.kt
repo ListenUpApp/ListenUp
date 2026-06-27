@@ -72,6 +72,7 @@ private const val DESCRIPTION_EXPAND_THRESHOLD = 200
  * @param onToggleDescriptionExpanded   Called when the user taps "Read more" / "Read less".
  * @param onGenreClick  Optional callback when a genre chip is tapped.
  * @param onTagClick    Called when a tag chip is tapped.
+ * @param onMoodClick   Called when a mood chip is tapped.
  * @param modifier      Modifier for the outermost container.
  * @param creditsSlot   Optional composable rendered between the description and the Genres row.
  *                      A "Credits" overline is shown automatically when this slot is non-null.
@@ -88,6 +89,7 @@ fun AboutSection(
     onToggleDescriptionExpanded: () -> Unit,
     onGenreClick: ((String) -> Unit)?,
     onTagClick: (Tag) -> Unit,
+    onMoodClick: (Mood) -> Unit,
     modifier: Modifier = Modifier,
     creditsSlot: (@Composable () -> Unit)? = null,
 ) {
@@ -125,6 +127,7 @@ fun AboutSection(
                 moods = moods,
                 isLoadingTags = isLoadingTags,
                 onTagClick = onTagClick,
+                onMoodClick = onMoodClick,
             )
         }
     }
@@ -244,6 +247,7 @@ private fun AboutClassificationBlocks(
     moods: List<Mood>,
     isLoadingTags: Boolean,
     onTagClick: (Tag) -> Unit,
+    onMoodClick: (Mood) -> Unit,
 ) {
     if (creditsSlot != null) {
         Spacer(modifier = Modifier.height(Spacing.sectionGap))
@@ -280,8 +284,10 @@ private fun AboutClassificationBlocks(
         SectionOverline(text = stringResource(Res.string.book_detail_mood))
         Spacer(modifier = Modifier.height(Spacing.titleGap))
         FacetChipRow(
-            labels = moods.map { it.name },
+            items = moods,
             facet = BookFacet.Mood,
+            label = { it.displayName() },
+            onClick = onMoodClick,
         )
     }
 }

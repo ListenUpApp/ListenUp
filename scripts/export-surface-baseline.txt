@@ -110,6 +110,8 @@ BookTagResponse
 BookUpdate
 BookUpdateRequest
 BookWithContributorRole
+BrowseFacetUiState
+BrowseFacetViewModel
 BrowseFilesystemResponse
 BrowseGenreUiState
 BrowseGenreViewModel
@@ -221,6 +223,7 @@ ErrorBus
 EventStreamRepository
 FacetCount
 FacetCountResponse
+FacetKind
 FileSource
 FolderId
 Genre

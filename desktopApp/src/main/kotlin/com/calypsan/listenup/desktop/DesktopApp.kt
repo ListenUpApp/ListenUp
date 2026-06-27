@@ -325,7 +325,8 @@ private fun DetailScreen(
                 onMetadataSearchClick = { navigateTo(DetailDestination.MetadataSearch(it)) },
                 onSeriesClick = { navigateTo(DetailDestination.Series(it)) },
                 onContributorClick = { navigateTo(DetailDestination.Contributor(it)) },
-                onTagClick = { navigateTo(DetailDestination.Tag(it)) },
+                onTagClick = { tagId, _ -> navigateTo(DetailDestination.Tag(tagId)) },
+                onMoodClick = { _, _ -> },
                 onUserProfileClick = { navigateTo(DetailDestination.UserProfile(it)) },
             )
         }

@@ -156,12 +156,6 @@ internal val adminPresentationModule =
                 errorBus = get(),
             )
         }
-        factory {
-            com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel(
-                genreRepository = get(),
-                errorBus = get(),
-            )
-        }
         // AdminCollectionDetailViewModel - takes collectionId as parameter
         factory { params ->
             com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel(
@@ -471,6 +465,28 @@ internal val tagShelfPresentationModule =
     }
 
 /**
+ * Facet-browse ViewModels — "show every book matching one categorization" (genre, tag, or mood).
+ * Reached from the genre/tag/mood chips on Book Detail; each is a pure read over the library, so
+ * these belong with the browsing surfaces, not the admin console where they originally landed.
+ */
+internal val browsePresentationModule =
+    module {
+        factory {
+            com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreViewModel(
+                genreRepository = get(),
+                errorBus = get(),
+            )
+        }
+        factory {
+            com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel(
+                tagRepository = get(),
+                moodRepository = get(),
+                bookRepository = get(),
+            )
+        }
+    }
+
+/**
  * User profile ViewModels.
  */
 internal val profilePresentationModule =
@@ -558,6 +574,7 @@ internal val allPresentationModules =
         contributorPresentationModule,
         discoverPresentationModule,
         tagShelfPresentationModule,
+        browsePresentationModule,
         profilePresentationModule,
         settingsPresentationModule,
         startupPresentationModule,

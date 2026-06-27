@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.BookMoodDao
 import com.calypsan.listenup.client.data.local.db.MoodDao
 import com.calypsan.listenup.client.data.remote.MoodRpcFactory
 import com.calypsan.listenup.client.domain.model.Mood
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.map
 internal class MoodRepositoryImpl(
     private val moodRpcFactory: MoodRpcFactory,
     private val moodDao: MoodDao,
+    private val bookMoodDao: BookMoodDao,
 ) : MoodRepository {
     // ── Observation (Room-backed) ─────────────────────────────────────────────
 
@@ -42,6 +44,11 @@ internal class MoodRepositoryImpl(
 
     override fun observeMoodsForBook(bookId: String): Flow<List<Mood>> =
         moodDao.observeForBook(bookId).map { entities -> entities.map { it.toDomain() } }
+
+    override fun observeById(id: String): Flow<Mood?> = moodDao.observeById(id).map { it?.toDomain() }
+
+    override fun observeBookIdsForMood(moodId: String): Flow<List<String>> =
+        bookMoodDao.observeForMood(moodId).map { rows -> rows.map { it.bookId } }
 
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 

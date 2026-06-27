@@ -44,6 +44,22 @@ interface MoodRepository {
      */
     fun observeMoodsForBook(bookId: String): Flow<List<Mood>>
 
+    /**
+     * Observe a single mood by its ID, or emit `null` when the mood is absent or tombstoned.
+     *
+     * @param id The mood ID.
+     * @return Flow emitting the mood or null.
+     */
+    fun observeById(id: String): Flow<Mood?>
+
+    /**
+     * Observe the set of book IDs that have the given mood applied (live junction rows only).
+     *
+     * @param moodId The mood ID.
+     * @return Flow emitting list of book ID strings; re-emits on junction changes.
+     */
+    fun observeBookIdsForMood(moodId: String): Flow<List<String>>
+
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
     /**

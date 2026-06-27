@@ -68,11 +68,12 @@ internal val genreTagModule: Module =
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
         // MoodRepository — observations from Room, mutations via RPC (Mood phase).
-        // moodDao provided by persistenceModule.
+        // moodDao and bookMoodDao provided by persistenceModule.
         single<MoodRepository> {
             MoodRepositoryImpl(
                 moodRpcFactory = get(),
                 moodDao = get(),
+                bookMoodDao = get(),
             )
         }
     }

@@ -1,0 +1,84 @@
+import SwiftUI
+import Shared
+
+/// The render phase of the facet-browse screen, flattened from `BrowseFacetUiState`.
+///
+/// `Loading` is the only non-`ready` phase that shows the hero (it has the route-supplied
+/// name); `NotFound` collapses to `.notFound` (the facet resolved to no live row).
+enum FacetBooksPhase: Equatable {
+    case loading
+    case ready
+    case notFound
+}
+
+/// A flat projection of `BrowseFacetUiState`, computed once so the mapping is pure and
+/// unit-testable rather than buried in the observer's `apply`.
+struct FacetBooksSnapshot: Equatable {
+    var phase: FacetBooksPhase = .loading
+    var facetName: String = ""
+    var books: [BookRow] = []
+    var totalDurationMs: Int64 = 0
+
+    var bookCount: Int { books.count }
+
+    /// Flatten the sealed shared state into the flat snapshot the UI renders. The
+    /// route-supplied `fallbackName` keeps the hero titled while `Loading`.
+    static func from(_ state: BrowseFacetUiState, fallbackName: String) -> FacetBooksSnapshot {
+        switch onEnum(of: state) {
+        case .loading:
+            return FacetBooksSnapshot(phase: .loading, facetName: fallbackName)
+        case .ready(let r):
+            return FacetBooksSnapshot(
+                phase: .ready,
+                facetName: r.facetName,
+                books: r.books.map { BookRow($0) },
+                totalDurationMs: r.totalDurationMs
+            )
+        case .notFound:
+            return FacetBooksSnapshot(phase: .notFound, facetName: fallbackName)
+        case .unknown:
+            Log.error("Unexpected BrowseFacetUiState case")
+            return FacetBooksSnapshot(phase: .notFound, facetName: fallbackName)
+        }
+    }
+}
+
+/// Observes `BrowseFacetViewModel`, flattening `BrowseFacetUiState` into flat `@Observable`
+/// properties the SwiftUI screen binds to. The Kotlin `BookListItem`s are projected to native
+/// `BookRow` value types at this boundary so the grid never feeds bridged objects to a `ForEach`.
+@Observable
+@MainActor
+final class FacetBooksObserver {
+    private(set) var phase: FacetBooksPhase = .loading
+    private(set) var facetName: String = ""
+    private(set) var books: [BookRow] = []
+    private(set) var totalDurationMs: Int64 = 0
+
+    var bookCount: Int { books.count }
+
+    /// The route-supplied name, shown in the hero while the Room observation hydrates.
+    private let fallbackName: String
+    private let viewModel: BrowseFacetViewModel
+    private let bridge = FlowBridge()
+
+    init(viewModel: BrowseFacetViewModel, fallbackName: String) {
+        self.viewModel = viewModel
+        self.fallbackName = fallbackName
+        self.facetName = fallbackName
+        bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
+    }
+
+    deinit { bridge.cancelAll() }   // cancelAll() is nonisolated-safe; see FlowBridge.
+
+    func load(kind: FacetKind, facetId: String) {
+        viewModel.load(kind: kind, facetId: facetId)
+    }
+
+    private func apply(_ state: BrowseFacetUiState) {
+        let snapshot = FacetBooksSnapshot.from(state, fallbackName: fallbackName)
+        phase = snapshot.phase
+        facetName = snapshot.facetName
+        books = snapshot.books
+        totalDurationMs = snapshot.totalDurationMs
+    }
+}

@@ -54,7 +54,7 @@ import org.koin.test.verify.verify
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by `mediaModule`.
  *  - [CollectionRepository] — owned by `collectionModule`.
- *  - [GenreRepository] — owned by `genreTagModule`.
+ *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `AdminCategoriesViewModel`).
  *  - [AdminRepository] — owned by `adminModule`.
  *  - [UserRepository] — owned by `socialModule`.
  *  - [SearchRepository] — owned by `searchModule`.

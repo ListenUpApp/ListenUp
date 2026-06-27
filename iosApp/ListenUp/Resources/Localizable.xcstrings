@@ -3871,6 +3871,86 @@
         }
       }
     },
+    "browse_facet.books_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Books"
+          }
+        }
+      }
+    },
+    "browse_facet.kind_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mood"
+          }
+        }
+      }
+    },
+    "browse_facet.kind_tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tag"
+          }
+        }
+      }
+    },
+    "browse_facet.no_books_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books in this mood."
+          }
+        }
+      }
+    },
+    "browse_facet.no_books_tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books with this tag."
+          }
+        }
+      }
+    },
+    "browse_facet.total_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Total"
+          }
+        }
+      }
+    },
+    "browse_facet.unavailable_mood": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mood unavailable"
+          }
+        }
+      }
+    },
+    "browse_facet.unavailable_tag": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tag unavailable"
+          }
+        }
+      }
+    },
     "common.about": {
       "localizations": {
         "en": {

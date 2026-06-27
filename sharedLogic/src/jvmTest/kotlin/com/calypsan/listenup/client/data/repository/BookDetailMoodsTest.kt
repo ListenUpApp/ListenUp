@@ -82,6 +82,7 @@ private fun withTestRepo(block: suspend (BookRepositoryImpl, ListenUpDatabase) -
                 MoodRepositoryImpl(
                     moodRpcFactory = moodRpcFactory,
                     moodDao = db.moodDao(),
+                    bookMoodDao = db.bookMoodDao(),
                 )
 
             val networkMonitor: NetworkMonitor = mock()
