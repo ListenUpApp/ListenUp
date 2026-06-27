@@ -49,6 +49,7 @@ import androidx.navigation3.ui.NavDisplay
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
+import com.calypsan.listenup.client.share.ShareTarget
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.domain.repository.LibraryResetHelper
@@ -123,20 +124,20 @@ fun ListenUpNavigation(
         }
     }
 
-    // Observe pending invite deep link
-    val pendingInvite by deepLinkManager.pendingInvite.collectAsStateWithLifecycle()
+    // Observe the pending share-link target (invite branch handled here, pre-auth, as before).
+    val pendingTarget by deepLinkManager.pendingTarget.collectAsStateWithLifecycle()
 
     // Observe auth state changes
     val authState by authSession.authState.collectAsStateWithLifecycle()
 
     // Check for pending invite BEFORE auth state routing
     // This allows invite claiming even when already authenticated
-    pendingInvite?.let { invite ->
+    (pendingTarget as? ShareTarget.Invite)?.let { invite ->
         JoinNavigation(
             serverUrl = invite.serverUrl,
             inviteCode = invite.code,
-            onComplete = { deepLinkManager.consumeInvite() },
-            onCancel = { deepLinkManager.consumeInvite() },
+            onComplete = { deepLinkManager.consumeTarget() },
+            onCancel = { deepLinkManager.consumeTarget() },
         )
         return
     }
