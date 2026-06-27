@@ -22,6 +22,7 @@ final class Dependencies {
     // MARK: - Use cases
 
     var getInstanceUseCase: GetInstanceUseCase { resolve { KoinHelper.shared.getInstanceUseCase() } }
+    var instanceRepository: InstanceRepository { resolve { KoinHelper.shared.getInstanceRepository() } }
 
     // MARK: - ViewModels (singletons)
 

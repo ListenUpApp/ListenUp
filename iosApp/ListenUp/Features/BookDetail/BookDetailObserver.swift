@@ -349,7 +349,7 @@ final class BookDetailObserver {
     }
 
     private func buildShareURL(bookId: String) async {
-        guard let result = try? await Dependencies.shared.getInstanceUseCase.invoke(forceRefresh: false) else { return }
+        guard let result = try? await Dependencies.shared.instanceRepository.getInstance(forceRefresh: false) else { return }
         switch appResultCase(result) {
         case .success(let success):
             guard let instance = success.data as? Instance else { return }

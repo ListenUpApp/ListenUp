@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
@@ -153,6 +154,8 @@ private fun <T : Any> resolveWithParams(
  */
 object KoinHelper {
     fun getInstanceUseCase(): GetInstanceUseCase = resolve(GetInstanceUseCase::class)
+
+    fun getInstanceRepository(): InstanceRepository = resolve(InstanceRepository::class)
 
     fun getServerConnectViewModel(): ServerConnectViewModel = resolve(ServerConnectViewModel::class)
 
