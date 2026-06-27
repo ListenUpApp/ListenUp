@@ -73,6 +73,15 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="listenup" android:host="book" />
             </intent-filter>
+
+            <!-- App Link: https://link.listenup.audio/o#... (autoVerify needs assetlinks.json — Phase 4) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="link.listenup.audio" />
+                <data android:pathPrefix="/o" />
+            </intent-filter>
         </activity>
 
         <!-- Debug-only: on-device component gallery (mock data). Not exported — launchable via
