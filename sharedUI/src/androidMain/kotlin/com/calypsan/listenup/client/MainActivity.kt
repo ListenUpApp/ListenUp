@@ -22,7 +22,7 @@ import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
-import com.calypsan.listenup.client.deeplink.DeepLinkParser
+import com.calypsan.listenup.client.share.ShareLinkCodec
 import com.calypsan.listenup.client.design.haptics.ProvideHaptics
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
@@ -125,18 +125,15 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
 
-        // Check for deep link first
-        DeepLinkParser.parse(intent)?.let { inviteLink ->
-            logger.info { "Received invite deep link" }
-            deepLinkManager.setInviteLink(inviteLink.serverUrl, inviteLink.code)
-            return
-        }
-
-        // Check for book deep link: listenup://book/{bookId}
-        DeepLinkParser.parseBookDeepLink(intent)?.let { bookLink ->
-            logger.debug { "Received book deep link - bookId=${bookLink.bookId}" }
-            shortcutActionManager.setPendingAction(ShortcutAction.NavigateToBook(bookLink.bookId))
-            return
+        // Share / deep links (https App Links + legacy listenup:// scheme) — parsed once, in commonMain.
+        if (intent.action == Intent.ACTION_VIEW) {
+            intent.data?.toString()?.let { raw ->
+                ShareLinkCodec.decode(raw)?.let { target ->
+                    logger.info { "Received share-link target: ${target::class.simpleName}" }
+                    deepLinkManager.setPendingTarget(target)
+                    return
+                }
+            }
         }
 
         // Check for shortcut actions
