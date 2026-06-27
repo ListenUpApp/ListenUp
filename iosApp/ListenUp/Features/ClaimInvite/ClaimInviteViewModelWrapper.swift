@@ -32,6 +32,10 @@ final class ClaimInviteViewModelWrapper {
         viewModel.onCodeEntered(code: code.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    func start(serverURL: String?, code: String) {
+        viewModel.start(serverUrl: serverURL, code: code)
+    }
+
     func claim(password: String, displayName: String?) {
         viewModel.onClaimSubmit(password: password, displayName: displayName)
     }
