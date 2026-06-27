@@ -8,7 +8,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.TagSlug
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
 /**
@@ -140,7 +140,7 @@ internal class BookTagWriter(
     ): Tag? {
         val newTag =
             Tag(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 name = name.trim(),
                 slug = slug,
                 revision = 0L,

@@ -22,6 +22,7 @@ import com.calypsan.listenup.server.cover.ManagedCoverFiles
 import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.cover.StoredCoverInfo
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.IdRev
@@ -32,10 +33,10 @@ import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import com.calypsan.listenup.server.sync.accessFilteredDigest
 import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
 import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.server.io.hashBytesSha256
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.nio.file.Path
-import java.security.MessageDigest
-import java.util.UUID
+import kotlinx.io.files.Path
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
@@ -115,7 +116,7 @@ class BookRepository(
     BookRevisionTouch {
     /** Cover file and path helpers — file I/O and path resolution outside the sync seam. */
     private val managedCoverFiles =
-        ManagedCoverFiles(coverImageStore, homeDir?.let { kotlinx.io.files.Path(it.toString()) }, db)
+        ManagedCoverFiles(coverImageStore, homeDir, db)
 
     /** Book-row child-table write mechanics (transaction-scoped, no revision/bus calls). */
     private val bookAggregateWriter = BookAggregateWriter(db)
@@ -226,9 +227,9 @@ class BookRepository(
         userId: String?,
         existed: Boolean,
     ) {
-        // Read per-call extras the scan/edit paths installed via the coroutine context (mirrored
-        // to a thread-local by BookWriteExtras's ThreadContextElement, so this non-suspend method
-        // can read it inside the SQLDelight transaction). Null for all other callers.
+        // Read per-call extras the scan/edit paths installed via the coroutine context (carried by
+        // a TransactionLocal and mirrored onto this thread by suspendTransaction, so this non-suspend
+        // method can read it inside the SQLDelight transaction). Null for all other callers.
         val extras = BookWriteExtras.current()
         val managedCover = extras?.managedCover
 
@@ -477,7 +478,7 @@ class BookRepository(
                 }
             }
 
-        val newId = BookId(UUID.randomUUID().toString())
+        val newId = BookId(Uuid.random().toString())
         return write(newId).map { IngestOutcome(newId, wasNew = true) }
     }
 
@@ -663,9 +664,11 @@ class BookRepository(
                 // The id rides in via BookWriteExtras; it is stashed only for a genuinely-new book
                 // (`isNew`), never on the UPDATE path, so a rescan can't re-collect a released book.
                 withContext(
-                    BookWriteExtras(
-                        managedCover = storedCover,
-                        systemCollectionId = if (isNew) systemCollectionId else null,
+                    TransactionLocal(
+                        BookWriteExtras(
+                            managedCover = storedCover,
+                            systemCollectionId = if (isNew) systemCollectionId else null,
+                        ),
                     ),
                 ) {
                     upsert(payload, clientOpId = null)
@@ -1085,10 +1088,7 @@ class BookRepository(
 }
 
 /** Returns the SHA-256 hex digest of [this] byte array. */
-private fun ByteArray.sha256Hex(): String {
-    val digest = MessageDigest.getInstance("SHA-256").digest(this)
-    return digest.joinToString("") { "%02x".format(it) }
-}
+private fun ByteArray.sha256Hex(): String = hashBytesSha256(this)
 
 /** Maps a wire `Boolean` to the SQLite `0/1` INTEGER the books table stores. */
 private fun Boolean.toDbLong(): Long = if (this) 1L else 0L

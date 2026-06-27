@@ -2,15 +2,15 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
-import java.text.Normalizer
+import com.calypsan.listenup.server.sync.foldDiacritics
 
 /**
  * Normalizes raw genre display names into URL-safe slugs.
  *
  * Algorithm (in order):
- * 1. NFKD normalize → strip combining marks (diacritics). `java.text.Normalizer`
- *    is the only JVM API that does full Unicode decomposition; it is isolated
- *    here behind the public [normalize] surface.
+ * 1. Strip diacritics via the [foldDiacritics] platform seam (JVM NFKD
+ *    decomposition / native Latin folding table), so accented Latin letters
+ *    reduce to their base ASCII letter.
  * 2. Lowercase.
  * 3. Replace `&` with `" and "` (with surrounding spaces so adjacent words don't
  *    run together).
@@ -38,9 +38,8 @@ object GenreSlug {
      * characters), or exceeds [MAX_SLUG_LENGTH] characters after normalization.
      */
     fun normalize(rawName: String): AppResult<String> {
-        // Step 1: NFKD decomposition + diacritic removal (JVM-only; isolated here).
-        val decomposed = Normalizer.normalize(rawName, Normalizer.Form.NFKD)
-        val diacriticsStripped = decomposed.replace(Regex("\\p{Mn}"), "")
+        // Step 1: strip diacritics via the platform seam (JVM NFKD / native folding table).
+        val diacriticsStripped = foldDiacritics(rawName)
 
         // Step 2: lowercase.
         val lowered = diacriticsStripped.lowercase()

@@ -170,6 +170,6 @@ private fun SqlTestDatabases.makeRepo(homeDir: java.nio.file.Path? = null): Book
         contributorRepository = ContributorRepository(sql, bus, syncRegistry),
         seriesRepository = SeriesRepository(sql, bus, syncRegistry),
         genreRepository = GenreRepository(sql, bus, syncRegistry),
-        homeDir = homeDir,
+        homeDir = homeDir?.let { kotlinx.io.files.Path(it.toString()) },
     )
 }

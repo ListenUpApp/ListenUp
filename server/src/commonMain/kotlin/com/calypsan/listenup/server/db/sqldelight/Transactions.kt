@@ -35,19 +35,28 @@ suspend fun <T> suspendTransaction(
     body: TransactionWithReturn<T>.() -> T,
 ): T =
     withContext(sqlIoDispatcher) {
-        var lastError: Throwable? = null
-        repeat(MAX_TX_ATTEMPTS) { attempt ->
-            try {
-                return@withContext db.transactionWithResult { body() }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Throwable) {
-                if (!e.isRetryableSqliteError()) throw e
-                lastError = e
-                if (attempt < MAX_TX_ATTEMPTS - 1) {
-                    delay(Random.nextLong(MIN_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS + 1))
+        // Mirror any TransactionLocal carried in the coroutine context onto this thread for the
+        // synchronous transaction body — the cross-platform replacement for the JVM-only
+        // ThreadContextElement. Save/restore the prior value so nested transactions compose.
+        val priorTxLocal = currentTransactionLocal()
+        setTransactionLocal(coroutineContext[TransactionLocal]?.value)
+        try {
+            var lastError: Throwable? = null
+            repeat(MAX_TX_ATTEMPTS) { attempt ->
+                try {
+                    return@withContext db.transactionWithResult { body() }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    if (!e.isRetryableSqliteError()) throw e
+                    lastError = e
+                    if (attempt < MAX_TX_ATTEMPTS - 1) {
+                        delay(Random.nextLong(MIN_RETRY_DELAY_MS, MAX_RETRY_DELAY_MS + 1))
+                    }
                 }
             }
+            throw lastError ?: IllegalStateException("suspendTransaction retry loop exited without a result")
+        } finally {
+            setTransactionLocal(priorTxLocal)
         }
-        throw lastError ?: IllegalStateException("suspendTransaction retry loop exited without a result")
     }

@@ -137,7 +137,7 @@ fun booksModule(
                 collectionBookRepository = get(),
                 tagRepository = getOrNull<TagRepository>(),
                 bookTagRepository = getOrNull<BookTagRepository>(),
-                homeDir = homeDir,
+                homeDir = IoPath(homeDir.toString()),
                 coverImageStore = get<CoverImageStore>(),
             )
         }

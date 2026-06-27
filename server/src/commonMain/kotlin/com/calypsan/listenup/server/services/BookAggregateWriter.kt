@@ -6,7 +6,7 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookDocumentPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Transaction-scoped helpers for writing the book's four child tables over the generated
@@ -87,7 +87,7 @@ internal class BookAggregateWriter(
             db.bookChaptersQueries.insert(
                 book_id = bookId,
                 ordinal = idx.toLong(),
-                id = ch.id.ifBlank { UUID.randomUUID().toString() },
+                id = ch.id.ifBlank { Uuid.random().toString() },
                 title = ch.title,
                 duration = ch.duration,
                 start_time = ch.startTime,
@@ -104,7 +104,7 @@ internal class BookAggregateWriter(
             db.bookAudioFilesQueries.insert(
                 book_id = bookId,
                 ordinal = idx.toLong(),
-                id = f.id.ifBlank { UUID.randomUUID().toString() },
+                id = f.id.ifBlank { Uuid.random().toString() },
                 filename = f.filename,
                 format = f.format,
                 codec = f.codec,
@@ -128,7 +128,7 @@ internal class BookAggregateWriter(
             db.bookDocumentsQueries.insert(
                 book_id = bookId,
                 ordinal = idx.toLong(),
-                id = d.id.ifBlank { UUID.randomUUID().toString() },
+                id = d.id.ifBlank { Uuid.random().toString() },
                 filename = d.filename,
                 format = d.format,
                 size = d.size,

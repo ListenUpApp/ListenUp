@@ -1,21 +1,19 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.server.cover.StoredCoverInfo
-import kotlin.coroutines.CoroutineContext
-import kotlinx.coroutines.ThreadContextElement
+import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
+import com.calypsan.listenup.server.db.sqldelight.currentTransactionLocal
 
 /**
  * Per-write extras the scan/edit paths inject into [BookRepository.writePayload] via the
  * coroutine context. Replaces shared-mutable maps: scoped to the call, no cross-book race.
  *
- * Implemented as a [ThreadContextElement] (not a plain context element) because the
- * consumer — the SQLDelight base's non-suspend `writePayload`, which runs synchronously
- * inside `withContext(sqlIoDispatcher) { db.transactionWithResult { … } }` — cannot read the
- * suspend-only `coroutineContext`. The [ThreadContextElement] mirrors this element into a
- * thread-local on whatever thread the coroutine resumes on (including after the dispatch hop
- * into the SQL I/O dispatcher), so `writePayload` reads it via [current] with no suspension
- * and no cross-coroutine field race: each coroutine installs/restores its own value around
- * every resume.
+ * The consumer — the SQLDelight base's non-suspend `writePayload`, which runs synchronously inside
+ * `suspendTransaction { db.transactionWithResult { … } }` — cannot read the suspend-only
+ * `coroutineContext`. So callers install the extras with `withContext(TransactionLocal(extras)) { … }`:
+ * [suspendTransaction][com.calypsan.listenup.server.db.sqldelight.suspendTransaction] mirrors the
+ * carried value onto whatever thread the transaction body runs on (after the `sqlIoDispatcher` hop),
+ * and `writePayload` reads it back via [current] with no suspension and no cross-coroutine race.
  */
 class BookWriteExtras(
     val managedCover: StoredCoverInfo? = null,
@@ -37,26 +35,9 @@ class BookWriteExtras(
      * branch writes it through. The scanner never sets this.
      */
     val createdAtOverride: Long? = null,
-) : ThreadContextElement<BookWriteExtras?> {
-    override val key: CoroutineContext.Key<*> get() = Key
-
-    override fun updateThreadContext(context: CoroutineContext): BookWriteExtras? {
-        val previous = threadLocal.get()
-        threadLocal.set(this)
-        return previous
-    }
-
-    override fun restoreThreadContext(
-        context: CoroutineContext,
-        oldState: BookWriteExtras?,
-    ) {
-        threadLocal.set(oldState)
-    }
-
-    companion object Key : CoroutineContext.Key<BookWriteExtras> {
-        private val threadLocal = ThreadLocal<BookWriteExtras?>()
-
-        /** The extras active on the current thread, or null when no [BookWriteExtras] is installed. */
-        fun current(): BookWriteExtras? = threadLocal.get()
+) {
+    companion object {
+        /** The extras active on the current transaction thread, or null when none is installed. */
+        fun current(): BookWriteExtras? = currentTransactionLocal() as? BookWriteExtras
     }
 }

@@ -11,7 +11,7 @@ import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 
@@ -224,7 +224,7 @@ class ContributorRepository(
             }
         if (existing != null) return ContributorId(existing)
 
-        val id = ContributorId(UUID.randomUUID().toString())
+        val id = ContributorId(Uuid.random().toString())
         upsert(
             ContributorSyncPayload(
                 id = id.value,
@@ -268,7 +268,7 @@ class ContributorRepository(
         for ((name, sortName) in identities) {
             val derivedSortName = sortName ?: SortKeys.sortName(name, null)
             val key = contributorDedupKey(name, derivedSortName)
-            byKey.putIfAbsent(key, name to derivedSortName)
+            byKey.getOrPut(key) { name to derivedSortName }
         }
 
         // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.

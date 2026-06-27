@@ -10,7 +10,7 @@ import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 
@@ -167,7 +167,7 @@ class SeriesRepository(
             }
         if (existing != null) return SeriesId(existing)
 
-        val id = SeriesId(UUID.randomUUID().toString())
+        val id = SeriesId(Uuid.random().toString())
         upsert(
             SeriesSyncPayload(
                 id = id.value,
@@ -206,7 +206,7 @@ class SeriesRepository(
         // resolveOrCreate's first-casing-wins semantics for the create path.
         val byKey = LinkedHashMap<String, String>()
         for (name in names) {
-            byKey.putIfAbsent(normalizeForDedup(name), name)
+            byKey.getOrPut(normalizeForDedup(name)) { name }
         }
 
         // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.
