@@ -5,79 +5,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Represents a pending invite deep link that needs to be processed.
+ * Manages pending share-link and deep-link state for the application.
  *
- * @property serverUrl The full server URL (e.g., "https://audiobooks.example.com")
- * @property code The invite code from the URL
- */
-data class InviteDeepLink(
-    val serverUrl: String,
-    val code: String,
-)
-
-/**
- * Manages pending deep link state for the application.
+ * When the app is opened via a share link, [com.calypsan.listenup.client.share.ShareLinkCodec]
+ * decodes the incoming URI into a [com.calypsan.listenup.client.share.ShareTarget] and stores it
+ * here via [setPendingTarget]. Both platforms' routers observe [pendingTarget], resolve it
+ * through [com.calypsan.listenup.client.share.ShareTargetResolver], and navigate accordingly.
  *
- * When the app is opened via a deep link (e.g., invite URL), the parsed
- * data is stored here and consumed by the navigation layer.
- *
- * Flow:
- * 1. App receives intent with invite URL
- * 2. DeepLinkParser extracts server URL and invite code
- * 3. DeepLinkManager stores the pending invite
- * 4. Navigation layer observes pendingInvite and routes to the invite-claim screen
- * 5. After processing, consumeInvite() clears the pending state
- *
- * Thread-safe via StateFlow - can be observed from any coroutine context.
+ * Thread-safe via StateFlow — can be observed from any coroutine context.
  */
 class DeepLinkManager {
     /**
-     * Observable flow of pending invite deep link.
-     * Null when no invite is pending.
-     */
-    val pendingInvite: StateFlow<InviteDeepLink?>
-        field = MutableStateFlow<InviteDeepLink?>(null)
-
-    /**
-     * Sets a pending invite link to be processed by navigation.
-     *
-     * Called when the app receives an invite deep link intent.
-     * Navigation layer will observe this and route to the registration flow.
-     *
-     * @param serverUrl The full server URL (including scheme)
-     * @param code The invite code
-     */
-    fun setInviteLink(
-        serverUrl: String,
-        code: String,
-    ) {
-        pendingInvite.value = InviteDeepLink(serverUrl, code)
-    }
-
-    /**
-     * Clears the pending invite after it has been processed.
-     *
-     * Should be called after:
-     * - Successful registration completion
-     * - User cancels the registration flow
-     * - Invite is determined to be invalid
-     */
-    fun consumeInvite() {
-        pendingInvite.value = null
-    }
-
-    /**
-     * Checks if there's a pending invite without consuming it.
-     */
-    fun hasPendingInvite(): Boolean = pendingInvite.value != null
-
-    /**
      * Observable flow of the pending share-link / deep-link target.
      *
-     * The generalized successor to [pendingInvite]: both platforms' routers observe this,
-     * run it through [com.calypsan.listenup.client.share.ShareTargetResolver], and act on the
-     * resolution. Null when nothing is pending. Phase 2 migrates invite reception onto this
-     * seam and retires [pendingInvite].
+     * Both platforms' routers observe this, run it through
+     * [com.calypsan.listenup.client.share.ShareTargetResolver], and act on the resolution.
+     * Null when nothing is pending.
      */
     val pendingTarget: StateFlow<ShareTarget?>
         field = MutableStateFlow<ShareTarget?>(null)
