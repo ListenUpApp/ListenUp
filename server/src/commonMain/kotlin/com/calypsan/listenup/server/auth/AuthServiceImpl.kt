@@ -32,8 +32,8 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
@@ -404,7 +404,7 @@ class AuthServiceImpl(
             // Phase 1 placeholder. UUIDv7 (lexicographically sortable, time-ordered) is the
             // long-term shape — UUIDv4 is fine while ids are TEXT primary keys with no
             // timestamp-driven scan path.
-            id = UUID.randomUUID().toString(),
+            id = Uuid.random().toString(),
             email = email,
             emailNormalized = emailNormalized,
             passwordHash = passwordHash,
