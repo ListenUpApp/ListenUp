@@ -6,13 +6,13 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.metadata.ImageStorage
+import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.MetadataService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
-import java.security.MessageDigest
 
 private val log = KotlinLogging.logger {}
 
@@ -94,7 +94,7 @@ internal class ContributorMetadataApplier(
             // Content-addressed filename: a re-scrape with a different photo yields a new `imagePath`,
             // which is what the client keys its image cache on (the path is the version). With a stable
             // id-based name the path never changes and clients keep rendering the old photo.
-            val sha = MessageDigest.getInstance("SHA-256").digest(bytes).toHexString()
+            val sha = hashBytesSha256(bytes)
             val relPath = "contributors/$sha.jpg"
             imageStorage.writeBytes(bytes, Path(imageHome.toString(), relPath))
             relPath

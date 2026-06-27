@@ -193,7 +193,7 @@ object BlurHashGenerator {
             val digit = value / pow83(length - i) % BASE83
             result[i - 1] = BASE83_CHARS[digit]
         }
-        return String(result)
+        return result.concatToString()
     }
 
     /** Integer powers of 83 — only small values needed. */

@@ -9,6 +9,7 @@ import kotlinx.serialization.Serializable
  * source. Only the artwork URL and minimal identification fields are kept.
  */
 @Serializable
+@SerialName("ITunesSearchResponse")
 internal data class ITunesSearchResponse(
     val resultCount: Int = 0,
     val results: List<ITunesSearchResult> = emptyList(),

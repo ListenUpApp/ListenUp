@@ -76,7 +76,7 @@ private fun parsePngDimensions(data: ByteArray): Pair<Int, Int>? {
     if (data.size < PNG_MIN_BYTES || !data.copyOfRange(0, PNG_SIG_SIZE).contentEquals(PNG_SIGNATURE)) {
         return null
     }
-    if (String(data.copyOfRange(PNG_IHDR_LABEL_START, PNG_IHDR_LABEL_END), Charsets.US_ASCII) != "IHDR") {
+    if (data.copyOfRange(PNG_IHDR_LABEL_START, PNG_IHDR_LABEL_END).decodeToString() != "IHDR") {
         return null
     }
     val width = u32(data, PNG_WIDTH_OFFSET)

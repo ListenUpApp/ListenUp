@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.metadata.audible
 
+import kotlin.jvm.JvmInline
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -82,6 +83,7 @@ data class SearchParams(
 
 /** A contributor (author or narrator) reference as returned in product listings. */
 @Serializable
+@SerialName("RawContributor")
 data class RawContributor(
     val asin: String = "",
     val name: String,
@@ -91,6 +93,7 @@ data class RawContributor(
 
 /** A series reference as returned in product listings. */
 @Serializable
+@SerialName("RawSeries")
 data class RawSeries(
     val asin: String = "",
     val title: String,
@@ -100,6 +103,7 @@ data class RawSeries(
 
 /** A single rung in Audible's category ladder. */
 @Serializable
+@SerialName("RawCategory")
 data class RawCategory(
     val id: String,
     val name: String,
@@ -107,6 +111,7 @@ data class RawCategory(
 
 /** A full ladder (root → leaf) of category nodes. */
 @Serializable
+@SerialName("RawCategoryLadder")
 data class RawCategoryLadder(
     val ladder: List<RawCategory> = emptyList(),
 )
@@ -158,12 +163,14 @@ data class RawProduct(
 
 /** Top-level wrapper for a search response. */
 @Serializable
+@SerialName("RawSearchResponse")
 data class RawSearchResponse(
     val products: List<RawProduct> = emptyList(),
 )
 
 /** Top-level wrapper for a single-book response. */
 @Serializable
+@SerialName("RawBookResponse")
 data class RawBookResponse(
     val product: RawProduct? = null,
 )
@@ -184,6 +191,7 @@ data class RawChapter(
 
 /** The chapter_info block inside content_metadata. */
 @Serializable
+@SerialName("RawChapterInfo")
 data class RawChapterInfo(
     val chapters: List<RawChapter> = emptyList(),
 )
@@ -213,6 +221,7 @@ data class RawChaptersResponse(
 
 /** A contributor (author or narrator) after role separation. */
 @Serializable
+@SerialName("AudibleContributor")
 data class AudibleContributor(
     val asin: String,
     val name: String,
@@ -220,6 +229,7 @@ data class AudibleContributor(
 
 /** A book's position in a series. */
 @Serializable
+@SerialName("AudibleSeriesEntry")
 data class AudibleSeriesEntry(
     val asin: String,
     val name: String,
@@ -229,6 +239,7 @@ data class AudibleSeriesEntry(
 
 /** Full audiobook metadata from Audible (single-book lookup). */
 @Serializable
+@SerialName("AudibleBook")
 data class AudibleBook(
     val asin: String,
     val title: String,
@@ -257,6 +268,7 @@ data class AudibleBook(
 
 /** A lighter search-result entry (not all fields populated). */
 @Serializable
+@SerialName("AudibleSearchResult")
 data class AudibleSearchResult(
     val asin: String,
     val title: String,
@@ -270,6 +282,7 @@ data class AudibleSearchResult(
 
 /** A chapter marker. */
 @Serializable
+@SerialName("AudibleChapter")
 data class AudibleChapter(
     val title: String,
     val startMs: Long,
@@ -288,6 +301,7 @@ data class AudibleChapter(
  * can cache this value as JSON in `MetadataCacheRepository`.
  */
 @Serializable
+@SerialName("AudibleContributorProfile")
 data class AudibleContributorProfile(
     /** Audible contributor ASIN — the stable external key. */
     val asin: String,
