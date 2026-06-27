@@ -4,13 +4,22 @@ import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Never-stranded cap on a contributor merge. The server does O(books) work for a merge and has been
+ * observed to hang indefinitely under real-transport conditions (the RPC response never arrives,
+ * leaving the edit screen spinning forever). Bounding the wait turns that into a retryable error.
+ */
+private const val MERGE_TIMEOUT_MS = 30_000L
 
 /**
  * Pure RPC dispatcher for contributor edits.
@@ -36,7 +45,13 @@ internal class ContributorEditRepositoryImpl(
     override suspend fun mergeContributor(
         source: ContributorId,
         target: ContributorId,
-    ): AppResult<Unit> = rpcCallUnit { contributorRpcFactory.contributorService().mergeContributors(source, target) }
+    ): AppResult<Unit> =
+        // withTimeoutOrNull (not withTimeout) so a stalled merge becomes an in-band Timeout failure
+        // the screen can show + offer retry, rather than a CancellationException that tears down the
+        // caller. A genuine parent cancellation still propagates through normally.
+        withTimeoutOrNull(MERGE_TIMEOUT_MS) {
+            rpcCallUnit { contributorRpcFactory.contributorService().mergeContributors(source, target) }
+        } ?: AppResult.Failure(TransportError.Timeout(debugInfo = "contributor merge exceeded ${MERGE_TIMEOUT_MS}ms"))
 
     override suspend fun unmergeContributor(
         contributorId: ContributorId,
