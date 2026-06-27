@@ -42,6 +42,7 @@ final class Dependencies {
 
     var authSession: any AuthSession { resolve { KoinHelper.shared.getAuthSession() } }
     var serverConfig: ServerConfig { resolve { KoinHelper.shared.getServerConfig() } }
+    var deepLinkManager: DeepLinkManager { resolve { KoinHelper.shared.getDeepLinkManager() } }
 
     // MARK: - Playback seam (consumed by PlayerCoordinator)
 
