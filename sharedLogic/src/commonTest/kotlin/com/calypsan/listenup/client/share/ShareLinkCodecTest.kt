@@ -138,4 +138,14 @@ class ShareLinkCodecTest :
         test("decode returns null for a path extension on the /o route") {
             ShareLinkCodec.decode("https://link.listenup.audio/o/extra#t=book&b=x") shouldBe null
         }
+
+        test("decode trims surrounding whitespace before parsing") {
+            ShareLinkCodec.decode("  https://link.listenup.audio/o#t=book&b=book-trim\n") shouldBe
+                ShareTarget.Book(bookId = BookId("book-trim"), serverInstanceId = null, serverUrl = null)
+        }
+
+        test("decode prefers the fragment over the query when both are present") {
+            ShareLinkCodec.decode("https://link.listenup.audio/o?t=book&b=from-query#t=book&b=from-fragment") shouldBe
+                ShareTarget.Book(bookId = BookId("from-fragment"), serverInstanceId = null, serverUrl = null)
+        }
     })
