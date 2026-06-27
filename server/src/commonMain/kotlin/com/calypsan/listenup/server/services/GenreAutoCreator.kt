@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.GenreSyncPayload
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 /**
  * Find-or-create helper for flat (top-level) live genres.
@@ -42,7 +42,7 @@ internal class GenreAutoCreator(
 
         genreRepository.findBySlug(slug)?.let { return it.id }
 
-        val newId = UUID.randomUUID().toString()
+        val newId = Uuid.random().toString()
         val payload =
             GenreSyncPayload(
                 id = newId,

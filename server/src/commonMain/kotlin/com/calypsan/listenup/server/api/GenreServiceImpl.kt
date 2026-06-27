@@ -23,7 +23,7 @@ import com.calypsan.listenup.server.services.GenreSlug
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.UUID
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -186,7 +186,7 @@ internal class GenreServiceImpl(
         val newDepth = (parent?.depth ?: -1) + 1
 
         // 5. Persist via the substrate (revision bump + SSE event are owned by SyncableRepository).
-        val newId = UUID.randomUUID().toString()
+        val newId = Uuid.random().toString()
         val payload =
             GenreSyncPayload(
                 id = newId,
@@ -553,12 +553,15 @@ private data class MovePlan(
  * ready to execute against the live schema.
  */
 private sealed interface MovePlanResult {
+    /** Validation failed: surface [error] to the caller. */
     data class Reject(
         val error: GenreError,
     ) : MovePlanResult
 
+    /** Input is valid but the move is a no-op (the genre is already where it would land). */
     data object NoOp : MovePlanResult
 
+    /** Validation passed: [plan] is ready to execute against the live schema. */
     data class Proceed(
         val plan: MovePlan,
     ) : MovePlanResult

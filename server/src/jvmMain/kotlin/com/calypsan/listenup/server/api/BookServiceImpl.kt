@@ -25,6 +25,7 @@ import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookWriteExtras
@@ -163,7 +164,9 @@ internal class BookServiceImpl(
         // override is present — keeping rescans (which carry a placeholder createdAt) from clobbering it.
         val upsertResult =
             if (patch.addedAt != null) {
-                withContext(BookWriteExtras(createdAtOverride = patch.addedAt)) { repo.upsert(patched) }
+                withContext(TransactionLocal(BookWriteExtras(createdAtOverride = patch.addedAt))) {
+                    repo.upsert(patched)
+                }
             } else {
                 repo.upsert(patched)
             }

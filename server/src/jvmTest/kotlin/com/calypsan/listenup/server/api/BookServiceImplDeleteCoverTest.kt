@@ -242,7 +242,7 @@ private fun newService(
             contributorRepository = contributorRepo,
             seriesRepository = seriesRepo,
             genreRepository = genreRepo,
-            homeDir = homeDir,
+            homeDir = homeDir?.let { IoPath(it.toString()) },
             coverImageStore = coverImageStore,
         )
     val service =

@@ -96,7 +96,7 @@ class BookPersistCoverTest :
                                 seriesRepository = SeriesRepository(sql, bus, syncRegistry),
                                 genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
-                                homeDir = homeDir,
+                                homeDir = homeDir?.let { IoPath(it.toString()) },
                             )
                         val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
@@ -218,7 +218,7 @@ class BookPersistCoverTest :
                                 seriesRepository = SeriesRepository(sql, bus, syncRegistry),
                                 genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
-                                homeDir = homeDir,
+                                homeDir = homeDir?.let { IoPath(it.toString()) },
                             )
                         val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
@@ -287,7 +287,7 @@ class BookPersistCoverTest :
                                 seriesRepository = SeriesRepository(sql, bus, syncRegistry),
                                 genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
-                                homeDir = homeDir,
+                                homeDir = homeDir?.let { IoPath(it.toString()) },
                             )
                         val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
@@ -348,7 +348,7 @@ class BookPersistCoverTest :
                                 seriesRepository = SeriesRepository(sql, bus, syncRegistry),
                                 genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
-                                homeDir = homeDir,
+                                homeDir = homeDir?.let { IoPath(it.toString()) },
                             )
                         val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
@@ -418,7 +418,7 @@ class BookPersistCoverTest :
                                 seriesRepository = SeriesRepository(sql, bus, syncRegistry),
                                 genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
-                                homeDir = homeDir,
+                                homeDir = homeDir?.let { IoPath(it.toString()) },
                             )
                         val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
@@ -507,7 +507,7 @@ class BookPersistCoverTest :
                                 seriesRepository = SeriesRepository(sql, bus, syncRegistry),
                                 genreRepository = GenreRepository(sql, bus, syncRegistry),
                                 coverImageStore = coverStore,
-                                homeDir = homeDir,
+                                homeDir = homeDir?.let { IoPath(it.toString()) },
                             )
                         val registry = LibraryRegistry(sql)
                         val libId = registry.currentLibrary()
