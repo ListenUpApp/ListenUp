@@ -4,7 +4,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.db.SqlPreparedStatement
 import com.calypsan.listenup.api.sync.DomainDigest
-import java.security.MessageDigest
+import com.calypsan.listenup.server.io.hashBytesSha256
 
 /**
  * Engine-neutral execution of the access-filtered `(id, revision)` reads that back the
@@ -104,11 +104,8 @@ internal fun accessFilteredDigest(
     rows: List<IdRev>,
 ): DomainDigest {
     if (rows.isEmpty()) return DomainDigest(cursor = cursor, count = 0, hash = "")
-    val md = MessageDigest.getInstance("SHA-256")
     val joined = rows.joinToString(separator = "\n") { "${it.id}|${it.revision}" } + "\n"
-
-    @OptIn(ExperimentalStdlibApi::class)
-    val hex = md.digest(joined.toByteArray(Charsets.UTF_8)).toHexString()
+    val hex = hashBytesSha256(joined.encodeToByteArray())
     return DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
 }
 

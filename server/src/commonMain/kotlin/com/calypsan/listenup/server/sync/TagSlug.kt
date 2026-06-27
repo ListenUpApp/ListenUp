@@ -2,15 +2,13 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.result.AppResult
-import java.text.Normalizer
 
 /**
  * Normalizes raw tag display names into URL-safe slugs.
  *
  * Algorithm (in order):
- * 1. NFKD normalize → strip combining marks (diacritics). `java.text.Normalizer`
- *    is the only JVM API that does full Unicode decomposition; it is isolated here
- *    behind the public [normalize] surface.
+ * 1. Strip diacritics via [foldDiacritics] (the one platform Unicode step: NFKD on JVM,
+ *    a Latin folding table on native).
  * 2. Lowercase.
  * 3. Replace `&` with `" and "` (with surrounding spaces so adjacent words don't run together).
  * 4. Replace runs of non-alphanumeric characters with a single `-`.
@@ -30,9 +28,8 @@ object TagSlug {
      * after normalization.
      */
     fun normalize(rawName: String): AppResult<String> {
-        // Step 1: NFKD decomposition + diacritic removal (JVM-only; isolated here).
-        val decomposed = Normalizer.normalize(rawName, Normalizer.Form.NFKD)
-        val diacriticsStripped = decomposed.replace(Regex("\\p{Mn}"), "")
+        // Step 1: strip diacritics — the one step needing a platform Unicode primitive.
+        val diacriticsStripped = foldDiacritics(rawName)
 
         // Step 2: lowercase.
         val lowered = diacriticsStripped.lowercase()
