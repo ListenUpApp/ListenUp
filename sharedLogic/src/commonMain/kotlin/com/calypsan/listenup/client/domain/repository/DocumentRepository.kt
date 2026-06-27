@@ -3,9 +3,13 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.core.BookId
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
+
+private val documentRepositoryLogger = KotlinLogging.logger {}
 
 /**
  * Repository for accessing supplementary book documents (PDFs, ebooks, etc.).
@@ -60,4 +64,17 @@ interface DocumentRepository {
         bookId: BookId,
         docId: String,
     ): AppResult<String>
+
+    /**
+     * iOS-safe accessor: the local document path or `null` on failure (folded in Kotlin). Use from
+     * Swift — never `await` the `AppResult`-returning [ensureLocal] (Swift Export bridge trap).
+     */
+    suspend fun ensureLocalPathOrNull(
+        bookId: BookId,
+        docId: String,
+    ): String? =
+        ensureLocal(
+            bookId,
+            docId,
+        ).valueOrNull { documentRepositoryLogger.warn { "ensureLocalPathOrNull: ${it.debugInfo ?: it.message}" } }
 }

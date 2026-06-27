@@ -3,9 +3,13 @@
 package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
+
+private val homeRepositoryLogger = KotlinLogging.logger {}
 
 /**
  * Repository contract for home screen data operations.
@@ -23,6 +27,15 @@ interface HomeRepository {
      * @return Result containing list of ContinueListeningBook on success
      */
     suspend fun getContinueListening(limit: Int = 10): AppResult<List<ContinueListeningBook>>
+
+    /**
+     * iOS-safe accessor: the most-recent "continue listening" book, or `null`. Use from Swift —
+     * never `await` the `AppResult`-returning [getContinueListening] (Swift Export bridge trap).
+     */
+    suspend fun getResumeBookOrNull(): ContinueListeningBook? =
+        getContinueListening(limit = 5)
+            .valueOrNull { homeRepositoryLogger.warn { "getResumeBookOrNull: ${it.debugInfo ?: it.message}" } }
+            ?.firstOrNull()
 
     /**
      * Observe continue listening books from local database.

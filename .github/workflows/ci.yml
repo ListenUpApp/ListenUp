@@ -193,6 +193,10 @@ jobs:
         if: always()
         run: bash scripts/export-surface-inventory.sh
 
+      - name: No AppResult await from Swift (gate)
+        if: always()
+        run: bash scripts/check-no-appresult-await.sh
+
   # ── Build ────────────────────────────────────────────────────────────────────
   build-server-native:
     name: Build (server linuxX64)

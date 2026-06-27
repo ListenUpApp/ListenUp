@@ -262,6 +262,7 @@ One beautiful library.</string>
     <string name="book_detail_done">Done</string>
     <string name="book_detail_download">Download</string>
     <string name="book_detail_download_book">Download book</string>
+    <string name="book_detail_download_failed">Couldn\'t start the download. Please try again.</string>
     <string name="book_detail_downloaded">Downloaded</string>
     <string name="book_detail_edit_book">Edit Book</string>
     <string name="book_detail_error_title">Couldn’t load this book</string>

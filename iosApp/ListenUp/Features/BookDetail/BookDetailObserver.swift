@@ -180,34 +180,12 @@ final class BookDetailObserver {
         guard let book else { return }
         downloadError = nil
         Task {
-            do {
-                let result = try await downloadService.downloadBook(bookId: book.id)
-                // `AppResult<Unit>` erases its generic to `any AppResult` over Swift Export. Fold it via
-                // the generated typed accessor — both branches compiler-forced.
-                switch appResultCase(result) {
-                case .failure(let failure):
-                    downloadError = failure.error.message
-                case .success:
-                    break
-                case .unknown:
-                    Log.error("downloadBook returned an unexpected AppResult case for \(book.idString)")
-                }
-            } catch {
-                // A *thrown* error (vs. the typed `.failure` above) is unexpected — surface
-                // it instead of the old `try?` that silently dropped it and left the button
-                // looking idle. Cancellation (the view went away) is intentionally silent.
-                if let message = Self.downloadThrowMessage(for: error) {
-                    Log.error("Download failed for \(book.idString)", error: error)
-                    downloadError = message
-                }
+            if (try? await downloadService.downloadBookOrNull(bookId: book.id)) == nil {
+                // Failure was folded + logged in Kotlin; surface a generic message (no AppResult here).
+                downloadError = String(localized: "book.detail_download_failed")
+                Log.error("downloadBook failed for \(book.idString)")
             }
         }
-    }
-
-    /// Maps a *thrown* download error to a user-facing message, or `nil` when the throw
-    /// is mere cancellation (the user navigated away) and nothing should surface.
-    nonisolated static func downloadThrowMessage(for error: Error) -> String? {
-        error is CancellationError ? nil : String(localized: "common.something_went_wrong")
     }
 
     func cancelDownload() {
@@ -349,23 +327,18 @@ final class BookDetailObserver {
     }
 
     private func buildShareURL(bookId: String) async {
-        guard let result = try? await Dependencies.shared.instanceRepository.getInstance(forceRefresh: false) else { return }
-        switch appResultCase(result) {
-        case .success(let success):
-            guard let instance = success.data as? Instance else { return }
-            let baseUrl = instance.remoteUrl ?? instance.localUrl
-            let trimmed = baseUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
-            let raw = ShareLinkCodec.shared.encode(
-                target: ShareTargetBook(
-                    bookId: BookId(value: bookId),
-                    serverInstanceId: instance.id.value,
-                    serverUrl: trimmed
-                )
+        guard let instance = try? await Dependencies.shared.instanceRepository.getInstanceOrNull(forceRefresh: false)
+        else { return }
+        let baseUrl = instance.remoteUrl ?? instance.localUrl
+        let trimmed = baseUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
+        let raw = ShareLinkCodec.shared.encode(
+            target: ShareTargetBook(
+                bookId: BookId(value: bookId),
+                serverInstanceId: instance.id.value,
+                serverUrl: trimmed
             )
-            shareURL = URL(string: raw)
-        case .failure, .unknown:
-            break
-        }
+        )
+        shareURL = URL(string: raw)
     }
 
     private func observeDownloadStatus(bookId: String) {

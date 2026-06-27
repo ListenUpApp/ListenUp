@@ -146,3 +146,23 @@ inline fun <T> AppResult<T>.recover(recovery: (AppError) -> T): AppResult<T> =
         is AppResult.Success -> this
         is AppResult.Failure -> AppResult.Success(recovery(error))
     }
+
+/**
+ * The success value, or `null` on failure — folding the [AppResult] entirely in Kotlin.
+ *
+ * Canonical way to consume an [AppResult] from a context that must not see the `AppResult` type —
+ * notably the Swift Export boundary: `await`-ing an `AppResult`-returning suspend from Swift traps
+ * (`as! any AppResult` cast failure). Unwrap in Kotlin via a `*OrNull` accessor and hand Swift the
+ * plain value. [onFailure] receives the typed [AppError] so the caller can log it.
+ */
+inline fun <T> AppResult<T>.valueOrNull(onFailure: (AppError) -> Unit = {}): T? =
+    when (this) {
+        is AppResult.Success -> {
+            data
+        }
+
+        is AppResult.Failure -> {
+            onFailure(error)
+            null
+        }
+    }

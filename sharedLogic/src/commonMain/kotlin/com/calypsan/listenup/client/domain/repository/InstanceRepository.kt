@@ -4,7 +4,11 @@ package com.calypsan.listenup.client.domain.repository
 
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.client.domain.model.Instance
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val instanceRepositoryLogger = KotlinLogging.logger {}
 
 /**
  * Result of server verification: the server's [ServerInfo] and the URL that
@@ -47,6 +51,15 @@ interface InstanceRepository {
      * GET surface exists. New code should prefer [getServerInfo].
      */
     suspend fun getInstance(forceRefresh: Boolean = false): AppResult<Instance>
+
+    /**
+     * iOS-safe accessor: the [Instance] or `null` on failure (folded in Kotlin). Use from Swift —
+     * never `await` the `AppResult`-returning [getInstance] (Swift Export bridge trap). Android/server use [getInstance].
+     */
+    suspend fun getInstanceOrNull(forceRefresh: Boolean = false): Instance? =
+        getInstance(forceRefresh).valueOrNull {
+            instanceRepositoryLogger.warn { "getInstanceOrNull: ${it.debugInfo ?: it.message}" }
+        }
 
     /**
      * Verifies a server URL is a valid ListenUp instance before authentication.

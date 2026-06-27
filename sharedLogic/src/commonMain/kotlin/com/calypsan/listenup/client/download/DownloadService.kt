@@ -1,10 +1,14 @@
 package com.calypsan.listenup.client.download
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.valueOrNull
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
+
+private val downloadServiceLogger = KotlinLogging.logger {}
 
 /**
  * Interface for download operations needed by PlaybackManager.
@@ -41,6 +45,15 @@ interface DownloadService {
      * for unexpected errors (book not found, missing audio metadata, etc.).
      */
     suspend fun downloadBook(bookId: BookId): AppResult<DownloadOutcome>
+
+    /**
+     * iOS-safe accessor: the [DownloadOutcome] or `null` on failure (folded in Kotlin). Use from
+     * Swift — never `await` the `AppResult`-returning [downloadBook] (Swift Export bridge trap).
+     */
+    suspend fun downloadBookOrNull(bookId: BookId): DownloadOutcome? =
+        downloadBook(
+            bookId,
+        ).valueOrNull { downloadServiceLogger.warn { "downloadBookOrNull: ${it.debugInfo ?: it.message}" } }
 
     /**
      * Cancel active download for a book.

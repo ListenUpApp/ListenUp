@@ -2611,6 +2611,16 @@
         }
       }
     },
+    "book.detail_download_failed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Couldn't start the download. Please try again."
+          }
+        }
+      }
+    },
     "book.detail_downloaded": {
       "localizations": {
         "en": {
