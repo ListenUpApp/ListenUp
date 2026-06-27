@@ -5,9 +5,9 @@ import com.calypsan.listenup.server.audio.AudioFileLocation
 import com.calypsan.listenup.server.audio.AudioFileLocator
 import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.io.respondSeekable
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.http.content.LocalFileContent
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -59,17 +59,14 @@ internal fun Route.audioRoutes(
                 locator.locate(bookId, fileId)
             }
         if (location == null) return@get call.respond(HttpStatusCode.NotFound)
-        val file = java.io.File(location.path.toString())
-        if (!file.isFile) return@get call.respond(HttpStatusCode.NotFound)
-        // Set the Content-Type explicitly from the file's format. The signed
-        // streaming URL carries no extension, so a native player (AVPlayer) relies
-        // entirely on this header to identify the media — and Ktor's extension-based
-        // default has no mapping for `.m4b`, so `respondFile` would send
-        // `application/octet-stream`, which AVPlayer refuses to play (it streams only
-        // once downloaded, when the local file's extension is available). ExoPlayer
-        // sniffs the container bytes regardless, which is why Android was unaffected.
-        // `LocalFileContent` still cooperates with `PartialContent`/`AutoHeadResponse`.
-        call.respond(LocalFileContent(file, contentType = audioContentType(location.format)))
+        // Set the Content-Type explicitly from the file's format. The signed streaming URL carries
+        // no extension, so a native player (AVPlayer) relies entirely on this header to identify the
+        // media — and Ktor's extension-based default has no mapping for `.m4b`, so an inferred type
+        // would be `application/octet-stream`, which AVPlayer refuses to play. ExoPlayer sniffs the
+        // container bytes regardless, which is why Android was unaffected. `respondSeekable` streams
+        // from the native SeekableSource and cooperates with `PartialContent`/`AutoHeadResponse`
+        // (and answers 404 when the file is missing).
+        call.respondSeekable(location.path, audioContentType(location.format))
     }
 }
 
