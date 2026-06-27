@@ -6711,6 +6711,26 @@
         }
       }
     },
+    "error.book_not_connected": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to the server that hosts this book to open it."
+          }
+        }
+      }
+    },
+    "error.book_wrong_server": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This book is on a different ListenUp server than the one you're signed in to."
+          }
+        }
+      }
+    },
     "error.conflict": {
       "localizations": {
         "en": {
