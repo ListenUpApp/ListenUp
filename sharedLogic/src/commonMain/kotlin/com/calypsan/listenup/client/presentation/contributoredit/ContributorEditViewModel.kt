@@ -126,7 +126,11 @@ sealed interface ContributorEditUiEvent {
 
     data object DismissError : ContributorEditUiEvent
 
-    /** User chose to merge the current contributor into [targetId]. */
+    /**
+     * User picked [targetId] in the alias dialog to fold INTO the contributor being edited: the
+     * edited (viewed) contributor stays canonical and gains [targetId]'s name as an alias, while
+     * [targetId] itself is soft-deleted.
+     */
     data class MergeInto(
         val targetId: ContributorId,
     ) : ContributorEditUiEvent
@@ -324,12 +328,15 @@ class ContributorEditViewModel internal constructor(
     // ========== Merge / Unmerge ==========
 
     /**
-     * Merge the current contributor into [targetId]. After SSE delivery the source is
-     * soft-deleted and the target gains the source's name as an alias; we navigate back.
+     * Fold the [chosen] contributor into the one whose page we're on. The **viewed** contributor is
+     * canonical: it is the merge *target* (it survives and gains the chosen contributor's name as an
+     * alias), while [chosen] is the merge *source* (soft-deleted). This matches the user's mental
+     * model — "on J.K. Rowling's page, add Robert Galbraith as an alias" keeps Rowling and folds
+     * Galbraith in. Passing these in the other order would delete the page you're viewing.
      */
-    private fun mergeInto(targetId: ContributorId) {
-        val sourceId = state.value.contributorId
-        if (sourceId.isBlank()) {
+    private fun mergeInto(chosen: ContributorId) {
+        val viewedId = state.value.contributorId
+        if (viewedId.isBlank()) {
             logger.error { "Cannot merge: contributor ID is empty" }
             return
         }
@@ -337,7 +344,13 @@ class ContributorEditViewModel internal constructor(
         viewModelScope.launch {
             state.update { it.copy(mergeInProgress = true, error = null) }
 
-            when (val result = contributorEditRepository.mergeContributor(ContributorId(sourceId), targetId)) {
+            when (
+                val result =
+                    contributorEditRepository.mergeContributor(
+                        source = chosen,
+                        target = ContributorId(viewedId),
+                    )
+            ) {
                 is AppResult.Success -> {
                     state.update { it.copy(mergeInProgress = false) }
                     _navActions.trySend(ContributorEditNavAction.NavigateBack)

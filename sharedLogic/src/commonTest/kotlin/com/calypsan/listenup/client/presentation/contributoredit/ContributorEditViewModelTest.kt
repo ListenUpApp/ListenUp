@@ -209,6 +209,44 @@ class ContributorEditViewModelTest :
             }
         }
 
+        // ========== Merge direction ==========
+
+        test("merge folds the CHOSEN contributor into the VIEWED one (viewed is the canonical target)") {
+            runTest {
+                // Given: we're on contributor "viewed-1"'s edit page.
+                val fixture = createFixture()
+                val viewed = createContributor(id = "viewed-1", name = "J.K. Rowling")
+                everySuspend { fixture.contributorRepository.getById("viewed-1") } returns viewed
+                everySuspend { fixture.contributorEditRepository.mergeContributor(any(), any()) } returns
+                    AppResult.Success(Unit)
+
+                val viewModel = fixture.build()
+                viewModel.loadContributor("viewed-1")
+                advanceUntilIdle()
+
+                // When: the user picks "chosen-2" (e.g. Robert Galbraith) to add as an alias.
+                viewModel.onEvent(
+                    ContributorEditUiEvent.MergeInto(
+                        com.calypsan.listenup.core
+                            .ContributorId("chosen-2"),
+                    ),
+                )
+                advanceUntilIdle()
+
+                // Then: the chosen contributor is the merge SOURCE (folded in / soft-deleted) and the
+                // viewed contributor is the TARGET (canonical survivor). Inverting these would delete
+                // the page the user is on — the reported bug.
+                verifySuspend(VerifyMode.exactly(1)) {
+                    fixture.contributorEditRepository.mergeContributor(
+                        com.calypsan.listenup.core
+                            .ContributorId("chosen-2"),
+                        com.calypsan.listenup.core
+                            .ContributorId("viewed-1"),
+                    )
+                }
+            }
+        }
+
         test("save failure emits typed AppError to ErrorBus for global snackbar") {
             runTest {
                 // Given

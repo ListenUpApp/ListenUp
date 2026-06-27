@@ -5816,7 +5816,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This contributor's books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target's biography, image, and other details win."
+            "value": "The contributor you choose is merged into this one: their books are re-linked here (their original credit is preserved) and their name is added as an alias. The chosen contributor is then removed; this contributor's biography, image, and other details are kept."
           }
         }
       }
@@ -5826,7 +5826,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Merge with another author"
+            "value": "Add an alias"
           }
         }
       }
@@ -5836,7 +5836,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Merge"
+            "value": "Add alias"
           }
         }
       }
@@ -5856,7 +5856,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Merge into…"
+            "value": "Add an alias"
           }
         }
       }

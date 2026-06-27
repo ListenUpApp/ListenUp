@@ -582,11 +582,11 @@ One beautiful library.</string>
     <string name="contributor_from_your_library_this_action">from your library. This action cannot be undone.</string>
     <string name="contributor_life_span">%1$s – %2$s</string>
     <string name="contributor_links">Links</string>
-    <string name="contributor_merge_body">This contributor\'s books will be re-linked to the target. Their original credit on those books is preserved. This contributor will be deleted; the target\'s biography, image, and other details win.</string>
-    <string name="contributor_merge_button">Merge with another author</string>
-    <string name="contributor_merge_confirm">Merge</string>
+    <string name="contributor_merge_body">The contributor you choose is merged into this one: their books are re-linked here (their original credit is preserved) and their name is added as an alias. The chosen contributor is then removed; this contributor\'s biography, image, and other details are kept.</string>
+    <string name="contributor_merge_button">Add an alias</string>
+    <string name="contributor_merge_confirm">Add alias</string>
     <string name="contributor_merge_search_placeholder">Search contributors…</string>
-    <string name="contributor_merge_title">Merge into…</string>
+    <string name="contributor_merge_title">Add an alias</string>
     <string name="contributor_name_profile_image">%1$s profile image</string>
     <string name="contributor_narrator">Narrator</string>
     <string name="contributor_new_image">New image</string>
