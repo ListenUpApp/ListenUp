@@ -19,8 +19,8 @@ import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.sync.TagSlug
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 private const val MAX_LIMIT = 1000
 private const val MIN_LIMIT = 1
@@ -140,7 +140,7 @@ internal class TagServiceImpl(
                 ?: run {
                     val newTag =
                         Tag(
-                            id = UUID.randomUUID().toString(),
+                            id = Uuid.random().toString(),
                             name = name.trim(),
                             slug = slug,
                             revision = 0L,
