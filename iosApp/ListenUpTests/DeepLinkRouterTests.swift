@@ -15,8 +15,10 @@ struct DeepLinkRouterTests {
         let router = DeepLinkRouter(deepLinkManager: manager)
 
         manager.setPendingTarget(target: ShareTargetInvite(serverUrl: "https://lib.example.com", code: "JOIN9"))
-        // Let the FlowBridge task deliver the StateFlow emission (one suspension point).
-        try await Task.sleep(for: .milliseconds(100))
+        // FlowBridge delivers the StateFlow emission asynchronously (Kotlin collector → MainActor
+        // hop). Poll for the resolved outcome rather than racing a fixed sleep — a saturated CI
+        // scheduler can blow past a 100 ms window, which is exactly what flaked here.
+        await awaitUntil { router.outcome == .claimInvite(serverURL: "https://lib.example.com", code: "JOIN9") }
 
         #expect(router.outcome == .claimInvite(serverURL: "https://lib.example.com", code: "JOIN9"))
     }
