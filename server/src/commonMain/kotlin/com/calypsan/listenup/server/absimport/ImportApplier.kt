@@ -10,6 +10,8 @@ import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
+import com.calypsan.listenup.server.io.canonicalize
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -18,7 +20,6 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 private val logger = KotlinLogging.logger {}
@@ -80,7 +81,7 @@ class ImportApplier internal constructor(
         importId: ImportId,
         onEvent: (ImportEvent) -> Unit,
     ): AppResult<ImportResult> =
-        withContext(Dispatchers.IO) {
+        withContext(fileIoDispatcher) {
             val resolved =
                 store.readMatches(importId)
                     ?: return@withContext AppResult.Failure(ImportError.ImportNotFound())
@@ -94,12 +95,8 @@ class ImportApplier internal constructor(
                 val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
                 val (progress, sessions) =
                     reader
-                        .open(
-                            java.nio.file.Path
-                                .of(paths.absDbFor(importId.value).toString())
-                                .toAbsolutePath()
-                                .toString(),
-                        ).use { handle ->
+                        .open(canonicalize(paths.absDbFor(importId.value)).toString())
+                        .use { handle ->
                             handle.progress() to handle.playbackSessions()
                         }
 

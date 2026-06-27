@@ -14,9 +14,10 @@ import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.io.canonicalize
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.services.LibraryRegistry
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.SystemFileSystem
 
@@ -51,7 +52,7 @@ class ImportAnalyzer internal constructor(
         importId: ImportId,
         onEvent: (ImportEvent) -> Unit,
     ): AppResult<ImportAnalysis> =
-        withContext(Dispatchers.IO) {
+        withContext(fileIoDispatcher) {
             val absDb = paths.absDbFor(importId.value)
             if (!SystemFileSystem.exists(absDb)) {
                 return@withContext AppResult.Failure(ImportError.ImportNotFound())
@@ -60,12 +61,8 @@ class ImportAnalyzer internal constructor(
                 onEvent(ImportEvent.Parsing)
                 val absData =
                     reader
-                        .open(
-                            java.nio.file.Path
-                                .of(absDb.toString())
-                                .toAbsolutePath()
-                                .toString(),
-                        ).use { handle ->
+                        .open(canonicalize(absDb).toString())
+                        .use { handle ->
                             AbsReadResult(
                                 handle.users(),
                                 handle.bookItems(),
