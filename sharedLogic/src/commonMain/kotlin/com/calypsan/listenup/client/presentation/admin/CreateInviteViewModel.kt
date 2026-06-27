@@ -26,7 +26,6 @@ class CreateInviteViewModel(
         field = MutableStateFlow<CreateInviteUiState>(CreateInviteUiState.Ready())
 
     fun createInvite(
-        name: String,
         email: String,
         role: String,
         expiresInDays: Int,
@@ -34,7 +33,7 @@ class CreateInviteViewModel(
         viewModelScope.launch {
             updateReady { it.copy(status = CreateInviteStatus.Submitting) }
 
-            when (val result = createInviteUseCase(name, email, role, expiresInDays)) {
+            when (val result = createInviteUseCase(email, role, expiresInDays)) {
                 is AppResult.Success -> {
                     updateReady { it.copy(status = CreateInviteStatus.Success(result.data)) }
                 }
@@ -81,18 +80,10 @@ class CreateInviteViewModel(
     private fun classifyError(error: AppError): CreateInviteErrorType =
         when (error) {
             is ValidationError -> {
-                when {
-                    error.message.contains("Name is required", ignoreCase = true) -> {
-                        CreateInviteErrorType.ValidationError(CreateInviteField.NAME)
-                    }
-
-                    error.message.contains("Invalid email", ignoreCase = true) -> {
-                        CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
-                    }
-
-                    else -> {
-                        CreateInviteErrorType.ServerError(error.message)
-                    }
+                if (error.message.contains("Invalid email", ignoreCase = true)) {
+                    CreateInviteErrorType.ValidationError(CreateInviteField.EMAIL)
+                } else {
+                    CreateInviteErrorType.ServerError(error.message)
                 }
             }
 
@@ -179,6 +170,5 @@ sealed interface CreateInviteErrorType {
 
 /** Form field highlighted by [CreateInviteErrorType.ValidationError]. */
 enum class CreateInviteField {
-    NAME,
     EMAIL,
 }

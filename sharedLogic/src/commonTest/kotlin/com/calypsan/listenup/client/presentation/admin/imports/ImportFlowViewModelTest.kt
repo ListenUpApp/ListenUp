@@ -1046,7 +1046,6 @@ private class FakeAdminRepository(
     override suspend fun getInvites(): AppResult<List<InviteInfo>> = AppResult.Success(emptyList())
 
     override suspend fun createInvite(
-        name: String,
         email: String,
         role: String,
         expiresInDays: Int,
@@ -1055,7 +1054,7 @@ private class FakeAdminRepository(
             InviteInfo(
                 id = "inv-1",
                 code = "CODE",
-                name = name,
+                name = email.substringBefore('@'),
                 email = email,
                 role = role,
                 expiresAt = "",

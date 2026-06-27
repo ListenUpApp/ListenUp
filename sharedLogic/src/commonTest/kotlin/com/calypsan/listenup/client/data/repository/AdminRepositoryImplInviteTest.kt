@@ -172,25 +172,38 @@ class AdminRepositoryImplInviteTest :
             info.claimedAt shouldBe "5000000"
         }
 
-        test("createInvite calls RPC with correct args and maps InviteDto to InviteInfo") {
+        // Regression: the create-invite form emits lowercase role tokens ("member"/"admin"). The
+        // previous `UserRole.valueOf(role)` threw IllegalArgumentException on those (it expects the
+        // exact enum names), surfacing to the admin as "Something went wrong on the server".
+        test("createInvite maps the lowercase 'admin' role token to UserRole.ADMIN") {
             val service = FakeInviteService()
             val repo = buildRepo(service)
 
-            val result = repo.createInvite(name = "Ada", email = "ada@x", role = "ADMIN", expiresInDays = 7)
+            val result = repo.createInvite(email = "ada@example.com", role = "admin", expiresInDays = 7)
 
             (result is AppResult.Success) shouldBe true
-            // Verify args forwarded to RPC
             service.createdInvites.size shouldBe 1
             val (email, displayName, role) = service.createdInvites.first()
-            email shouldBe "ada@x"
-            displayName shouldBe "Ada"
+            email shouldBe "ada@example.com"
             role shouldBe UserRole.ADMIN
-            // Verify returned domain model
+            // The admin no longer names the invitee — display name defaults to the email's local part.
+            displayName shouldBe "ada"
             val info = (result as AppResult.Success).data
-            info.name shouldBe "Ada"
-            info.email shouldBe "ada@x"
+            info.email shouldBe "ada@example.com"
             info.role shouldBe "ADMIN"
             info.url shouldBe "https://srv.example/invite/code-abc"
+        }
+
+        test("createInvite maps the lowercase 'member' role token to UserRole.MEMBER (least privilege)") {
+            val service = FakeInviteService()
+            val repo = buildRepo(service)
+
+            val result = repo.createInvite(email = "pat@example.com", role = "member", expiresInDays = 7)
+
+            (result is AppResult.Success) shouldBe true
+            val (_, displayName, role) = service.createdInvites.first()
+            role shouldBe UserRole.MEMBER
+            displayName shouldBe "pat"
         }
 
         test("deleteInvite calls revokeInvite with wrapped InviteId") {
