@@ -26,6 +26,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -145,9 +146,7 @@ internal class LibraryAdminServiceImpl(
         val now = clock.now().toEpochMilliseconds()
         val folderId =
             FolderId(
-                java.util.UUID
-                    .randomUUID()
-                    .toString(),
+                Uuid.random().toString(),
             )
         val folderPayload =
             LibraryFolderSyncPayload(
