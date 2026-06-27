@@ -7,9 +7,9 @@ import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
-import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
+import kotlinx.atomicfu.atomic
 
 /**
  * Resolves THE single library for this server process.
@@ -28,9 +28,9 @@ class LibraryRegistry(
     private val metadataPrecedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val clock: Clock = Clock.System,
 ) {
-    // Holds the raw id string, not LibraryId — AtomicReference uses identity
-    // equality, and the @JvmInline value class has no consistent identity.
-    private val cachedId = AtomicReference<String?>(null)
+    // Holds the raw id string, not LibraryId — the atomic compares by reference
+    // and the value class has no stable identity when boxed.
+    private val cachedId = atomic<String?>(null)
 
     /**
      * The library id for this process. Finds the first non-deleted library
@@ -38,7 +38,7 @@ class LibraryRegistry(
      * process lifetime.
      */
     suspend fun currentLibrary(): LibraryId {
-        cachedId.get()?.let { return LibraryId(it) }
+        cachedId.value?.let { return LibraryId(it) }
 
         val id =
             suspendTransaction(sql) {
@@ -46,8 +46,8 @@ class LibraryRegistry(
                     ?: bootstrapLibrary()
             }
 
-        cachedId.compareAndSet(null, id)
-        return LibraryId(cachedId.get()!!)
+        cachedId.compareAndSet(expect = null, update = id)
+        return LibraryId(cachedId.value!!)
     }
 
     private fun bootstrapLibrary(): String {
@@ -55,7 +55,7 @@ class LibraryRegistry(
         // (by Application.bootstrapLibraries from env paths, or by the user via onboarding).
         // Uses nextRevision() so the row lands at revision ≥ 1, which makes it visible to
         // pullSince(cursor = 0L) (strictly-greater predicate) across all callers.
-        val newId = UUID.randomUUID().toString()
+        val newId = Uuid.random().toString()
         val now = clock.now().toEpochMilliseconds()
         val serializedPrecedence = metadataPrecedence.serialize()
         val rev = nextRevision()
@@ -77,7 +77,7 @@ class LibraryRegistry(
         // run before any admin has registered. Each collection gets its own revision bump so that
         // both rows appear in pullSince(cursor = 0L).
         sql.collectionsQueries.insert(
-            id = UUID.randomUUID().toString(),
+            id = Uuid.random().toString(),
             library_id = newId,
             owner_id = SYSTEM_OWNER_ID,
             name = "All Books",
@@ -89,7 +89,7 @@ class LibraryRegistry(
             client_op_id = null,
         )
         sql.collectionsQueries.insert(
-            id = UUID.randomUUID().toString(),
+            id = Uuid.random().toString(),
             library_id = newId,
             owner_id = SYSTEM_OWNER_ID,
             name = "Inbox",
