@@ -433,6 +433,8 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.storage.DeleteConfirmation" to 2,
             "com.calypsan.listenup.client.presentation.sync.SyncIndicatorUiEvent" to 4,
             "com.calypsan.listenup.client.presentation.tagdetail.TagDetailUiState" to 4,
+            "com.calypsan.listenup.client.share.ShareResolution" to 5,
+            "com.calypsan.listenup.client.share.ShareTarget" to 2,
             "com.calypsan.listenup.api.dto.backup.BackupEvent" to 10,
             "com.calypsan.listenup.api.dto.imports.ImportEvent" to 6,
             "com.calypsan.listenup.api.error.DownloadError" to 2,
