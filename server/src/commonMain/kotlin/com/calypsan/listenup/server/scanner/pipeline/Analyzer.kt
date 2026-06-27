@@ -105,8 +105,11 @@ internal class Analyzer(
             // Tiered book rule: a candidate that yields no playable track is not a
             // book — it's skipped, not ingested. Surfaces as a Result.failure so the
             // caller records it in ScanResult.errors and never in ScanResult.books.
+            // A typed skip (carrying the candidate's file names) lets the scanner log an
+            // actionable one-liner — a misnamed file like `Open Heavensm4b` (dropped dot) is
+            // far more common here than a genuinely empty folder — without a noisy stacktrace.
             if (tracks.isEmpty()) {
-                error("candidate has no audio tracks")
+                throw NoRecognizedAudio(candidate.files.map { it.name })
             }
             val primaryAudio = tracks.firstOrNull()?.file
             val (embedded, embeddedStatus) = parseEmbedded(primaryAudio)
@@ -685,6 +688,33 @@ private val NATURAL_TRACK_ORDER =
         { it.trackNumber ?: Int.MAX_VALUE },
         { it.file.name },
     )
+
+/**
+ * A candidate that contains files but none recognized as audio. It is *not* a book, so it is
+ * skipped (an expected outcome, not a fault). [files] are the candidate's file names — usually a
+ * single misnamed file (e.g. `Open Heavensm4b` with the extension dot dropped) — so the scanner can
+ * log an actionable one-liner instead of a stacktrace. The composed [message] is reused verbatim as
+ * the resulting `ScanError`'s detail.
+ */
+internal class NoRecognizedAudio(
+    val files: List<String>,
+) : Exception(message(files)) {
+    private companion object {
+        private const val MAX_LISTED = 5
+
+        fun message(files: List<String>): String {
+            val found =
+                if (files.isEmpty()) {
+                    ""
+                } else {
+                    val shown = files.take(MAX_LISTED).joinToString()
+                    val more = if (files.size > MAX_LISTED) ", …" else ""
+                    " (found: $shown$more)"
+                }
+            return "no recognized audio files$found — check the file extension"
+        }
+    }
+}
 
 /**
  * Wraps any per-book analysis failure with the candidate's `rootRelPath` so

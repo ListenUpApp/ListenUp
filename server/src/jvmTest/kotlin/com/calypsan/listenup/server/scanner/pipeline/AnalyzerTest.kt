@@ -21,6 +21,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -602,6 +603,33 @@ class AnalyzerTest :
 
                     book.series shouldBe listOf(SeriesEntry(name = "The Stormlight Archive", sequence = "2"))
                 }
+            }
+        }
+
+        test("a candidate whose files include no recognized audio is skipped with an actionable, typed failure") {
+            val root = Files.createTempDirectory("no-audio-candidate")
+            runTest {
+                val analyzer = Analyzer(Path(root.toString()), metadataReader, embeddedParser)
+                // Mirrors a real report: 'Open Heavens.m4b' with the dot dropped, so the file has no
+                // recognized extension → classified UNKNOWN, never AUDIO. The folder yields zero
+                // playable tracks and is skipped (it is not a book).
+                val candidate =
+                    candidateOf(
+                        "Bill Johnson/Open Heavens",
+                        files = listOf(fileEntry("Bill Johnson/Open Heavens/Open Heavensm4b", FileType.UNKNOWN)),
+                    )
+
+                val result = analyzer.analyze(flowOf(candidate)).toList().single()
+
+                result.isFailure shouldBe true
+                val failure = result.exceptionOrNull().shouldBeInstanceOf<BookAnalysisFailure>()
+                failure.rootRelPath shouldBe "Bill Johnson/Open Heavens"
+                // A typed skip (not a bare IllegalStateException) naming the unrecognized file, so the
+                // scanner can log it without a stacktrace and the operator can fix the extension.
+                val skip = failure.cause.shouldBeInstanceOf<NoRecognizedAudio>()
+                skip.files shouldContainExactly listOf("Open Heavensm4b")
+                failure.message.shouldNotBeNull()
+                failure.message!!.contains("check the file extension") shouldBe true
             }
         }
     })

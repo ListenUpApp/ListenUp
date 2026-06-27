@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.pipeline.Analyzer
 import com.calypsan.listenup.server.scanner.pipeline.BookAnalysisFailure
+import com.calypsan.listenup.server.scanner.pipeline.NoRecognizedAudio
 import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
@@ -402,7 +403,15 @@ internal class Scanner(
                     while (recent.size > RECENT_BOOKS_CAP) recent.removeFirst()
                 }.onFailure { t ->
                     val relPath = (t as? BookAnalysisFailure)?.rootRelPath ?: errorRoot.toString()
-                    logger.warn(t) { "analyze failed: path=$relPath library=${library.id.value}" }
+                    // A folder with no recognized audio is an expected skip (not a book), not a
+                    // fault — log it as a calm, actionable one-liner without a stacktrace. Genuine
+                    // analysis faults keep the full throwable so they stay diagnosable.
+                    val skip = (t as? BookAnalysisFailure)?.cause as? NoRecognizedAudio
+                    if (skip != null) {
+                        logger.warn { "skipped: path=$relPath library=${library.id.value} — ${skip.message}" }
+                    } else {
+                        logger.warn(t) { "analyze failed: path=$relPath library=${library.id.value}" }
+                    }
                     errors += toScanError(t, errorRoot)
                 }
             val now = clock()
