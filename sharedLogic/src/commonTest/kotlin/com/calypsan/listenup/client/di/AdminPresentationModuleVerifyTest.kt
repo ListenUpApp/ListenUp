@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -10,8 +11,10 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ImportRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.repository.LibraryRepository
+import com.calypsan.listenup.client.domain.repository.MoodRepository
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
@@ -54,7 +57,10 @@ import org.koin.test.verify.verify
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by `mediaModule`.
  *  - [CollectionRepository] — owned by `collectionModule`.
- *  - [GenreRepository] — owned by `genreTagModule`.
+ *  - [GenreRepository] — owned by `genreTagModule` (pulled in by `BrowseGenreViewModel`).
+ *  - [TagRepository] — owned by `genreTagModule` (pulled in by `BrowseFacetViewModel`).
+ *  - [MoodRepository] — owned by `genreTagModule` (pulled in by `BrowseFacetViewModel`).
+ *  - [BookRepository] — owned by `bookModule` (pulled in by `BrowseFacetViewModel`).
  *  - [AdminRepository] — owned by `adminModule`.
  *  - [UserRepository] — owned by `socialModule`.
  *  - [SearchRepository] — owned by `searchModule`.
@@ -90,6 +96,9 @@ class AdminPresentationModuleVerifyTest :
                         ImageStorage::class,
                         CollectionRepository::class,
                         GenreRepository::class,
+                        TagRepository::class,
+                        MoodRepository::class,
+                        BookRepository::class,
                         AdminRepository::class,
                         UserRepository::class,
                         SearchRepository::class,
