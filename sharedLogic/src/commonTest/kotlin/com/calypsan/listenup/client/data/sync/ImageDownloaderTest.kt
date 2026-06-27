@@ -5,6 +5,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -14,6 +15,10 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -149,6 +154,82 @@ class ImageDownloaderTest :
 
                 // Then - API should not be called
                 // (verify by not stubbing API - if called, test would fail)
+            }
+        }
+
+        // ========== User Avatar Dedup + Negative-Cache Tests ==========
+
+        test("concurrent downloadUserAvatar calls coalesce into a single download + save") {
+            runTest {
+                // Given - the API call is gated in-flight so the second caller must arrive
+                // while the first is still running: the exact post-scan fan-out race.
+                val fixture = createFixture()
+                val userId = "user-1"
+                val gate = CompletableDeferred<Unit>()
+                var apiCalls = 0
+                var saveCalls = 0
+                // Stateful exists: false until the first caller saves, then true so the
+                // coalesced second caller short-circuits instead of re-downloading.
+                var avatarSaved = false
+                every { fixture.imageStorage.userAvatarExists(userId) } calls { avatarSaved }
+                everySuspend { fixture.imageApi.downloadUserAvatar(userId) } calls {
+                    apiCalls++
+                    gate.await()
+                    AppResult.Success(ByteArray(10))
+                }
+                everySuspend { fixture.imageStorage.saveUserAvatar(userId, any()) } calls {
+                    saveCalls++
+                    avatarSaved = true
+                    AppResult.Success(Unit)
+                }
+                val imageDownloader = fixture.build()
+
+                // When - launch both, let them reach their suspension points, then release.
+                val first = launch { imageDownloader.downloadUserAvatar(userId, forceRefresh = false) }
+                val second = launch { imageDownloader.downloadUserAvatar(userId, forceRefresh = false) }
+                runCurrent()
+                gate.complete(Unit)
+                joinAll(first, second)
+
+                // Then - the network + save happened exactly once.
+                apiCalls shouldBe 1
+                saveCalls shouldBe 1
+            }
+        }
+
+        test("downloadUserAvatar negative-caches a 404 and skips re-hitting the server") {
+            runTest {
+                // Given - the server has no avatar for this user (404 → Failure).
+                val fixture = createFixture()
+                val userId = "user-1"
+                var apiCalls = 0
+                every { fixture.imageStorage.userAvatarExists(userId) } returns false
+                everySuspend { fixture.imageStorage.deleteUserAvatar(userId) } returns AppResult.Success(Unit)
+                everySuspend { fixture.imageApi.downloadUserAvatar(userId) } calls {
+                    apiCalls++
+                    Failure(Exception("Not found"))
+                }
+                val imageDownloader = fixture.build()
+
+                // When - first call hits the server and negative-caches the miss.
+                val firstResult = imageDownloader.downloadUserAvatar(userId, forceRefresh = false)
+
+                // Then - non-fatal success(false), one network call.
+                firstResult.shouldBeInstanceOf<AppResult.Success<Boolean>>().data shouldBe false
+                apiCalls shouldBe 1
+
+                // When - a second call for the same user.
+                val secondResult = imageDownloader.downloadUserAvatar(userId, forceRefresh = false)
+
+                // Then - the negative cache short-circuits: no second network call.
+                secondResult.shouldBeInstanceOf<AppResult.Success<Boolean>>().data shouldBe false
+                apiCalls shouldBe 1
+
+                // When - forceRefresh bypasses the negative cache.
+                imageDownloader.downloadUserAvatar(userId, forceRefresh = true)
+
+                // Then - the server is hit again.
+                apiCalls shouldBe 2
             }
         }
     })
