@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutAction
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import com.calypsan.listenup.client.share.ShareLinkCodec
+import com.calypsan.listenup.client.share.ShareTarget
 import com.calypsan.listenup.client.design.haptics.ProvideHaptics
 import com.calypsan.listenup.client.design.theme.ListenUpTheme
 import com.calypsan.listenup.client.domain.model.ThemeMode
@@ -129,7 +130,12 @@ class MainActivity : ComponentActivity() {
         if (intent.action == Intent.ACTION_VIEW) {
             intent.data?.toString()?.let { raw ->
                 ShareLinkCodec.decode(raw)?.let { target ->
-                    logger.info { "Received share-link target: ${target::class.simpleName}" }
+                    logger.debug {
+                        when (target) {
+                            is ShareTarget.Book -> "Received book share link: bookId=${target.bookId.value}"
+                            is ShareTarget.Invite -> "Received invite share link"
+                        }
+                    }
                     deepLinkManager.setPendingTarget(target)
                     return
                 }

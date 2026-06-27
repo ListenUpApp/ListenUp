@@ -432,6 +432,18 @@ private fun LoginNavigation(
 }
 
 /**
+ * Resets navigation to the [Shell] root, clearing any detail screens on the way. No-op when the
+ * shell is already the top of the back stack. Shared by shortcut routing and share-link routing so
+ * "land the user on a known root before pushing a detail" has exactly one definition.
+ */
+private fun resetToShell(backStack: NavBackStack<NavKey>) {
+    if (backStack.lastOrNull() != Shell) {
+        backStack.clear()
+        backStack.add(Shell)
+    }
+}
+
+/**
  * Routes a launcher/shortcut [ShortcutAction] to the right playback or navigation effect.
  *
  * Extracted from [AuthenticatedNavigation] so the composable's cyclomatic complexity stays
@@ -446,13 +458,6 @@ private suspend fun handleShortcutAction(
     backStack: NavBackStack<NavKey>,
     onSelectShellDestination: (ShellDestination) -> Unit,
 ) {
-    fun resetToShell() {
-        if (backStack.lastOrNull() != Shell) {
-            backStack.clear()
-            backStack.add(Shell)
-        }
-    }
-
     when (action) {
         is ShortcutAction.Resume -> {
             // Get the most recent book and play it
@@ -465,7 +470,7 @@ private suspend fun handleShortcutAction(
             } else {
                 logger.warn { "No recent book to resume" }
                 // Navigate to library as fallback
-                resetToShell()
+                resetToShell(backStack)
                 onSelectShellDestination(ShellDestination.Library)
             }
         }
@@ -478,14 +483,14 @@ private suspend fun handleShortcutAction(
 
         is ShortcutAction.Search -> {
             // Navigate to library (search tab)
-            resetToShell()
+            resetToShell(backStack)
             onSelectShellDestination(ShellDestination.Library)
         }
 
         is ShortcutAction.NavigateToBook -> {
             logger.info { "Navigating to book: ${'$'}{action.bookId}" }
             // Ensure we're on Shell first, then navigate to book detail
-            resetToShell()
+            resetToShell(backStack)
             backStack.add(BookDetail(action.bookId))
         }
 
@@ -502,7 +507,7 @@ private suspend fun handleShortcutAction(
 
         is ShortcutAction.NavigateToAbsImport -> {
             logger.info { "Navigating to ABS import: ${action.importId}" }
-            resetToShell()
+            resetToShell(backStack)
             backStack.add(AdminBackups)
             backStack.add(ImportFlow)
         }
@@ -583,13 +588,6 @@ private fun AuthenticatedNavigation(
     // App-wide snackbar state - provided to all screens via CompositionLocal
     val snackbarHostState = remember { SnackbarHostState() }
 
-    fun resetToShell() {
-        if (backStack.lastOrNull() != Shell) {
-            backStack.clear()
-            backStack.add(Shell)
-        }
-    }
-
     // Hoisted sign-out action shared by shell and settings entries.
     // Clear library data before signing out so the next login (same or different user)
     // always starts with fresh data.
@@ -609,7 +607,7 @@ private fun AuthenticatedNavigation(
         val book = pendingTarget as? ShareTarget.Book ?: return@LaunchedEffect
         when (val resolution = ShareTargetResolver.resolve(book, serverConfig.getConnectedServerId())) {
             is ShareResolution.OpenBook -> {
-                resetToShell()
+                resetToShell(backStack)
                 backStack.add(BookDetail(resolution.bookId.value))
             }
 
@@ -623,10 +621,10 @@ private fun AuthenticatedNavigation(
 
             // OpenInviteClaim handled at top level; NoAccess not produced by the pure resolver
             // (an inaccessible book opens Book Detail, which shows its own empty state).
-            else -> {
-                Unit
-            }
+            else -> {}
         }
+        // consumeTarget after showSnackbar (which suspends until dismissed) so the link stays live
+        // until the user has actually seen the error.
         deepLinkManager.consumeTarget()
     }
 
