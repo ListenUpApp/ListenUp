@@ -41,7 +41,15 @@ struct PausePersistenceTests {
         coordinator.togglePlayback()
         await engine.waitUntilPaused()
 
-        #expect(progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 })
+        // Poll for the pause report rather than asserting it the instant `pause()` lands — defensive
+        // against any late/reordered delivery under the parallel-suite MainActor scheduler. On a
+        // genuinely-wrong position this still fails (the value never arrives), and the failure
+        // message surfaces what WAS recorded so a CI flake here is finally diagnosable, not opaque.
+        await awaitUntil { progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 } }
+        #expect(
+            progress.pausedCalls.contains { $0.0 == "book1" && $0.1 == 12345 },
+            "expected a pause report at 12345 for book1; recorded: \(progress.pausedCalls)",
+        )
     }
 }
 

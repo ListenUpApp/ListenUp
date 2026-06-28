@@ -16,6 +16,7 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.transformWhile
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
@@ -83,11 +84,15 @@ class ScannerSseRouteTest :
                         }
                     }
 
-                // Wait for the SSE connection to actually be established — bounded so a failed connect
-                // surfaces as a failed assertion rather than a hang — then a brief settle for the
-                // server-side collector to register before the scan fires.
+                // Wait for the SSE connection to be established (client side), bounded so a failed
+                // connect surfaces as a failed assertion rather than a hang.
                 withTimeoutOrNull(10.seconds) { subscribed.await() }
-                delay(200)
+                // Then wait DETERMINISTICALLY until the server-side SSE handler has actually
+                // subscribed to the scan event bus — it is that bus's only collector, so
+                // subscriptionCount >= 1 means the collector is registered and no emission can be
+                // missed. Replaces the blind delay(200) that dropped the Started frame when the
+                // subscription lagged the scan on a loaded CI runner (publish-before-subscribe race).
+                withTimeoutOrNull(10.seconds) { fix.scanEventBus.subscriptionCount.first { it >= 1 } }
 
                 // Trigger a manual scan to generate fresh events.
                 fix.client.post("${fix.baseUrl}/api/v1/scan")
