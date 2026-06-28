@@ -206,7 +206,8 @@ class SeriesRepository(
         // resolveOrCreate's first-casing-wins semantics for the create path.
         val byKey = LinkedHashMap<String, String>()
         for (name in names) {
-            byKey.getOrPut(normalizeForDedup(name)) { name }
+            val key = normalizeForDedup(name)
+            if (key !in byKey) byKey[key] = name
         }
 
         // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.

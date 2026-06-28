@@ -60,7 +60,6 @@ kotlin {
         freeCompilerArgs.addAll(
             "-Xexpect-actual-classes",
             "-Xreturn-value-checker=check",
-            "-Xexplicit-backing-fields",
             "-Xskip-prerelease-check",
         )
     }

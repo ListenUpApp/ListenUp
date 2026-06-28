@@ -83,6 +83,7 @@ internal class ScanCoordinator(
     fun isScanning(): Boolean = mutex.isLocked
 
     /** True after [close] has been called. Used in tests to verify teardown. */
+    @OptIn(kotlinx.coroutines.DelicateCoroutinesApi::class)
     fun isChannelClosed(): Boolean = incrementalChannel.isClosedForSend
 
     suspend fun scanFull(): AppResult<ScanResult> {
@@ -109,7 +110,11 @@ internal class ScanCoordinator(
         }
         scope.launch {
             try {
-                runFullScan()
+                val result = runFullScan()
+                logger.info {
+                    "background full scan completed for library ${libraryId.value}: " +
+                        "${result.books.size} books, ${result.filesWalked} files in ${result.durationMs}ms"
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {

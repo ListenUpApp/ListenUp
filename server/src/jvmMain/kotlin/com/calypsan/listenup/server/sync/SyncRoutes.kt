@@ -334,7 +334,7 @@ private suspend fun ServerSSESession.runKeepalive(intervalMillis: Long) {
 private suspend fun ServerSSESession.sendStreamError(e: Exception) {
     val cid = UUID.randomUUID().toString()
     log.error(e) { "Uncaught SSE flow exception [cid=$cid]" }
-    runCatching {
+    try {
         send(
             data =
                 contractJson.encodeToString(
@@ -350,6 +350,10 @@ private suspend fun ServerSSESession.sendStreamError(e: Exception) {
                 ),
             event = SSE_EVENT_CONTROL,
         )
+    } catch (sendError: CancellationException) {
+        throw sendError
+    } catch (sendError: Exception) {
+        log.debug(sendError) { "failed to deliver SSE stream-error event [cid=$cid]" }
     }
 }
 

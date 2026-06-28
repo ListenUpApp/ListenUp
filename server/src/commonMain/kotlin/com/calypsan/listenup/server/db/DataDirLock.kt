@@ -1,7 +1,10 @@
 package com.calypsan.listenup.server.db
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+
+private val logger = KotlinLogging.logger {}
 
 /** A handle to a held [DataDirLock]; closing it releases the OS lock. */
 internal interface FileLockHandle : AutoCloseable
@@ -43,7 +46,11 @@ class DataDirLock(
     }
 
     override fun close() {
-        runCatching { handle?.close() }
+        try {
+            handle?.close()
+        } catch (e: Exception) {
+            logger.debug(e) { "ignoring data-dir lock-handle close failure" }
+        }
         handle = null
     }
 

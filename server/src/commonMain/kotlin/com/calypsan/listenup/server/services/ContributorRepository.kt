@@ -268,7 +268,7 @@ class ContributorRepository(
         for ((name, sortName) in identities) {
             val derivedSortName = sortName ?: SortKeys.sortName(name, null)
             val key = contributorDedupKey(name, derivedSortName)
-            byKey.getOrPut(key) { name to derivedSortName }
+            if (key !in byKey) byKey[key] = name to derivedSortName
         }
 
         // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.
