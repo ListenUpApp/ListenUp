@@ -10,35 +10,33 @@ import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupManifest
 import com.calypsan.listenup.server.backup.BackupPaths
-import com.calypsan.listenup.server.plugins.toHttpStatus
+import com.calypsan.listenup.server.io.createTempFileIn
 import com.calypsan.listenup.server.io.respondSeekable
+import com.calypsan.listenup.server.io.streamFirstFilePartTo
+import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
-import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import io.ktor.utils.io.jvm.javaio.copyTo
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import kotlinx.coroutines.CancellationException
-import kotlinx.io.files.Path as IoPath
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlin.time.Instant
 
 /**
  * Max accepted size for an uploaded `.listenup.zip` backup. Legitimate backups for large libraries
  * can exceed 50 MiB; this route streams the file straight to a temp file (never buffered in
- * memory), so a generous cap is safe. Ktor's default [formFieldLimit] is 50 MiB (52_428_800 bytes),
+ * memory), so a generous cap is safe. Ktor's default `formFieldLimit` is 50 MiB (52_428_800 bytes),
  * which would reject valid large restores before they could be staged. Mirrors [ImportRoutes]'
  * cap for consistency — both upload endpoints accept the same ceiling.
  */
@@ -66,7 +64,7 @@ private const val MAX_BACKUP_RESTORE_BYTES: Long = 5L * 1024 * 1024 * 1024 // 5 
  *  - The id for the uploaded archive is derived from the manifest's [BackupManifest.createdAt]
  *    timestamp — never from a client-supplied filename — preventing path traversal.
  *  - Upload is streamed directly to a temp file; the body is never buffered into a [ByteArray].
- *  - Download uses Ktor's [respondFile] (file-channel streaming), not `Files.readAllBytes`.
+ *  - Download uses [respondSeekable] (file-channel streaming), not a full read into memory.
  */
 fun Route.backupRoutes(
     paths: BackupPaths,
@@ -83,7 +81,7 @@ fun Route.backupRoutes(
         }
 
         val archivePath = paths.archiveFor(rawId)
-        if (!java.io.File(archivePath.toString()).isFile) {
+        if (SystemFileSystem.metadataOrNull(archivePath)?.isRegularFile != true) {
             return@get call.respondBareAppError(BackupError.BackupNotFound())
         }
 
@@ -106,7 +104,7 @@ fun Route.backupRoutes(
 /**
  * Streams the multipart body to a temp file, validates it, then moves it into [BackupPaths.backupsDir].
  * The temp file is always cleaned up in a `finally` block; on success it has already been moved so
- * [Files.deleteIfExists] is a no-op.
+ * the delete is a no-op.
  */
 private suspend fun ApplicationCall.handleUpload(
     paths: BackupPaths,
@@ -114,44 +112,29 @@ private suspend fun ApplicationCall.handleUpload(
 ) {
     paths.ensureDirs()
     // Stream the upload to a temp file — never buffer multi-hundred-MB backups into memory.
-    val tmpFile =
-        Files.createTempFile(
-            java.nio.file.Path
-                .of(paths.tmpDir.toString()),
-            "upload-",
-            ".listenup.zip",
-        )
+    val tmpFile = createTempFileIn(paths.tmpDir, "upload-", ".listenup.zip")
     try {
-        var received = false
-        receiveMultipart(formFieldLimit = MAX_BACKUP_RESTORE_BYTES).forEachPart { part ->
-            if (part is PartData.FileItem && !received) {
-                received = true
-                Files.newOutputStream(tmpFile).use { out ->
-                    part.provider().copyTo(out)
-                }
-            }
-            part.release()
-        }
-
-        if (!received) {
+        if (!streamFirstFilePartTo(tmpFile, MAX_BACKUP_RESTORE_BYTES)) {
             respond(HttpStatusCode.BadRequest, "missing file part")
             return
         }
 
         // Validate before staging — a corrupt archive must never land in backupsDir.
-        val manifest = validateUpload(archive, IoPath(tmpFile.toString())) ?: return
+        val manifest = validateUpload(archive, tmpFile) ?: return
 
         // Derive a filesystem-safe id from the manifest timestamp — never from the
         // client-supplied filename — to prevent path traversal.
         val safeId = deriveSafeId(manifest)
-        val destFile = java.io.File(paths.archiveFor(safeId).toString())
-        Files.move(tmpFile, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        val destPath = paths.archiveFor(safeId)
+        // Mirror REPLACE_EXISTING: drop any prior archive with this id before the atomic rename.
+        SystemFileSystem.delete(destPath, mustExist = false)
+        SystemFileSystem.atomicMove(tmpFile, destPath)
 
         val summary =
             BackupSummary(
                 id = BackupId(safeId),
                 createdAt = manifest.createdAt,
-                sizeBytes = destFile.length(),
+                sizeBytes = SystemFileSystem.metadataOrNull(destPath)?.size ?: 0L,
                 includesImages = manifest.includesImages,
                 schemaVersion = manifest.schemaVersion,
                 appVersion = manifest.appVersion,
@@ -161,8 +144,8 @@ private suspend fun ApplicationCall.handleUpload(
         respond(HttpStatusCode.OK, summary)
     } finally {
         // Clean up the temp file on any failure path; on success it has already been
-        // moved to dest so deleteIfExists is a no-op there.
-        Files.deleteIfExists(tmpFile)
+        // moved to dest so the delete is a no-op there.
+        SystemFileSystem.delete(tmpFile, mustExist = false)
     }
 }
 
@@ -173,7 +156,7 @@ private suspend fun ApplicationCall.handleUpload(
  */
 private suspend fun ApplicationCall.validateUpload(
     archive: BackupArchive,
-    tmpFile: IoPath,
+    tmpFile: Path,
 ): BackupManifest? =
     try {
         archive.validate(tmpFile)
@@ -204,10 +187,7 @@ private fun String.isSafeBackupId(): Boolean {
  * Using the manifest timestamp (not the client-supplied filename) prevents path traversal.
  */
 private fun deriveSafeId(manifest: BackupManifest): String {
-    val iso =
-        java.time.Instant
-            .ofEpochMilli(manifest.createdAt)
-            .toString()
+    val iso = Instant.fromEpochMilliseconds(manifest.createdAt).toString()
     // ':' is invalid in filenames on some filesystems; replace to match local backup id format.
     return "backup-${iso.replace(':', '-')}"
 }

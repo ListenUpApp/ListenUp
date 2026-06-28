@@ -29,6 +29,7 @@ import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.io.MultipartUploadUnsupported
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -52,6 +53,14 @@ private val logger = KotlinLogging.logger("AppErrorStatusPages")
  */
 fun Application.installAppErrorStatusPages() {
     install(StatusPages) {
+        // The native server runtime can't parse multipart (KTOR-7361) — surface an upload attempt as
+        // a precise 501 rather than letting it fall through to a generic 500. JVM never throws this.
+        exception<MultipartUploadUnsupported> { call, _ ->
+            call.respond(
+                HttpStatusCode.NotImplemented,
+                mapOf("error" to "not_implemented", "reason" to "multipart_upload_unsupported_on_native"),
+            )
+        }
         exception<Throwable> { call, ex ->
             // Cancellation must always re-raise — never swallow it.
             if (ex is CancellationException) throw ex
