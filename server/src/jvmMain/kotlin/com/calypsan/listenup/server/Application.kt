@@ -291,10 +291,13 @@ private fun Application.installDependencies(
     // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
     // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
     install(KoinIsolated) {
+        // The di modules now take a kotlinx.io path (they moved to commonMain in Phase 5-4); convert
+        // the bootstrap java.nio homeDir once. Drops out when Application.module() goes native (P5-5).
+        val ioHome = DataDirPath(homeDir.toString())
         val modules = mutableListOf(authModule(environment.config))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
         modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
-        modules += metadataModule(kotlinx.io.files.Path(homeDir.toString()))
+        modules += metadataModule(ioHome)
         modules += playbackModule()
         modules += libraryModule()
         modules += embeddedmetaModule
@@ -307,10 +310,10 @@ private fun Application.installDependencies(
                 ?.getString()
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
-        modules += profileModule(homeDir.resolve("avatars"))
+        modules += profileModule(DataDirPath(ioHome, "avatars"))
         modules += userPreferencesModule()
-        modules += backupModule(homeDir)
-        modules += importModule(homeDir)
+        modules += backupModule(ioHome)
+        modules += importModule(ioHome)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(

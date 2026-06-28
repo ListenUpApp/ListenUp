@@ -10,6 +10,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
 import java.nio.file.Files
 import kotlin.time.Clock
+import kotlinx.io.files.Path as IoPath
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 
@@ -28,7 +29,7 @@ class ProfileModuleVerifyTest :
                                     single { sql.noOpPublicProfileMaintainer() }
                                     single<Clock> { Clock.System }
                                 },
-                                profileModule(avatarsDir),
+                                profileModule(IoPath(avatarsDir.toString())),
                             )
                         }
                     app.koin.get<ProfileService>().shouldNotBeNull()

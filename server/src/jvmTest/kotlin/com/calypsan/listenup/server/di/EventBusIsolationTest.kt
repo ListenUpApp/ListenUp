@@ -7,6 +7,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.types.shouldNotBeSameInstanceAs
 import java.nio.file.Files
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.io.files.Path as IoPath
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.koin.dsl.koinApplication
@@ -32,8 +33,8 @@ class EventBusIsolationTest :
                     koinApplication {
                         modules(
                             scannerModule(CoroutineScope(SupervisorJob()), watchEnabled = false),
-                            importModule(homeDir),
-                            backupModule(homeDir),
+                            importModule(IoPath(homeDir.toString())),
+                            backupModule(IoPath(homeDir.toString())),
                         )
                     }
 
