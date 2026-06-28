@@ -59,6 +59,11 @@ kotlin {
 
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
+            implementation(libs.kotlinx.coroutines.test)
+            // logback-classic instead of slf4j-simple: the rpcguard helpers use MDC
+            // (via kotlinx-coroutines-slf4j) which requires a backend that supports
+            // Mapped Diagnostic Context. slf4j-simple always returns null for MDC.get().
+            implementation(libs.logback.classic)
         }
     }
 }
@@ -72,4 +77,8 @@ dependencies {
     // :rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and
     // emits the *Guarded decorators into the JVM compilation.
     add("kspJvm", project(":rpc-guard-ksp"))
+    // Generate the guard decorators for the native server too (Phase 5). Per-target (NOT
+    // commonMain): the @Rpc interfaces are local to :contract here so source discovery works, and
+    // keeping guards out of commonMain avoids forcing apple actuals / Swift-export pollution.
+    add("kspLinuxX64", project(":rpc-guard-ksp"))
 }

@@ -41,5 +41,7 @@ class FlowCodegenTest :
                 "emit(\n            com.calypsan.listenup.api.streaming.RpcEvent.Error(",
             )
             generated.shouldNotContain("recordEscape")
+            generated.shouldContain("log.error(e) { \"Uncaught flow exception in FakeStream.observe [cid=\$cid]\" }")
+            generated.shouldNotContain("org.slf4j")
         }
     })
