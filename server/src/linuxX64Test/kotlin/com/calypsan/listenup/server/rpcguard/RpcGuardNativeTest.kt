@@ -55,7 +55,11 @@ class RpcGuardNativeTest {
                 }
             server.start(wait = false)
             try {
-                val port = server.engine.resolvedConnectors().first().port
+                val port =
+                    server.engine
+                        .resolvedConnectors()
+                        .first()
+                        .port
                 val rpcClient =
                     HttpClient(ClientCIO) {
                         install(ClientWebSockets)

@@ -42,7 +42,9 @@ internal object GuardedClassWriter {
             appendLine()
             appendLine("class ${model.simpleName}Guarded(")
             appendLine("    private val delegate: ${model.packageName}.${model.simpleName},")
-            appendLine("    private val log: io.github.oshai.kotlinlogging.KLogger = io.github.oshai.kotlinlogging.KotlinLogging.logger(\"rpc.${model.simpleName}\"),")
+            appendLine(
+                "    private val log: io.github.oshai.kotlinlogging.KLogger = io.github.oshai.kotlinlogging.KotlinLogging.logger(\"rpc.${model.simpleName}\"),",
+            )
             appendLine(") : ${model.packageName}.${model.simpleName} {")
             for (method in model.methods) {
                 appendLine()
