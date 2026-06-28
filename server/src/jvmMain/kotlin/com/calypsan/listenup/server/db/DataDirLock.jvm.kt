@@ -32,7 +32,15 @@ private class JvmFileLockHandle(
     private val lock: FileLock,
 ) : FileLockHandle {
     override fun close() {
-        runCatching { lock.release() }
-        runCatching { channel.close() }
+        try {
+            lock.release()
+        } catch (e: Exception) {
+            logger.debug(e) { "ignoring data-dir lock release failure" }
+        }
+        try {
+            channel.close()
+        } catch (e: Exception) {
+            logger.debug(e) { "ignoring data-dir lock channel close failure" }
+        }
     }
 }

@@ -6,6 +6,7 @@ package com.calypsan.listenup.server.compression
  * Mirrors `java.util.zip.CRC32`: feed bytes via [update]; read the running checksum from [value]
  * as a 32-bit unsigned value held in a [Long] (`0..0xFFFFFFFF`). Pure commonMain.
  */
+@OptIn(ExperimentalUnsignedTypes::class)
 class Crc32 {
     private var crc = 0xFFFFFFFFuL
 

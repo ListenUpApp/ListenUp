@@ -209,8 +209,8 @@ internal class LibraryAdminServiceImpl(
         // Admin-only: triggering a scan is a privileged server operation.
         requireAdmin()?.let { return AppResult.Failure(it) }
         val folderPage = libraryFolderRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
-        folderPage.items.firstOrNull { it.id == folderId.value && it.deletedAt == null }
-            ?: return AppResult.Failure(LibraryError.FolderNotFound())
+        val folderExists = folderPage.items.any { it.id == folderId.value && it.deletedAt == null }
+        if (!folderExists) return AppResult.Failure(LibraryError.FolderNotFound())
         scanOrchestrator.scanFolder(folderId)
         return AppResult.Success(Unit)
     }
