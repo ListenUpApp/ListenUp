@@ -296,7 +296,7 @@ private fun Application.installDependencies(
         val ioHome = DataDirPath(homeDir.toString())
         val modules = mutableListOf(authModule(environment.config))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
-        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
+        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, ioHome)
         modules += metadataModule(ioHome)
         modules += playbackModule()
         modules += libraryModule()

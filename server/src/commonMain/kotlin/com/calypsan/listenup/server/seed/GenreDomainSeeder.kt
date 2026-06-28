@@ -4,8 +4,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.server.services.GenreRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -256,7 +256,7 @@ internal class GenreDomainSeeder(
                 logger.info { "seed [$domainName]: genre '${seed.slug}' already present — skipping insert" }
                 existing.id
             } else {
-                val newId = UUID.randomUUID().toString()
+                val newId = Uuid.random().toString()
                 val payload =
                     GenreSyncPayload(
                         id = newId,
