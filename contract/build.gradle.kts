@@ -59,6 +59,11 @@ kotlin {
 
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5) // JVM-only runner; engine + assertions inherited from commonTest
+            implementation(libs.kotlinx.coroutines.test)
+            // logback-classic instead of slf4j-simple: the rpcguard helpers use MDC
+            // (via kotlinx-coroutines-slf4j) which requires a backend that supports
+            // Mapped Diagnostic Context. slf4j-simple always returns null for MDC.get().
+            implementation(libs.logback.classic)
         }
     }
 }

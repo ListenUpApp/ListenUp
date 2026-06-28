@@ -5,15 +5,13 @@ import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 
 /**
- * Runs [block] with the current [MDCContext] augmented by [pairs].
- *
- * Existing MDC keys are preserved; pairs override on conflict. After the
- * block returns, MDC is restored to its prior state by [MDCContext]'s
- * `restoreThreadContext` semantics.
+ * Runs [block] with the current [MDCContext] augmented by [pairs]. Existing MDC keys are
+ * preserved; pairs override on conflict. `MDCContext`'s `restoreThreadContext` restores prior
+ * state after [block].
  */
-suspend inline fun <R> withMdc(
+internal actual suspend fun <R> withMdc(
     vararg pairs: Pair<String, String>,
-    crossinline block: suspend () -> R,
+    block: suspend () -> R,
 ): R {
     val current = currentCoroutineContext()[MDCContext]?.contextMap.orEmpty()
     val merged = current + pairs.toMap()
