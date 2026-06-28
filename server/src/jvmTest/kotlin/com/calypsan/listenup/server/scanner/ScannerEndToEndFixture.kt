@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.event.ScanEvent
+import com.calypsan.listenup.server.di.EventBusQualifiers
 import com.calypsan.listenup.server.module
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -14,9 +16,11 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
+import org.koin.ktor.ext.get
 
 /**
  * Fixture that boots a real `Application.module()` against a temp library
@@ -37,6 +41,13 @@ internal class ScannerEndToEndFixture private constructor(
     private val server: EmbeddedServer<*, *>,
     val client: HttpClient,
     val baseUrl: String,
+    /**
+     * The production scan-event bus (the `/sse/scan` route's only collector). Exposed for
+     * test synchronisation only — a read of the singleton, not an override of the graph — so a
+     * test can await `subscriptionCount` to know the server-side SSE collector is live before
+     * firing a scan, instead of racing it with a blind delay.
+     */
+    val scanEventBus: MutableSharedFlow<ScanEvent>,
 ) : AutoCloseable {
     override fun close() {
         client.close()
@@ -98,7 +109,10 @@ internal class ScannerEndToEndFixture private constructor(
                     }
                 }
 
-            return ScannerEndToEndFixture(libraryRoot, server, client, baseUrl)
+            val scanEventBus: MutableSharedFlow<ScanEvent> =
+                server.application.get(EventBusQualifiers.ScanEvents)
+
+            return ScannerEndToEndFixture(libraryRoot, server, client, baseUrl, scanEventBus)
         }
 
         private const val JWT_SECRET_LENGTH = 32
