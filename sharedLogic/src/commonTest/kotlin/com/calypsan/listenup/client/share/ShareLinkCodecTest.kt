@@ -35,10 +35,10 @@ class ShareLinkCodecTest :
             url shouldBe "https://link.listenup.audio/o#t=book&b=book-abc"
         }
 
-        test("encode produces the legacy listenup join form for an invite") {
+        test("encode produces the https /o universal-link form for an invite") {
             val url = ShareLinkCodec.encode(ShareTarget.Invite(serverUrl = "https://lib.example.com", code = "JOIN9"))
 
-            url shouldStartWith "listenup://join?"
+            url shouldStartWith "https://link.listenup.audio/o#t=invite"
             url shouldContain "server=https%3A%2F%2Flib.example.com"
             url shouldContain "code=JOIN9"
         }
@@ -55,6 +55,20 @@ class ShareLinkCodecTest :
                     serverInstanceId = "inst-123",
                     serverUrl = "https://lib.example.com",
                 )
+        }
+
+        test("decode parses the https /o invite form from the fragment") {
+            val target =
+                ShareLinkCodec.decode(
+                    "https://link.listenup.audio/o#t=invite&server=https%3A%2F%2Flib.example.com&code=JOIN9",
+                )
+
+            target shouldBe ShareTarget.Invite(serverUrl = "https://lib.example.com", code = "JOIN9")
+        }
+
+        test("decode returns null for an https invite form missing the code") {
+            ShareLinkCodec.decode("https://link.listenup.audio/o#t=invite&server=https%3A%2F%2Flib.example.com") shouldBe
+                null
         }
 
         test("decode falls back to the query when the fragment is absent") {
