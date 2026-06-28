@@ -20,15 +20,15 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.CoverSpool
 import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
+import com.calypsan.listenup.server.io.readBytes
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlin.io.path.readBytes
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.nio.file.Path as JPath
+import kotlinx.io.files.Path
 
 private val log = KotlinLogging.logger {}
 
@@ -200,7 +200,7 @@ class BookPersister internal constructor(
 
         // Use the scan result's rootPath for filesystem cover reads — aligned
         // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
-        val scanRoot = JPath.of(result.rootPath)
+        val scanRoot = Path(result.rootPath)
         // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
         // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —
         // a held book must never join ALL_BOOKS or it becomes visible to all members. A resolution
@@ -374,7 +374,7 @@ class BookPersister internal constructor(
      */
     private fun extractPendingCover(
         analyzed: AnalyzedBook,
-        scanRoot: JPath,
+        scanRoot: Path,
     ): PendingCover? {
         if (coverImageStore == null) return null
         return when (val cover = analyzed.cover) {
@@ -383,7 +383,7 @@ class BookPersister internal constructor(
             }
 
             is CoverSource.Filesystem -> {
-                val coverPath = scanRoot.resolve(cover.file.relPath)
+                val coverPath = Path(scanRoot, cover.file.relPath)
                 runCatching { coverPath.readBytes() }
                     .onFailure { e ->
                         log.warn { "Could not read filesystem cover for ${analyzed.candidate.rootRelPath}: $e" }
@@ -402,7 +402,7 @@ class BookPersister internal constructor(
             }
 
             is CoverSource.Spooled -> {
-                runCatching { JPath.of(cover.path).readBytes() }
+                runCatching { Path(cover.path).readBytes() }
                     .onFailure { e ->
                         log.warn { "Could not read spooled cover for ${analyzed.candidate.rootRelPath}: $e" }
                     }.getOrNull()

@@ -6,8 +6,8 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.MoodRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.UUID
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -90,7 +90,7 @@ internal class MoodDomainSeeder(
             }
             val mood =
                 Mood(
-                    id = UUID.randomUUID().toString(),
+                    id = Uuid.random().toString(),
                     name = seedMood.name,
                     slug = seedMood.slug,
                     revision = 0L,

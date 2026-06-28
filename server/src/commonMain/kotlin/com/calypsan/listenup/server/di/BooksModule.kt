@@ -38,7 +38,6 @@ import com.calypsan.listenup.server.document.DocumentFileLocator
 import com.calypsan.listenup.server.cover.EmbeddedCoverCache
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
-import kotlinx.io.files.Path as IoPath
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.services.AnalyzedBookMapper
 import com.calypsan.listenup.server.services.BookGenreWriter
@@ -53,8 +52,8 @@ import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PendingGenrePromotion
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
-import java.nio.file.Path
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -137,7 +136,7 @@ fun booksModule(
                 collectionBookRepository = get(),
                 tagRepository = getOrNull<TagRepository>(),
                 bookTagRepository = getOrNull<BookTagRepository>(),
-                homeDir = IoPath(homeDir.toString()),
+                homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
             )
         }
@@ -307,10 +306,10 @@ private fun Module.coverAndPersisterBindings(
     embeddedCoverCacheSize: Int,
     homeDir: Path,
 ) {
-    single { CoverImageStore(ImageStore(IoPath(homeDir.resolve("covers").toString()), COVER_MAX_BYTES)) }
+    single { CoverImageStore(ImageStore(Path(homeDir, "covers"), COVER_MAX_BYTES)) }
     single {
         com.calypsan.listenup.server.scanner
-            .CoverSpool(IoPath(homeDir.resolve("scan-spool").toString()))
+            .CoverSpool(Path(homeDir, "scan-spool"))
     }
     single { EmbeddedCoverCache(maxSize = embeddedCoverCacheSize) }
     single {
