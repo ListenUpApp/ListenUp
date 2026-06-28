@@ -1,8 +1,11 @@
 package com.calypsan.listenup.server.scanner.watcher
 
+import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.scanner.inference.MultiDiscPattern
 import com.calypsan.listenup.server.scanner.inference.SkipRules
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.atomicfu.locks.SynchronizedObject
+import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -10,13 +13,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
-import java.nio.file.attribute.BasicFileAttributes
-import java.util.concurrent.ConcurrentHashMap
-import kotlinx.io.files.Path as IoPath
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
 
@@ -53,13 +51,14 @@ internal class FolderWatcher(
     private val libraryRoot: Path,
     private val scope: CoroutineScope,
     private val debouncer: StableSizeDebouncer = StableSizeDebouncer(),
-    private val skipRules: (Path) -> Boolean = { path -> SkipRules.shouldSkip(IoPath(path.toString())) },
-    private val watcher: LowLevelDirectoryWatcher = RecursiveDirectoryWatcher(scope),
+    private val skipRules: (Path) -> Boolean = { path -> SkipRules.shouldSkip(path) },
+    private val watcher: LowLevelDirectoryWatcher = newLowLevelDirectoryWatcher(scope),
 ) {
     private val emissions = MutableSharedFlow<Path>(extraBufferCapacity = 64)
     val events: Flow<Path> = emissions.asSharedFlow()
 
-    private val pendingByBookRoot = ConcurrentHashMap<Path, Job>()
+    private val pendingLock = SynchronizedObject()
+    private val pendingByBookRoot = mutableMapOf<Path, Job>()
 
     suspend fun start() {
         registerExistingTree()
@@ -90,24 +89,26 @@ internal class FolderWatcher(
 
     private fun collectWatchableDirectories(): List<String> {
         val collected = mutableListOf<String>()
-        Files.walkFileTree(
-            libraryRoot,
-            object : SimpleFileVisitor<Path>() {
-                override fun preVisitDirectory(
-                    dir: Path,
-                    attrs: BasicFileAttributes,
-                ): FileVisitResult {
-                    if (dir != libraryRoot && skipRules(dir)) return FileVisitResult.SKIP_SUBTREE
-                    collected += dir.toString()
-                    return FileVisitResult.CONTINUE
+
+        fun visit(dir: Path) {
+            // [dir] is the library root (always watchable) or a child that already passed the skip
+            // check, so it is added unconditionally; its children are pruned by skip rules + symlinks.
+            collected += dir.toString()
+            for (child in SystemFileSystem.list(dir)) {
+                val meta = SystemFileSystem.metadataOrNull(child) ?: continue
+                if (meta.isDirectory && !isSymlink(child) && !skipRules(child)) {
+                    visit(child)
                 }
-            },
-        )
+            }
+        }
+        visit(libraryRoot)
         return collected
     }
 
     private suspend fun handle(event: DirectoryWatchEvent) {
-        val fullPath = Path.of(event.targetDirectory).resolve(event.path)
+        // event.path is the absolute child path (the low-level watcher resolves it against the
+        // watched directory before emitting).
+        val fullPath = Path(event.path)
         val isDelete = event.kind == DirectoryWatchEventKind.Delete
         // Skip rules must NOT filter delete events: the deleted path no longer exists
         // on disk, so filesystem probes inside skipRules (e.g. the `.ignore` sentinel
@@ -120,7 +121,9 @@ internal class FolderWatcher(
         // A newly-created directory needs to be added to the watch set so events on
         // its children surface. The recursive watcher already registers new subtrees
         // itself, so this is a no-op guard kept for clarity of intent.
-        if (event.kind == DirectoryWatchEventKind.Create && Files.isDirectory(fullPath)) {
+        if (event.kind == DirectoryWatchEventKind.Create &&
+            SystemFileSystem.metadataOrNull(fullPath)?.isDirectory == true
+        ) {
             watcher.add(fullPath.toString())
         }
 
@@ -133,21 +136,22 @@ internal class FolderWatcher(
         triggerPath: Path,
         isDelete: Boolean,
     ) {
-        pendingByBookRoot.compute(bookRoot) { _, existing ->
-            existing?.cancel()
-            scope.launch {
-                if (!isDelete) {
-                    // Wait for the file to settle. If it never does (deleted
-                    // mid-wait), we still emit — the book root has changed.
-                    debouncer.awaitStable(triggerPath)
+        synchronized(pendingLock) {
+            pendingByBookRoot[bookRoot]?.cancel()
+            pendingByBookRoot[bookRoot] =
+                scope.launch {
+                    if (!isDelete) {
+                        // Wait for the file to settle. If it never does (deleted
+                        // mid-wait), we still emit — the book root has changed.
+                        debouncer.awaitStable(triggerPath)
+                    }
+                    // Suspending emit (not tryEmit) so a burst that fills the SharedFlow buffer
+                    // applies backpressure to this per-book-root coroutine rather than silently
+                    // dropping the change — a dropped emission would strand the book until the
+                    // next periodic rescan. We're already inside scope.launch, so suspending is fine.
+                    emissions.emit(bookRoot)
+                    synchronized(pendingLock) { pendingByBookRoot.remove(bookRoot) }
                 }
-                // Suspending emit (not tryEmit) so a burst that fills the SharedFlow buffer
-                // applies backpressure to this per-book-root coroutine rather than silently
-                // dropping the change — a dropped emission would strand the book until the
-                // next periodic rescan. We're already inside scope.launch, so suspending is fine.
-                emissions.emit(bookRoot)
-                pendingByBookRoot.remove(bookRoot)
-            }
         }
     }
 
@@ -158,7 +162,7 @@ internal class FolderWatcher(
      */
     private fun computeBookRoot(path: Path): Path {
         val parent = path.parent ?: return libraryRoot
-        val parentName = parent.fileName?.toString() ?: return parent
+        val parentName = parent.name.ifEmpty { return parent }
         return if (MultiDiscPattern.matches(parentName)) {
             parent.parent ?: libraryRoot
         } else {

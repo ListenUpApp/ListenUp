@@ -1,10 +1,9 @@
 package com.calypsan.listenup.server.scanner.watcher
 
+import com.calypsan.listenup.server.io.statFile
 import kotlinx.coroutines.delay
-import java.nio.file.Files
-import java.nio.file.NoSuchFileException
-import java.nio.file.Path
-import java.nio.file.attribute.BasicFileAttributes
+import kotlinx.io.files.Path
+import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -12,7 +11,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Uniform "done writing" detector across Linux/macOS/Windows.
  *
- * The recursive WatchService watcher translates platform events into a uniform
+ * The recursive watcher translates platform events into a uniform
  * Create/Modify/Delete model, but the *semantics* of those events differ:
  *
  *  - **Linux** (inotify): `IN_CLOSE_WRITE` fires once after the writer's
@@ -32,21 +31,22 @@ import kotlin.time.Duration.Companion.seconds
  * trigger an analyze or a removal.
  *
  * The [SettleWindow] state machine is the testable core; [awaitStable] is
- * the I/O-driven wrapper.
+ * the I/O-driven wrapper. Size + mtime come from [statFile] (kotlinx-io's
+ * `FileMetadata` exposes neither mtime).
  */
 internal class StableSizeDebouncer(
     private val settle: Duration = 2.seconds,
     private val poll: Duration = 500.milliseconds,
-    private val clock: () -> Long = System::currentTimeMillis,
+    private val clock: () -> Long = { Clock.System.now().toEpochMilliseconds() },
 ) {
     suspend fun awaitStable(path: Path): Boolean {
         var window = SettleWindow.initial()
         while (true) {
-            val attrs = readAttributes(path) ?: return false
+            val attrs = statFile(path) ?: return false
             val tick =
                 window.tick(
-                    size = attrs.size(),
-                    mtime = attrs.lastModifiedTime().toMillis(),
+                    size = attrs.size,
+                    mtime = attrs.mtimeMs,
                     now = clock(),
                     settleMs = settle.inWholeMilliseconds,
                 )
@@ -57,13 +57,6 @@ internal class StableSizeDebouncer(
             delay(poll)
         }
     }
-
-    private fun readAttributes(path: Path): BasicFileAttributes? =
-        try {
-            Files.readAttributes(path, BasicFileAttributes::class.java)
-        } catch (_: NoSuchFileException) {
-            null
-        }
 }
 
 /**
@@ -107,9 +100,11 @@ internal data class SettleWindow(
 }
 
 internal sealed interface TickResult {
+    /** The file is still settling; [next] carries the updated window for the following observation. */
     data class Continue(
         val next: SettleWindow,
     ) : TickResult
 
+    /** The file has been unchanged for the full settle window — it is done writing. */
     data object Stable : TickResult
 }

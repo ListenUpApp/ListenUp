@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlinx.io.files.Path as IoPath
 import kotlin.io.path.createDirectories
 import kotlin.io.path.div
 import kotlin.io.path.writeBytes
@@ -47,7 +48,7 @@ class FolderWatcherTest :
                         withWatcher(tmp) { watcher ->
                             watcher.events.test(timeout = 5.seconds) {
                                 (bookDir / "track.mp3").writeBytes(byteArrayOf(1, 2, 3))
-                                awaitItem() shouldBe bookDir
+                                awaitItem() shouldBe IoPath(bookDir.toString())
                                 cancelAndIgnoreRemainingEvents()
                             }
                         }
@@ -66,7 +67,7 @@ class FolderWatcherTest :
                         withWatcher(tmp) { watcher ->
                             watcher.events.test(timeout = 5.seconds) {
                                 (cd1 / "track.mp3").writeBytes(byteArrayOf(1, 2, 3))
-                                awaitItem() shouldBe bookDir
+                                awaitItem() shouldBe IoPath(bookDir.toString())
                                 cancelAndIgnoreRemainingEvents()
                             }
                         }
@@ -82,7 +83,7 @@ class FolderWatcherTest :
                     val bookDir = (tmp / "Author/Burst Book").apply { createDirectories() }
                     try {
                         withWatcher(tmp) { watcher ->
-                            val emissions = mutableListOf<Path>()
+                            val emissions = mutableListOf<IoPath>()
                             val collectorJob =
                                 launch(start = CoroutineStart.UNDISPATCHED) {
                                     watcher.events.collect { emissions.add(it) }
@@ -98,7 +99,7 @@ class FolderWatcherTest :
                             collectorJob.cancel()
 
                             withClue("emissions: $emissions") {
-                                emissions.count { it == bookDir } shouldBe 1
+                                emissions.count { it == IoPath(bookDir.toString()) } shouldBe 1
                             }
                         }
                     } finally {
@@ -113,7 +114,7 @@ class FolderWatcherTest :
                     val bookDir = (tmp / "Author/Title").apply { createDirectories() }
                     try {
                         withWatcher(tmp) { watcher ->
-                            val emissions = mutableListOf<Path>()
+                            val emissions = mutableListOf<IoPath>()
                             val collectorJob =
                                 launch(start = CoroutineStart.UNDISPATCHED) {
                                     watcher.events.collect { emissions.add(it) }
@@ -144,7 +145,7 @@ class FolderWatcherTest :
                         withWatcher(tmp) { watcher ->
                             watcher.events.test(timeout = 5.seconds) {
                                 (bookDir / "track.mp3").writeBytes(byteArrayOf(1, 2, 3))
-                                awaitItem() shouldBe bookDir
+                                awaitItem() shouldBe IoPath(bookDir.toString())
                                 cancelAndIgnoreRemainingEvents()
                             }
                         }
@@ -164,7 +165,7 @@ private suspend fun withWatcher(
     val scope = CoroutineScope(supervisor + Dispatchers.Default)
     val watcher =
         FolderWatcher(
-            libraryRoot = libraryRoot,
+            libraryRoot = IoPath(libraryRoot.toString()),
             scope = scope,
             debouncer = StableSizeDebouncer(settle = 50.milliseconds, poll = 25.milliseconds),
         )
