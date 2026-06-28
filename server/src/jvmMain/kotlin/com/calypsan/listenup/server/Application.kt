@@ -96,6 +96,7 @@ import com.calypsan.listenup.server.routes.publicInviteRoutes
 import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.registrationStatusRoutes
+import com.calypsan.listenup.server.routes.RpcServices
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
@@ -454,6 +455,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
     val publicProfileMaintainer by inject<PublicProfileMaintainer>()
     val sql by inject<ListenUpDatabase>()
     val audioRoleLookup by inject<UserRoleLookup>()
+    val rpcServices = rpcServiceBundle()
 
     routing {
         healthRoutes()
@@ -477,33 +479,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
                 }
             }
         }
-        rpcRoutes(
-            authService,
-            instanceService,
-            scannerService,
-            bookService,
-            contributorService,
-            seriesService,
-            playbackService,
-            playbackProgressService,
-            metadataLookupService,
-            searchService,
-            libraryAdminService,
-            tagService,
-            moodService,
-            genreService,
-            collectionService,
-            shelfService,
-            socialService,
-            activityService,
-            adminUserService,
-            adminSettingsService,
-            inviteService,
-            profileService,
-            userPreferencesService,
-            backupService,
-            importService,
-        )
+        rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
             syncRoutes()
             adminUserRoutes(adminUserService)
@@ -531,6 +507,40 @@ private fun Application.installAppRoutes(homeDir: Path) {
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
 }
+
+/**
+ * Resolves the [RpcServices] the kRPC mount registers from the Koin graph. Each service is fetched
+ * by the exact type it is registered under — `*Impl` for the four bound as their concrete class,
+ * the interface for the rest — matching how [installAppRoutes] injects them for the REST routes.
+ */
+private fun Application.rpcServiceBundle(): RpcServices =
+    RpcServices(
+        authService = koinGet<AuthServiceImpl>(),
+        instanceService = koinGet<InstanceService>(),
+        scannerService = koinGet<ScannerService>(),
+        bookService = koinGet<BookService>(),
+        contributorService = koinGet<ContributorService>(),
+        seriesService = koinGet<SeriesService>(),
+        playbackService = koinGet<PlaybackService>(),
+        playbackProgressService = koinGet<PlaybackProgressService>(),
+        metadataLookupService = koinGet<MetadataLookupService>(),
+        searchService = koinGet<SearchService>(),
+        libraryAdminService = koinGet<LibraryAdminService>(),
+        tagService = koinGet<TagService>(),
+        moodService = koinGet<MoodService>(),
+        genreService = koinGet<GenreService>(),
+        collectionService = koinGet<CollectionService>(),
+        shelfService = koinGet<ShelfService>(),
+        socialService = koinGet<SocialService>(),
+        activityService = koinGet<ActivityService>(),
+        adminUserService = koinGet<AdminUserServiceImpl>(),
+        adminSettingsService = koinGet<AdminSettingsServiceImpl>(),
+        inviteService = koinGet<InviteServiceImpl>(),
+        profileService = koinGet<ProfileService>(),
+        userPreferencesService = koinGet<UserPreferencesService>(),
+        backupService = koinGet<BackupService>(),
+        importService = koinGet<ImportService>(),
+    )
 
 /**
  * Reads `scanner.libraryPath` from configuration. Accepts a OS-path-separator-delimited
