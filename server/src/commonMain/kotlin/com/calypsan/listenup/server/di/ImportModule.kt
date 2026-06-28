@@ -14,10 +14,9 @@ import com.calypsan.listenup.server.absimport.UserMatcher
 import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.nio.file.Path
-import kotlinx.io.files.Path as IoPath
 
 /**
  * Koin module for the Audiobookshelf-import slice.
@@ -42,7 +41,7 @@ import kotlinx.io.files.Path as IoPath
  */
 fun importModule(homeDir: Path): Module =
     module {
-        single { ImportPaths(IoPath(homeDir.toString())) }
+        single { ImportPaths(homeDir) }
         single { ImportStore(get()) }
         single { AbsBackupReader() }
         single { BookMatcher(get()) }

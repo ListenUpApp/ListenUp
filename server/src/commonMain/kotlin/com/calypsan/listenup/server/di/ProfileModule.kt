@@ -5,8 +5,7 @@ import com.calypsan.listenup.server.api.ProfileServiceImpl
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.routes.AVATAR_MAX_BYTES
-import java.nio.file.Path
-import kotlinx.io.files.Path as IoPath
+import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -21,5 +20,5 @@ fun profileModule(avatarsDir: Path): Module =
                 clock = get(),
             )
         }
-        single { ImageStore(IoPath(avatarsDir.toString()), maxBytes = AVATAR_MAX_BYTES) }
+        single { ImageStore(avatarsDir, maxBytes = AVATAR_MAX_BYTES) }
     }

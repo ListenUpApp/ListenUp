@@ -14,10 +14,9 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.nio.file.Path
-import kotlinx.io.files.Path as IoPath
 
 /**
  * Koin module for the backup/restore slice.
@@ -38,7 +37,7 @@ fun backupModule(
     appVersion: String = ServerIdentity.VERSION,
 ): Module =
     module {
-        single { BackupPaths(IoPath(homeDir.toString())) }
+        single { BackupPaths(homeDir) }
 
         // Qualified by name because Koin keys on the erased KClass — an unqualified
         // MutableSharedFlow<BackupEvent> would collide with the scan/import event buses.
