@@ -8,7 +8,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.MoodSlug
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
 /**
@@ -139,7 +139,7 @@ internal class BookMoodWriter(
     ): Mood? {
         val newMood =
             Mood(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 name = name.trim(),
                 slug = slug,
                 revision = 0L,
