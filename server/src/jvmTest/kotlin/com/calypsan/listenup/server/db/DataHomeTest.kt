@@ -4,8 +4,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldStartWith
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 import java.nio.file.Files
-import java.nio.file.Path
 
 /**
  * Pins [resolveDatabaseUrl] — the production default that maps the SQLite DB into
@@ -18,25 +19,25 @@ class DataHomeTest :
     FunSpec({
 
         test("blank jdbcUrl resolves to listenup.db inside the given home") {
-            val home = Files.createTempDirectory("lu-home-").resolve("ListenUp")
+            val home = Path(Files.createTempDirectory("lu-home-").resolve("ListenUp").toString())
 
             val url = resolveDatabaseUrl(configuredUrl = "", listenupHome = home)
 
             url shouldStartWith "jdbc:sqlite:"
-            url shouldContain home.resolve("listenup.db").toString()
+            url shouldContain Path(home, "listenup.db").toString()
         }
 
         test("blank jdbcUrl creates the home directory if absent") {
-            val home = Files.createTempDirectory("lu-home-").resolve("ListenUp")
-            Files.exists(home) shouldBe false
+            val home = Path(Files.createTempDirectory("lu-home-").resolve("ListenUp").toString())
+            SystemFileSystem.exists(home) shouldBe false
 
             resolveDatabaseUrl(configuredUrl = "", listenupHome = home)
 
-            Files.isDirectory(home) shouldBe true
+            (SystemFileSystem.metadataOrNull(home)?.isDirectory == true) shouldBe true
         }
 
         test("an explicit configured jdbcUrl wins and is returned verbatim") {
-            val home = Files.createTempDirectory("lu-home-").resolve("ListenUp")
+            val home = Path(Files.createTempDirectory("lu-home-").resolve("ListenUp").toString())
 
             val url =
                 resolveDatabaseUrl(
@@ -46,7 +47,7 @@ class DataHomeTest :
 
             url shouldBe "jdbc:sqlite:/tmp/explicit.db"
             // The home dir is NOT created when an explicit URL is supplied.
-            Files.exists(home) shouldBe false
+            SystemFileSystem.exists(home) shouldBe false
         }
 
         test("defaultListenupHome is a ListenUp subfolder of the user home") {
@@ -55,22 +56,22 @@ class DataHomeTest :
         }
 
         test("resolveListenupHome prefers LISTENUP_HOME env, else userHome/ListenUp") {
-            resolveListenupHome(envHome = "/custom/home", userHome = "/Users/x") shouldBe Path.of("/custom/home")
-            resolveListenupHome(envHome = null, userHome = "/Users/x") shouldBe Path.of("/Users/x", "ListenUp")
-            resolveListenupHome(envHome = "  ", userHome = "/Users/x") shouldBe Path.of("/Users/x", "ListenUp")
+            resolveListenupHome(envHome = "/custom/home", userHome = "/Users/x") shouldBe Path("/custom/home")
+            resolveListenupHome(envHome = null, userHome = "/Users/x") shouldBe Path("/Users/x", "ListenUp")
+            resolveListenupHome(envHome = "  ", userHome = "/Users/x") shouldBe Path("/Users/x", "ListenUp")
         }
 
         test("resolveListenupHome (config-aware): listenup.home config wins, then env, then default — ONE home for all data (#703)") {
             // config wins over env + default — this is what the DB/secrets previously ignored
             resolveListenupHome(configuredHome = "/data/lu", envHome = "/env/lu", userHome = "/Users/x") shouldBe
-                Path.of("/data/lu")
+                Path("/data/lu")
             // blank/absent config falls through to env
             resolveListenupHome(configuredHome = "  ", envHome = "/env/lu", userHome = "/Users/x") shouldBe
-                Path.of("/env/lu")
+                Path("/env/lu")
             resolveListenupHome(configuredHome = null, envHome = "/env/lu", userHome = "/Users/x") shouldBe
-                Path.of("/env/lu")
+                Path("/env/lu")
             // no config, no env → userHome/ListenUp
             resolveListenupHome(configuredHome = null, envHome = null, userHome = "/Users/x") shouldBe
-                Path.of("/Users/x", "ListenUp")
+                Path("/Users/x", "ListenUp")
         }
     })

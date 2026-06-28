@@ -1,8 +1,9 @@
 package com.calypsan.listenup.server.auth
 
 import com.calypsan.listenup.server.db.resolveListenupHome
+import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.io.userHomeDir
 import io.ktor.server.config.ApplicationConfig
-import kotlinx.io.files.Path
 
 /**
  * Resolves both server secrets from [config] at startup. Reads the raw
@@ -16,14 +17,14 @@ fun resolveServerSecrets(config: ApplicationConfig): ServerSecrets {
     val home =
         resolveListenupHome(
             configuredHome = config.propertyOrNull("listenup.home")?.getString(),
-            envHome = System.getenv("LISTENUP_HOME"),
-            userHome = System.getProperty("user.home"),
+            envHome = readEnv("LISTENUP_HOME"),
+            userHome = userHomeDir(),
         )
-    val store = FileSecretStore(Path(home.toString()))
+    val store = FileSecretStore(home)
     return ServerSecrets(
         jwtSecret =
             resolveSecret(
-                rawEnv = System.getenv("LISTENUP_JWT_SECRET"),
+                rawEnv = readEnv("LISTENUP_JWT_SECRET"),
                 configValue = config.property("jwt.secret").getString(),
                 committedDefault = INSECURE_DEFAULT_JWT_SECRET,
                 store = store,
@@ -32,7 +33,7 @@ fun resolveServerSecrets(config: ApplicationConfig): ServerSecrets {
             ),
         refreshPepper =
             resolveSecret(
-                rawEnv = System.getenv("LISTENUP_REFRESH_PEPPER"),
+                rawEnv = readEnv("LISTENUP_REFRESH_PEPPER"),
                 configValue = config.property("auth.refreshPepper").getString(),
                 committedDefault = INSECURE_DEFAULT_REFRESH_PEPPER,
                 store = store,
