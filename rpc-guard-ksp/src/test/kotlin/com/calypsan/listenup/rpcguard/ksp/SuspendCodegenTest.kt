@@ -41,12 +41,16 @@ class SuspendCodegenTest :
                 "AppResult.Failure(\n            com.calypsan.listenup.api.error.InternalError(",
             )
             generated.shouldContain("cause = e::class.simpleName")
-            generated.shouldContain("private val log: Logger = LoggerFactory.getLogger(\"rpc.FakeService\")")
+            generated.shouldContain(
+                "private val log: io.github.oshai.kotlinlogging.KLogger = " +
+                    "io.github.oshai.kotlinlogging.KotlinLogging.logger(\"rpc.FakeService\")",
+            )
+            generated.shouldNotContain("org.slf4j")
             generated.shouldContain("val cid = currentCorrelationId() ?: newCorrelationId()")
             generated.shouldContain(
                 """withMdc("service" to "FakeService", "method" to "foo", "correlationId" to cid)""",
             )
-            generated.shouldContain("log.error(\"Uncaught exception in FakeService.foo [cid=\$cid]\", e)")
+            generated.shouldContain("log.error(e) { \"Uncaught exception in FakeService.foo [cid=\$cid]\" }")
             generated.shouldContain("correlationId = cid")
             // Micrometer fully removed: the guard logs escapes but records no metric.
             generated.shouldNotContain("RpcGuardMetrics")
