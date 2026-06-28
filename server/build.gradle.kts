@@ -124,6 +124,11 @@ kotlin {
                 // Koin DI — the di/ Koin modules move to commonMain (Phase 5-4). koin-core is KMP
                 // (linuxX64 variant); koin-ktor (the install(Koin) plugin) stays jvmMain.
                 implementation(libs.koin.core)
+                // Ktor HTTP client (CIO engine) — the metadata slice's Audible/iTunes/image client.
+                // KMP: linuxX64 variants exist; MetadataModule moved to commonMain (Phase 5-4c).
+                implementation(libs.ktor.client.core)
+                implementation(libs.ktor.client.cio)
+                implementation(libs.ktor.client.content.negotiation)
             }
         }
 
@@ -168,11 +173,6 @@ kotlin {
 
                 // Logging + Metrics
                 implementation(libs.kotlinx.coroutines.slf4j)
-
-                // Ktor HTTP client — used by AudibleClient to call the Audible catalog API.
-                implementation(libs.ktor.client.core)
-                implementation(libs.ktor.client.cio)
-                implementation(libs.ktor.client.content.negotiation)
             }
         }
 
