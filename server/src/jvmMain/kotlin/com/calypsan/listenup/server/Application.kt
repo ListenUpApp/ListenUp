@@ -586,10 +586,12 @@ private fun Application.resolveLibraryPaths(): List<Path> {
  * stays pure.
  */
 private fun Application.resolveImageHome(): Path =
-    resolveListenupHome(
-        configuredHome = environment.config.propertyOrNull("listenup.home")?.getString(),
-        envHome = System.getenv("LISTENUP_HOME"),
-        userHome = System.getProperty("user.home"),
+    Path.of(
+        resolveListenupHome(
+            configuredHome = environment.config.propertyOrNull("listenup.home")?.getString(),
+            envHome = System.getenv("LISTENUP_HOME"),
+            userHome = System.getProperty("user.home"),
+        ).toString(),
     )
 
 /**

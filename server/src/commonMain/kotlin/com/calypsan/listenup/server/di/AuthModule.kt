@@ -30,6 +30,8 @@ import com.calypsan.listenup.server.db.resolveDatabaseUrl
 import com.calypsan.listenup.server.db.resolveListenupHome
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.io.userHomeDir
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -74,7 +76,7 @@ fun authModule(config: ApplicationConfig): Module {
         single { PasswordHasher() }
         single { RefreshTokenGenerator() }
         single {
-            RefreshTokenHasher(pepper = secrets.refreshPepper.toByteArray())
+            RefreshTokenHasher(pepper = secrets.refreshPepper.encodeToByteArray())
         }
 
         single {
@@ -217,8 +219,8 @@ private fun ApplicationConfig.resolveJdbcUrl(): String {
     val home =
         resolveListenupHome(
             configuredHome = propertyOrNull("listenup.home")?.getString(),
-            envHome = System.getenv("LISTENUP_HOME"),
-            userHome = System.getProperty("user.home"),
+            envHome = readEnv("LISTENUP_HOME"),
+            userHome = userHomeDir(),
         )
     return resolveDatabaseUrl(configuredUrl = configured, listenupHome = home)
 }
