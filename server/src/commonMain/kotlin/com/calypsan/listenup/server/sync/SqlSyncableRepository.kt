@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
 import app.cash.sqldelight.TransactionCallbacks
+import app.cash.sqldelight.TransactionWithReturn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -237,6 +238,77 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
 
             AppResult.Success(saved)
         }
+    }
+
+    /**
+     * Insert-or-update [value] inside an **already-open** SQLDelight transaction — the
+     * batched-write counterpart to [upsert].
+     *
+     * [upsert] opens its own [suspendTransaction] per call, so writing N rows costs N transactions.
+     * A bulk caller that has already opened one [suspendTransaction] for a whole chunk calls this per
+     * row from inside it, collapsing the chunk to a single commit. The body is identical to [upsert]'s
+     * transaction body — [nextRevision], [substrate.existsById][SyncableSubstrateQueries.existsById],
+     * [writePayload], read-back, and the post-commit emit via [deferEmit] — minus the wrapper.
+     *
+     * [suppressed] is passed in because the synchronous transaction body cannot read the suspend-only
+     * coroutine context: the caller reads `currentCoroutineContext()[FirehoseSuppressed.Key]` ONCE
+     * before its chunk loop and threads the result here, exactly the [FirehoseSuppressed] gate
+     * [upsert] applies. A suppressed write still bumps the revision and commits the row; it only
+     * skips registering the live-tail emit.
+     *
+     * Returns the saved aggregate (the read-back), so the bulk caller can collect persisted payloads
+     * without a second read.
+     *
+     * **Must run inside the caller's open transaction** — typically each row inside its own nested
+     * `transactionWithResult { }` savepoint so a single malformed row rolls back in isolation while
+     * the rest of the chunk commits (SQLDelight transfers a committed nested txn's afterCommit hooks
+     * to the enclosing one and discards a rolled-back one's, so a failed row emits nothing).
+     */
+    protected fun TransactionWithReturn<*>.upsertInOpenTransaction(
+        value: T,
+        suppressed: Boolean,
+        clientOpId: String? = null,
+        userId: String? = null,
+    ): T {
+        if (userScoped) {
+            requireNotNull(userId) { "user-scoped write on '$domainName' requires a userId" }
+        }
+        val rev = nextRevision()
+        val now = clock.now().toEpochMilliseconds()
+        val idStr = idAsString(value.id)
+
+        val existed = substrate.existsById(idStr)
+
+        writePayload(value, rev, now, clientOpId, userId, existed)
+
+        val saved =
+            readPayload(idStr)
+                ?: error("readPayload returned null immediately after writePayload for $idStr")
+
+        val event =
+            if (existed) {
+                SyncEvent.Updated(
+                    id = idStr,
+                    revision = rev,
+                    occurredAt = now,
+                    clientOpId = clientOpId,
+                    payload = saved,
+                )
+            } else {
+                SyncEvent.Created(
+                    id = idStr,
+                    revision = rev,
+                    occurredAt = now,
+                    clientOpId = clientOpId,
+                    payload = saved,
+                )
+            }
+        if (!suppressed) {
+            deferEmit(event, userId)
+        } else {
+            log.debug { "change suppressed (firehose): domain=$domainName id=$idStr" }
+        }
+        return saved
     }
 
     /**

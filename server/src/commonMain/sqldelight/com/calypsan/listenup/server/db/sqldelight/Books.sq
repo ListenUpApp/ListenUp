@@ -85,6 +85,19 @@ SELECT id FROM books WHERE library_id = :library_id AND root_rel_path = :root_re
 selectIdsByInode:
 SELECT id FROM books WHERE library_id = :library_id AND inode = :inode;
 
+-- Bulk natural-key resolve (library_id + a batch of root_rel_paths) → (id, root_rel_path).
+-- The batched counterpart to selectIdByNaturalKey: BookFinder.findExistingByPaths runs this
+-- ONCE per scan so the per-book existence lookup is in-memory, not a read txn per book.
+selectIdsByPaths:
+SELECT id, root_rel_path FROM books WHERE library_id = :library_id AND root_rel_path IN :paths;
+
+-- Bulk move-detection resolve (library_id + a batch of inodes) → (id, inode). The batched
+-- counterpart to selectIdsByInode: BookFinder.findExistingByInodes runs this ONCE per scan to
+-- pre-resolve the move-detection map. A hardlink-shared inode yields multiple rows; the caller
+-- keeps the first deterministically, matching findByInode's single-row behaviour.
+selectIdsByInodes:
+SELECT id, inode FROM books WHERE library_id = :library_id AND inode IN :inodes;
+
 -- cover_source only — the sticky-UPLOADED check in writePayload reads just this
 -- column before deciding whether to preserve the cover columns on re-scan.
 selectCoverSourceById:

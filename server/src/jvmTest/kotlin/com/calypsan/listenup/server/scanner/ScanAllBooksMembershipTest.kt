@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -136,6 +137,51 @@ class ScanAllBooksMembershipTest :
                     // Still exactly one membership — the update path must not re-add.
                     fx.collectionBookRepo.findBookIdsForCollection(allBooksId) shouldContainExactly
                         listOf(first.data.bookId.value)
+                }
+            }
+        }
+
+        test("batched persist: new books join the resolved collection, a re-scan does not re-add") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.setInboxEnabled("test-library", enabled = false)
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                runTest {
+                    val fx = allBooksFixture(this@withSqlDatabase)
+                    val allBooksId = fx.resolveAllBooksId()
+                    val books =
+                        listOf(
+                            buildAnalyzedBook("Brandon/A", inode = 20L),
+                            buildAnalyzedBook("Brandon/B", inode = 21L),
+                        )
+
+                    // First batched scan — both books are new, so both join ALL_BOOKS atomically.
+                    val first =
+                        fx.bookRepo.resolveOrInsertAll(
+                            libraryId = LibraryId("test-library"),
+                            folderId = FolderId("test-folder"),
+                            books = books,
+                            coversByBook = emptyMap(),
+                            systemCollectionId = allBooksId,
+                            identityMaps = fx.bookRepo.resolveScanIdentities(books),
+                            onProgress = { _, _ -> },
+                        )
+                    first.persisted shouldBe 2
+                    val memberAfterFirst = fx.collectionBookRepo.findBookIdsForCollection(allBooksId).toSet()
+                    memberAfterFirst shouldBe first.resolvedIds.map { it.value }.toSet()
+
+                    // Second batched scan of the SAME books — the UPDATE/idempotent path must NOT re-add
+                    // membership (the isNew gate is per book), so the membership set is unchanged.
+                    fx.bookRepo.resolveOrInsertAll(
+                        libraryId = LibraryId("test-library"),
+                        folderId = FolderId("test-folder"),
+                        books = books,
+                        coversByBook = emptyMap(),
+                        systemCollectionId = allBooksId,
+                        identityMaps = fx.bookRepo.resolveScanIdentities(books),
+                        onProgress = { _, _ -> },
+                    )
+                    fx.collectionBookRepo.findBookIdsForCollection(allBooksId).toSet() shouldBe memberAfterFirst
                 }
             }
         }

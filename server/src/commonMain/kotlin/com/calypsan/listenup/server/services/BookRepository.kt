@@ -23,8 +23,10 @@ import com.calypsan.listenup.server.cover.PendingCover
 import com.calypsan.listenup.server.cover.StoredCoverInfo
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.TransactionLocal
+import com.calypsan.listenup.server.db.sqldelight.setTransactionLocal
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
@@ -38,10 +40,50 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 
 private val log = KotlinLogging.logger {}
+
+/**
+ * Books per chunked write transaction in [BookRepository.resolveOrInsertAll]. Each chunk is one
+ * [com.calypsan.listenup.server.db.sqldelight.suspendTransaction] commit, so a 1100-book scan is ~5
+ * write transactions instead of 1100. Sized to keep a single transaction's write set bounded (a
+ * runaway transaction would hold the write lock and grow the WAL) while still amortizing commit cost.
+ */
+private const val PERSIST_CHUNK_SIZE = 250
+
+/**
+ * A book resolved + prepared by [BookRepository.resolveOrInsertAll]'s suspend prepare phase, ready for
+ * the synchronous chunked write loop. [payload] is the built aggregate; [extras] carries the
+ * pre-resolved managed cover, system-collection id (on genuine insert), and genre ids the synchronous
+ * `writePayload` reads via the transaction-local; [skip] marks an idempotent re-scan whose content +
+ * cover are unchanged (no write, no revision bump, no emit).
+ */
+private class PreparedBook(
+    val bookId: BookId,
+    val payload: BookSyncPayload,
+    val skip: Boolean,
+    val genreIds: List<String>,
+    val tags: List<String>,
+    val extras: BookWriteExtras,
+)
+
+/**
+ * The output of [BookRepository]'s prepare phase: the [prepared] books ready for the chunked write
+ * loop, plus [prepareFailed] — books rejected during prepare (an absolute rootRelPath) that the write
+ * loop must count as failed up front.
+ */
+private class PreparedBatch(
+    val prepared: List<PreparedBook>,
+    val prepareFailed: Int,
+) {
+    operator fun component1() = prepared
+
+    operator fun component2() = prepareFailed
+}
 
 /**
  * Server-side repository for the books aggregate, over SQLDelight.
@@ -369,6 +411,12 @@ class BookRepository(
         bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         bookAggregateWriter.replaceDocuments(value.id, value.documents)
         upsertFtsRow(value)
+
+        // Batched scan-persist path only: genre junctions ride INSIDE this transaction from the
+        // pre-resolved ids the prepare phase built, collapsing a genred book to a single commit. The
+        // single-book paths leave genreIds null and run the separate post-commit processGenreStrings
+        // pass in upsertFromAnalyzed instead (no double write — the two are mutually exclusive).
+        extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
     }
 
     /**
@@ -496,6 +544,326 @@ class BookRepository(
         return ScanIdentityMaps(
             contributors = contributorRepository.resolveOrCreateAll(contributorIdentities),
             series = seriesRepository.resolveOrCreateAll(seriesNames),
+            genres = resolveScanGenres(books),
+        )
+    }
+
+    /**
+     * Resolves every DISTINCT raw genre string across [books] to its genre ids ONCE — running the
+     * alias → normalize → auto-create cascade per distinct string (pre-creating new genres) in the
+     * suspend prepare phase, before the batched write loop. The returned map keys each distinct string
+     * by its normalized form (`raw.trim().lowercase()`) so the write loop can resolve a book's genre
+     * ids from memory with the same de-dup key [resolveBookGenreIds] uses. Blank strings are skipped.
+     *
+     * This collapses the per-book genre transaction storm (a genred book was ~6 auto-committing
+     * junction writes plus a suspend auto-create transaction) into one resolve per distinct string.
+     */
+    private suspend fun resolveScanGenres(books: Collection<AnalyzedBook>): Map<String, List<String>> {
+        val distinctRaw =
+            books
+                .flatMap { it.genres }
+                .filter { it.isNotBlank() }
+                .associateBy { it.trim().lowercase() }
+        return distinctRaw.mapValues { (_, raw) -> bookGenreWriter.resolveGenreIds(raw) }
+    }
+
+    /**
+     * Resolves [analyzed]'s genre ids from the scan-wide pre-resolved [genres] map, de-duplicated and
+     * order-preserving, using the same normalized key ([String.trim] + [String.lowercase]) the map was
+     * built under in [resolveScanGenres]. Mirrors [BookGenreWriter.processGenreStrings]'s
+     * case-insensitive de-dup so the batched junction write matches the per-book path exactly.
+     */
+    private fun resolveBookGenreIds(
+        analyzed: AnalyzedBook,
+        genres: Map<String, List<String>>,
+    ): List<String> =
+        analyzed.genres
+            .filter { it.isNotBlank() }
+            .distinctBy { it.trim().lowercase() }
+            .flatMap { raw -> genres[raw.trim().lowercase()].orEmpty() }
+            .distinct()
+
+    /**
+     * Batch-persists every changed book in [books] in chunked write transactions — the
+     * performance-critical override of [BookIngestPort.resolveOrInsertAll].
+     *
+     * **Why this is fast.** A per-book [resolveOrInsert] loop costs, per book: two read transactions
+     * (findByPath, sometimes findByInode), one write transaction for the aggregate, plus a separate
+     * post-commit genre pass whose junction queries auto-commit individually (~6 commits for a genred
+     * book). This collapses all of that:
+     *
+     *  1. **PREPARE (suspend, no write transaction).** Resolve everything that needs a suspend call
+     *     ONCE: the contributor/series ids (already in [identityMaps]); the genre ids (already in
+     *     [identityMaps.genres], pre-created up front); bulk book existence (one `IN (…)` read for
+     *     paths, one for inodes — replacing the per-book findByPath/findByInode); the existing
+     *     aggregates for the idempotency + cover-sticky checks (one batched read); and the cover-file
+     *     stores (off-transaction I/O). Each book becomes a [PreparedBook] carrying its payload,
+     *     genre ids, isNew flag, stored cover, and an idempotency-skip flag.
+     *  2. **WRITE (chunked synchronous transactions).** Process the prepared books in chunks of
+     *     [PERSIST_CHUNK_SIZE]; each chunk is ONE [suspendTransaction] whose synchronous body loops the
+     *     books, each in its own nested `transactionWithResult` SAVEPOINT (per-book error containment),
+     *     calling [upsertInOpenTransaction]. The result is O(chunks) write transactions, not O(books).
+     *
+     * Invariants preserved exactly from the per-book path: idempotent-rescan skip (unchanged content +
+     * cover → no revision bump, no emit), cover sticky-UPLOADED, system-collection membership on
+     * genuine-insert only, [FirehoseSuppressed] suppression (read once, threaded into every write),
+     * per-book containment (a savepoint rollback logs + counts the book, never aborts the chunk), and
+     * OOM abort (a compromised heap stops the loop and propagates via [PersistAbortedByOom]).
+     */
+    override suspend fun resolveOrInsertAll(
+        libraryId: LibraryId,
+        folderId: FolderId,
+        books: List<AnalyzedBook>,
+        coversByBook: Map<String, PendingCover>,
+        systemCollectionId: String?,
+        identityMaps: ScanIdentityMaps,
+        onProgress: suspend (processed: Int, failed: Int) -> Unit,
+    ): PersistResult {
+        val (prepared, prepareFailed) =
+            prepareBooks(libraryId, folderId, books, coversByBook, systemCollectionId, identityMaps)
+
+        // Suppression is read ONCE in the suspend context and threaded into every write — the
+        // synchronous chunk body cannot read the coroutine context (see upsertInOpenTransaction).
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+
+        var persisted = 0
+        // Books rejected in the prepare phase (e.g. an absolute rootRelPath) are already counted failed.
+        var failed = prepareFailed
+        val resolvedIds = mutableSetOf<BookId>()
+
+        for (chunk in prepared.chunked(PERSIST_CHUNK_SIZE)) {
+            // OOM mid-chunk wraps the partial counts: prior chunks (persisted/failed/resolvedIds) plus
+            // this chunk's already-committed successes and the books that failed up to the OOM point.
+            val succeeded =
+                writeChunk(chunk, suppressed) { chunkSucceeded, chunkFailed ->
+                    PersistResult(
+                        persisted = persisted + chunkSucceeded.size,
+                        failed = failed + chunkFailed,
+                        resolvedIds = (resolvedIds + chunkSucceeded.map { it.bookId }).toSet(),
+                    )
+                }
+            persisted += succeeded.size
+            failed += chunk.size - succeeded.size
+            succeeded.forEach { resolvedIds += it.bookId }
+
+            // Scan tags reconcile AFTER the chunk's book rows commit, as a suspend post-pass — exactly
+            // the per-book path's unconditional post-success writeScanTags. Add-only, so each call opens
+            // its own substrate transaction (the BookTagWriter contract); a book with no tags is a no-op.
+            // Suppression is inherited from the caller's coroutine context, matching the per-book path.
+            bookTagWriter?.let { writer ->
+                for (book in succeeded) {
+                    if (book.tags.isNotEmpty()) writer.writeScanTags(book.bookId, book.tags)
+                }
+            }
+            onProgress(persisted + failed, failed)
+        }
+        return PersistResult(persisted = persisted, failed = failed, resolvedIds = resolvedIds)
+    }
+
+    /**
+     * Writes one chunk of [PreparedBook]s in ONE [suspendTransaction], each book in its own nested
+     * [app.cash.sqldelight.TransactionWithReturn] savepoint for per-book error containment. Returns the
+     * books that committed (so the caller can count them + run their post-commit tag pass).
+     *
+     * A [book.skip][PreparedBook.skip] book writes only its genre junctions (the idempotent-content
+     * re-scan still reconciles genres without a revision bump — matchesStoredContent normalizes genres
+     * away, so a genre-only change is otherwise invisible); a non-skip book runs the full
+     * [upsertInOpenTransaction] aggregate write with its [PreparedBook.extras] (cover, system-collection
+     * membership, genre ids) mirrored onto the transaction thread.
+     *
+     * Per-book containment: a thrown book rolls back its savepoint (its afterCommit hooks discarded) and
+     * is logged + dropped from the result, never aborting the chunk. An [OutOfMemoryError] aborts the
+     * batch via [PersistAbortedByOom], carrying the partial counts [oomPartial] computes from this
+     * chunk's already-committed successes and the books that failed up to the OOM point.
+     */
+    private suspend fun writeChunk(
+        chunk: List<PreparedBook>,
+        suppressed: Boolean,
+        oomPartial: (chunkSucceeded: List<PreparedBook>, chunkFailed: Int) -> PersistResult,
+    ): List<PreparedBook> {
+        val succeeded = mutableListOf<PreparedBook>()
+        var failedInChunk = 0
+        suspendTransaction<Unit>(db) {
+            for (book in chunk) {
+                try {
+                    db.transactionWithResult {
+                        if (book.skip) {
+                            bookGenreWriter.writeJunctions(book.bookId.value, book.genreIds)
+                        } else {
+                            setTransactionLocal(book.extras)
+                            try {
+                                upsertInOpenTransaction(book.payload, suppressed)
+                            } finally {
+                                setTransactionLocal(null)
+                            }
+                        }
+                    }
+                    succeeded += book
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: OutOfMemoryError) {
+                    failedInChunk++
+                    throw PersistAbortedByOom(oomPartial(succeeded.toList(), failedInChunk), e)
+                } catch (e: Throwable) {
+                    // Per-book savepoint rollback: this book's nested transaction rolled back (its
+                    // afterCommit hooks discarded), the rest of the chunk is unaffected.
+                    failedInChunk++
+                    log.warn(e) { "Book persist threw: ${book.payload.rootRelPath} — continuing" }
+                }
+            }
+        }
+        return succeeded
+    }
+
+    /**
+     * The PREPARE half of [resolveOrInsertAll] (suspend, no write transaction): resolves identity,
+     * builds the payload, resolves genre ids, stores the cover file, and computes the idempotency-skip
+     * + system-membership-on-insert flags for every book in [books] — everything that needs a suspend
+     * call, done up front so the chunked write loop is purely synchronous. A book rejected in this
+     * phase (an absolute rootRelPath — an upstream scanner bug) is dropped and counted in
+     * [PreparedBatch.prepareFailed], never aborting the batch.
+     */
+    private suspend fun prepareBooks(
+        libraryId: LibraryId,
+        folderId: FolderId,
+        books: List<AnalyzedBook>,
+        coversByBook: Map<String, PendingCover>,
+        systemCollectionId: String?,
+        identityMaps: ScanIdentityMaps,
+    ): PreparedBatch {
+        // Reject absolute paths up front, contained per book: an absolute rootRelPath is an upstream
+        // scanner bug (the natural key is library-relative), so the book is counted as failed and
+        // dropped — never aborting the batch — matching the per-book require() + persistOne containment.
+        val (valid, invalid) = books.partition { !it.candidate.rootRelPath.startsWith("/") }
+        for (book in invalid) {
+            log.warn { "rootRelPath must be library-relative, got absolute: ${book.candidate.rootRelPath} — skipping" }
+        }
+
+        // Bulk existence: one IN-read for natural keys, one for inodes — replacing the per-book
+        // findByPath/findByInode read transactions with two reads for the whole scan.
+        val byPath = bookFinder.findExistingByPaths(libraryId, valid.map { it.candidate.rootRelPath })
+        val inodes =
+            valid.mapNotNull {
+                it.candidate.files
+                    .firstOrNull()
+                    ?.inode
+            }
+        val byInode = bookFinder.findExistingByInodes(libraryId, inodes)
+
+        // Resolve each book's stable BookId in memory from the bulk maps (natural key, then inode,
+        // then a fresh UUID) — the same three-key model resolveOrInsert applies per book.
+        data class Resolved(
+            val analyzed: AnalyzedBook,
+            val bookId: BookId,
+            val isNew: Boolean,
+        )
+
+        val resolved =
+            valid.map { analyzed ->
+                val rootRelPath = analyzed.candidate.rootRelPath
+                val inode =
+                    analyzed.candidate.files
+                        .firstOrNull()
+                        ?.inode
+                val existing = byPath[rootRelPath] ?: inode?.let { byInode[it] }
+                Resolved(analyzed, existing ?: BookId(Uuid.random().toString()), isNew = existing == null)
+            }
+
+        // One batched read of the existing aggregates — drives the idempotency + cover-sticky checks
+        // (replacing the per-book findById in upsertFromAnalyzed).
+        val existingById =
+            findAllByIds(resolved.filterNot { it.isNew }.map { it.bookId.value })
+                .associateBy { it.id }
+
+        val prepared =
+            resolved.map { (analyzed, bookId, isNew) ->
+                val pendingCover = coversByBook[analyzed.candidate.rootRelPath]
+                val genreIds = resolveBookGenreIds(analyzed, identityMaps.genres)
+                val payload =
+                    buildPayloadFromAnalyzed(
+                        bookId,
+                        libraryId,
+                        folderId,
+                        analyzed,
+                        identityMaps.contributors,
+                        identityMaps.series,
+                    )
+
+                val existing = existingById[bookId.value]
+                val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
+                val coverUnchanged =
+                    existing?.cover?.source == CoverSource.UPLOADED ||
+                        pendingCoverHash == existing?.cover?.hash
+                val skip =
+                    existing != null && coverUnchanged && payload.matchesStoredContent(existing)
+
+                val storedCover =
+                    when {
+                        skip -> null
+
+                        // idempotent skip writes nothing
+                        existing?.cover?.source == CoverSource.UPLOADED -> null
+
+                        // sticky: preserve uploaded
+                        else -> managedCoverFiles.storeCoverIfPresent(bookId, pendingCover)
+                    }
+
+                PreparedBook(
+                    bookId = bookId,
+                    payload = payload,
+                    skip = skip,
+                    genreIds = genreIds,
+                    tags = analyzed.tags,
+                    extras =
+                        BookWriteExtras(
+                            managedCover = storedCover,
+                            systemCollectionId = if (isNew) systemCollectionId else null,
+                            genreIds = genreIds,
+                        ),
+                )
+            }
+        return PreparedBatch(prepared = prepared, prepareFailed = invalid.size)
+    }
+
+    /**
+     * Builds a [BookSyncPayload] from [analyzed] under [bookId], resolving contributors/series from the
+     * scan-wide pre-resolved [contributorIds]/[seriesIds] maps (falling back to a per-call resolve for
+     * a name the bulk pass somehow missed, or for a single-book caller that passes null). Shared by
+     * [resolveOrInsertAll]'s prepare phase and [upsertFromAnalyzed] so the payload-build shape lives in
+     * one place.
+     */
+    private suspend fun buildPayloadFromAnalyzed(
+        bookId: BookId,
+        libraryId: LibraryId,
+        folderId: FolderId,
+        analyzed: AnalyzedBook,
+        contributorIds: Map<String, ContributorId>?,
+        seriesIds: Map<String, SeriesId>?,
+    ): BookSyncPayload {
+        val resolvedContributors =
+            analyzedBookMapper.buildContributors(analyzed).map { c ->
+                // Prefer the scan-wide pre-resolved map (one bulk lookup before the persist loop);
+                // fall back to a per-call resolveOrCreate for single-book callers (metadata apply).
+                // The map key MUST match ContributorRepository's dedup key exactly.
+                val id =
+                    contributorIds?.get(contributorDedupKey(c.name, c.sortName))?.value
+                        ?: contributorRepository.resolveOrCreate(c.name, c.sortName).value
+                c.copy(id = id)
+            }
+        val resolvedSeries =
+            analyzedBookMapper.buildSeries(analyzed).map { s ->
+                val id =
+                    seriesIds?.get(normalizeForDedup(s.name))?.value
+                        ?: seriesRepository.resolveOrCreate(s.name).value
+                s.copy(id = id)
+            }
+        return analyzedBookMapper.toBookSyncPayload(
+            bookId = bookId,
+            libraryId = libraryId,
+            folderId = folderId,
+            analyzed = analyzed,
+            resolvedContributors = resolvedContributors,
+            resolvedSeries = resolvedSeries,
         )
     }
 
@@ -608,32 +976,8 @@ class BookRepository(
         contributorIds: Map<String, ContributorId>? = null,
         seriesIds: Map<String, SeriesId>? = null,
     ): AppResult<BookSyncPayload> {
-        val resolvedContributors =
-            analyzedBookMapper.buildContributors(analyzed).map { c ->
-                // Prefer the scan-wide pre-resolved map (one bulk lookup before the persist loop);
-                // fall back to a per-call resolveOrCreate for single-book callers (metadata apply).
-                // The map key MUST match ContributorRepository's dedup key exactly.
-                val id =
-                    contributorIds?.get(contributorDedupKey(c.name, c.sortName))?.value
-                        ?: contributorRepository.resolveOrCreate(c.name, c.sortName).value
-                c.copy(id = id)
-            }
-        val resolvedSeries =
-            analyzedBookMapper.buildSeries(analyzed).map { s ->
-                val id =
-                    seriesIds?.get(normalizeForDedup(s.name))?.value
-                        ?: seriesRepository.resolveOrCreate(s.name).value
-                s.copy(id = id)
-            }
         val payload =
-            analyzedBookMapper.toBookSyncPayload(
-                bookId = bookId,
-                libraryId = libraryId,
-                folderId = folderId,
-                analyzed = analyzed,
-                resolvedContributors = resolvedContributors,
-                resolvedSeries = resolvedSeries,
-            )
+            buildPayloadFromAnalyzed(bookId, libraryId, folderId, analyzed, contributorIds, seriesIds)
         // Read the existing aggregate ONCE — drives the idempotency check, the cover-source
         // sticky-UPLOADED skip, and the only-on-create system-collection membership gate.
         val existing = findById(bookId)

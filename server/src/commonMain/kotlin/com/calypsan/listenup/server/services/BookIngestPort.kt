@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -8,6 +9,10 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.cover.PendingCover
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+
+private val log = KotlinLogging.logger {}
 
 /**
  * The narrow slice of [BookRepository] that [BookPersister] depends on.
@@ -71,6 +76,87 @@ interface BookIngestPort {
     suspend fun resolveScanIdentities(books: Collection<AnalyzedBook>): ScanIdentityMaps = ScanIdentityMaps()
 
     /**
+     * Batch-persist every changed book in [books] in chunked write transactions — the
+     * performance-critical counterpart to a per-book [resolveOrInsert] loop. See
+     * [BookRepository.resolveOrInsertAll] for the full contract.
+     *
+     * Where a per-book loop costs O(books) write transactions (plus a read txn per existence lookup
+     * and ~6 auto-committing junction writes per genred book), this resolves everything that needs a
+     * suspend call ONCE up front — contributor/series ids (via [identityMaps]), genre ids (already in
+     * [identityMaps]), cover-file stores, and bulk book-existence — then writes the books in chunks of
+     * a fixed size, each chunk a single transaction whose synchronous body loops the books (each in its
+     * own savepoint for per-book error containment). The result is O(chunks) write transactions.
+     *
+     * [coversByBook] maps a book's `rootRelPath` to its pre-extracted [PendingCover] (read off-thread
+     * before the write loop). [systemCollectionId] and [identityMaps] carry the same scan-wide
+     * pre-resolved values [resolveOrInsert] takes per call.
+     *
+     * Returns a [PersistResult] with the persisted/failed counts and the set of resolved [BookId]s, so
+     * the orchestrator can stamp honest [com.calypsan.listenup.api.dto.scanner.ScanResultSummary] counts.
+     *
+     * [onProgress] is invoked with the running `(processed, failed)` tally after each chunk commits —
+     * the orchestrator translates it into a PERSISTING [com.calypsan.listenup.api.event.ScanEvent.Progress]
+     * tick. `processed` counts every book the loop has finished (persisted + failed), so the bar reaches
+     * the total even when some books fail.
+     *
+     * Per-book error containment: a single book's typed failure or escaped exception is logged and
+     * counted as failed, never aborting the rest. An [OutOfMemoryError] is NOT contained — the heap is
+     * compromised, so it aborts the loop and propagates (wrapped in [PersistAbortedByOom] with the
+     * partial counts so the orchestrator can still emit honest numbers). [kotlinx.coroutines.CancellationException]
+     * always re-raises.
+     *
+     * The default loops [resolveOrInsert] per book — orchestration fakes inherit it unchanged.
+     * [BookRepository] overrides it with the real chunked-transaction path.
+     */
+    suspend fun resolveOrInsertAll(
+        libraryId: LibraryId,
+        folderId: FolderId,
+        books: List<AnalyzedBook>,
+        coversByBook: Map<String, PendingCover>,
+        systemCollectionId: String?,
+        identityMaps: ScanIdentityMaps,
+        onProgress: suspend (processed: Int, failed: Int) -> Unit,
+    ): PersistResult {
+        var persisted = 0
+        var failed = 0
+        val resolvedIds = mutableSetOf<BookId>()
+        for (book in books) {
+            val outcome =
+                try {
+                    resolveOrInsert(
+                        libraryId,
+                        folderId,
+                        book,
+                        coversByBook[book.candidate.rootRelPath],
+                        systemCollectionId,
+                        identityMaps.contributors,
+                        identityMaps.series,
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: OutOfMemoryError) {
+                    failed++
+                    throw PersistAbortedByOom(PersistResult(persisted, failed, resolvedIds), e)
+                } catch (e: Throwable) {
+                    log.warn(e) { "Book persist threw: ${book.candidate.rootRelPath} — continuing" }
+                    AppResult.Failure(SyncError.NotFound(domain = "books", entityId = book.candidate.rootRelPath))
+                }
+            when (outcome) {
+                is AppResult.Success -> {
+                    persisted++
+                    resolvedIds += outcome.data.bookId
+                }
+
+                is AppResult.Failure -> {
+                    failed++
+                }
+            }
+            onProgress(persisted + failed, failed)
+        }
+        return PersistResult(persisted = persisted, failed = failed, resolvedIds = resolvedIds)
+    }
+
+    /**
      * Soft-delete library books absent from [seenPaths]; see [BookRepository.softDeleteAbsentByPaths].
      *
      * Accepts the set of `rootRelPath` strings seen on disk during a full scan — no BookId
@@ -108,7 +194,37 @@ interface BookIngestPort {
 data class ScanIdentityMaps(
     val contributors: Map<String, ContributorId> = emptyMap(),
     val series: Map<String, SeriesId> = emptyMap(),
+    /**
+     * Pre-resolved genre ids, keyed by the normalized raw genre string (`raw.trim().lowercase()`).
+     * Built once across every changed book's distinct raw strings — running the alias → normalize →
+     * auto-create cascade per distinct string, pre-creating new genres in the suspend prepare phase.
+     * The batched write loop reads a book's genre ids from this map and writes the junctions
+     * synchronously inside the chunk transaction, instead of a per-book post-commit pass.
+     */
+    val genres: Map<String, List<String>> = emptyMap(),
 )
+
+/**
+ * The outcome of a batched [BookIngestPort.resolveOrInsertAll] pass: how many changed books were
+ * [persisted] vs [failed], and the set of [resolvedIds] that landed — the seen-set the orchestrator
+ * folds for the full-scan tombstone reconciliation.
+ */
+data class PersistResult(
+    val persisted: Int,
+    val failed: Int,
+    val resolvedIds: Set<BookId>,
+)
+
+/**
+ * Thrown by [BookIngestPort.resolveOrInsertAll] when an [OutOfMemoryError] forces an early stop.
+ * Wraps the partial [result] accumulated before the OOM so the orchestrator can emit honest
+ * [com.calypsan.listenup.api.dto.scanner.ScanResultSummary] counts before rethrowing the underlying
+ * [OutOfMemoryError]. OOM signals a compromised heap and must never be swallowed per-book.
+ */
+class PersistAbortedByOom(
+    val result: PersistResult,
+    cause: OutOfMemoryError,
+) : OutOfMemoryError(cause.message)
 
 /**
  * The result of a resolve-or-insert: the stable [bookId] the aggregate landed

@@ -15,6 +15,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val log = KotlinLogging.logger {}
 
+/** SQLite caps a statement at 999 bound parameters; chunk `IN (…)` lists below it with headroom. */
+private const val SQLITE_IN_CHUNK = 900
+
 /**
  * Transaction-scoped read helpers for the books aggregate, over the generated SQLDelight
  * queries.
@@ -125,6 +128,49 @@ internal class BookFinder(
             }
             matches.firstOrNull()?.let { BookId(it) }
         }
+
+    /**
+     * Bulk natural-key resolve: returns a `root_rel_path → BookId` map for every existing book in
+     * [libraryId] whose `root_rel_path` is in [paths]. The batched counterpart to [findByPath] —
+     * one [suspendTransaction] with an `IN (…)` query instead of a read txn per book. [paths] is
+     * chunked under SQLite's bound-parameter ceiling so a large scan never overflows it.
+     */
+    suspend fun findExistingByPaths(
+        libraryId: LibraryId,
+        paths: Collection<String>,
+    ): Map<String, BookId> {
+        if (paths.isEmpty()) return emptyMap()
+        return suspendTransaction(db) {
+            paths
+                .distinct()
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk ->
+                    db.booksQueries.selectIdsByPaths(libraryId.value, chunk).executeAsList()
+                }.associate { it.root_rel_path to BookId(it.id) }
+        }
+    }
+
+    /**
+     * Bulk move-detection resolve: returns an `inode → BookId` map for every existing book in
+     * [libraryId] whose `inode` is in [inodes]. The batched counterpart to [findByInode] — one
+     * [suspendTransaction] with an `IN (…)` query. When hardlinks share an inode the first row wins
+     * deterministically (matching [findByInode]'s single-row pick); a warning per collision would
+     * flood the log on a large scan, so the bulk path stays silent and relies on the rarity of the case.
+     */
+    suspend fun findExistingByInodes(
+        libraryId: LibraryId,
+        inodes: Collection<Long>,
+    ): Map<Long, BookId> {
+        if (inodes.isEmpty()) return emptyMap()
+        return suspendTransaction(db) {
+            inodes
+                .distinct()
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk ->
+                    db.booksQueries.selectIdsByInodes(libraryId.value, chunk).executeAsList()
+                }.associate { it.inode!! to BookId(it.id) }
+        }
+    }
 
     /**
      * Returns the full book aggregates for every book that has a junction row for
