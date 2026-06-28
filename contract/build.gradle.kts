@@ -77,4 +77,8 @@ dependencies {
     // :rpc-guard-ksp scans the @Rpc interfaces in this module's commonMain and
     // emits the *Guarded decorators into the JVM compilation.
     add("kspJvm", project(":rpc-guard-ksp"))
+    // Generate the guard decorators for the native server too (Phase 5). Per-target (NOT
+    // commonMain): the @Rpc interfaces are local to :contract here so source discovery works, and
+    // keeping guards out of commonMain avoids forcing apple actuals / Swift-export pollution.
+    add("kspLinuxX64", project(":rpc-guard-ksp"))
 }
