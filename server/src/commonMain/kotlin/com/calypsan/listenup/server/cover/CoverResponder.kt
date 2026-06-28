@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.cover
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
+import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.services.BookRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -12,7 +13,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -80,7 +80,7 @@ class CoverResponder internal constructor(
         path: Path,
     ) {
         val bytes =
-            withContext(Dispatchers.IO) {
+            withContext(fileIoDispatcher) {
                 if (SystemFileSystem.metadataOrNull(path)?.isRegularFile != true) null else path.readBytes()
             }
         if (bytes == null) {

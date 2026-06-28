@@ -38,22 +38,12 @@ class EmbeddedCoverCache(
     private val mapLock = Mutex()
     private val keyLocks = HashMap<BookId, Mutex>()
 
-    // accessOrder = true makes get() reorder entries by recency, so the eldest
-    // entry removeEldestEntry sees is the genuine LRU victim.
-    //
-    // removeEldestEntry runs synchronously inside the entries[key] = value put,
-    // which write() performs under mapLock — the same lock keyLockFor() takes to
-    // mutate keyLocks. So dropping the victim's per-key Mutex here is race-free:
-    // the lock map shrinks in lockstep with the entry map, keeping keyLocks
-    // bounded by maxSize rather than growing once per distinct BookId forever.
-    private val entries =
-        object : LinkedHashMap<BookId, EmbeddedArtwork>(INITIAL_CAPACITY, LOAD_FACTOR, true) {
-            override fun removeEldestEntry(eldest: Map.Entry<BookId, EmbeddedArtwork>): Boolean {
-                if (size <= maxSize) return false
-                keyLocks.remove(eldest.key)
-                return true
-            }
-        }
+    // kotlin.collections.LinkedHashMap is insertion-ordered on every platform; we make it
+    // access-ordered by hand. read() re-inserts a hit at the tail (most-recently-used), and
+    // write() evicts the eldest (first) key once size exceeds maxSize — dropping that key's
+    // per-key Mutex in lockstep, so a cached key's lock never outlives its entry. Both run
+    // under mapLock, so the entry map and the lock map shrink together race-free.
+    private val entries = LinkedHashMap<BookId, EmbeddedArtwork>()
 
     /**
      * Returns the cached artwork for [key], or computes and caches it via
@@ -79,12 +69,24 @@ class EmbeddedCoverCache(
         }
     }
 
-    private suspend fun read(key: BookId): EmbeddedArtwork? = mapLock.withLock { entries[key] }
+    private suspend fun read(key: BookId): EmbeddedArtwork? =
+        mapLock.withLock {
+            // Re-insert a hit at the tail so it counts as most-recently-used.
+            entries.remove(key)?.also { entries[key] = it }
+        }
 
     private suspend fun write(
         key: BookId,
         value: EmbeddedArtwork,
-    ) = mapLock.withLock { entries[key] = value }
+    ) = mapLock.withLock {
+        entries.remove(key)
+        entries[key] = value
+        if (entries.size > maxSize) {
+            val eldest = entries.keys.first()
+            entries.remove(eldest)
+            keyLocks.remove(eldest)
+        }
+    }
 
     private suspend fun keyLockFor(key: BookId): Mutex = mapLock.withLock { keyLocks.getOrPut(key) { Mutex() } }
 
@@ -97,7 +99,5 @@ class EmbeddedCoverCache(
 
     private companion object {
         const val DEFAULT_MAX_SIZE = 1000
-        const val INITIAL_CAPACITY = 16
-        const val LOAD_FACTOR = 0.75f
     }
 }

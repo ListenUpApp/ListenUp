@@ -13,6 +13,7 @@ import io.ktor.server.resources.get
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 
+/** REST resource for the anonymous instance-info endpoint (OpenAPI / non-Kotlin clients). */
 @Resource("/api/v1/instance")
 class InstanceResource
 

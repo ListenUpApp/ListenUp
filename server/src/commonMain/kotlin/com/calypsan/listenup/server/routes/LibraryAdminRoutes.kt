@@ -19,6 +19,7 @@ import io.ktor.server.resources.get
 import io.ktor.server.resources.post
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -110,6 +111,7 @@ private fun Route.libraryFolderRoutes(service: LibraryAdminService) {
 
 /** Request body for [LibraryAdminService.addFolder]. */
 @Serializable
+@SerialName("AddFolderBody")
 private data class AddFolderBody(
     val path: String,
 )
