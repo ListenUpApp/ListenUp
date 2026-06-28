@@ -10,8 +10,7 @@ import io.ktor.server.application.call
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import java.nio.file.Path
-import kotlinx.io.files.Path as IoPath
+import kotlinx.io.files.Path
 
 /**
  * Routes that serve contributor photos and series cover images from local
@@ -34,8 +33,7 @@ fun Route.metadataImageRoutes(
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val contributor = contributorRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = contributor.imagePath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val absolute = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
-        val path = IoPath(absolute.toString())
+        val path = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         call.respondSeekable(path, ContentType.defaultForFilePath(path.name))
     }
 
@@ -43,8 +41,7 @@ fun Route.metadataImageRoutes(
         val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         val series = seriesRepository.findById(id) ?: return@get call.respond(HttpStatusCode.NotFound)
         val relPath = series.coverPath ?: return@get call.respond(HttpStatusCode.NotFound)
-        val absolute = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
-        val path = IoPath(absolute.toString())
+        val path = resolveSandboxed(imageHome, relPath) ?: return@get call.respond(HttpStatusCode.BadRequest)
         call.respondSeekable(path, ContentType.defaultForFilePath(path.name))
     }
 }
@@ -58,5 +55,5 @@ private fun resolveSandboxed(
     relativePath: String,
 ): Path? {
     if (relativePath.startsWith("/") || "../" in relativePath || relativePath == "..") return null
-    return base.resolve(relativePath).normalize()
+    return Path(base, relativePath)
 }

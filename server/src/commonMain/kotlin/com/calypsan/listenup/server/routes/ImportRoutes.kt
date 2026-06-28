@@ -10,36 +10,37 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.server.absimport.AbsSchema
 import com.calypsan.listenup.server.absimport.ImportPaths
+import com.calypsan.listenup.server.compression.zip.ZipReader
+import com.calypsan.listenup.server.io.createTempFileIn
+import com.calypsan.listenup.server.io.deleteRecursively
+import com.calypsan.listenup.server.io.isUnder
+import com.calypsan.listenup.server.io.streamFirstFilePartTo
+import com.calypsan.listenup.server.io.writeText
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.plugins.callid.callId
-import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.post
-import io.ktor.utils.io.jvm.javaio.copyTo
 import kotlinx.coroutines.CancellationException
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlinx.io.files.Path as IoPath
-import java.util.UUID
-import java.util.zip.ZipInputStream
-import kotlin.io.path.outputStream
-import kotlin.io.path.writeText
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 /**
  * Max accepted size for an uploaded `.audiobookshelf` backup. ABS backups for large libraries
  * routinely reach hundreds of MB; this endpoint is admin-only and streams the file straight to a
- * temp file (never buffered in memory), so a generous cap is safe. Ktor's default [formFieldLimit]
+ * temp file (never buffered in memory), so a generous cap is safe. Ktor's default `formFieldLimit`
  * is 50 MiB (52_428_800 bytes), which rejected real backups before they could be streamed.
  */
 private const val MAX_BACKUP_UPLOAD_BYTES: Long = 5L * 1024 * 1024 * 1024 // 5 GiB
@@ -89,32 +90,21 @@ private suspend fun ApplicationCall.handleImportUpload(
 ) {
     paths.ensureDirs()
     // Stream the upload to a temp file — never buffer a multi-hundred-MB ABS backup into memory.
-    val tmpZip = Files.createTempFile(paths.tmpDir.toNio(), "abs-upload-", ".audiobookshelf")
+    val tmpZip = createTempFileIn(paths.tmpDir, "abs-upload-", ".audiobookshelf")
     try {
-        var received = false
-        receiveMultipart(formFieldLimit = MAX_BACKUP_UPLOAD_BYTES).forEachPart { part ->
-            if (part is PartData.FileItem && !received) {
-                received = true
-                tmpZip.outputStream().use { out -> part.provider().copyTo(out) }
-            }
-            part.release()
-        }
-
-        if (!received) {
+        if (!streamFirstFilePartTo(tmpZip, MAX_BACKUP_UPLOAD_BYTES)) {
             respondImportAppError(ImportError.UploadFailed(debugInfo = "missing file part"))
             return
         }
 
         // Server-minted id — never from the client filename — so it is always a safe path segment.
-        val importId = "abs-${UUID.randomUUID()}"
-        val importDir = paths.dirFor(importId).toNio()
-        Files.createDirectories(importDir)
+        val importId = "abs-${Uuid.random()}"
+        val importDir = paths.dirFor(importId)
+        SystemFileSystem.createDirectories(importDir)
         try {
-            extractAbsDatabase(tmpZip, importDir, paths.absDbFor(importId).toNio())
+            extractAbsDatabase(tmpZip, importDir, paths.absDbFor(importId))
             val createdAt = clock.now().toEpochMilliseconds()
-            paths.metaFor(importId).toNio().writeText(
-                metaJson.encodeToString(UploadMeta(createdAt = createdAt)),
-            )
+            paths.metaFor(importId).writeText(metaJson.encodeToString(UploadMeta(createdAt = createdAt)))
             respond(
                 HttpStatusCode.OK,
                 ImportSummary(
@@ -126,17 +116,17 @@ private suspend fun ApplicationCall.handleImportUpload(
                 ),
             )
         } catch (e: AbsDatabaseMissingException) {
-            importDir.toFile().deleteRecursively()
+            deleteRecursively(importDir)
             respondImportAppError(ImportError.UploadFailed(debugInfo = e.message))
         } catch (e: CancellationException) {
-            importDir.toFile().deleteRecursively()
+            deleteRecursively(importDir)
             throw e
         } catch (e: Exception) {
-            importDir.toFile().deleteRecursively()
+            deleteRecursively(importDir)
             respondImportAppError(ImportError.UploadFailed(debugInfo = e.message))
         }
     } finally {
-        Files.deleteIfExists(tmpZip)
+        SystemFileSystem.delete(tmpZip, mustExist = false)
     }
 }
 
@@ -146,9 +136,8 @@ private class AbsDatabaseMissingException :
 
 /**
  * Extracts exactly the `absdatabase.sqlite` entry from [zip] to [dest]. Zip-slip-safe: only the
- * entry whose name matches [AbsSchema.DB_FILENAME] (by its final path segment) is written, and only
- * to [dest], which is already resolved under [importDir]. Throws [AbsDatabaseMissingException] when
- * no matching entry is present.
+ * entry whose leaf name matches [AbsSchema.DB_FILENAME] is written, and only to [dest], which is
+ * asserted to live under [importDir]. Throws [AbsDatabaseMissingException] when no entry matches.
  */
 private fun extractAbsDatabase(
     zip: Path,
@@ -156,39 +145,34 @@ private fun extractAbsDatabase(
     dest: Path,
 ) {
     // dest is server-derived under importDir; assert the invariant defensively before any write.
-    require(dest.toAbsolutePath().normalize().startsWith(importDir.toAbsolutePath().normalize())) {
-        "extraction target escapes the import directory"
-    }
+    require(dest.isUnder(importDir)) { "extraction target escapes the import directory" }
     val extracted =
-        Files.newInputStream(zip).use { rawIn ->
-            ZipInputStream(rawIn).use { zin -> zin.extractAbsDbEntryTo(dest) }
+        ZipReader(zip).use { reader ->
+            // Match on the leaf name (not the full entry path) so arbitrary nested paths are ignored
+            // and only [dest] is ever written — the zip-slip guard.
+            val entry =
+                reader.entries().firstOrNull { e ->
+                    !e.name.endsWith('/') && e.name.leafName() == AbsSchema.DB_FILENAME
+                }
+            if (entry == null) {
+                false
+            } else {
+                reader.openEntry(entry).use { source ->
+                    SystemFileSystem.sink(dest).buffered().use { it.transferFrom(source) }
+                }
+                true
+            }
         }
     if (!extracted) throw AbsDatabaseMissingException()
 }
 
-/**
- * Scans this zip stream and copies the first entry whose leaf name is [AbsSchema.DB_FILENAME] to
- * [dest], returning true if one was found. Matching on the leaf name (not the full entry path) is
- * the zip-slip guard: arbitrary nested paths are ignored and only [dest] is ever written.
- */
-private fun ZipInputStream.extractAbsDbEntryTo(dest: Path): Boolean {
-    var entry = nextEntry
-    while (entry != null) {
-        val leaf = entry.name.substringAfterLast('/').substringAfterLast('\\')
-        if (!entry.isDirectory && leaf == AbsSchema.DB_FILENAME) {
-            dest.outputStream().use { out -> copyTo(out) }
-            closeEntry()
-            return true
-        }
-        closeEntry()
-        entry = nextEntry
-    }
-    return false
-}
+/** The final path segment of a zip entry name (slash- or backslash-separated). */
+private fun String.leafName(): String = substringAfterLast('/').substringAfterLast('\\')
 
 private val metaJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
+@SerialName("UploadMeta")
 private data class UploadMeta(
     val createdAt: Long,
 )
@@ -199,6 +183,3 @@ private suspend fun ApplicationCall.respondImportAppError(error: AppError) {
     val typed = error.withCorrelationId(callId)
     respond(typed.toHttpStatus(), typed)
 }
-
-/** Bridges a kotlinx-io path (from [ImportPaths]) to the java.nio path this route's zip/IO code uses. */
-private fun IoPath.toNio(): Path = Path.of(toString())

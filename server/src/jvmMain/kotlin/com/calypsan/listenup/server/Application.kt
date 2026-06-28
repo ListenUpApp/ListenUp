@@ -515,7 +515,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             playbackRoutes(playbackService)
             playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
             adminRoutes(backfillService, searchReindexService)
-            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
+            metadataImageRoutes(contributorRepository, seriesRepository, DataDirPath(homeDir.toString()))
             metadataRoutes(metadataLookupService)
             searchRoutes(searchService)
             tagRoutes(tagService, bookAccessPolicy)
