@@ -89,7 +89,9 @@ object ShareLinkCodec {
                 ShareTarget.Invite(serverUrl = server, code = code)
             }
 
-            else -> null
+            else -> {
+                null
+            }
         }
     }
 
