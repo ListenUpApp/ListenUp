@@ -137,6 +137,7 @@ import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.resources.Resources
 import io.ktor.server.routing.routing
 import io.ktor.server.sse.SSE
+import io.ktor.server.websocket.WebSockets
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -153,6 +154,10 @@ import java.nio.file.Path
 import kotlinx.io.files.Path as DataDirPath
 
 private val logger = KotlinLogging.logger {}
+
+/** RPC WebSocket keepalive (ms): server pings every [WS_PING_PERIOD_MS]; closes if no pong within [WS_PING_TIMEOUT_MS]. */
+private const val WS_PING_PERIOD_MS = 15_000L
+private const val WS_PING_TIMEOUT_MS = 15_000L
 
 private const val SEED_PROFILE_DEMO = "demo"
 
@@ -252,6 +257,14 @@ private fun Application.installCorePlugins() {
     install(ContentNegotiation) { json(contractJson) }
     install(Resources)
     install(SSE)
+    // Keepalive for the kotlinx.rpc WebSockets: server-side pings detect a dead/half-open client
+    // socket and close the session, so a stalled RPC call is torn down rather than left hanging.
+    // Mirrors the client-side ping in ApiClientFactory. Must precede install(Krpc), which transports
+    // its sessions over these WebSockets.
+    install(WebSockets) {
+        pingPeriodMillis = WS_PING_PERIOD_MS
+        timeoutMillis = WS_PING_TIMEOUT_MS
+    }
     install(Krpc)
     install(PartialContent)
     install(AutoHeadResponse)

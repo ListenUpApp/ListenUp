@@ -15,6 +15,7 @@ import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.client.call.HttpClientCall
@@ -32,6 +33,9 @@ import io.ktor.client.plugins.plugin
 import kotlin.coroutines.cancellation.CancellationException
 
 private const val SERVER_URL_NOT_CONFIGURED_MESSAGE = "Server URL not configured"
+
+/** Ping interval (ms) for RPC WebSockets — detects a dead/half-open socket so calls can't hang forever. */
+private const val WS_PING_INTERVAL_MS = 15_000L
 private val logger = KotlinLogging.logger {}
 
 /**
@@ -253,6 +257,14 @@ internal class KtorApiClientFactory(
                     requestTimeoutMillis = 30_000
                     connectTimeoutMillis = 10_000
                     socketTimeoutMillis = 30_000
+                }
+
+                // Keepalive for the kotlinx.rpc WebSockets (installKrpc opens its sessions over this
+                // base client). Without pings, a half-open / "black-hole" socket is never detected and
+                // an in-flight RPC call awaits its response forever — the contributor-merge hang. A
+                // periodic ping fails the dead session so the call surfaces an error instead of spinning.
+                install(WebSockets) {
+                    pingIntervalMillis = WS_PING_INTERVAL_MS
                 }
 
                 // Retry idempotent requests on 5xx responses and transient IO failures.
