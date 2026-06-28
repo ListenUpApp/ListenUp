@@ -22,7 +22,13 @@ object ShareLinkCodec {
     private val rfc3986UnreservedChars: Set<Char> =
         (('a'..'z') + ('A'..'Z') + ('0'..'9') + listOf('-', '.', '_', '~')).toSet()
 
-    /** Builds a shareable link for [target]. Books → the `https` `/o` form; invites → `listenup://join`. */
+    /**
+     * Builds a shareable link for [target]. Both books and invites use the `https`
+     * universal-link `/o#…` form (`t=book` / `t=invite`) so the link is a real, tappable
+     * Universal Link / App Link that opens the app via the `link.listenup.audio` associated
+     * domain. The legacy `listenup://book/{id}` / `listenup://join?…` custom schemes are still
+     * accepted by [decode] for links shared before this change.
+     */
     fun encode(target: ShareTarget): String =
         when (target) {
             is ShareTarget.Book -> encodeBook(target)
@@ -53,8 +59,9 @@ object ShareLinkCodec {
 
     private fun encodeInvite(invite: ShareTarget.Invite): String =
         buildString {
-            append(ShareLinkConstants.CUSTOM_SCHEME).append("://join")
-            append("?server=").append(invite.serverUrl.percentEncodeQueryValue())
+            append(ShareLinkConstants.SHARE_URL_PREFIX)
+            append("#t=invite")
+            append("&server=").append(invite.serverUrl.percentEncodeQueryValue())
             append("&code=").append(invite.code.percentEncodeQueryValue())
         }
 
@@ -66,13 +73,24 @@ object ShareLinkCodec {
         val query = remainder.substringAfter('?', "").substringBefore('#')
         val fragment = remainder.substringAfter('#', "")
         val params = parseQueryString(fragment.ifEmpty { query })
-        if (params["t"] != "book") return null
-        val bookId = params["b"]?.takeIf { it.isNotBlank() } ?: return null
-        return ShareTarget.Book(
-            bookId = BookId(bookId),
-            serverInstanceId = params["i"]?.takeIf { it.isNotBlank() },
-            serverUrl = params["u"]?.takeIf { it.isNotBlank() },
-        )
+        return when (params["t"]) {
+            "book" -> {
+                val bookId = params["b"]?.takeIf { it.isNotBlank() } ?: return null
+                ShareTarget.Book(
+                    bookId = BookId(bookId),
+                    serverInstanceId = params["i"]?.takeIf { it.isNotBlank() },
+                    serverUrl = params["u"]?.takeIf { it.isNotBlank() },
+                )
+            }
+
+            "invite" -> {
+                val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
+                val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
+                ShareTarget.Invite(serverUrl = server, code = code)
+            }
+
+            else -> null
+        }
     }
 
     private fun decodeCustomScheme(url: String): ShareTarget? {
