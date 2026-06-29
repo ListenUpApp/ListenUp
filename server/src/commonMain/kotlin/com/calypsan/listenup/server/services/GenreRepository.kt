@@ -140,6 +140,19 @@ class GenreRepository(
     /** Reads a genre by raw id outside substrate orchestration — test/diagnostic + service use. */
     suspend fun findById(idStr: String): GenreSyncPayload? = suspendTransaction(db) { readPayload(idStr) }
 
+    /** Returns the subset of [ids] that are live (non-tombstoned) genres, in one query. */
+    suspend fun findLiveIds(ids: Collection<String>): Set<String> =
+        if (ids.isEmpty()) {
+            emptySet()
+        } else {
+            suspendTransaction(db) {
+                db.genresQueries
+                    .selectLiveIdsByIds(ids.distinct())
+                    .executeAsList()
+                    .toSet()
+            }
+        }
+
     /**
      * Returns the live (non-tombstoned) genre with the given [slug], or null if absent.
      * Tombstoned rows are excluded — slug uniqueness is enforced only among live rows

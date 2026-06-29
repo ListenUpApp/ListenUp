@@ -310,6 +310,132 @@ class BookServiceImplSetContributorsTest :
                 }
             }
         }
+
+        test("setBookContributors collapses duplicate id-less names to one created row, two payload entries") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
+                val repo =
+                    BookRepository(
+                        db = db.sql,
+                        driver = db.driver,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = contributorRepo,
+                        seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
+                    )
+                val service =
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        sql = db.sql,
+                        genreRepo = genreRepo,
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
+                    )
+                runTest {
+                    val existing = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val preCount = contributorRepo.listLiveIds().size
+
+                    val result =
+                        service.setBookContributors(
+                            BookId("b1"),
+                            listOf(
+                                BookContributorInput(id = null, name = "Tolkien", role = "author", position = 0),
+                                BookContributorInput(id = null, name = "Tolkien", role = "narrator", position = 1),
+                                BookContributorInput(id = existing, name = "Brandon Sanderson", role = "editor", position = 2),
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Two "Tolkien" inputs share one dedup key → exactly ONE new row created.
+                    contributorRepo.listLiveIds().size shouldBe preCount + 1
+
+                    val updated = repo.findById(BookId("b1"))!!
+                    updated.contributors shouldHaveSize 3
+                    // Both "Tolkien" payloads resolve to the SAME id, order follows position, roles preserved.
+                    updated.contributors[0].id shouldBe updated.contributors[1].id
+                    updated.contributors[0].role shouldBe "author"
+                    updated.contributors[1].role shouldBe "narrator"
+                    updated.contributors[2].id shouldBe existing.value
+                    updated.contributors[2].role shouldBe "editor"
+                }
+            }
+        }
+
+        test("setBookContributors with mixed existing-by-id + multiple new-by-name preserves order and ids") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
+                val repo =
+                    BookRepository(
+                        db = db.sql,
+                        driver = db.driver,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = contributorRepo,
+                        seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
+                    )
+                val service =
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        sql = db.sql,
+                        genreRepo = genreRepo,
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
+                    )
+                runTest {
+                    val existing = contributorRepo.resolveOrCreate("Brandon Sanderson", sortName = null)
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val preCount = contributorRepo.listLiveIds().size
+
+                    val result =
+                        service.setBookContributors(
+                            BookId("b1"),
+                            listOf(
+                                BookContributorInput(id = existing, name = "Brandon Sanderson", role = "author", position = 0),
+                                BookContributorInput(id = null, name = "New Narrator One", role = "narrator", position = 1),
+                                BookContributorInput(id = null, name = "New Narrator Two", role = "narrator", position = 2),
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Two distinct new names → exactly TWO new rows created via the batch path.
+                    contributorRepo.listLiveIds().size shouldBe preCount + 2
+
+                    val updated = repo.findById(BookId("b1"))!!
+                    updated.contributors shouldHaveSize 3
+                    updated.contributors[0].id shouldBe existing.value
+                    updated.contributors[0].name shouldBe "Brandon Sanderson"
+                    updated.contributors[1].name shouldBe "New Narrator One"
+                    updated.contributors[2].name shouldBe "New Narrator Two"
+                    // Each new name resolves to its own distinct id.
+                    (updated.contributors[1].id == updated.contributors[2].id) shouldBe false
+                }
+            }
+        }
     })
 
 private fun bookFixture(
