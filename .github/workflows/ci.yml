@@ -203,7 +203,7 @@ jobs:
 
   # ── Build ────────────────────────────────────────────────────────────────────
   build-server-native:
-    name: Build (server linuxX64)
+    name: Build & Test (server linuxX64)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Gate behind lint + JVM tests so a broken compile can't land on a passing test run.
@@ -231,11 +231,14 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      - name: Install libargon2 headers (for the native cinterop)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev
+      - name: Install native link dependencies (libargon2 + libsqlite3)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev libsqlite3-dev
 
       - name: Compile :server linuxX64
         run: ./gradlew :server:compileKotlinLinuxX64 --no-daemon
+
+      - name: Run :server linuxX64 tests
+        run: ./gradlew :server:linuxX64Test --no-daemon
 
   build-android:
     name: Build (Android)
