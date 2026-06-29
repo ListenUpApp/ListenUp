@@ -237,6 +237,7 @@ class AuthSessionStoreTest :
                 everySuspend { storage.read("session_id") } returns null
                 everySuspend { storage.read("pending_user_id") } returns null
                 everySuspend { storage.read("open_registration") } returns null
+                everySuspend { storage.read("setup_required") } returns null
                 val store = createStore(storage = storage, serverConfig = serverConfig)
 
                 store.initializeAuthState()
@@ -255,6 +256,28 @@ class AuthSessionStoreTest :
                 val store = createStore(storage = storage, instanceRepository = instanceRepository)
 
                 store.checkServerStatus()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsSetup>()
+            }
+        }
+
+        test("initializeAuthState returns NeedsSetup when setup was required on the last server check") {
+            runTest {
+                // Regression: a relaunch runs the offline deriveAuthState (no network), which must honour
+                // the cached setupRequired flag. Otherwise a fresh server (no admin yet) resolves to the
+                // Login screen, whose "Create Account" leads to the approval-gated request flow with no
+                // path back to admin setup — a fresh-server dead-end.
+                val storage = createMockStorage()
+                val serverConfig = createMockServerConfig()
+                everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8088")
+                everySuspend { storage.read("access_token") } returns null
+                everySuspend { storage.read("user_id") } returns null
+                everySuspend { storage.read("session_id") } returns null
+                everySuspend { storage.read("pending_user_id") } returns null
+                everySuspend { storage.read("setup_required") } returns "true"
+                val store = createStore(storage = storage, serverConfig = serverConfig)
+
+                store.initializeAuthState()
 
                 store.authState.value.shouldBeInstanceOf<AuthState.NeedsSetup>()
             }
