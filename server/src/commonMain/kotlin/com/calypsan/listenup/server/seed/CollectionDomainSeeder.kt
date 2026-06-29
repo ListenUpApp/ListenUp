@@ -7,7 +7,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.CollectionRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
@@ -74,7 +74,7 @@ internal class CollectionDomainSeeder(
         }
         val payload =
             CollectionSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 libraryId = libraryId,
                 ownerId = ownerId,
                 name = DEMO_COLLECTION_NAME,
