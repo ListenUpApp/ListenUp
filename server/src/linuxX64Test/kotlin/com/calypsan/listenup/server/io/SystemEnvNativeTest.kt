@@ -6,10 +6,10 @@ import platform.posix.setenv
 import kotlin.test.Test
 
 /**
- * Native proof for the [readEnv] / [userHomeDir] env seam (Phase 5 capability port): the linuxX64
- * actuals read the process environment via `platform.posix.getenv`. Round-trips a value set with
- * `setenv` and confirms an unset name reads as null — the contract `resolveServerSecrets` /
- * `resolveListenupHome` rely on when reading `LISTENUP_HOME` / `LISTENUP_JWT_SECRET` natively.
+ * Native proof for the [readEnv] / [userHomeDir] / [hostname] env seam (Phase 5 capability port): the
+ * linuxX64 actuals read the process environment via `platform.posix.getenv` and the host name via
+ * `gethostname`. Round-trips a value set with `setenv`, confirms an unset name reads as null, and proves
+ * the host-name actual returns a sane, NUL-stripped string.
  */
 class SystemEnvNativeTest {
     @OptIn(ExperimentalForeignApi::class)
@@ -25,5 +25,14 @@ class SystemEnvNativeTest {
     fun userHomeDirReadsHomeEnv() {
         setenv("HOME", "/home/listenup-native-test", 1)
         userHomeDir() shouldBe "/home/listenup-native-test"
+    }
+
+    @Test
+    fun hostnameReturnsANonBlankHostName() {
+        // The value is host-dependent (the CI container's name), but `gethostname` always succeeds on a
+        // real host, and the actual must strip the trailing NUL padding from the fixed-size buffer.
+        val name = hostname()
+        name.isNotBlank() shouldBe true
+        name.all { it.code in 33..126 } shouldBe true
     }
 }
