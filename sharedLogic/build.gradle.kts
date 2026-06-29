@@ -177,9 +177,11 @@ kotlin {
 // Kotest uses JUnit 5 as its runner on JVM
 tasks.named<Test>("jvmTest") {
     useJUnitPlatform()
-    // The jvmTest suite boots many in-process Ktor servers (Flyway + Room + RPC e2e tests) in a
-    // single non-forked worker. Gradle's default Test heap (512m) is too small for that and OOMs.
-    maxHeapSize = "2g"
+    // Gradle's default Test heap (512m) is too small for this suite and OOMs. Two things need
+    // headroom: the in-process Ktor servers (Flyway + Room + RPC e2e tests) in a single non-forked
+    // worker, and the Konsist architectural rules, which hold a single shared PSI scope of the whole
+    // production tree (~1.5k files) for the lifetime of the run (see konsist/KonsistScope.kt).
+    maxHeapSize = "4g"
 }
 
 // androidHostTest compiles commonTest sources (which include Konsist rules) but is not part
@@ -192,7 +194,12 @@ dependencies {
 }
 
 tasks.matching { it.name == "testAndroidHostTest" }.configureEach {
-    if (this is Test) useJUnitPlatform()
+    if (this is Test) {
+        useJUnitPlatform()
+        // Mirror jvmTest's heap: this surface runs the same Konsist rules, which hold a single
+        // shared PSI scope of the whole production tree. The 512m default OOMs on it.
+        maxHeapSize = "4g"
+    }
 }
 
 // Define Room Schema location (optional but good practice)

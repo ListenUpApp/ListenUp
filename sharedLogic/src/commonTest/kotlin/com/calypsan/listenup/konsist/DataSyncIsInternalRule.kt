@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -23,7 +22,7 @@ class DataSyncIsInternalRule :
         val allowList = emptySet<String>()
 
         test("no top-level declaration in data/sync is public") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
             // Only top-level declarations are gated: nested members of an allow-listed public type
             // (e.g. ConnectionState's sealed subtypes) are public by construction and not export entry
             // points on their own. `it !in allowList` covers them transitively via their parent.

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -16,8 +15,7 @@ class NoResourcesInContractRule :
     FunSpec({
         test("no :contract type is annotated @Resource (REST surface lives in :server)") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes(includeNested = true)
                     .filter { "/contract/src/" in it.path }
                     .filter { cls -> cls.annotations.any { it.name == "Resource" } }

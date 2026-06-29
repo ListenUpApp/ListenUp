@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -49,8 +48,7 @@ class RpcServicesAreGuardedRule :
         test("every service registration passes its impl through guard(...)") {
             val registrationToken = Regex("""register(Service|Scoped)<""")
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .functions()
                     // Exclude the registerScoped helper definition: it is the trusted plumbing
                     // that forwards guarding to its call sites (see KDoc).

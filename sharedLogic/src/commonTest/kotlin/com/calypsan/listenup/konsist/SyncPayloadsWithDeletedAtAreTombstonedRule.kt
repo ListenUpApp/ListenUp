@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -23,8 +22,7 @@ class SyncPayloadsWithDeletedAtAreTombstonedRule :
 
         test("every api.sync payload with deletedAt implements Tombstoned") {
             val syncPayloadsWithDeletedAt =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { it.fullyQualifiedName?.startsWith("com.calypsan.listenup.api.sync.") == true }
                     .filter { cls -> cls.properties().any { it.name == "deletedAt" } }

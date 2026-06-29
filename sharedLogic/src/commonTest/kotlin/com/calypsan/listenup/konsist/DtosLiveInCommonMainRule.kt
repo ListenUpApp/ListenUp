@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.ext.list.withAnnotationOf
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -22,8 +21,7 @@ class DtosLiveInCommonMainRule :
     FunSpec({
         test("every wire-borne @Serializable data class lives in a commonMain source set") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .withAnnotationOf(Serializable::class)
                     .filter { !it.path.contains("/commonMain/") }

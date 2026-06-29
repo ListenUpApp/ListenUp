@@ -1,7 +1,6 @@
 package com.calypsan.listenup.konsist
 
 import com.calypsan.listenup.api.result.AppResult
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -14,8 +13,7 @@ class SyncDomainHandlersUseAppResultRule :
     FunSpec({
         test("SyncDomainHandler implementations don't throw outside cancellation rethrows") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { it.parents().any { p -> p.name == "SyncDomainHandler" } }
                     .flatMap { it.functions() }

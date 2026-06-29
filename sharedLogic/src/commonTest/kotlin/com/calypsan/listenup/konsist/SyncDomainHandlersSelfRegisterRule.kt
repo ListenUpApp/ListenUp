@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -17,8 +16,7 @@ class SyncDomainHandlersSelfRegisterRule :
     FunSpec({
         test("SyncDomainHandler impls call registry.register(this) in their init block") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { it.parents().any { p -> p.name == "SyncDomainHandler" } }
                     .filterNot { cls ->

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.konsist
 
 import com.lemonappdev.konsist.api.KoModifier
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -21,8 +20,7 @@ class StablePropertyOrderRule :
     FunSpec({
         test("@Serializable data classes tag at least one property or the class with @SerialName") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { it.path.contains("/commonMain/") }
                     .filter { klass ->

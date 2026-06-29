@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.ext.list.modifierprovider.withoutAbstractModifier
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -35,8 +34,7 @@ class IdAsStringRequiredForValueClassIdsRule :
             fun String.bareTypeName(): String = substringBefore('<')
 
             val concreteRepositories =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->

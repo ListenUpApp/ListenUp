@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainAll
 
@@ -27,7 +26,7 @@ class SyncEventTypesInCommonMainRule :
                     "com.calypsan.listenup.api.sync.Tag",
                 )
 
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
 
             // Sealed interfaces and data classes may be declared as either
             // `class` or `interface` in the AST — collect both to be safe.
