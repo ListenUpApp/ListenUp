@@ -379,3 +379,27 @@ tasks.register<JavaExec>("runDemo") {
     environment("LISTENUP_LIBRARY_PATH", seedLibraryDir.get().asFile.absolutePath)
     environment("LISTENUP_DB_URL", "jdbc:sqlite:${layout.buildDirectory.get().asFile.absolutePath}/demo.db")
 }
+
+// The Kotlin/Native peer of `:server:run` — builds `server.kexe` (debug) and runs it in one command,
+// no env vars required: `./gradlew :server:runNative`. Once a library folder is registered, the server
+// re-scans it from its own DB on every boot, so the bare command is enough day to day. Optional Gradle
+// properties — set once in `~/.gradle/gradle.properties` to never type them — seed/override config:
+//   -Plibrary=/path/to/audiobooks   (seeds the library folder on first boot)
+//   -Pport=8080                      (default 8080)
+//   -Pseed=demo                      (demo seed profile)
+tasks.register<Exec>("runNative") {
+    group = "application"
+    description = "Builds and runs the Kotlin/Native server (server.kexe)."
+    dependsOn("linkDebugExecutableLinuxX64")
+    commandLine(
+        layout.buildDirectory
+            .file("bin/linuxX64/debugExecutable/server.kexe")
+            .get()
+            .asFile.absolutePath,
+    )
+    environment("PORT", (findProperty("port") as String?) ?: "8080")
+    (findProperty("library") as String?)?.let { environment("LISTENUP_LIBRARY_PATH", it) }
+    (findProperty("seed") as String?)?.let { environment("LISTENUP_SEED_PROFILE", it) }
+    // A long-running server: Ctrl-C (SIGINT) returns non-zero, which is a normal stop, not a failure.
+    isIgnoreExitValue = true
+}
