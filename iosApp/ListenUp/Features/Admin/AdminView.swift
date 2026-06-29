@@ -264,6 +264,16 @@ struct AdminView: View {
         VStack(alignment: .leading, spacing: 0) {
             AdminSectionHeader(String(localized: "admin.management"))
             VStack(spacing: 0) {
+                NavigationLink(value: LibrarySettingsDestination()) {
+                    NavigationActionRow(
+                        systemImage: "externaldrive.fill",
+                        tint: .luTint,
+                        title: String(localized: "admin.library_settings"),
+                        subtitle: String(localized: "admin.library_settings_subtitle")
+                    )
+                }
+                .buttonStyle(.plain)
+                rowSeparator
                 NavigationActionRow(
                     systemImage: "person.2.fill",
                     tint: .luTint,

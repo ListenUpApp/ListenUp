@@ -33,6 +33,7 @@ import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailView
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
@@ -218,6 +219,8 @@ object KoinHelper {
     fun getAdminViewModel(): AdminViewModel = resolve(AdminViewModel::class)
 
     fun getAdminSettingsViewModel(): AdminSettingsViewModel = resolve(AdminSettingsViewModel::class)
+
+    fun getLibrarySettingsViewModel(): LibrarySettingsViewModel = resolve(LibrarySettingsViewModel::class)
 
     fun getCreateInviteViewModel(): CreateInviteViewModel = resolve(CreateInviteViewModel::class)
 
