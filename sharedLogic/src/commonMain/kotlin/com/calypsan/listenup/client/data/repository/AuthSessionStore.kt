@@ -116,12 +116,19 @@ internal class AuthSessionStore(
             )
         }
 
-        return DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+        // Honour the last-known setupRequired so a relaunch on a server that still has no admin routes
+        // to setup, not to login — offline, from the value cached by [checkServerStatus]. A stale "true"
+        // self-corrects: SetupViewModel re-runs checkServerStatus on entry.
+        return if (getCachedSetupRequired()) {
+            DomainAuthState.NeedsSetup
+        } else {
+            DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+        }
     }
 
     /**
      * Hit the server's instance endpoint to learn whether setup is required.
-     * Caches `openRegistration` for offline-first state derivation. On network
+     * Caches `setupRequired` + `openRegistration` for offline-first state derivation. On network
      * failure we stay in NeedsLogin — never blow away the URL automatically.
      */
     override suspend fun checkServerStatus(): DomainAuthState {
@@ -134,6 +141,7 @@ internal class AuthSessionStore(
                 logger.info { "checkServerStatus: getServerInfo succeeded (${startMark.elapsedNow()})" }
                 val openRegistration = result.data.registrationPolicy != RegistrationPolicy.CLOSED
                 secureStorage.save(KEY_OPEN_REGISTRATION, openRegistration.toString())
+                secureStorage.save(KEY_SETUP_REQUIRED, result.data.setupRequired.toString())
 
                 val newState =
                     if (result.data.setupRequired) {
@@ -156,6 +164,9 @@ internal class AuthSessionStore(
 
     private suspend fun getCachedOpenRegistration(): Boolean =
         secureStorage.read(KEY_OPEN_REGISTRATION)?.toBooleanStrictOrNull() ?: false
+
+    private suspend fun getCachedSetupRequired(): Boolean =
+        secureStorage.read(KEY_SETUP_REQUIRED)?.toBooleanStrictOrNull() ?: false
 
     override suspend fun refreshOpenRegistration() {
         val currentState = authState.value
@@ -212,6 +223,7 @@ internal class AuthSessionStore(
         const val KEY_SESSION_ID = "session_id"
         const val KEY_USER_ID = "user_id"
         const val KEY_OPEN_REGISTRATION = "open_registration"
+        const val KEY_SETUP_REQUIRED = "setup_required"
         const val KEY_PENDING_USER_ID = "pending_user_id"
         const val KEY_PENDING_EMAIL = "pending_email"
     }
