@@ -1,14 +1,29 @@
-# Runtime image for the Kotlin/Native server binary (server.kexe), built on the runner by
-# :server:linkReleaseExecutableLinuxX64 and copied in here. Base pinned to ubuntu:24.04 to match
-# the ubuntu-24.04 builder's glibc; the binary dynamically links libargon2 + libsqlite3, so their
-# runtime shared objects are installed below.
-FROM ubuntu:24.04
+# Two-stage runtime image for the Kotlin/Native server.kexe.
+# We COMPILE a modern SQLite (>= 3.43, FTS5+JSON1) inside a debian:12 builder so the server's SQLite is
+# pinned and links the same glibc (2.36) the distroless base provides — NOT the base's 3.40.1, which is
+# too old for migration V9's contentless_delete=1 (added in SQLite 3.43.0). Static-linking is not an
+# option (K/N can't link host-built .a archives; no musl target) — see docs/plans/050 §5.
+FROM debian:12-slim AS libs
+ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libargon2-1 libsqlite3-0 \
+    && apt-get install -y --no-install-recommends \
+        gcc libc6-dev ca-certificates curl unzip libargon2-1 \
     && rm -rf /var/lib/apt/lists/*
-RUN useradd -r -u 10001 listenup
+WORKDIR /build
+RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
+    && unzip -q amalg.zip \
+    && cd sqlite-amalgamation-* \
+    && gcc -O2 -fPIC -DSQLITE_ENABLE_FTS5 -DSQLITE_ENABLE_JSON1 \
+        -shared -o /build/libsqlite3.so.0 sqlite3.c \
+    && cat sqlite3.h | grep -m1 '#define SQLITE_VERSION ' \
+    && awk '/#define SQLITE_VERSION_NUMBER/ { if ($3 < 3043000) { print "SQLite too old: " $3; exit 1 } }' sqlite3.h
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+# libcrypt.so.1 is NOT in distroless/cc (Debian split it out of glibc into libcrypt1); the binary links
+# crypt(3). libsqlite3.so.0 is our self-built modern build. libargon2.so.1 is debian's.
+COPY --from=libs /build/libsqlite3.so.0                     /usr/lib/x86_64-linux-gnu/
+COPY --from=libs /usr/lib/x86_64-linux-gnu/libargon2.so.1   /usr/lib/x86_64-linux-gnu/
+COPY --from=libs /usr/lib/x86_64-linux-gnu/libcrypt.so.1    /usr/lib/x86_64-linux-gnu/
 COPY server-binary /usr/local/bin/listenup-server
-RUN chmod +x /usr/local/bin/listenup-server
-USER 10001
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/listenup-server"]
