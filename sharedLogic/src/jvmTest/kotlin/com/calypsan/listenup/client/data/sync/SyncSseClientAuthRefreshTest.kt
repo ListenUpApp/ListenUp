@@ -24,7 +24,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 
 /**
- * Locks in Task 8's fix that treats mid-stream 401/403 as transient rather than
+ * Locks in the fix that treats mid-stream 401/403 as transient rather than
  * terminal, so the Ktor Bearer Auth plugin can refresh the access token on the
  * next reconnect.
  *

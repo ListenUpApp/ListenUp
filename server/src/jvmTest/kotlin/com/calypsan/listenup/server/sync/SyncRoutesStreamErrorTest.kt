@@ -42,7 +42,7 @@ import org.sqlite.SQLiteConfig
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerContentNegotiation
 
 /**
- * Pins the spec §189 invariant: when the SSE firehose's emit pipeline throws,
+ * Pins the invariant: when the SSE firehose's emit pipeline throws,
  * the server emits a `SyncControl.StreamError(InternalError(correlationId, cause))`
  * frame where `cause` is the THROWABLE'S CLASS NAME only — never a full
  * stacktrace, package path, or `Caused by:` chain.

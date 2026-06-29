@@ -6,21 +6,19 @@ import io.kotest.matchers.collections.shouldBeEmpty
 /**
  * Every `*UiState` declaration in `client/presentation/` must be a sealed
  * hierarchy (sealed interface or sealed class), not a flat data class with
- * boolean flags. Pins the canonical UI-state pattern introduced in Playback P3.
+ * boolean flags. Pins the canonical UI-state pattern.
  *
  * Scope: classes/interfaces ending in `UiState` under
  * `sharedLogic/.../client/presentation/`. The check is structural:
  * `hasSealedModifier` must be true.
  *
- * Legacy exclusions: the 8 types below were present before P3 and use the flat
- * `data class` shape. They are tracked for future migration in
- * `docs/superpowers/followups.md` ("From Playback P3 — UiState sealed backlog").
- * Do NOT add P3-touched types to this list — fix the type instead.
+ * Legacy exclusions: the 8 types below use the flat `data class` shape and await
+ * migration. Do NOT add new types to this list — fix the type instead.
  */
 class UiStateIsSealedRule :
     FunSpec({
-        // Legacy non-P3 UiState types deliberately left as flat data classes; tracked for
-        // future migration. Each entry is the simple class name (without package).
+        // Legacy UiState types deliberately left as flat data classes, awaiting migration.
+        // Each entry is the simple class name (without package).
         val legacyExclusions =
             setOf(
                 "SettingsUiState",

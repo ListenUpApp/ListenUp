@@ -66,7 +66,7 @@ internal interface DocumentStorage {
      * re-fetch. Runs on [IODispatcher].
      *
      * Used to garbage-collect orphaned cache files when a book's document UUIDs rotate on
-     * rescan (issue #699).
+     * rescan.
      *
      * @param bookId Owning book identifier.
      * @param docId Server document UUID whose cached file should be removed.

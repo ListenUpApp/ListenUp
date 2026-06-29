@@ -44,7 +44,7 @@ class AuthEndToEndTest :
             )
 
         // Setup + persist tokens to AuthSession. AuthRepository.setup itself doesn't
-        // persist (that's SetupUseCase's job in production); the F12 fixture exercises
+        // persist (that's SetupUseCase's job in production); this end-to-end fixture exercises
         // the repo directly, so this helper plays the use case's role.
         suspend fun bootstrap(fix: AuthEndToEndFixture): com.calypsan.listenup.api.dto.auth.AuthSession {
             val session =

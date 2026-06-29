@@ -7,7 +7,7 @@ import io.ktor.server.engine.embeddedServer
 /**
  * Builds an embedded CIO server running the foundation skeleton. Compiles for linuxX64 — proving the
  * CIO engine links with the full plugin stack natively — and starts a real server (no test-host
- * shim) for the native RPC smoke. The production native `main()` (Phase 5) builds on this; it is not
+ * shim) for the native RPC smoke. The production native `main()` builds on this; it is not
  * the production entrypoint yet.
  *
  * [configure] runs after [installFoundation], on the same [Application] — the seam where callers

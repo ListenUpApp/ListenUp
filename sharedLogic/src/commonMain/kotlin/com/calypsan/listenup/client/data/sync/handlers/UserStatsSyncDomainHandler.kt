@@ -13,7 +13,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 /**
- * Client-side sync handler for the `user_stats` domain (Playback-P2).
+ * Client-side sync handler for the `user_stats` domain.
  *
  * Applies server sync events into the Room `user_stats` table. Each row is a
  * **server-maintained materialized view** — the server is the sole writer of
@@ -25,7 +25,7 @@ private val logger = KotlinLogging.logger {}
  * therefore unconditionally replaces the local row. There are no local-only columns
  * to preserve.
  *
- * **Tombstone handling.** The server does not emit user-stats tombstones in P2
+ * **Tombstone handling.** The server does not emit user-stats tombstones
  * (the row exists for the lifetime of the user). Tombstones received via
  * [onCatchUpItem] apply a soft-delete by `id`; [SyncEvent.Deleted] at the SSE
  * level is handled defensively with a log.

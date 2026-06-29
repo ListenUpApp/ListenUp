@@ -15,8 +15,6 @@ import com.calypsan.listenup.domain.embeddedmeta.EmbeddedAudioMetadata
  *   - Required first number (1–3 digits)
  *   - Optional middle section: separator + optional word + second number
  *   - Optional trailing separator (zero or more, so bare numbers at end-of-stem match)
- *
- * Source: spec §5.1 of `2026-05-07-phase-4-multifile-chapter-synthesis-design.md`.
  */
 private val FILENAME_PREFIX_REGEX =
     Regex(
@@ -76,8 +74,6 @@ internal fun cleanFilename(name: String): String =
  * (`perTrackMetadata[track]` is null or `durationMs == 0`) produces a
  * zero-length chapter at the current cumulative position; subsequent
  * tracks' boundaries are unaffected by the failure.
- *
- * Source: spec §6 of `2026-05-07-phase-4-multifile-chapter-synthesis-design.md`.
  */
 internal fun synthesizeChapters(
     tracks: List<TrackEntry>,

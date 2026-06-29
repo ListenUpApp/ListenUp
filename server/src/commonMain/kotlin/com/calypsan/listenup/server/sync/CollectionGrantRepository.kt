@@ -23,8 +23,8 @@ private const val PRINCIPAL_TYPE_USER = "USER"
  * `granted_by_user_id`), but the wire is unchanged: a USER-principal grant maps to a
  * [CollectionShareSyncPayload] (`sharedWithUserId` / `sharedByUserId`) over sync, and the
  * `domainName` stays `"collection_shares"`. [readPayload] / [writePayload] adapt between the
- * two — `principalType` is always `"USER"` on write. The wire/client rename to "grant" is
- * deferred to the phase that introduces GROUP principals.
+ * two — `principalType` is always `"USER"` on write. The wire/client rename to "grant"
+ * waits until GROUP principals are introduced.
  *
  * Permission is stored as a lowercase TEXT column (`"read"` / `"write"`); on read a corrupt or
  * unknown value defaults to [SharePermission.Read] (least-privilege).

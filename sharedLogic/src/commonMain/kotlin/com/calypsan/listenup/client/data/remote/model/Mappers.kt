@@ -35,7 +35,7 @@ internal fun BookResponse.toEntity(): BookEntity =
         sortTitle = sortTitle,
         subtitle = subtitle,
         // coverHash intentionally null here: the legacy BookResponse path is superseded by the
-        // BookService RPC fetch — see the Books-A audit §5.1 (cover-pipeline unification, Books-C).
+        // BookService RPC fetch.
         coverHash = null,
         coverBlurHash = coverImage?.blurHash,
         totalDuration = totalDuration,

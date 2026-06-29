@@ -19,12 +19,12 @@ import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Phase A boundary suite. Tests that exercise the structural invariants the
- * Phase A migration must satisfy — covered incrementally as each task lands:
+ * Navigation boundary suite. Tests that exercise the structural invariants the
+ * navigation layer must satisfy:
  *
- *  - Task 4: process-death back-stack survival via `rememberNavBackStack`.
- *  - Task 5: every `NavDisplay` invocation site installs both standard entry decorators.
- *  - Task 6: per-entry ViewModel scoping (VM-per-entry + cleared-on-pop).
+ *  - process-death back-stack survival via `rememberNavBackStack`.
+ *  - every `NavDisplay` invocation site installs both standard entry decorators.
+ *  - per-entry ViewModel scoping (VM-per-entry + cleared-on-pop).
  *
  * `@Config(sdk = [35])` pins Robolectric to the highest SDK its 4.15.1 release
  * supports; the project's compileSdk = 37 outpaces Robolectric's currently-shipped

@@ -2,8 +2,8 @@ package com.calypsan.listenup.server.scanner.pipeline
 
 /**
  * Minimal, dependency-free HTML→Markdown for scanned book descriptions. Audiobook
- * descriptions are simple prose; this handles the tag set Go's `scanner/html.go` guards
- * for (`p br div span b i strong em a ul ol li h1-6 blockquote`) + common entities.
+ * descriptions are simple prose; this handles the tag set
+ * (`p br div span b i strong em a ul ol li h1-6 blockquote`) + common entities.
  * Plain-text input (no detected HTML) is returned verbatim. Emphasis tags left unclosed
  * by malformed markup still convert (their span runs to end of input). Any failure falls
  * back to entity-decoded, tag-stripped text — never throws, never returns markup.

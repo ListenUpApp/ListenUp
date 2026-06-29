@@ -90,7 +90,7 @@ class CoverSpool(
      * least [ORPHAN_GRACE_MS]. A live scan's dir is modified on every cover write, so it stays far
      * under this window; recently-modified dirs are therefore left alone. This stops a fresh boot's
      * sweep from deleting a **concurrent** instance's in-flight scan dir out from under its persist
-     * (the cause of the spooled-cover 404s in #703 when a stale JVM still shares this data dir).
+     * (the cause of spooled-cover 404s when a stale JVM still shares this data dir).
      * Never throws.
      */
     fun sweepOrphans() {

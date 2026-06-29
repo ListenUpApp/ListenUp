@@ -64,7 +64,7 @@ internal fun Application.resolveImageHome(): Path =
 /**
  * Takes an exclusive lock on the data directory when `server.dataDirLock` is enabled (production
  * default in `application.conf`), so a second server on the same `$LISTENUP_HOME` fails fast with a
- * clear message instead of racing the scan-spool (#703 — a stale JVM whose covers get swept by a
+ * clear message instead of racing the scan-spool (a stale JVM whose covers get swept by a
  * fresh boot). Off by default in code, so the isolated test configs (which omit the key) never
  * lock. The lock is released on [ApplicationStopped]; the OS frees it anyway on process death.
  */

@@ -9,8 +9,8 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Seam-level tests for [FakeDownloadRepository.cancelForBook]. Per project memory
- * `feedback_fakes_for_seams.md`: hand-rolled fakes, not mocks.
+ * Seam-level tests for [FakeDownloadRepository.cancelForBook]. Uses hand-rolled
+ * fakes, not mocks.
  *
  * Scope: the fake mirrors
  * [com.calypsan.listenup.client.data.repository.DownloadRepositoryImpl] behavior; production tests

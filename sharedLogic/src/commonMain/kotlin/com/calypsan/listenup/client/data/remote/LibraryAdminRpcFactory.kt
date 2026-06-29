@@ -42,7 +42,7 @@ interface LibraryAdminRpcFactory {
  *
  * Wire serialization is the contract-layer [contractJson] — one wire format, two transports.
  *
- * Token rotation is a known phase-1-auth deferral — same across every RPC factory
+ * Token rotation is not yet implemented — the same gap exists in every RPC factory
  * in the codebase. Not solved here.
  */
 internal open class KtorLibraryAdminRpcFactory(

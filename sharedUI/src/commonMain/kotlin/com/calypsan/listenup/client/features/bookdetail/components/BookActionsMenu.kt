@@ -158,7 +158,7 @@ fun BookActionsMenu(
             onClick = onShareClick,
         )
 
-        // Delete Book (admin only, stubbed for now)
+        // Delete Book (admin only) — not yet implemented
         if (isAdmin) {
             HorizontalDivider()
 
@@ -182,7 +182,7 @@ fun BookActionsMenu(
                         leadingIconColor = MaterialTheme.colorScheme.error,
                     ),
                 onClick = onDeleteClick,
-                enabled = false, // Stubbed for now
+                enabled = false, // Not yet implemented
             )
         }
     }

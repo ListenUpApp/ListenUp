@@ -122,7 +122,7 @@ internal interface PlaybackPositionDao {
      * Reactive counterpart to [getRecentPositions] — emits the [limit] most recently
      * started, unfinished positions whenever any position row changes, pushing the
      * sort and the limit to SQL so Home's Continue Listening shelf never has to pull
-     * every position to the client just to take the top N (Finding 09).
+     * every position to the client just to take the top N.
      *
      * Excludes positions with `positionMs = 0` (unstarted) AND `isFinished = true`
      * (already done) — the client-side duration-based filter handles the in-flight

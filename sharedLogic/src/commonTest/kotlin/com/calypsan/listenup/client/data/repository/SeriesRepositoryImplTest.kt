@@ -724,7 +724,7 @@ class SeriesRepositoryImplTest :
             }
         }
 
-        // ========== observeAllWithBooks Tests (drift #16 closure) ==========
+        // ========== observeAllWithBooks Tests ==========
 
         test("observeAllWithBooks returns empty list when no series exist") {
             runTest {
@@ -804,7 +804,7 @@ class SeriesRepositoryImplTest :
             }
         }
 
-        // ========== observeSeriesWithBooks Tests (drift #16 closure) ==========
+        // ========== observeSeriesWithBooks Tests ==========
 
         test("observeSeriesWithBooks returns null when series relation is null") {
             runTest {

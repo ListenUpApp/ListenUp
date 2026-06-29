@@ -31,10 +31,10 @@ private val log = KotlinLogging.logger {}
  * or the region matches the default, no fallback is attempted — otherwise the
  * default region is retried as a last resort.
  *
- * Cache TTLs ported from Go's `server/internal/store/sqlite/metadata.go`:
- * - search results: 24 h (`searchCacheDuration = 24 * time.Hour`)
- * - book metadata: 7 days (`bookCacheDuration = 7 * 24 * time.Hour`)
- * - chapters: 30 days (`chapterCacheDuration = 30 * 24 * time.Hour`)
+ * Cache TTLs:
+ * - search results: 24 h
+ * - book metadata: 7 days
+ * - chapters: 30 days
  *
  * Cache keys are scoped by region inside [MetadataCacheRepository] via the
  * `"${region.code}:${cacheKey}"` stored-key formula — callers provide only the
@@ -56,8 +56,7 @@ internal class MetadataService(
      * result for [SEARCH_TTL].
      *
      * Pass [refresh] = `true` to bypass the cache and force a fresh fetch.
-     * Only keyword-based searches are cached (matching Go's `cacheKey := params.Keywords`
-     * branch); searches with no keywords skip the cache entirely.
+     * Only keyword-based searches are cached; searches with no keywords skip the cache entirely.
      */
     suspend fun search(
         region: AudibleRegion,
@@ -83,8 +82,7 @@ internal class MetadataService(
      *
      * Tries [defaultRegion] first. If results are non-empty, returns them with
      * the default region. If empty (or [defaultRegion] is US and results are
-     * still empty), falls back to [AudibleRegion.US]. Mirrors Go's
-     * `SearchWithFallback` in `service/metadata.go`.
+     * still empty), falls back to [AudibleRegion.US].
      */
     suspend fun searchWithFallback(params: SearchParams): AppResult<List<AudibleSearchResult>> {
         val primaryResult = search(defaultRegion, params)

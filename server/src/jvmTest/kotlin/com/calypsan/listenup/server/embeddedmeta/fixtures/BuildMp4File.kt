@@ -10,9 +10,7 @@ import kotlinx.io.readByteArray
  * [com.calypsan.listenup.server.embeddedmeta.format.mp4.Mp4Parser] tests and
  * the property-test generators that exercise the parser on randomised inputs.
  *
- * The encoded byte layout matches the Go reference at
- * `/home/simonh/Code/audiometa/internal/m4a/`. In particular, the Nero `chpl`
- * encoding follows the Go variant: `version(1) + flags(3) + reserved(4) +
+ * The Nero `chpl` encoding is `version(1) + flags(3) + reserved(4) +
  * count(1) + per-chapter (start-100ns(8) + title-len(1) + title-utf8)`.
  *
  * Coverage:
@@ -262,7 +260,7 @@ internal class MoovBuilder internal constructor() {
         // to ftyp size. The cleanest solution is to make Mp4Builder do the
         // patching after assembling all top-level atoms.
         //
-        // For now, encode moov with chunk offsets pre-set assuming a
+        // Instead, encode moov with chunk offsets pre-set assuming a
         // canonical 24-byte ftyp (size 24 = ftyp header 8 + brand 4 + minor
         // 4 + 2 compat brands × 4 = 24). The default ftyp() emits exactly 24.
         // Tests using non-default ftyp lengths must use Nero chapters
@@ -440,8 +438,7 @@ internal class UdtaBuilder internal constructor() {
     }
 
     /**
-     * Emit a Nero `chpl` chapter list. Layout matches the Go reference
-     * (`/home/simonh/Code/audiometa/internal/m4a/chapters_test.go`):
+     * Emit a Nero `chpl` chapter list. Layout is
      * `version(1) + flags(3) + reserved(4) + count(1)` then per chapter
      * `start-100ns(8) + title-len(1) + title-utf8`.
      */

@@ -307,7 +307,7 @@ internal class BookSyncDomainHandler(
         // Capture the rows about to be replaced so their now-orphaned cache files can be
         // collected. Document UUIDs are minted fresh on every server rescan, so a re-scan
         // rotates every id — without this GC the `{documents}/{bookId}/` cache grows without
-        // bound as `{old-uuid}.{ext}` files are stranded on disk (issue #699).
+        // bound as `{old-uuid}.{ext}` files are stranded on disk.
         val staleDocs =
             if (documentStorage == null) {
                 emptyList()

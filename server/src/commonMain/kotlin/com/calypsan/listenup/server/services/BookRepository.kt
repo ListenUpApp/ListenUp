@@ -107,7 +107,7 @@ private class PreparedBatch(
  * pass after the book write commits (see [upsertFromAnalyzed]) — never nested inside the
  * SQLDelight book transaction — so a single writer never contends for the SQLite write lock.
  *
- * The system-collection membership (#680 pure-union model) is the one exception: a genuinely-new
+ * The system-collection membership (pure-union model) is the one exception: a genuinely-new
  * book's `collection_books` row — ALL_BOOKS for a non-held library, INBOX for a held one — is
  * written ATOMICALLY inside the SQLDelight book transaction ([writeSystemMembership]), because a
  * separate post-commit write left a narrow REST-catch-up window where a member could pull a held
@@ -391,7 +391,7 @@ class BookRepository(
                 deleted_at = null,
                 client_op_id = clientOpId,
             )
-            // Atomic system-collection membership (#680 pure-union model). When the scan path stashed
+            // Atomic system-collection membership (pure-union model). When the scan path stashed
             // a system collection id (genuinely-new book — ALL_BOOKS for a non-held library, INBOX for
             // a held one), write the book→collection `collection_books` membership in THIS same
             // SQLDelight transaction, so the book is collected the instant it exists. The two cases are
@@ -1255,7 +1255,7 @@ class BookRepository(
 
     /**
      * Writes the `(systemCollectionId, bookId)` membership into `collection_books` inside the
-     * open SQLDelight book transaction, atomically with the book insert (#680 pure-union model).
+     * open SQLDelight book transaction, atomically with the book insert (pure-union model).
      *
      * [systemCollectionId] is exactly one of the library's two system collections, resolved upstream
      * by [com.calypsan.listenup.server.services.BookPersister.resolveSystemCollectionId]: ALL_BOOKS

@@ -34,7 +34,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.runBlocking
 
 /**
- * The load-bearing security piece (Collections-2a Task 10): on `AccessChanged`, the engine
+ * The load-bearing security piece: on `AccessChanged`, the engine
  * re-derives each access-gated domain via a TRANSIENT catch-up and prunes every locally-live
  * row no longer in the accessible set. A revoked share must actually evict the now-inaccessible
  * rows from Room.

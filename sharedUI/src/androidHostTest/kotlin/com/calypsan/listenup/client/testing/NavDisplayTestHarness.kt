@@ -19,12 +19,12 @@ import org.koin.compose.KoinApplication
 import org.koin.core.module.Module
 
 /**
- * Phase A test harness. Composes a NavDisplay with both standard entry decorators
+ * Navigation boundary test harness. Composes a NavDisplay with both standard entry decorators
  * installed and exposes helpers for boundary tests.
  *
  * Designed for reuse:
- *  - Phase B extends with DeepLinkTestHarness for Intent-driven tests
- *  - Phase C extends with per-platform graph-coverage assertions
+ *  - Intent-driven (deep-link) tests extend it with DeepLinkTestHarness
+ *  - Per-platform graph-coverage assertions extend it
  *
  * Process-death survival is exercised via Compose UI-Test's [StateRestorationTester],
  * which is the canonical mechanism for emulating an Activity / process recreation
@@ -46,7 +46,7 @@ class NavDisplayTestHarness(
      * The optional [koinModule] supplies a test-scoped Koin module wrapping the
      * NavDisplay in a `KoinApplication { }`. Pass a module with a `viewModel { }`
      * binding when boundary tests need to resolve a VM via `koinViewModel()`.
-     * Reusable for Phase B/C tests.
+     * Reusable across the deep-link and graph-coverage harnesses.
      */
     fun composeBackStack(
         initialKey: NavKey,

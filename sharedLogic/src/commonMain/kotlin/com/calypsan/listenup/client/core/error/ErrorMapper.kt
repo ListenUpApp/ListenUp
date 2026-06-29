@@ -36,7 +36,7 @@ internal object ErrorMapper {
                 when {
                     // 401 means the session is stale/invalid — type it as an auth error at the
                     // boundary so the global auth-failure observer drives the app back to login
-                    // instead of looping a generic "server error" snackbar (issue #640). 403
+                    // instead of looping a generic "server error" snackbar. 403
                     // (authenticated-but-forbidden) stays a plain 4xx — it is not a session failure.
                     status == HttpStatusCode.Unauthorized.value -> {
                         AuthError.SessionExpired(debugInfo = exception.message)

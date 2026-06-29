@@ -27,7 +27,7 @@ import java.io.File
  * Seam-level tests for [resolveDownloadUrl] via [downloadAudioFile].
  *
  * Validates that the download path obtains signed URLs from [PlaybackService.prepare]
- * (Task 3 of the playback-fix plan) and that the WaitForServer path is gone.
+ * and that the WaitForServer path is gone.
  */
 class DownloadAudioFileTest :
     FunSpec({

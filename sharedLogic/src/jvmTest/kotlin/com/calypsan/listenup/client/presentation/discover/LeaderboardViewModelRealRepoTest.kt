@@ -28,7 +28,7 @@ import kotlinx.coroutines.test.setMain
  *
  * Distinct from the commonTest `LeaderboardViewModelTest` (which fakes the repository itself),
  * this test exercises the full stack from ViewModel → LeaderboardRepositoryImpl → DAO, proving
- * the rewired repo (Task 13) still satisfies the ViewModel contract.
+ * the rewired repo still satisfies the ViewModel contract.
  *
  * The fake DAO uses [MutableStateFlow] (not `flowOf`) to avoid the Turbine / WhileSubscribed
  * race that fires when a cold source completes before the downstream StateFlow collects.

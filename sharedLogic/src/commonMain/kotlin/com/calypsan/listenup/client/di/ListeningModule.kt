@@ -45,7 +45,7 @@ internal val listeningModule: Module =
         }
 
         // ListeningEventRepository — read-only DAO surface for stats/leaderboard.
-        // Listening-event writes are owned by the P2 canonical recording path
+        // Listening-event writes are owned by the canonical recording path
         // (ListeningEventRecorder, bound below).
         single<ListeningEventRepository> {
             ListeningEventRepositoryImpl(
@@ -63,7 +63,7 @@ internal val listeningModule: Module =
             )
         }
 
-        // Listening event recorder — span state machine for P2 listening history.
+        // Listening event recorder — span state machine for listening history.
         // Single source for the binding (previously duplicated across all four platform
         // playback modules); platform-independent because every dependency resolves via get().
         single {

@@ -131,7 +131,7 @@ fun CompactHero(
             abridged = abridged,
             classificationColor = MaterialTheme.colorScheme.primary,
             centered = true,
-            // larger cover→classification gap than the 8dp column rhythm, per the design
+            // larger cover→classification gap than the 8dp column rhythm
             modifier = Modifier.padding(top = 16.dp),
         )
 
@@ -435,7 +435,7 @@ private fun WideHeroIdentity(
         }
 
         // Stats — Added (accent) · Duration · Year · Rating, last in the identity column and
-        // recoloured to read on the colour band, per the design.
+        // recoloured to read on the colour band.
         StatsRow(
             rating = rating,
             duration = duration,

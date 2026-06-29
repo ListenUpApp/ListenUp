@@ -5,7 +5,7 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 
 /**
- * Room schema migration v17 → v18 — Playback-P1 syncable-domain landing.
+ * Room schema migration v17 → v18 — syncable-domain landing.
  *
  * `playback_positions` becomes a first-class syncable domain. The table gains
  * `revision` (monotonic server revision) and `deletedAt` (epoch-ms tombstone).

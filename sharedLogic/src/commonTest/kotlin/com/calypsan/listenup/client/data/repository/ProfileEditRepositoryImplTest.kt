@@ -223,7 +223,7 @@ class ProfileEditRepositoryImplTest :
         // ── Avatar upload (REST multipart, not RPC) ──────────────────────────────────────
 
         /*
-         * Regression guard for #592: the server returns 204 No Content on a successful avatar
+         * Regression guard: the server returns 204 No Content on a successful avatar
          * upload. The original avatarUploaderOf called `.body<ApiResponse<Unit>>()` on the
          * response, which tried to deserialize an empty body as JSON and threw, causing the
          * upload to report failure even though the server had accepted the image.

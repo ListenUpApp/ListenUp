@@ -12,7 +12,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 class DataLocalDbIsInternalRule :
     FunSpec({
         // Symbols that must stay public despite living in data.local.db (cross-module
-        // consumers documented in the spec's "Flip exceptions"). Empty: the flip is clean.
+        // consumers). Empty: the flip is clean.
         // `DownloadEntity` + `DownloadState` were reclaimed by internalizing the
         // `DownloadEnqueuer` seam — its sole cross-module binding (`:sharedUI` desktop's
         // no-arg `JvmDownloadEnqueuer`) moved into `:sharedLogic`'s `desktopDownloadModule`.

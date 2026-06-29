@@ -64,7 +64,7 @@ actual val DisplayFontFamily: FontFamily = GoogleSansDisplay
 
 /**
  * ListenUp typography — Material 3 Expressive scale on Google Sans Flex, matched to the design
- * system's weight ramp (`docs/auth-design-bundle/.../m3.css`):
+ * system's weight ramp:
  *
  *  - body **400**, title/label **600**, headline **700**, and the Expressive `*Emphasized` roles
  *    **800** for heroes, section headers, and big stat numbers.

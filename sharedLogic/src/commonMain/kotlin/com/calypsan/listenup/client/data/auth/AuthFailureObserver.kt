@@ -14,7 +14,7 @@ private val logger = KotlinLogging.logger {}
 /**
  * Watches the app-wide [ErrorBus] and turns a session-invalidating [AuthError]
  * into a soft logout, so a stale/invalid session lands the user on the login
- * screen instead of looping a generic error snackbar (issue #640).
+ * screen instead of looping a generic error snackbar.
  *
  * This is the single, transport-agnostic place that reacts to auth failure:
  * a 401 from any surface (REST, RPC, SSE) is typed as an [AuthError] at the

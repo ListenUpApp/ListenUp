@@ -40,8 +40,8 @@ private const val STOP_TIMEOUT_MS = 5_000L
  * Lightweight projection of a contributor as a merge-target candidate.
  *
  * Used by [ContributorEditViewModel.mergeCandidates] to populate the contributor
- * merge picker dialog. [bookCount] is a placeholder (always `0`) until a
- * per-contributor book-count query lands; the dialog hides it for now.
+ * merge picker dialog. [bookCount] is a placeholder (always `0`) — there is no
+ * per-contributor book-count query yet, so the dialog hides it.
  */
 data class ContributorCandidate(
     val id: ContributorId,

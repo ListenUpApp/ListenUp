@@ -43,7 +43,7 @@ class AbsBackupReaderTest :
                 inProgress.currentTimeSeconds shouldBe 1234.0
                 // duration 5000s → progress ≈ 0.2468
                 inProgress.progress shouldBe 1234.0 / 5000.0
-                // Real ABS offset form "2022-01-17 04:33:12.000 +00:00" → epoch millis (#537/#532).
+                // Real ABS offset form "2022-01-17 04:33:12.000 +00:00" → epoch millis.
                 inProgress.lastUpdateMs shouldBe 1_642_393_992_000L
             }
         }
@@ -82,7 +82,7 @@ class AbsBackupReaderTest :
         }
 
         test("real ABS offset timestamps survive to true epochs, not 1970 (the #532 stats path)") {
-            // Bug #532: imported listening stats stayed empty because session/progress timestamps in
+            // Regression: imported listening stats stayed empty because session/progress timestamps in
             // ABS's "2024-06-12 02:48:10.063 +00:00" form parsed to 0L → every listening_event landed
             // in 1970, outside the weekly window, with all streak dates collapsed onto one day. Guard
             // both the session (startedAt → stats minutes/streaks) and progress (sort key) paths.

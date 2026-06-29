@@ -8,8 +8,8 @@ import kotlinx.serialization.Serializable
  * zero-or-more [LibraryFolderSyncPayload] roots.
  *
  * Libraries are server-wide (cross-user) in the current single-user model.
- * `accessMode` and `createdByUserId` are forward-staged for the multi-user
- * phase; they are present on the wire today but not enforced.
+ * `accessMode` and `createdByUserId` are forward-staged for multi-user
+ * support; they are present on the wire today but not enforced.
  *
  * `metadataPrecedence` is the comma-separated source list that governs
  * which metadata source wins when multiple sources exist for the same field

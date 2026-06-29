@@ -19,7 +19,7 @@ import io.kotest.matchers.shouldBe
 /**
  * Pins the [ScanResultSummary] aggregator and human-readable log formatter
  * against deliberate combinations of [MetadataStatus]. The aggregator is
- * the single point where Phase 3 scan summaries are computed; the
+ * the single point where scan summaries are computed; the
  * formatter is the single point where they're rendered for operators.
  */
 class ScanSummaryAggregationTest :

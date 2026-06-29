@@ -14,10 +14,10 @@ import org.koin.dsl.module
 /**
  * Pins the per-Koin scoping of [SyncRegistry] — two independent Koin containers
  * must yield independent registries, so parallel `withTestApplication { }` blocks
- * (and Books-A's cross-domain Tags+Books tests) can't trample each other's
+ * (and cross-domain Tags+Books tests) can't trample each other's
  * registrations.
  *
- * Before this task, [SyncRoutes] was a process-wide `internal object` holding a
+ * Previously, [SyncRoutes] was a process-wide `internal object` holding a
  * static `ConcurrentHashMap`. The second `register("tags", …)` in a JVM run
  * would silently overwrite the first — invisible under serial test execution,
  * flaky under `kotest.parallelism > 1`. This test would have caught it.

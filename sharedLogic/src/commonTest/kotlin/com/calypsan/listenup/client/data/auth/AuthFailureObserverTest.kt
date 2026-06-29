@@ -28,7 +28,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Tests for [AuthFailureObserver] — the single place that converts a
  * session-invalidating [AuthError] surfaced on the [ErrorBus] into a soft logout,
- * driving navigation back to the login screen (issue #640).
+ * driving navigation back to the login screen.
  *
  * The observer collects a hot [kotlinx.coroutines.flow.SharedFlow], so the collector
  * is launched on an [UnconfinedTestDispatcher] — it subscribes eagerly, before the

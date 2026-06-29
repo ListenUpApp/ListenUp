@@ -448,7 +448,7 @@ private fun LinksCardContent(
         onValueChange = { onEvent(ContributorEditUiEvent.WebsiteChanged(it)) },
         label = "Website",
         placeholder = "https://...",
-        // A URL keyboard alone still autocorrects words and injects spaces (#617); disable text
+        // A URL keyboard alone still autocorrects words and injects spaces; disable text
         // assistance so URLs are typed verbatim.
         keyboardOptions =
             KeyboardOptions(

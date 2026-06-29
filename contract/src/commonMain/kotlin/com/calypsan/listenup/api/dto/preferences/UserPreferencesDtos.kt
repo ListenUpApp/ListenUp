@@ -20,7 +20,7 @@ data class UserPreferencesDto(
 
 /**
  * Partial update for playback preferences — every field is nullable; only non-null fields are merged
- * onto the caller's stored preferences (PATCH semantics, mirroring the Go reference).
+ * onto the caller's stored preferences (PATCH semantics).
  */
 @Serializable
 @SerialName("UpdateUserPreferencesRequest")

@@ -47,13 +47,13 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * Integration tests for the consolidated [NowPlayingViewModel] (W7 Phase E2.2.3).
+ * Integration tests for the consolidated [NowPlayingViewModel].
  *
- * Coverage scope (B targeted, 3 tests for Task 2):
+ * Coverage scope (B targeted, 3 tests):
  * - playBook flow (3): happy path with activate-before-seam ordering; offline error;
  *   generic prepare-null error.
  *
- * Uses [FakePlaybackManager] for the seam (W7 Phase E2.2.4 Task 1B) per the rubric's
+ * Uses [FakePlaybackManager] for the seam, following the
  * "fakes for seams" rule. The other deps are Mokkery-mocked as interfaces;
  * [SleepTimerManager] is a closed concrete class so a real instance is constructed
  * with a test-scoped [CoroutineScope] (its scope is unused by these tests since
@@ -170,14 +170,14 @@ class NowPlayingViewModelTest :
             Dispatchers.resetMain()
         }
 
-        // ========== lifecycle (W7 Phase E2.2.2 regression) ==========
+        // ========== lifecycle regression ==========
 
         test("init acquires the PlaybackController so MediaController connects") {
             val fixture = TestFixture()
 
             fixture.newVm()
 
-            // The W7 Phase E2.2.2 refactor mistakenly removed acquire/release from the
+            // A refactor mistakenly removed acquire/release from the
             // VM under the assumption that Koin-singleton lifetime obviated the call.
             // It does not — only acquire() triggers MediaControllerHolder.connect().
             // Without this call, every in-app playback command is a silent no-op.
@@ -367,7 +367,7 @@ class NowPlayingViewModelTest :
             runTest(testDispatcher) {
                 // Production [NowPlayingViewModel.seekToChapter] uses chapters.getOrNull(index)
                 // and returns when null — so out-of-range indices are a no-op (NOT clamped).
-                // This deviates from the Task 3 skeleton's "clamp to last/first" expectation;
+                // This deviates from an earlier "clamp to last/first" expectation;
                 // the test asserts production behavior.
                 val fixture = TestFixture()
                 every { fixture.playbackController.seekTo(any()) } returns Unit

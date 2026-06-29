@@ -10,7 +10,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
  *
  * Embedding `role` here means handlers don't need a DB hit to gate
  * admin-only operations — at the cost of a role change taking effect only
- * when the access token expires (≤15m). Acceptable tradeoff per the spec.
+ * when the access token expires (≤15m). An accepted tradeoff.
  */
 data class UserPrincipal(
     val userId: UserId,

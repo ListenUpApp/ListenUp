@@ -6,17 +6,17 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainAll
 
 /**
- * Konsist guards for the embeddedmeta package boundary (refinement spec §2.1):
+ * Konsist guards for the embeddedmeta package boundary:
  *
- *  1. Every domain type that crosses the wire (Phase 4 will return these on
- *     RPC service signatures) lives in commonMain. Domain types in a
+ *  1. Every domain type that crosses the wire — RPC service signatures return
+ *     these — lives in commonMain. Domain types in a
  *     server-only source set would force a wire-shape duplicate when the
  *     books domain migrates.
  *  2. Concrete `AudioFormatParser` implementations live under
  *     `com.calypsan.listenup.server.embeddedmeta.*` so the contributor
  *     doc's add-a-format flow has one canonical home.
  *  3. Every `AudioFormatParser` declares a non-empty `supports`. The
- *     runtime contract test (Task 40a Step 2) is the real safety net for
+ *     runtime contract test is the real safety net for
  *     this — Konsist's heuristic catches the obvious `setOf()` mistake
  *     but is structurally limited.
  */

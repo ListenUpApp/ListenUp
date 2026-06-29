@@ -5,8 +5,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * One audio file in playback order, with its derived position metadata.
- * Phase 2 only fills track/disc from filename or parent folder; embedded-tag
- * sources land in Phase 3 and use [TrackNumberSource.METADATA].
+ * Track/disc are currently filled from filename or parent folder only; embedded-tag
+ * sources are future work and use [TrackNumberSource.METADATA].
  *
  * [durationMs] is the track's own playable length, parsed from embedded metadata
  * for multi-file books (where it is needed to sum the book's total duration and to

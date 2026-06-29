@@ -6,7 +6,7 @@ package com.calypsan.listenup.client.share
  * The share domain is **developer-owned** infrastructure — a tiny static redirector that
  * lets a tapped link open the app or fall back to the install page. It is never a
  * self-hosted server's address, and (because the payload rides in the URL fragment) it
- * never learns what was shared. See `docs/superpowers/specs/2026-06-26-sharing-design.md`.
+ * never learns what was shared.
  */
 object ShareLinkConstants {
     /** Host of the static share-link redirector. App/Universal Links verify against this domain. */

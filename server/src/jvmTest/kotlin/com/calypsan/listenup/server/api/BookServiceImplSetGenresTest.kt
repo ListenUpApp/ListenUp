@@ -36,7 +36,7 @@ import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
 
 /**
- * Integration tests for [BookServiceImpl.setBookGenres]. Covers the spec Path 2
+ * Integration tests for [BookServiceImpl.setBookGenres]. Covers the
  * contract: 200-input cap, BookError.NotFound for unknown book, BookError.InvalidInput
  * for unknown or tombstoned genreIds (NO auto-create), atomic replace semantics, and
  * re-upsert side-effect.

@@ -37,8 +37,8 @@ private val ROUND_TRIP_TIMEOUT = 30.seconds
 private val POLL_INTERVAL = 100.milliseconds
 
 /**
- * Tier 3 E2E — the **security proof** for the admin `setBookCollections` write path
- * (Collections-2b Task 6). Proves end-to-end that when an admin replace-sets a book's
+ * Tier 3 E2E — the **security proof** for the admin `setBookCollections` write path.
+ * Proves end-to-end that when an admin replace-sets a book's
  * collection membership, the per-user `AccessChanged` control signal flows through the
  * member's real client [SyncEngine] and reconciles their Room: a member who LOSES their
  * access path prunes the book; a member who GAINS one receives it.

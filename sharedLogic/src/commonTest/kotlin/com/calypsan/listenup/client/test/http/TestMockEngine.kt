@@ -26,7 +26,7 @@ import io.ktor.http.headersOf
  * ```
  *
  * Source: Ktor client testing guide — https://ktor.io/docs/client-testing.html.
- * See Finding 12 D3 for the motivation (zero MockEngine usage at audit time).
+ * Motivation: the codebase previously had no MockEngine usage.
  */
 fun testMockEngine(configure: TestMockEngineBuilder.() -> Unit): MockEngine {
     val builder = TestMockEngineBuilder()

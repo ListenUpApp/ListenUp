@@ -5,7 +5,7 @@ import kotlinx.io.files.Path
 /**
  * Reads a metadata sidecar file into [SidecarMetadata]. Sidecars are read-only
  * enrichment inputs — a parser MUST NOT write to disk. (The Konsist rule
- * `SidecarParsersAreReadOnly`, added later in Books-A, enforces this.)
+ * `SidecarParsersAreReadOnly` enforces this.)
  *
  * A parser declares the filenames and/or extensions it handles. The
  * [com.calypsan.listenup.server.scanner.pipeline.Analyzer] routes each

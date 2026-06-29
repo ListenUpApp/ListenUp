@@ -131,7 +131,7 @@ class ListeningEventSyncDomainHandlerTest :
             }
         }
 
-        // ── #532 regression: getUserId() must be used, not authState snapshot ────────────────
+        // ── Regression: getUserId() must be used, not authState snapshot ────────────────
 
         test("synced event is stamped with getUserId(), not blank, while authState is Initializing") {
             // authState is still Initializing (startup race), but getUserId() has the persisted id.

@@ -256,10 +256,10 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 driver = serverDriver,
                 genreRepo = serverRepos.genreRepo,
             )
-        // Books-C1 Task 30 needs `ContributorService` for the deleteContributor
-        // cascade test. The reindexer requires a [BookTagRepository] + [TagRepository]
+        // The deleteContributor cascade test needs `ContributorService`. The reindexer
+        // requires a [BookTagRepository] + [TagRepository]
         // pair; both are already constructed inside `buildServerRepositories` (tagRepo
-        // for the Tags-domain tests), so we just instantiate `BookTagRepository` here.
+        // for the Tags-domain tests), so only `BookTagRepository` is instantiated here.
         val bookSearchReindexer =
             BookSearchReindexer(
                 bookTagRepository = BookTagRepository(serverSqlDb, bus, syncRegistry),
@@ -274,7 +274,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 reindexer = bookSearchReindexer,
                 sqlDb = serverSqlDb,
             )
-        // Books-C2 Task 25 needs `SeriesService` for the mergeSeries e2e test.
+        // The mergeSeries e2e test needs `SeriesService`.
         val seriesService: SeriesService =
             createSeriesService(
                 seriesRepo = serverRepos.seriesRepo,
@@ -630,7 +630,7 @@ private fun registerClientSyncHandlers(
  * only seeds a `libraries` DB row — it is never read from the filesystem on the sync write
  * path — so a throwaway temp dir is sufficient.
  *
- * The P2 stats domain requires [UserStatsUpdater], which needs [UserStatsRepository] at
+ * The stats domain requires [UserStatsUpdater], which needs [UserStatsRepository] at
  * runtime (write path) and is needed by [ListeningEventRepository] at construction. The
  * `lateinit` trick from [SyncTestApplication] breaks the circular reference: the updater
  * lambda captures the `lateinit var` that is assigned immediately after construction.
@@ -680,7 +680,7 @@ private fun buildServerRepositories(
     val playbackPositionRepo =
         PlaybackPositionRepository(serverSqlDb, bus, registry, activeSessionRepo = activeSessionRepo)
 
-    // P2: break the UserStatsRepository ↔ UserStatsUpdater cycle with a lateinit, matching
+    // Break the UserStatsRepository ↔ UserStatsUpdater cycle with a lateinit, matching
     // the pattern in SyncTestApplication.
     lateinit var statsUpdater: UserStatsUpdater
     val userStatsRepo =

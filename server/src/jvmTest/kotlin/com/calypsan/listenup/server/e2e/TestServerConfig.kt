@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
  *
  * Production [ServerConfig] is `SettingsRepositoryImpl` reading from
  * `SecureStorage` plus mDNS rediscovery. None of that machinery is relevant
- * to F12, which is exercising the contract round-trip across a real wire.
+ * to these end-to-end tests, which exercise the contract round-trip across a real wire.
  */
 internal class TestServerConfig(
     private val baseUrl: String,

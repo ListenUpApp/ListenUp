@@ -44,7 +44,7 @@ import kotlin.time.Clock
  * `bitrate`/`sampleRate`/`channels` come from `embedded.audioStream`; secondary
  * files leave them null (multi-file per-track audio metadata is a non-goal).
  *
- * `cover` is left null — cover hashing is a later task; the substrate-owned
+ * `cover` is left null — cover hashing is handled separately; the substrate-owned
  * `revision` / `updatedAt` / `createdAt` placeholders are overwritten by
  * `upsert`.
  *

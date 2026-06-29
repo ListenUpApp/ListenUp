@@ -174,7 +174,7 @@ class ListeningEventDaoTest :
             }
         }
 
-        // ── #532 repair ────────────────────────────────────────────────────────────────────────
+        // ── Blank-userId repair ───────────────────────────────────────────────────────────────
 
         test("reassignBlankUserId re-stamps blank rows and leaves non-blank rows untouched") {
             val db = createInMemoryTestDatabase()

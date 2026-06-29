@@ -815,7 +815,7 @@ private fun PendingUserRow(
         subtitle = user.email,
         showDivider = showDivider,
         // A pending registrant has no server-side public profile yet, so drive initials from their
-        // name (#625) rather than the generic add-person glyph / an indefinite loading circle.
+        // name rather than the generic add-person glyph / an indefinite loading circle.
         leading = { UserAvatar(userId = user.id, size = AvatarSize.Medium, fallbackName = name) },
     ) {
         if (isApproving || isDenying) {

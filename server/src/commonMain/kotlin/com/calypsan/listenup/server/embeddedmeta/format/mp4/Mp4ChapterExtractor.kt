@@ -11,17 +11,16 @@ import kotlinx.io.IOException
  *
  * - **Nero `chpl`** (`moov.udta.chpl`): a flat list of `(start-100ns, title)`
  *   entries. End times are derived as `next.startMs - 1` with the last
- *   chapter clamped to the file's `durationMs`. Layout matches the Go
- *   reference `chapters.go`: `version(1) + flags(3) + reserved(4) +
- *   count(1) + per-entry`.
+ *   chapter clamped to the file's `durationMs`. Header layout is
+ *   `version(1) + flags(3) + reserved(4) + count(1) + per-entry`.
  * - **Apple QuickTime text-track** (`tref.chap` → text-track sample table):
  *   the audio track's `tref.chap` references a chapter `trak`, whose `mdia/
  *   minf/stbl` carries `stts` (per-sample timing), `stsz` (sample sizes),
  *   `stco` / `co64` (chunk offsets). Each text sample is `length(2 BE) +
  *   UTF-8 title`. Single-chunk layouts only — multi-chunk text tracks would
- *   need `stsc` parsing, which the Go reference also defers.
+ *   need `stsc` parsing, which this extractor does not implement.
  *
- * Per spec §8.4 precedence rule, callers run [readNeroChpl] first; if it
+ * By the precedence rule, callers run [readNeroChpl] first; if it
  * yields any chapters, the Apple text-track path is skipped.
  *
  * MagicNumber suppressed: Nero `chpl` and Apple QuickTime text-track atom field
@@ -155,8 +154,8 @@ internal object Mp4ChapterExtractor {
 
         if (sampleStartsMs.isEmpty() || sampleSizes.isEmpty() || chunkOffsets.isEmpty()) return emptyList()
 
-        // Build absolute sample offsets. Single-chunk layout (the only one we
-        // emit from the DSL and the only one Go's parser handles fully):
+        // Build absolute sample offsets. Single-chunk layout (the only one the
+        // fixtures emit, and the only one this extractor handles fully):
         // sample[i] = chunk[0] + sum(sampleSize[0..i-1]).
         val sampleOffsets = LongArray(sampleSizes.size)
         if (chunkOffsets.size == 1) {
@@ -166,8 +165,8 @@ internal object Mp4ChapterExtractor {
                 cursor += sampleSizes[i]
             }
         } else {
-            // Multi-chunk fallback — assume 1:1 mapping (Go reference does
-            // the same simplification, with the same caveat).
+            // Multi-chunk fallback — assume a 1:1 mapping. A deliberate simplification
+            // with the caveat that genuinely multi-chunk text tracks would be misread.
             for (i in 0 until minOf(chunkOffsets.size, sampleSizes.size)) {
                 sampleOffsets[i] = chunkOffsets[i]
             }

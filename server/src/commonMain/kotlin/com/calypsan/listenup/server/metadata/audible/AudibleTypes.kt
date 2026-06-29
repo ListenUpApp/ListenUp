@@ -19,8 +19,7 @@ import kotlinx.serialization.json.floatOrNull
 /**
  * Handles Audible API fields that may arrive as either a JSON number (`4.8`) or a
  * JSON string (`"4.8"`). The rating's `display_average_rating` sub-field is the
- * observed trigger; Go's reference uses a custom `UnmarshalJSON` for the same
- * reason (see `client.go` → `FlexibleFloat32`).
+ * observed trigger.
  */
 @Serializable(with = FlexibleFloat32Serializer::class)
 @JvmInline
@@ -57,7 +56,7 @@ internal object FlexibleFloat32Serializer : KSerializer<FlexibleFloat32> {
 // ─── Search params ────────────────────────────────────────────────────────────
 
 /**
- * Parameters for an Audible catalog search. Mirrors Go's `SearchParams`.
+ * Parameters for an Audible catalog search.
  *
  * Any combination of fields may be set; at least one should be non-null for a
  * meaningful response.
@@ -77,9 +76,8 @@ data class SearchParams(
 }
 
 // ─── Raw API response types ───────────────────────────────────────────────────
-// These types mirror the Audible JSON wire format exactly. Field names match
-// the Go `rawProduct`, `rawContributor`, `rawSeries`, `rawRating`, and
-// `rawChapterInfo` structs in `client.go`.
+// These types mirror the Audible JSON wire format exactly: the raw product,
+// contributor, series, rating, and chapter-info shapes returned by the catalog API.
 
 /** A contributor (author or narrator) reference as returned in product listings. */
 @Serializable
@@ -294,8 +292,7 @@ data class AudibleChapter(
  *
  * Unlike book metadata (which uses the catalog JSON API), contributor data is
  * fetched by scraping `www.audible.{tld}/author/x/{asin}` — Audible's official
- * API no longer returns contributor images or biographies. Ported from Go's
- * `ContributorProfile` in `server/internal/metadata/audible/types.go`.
+ * API no longer returns contributor images or biographies.
  *
  * `@Serializable` so [com.calypsan.listenup.server.services.MetadataService]
  * can cache this value as JSON in `MetadataCacheRepository`.

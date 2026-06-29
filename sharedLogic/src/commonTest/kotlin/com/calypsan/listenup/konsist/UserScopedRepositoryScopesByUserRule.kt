@@ -33,8 +33,8 @@ import io.kotest.matchers.collections.shouldBeEmpty
  *   naming convention must be audited manually when they are introduced.
  *
  * **Current state.**
- * As of the initial roll-out (Playback-P1 Task 6), no production per-user
- * repository exists — `PlaybackPositionRepository` arrives in Task 8. The rule
+ * No production per-user repository exists yet — `PlaybackPositionRepository`
+ * will be the first. The rule
  * passes vacuously today and fires the moment a mis-declared per-user repository
  * is added.
  */

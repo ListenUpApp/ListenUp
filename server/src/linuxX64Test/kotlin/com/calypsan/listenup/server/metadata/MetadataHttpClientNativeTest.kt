@@ -22,10 +22,10 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 
 /**
- * Native capability proof for the metadata HTTP client (Phase 5-4c): `MetadataModule` wires an
+ * Native capability proof for the metadata HTTP client: `MetadataModule` wires an
  * `HttpClient(CIO)` with ContentNegotiation to call Audible/iTunes. This pins that a Kotlin/Native
  * CIO client can perform a GET **and deserialize a JSON body via ContentNegotiation** — the exact
- * path the scrapers rely on (#913's multipart test proved client request/response but not the
+ * path the scrapers rely on (an earlier multipart test proved client request/response but not the
  * client-side JSON ContentNegotiation seam).
  *
  * `kotlin.test.@Test` + `runBlocking`, `Unit` body, real `embeddedServer(CIO)` over an ephemeral port.

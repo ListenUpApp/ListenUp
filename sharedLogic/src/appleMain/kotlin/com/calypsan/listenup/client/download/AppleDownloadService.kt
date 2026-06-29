@@ -62,18 +62,15 @@ private const val BYTES_PER_MEGABYTE = 1_000_000
 /**
  * iOS implementation of [DownloadService] using NSURLSession background downloads.
  *
- * **W10 carveout (W8 Phase B):** this class still writes directly to
+ * **Direct-DAO carveout:** this class still writes directly to
  * [com.calypsan.listenup.client.data.local.db.DownloadDao] via the `downloadDao` constructor
- * parameter — Sync Engine Rule 5 violation, deferred to W10. The Android side migrated to inject
- * [com.calypsan.listenup.client.domain.repository.DownloadRepository] in W8 Phase B, but iOS is
- * part of W10 (iOS Player Adoption) which owns the iOS migration onto shared Kotlin VMs and
- * shared repositories. See `docs/superpowers/specs/2026-05-01-w8-handoff-design.md` § Phase B
- * "AppleDownloadService keeps its current DAO writes" and § Out of scope ("iOS download adoption
- * — deferred to W10").
+ * parameter — a Sync Engine Rule 5 violation, not yet migrated. The Android side already injects
+ * [com.calypsan.listenup.client.domain.repository.DownloadRepository]; the iOS migration onto
+ * shared Kotlin VMs and shared repositories is still pending.
  *
- * For Phase B specifically, this class's interface compliance was updated:
- * - [downloadBook] returns [com.calypsan.listenup.api.result.AppResult]<[com.calypsan.listenup.client.domain.model.DownloadOutcome]> instead of the legacy `DownloadResult`.
- * - [observeBookStatus] aggregates via the new sealed [com.calypsan.listenup.client.domain.model.BookDownloadStatus] hierarchy.
+ * This class's interface complies with [DownloadService] as follows:
+ * - [downloadBook] returns [com.calypsan.listenup.api.result.AppResult]<[com.calypsan.listenup.client.domain.model.DownloadOutcome]>.
+ * - [observeBookStatus] aggregates via the sealed [com.calypsan.listenup.client.domain.model.BookDownloadStatus] hierarchy.
  *
  * The internal DAO writes remain untouched.
  *
@@ -83,7 +80,7 @@ private const val BYTES_PER_MEGABYTE = 1_000_000
  * codec the server can serve (AAC, MP3, FLAC, ALAC, Opus), so negotiation is unnecessary — the
  * download URL points directly at the original file. **If a future server adds a codec iOS does
  * not natively support, this class requires codec negotiation matching the Android worker's
- * pattern.** Closes Finding 08 D6 (principled asymmetry, not silent omission).
+ * pattern.** This is a principled asymmetry, not a silent omission.
  */
 @OptIn(ExperimentalTime::class)
 class AppleDownloadService internal constructor(
@@ -377,11 +374,11 @@ class AppleDownloadService internal constructor(
                 .mapValues { (bookId, files) -> aggregateBookDownloadStatus(bookId, files) }
         }
 
-    // Inline copy of DownloadManager.aggregateStatus until Task 8 moves the canonical version
-    // into DownloadRepository. iOS keeps its own copy through W10 (deferred carveout per W8 design).
+    // Inline copy of DownloadManager.aggregateStatus; the canonical version has not yet
+    // moved into DownloadRepository, and iOS keeps its own copy.
     // Known parity gap with Android's aggregator: does NOT filter DownloadState.CANCELLED from
-    // activeDownloads. This gap now reaches the interface via observeAllStatuses (W8 Phase E D11) —
-    // when a cross-book consumer arrives before W10 closes this carveout, fix here first or it
+    // activeDownloads. This gap now reaches the interface via observeAllStatuses —
+    // when a cross-book consumer arrives, fix here first or it
     // will mis-report aggregate status on iOS.
     private fun aggregateBookDownloadStatus(
         bookId: String,

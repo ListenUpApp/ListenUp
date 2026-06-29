@@ -21,8 +21,8 @@ import kotlinx.coroutines.flow.update
 /**
  * In-memory fake implementing [DownloadRepository] for seam-level tests.
  *
- * Per project memory `feedback_fakes_for_seams.md` — validated test pattern is hand-rolled fakes
- * implementing the seam interface. State lives in a [MutableStateFlow] so observers see updates.
+ * The validated test pattern is hand-rolled fakes implementing the seam interface.
+ * State lives in a [MutableStateFlow] so observers see updates.
  *
  * Optional [enqueueFailure] lambda lets tests inject failure for [enqueueForBook] (returns the
  * lambda's value when set; `AppResult.Success(DownloadOutcome.Started)` when null).

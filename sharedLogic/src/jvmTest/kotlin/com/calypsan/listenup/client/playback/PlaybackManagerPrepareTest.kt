@@ -41,7 +41,7 @@ import kotlinx.coroutines.test.runTest
  *
  * No actual audio plays — this is a data-layer-to-PlaybackManager integration
  * test. The acceptance test for actual playback is a manual checkpoint on a
- * real device before push (see plan Task 9).
+ * real device before push.
  */
 class PlaybackManagerPrepareTest :
     FunSpec({

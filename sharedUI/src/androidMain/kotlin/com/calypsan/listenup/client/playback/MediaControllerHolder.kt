@@ -27,7 +27,7 @@ private val logger = KotlinLogging.logger {}
  * Singleton holder for the MediaController connection.
  *
  * NowPlayingViewModel consumes this controller via the PlaybackController seam
- * (PlayerViewModel was deleted in W7 Phase E2.2.3). The holder also owns the
+ * (there is no longer a separate PlayerViewModel). The holder also owns the
  * Player.Listener and position polling that drive PlaybackStateWriter on Android.
  *
  * The holder manages the lifecycle through reference counting:

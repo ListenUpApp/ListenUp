@@ -37,11 +37,10 @@ private val logger = KotlinLogging.logger {}
  * already pending will not be enqueued twice. A worker coroutine launched
  * by the constructor drains the queue, taking the mutex for each item.
  *
- * **Plan deviation:** the plan literal sketched `Channel.CONFLATED` for the
- * incremental queue. That collapses *all* traffic globally — when two
- * distinct book roots fire in quick succession the second clobbers the
- * first. We use an atomicfu-synchronized set for per-path dedup with an
- * unbounded queue, which gives the test-stated semantics ("100 triggers
+ * **Why not `Channel.CONFLATED`?** A conflated channel collapses *all* traffic
+ * globally — when two distinct book roots fire in quick succession the second
+ * clobbers the first. Instead, an atomicfu-synchronized set does per-path dedup
+ * over an unbounded queue, which gives the wanted semantics ("100 triggers
  * for the same path collapse to ≤ 1") *without* dropping events for
  * unrelated paths.
  *

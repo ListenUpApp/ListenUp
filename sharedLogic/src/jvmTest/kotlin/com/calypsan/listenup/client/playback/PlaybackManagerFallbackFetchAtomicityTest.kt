@@ -30,7 +30,7 @@ import kotlinx.coroutines.test.runTest
  * also drives the RPC on-demand fetch. The handler owns the atomicity guarantee (rollback behaviour
  * is exercised in [BookRepositoryImplTest]); this test confirms the delegation wiring.
  *
- * Replaced the prior `bookIngestPort.upsertWithAudioFiles` path in the #746 fix: a single decode →
+ * Replaced the prior `bookIngestPort.upsertWithAudioFiles` path: a single decode →
  * persist seam, no parallel mapping that can drift from the contract.
  */
 class PlaybackManagerFallbackFetchAtomicityTest :

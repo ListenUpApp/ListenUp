@@ -4,9 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 
 /**
- * A fake ViewModel used by Phase A boundary tests. Records onCleared() and the
- * SavedStateHandle observed at construction time. Hand-rolled per project memory
- * feedback_fakes_for_seams.md.
+ * A fake ViewModel for boundary tests. Records onCleared() and the
+ * SavedStateHandle observed at construction time. Hand-rolled as a fake with real
+ * in-memory state rather than a mock.
  */
 class FakeNavViewModel(
     val savedStateHandle: SavedStateHandle = SavedStateHandle(),

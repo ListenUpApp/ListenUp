@@ -50,7 +50,7 @@ internal data class AbsProgress(
  * actual seconds, used to backfill ListeningUp listening-event history.
  *
  * [itemId] is the ABS `mediaItemId` (= `books.id` for `mediaItemType = 'book'`), so it joins to
- * [AbsItem.id] and resolves through the same Phase-2 matcher path as [AbsProgress].
+ * [AbsItem.id] and resolves through the same matcher path as [AbsProgress].
  * [startPositionSeconds]/[endPositionSeconds] are the playhead positions at session start/end.
  * [timeListeningSeconds] is ABS's authoritative actually-listened span (NOT the wall-clock duration).
  * [startedAtMs] is epoch **millis**, parsed from the ISO-8601 `createdAt` text column.

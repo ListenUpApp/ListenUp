@@ -40,7 +40,7 @@ class MaintenanceGateTest :
                 // The wire format is {"type":"BackupError.RestoreInProgress",...}; the
                 // BACKUP_RESTORE_IN_PROGRESS value is the `code` constant but is a body
                 // property not a constructor param, so the @SerialName discriminator is
-                // what the plan's assertion should match.
+                // what this test asserts against.
                 state.enter()
                 val blocked = client.get("/ping")
                 blocked.status shouldBe HttpStatusCode.ServiceUnavailable

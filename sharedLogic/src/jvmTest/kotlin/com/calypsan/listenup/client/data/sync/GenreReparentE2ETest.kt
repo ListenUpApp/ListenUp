@@ -16,7 +16,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * subtree node, and the client engine applies each event into Room so paths
  * and depths reflect the new parent.
  *
- * Also covers the spec acceptance criterion #5 — the `/fic` vs `/fiction`
+ * Also covers the `/fic` vs `/fiction`
  * LIKE-collision: moving a genre whose path is a prefix of another genre's path
  * must not touch the other subtree.
  */

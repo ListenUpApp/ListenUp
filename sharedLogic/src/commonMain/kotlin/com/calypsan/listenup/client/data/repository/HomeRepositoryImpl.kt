@@ -90,7 +90,7 @@ internal class HomeRepositoryImpl(
                         0f
                     }
 
-                // Derive finished state from position vs duration (#204, #208)
+                // Derive finished state from position vs duration
                 // A book is finished if position >= duration OR (flag set AND near-complete)
                 val effectivelyFinished =
                     book.duration > 0 && (
@@ -150,7 +150,7 @@ internal class HomeRepositoryImpl(
      * @return Flow emitting list of [ContinueListeningItem] whenever positions or books change
      */
     override fun observeContinueListening(limit: Int): Flow<List<ContinueListeningItem>> =
-        // Push the sort + limit + isFinished=0 filter to SQL (Finding 09). Room still
+        // Push the sort + limit + isFinished=0 filter to SQL. Room still
         // re-emits on any row change, so the Home shelf stays reactive without
         // pulling every position to the client.
         playbackPositionDao

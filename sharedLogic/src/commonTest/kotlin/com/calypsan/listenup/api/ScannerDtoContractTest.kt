@@ -23,7 +23,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.serialization.encodeToString
 
 /**
- * Round-trip every Phase 2 scanner DTO + sealed variant through `contractJson`.
+ * Round-trip every scanner DTO + sealed variant through `contractJson`.
  * This is the contract regression net — any drift in polymorphic discriminator
  * or default-value handling fails here before any pipeline code runs.
  */

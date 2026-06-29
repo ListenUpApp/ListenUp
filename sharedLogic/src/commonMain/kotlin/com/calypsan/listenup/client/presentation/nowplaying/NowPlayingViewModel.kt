@@ -57,7 +57,7 @@ private val logger = KotlinLogging.logger {}
  *
  * All command-side operations route through [PlaybackController].
  *
- * Lifecycle: Bound as a Koin `single` (per W7 Phase E2.2.2) — survives recomposition
+ * Lifecycle: Bound as a Koin `single` — survives recomposition
  * and lives for the process lifetime. `init { playbackController.acquire() }` establishes
  * the MediaController connection on first resolution and holds it for the process;
  * `onCleared` never fires, so a matching `release()` would be dead code. The

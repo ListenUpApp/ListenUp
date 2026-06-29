@@ -94,7 +94,7 @@ class BookCoverUploadRouteTest :
                         }
                     uploadResponse.status shouldBe HttpStatusCode.NoContent
 
-                    // Cover is now served at the Go-era client URL.
+                    // Cover is now served at the client cover URL.
                     val serveResponse =
                         client.get("/api/v1/covers/b1") {
                             bearerAuth(token)

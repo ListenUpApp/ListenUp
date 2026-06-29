@@ -28,7 +28,7 @@ private const val OPERATION_TIMEOUT_SECONDS = 30
  * StreamError surfacing is covered at the dispatcher unit-test layer
  * (`SyncEventDispatcherTest`); piping a `StreamError` frame through the live
  * SSE transport is timing-fragile and adds no extra coverage. Local-first
- * echo and CursorStale-fallback e2e paths are deferred to followups —
+ * echo and CursorStale-fallback e2e paths are deferred —
  * see `RecordingTagSyncDomainHandler` for the seam they'll plug into.
  */
 class ClientSyncEngineE2ETest :

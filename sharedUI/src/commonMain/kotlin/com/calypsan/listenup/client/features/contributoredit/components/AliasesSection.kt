@@ -44,7 +44,7 @@ import org.jetbrains.compose.resources.stringResource
  * dispatches the unmerge RPC; the SSE event eventually removes the alias from this
  * list, which causes the parent screen to re-render.
  *
- * Per Books-C2 design: aliases are merge/unmerge-only. There is no "add alias"
+ * By design, aliases are merge/unmerge-only. There is no "add alias"
  * affordance — aliases appear only as a side effect of `mergeContributors`. The
  * [onMergeClick] button opens the merge flow; when [aliases] is empty, a hint
  * replaces the chip row so the section still reads as a field.

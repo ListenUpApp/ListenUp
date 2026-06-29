@@ -13,8 +13,7 @@ import kotlinx.rpc.annotations.Rpc
  *
  * In the single-library model there is exactly one library; all operations target
  * it without requiring a library id. Manages the library's root folders (add,
- * remove, scan) and provides onboarding helpers ([getSetupStatus], [browseFilesystem])
- * that replace the legacy `SetupApiContract` REST surface.
+ * remove, scan) and provides onboarding helpers ([getSetupStatus], [browseFilesystem]).
  *
  * The library is server-wide (cross-user). All folder-mutating methods
  * ([addFolder], [removeFolder], [scanFolder], [scanLibrary]) and the
@@ -51,8 +50,7 @@ interface LibraryAdminService {
      * Returns the current setup status — whether the server needs onboarding
      * ([SetupStatus.needsSetup] = `true` when THE library has no folders yet).
      *
-     * Migrates the legacy `SetupApiContract.getLibraryStatus` capability into the
-     * RPC surface. Clients use this to decide whether to show the onboarding
+     * Clients use this to decide whether to show the onboarding
      * wizard on first launch.
      *
      * Open to any authenticated caller — drives onboarding before an admin exists.
@@ -69,9 +67,6 @@ interface LibraryAdminService {
      * Returns an empty list when [path] has no sub-directories. Returns
      * [com.calypsan.listenup.api.error.LibraryError.InvalidPath] when [path] does
      * not exist or is not readable.
-     *
-     * Migrates the legacy `SetupApiContract.listDirectory` capability into the
-     * RPC surface.
      *
      * Admin-only — non-admins receive [com.calypsan.listenup.api.error.AuthError.PermissionDenied].
      */

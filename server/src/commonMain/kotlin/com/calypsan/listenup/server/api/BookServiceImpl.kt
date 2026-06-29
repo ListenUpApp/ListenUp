@@ -317,7 +317,7 @@ internal class BookServiceImpl(
         val current = repo.findById(id) ?: return bookNotFound(id)
 
         // Validate every input genre exists and is live BEFORE the relink. Unknown ids surface as
-        // BookError.InvalidInput per spec (no auto-create). One bulk read replaces the per-input
+        // BookError.InvalidInput (no auto-create). One bulk read replaces the per-input
         // findById storm; the in-order membership check keeps the first-offender (input order) error
         // byte-identical. genreRepo.findLiveIds is a suspend read, so the validation runs before
         // opening the (non-suspend) SQLDelight relink transaction.

@@ -71,7 +71,7 @@ package com.calypsan.listenup.server.absimport
  *   they are real FK columns on the table. We read `userId`.
  * - **Item FK:** like `mediaProgresses`, a `mediaItemType = 'book'` session keys the item via
  *   `mediaItemId = books.id`, so [AbsModels.AbsSession.itemId] correlates against the same key the
- *   Phase-2 matcher resolves (`books.id`). Podcast sessions (`mediaItemType = 'podcastEpisode'`) are
+ *   matcher resolves (`books.id`). Podcast sessions (`mediaItemType = 'podcastEpisode'`) are
  *   excluded by the `WHERE mediaItemType = 'book'` filter.
  * - **ASSUMED — no playback-rate column:** the model defines NO `playbackRate`/`playbackSpeed`
  *   column, so the reader cannot recover the speed; it defaults to `1.0`. Flagged for verification

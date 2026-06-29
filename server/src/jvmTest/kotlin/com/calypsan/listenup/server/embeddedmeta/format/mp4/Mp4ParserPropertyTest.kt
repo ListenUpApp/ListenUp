@@ -31,7 +31,7 @@ import kotlinx.coroutines.runBlocking
  * Generators are intentionally narrow — only inputs that round-trip cleanly
  * through the encoder/decoder pair are covered. ASCII-only text avoids
  * trailing-space ambiguity (the parser strips trailing ASCII spaces from
- * tag values per the Go reference's convention) and keeps the focus on
+ * tag values) and keeps the focus on
  * parser-side bugs.
  */
 class Mp4ParserPropertyTest :

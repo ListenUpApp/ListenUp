@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.result.AppResult
 
 /**
- * Built-in genre normalization — ports Go's `internal/genre/aliases.go`.
+ * Built-in genre normalization.
  *
  * Resolves a raw scanner genre string to canonical taxonomy slug(s) via a baked-in
  * alias map (Audible's category taxonomy + common variations). This is the AUTO path;

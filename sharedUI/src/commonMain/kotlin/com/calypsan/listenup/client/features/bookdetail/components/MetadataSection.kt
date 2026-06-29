@@ -59,7 +59,7 @@ fun StatsRow(
         horizontalArrangement = horizontalArrangement,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Order per the design: Added (accent) → Duration → Year, with Rating last when present.
+        // Order: Added (accent) → Duration → Year, with Rating last when present.
         addedAt?.let { timestamp ->
             StatChip(
                 icon = { Icon(Icons.Default.LibraryAdd, null, Modifier.size(16.dp)) },

@@ -11,7 +11,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * `propagateExceptionFinalResort`, which **terminates the process** — so on iOS/macOS a single
  * transient failure in a fire-and-forget `launch` on an unguarded scope crashes the whole app (JVM
  * merely logs it). `appCoroutineExceptionHandler` logs the throwable and lets the app keep running.
- * The handler was added app-wide in #728, but a scope created without it silently reopens the crash
+ * The handler is installed app-wide, but a scope created without it silently reopens the crash
  * class — this rule blocks that regression (its discovery already caught the missed macOS scope).
  *
  * The check is intentionally coarse — file-level text presence — because the scope constructions live

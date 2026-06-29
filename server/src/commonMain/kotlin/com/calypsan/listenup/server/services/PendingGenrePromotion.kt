@@ -11,9 +11,9 @@ private val logger = KotlinLogging.logger {}
  * One-time, idempotent migration of the legacy `pending_book_genres` backlog into
  * live genres.
  *
- * Earlier phases stopped *writing* the pending queue (scan/apply now auto-create
+ * The scan/apply paths no longer *write* the pending queue (they auto-create
  * live genres directly), but a user's existing library still carries rows from
- * before the change. This promotion drains that backlog so the current library
+ * before that change. This promotion drains that backlog so the current library
  * lights up without a curator having to map every string by hand.
  *
  * For each book with pending rows it resolves every raw string through
@@ -27,8 +27,8 @@ private val logger = KotlinLogging.logger {}
  * `insertIfAbsent`, so re-running never duplicates links.
  *
  * Runs once on boot after migrations + genre seeding. Does NOT drop the
- * `pending_book_genres` table — that's a later cleanup phase; this only drains
- * its rows.
+ * `pending_book_genres` table — dropping it is a separate cleanup; this only
+ * drains its rows.
  */
 internal class PendingGenrePromotion(
     private val db: ListenUpDatabase,

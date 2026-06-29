@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
  * [com.calypsan.listenup.client.data.local.db.ListeningEventDao] directly
  * (Stats, Leaderboard) — so those callers can migrate through this interface later.
  *
- * Listening-event writes are owned exclusively by the canonical P2 recording path
+ * Listening-event writes are owned exclusively by the canonical recording path
  * ([com.calypsan.listenup.client.playback.ListeningEventRecorder]); this interface
  * exposes no write method.
  *

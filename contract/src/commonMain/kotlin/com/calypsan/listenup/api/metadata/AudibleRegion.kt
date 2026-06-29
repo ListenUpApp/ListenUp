@@ -12,11 +12,6 @@ import kotlinx.serialization.Serializable
  *
  * Server-specific routing details (API hostname, locale cookies) live in
  * `:server`'s `AudibleRegionConfig` extension to keep the contract lean.
- *
- * Ported from Go at `server/internal/metadata/audible/types.go`. Regions match
- * exactly — no extras, no omissions. The client-side `AudibleRegion` enum
- * previously defined in `sharedLogic` presentation layer is replaced by this
- * canonical contract type.
  */
 @Serializable
 enum class AudibleRegion(

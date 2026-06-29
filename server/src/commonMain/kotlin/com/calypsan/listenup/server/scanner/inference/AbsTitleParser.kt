@@ -28,10 +28,10 @@ internal data class ParsedTitle(
  * decomposes cleanly without regex collisions.
  *
  * **Compatibility note on narrator splitting.** ABS uses `parseNameString`
- * which understands `&`, ` and `, `;`, and `Last, First` formats. Phase 2
+ * which understands `&`, ` and `, `;`, and `Last, First` formats. This parser
  * splits on the simple separators (`,`, `;`, `&`, ` and `) and trims;
- * full ABS parity for `Last, First` recombination is deferred to Phase 4
- * when name normalization gets a real implementation. For the typical
+ * full ABS parity for `Last, First` recombination is not yet implemented,
+ * pending a real name-normalization pass. For the typical
  * `{Michael Kramer; Kate Reading}` form, the simple split is correct.
  */
 internal object AbsTitleParser {

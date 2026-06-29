@@ -49,7 +49,7 @@ private val PROACTIVE_CHECK_CADENCE = 5.minutes
  * bearer plugin. Both write to [AuthSession.saveAuthTokens]. When two
  * refreshes interleave, last-write-wins on the stored tokens — both will
  * observe the most recent rotation on their next read. A unified refresh
- * authority is tracked as a Phase 1 deferral.
+ * authority is not yet implemented.
  */
 class CachedAudioTokenProvider(
     private val authSession: AuthSession,

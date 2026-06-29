@@ -329,7 +329,7 @@ class AdminViewModelTest :
                     )
                 advanceUntilIdle()
 
-                // #620: a users-load failure must NOT black out the page. It degrades to Ready —
+                // A users-load failure must NOT black out the page. It degrades to Ready —
                 // policy loaded, users empty, and the failure surfaced honestly — so the
                 // (independent) registration-policy control stays reachable.
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()

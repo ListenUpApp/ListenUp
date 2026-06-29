@@ -10,7 +10,7 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 
 /**
- * Regression test for [MIGRATION_30_31] — rename `activities.createdAt` → `occurredAt` (#548).
+ * Regression test for [MIGRATION_30_31] — rename `activities.createdAt` → `occurredAt`.
  *
  * Asserts:
  * - The column `occurredAt` exists and `createdAt` is gone after migration.

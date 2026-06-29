@@ -123,7 +123,7 @@ internal class ValueClassConverters {
  * Stores enums by their declared `name` instead of their ordinal index — ordinal
  * storage silently corrupts data when an enum constant is inserted, reordered,
  * or removed, since previously-written rows then map to the wrong case.
- * Storing by name is resilient to reorderings (Finding 05 D3) and makes the
+ * Storing by name is resilient to reorderings and makes the
  * SQLite column human-readable in ad-hoc inspection. `valueOf` throws on an
  * unknown value, which is what we want: the app refuses to interpret a state
  * it no longer understands rather than silently remap it.
@@ -172,7 +172,7 @@ internal class CoverDownloadStatusConverter {
 /**
  * Round-trips a small `List<String>` as a JSON array using [appJson].
  *
- * Replaces the deleted `StringListConverter` (Finding 05 D3): the old split-on-`|||`
+ * Replaces the deleted `StringListConverter`: the old split-on-`|||`
  * approach silently corrupted any entry that happened to contain the literal
  * delimiter. JSON has no such collision surface and is human-readable in ad-hoc
  * database inspection.

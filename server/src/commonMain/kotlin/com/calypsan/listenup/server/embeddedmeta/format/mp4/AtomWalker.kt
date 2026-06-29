@@ -16,9 +16,8 @@ import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
  * `stbl`, `tref`, `----`, `covr`) hold child atoms in their payload. Leaf
  * atoms hold structured payloads consumed by readers in this package.
  *
- * Ports `/home/simonh/Code/audiometa/internal/m4a/atoms.go` to Kotlin with
- * pre-buffered bytes (the file is read in full at parse time — see
- * [Mp4Parser]) so failures map to byte-slice bounds rather than IO errors.
+ * Walks atoms over pre-buffered bytes (the file is read in full at parse time —
+ * see [Mp4Parser]) so failures map to byte-slice bounds rather than IO errors.
  */
 internal data class Atom(
     val type: String,

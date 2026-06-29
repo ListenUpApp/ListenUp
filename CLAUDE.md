@@ -273,7 +273,7 @@ Releases are explicit and manual via the **Release** workflow (`workflow_dispatc
 - **Version** lives in the `VERSION` file at the repo root (one number line). Drive Android `versionName` from it; iOS `MARKETING_VERSION` and the server image tag follow. Build numbers are auto-derived per platform (Android `versionCode` from commit count, iOS `CURRENT_PROJECT_VERSION` from the CI run number).
 - **To bump + ship:** run the Release workflow and type the new number in the `version` input (it commits `VERSION` + tags `v<x>`). Leave it blank to re-ship the current `VERSION`.
 - **Per-platform:** the `android` / `ios` / `server` checkboxes scope a run — use them for single-platform hotfixes.
-- iOS stops at **TestFlight** (no auto-submit to App Store review). Android ships to the **Play internal/draft** track. The **server** job builds a GraalVM native image to GHCR and is **non-blocking** (`continue-on-error`) until [#647](https://github.com/ListenUpApp/ListenUp/issues/647) clears.
+- iOS stops at **TestFlight** (no auto-submit to App Store review). Android ships to the **Play internal/draft** track. The **server** job links a Kotlin/Native `server.kexe` (`:server:linkReleaseExecutableLinuxX64`), packages it into a two-stage distroless image (`server/Dockerfile.native`) that compiles a modern SQLite (≥ 3.43) in-build, and pushes it to GHCR (`ghcr.io/listenupapp/listenup-server`, tagged with the version, commit SHA, and `latest`). It is a hard gate — a failed server build fails the release.
 
 ---
 

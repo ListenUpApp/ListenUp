@@ -15,7 +15,7 @@ data class CrossDevicePlaybackProgress(
  * cross-device SSE merges — through a single repository entry point
  * ([PlaybackPositionRepository.savePlaybackState]).
  *
- * Per Finding 09 D6, the eight player-event variants describe distinct semantic
+ * The eight player-event variants describe distinct semantic
  * intents even when their persistence shapes overlap (e.g., Position /
  * PlaybackPaused / PeriodicUpdate all save position+speed but represent
  * different events). Three additional variants (MarkComplete / DiscardProgress /

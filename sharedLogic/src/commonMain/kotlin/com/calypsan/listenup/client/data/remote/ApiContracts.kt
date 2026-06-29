@@ -693,7 +693,7 @@ internal data class SeriesEditResponse(
  * Contract interface for user-profile API operations.
  *
  * Retains only the `getCurrentUser` endpoint. The `getBookReaders` and
- * `getUserReadingHistory` endpoints were removed in P3: the Readers section
+ * `getUserReadingHistory` endpoints were removed: the Readers section
  * now sources its data from the [com.calypsan.listenup.api.SocialService] RPC
  * (ACL-filtered server-side, refreshed on presence pings), with no REST fallback.
  */

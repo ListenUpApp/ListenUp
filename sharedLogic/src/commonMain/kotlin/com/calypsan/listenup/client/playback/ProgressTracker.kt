@@ -23,7 +23,7 @@ private val logger = KotlinLogging.logger {}
  * Coordinates position persistence and playback-session tracking.
  *
  * Position is sacred: saves immediately on every pause/seek. Listening-event
- * history is owned exclusively by the canonical P2 path
+ * history is owned exclusively by the canonical recording path
  * ([ListeningEventRecorder]) — this tracker never records listening events.
  *
  * Note on `open`: this class (and its overridable methods below) are `open`
@@ -310,7 +310,7 @@ open class ProgressTracker(
                 logger.warn { "Failed to delete download records for ${bookId.value} (non-fatal): ${e.message}" }
             }
 
-            // Mark book as complete (Issue #206)
+            // Mark book as complete
             val finishedAt = Clock.System.now().toEpochMilliseconds()
             when (
                 val r =

@@ -13,7 +13,7 @@ import io.ktor.server.config.ApplicationConfig
  */
 fun resolveServerSecrets(config: ApplicationConfig): ServerSecrets {
     // Honour `listenup.home` (config) so secrets.properties lands under the SAME home as the DB and
-    // covers/spool — all server data stays under one directory (#703).
+    // covers/spool — all server data stays under one directory.
     val home =
         resolveListenupHome(
             configuredHome = config.propertyOrNull("listenup.home")?.getString(),

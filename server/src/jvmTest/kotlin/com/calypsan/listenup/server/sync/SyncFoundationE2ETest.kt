@@ -26,7 +26,7 @@ class SyncFoundationE2ETest :
 
         test("end-to-end lifecycle: SSE connect → write → receive → reconnect → REST catch-up") {
             withTestApplication {
-                // ---- Phase 1: Connect SSE, write, assert receive ----
+                // ---- Step 1: Connect SSE, write, assert receive ----
                 var firstReceivedRevision: Long = 0
 
                 client.sse("/api/v1/sync/events") {
@@ -41,10 +41,10 @@ class SyncFoundationE2ETest :
                     }
                 }
 
-                // ---- Phase 2: Write while disconnected ----
+                // ---- Step 2: Write while disconnected ----
                 tagRepo.upsert(Tag("t2", "beta", "beta", 0, 0))
 
-                // ---- Phase 3: Reconnect with Last-Event-Id, verify replay + live tail ----
+                // ---- Step 3: Reconnect with Last-Event-Id, verify replay + live tail ----
                 // With replay=256, reconnecting with Last-Event-Id=1 delivers t2 (missed while
                 // disconnected) from the replay cache, then t3 live. This is the desired catch-up
                 // behavior — the client doesn't need REST for events still in the bus buffer.
@@ -64,19 +64,19 @@ class SyncFoundationE2ETest :
                     }
                 }
 
-                // ---- Phase 4: Verify domain-list discovery ----
+                // ---- Step 4: Verify domain-list discovery ----
                 val list: DomainList = client.get("/api/v1/sync/domains").body()
                 list.domains shouldBe listOf("tags")
 
-                // ---- Phase 5: Verify digest ----
+                // ---- Step 5: Verify digest ----
                 val digest: DomainDigest = client.get("/api/v1/sync/tags/digest?cursor=999").body()
                 digest.count shouldBe 3 // t1, t2, t3
 
-                // ---- Phase 6: REST catch-up returns all rows ----
+                // ---- Step 6: REST catch-up returns all rows ----
                 val page: Page<Tag> = client.get("/api/v1/sync/tags?since=0").body()
                 page.items shouldHaveSize 3
 
-                // ---- Phase 7: Soft-delete a row, assert tombstone in catch-up ----
+                // ---- Step 7: Soft-delete a row, assert tombstone in catch-up ----
                 tagRepo.softDelete("t1")
                 val pageAfterDelete: Page<Tag> = client.get("/api/v1/sync/tags?since=0").body()
                 val t1 = pageAfterDelete.items.first { it.id == "t1" }

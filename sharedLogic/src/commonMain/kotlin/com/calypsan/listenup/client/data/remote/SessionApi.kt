@@ -13,7 +13,7 @@ private val logger = KotlinLogging.logger {}
 /**
  * API client for user-profile operations.
  *
- * `getBookReaders` and `getUserReadingHistory` were removed in P3: the Readers
+ * `getBookReaders` and `getUserReadingHistory` were removed: the Readers
  * section now sources its data from the [com.calypsan.listenup.api.SocialService] RPC
  * (ACL-filtered server-side, refreshed on presence pings), with no REST fallback.
  *

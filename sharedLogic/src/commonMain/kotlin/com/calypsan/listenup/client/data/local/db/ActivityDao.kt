@@ -110,9 +110,9 @@ internal interface ActivityDao {
      * Joins `user_profiles` (for display data) with `activities` (for recent stats).
      * Users with no recent activity show 0 values.
      *
-     * TODO(P2-leaderboard): The P2 `user_stats` table now holds per-user materialized
+     * TODO: The `user_stats` table now holds per-user materialized
      *  stats; this query should be updated to join `user_stats` for all-time stats and
-     *  `user_profiles` for profile data once the P2 sync domain handler lands.
+     *  `user_profiles` for profile data once the stats sync domain handler lands.
      *
      * @param sinceMs Epoch milliseconds - only include activities since this time
      * @return Flow emitting list of user stats

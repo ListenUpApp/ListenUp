@@ -36,7 +36,7 @@ private const val SPEED = 1.0f
 /**
  * Tests for [PlaybackProgressReporter] — the single playback-session seam for iOS/Desktop.
  *
- * Verifies the listening-event recording fan-out (the #702 fix) against an in-memory
+ * Verifies the listening-event recording fan-out against an in-memory
  * Room database: a play→pause session records exactly one row stamped with the account
  * user id and enqueues a sync op, book-finish finalizes the span, and — crucially — a
  * `null` recorder (the Android binding) records nothing, so Android never double-records.

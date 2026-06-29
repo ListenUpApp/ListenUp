@@ -12,7 +12,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Round-trips every Books-C1 patch DTO through [contractJson]. Catches field-name drift,
+ * Round-trips every book patch DTO through [contractJson]. Catches field-name drift,
  * `init`-block validation regressions, and default-value handling before any pipeline code runs.
  */
 class BookUpdateContractTest :

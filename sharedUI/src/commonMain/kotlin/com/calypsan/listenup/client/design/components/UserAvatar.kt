@@ -298,7 +298,7 @@ internal fun avatarInitials(displayName: String): String =
  *
  * [fallbackName] lets a caller render initials for a user that has no cached public profile —
  * a pending registrant never gets a server-side profile row, so without this the avatar would be
- * stuck on the indefinite loading circle (#625). Active users (profile present) ignore it.
+ * stuck on the indefinite loading circle. Active users (profile present) ignore it.
  */
 internal fun userAvatarUiState(
     profile: CachedUserProfile?,

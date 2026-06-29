@@ -20,7 +20,7 @@ import platform.posix.setenv
 import kotlin.test.Test
 
 /**
- * The Phase-5 flip proof: boots the REAL [Application.module] on a Kotlin/Native `embeddedServer(CIO)`
+ * Boots the REAL [Application.module] on a Kotlin/Native `embeddedServer(CIO)`
  * and serves `GET /healthz`. A successful boot exercises the entire native stack at once — the native
  * SQLite driver (schema migrations), native crypto (the auto-generated JWT/refresh secrets), file I/O
  * (`$LISTENUP_HOME/secrets.properties`), the full Koin graph, and the request pipeline — so this is

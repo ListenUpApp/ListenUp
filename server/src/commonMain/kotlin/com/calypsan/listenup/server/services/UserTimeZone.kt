@@ -10,7 +10,7 @@ import kotlinx.datetime.TimeZone
  * Defaults to [TimeZone.UTC] when the user has no row or when the stored timezone name is malformed,
  * so stats day-math callers never handle these edge cases. The per-user home timezone
  * (device-reported via login + live events; never imports) is the single consistent frame for all
- * server day-boundary math — streaks and the leaderboard. See #532.
+ * server day-boundary math — streaks and the leaderboard.
  */
 internal suspend fun ListenUpDatabase.homeTimeZone(userId: String): TimeZone {
     val name =

@@ -338,7 +338,7 @@ private fun ServerSetupNavigation() {
                     ServerSetupScreen(
                         onServerVerified = {
                             // URL is saved, AuthState will change automatically
-                            // Pop back to select (will be replaced by auth screen)
+                            // Pop back to select; the auth screen takes over once AuthState updates
                         },
                         onBack = {
                             backStack.removeAt(backStack.lastIndex)

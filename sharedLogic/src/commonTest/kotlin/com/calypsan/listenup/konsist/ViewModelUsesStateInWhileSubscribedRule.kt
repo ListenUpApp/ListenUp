@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 /**
  * Every `*ViewModel` in `client/presentation/` that exposes a public
  * `StateFlow<*UiState>` must derive it via `.stateIn(... WhileSubscribed ...)`.
- * Pins the canonical reactive-state pattern from Playback P3.
+ * Pins the canonical reactive-state pattern.
  *
  * Implementation note: Konsist can't easily AST-match the operator chain
  * across multiple lines, so this rule does a text-level check on the file
@@ -16,10 +16,8 @@ import io.kotest.matchers.shouldBe
  * pinning the convention.
  *
  * Exclusions fall into two kinds:
- *  - Legacy backlog: ViewModels present before P3 that do not yet use `WhileSubscribed`,
- *    tracked for future migration in `docs/superpowers/followups.md`
- *    ("From Playback P3 — WhileSubscribed backlog"). Do NOT add P3-touched *reactive*
- *    ViewModels here — fix the ViewModel instead.
+ *  - Legacy backlog: older ViewModels that do not yet use `WhileSubscribed`, awaiting
+ *    migration. Do NOT add reactive ViewModels here — fix the ViewModel instead.
  *  - By-design: imperative command-pipeline ViewModels (the ABS, import, and backup admin flows)
  *    whose state is driven by user actions + progress events, not projected from an upstream
  *    flow. `stateIn(WhileSubscribed)` is the wrong tool there; a `MutableStateFlow` with
@@ -27,8 +25,8 @@ import io.kotest.matchers.shouldBe
  */
 class ViewModelUsesStateInWhileSubscribedRule :
     FunSpec({
-        // Legacy non-P3 ViewModels deliberately left without WhileSubscribed; tracked for
-        // future migration. Each entry is the simple class name (without package).
+        // Legacy ViewModels deliberately left without WhileSubscribed, awaiting migration.
+        // Each entry is the simple class name (without package).
         val legacyExclusions =
             setOf(
                 "SettingsViewModel",

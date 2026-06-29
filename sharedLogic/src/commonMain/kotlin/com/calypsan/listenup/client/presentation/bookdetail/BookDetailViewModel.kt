@@ -684,7 +684,7 @@ class BookDetailViewModel(
  *
  * Sealed hierarchy — [Ready] carries all book-dependent fields. Transient
  * action overlays ([isMarkingComplete], [isDiscardingProgress], [isRestarting],
- * [isAddingToShelf]) live on [Ready] in this iteration; W6 may extract them
+ * [isAddingToShelf]) live on [Ready]; they may later be extracted
  * into a private overlay type.
  */
 sealed interface BookDetailUiState {

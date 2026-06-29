@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Data Access Object for [UserStatsEntity] operations.
  *
- * Manages per-user materialized stats, synced from the server via the P2 stats
+ * Manages per-user materialized stats, synced from the server via the stats
  * sync domain. The primary key is the user ID (`id`).
  */
 @Dao

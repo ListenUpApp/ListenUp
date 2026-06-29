@@ -38,7 +38,7 @@ fun resolveListenupHome(
  * This single resolver is the guarantee that all server data lands under ONE directory — the DB,
  * secrets, covers, and spool can never diverge because they all resolve through here. (Previously
  * the DB and secrets read only [envHome], so a `listenup.home` config split them off from the
- * covers/spool — the bug behind #703's "data isn't where I cleared it" confusion.) Pure —
+ * covers/spool — the bug behind the "data isn't where I cleared it" confusion.) Pure —
  * callers read the config / env / system properties at the edge.
  */
 fun resolveListenupHome(

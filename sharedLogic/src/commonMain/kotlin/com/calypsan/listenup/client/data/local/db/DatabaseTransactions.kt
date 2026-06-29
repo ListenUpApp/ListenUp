@@ -5,7 +5,7 @@ import androidx.room.useWriterConnection
 
 /**
  * Runs a series of DAO writes inside a single SQLite write transaction so they either all
- * commit or all roll back (Finding 05 D2 of the architecture audit).
+ * commit or all roll back.
  *
  * Every call site that issues more than one DAO write for a single logical operation —
  * pullers, sync event processors, multi-entity edit repositories, library reset — must

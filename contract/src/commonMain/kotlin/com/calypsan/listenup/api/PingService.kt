@@ -4,10 +4,10 @@ import com.calypsan.listenup.api.result.AppResult
 import kotlinx.rpc.annotations.Rpc
 
 /**
- * Phase 0 smoke-test service.
+ * Smoke-test service.
  *
  * Exists only to prove the kotlinx.rpc pipeline (codegen → server registration →
- * client proxy → wire round-trip) works on CIO. Will be deleted in Phase 1 when
+ * client proxy → wire round-trip) works on CIO. Slated for removal once
  * real domain @Rpc services replace it.
  */
 @Rpc

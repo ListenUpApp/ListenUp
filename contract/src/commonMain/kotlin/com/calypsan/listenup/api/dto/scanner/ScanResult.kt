@@ -27,8 +27,8 @@ sealed interface ScanScope {
 }
 
 /**
- * The aggregated output of one scan invocation. Phase 2 keeps this purely
- * in-memory — no persistence yet. Phase 4's Books domain takes this as its
+ * The aggregated output of one scan invocation. Kept purely
+ * in-memory — no persistence. The Books domain takes this as its
  * input.
  */
 @Serializable

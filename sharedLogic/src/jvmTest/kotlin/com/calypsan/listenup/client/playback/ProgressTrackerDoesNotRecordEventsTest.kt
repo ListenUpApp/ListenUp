@@ -15,7 +15,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Pins the contract that [ProgressTracker] does **not** record listening events.
  *
- * Listening history is owned exclusively by the canonical P2 path
+ * Listening history is owned exclusively by the canonical recording path
  * ([ListeningEventRecorder]). [ProgressTracker]'s sole responsibilities are
  * position persistence, full-playback-session tracking, and finished-marking —
  * never listening-event writes. The pre-removal tracker queued an

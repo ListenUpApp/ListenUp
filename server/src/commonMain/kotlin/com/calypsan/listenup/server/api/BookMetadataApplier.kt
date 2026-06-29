@@ -256,8 +256,8 @@ internal class BookMetadataApplier(
      * `MetadataLookupServiceImpl.enrichWithMoodsAndTags`) and presented to the user as toggleable
      * chips; the apply path honors that selection rather than re-scraping. A re-match swaps the old
      * set for the new — a deselected mood/tag is dropped — and an empty set removes all of that
-     * dimension's links (explicit "none" from the review). This is the #573 fix: re-matching no
-     * longer accumulates.
+     * dimension's links (explicit "none" from the review). This stops re-matching from
+     * accumulating across applies.
      *
      * Best-effort: a write error is logged and skipped so the already-committed match is never
      * rolled back. [CancellationException] is always re-raised.

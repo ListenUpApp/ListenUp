@@ -666,7 +666,7 @@ private fun NarrowColorHero(
                     )
                 }
                 // Website — the narrow hero previously omitted it, so a contributor's website never
-                // showed on phones even when set (#616). `ink` keeps it readable on the colour block.
+                // showed on phones even when set. `ink` keeps it readable on the colour block.
                 state.contributor.website?.takeIf { it.isNotBlank() }?.let { url ->
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(

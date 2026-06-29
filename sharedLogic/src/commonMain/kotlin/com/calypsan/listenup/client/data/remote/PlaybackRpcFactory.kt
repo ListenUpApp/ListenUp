@@ -13,7 +13,7 @@ import kotlinx.rpc.withService
 
 /**
  * Supplies the [PlaybackService] kotlinx.rpc proxy that backs playback preparation
- * and position recording (the Playback-P1 client write path).
+ * and position recording (the client write path).
  *
  * An interface so repositories depend on a seam that fakes/mocks in tests —
  * [KtorPlaybackRpcFactory] is the production implementation over WebSocket RPC.

@@ -26,7 +26,7 @@ import kotlinx.coroutines.test.setMain
  * ```
  *
  * Replaces the identical `Dispatchers.setMain` / `Dispatchers.resetMain` pair that currently
- * appears in every VM test file — see Finding 12 D8.
+ * appears in every VM test file.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainDispatcherRule(

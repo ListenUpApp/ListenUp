@@ -25,7 +25,7 @@ data class ProductTag(
  * `(type, name)` because the same tag repeats across impression blocks, and
  * preserve first-seen order.
  *
- * **Query-param tolerant** (mirrors [parseContributorSearch] / #551): Audible
+ * **Query-param tolerant** (mirrors [parseContributorSearch]): Audible
  * appends `?ref=…` tracking params after the `adbl_rec_tag_{id}` segment, so the
  * pattern tolerates anything up to the closing quote rather than requiring it
  * immediately after the id. The marker `adbl_rec_tag` distinguishes these

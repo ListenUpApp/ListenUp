@@ -25,7 +25,7 @@ import kotlinx.coroutines.sync.withLock
  *
  * **Staleness caveat.** Entries are keyed by [BookId]. If a book's embedded
  * artwork changes after a rescan, the stale bytes remain cached until evicted.
- * Acceptable for Books-A — covers rarely change, and a server restart clears
+ * Acceptable here — covers rarely change, and a server restart clears
  * the cache. Keying by cover hash would close the gap but would require the
  * route to thread the hash through; revisit if cover churn becomes a concern.
  *

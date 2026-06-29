@@ -27,7 +27,7 @@ import java.io.File
  * Contract tests for [persistDownloadCancellation], the cancellation-cleanup seam extracted from
  * [DownloadWorker.doWork]'s catch block so it can be exercised without WorkManager.
  *
- * Per project memory `feedback_fakes_for_seams.md`: hand-rolled fakes, not mokkery.
+ * Uses hand-rolled fakes, not mokkery.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DownloadCancellationTest :

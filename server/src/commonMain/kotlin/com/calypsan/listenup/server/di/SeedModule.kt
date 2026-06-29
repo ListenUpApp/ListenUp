@@ -26,7 +26,7 @@ import org.koin.dsl.module
 /**
  * Koin module for the demo seed profile. Installed by `Application.module()` only
  * when `seed.profile = demo`. The `SeedRunner`'s seeder list is hand-assembled —
- * every future domain phase adds its `DomainSeeder` to this list.
+ * each domain adds its `DomainSeeder` to this list.
  *
  * @param hasPlaybackModule whether the `:playback` slice is active (i.e., a library
  *   path is configured). When false, [PlaybackPositionDomainSeeder],
@@ -46,8 +46,8 @@ import org.koin.dsl.module
  *   scanner, so this can be true even without a library configured.
  * @param hasGenresModule whether the `:genres` slice is active. When true,
  *   [GenreDomainSeeder] is registered to seed the default genre taxonomy (3 roots,
- *   ~70 nodes total) ported from Go's `internal/genre/defaults.go`. Like tags, the
- *   genre tree is curator-controlled and independent of the scanner.
+ *   ~70 nodes total). Like tags, the genre tree is curator-controlled and
+ *   independent of the scanner.
  * @param hasMoodsModule whether the moods slice is active. When true,
  *   [MoodDomainSeeder] is registered to seed the canonical Audible mood vocabulary
  *   (≈24 affective labels). Like genres, moods are curator-controlled dedupe anchors

@@ -20,7 +20,7 @@ import kotlinx.coroutines.test.runTest
  * Endpoint contract tests for [ImageApi].
  *
  * The live Kotlin server serves contributor photos at `GET /api/v1/contributors/{id}/photo`
- * (see `MetadataImageRoutes`). It never had the legacy Go server's `/image` route, so a request
+ * (see `MetadataImageRoutes`). There is no `/image` route, so a request
  * to `/image` 404s and contributor-image caching silently fails. This pins the path so the drift
  * can't return.
  */

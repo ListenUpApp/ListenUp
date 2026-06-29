@@ -21,7 +21,7 @@ private const val BOOK_ID = "cover-delete-b1"
 private const val COVER_HASH = "seed-cover-hash-abc123"
 
 /**
- * Tier 3 e2e test for the Books-C1 cover-delete surface: a client-side call to
+ * Tier 3 e2e test for the cover-delete surface: a client-side call to
  * [com.calypsan.listenup.client.domain.repository.BookEditRepository.deleteBookCover]
  * crosses the live kotlinx.rpc transport into the in-process `:server`'s
  * `BookService`, the server nullifies the book row's cover columns and re-upserts

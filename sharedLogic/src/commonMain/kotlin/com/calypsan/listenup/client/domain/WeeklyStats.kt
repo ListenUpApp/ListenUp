@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.domain
 /**
  * Aggregated personal listening stats for the last 7 days.
  *
- * Backed by P2's `listening_events` table (for day buckets and genre breakdown)
+ * Backed by the `listening_events` table (for day buckets and genre breakdown)
  * and `user_stats` (for server-maintained streak counters). The ViewModel reads
  * this type from [com.calypsan.listenup.client.domain.repository.StatsRepository]
  * and maps it into UI state — no further aggregation needed at presentation layer.
