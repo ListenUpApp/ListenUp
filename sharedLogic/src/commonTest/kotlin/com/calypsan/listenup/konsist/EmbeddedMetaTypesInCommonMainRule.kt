@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.ext.list.modifierprovider.withoutAbstractModifier
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -37,7 +36,7 @@ class EmbeddedMetaTypesInCommonMainRule :
                 )
             // Sealed interfaces (`AudioFormat`, `ChapterSource`) live alongside data classes,
             // so both Konsist accessors must contribute to the FQN set.
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
             val foundInCommonMain =
                 (scope.classes() + scope.interfaces())
                     .filter { it.path.contains("/commonMain/") }
@@ -49,8 +48,7 @@ class EmbeddedMetaTypesInCommonMainRule :
 
         test("AudioFormatParser implementations live under :server.embeddedmeta") {
             val implementations =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->
@@ -65,8 +63,7 @@ class EmbeddedMetaTypesInCommonMainRule :
 
         test("every AudioFormatParser implementation declares non-empty supports") {
             val implementations =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .withoutAbstractModifier()
                     .filter { cls ->

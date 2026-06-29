@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -26,7 +25,7 @@ class SyncWritesGoThroughRepositoryRule :
     FunSpec({
 
         test("No Exposed writes against SyncableTable subtypes outside :server/sync/") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
 
             // Discover names of objects that extend SyncableTable.
             val syncableTableNames =

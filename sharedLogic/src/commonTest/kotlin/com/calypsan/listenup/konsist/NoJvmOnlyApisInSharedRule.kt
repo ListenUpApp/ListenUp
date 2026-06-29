@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -23,8 +22,7 @@ class NoJvmOnlyApisInSharedRule :
             val sharedSourceSetMarkers =
                 listOf("/commonMain/", "/appleMain/", "/iosMain/", "/nativeMain/", "/macosMain/")
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { file -> sharedSourceSetMarkers.any { file.path.contains(it) } }
                     .flatMap { file ->

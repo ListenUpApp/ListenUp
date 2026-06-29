@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -22,8 +21,7 @@ class AppResultSurfaceIsMustUseRule :
     FunSpec({
         test("every domain/repository interface returning AppResult is @file:MustUseReturnValues") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { "/sharedLogic/" in it.path && "/domain/repository/" in it.path }
                     .filter { it.text.contains(": AppResult<") }

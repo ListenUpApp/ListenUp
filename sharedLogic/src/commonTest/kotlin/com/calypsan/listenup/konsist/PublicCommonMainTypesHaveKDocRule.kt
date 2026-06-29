@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.ext.list.modifierprovider.withPublicOrDefaultModifier
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -18,8 +17,7 @@ class PublicCommonMainTypesHaveKDocRule :
     FunSpec({
         test("every public commonMain class/interface has a KDoc block") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { it.path.contains("/commonMain/") }
                     // Exclude third-party library sources that Konsist may materialise under a

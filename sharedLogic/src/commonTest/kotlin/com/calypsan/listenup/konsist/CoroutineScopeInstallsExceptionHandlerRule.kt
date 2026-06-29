@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -30,8 +29,7 @@ class CoroutineScopeInstallsExceptionHandlerRule :
     FunSpec({
         test("every :sharedLogic CoroutineScope() installs appCoroutineExceptionHandler (Kotlin/Native crash-net)") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { it.path.contains("/sharedLogic/") }
                     .filter { it.text.contains("CoroutineScope(") }

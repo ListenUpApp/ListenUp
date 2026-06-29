@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -15,8 +14,7 @@ class OneUserAvatarComposableRule :
         test("no feature code imports ProfileAvatar or ClickableUserAvatar") {
             val banned = listOf("ProfileAvatar", "ClickableUserAvatar")
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { it.path.contains("/sharedUI/") || it.path.contains("/sharedLogic/") }
                     .flatMap { file ->

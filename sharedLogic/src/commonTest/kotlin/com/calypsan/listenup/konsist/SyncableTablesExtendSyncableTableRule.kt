@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.ext.list.modifierprovider.withoutAbstractModifier
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -22,7 +21,7 @@ class SyncableTablesExtendSyncableTableRule :
     FunSpec({
 
         test("Tables paired with a SyncableRepository extend SyncableTable") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
 
             // Concrete classes in server/sync/ that extend SyncableRepository.
             val concreteRepositories =

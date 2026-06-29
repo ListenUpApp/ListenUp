@@ -1,7 +1,6 @@
 package com.calypsan.listenup.konsist
 
 import com.calypsan.listenup.api.result.AppResult
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -40,8 +39,7 @@ class NoThrowsInDataLayerRule :
     FunSpec({
         test("data/remote/ functions don't throw outside the documented allowlist") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .functions()
                     .filter { it.path.contains("/data/remote/") }
                     // `data/remote/model/` holds DTOs + pure mappers (e.g. Instant parsing).
@@ -57,8 +55,7 @@ class NoThrowsInDataLayerRule :
 
         test("data/repository/*Impl functions don't throw outside the documented allowlist") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .functions()
                     .filter { it.path.contains("/data/repository/") && it.path.endsWith("Impl.kt") }
                     .filter { fn -> fn.containsDisallowedThrow() }

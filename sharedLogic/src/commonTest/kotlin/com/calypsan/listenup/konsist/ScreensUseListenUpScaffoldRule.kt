@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -17,8 +16,7 @@ class ScreensUseListenUpScaffoldRule :
     FunSpec({
         test("feature screens use ListenUpScaffold, not raw Material3 Scaffold") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { it.path.contains("/sharedUI/") }
                     .filter { it.path.contains("/features/") }

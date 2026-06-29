@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -24,8 +23,7 @@ class CoverPayloadCarriesNoUrl :
 
         test("CoverPayload carries no URL-shaped property") {
             val coverPayload =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .firstOrNull { it.name == "CoverPayload" }
                     ?: error("CoverPayload class not found in commonMain scope")

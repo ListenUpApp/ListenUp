@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -20,7 +19,7 @@ class DataLocalDbIsInternalRule :
         val allowList = emptySet<String>()
 
         test("no top-level declaration in data/local/db is public") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
             val classes =
                 scope
                     .classes()

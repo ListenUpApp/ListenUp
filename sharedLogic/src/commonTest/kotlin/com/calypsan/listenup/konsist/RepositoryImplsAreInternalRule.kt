@@ -1,7 +1,6 @@
 package com.calypsan.listenup.konsist
 
 import com.lemonappdev.konsist.api.KoModifier
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -15,8 +14,7 @@ class RepositoryImplsAreInternalRule :
     FunSpec({
         test("data/repository *Impl classes are internal") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { "/data/repository/" in it.path && it.name.endsWith("Impl") }
                     .filterNot { it.hasModifier(KoModifier.INTERNAL) }

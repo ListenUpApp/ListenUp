@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -33,8 +32,7 @@ class NoManualStatusBarInsetInFeaturesRule :
                     "features/setup/scan/LibraryScanScreen.kt",
                 )
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { it.path.contains("/sharedUI/") }
                     .filter { f -> allowlist.none { f.path.endsWith(it) } }

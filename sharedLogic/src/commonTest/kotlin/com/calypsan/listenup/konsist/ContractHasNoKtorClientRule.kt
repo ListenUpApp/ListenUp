@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -13,8 +12,7 @@ class ContractHasNoKtorClientRule :
     FunSpec({
         test("no :contract file imports io.ktor.client") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { "/contract/src/" in it.path }
                     .filter { file -> file.imports.any { it.name.startsWith("io.ktor.client.") } }

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -68,8 +67,7 @@ class ViewModelUsesStateInWhileSubscribedRule :
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { it.path.contains("/sharedLogic/") }
                     .filter { it.path.contains("/client/presentation/") }

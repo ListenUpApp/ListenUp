@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -13,8 +12,7 @@ class NoLegacyCoreAppResultRule :
     FunSpec({
         test("no file imports the deleted com.calypsan.listenup.core.AppResult") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { file -> file.imports.any { it.name == "com.calypsan.listenup.core.AppResult" } }
                     .map { it.path }

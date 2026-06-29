@@ -2,7 +2,6 @@ package com.calypsan.listenup.konsist
 
 import com.calypsan.listenup.api.result.AppResult
 import com.lemonappdev.konsist.api.KoModifier
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -35,8 +34,7 @@ class RpcReturnShapesRule :
     FunSpec({
         test("@Rpc interface suspend methods return AppResult<*>") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .interfaces()
                     .filter { iface ->
                         iface.annotations.any { it.name == "Rpc" }
@@ -54,8 +52,7 @@ class RpcReturnShapesRule :
 
         test("@Rpc interface non-suspend methods return Flow<RpcEvent<*>>") {
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .interfaces()
                     .filter { iface ->
                         iface.annotations.any { it.name == "Rpc" }

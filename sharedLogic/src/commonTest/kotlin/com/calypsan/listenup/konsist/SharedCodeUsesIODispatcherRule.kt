@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -28,8 +27,7 @@ class SharedCodeUsesIODispatcherRule :
                 listOf("/commonMain/", "/appleMain/", "/iosMain/", "/nativeMain/", "/macosMain/")
 
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .files
                     .filter { file -> sharedSourceSetMarkers.any { file.path.contains(it) } }
                     // The IODispatcher expect/actual itself is the sanctioned home of the

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -34,7 +33,7 @@ class BookServiceHasRestMirror :
     FunSpec({
 
         test("every BookService method has a corresponding @Resource REST mirror") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
 
             val bookService =
                 scope

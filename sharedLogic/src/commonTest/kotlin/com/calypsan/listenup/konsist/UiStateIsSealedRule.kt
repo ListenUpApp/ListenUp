@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
@@ -35,7 +34,7 @@ class UiStateIsSealedRule :
             )
 
         test("every *UiState type in client/presentation/ is sealed (excluding legacy backlog)") {
-            val scope = Konsist.scopeFromProduction()
+            val scope = productionScope()
             val offenders =
                 (scope.classes() + scope.interfaces())
                     .filter { it.path.contains("/sharedLogic/") }

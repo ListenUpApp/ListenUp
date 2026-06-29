@@ -1,6 +1,5 @@
 package com.calypsan.listenup.konsist
 
-import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -29,8 +28,7 @@ class NoUnderscoreBackingFieldRule :
             // separate (Kotlin/Native) track with its own conventions and stays out of scope.
             val inScope = listOf("/sharedLogic/", "/sharedUI/", "/contract/")
             val offenders =
-                Konsist
-                    .scopeFromProduction()
+                productionScope()
                     .classes()
                     .filter { cls -> inScope.any { cls.path.contains(it) } }
                     .filter { underscoreBacking.containsMatchIn(it.text) }
