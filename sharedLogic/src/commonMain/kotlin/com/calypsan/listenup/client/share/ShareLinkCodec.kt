@@ -1,15 +1,16 @@
 package com.calypsan.listenup.client.share
 
 import com.calypsan.listenup.core.BookId
+import io.ktor.http.Parameters
 import io.ktor.http.parseQueryString
 
 /**
  * Pure, two-way translation between share-link URL strings and [ShareTarget].
  *
- * [encode] is used by the Share button (Phase 2/3) to build the shareable `https` link.
- * [decode] is used by both platforms' reception layers to parse an incoming link — the new
- * `https://link.listenup.audio/o#…` form **and** the legacy `listenup://book/{id}` /
- * `listenup://join?…` schemes — so the parsing lives once, in `commonMain`, not per platform.
+ * Every shareable link is the `https://link.listenup.audio/o#…` universal-link form — one shape
+ * for books and invites alike, so a tapped link opens the app (or falls back to the install page)
+ * on both platforms. [encode] builds it; [decode] parses it, living once in `commonMain` rather
+ * than per platform.
  *
  * The payload rides in the URL `#fragment` (the host never receives it); [decode] also accepts
  * the same params in the `?query` as a fallback, in case a platform strips the fragment.
@@ -22,13 +23,7 @@ object ShareLinkCodec {
     private val rfc3986UnreservedChars: Set<Char> =
         (('a'..'z') + ('A'..'Z') + ('0'..'9') + listOf('-', '.', '_', '~')).toSet()
 
-    /**
-     * Builds a shareable link for [target]. Both books and invites use the `https`
-     * universal-link `/o#…` form (`t=book` / `t=invite`) so the link is a real, tappable
-     * Universal Link / App Link that opens the app via the `link.listenup.audio` associated
-     * domain. The legacy `listenup://book/{id}` / `listenup://join?…` custom schemes are still
-     * accepted by [decode] for links shared before this change.
-     */
+    /** Builds the `https` `/o` universal-link for [target] — `t=book` for books, `t=invite` for invites. */
     fun encode(target: ShareTarget): String =
         when (target) {
             is ShareTarget.Book -> encodeBook(target)
@@ -37,15 +32,12 @@ object ShareLinkCodec {
 
     /**
      * Parses [raw] into a [ShareTarget], or `null` if it is not a recognised ListenUp link.
-     * Unknown entity types and foreign hosts return `null` (forward-compatible, not a crash).
+     * Foreign hosts and unknown entity types return `null` (forward-compatible, not a crash).
      */
     fun decode(raw: String): ShareTarget? {
         val url = raw.trim()
-        return when {
-            url.startsWith(ShareLinkConstants.SHARE_URL_PREFIX, ignoreCase = true) -> decodeHttpsForm(url)
-            url.startsWith("${ShareLinkConstants.CUSTOM_SCHEME}://", ignoreCase = true) -> decodeCustomScheme(url)
-            else -> null
-        }
+        if (!url.startsWith(ShareLinkConstants.SHARE_URL_PREFIX, ignoreCase = true)) return null
+        return decodeHttpsForm(url)
     }
 
     private fun encodeBook(book: ShareTarget.Book): String =
@@ -74,57 +66,22 @@ object ShareLinkCodec {
         val fragment = remainder.substringAfter('#', "")
         val params = parseQueryString(fragment.ifEmpty { query })
         return when (params["t"]) {
-            "book" -> {
-                val bookId = params["b"]?.takeIf { it.isNotBlank() } ?: return null
-                ShareTarget.Book(
-                    bookId = BookId(bookId),
-                    serverInstanceId = params["i"]?.takeIf { it.isNotBlank() },
-                    serverUrl = params["u"]?.takeIf { it.isNotBlank() },
-                )
-            }
-
-            "invite" -> {
-                val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
-                val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
-                ShareTarget.Invite(serverUrl = server, code = code)
-            }
-
-            else -> {
-                null
-            }
-        }
-    }
-
-    private fun decodeCustomScheme(url: String): ShareTarget? {
-        val afterScheme = url.substring("${ShareLinkConstants.CUSTOM_SCHEME}://".length)
-        val host =
-            afterScheme
-                .substringBefore('/')
-                .substringBefore('?')
-                .substringBefore('#')
-                .lowercase()
-        return when (host) {
-            "book" -> decodeLegacyBookScheme(afterScheme)
-            "join" -> decodeLegacyJoinScheme(afterScheme)
+            "book" -> decodeBookParams(params)
+            "invite" -> decodeInviteParams(params)
             else -> null
         }
     }
 
-    private fun decodeLegacyBookScheme(afterScheme: String): ShareTarget? {
-        val id =
-            afterScheme
-                .substringAfter('/', "")
-                .substringBefore('?')
-                .substringBefore('#')
-                .split('/')
-                .firstOrNull { it.isNotBlank() }
-                ?: return null
-        return ShareTarget.Book(bookId = BookId(id), serverInstanceId = null, serverUrl = null)
+    private fun decodeBookParams(params: Parameters): ShareTarget? {
+        val bookId = params["b"]?.takeIf { it.isNotBlank() } ?: return null
+        return ShareTarget.Book(
+            bookId = BookId(bookId),
+            serverInstanceId = params["i"]?.takeIf { it.isNotBlank() },
+            serverUrl = params["u"]?.takeIf { it.isNotBlank() },
+        )
     }
 
-    private fun decodeLegacyJoinScheme(afterScheme: String): ShareTarget? {
-        val query = afterScheme.substringAfter('?', "").substringBefore('#')
-        val params = parseQueryString(query)
+    private fun decodeInviteParams(params: Parameters): ShareTarget? {
         val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
         val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
         return ShareTarget.Invite(serverUrl = server, code = code)

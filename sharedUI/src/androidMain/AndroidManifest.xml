@@ -58,23 +58,7 @@
 
 
 
-            <!-- Deep link: listenup://join?server=...&code=... -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="listenup" android:host="join" />
-            </intent-filter>
-
-            <!-- Deep link: listenup://book/{bookId} -->
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="listenup" android:host="book" />
-            </intent-filter>
-
-            <!-- App Link: https://link.listenup.audio/o#... (autoVerify needs assetlinks.json — Phase 4) -->
+            <!-- App Link: https://link.listenup.audio/o#... (books and invites), verified via assetlinks.json -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

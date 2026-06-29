@@ -40,9 +40,6 @@ private struct RootView: View {
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
-            .onOpenURL { url in
-                deepLinkRouter.receive(url: url)
-            }
             .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                 if let url = activity.webpageURL { deepLinkRouter.receive(url: url) }
             }
