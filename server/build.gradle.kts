@@ -42,6 +42,13 @@ kotlin {
                 }
             }
         }
+        // The native server executable (`server.kexe`). Entry point is the linuxX64Main `main()`,
+        // which boots the shared Application.module() on the native Ktor CIO engine.
+        binaries {
+            executable {
+                entryPoint = "com.calypsan.listenup.server.main"
+            }
+        }
         // Provide the system library search path for the K/N bundled ld.lld linker. On Arch
         // Linux libraries live in /usr/lib; the bundled ld.lld has no default sysroot and won't
         // find libsqlite3/libargon2 without this. On Debian/Ubuntu the same path also resolves
