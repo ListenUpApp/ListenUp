@@ -1,6 +1,11 @@
-# Runtime image for the GraalVM native server binary.
-# The binary is built on the runner by :server:nativeCompile and copied in here.
-FROM debian:stable-slim
+# Runtime image for the Kotlin/Native server binary (server.kexe), built on the runner by
+# :server:linkReleaseExecutableLinuxX64 and copied in here. Base pinned to ubuntu:24.04 to match
+# the ubuntu-24.04 builder's glibc; the binary dynamically links libargon2 + libsqlite3, so their
+# runtime shared objects are installed below.
+FROM ubuntu:24.04
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libargon2-1 libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd -r -u 10001 listenup
 COPY server-binary /usr/local/bin/listenup-server
 RUN chmod +x /usr/local/bin/listenup-server
