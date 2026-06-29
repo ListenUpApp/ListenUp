@@ -85,7 +85,11 @@ internal class InotifyDirectoryWatcher(
     override val onEventFlow: Flow<DirectoryWatchEvent> = emissions.asSharedFlow()
 
     private val inotifyFd: Int = inotify_init1(IN_NONBLOCK)
-    private val shutdownFd: Int = eventfd(0, EFD_NONBLOCK.toInt())
+
+    // `convert()` adapts each argument to the per-arch C integer type: `eventfd`'s initval is UInt on
+    // linuxArm64 but Int on linuxX64, and EFD_NONBLOCK's signedness likewise differs. Hardcoding
+    // `0`/`.toInt()` compiles on x64 only; `convert()` is value-identical there and portable to arm64.
+    private val shutdownFd: Int = eventfd(0.convert(), EFD_NONBLOCK.convert())
 
     private val stateLock = SynchronizedObject()
     private val wdToDir = mutableMapOf<Int, String>()

@@ -56,6 +56,29 @@ kotlin {
         // -L dir is harmless — the linker ignores it.
         binaries.all { linkerOpts("-L/usr/lib", "-L/usr/lib/x86_64-linux-gnu") }
     }
+    // arm64 native server (Raspberry Pi / AWS Graviton self-host). Same two cinterops, same
+    // entry point, same arch-agnostic actuals (shared via linuxMain). Cross-COMPILES from x86_64
+    // (K/N auto-fetches the aarch64 toolchain + sysroot); the executable LINK needs aarch64
+    // libsqlite3/libargon2 and runs on an arm64 runner in CI, not on this x86_64 dev box.
+    linuxArm64 {
+        compilations.getByName("main") {
+            cinterops {
+                create("libargon2") {
+                    defFile(project.file("src/nativeInterop/cinterop/libargon2.def"))
+                }
+                create("sqlite3") {
+                    defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
+                }
+            }
+        }
+        binaries {
+            executable {
+                entryPoint = "com.calypsan.listenup.server.main"
+            }
+        }
+        // arm64 multiarch dir (Debian/Ubuntu aarch64), present on an arm64 host / cross-sysroot.
+        binaries.all { linkerOpts("-L/usr/lib", "-L/usr/lib/aarch64-linux-gnu") }
+    }
 
     // Mirror the `listenup.jvm` convention plugin: apply the project-wide compiler-args triple
     // to every compilation, set JVM_21 bytecode on the JVM target, and allow consuming the
@@ -87,6 +110,11 @@ kotlin {
             }
         }
     }
+
+    // Synthesize the shared native hierarchy (nativeMain → linuxMain → {linuxX64Main, linuxArm64Main})
+    // so both Linux arches share one set of arch-agnostic `actual`s in linuxMain. jvmMain stays a
+    // direct child of commonMain.
+    applyDefaultHierarchyTemplate()
 
     sourceSets {
         getByName("commonMain") {
@@ -140,9 +168,10 @@ kotlin {
             }
         }
 
-        getByName("linuxX64Main") {
+        getByName("linuxMain") {
             dependencies {
-                // SQLDelight native SQLite driver (SQLiter — dynamically links system libsqlite3)
+                // SQLDelight native SQLite driver (SQLiter — dynamically links system libsqlite3).
+                // Shared by both Linux arches; both publish linuxArm64 + linuxX64 variants.
                 implementation(libs.sqldelight.driver.native)
                 implementation(libs.cryptography.provider.openssl3.prebuilt)
             }
@@ -296,6 +325,7 @@ val generateMigrationCatalog = tasks.register("generateMigrationCatalog") {
 kotlin.sourceSets["commonMain"].kotlin.srcDir(generatedMigrationsDir)
 tasks.named("compileKotlinJvm") { dependsOn(generateMigrationCatalog) }
 tasks.named("compileKotlinLinuxX64") { dependsOn(generateMigrationCatalog) }
+tasks.named("compileKotlinLinuxArm64") { dependsOn(generateMigrationCatalog) }
 
 // KMP jvm-target compilations — the `application` plugin and the JavaExec helper tasks below
 // run against these rather than the absent java-plugin `main`/`test` SourceSets.
