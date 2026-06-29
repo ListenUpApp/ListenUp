@@ -49,5 +49,13 @@ internal inline fun <reified T : Any> KrpcRoute.registerScoped(crossinline scope
  * via `AppResult<T>` returns; the guard catches anything that *escapes* a
  * service (bugs, infra faults), logs it server-side with the correlation id,
  * and returns a sanitized `InternalError`. Stacktraces never cross the wire.
+ *
+ * **Why `expect`/`actual` and not a single commonMain body:** the `guard` dispatcher and the
+ * `<Service>Guarded` decorators are KSP-generated PER-TARGET into `:contract`'s jvm + linuxX64
+ * compilations (see `contract/build.gradle.kts` `kspJvm`/`kspLinuxX64`), deliberately kept out of
+ * `:contract` commonMain to avoid forcing Apple actuals + Swift-export pollution. `guard(...)` is
+ * therefore NOT resolvable from `:server` commonMain, so the body must live in each per-target
+ * `actual`. The jvm and linuxX64 actuals are byte-identical and pinned that way by
+ * `RpcRoutesActualsParityTest`; edit them together.
  */
 expect fun Route.rpcRoutes(services: RpcServices)
