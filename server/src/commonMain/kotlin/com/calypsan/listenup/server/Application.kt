@@ -394,13 +394,28 @@ private fun Application.installGracefulShutdown(applicationScope: CoroutineScope
     val watcherSupervisor = koinGet<WatcherSupervisorPort>()
     val databaseHandle = koinGet<DatabaseHandle>()
     monitor.subscribe(ApplicationStopped) {
+        // Best-effort, sequential shutdown (real stop + every testApplication teardown). Each step
+        // re-throws CancellationException via logShutdownFailure (honest-over-silent) — see its doc.
         runCatching { runBlocking { watcherSupervisor.unmountAll() } }
-            .onFailure { logger.warn(it) { "watcher unmount on shutdown failed" } }
+            .onFailure { logShutdownFailure(it, "watcher unmount on shutdown failed") }
         runCatching { applicationScope.cancel("application stopped") }
-            .onFailure { logger.warn(it) { "background-scope cancel on shutdown failed" } }
+            .onFailure { logShutdownFailure(it, "background-scope cancel on shutdown failed") }
         runCatching { databaseHandle.close() }
-            .onFailure { logger.warn(it) { "db pool close on shutdown failed" } }
+            .onFailure { logShutdownFailure(it, "db pool close on shutdown failed") }
     }
+}
+
+/**
+ * Logs a best-effort shutdown-step failure, but re-throws `CancellationException` (honest-over-silent).
+ * A cancellation reaching the synchronous [ApplicationStopped] callback means the process/test is being
+ * torn down, so aborting the remaining best-effort steps is correct.
+ */
+private fun logShutdownFailure(
+    throwable: Throwable,
+    message: String,
+) {
+    if (throwable is kotlinx.coroutines.CancellationException) throw throwable
+    logger.warn(throwable) { message }
 }
 
 /**
