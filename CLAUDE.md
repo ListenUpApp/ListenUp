@@ -2,11 +2,11 @@
 
 You are not here to write code. You are here to make a dent in the universe.
 
-Before anything else, read `../docs/SOUL.md`. It is the why. Everything technical follows from it.
+The *why* behind every technical rule below — internalize it before you write code. Everything technical follows from it.
 
 **ListenUp is glass.** You should look through it, not at it. The moment the user notices the app, it has failed. When playback stutters, when progress is lost, when the UI lies about what's happening — that's a promise broken. The person using this app chose to self-host because they believe their library and their experience should be truly theirs. We respect that investment by building something worthy of it.
 
-Then read `../docs/architecture/target-architecture.md` (the rubric — 13 sections, 61 rules, each source-cited) and `../docs/architecture/restoration-roadmap.md` (the sequencing guide). Understand the target. Every technical decision you make should either move the codebase closer to the rubric or hold the line where it already complies. When you're about to make a non-obvious choice, check the rubric first — if a rule exists for it, follow the rule; if you disagree with the rule, say so and cite your source.
+The canonical engineering rules are inlined below under **Key Rubric Rules (Quick Reference)** and **Error Architecture**. Understand the target. Every technical decision you make should either move the codebase closer to those rules or hold the line where it already complies. When you're about to make a non-obvious choice, check the rules first — if one exists for it, follow it; if you disagree with a rule, say so and cite your source.
 
 The SOUL's principles are not separate from the technical rules. They ARE the technical rules:
 - **"Honest over silent"** → the Error Model rule: re-throw `CancellationException`, never swallow exceptions, surface errors with `AppResult<T>` — because software that lies by omission is the deepest failure.
@@ -68,13 +68,9 @@ Before touching anything, read the surrounding code. Understand the patterns, th
 
 ### The Architecture Audit
 
-This codebase has been through a comprehensive architecture audit (2026-04-11). The audit produced:
+This codebase has been through a comprehensive architecture audit (2026-04-11). Its durable output is inlined below: the **Key Rubric Rules (Quick Reference)** and **Error Architecture** sections are the target the codebase is being restored toward.
 
-- **`../docs/architecture/target-architecture.md`** — the durable rubric. 13 sections, 61 rules. Check this before making changes.
-- **`../docs/architecture/findings/`** — per-subsystem findings. Historical record of drift at audit time.
-- **`../docs/architecture/restoration-roadmap.md`** — 9 prioritised workstreams. Each becomes its own spec → plan → execute cycle.
-
-**The rubric is the target.** If you're about to write code that violates a rubric rule, stop. Either follow the rule or present a source-cited argument for why the rule should be updated.
+**The inlined rules are the target.** If you're about to write code that violates one, stop. Either follow the rule or present a source-cited argument for why the rule should be updated.
 
 ---
 
@@ -183,7 +179,7 @@ Strict Kotlin everywhere. Types are not a formality — they are the first layer
 
 ### Key Rubric Rules (Quick Reference)
 
-These are the rules most likely to affect day-to-day work. The full rubric is in `target-architecture.md`.
+These are the rules most likely to affect day-to-day work.
 
 - **`AppResult<T>`** is the single result type for every fallible suspend function. See *Error Architecture* below.
 - **Always re-throw `CancellationException`** in catch blocks. `SyncManager` and `SearchRepositoryImpl` are the compliance references.
@@ -196,7 +192,7 @@ These are the rules most likely to affect day-to-day work. The full rubric is in
 
 ### Error Architecture
 
-Full philosophy in the parent `CLAUDE.md`. Day-to-day rules:
+Day-to-day rules:
 
 - **Fallible suspend functions return `AppResult<T>`** (`shared/.../client/core/AppResult.kt`). Not `Result<T>`, not `throw`. A small set of un-migrated APIs still throws; those files are tracked in `NoThrowsInDataLayerRule`'s `RESIDUAL_THROWS_ALLOWLIST` and migrate opportunistically as the in-place rewrite re-touches each domain.
 - **Data-layer APIs use `apiCall { ... }` / `apiCallUnit { ... }`** (in `data/remote/ApiCallHelper.kt`) at the request boundary. The Ktor plugin (`installListenUpErrorHandling`, `expectSuccess = true`) raises `ResponseException` on non-2xx; `apiCall` catches it via `suspendRunCatching` and routes through `ErrorMapper` to a typed `AppResult.Failure`. API method bodies are just request shape + a `.map { it.toDomain() }` transform on success.

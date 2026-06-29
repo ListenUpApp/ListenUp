@@ -2,9 +2,8 @@
 
 Operational rules for building the native iOS client. These **override** any
 Android-shaped assumption inherited from the root `CLAUDE.md` when working under
-`iosApp/`. The *why* behind each rule, plus the shared/native boundary diagram, lives in
-[`docs/superpowers/ios-principles.md`](../../docs/superpowers/ios-principles.md) — read it
-before any non-trivial iOS work.
+`iosApp/`. The *why* behind each rule, and the shared/native boundary, are described
+inline below.
 
 > **Mental model:** iOS is its own app. It shares ListenUp's *brain* (domain, data, sync,
 > contract) and builds its own *body* (presentation + UI) the way Apple intends. We
@@ -13,9 +12,8 @@ before any non-trivial iOS work.
 ## Philosophy & parity
 
 1. **Parity with Android is a guide, not a requirement.** Implement what makes sense for
-   iOS; add where it helps, remove or fold where the platforms diverge. The
-   [iOS↔Android parity ledger](../../docs/superpowers/ios-android-parity-ledger.md) tracks
-   the gap — it informs priorities, it does not mandate 1:1 coverage.
+   iOS; add where it helps, remove or fold where the platforms diverge. Parity informs
+   priorities — it does not mandate 1:1 coverage.
 2. **Each platform is built the best, most idiomatic way for itself.** A first-class native
    experience outranks code-sharing. Sharing is the means, not the goal.
 3. **Reference Android for implementation clues only** — never look, structure, or
@@ -44,7 +42,7 @@ before any non-trivial iOS work.
    or per-platform files, and prefer organizing reusable native code so it could move into a
    Swift package/framework target consumed by `iosApp`, a future `macApp`, and `watchApp`.
    Don't build macOS/watchOS UI yet — just don't bake in assumptions that block it.
-5. **The local DB is the single source of truth (non-negotiable, from SOUL.md).** iOS reads
+5. **The local DB is the single source of truth (non-negotiable).** iOS reads
    the shared offline-first store, never the network directly. "Build it like an iOS app"
    governs presentation — it is never license to fork a parallel native networking/cache path.
 6. **Diverge in presentation, converge in contract.** If an iOS need reveals a missing
@@ -121,7 +119,7 @@ before any non-trivial iOS work.
     `.font(.system(size:))` is allowed **only** for a decorative glyph in a fixed-size container
     (a badge circle, an SF Symbol sized to its frame) and must carry a one-line
     `// decorative fixed size` comment. The conversion is a phased rollout, one area per slice —
-    `LicensesView` is the reference precedent; see `plans/README.md` for remaining areas.
+    `LicensesView` is the reference precedent.
 
 ## Media & process
 
