@@ -6,7 +6,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
@@ -69,7 +69,7 @@ internal class TagDomainSeeder(
             }
             val tag =
                 Tag(
-                    id = UUID.randomUUID().toString(),
+                    id = Uuid.random().toString(),
                     name = seedTag.name,
                     slug = seedTag.slug,
                     revision = 0L,

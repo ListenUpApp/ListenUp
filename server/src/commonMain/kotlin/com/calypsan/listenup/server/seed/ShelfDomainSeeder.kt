@@ -6,7 +6,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.UUID
+import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
 private val logger = KotlinLogging.logger {}
@@ -74,7 +74,7 @@ internal class ShelfDomainSeeder(
         val now = clock.now().toEpochMilliseconds()
         val payload =
             ShelfSyncPayload(
-                id = UUID.randomUUID().toString(),
+                id = Uuid.random().toString(),
                 name = name,
                 description = description,
                 isPrivate = isPrivate,
