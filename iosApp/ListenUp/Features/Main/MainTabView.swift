@@ -236,6 +236,9 @@ private extension View {
             .navigationDestination(for: AdminCollectionDetailDestination.self) { destination in
                 AdminCollectionDetailView(collectionId: destination.collectionId)
             }
+            .navigationDestination(for: LibrarySettingsDestination.self) { _ in
+                LibrarySettingsView()
+            }
     }
 }
 

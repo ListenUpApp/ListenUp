@@ -121,3 +121,7 @@ struct AdminCollectionsDestination: Hashable {}
 struct AdminCollectionDetailDestination: Hashable {
     let collectionId: String
 }
+
+/// The Library Settings screen (admin / root users only), reached from Administration ›
+/// Management. Manages the single library's scan folders and triggers a rescan.
+struct LibrarySettingsDestination: Hashable {}

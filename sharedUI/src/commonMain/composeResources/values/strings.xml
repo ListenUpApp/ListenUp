@@ -86,6 +86,8 @@
     <string name="admin_invite_expires_in">Invite expires in</string>
     <string name="admin_invite_preview">Invite preview</string>
     <string name="admin_invite_someone">Invite Someone</string>
+    <string name="admin_library_settings">Library Settings</string>
+    <string name="admin_library_settings_subtitle">Manage scan folders and rescan your library</string>
     <string name="admin_link_copied">Link copied!</string>
     <string name="admin_listening_history">Listening history</string>
     <string name="admin_management">Management</string>

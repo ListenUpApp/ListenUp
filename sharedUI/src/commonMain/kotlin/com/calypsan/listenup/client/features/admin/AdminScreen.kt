@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.HowToReg
 import androidx.compose.material.icons.outlined.Inbox
@@ -92,6 +93,8 @@ import listenup.composeapp.generated.resources.admin_copy_link
 import listenup.composeapp.generated.resources.admin_create_backups_and_restore_server
 import listenup.composeapp.generated.resources.admin_deny_registration
 import listenup.composeapp.generated.resources.admin_invite_someone
+import listenup.composeapp.generated.resources.admin_library_settings
+import listenup.composeapp.generated.resources.admin_library_settings_subtitle
 import listenup.composeapp.generated.resources.admin_link_copied
 import listenup.composeapp.generated.resources.admin_management
 import listenup.composeapp.generated.resources.admin_no_pending_registrations
@@ -142,6 +145,7 @@ fun AdminScreen(
     onCategoriesClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onInboxClick: () -> Unit = {},
+    onLibrarySettingsClick: () -> Unit = {},
     onUserClick: (String) -> Unit = {},
     serverName: String = "",
     onServerNameChange: (String) -> Unit = {},
@@ -226,6 +230,7 @@ fun AdminScreen(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onInboxClick = onInboxClick,
+                    onLibrarySettingsClick = onLibrarySettingsClick,
                     serverName = serverName,
                     onServerNameChange = onServerNameChange,
                     remoteUrl = remoteUrl,
@@ -325,6 +330,7 @@ private fun AdminContent(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onInboxClick: () -> Unit,
+    onLibrarySettingsClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
@@ -353,6 +359,7 @@ private fun AdminContent(
             onCategoriesClick = onCategoriesClick,
             onBackupClick = onBackupClick,
             onInboxClick = onInboxClick,
+            onLibrarySettingsClick = onLibrarySettingsClick,
             serverName = serverName,
             onServerNameChange = onServerNameChange,
             remoteUrl = remoteUrl,
@@ -401,6 +408,7 @@ private fun AdminContent(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onInboxClick = onInboxClick,
+                    onLibrarySettingsClick = onLibrarySettingsClick,
                     inboxEnabled = inboxEnabled,
                 )
             }
@@ -425,6 +433,7 @@ private fun AdminTwoPaneContent(
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onInboxClick: () -> Unit,
+    onLibrarySettingsClick: () -> Unit,
     serverName: String,
     onServerNameChange: (String) -> Unit,
     remoteUrl: String,
@@ -479,6 +488,7 @@ private fun AdminTwoPaneContent(
                     onCategoriesClick = onCategoriesClick,
                     onBackupClick = onBackupClick,
                     onInboxClick = onInboxClick,
+                    onLibrarySettingsClick = onLibrarySettingsClick,
                     inboxEnabled = inboxEnabled,
                 )
             }
@@ -908,12 +918,13 @@ private fun InviteRow(
 // ---------------------------------------------------------------------------
 
 @Composable
-private fun ManagementSection(
+internal fun ManagementSection(
     onInviteClick: () -> Unit,
     onCollectionsClick: () -> Unit,
     onCategoriesClick: () -> Unit,
     onBackupClick: () -> Unit,
     onInboxClick: () -> Unit,
+    onLibrarySettingsClick: () -> Unit,
     inboxEnabled: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -924,6 +935,15 @@ private fun ManagementSection(
             fontWeight = FontWeight.Bold,
             color = colors.onSurface,
             modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+        )
+        ActionTile(
+            title = stringResource(Res.string.admin_library_settings),
+            subtitle = stringResource(Res.string.admin_library_settings_subtitle),
+            icon = Icons.Outlined.FolderOpen,
+            onClick = onLibrarySettingsClick,
+            containerColor = colors.secondaryContainer,
+            badgeColor = colors.secondary,
+            badgeContentColor = colors.onSecondary,
         )
         if (inboxEnabled) {
             ActionTile(

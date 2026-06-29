@@ -861,6 +861,26 @@
         }
       }
     },
+    "admin.library_settings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library Settings"
+          }
+        }
+      }
+    },
+    "admin.library_settings_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manage scan folders and rescan your library"
+          }
+        }
+      }
+    },
     "admin.link_copied": {
       "localizations": {
         "en": {
