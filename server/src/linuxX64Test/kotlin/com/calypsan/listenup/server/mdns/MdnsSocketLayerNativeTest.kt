@@ -21,7 +21,7 @@ class MdnsSocketLayerNativeTest {
         try {
             for (socket in sockets) {
                 socket.ipv4.size shouldBe IPV4_BYTES
-                (socket.interfaceName.isNotBlank()) shouldBe true
+                socket.interfaceName.isNotBlank() shouldBe true
             }
         } finally {
             sockets.forEach { it.leaveAndClose() }
