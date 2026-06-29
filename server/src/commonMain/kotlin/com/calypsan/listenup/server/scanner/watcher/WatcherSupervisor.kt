@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.scanner.watcher
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,7 +32,7 @@ internal class WatcherSupervisor(
         folder: LibraryFolderRef,
         onEvent: suspend (Path) -> Unit,
     ) -> WatcherHandle,
-) {
+) : WatcherSupervisorPort {
     private val mutex = Mutex()
 
     // Active watcher per folder id.
@@ -50,7 +51,7 @@ internal class WatcherSupervisor(
      *
      * Idempotent: if a watcher for [folder.id] already exists, this is a no-op.
      */
-    suspend fun mount(
+    override suspend fun mount(
         libraryId: LibraryId,
         folder: LibraryFolderRef,
         onEvent: suspend (LibraryId, Path) -> Unit,
@@ -75,7 +76,7 @@ internal class WatcherSupervisor(
      *
      * No-op when no watcher is registered for [folderId].
      */
-    suspend fun unmount(folderId: FolderId) =
+    override suspend fun unmount(folderId: FolderId) =
         mutex.withLock {
             val handle = watchersByFolder.remove(folderId) ?: return@withLock
             handle.close()
@@ -88,7 +89,7 @@ internal class WatcherSupervisor(
      *
      * Called when a library is deleted or on server shutdown.
      */
-    suspend fun unmountAllForLibrary(libraryId: LibraryId) =
+    override suspend fun unmountAllForLibrary(libraryId: LibraryId) =
         mutex.withLock {
             val folderIds = foldersByLibrary.remove(libraryId) ?: return@withLock
             for (folderId in folderIds) {
@@ -104,7 +105,7 @@ internal class WatcherSupervisor(
      * each handle (releasing the native FS handle) rather than joining its event loop,
      * which would block disposal. Idempotent: a second call is a no-op.
      */
-    suspend fun unmountAll() =
+    override suspend fun unmountAll() =
         mutex.withLock {
             if (watchersByFolder.isEmpty()) return@withLock
             val count = watchersByFolder.size
