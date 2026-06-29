@@ -35,7 +35,6 @@ import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import com.calypsan.listenup.server.sync.accessFilteredDigest
 import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
 import app.cash.sqldelight.db.SqlDriver
-import com.calypsan.listenup.server.io.hashBytesSha256
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.files.Path
 import kotlin.uuid.Uuid
@@ -162,6 +161,9 @@ class BookRepository(
 
     /** Book-row child-table write mechanics (transaction-scoped, no revision/bus calls). */
     private val bookAggregateWriter = BookAggregateWriter(db)
+
+    /** FTS index write mechanics (transaction-scoped, no revision/bus calls). */
+    private val bookFtsWriter = BookFtsWriter(db)
 
     /** Read query helpers — FTS, path/inode lookup, and contributor/series joins. */
     private val bookFinder = BookFinder(db, driver)
@@ -410,7 +412,7 @@ class BookRepository(
         }
         bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         bookAggregateWriter.replaceDocuments(value.id, value.documents)
-        upsertFtsRow(value)
+        bookFtsWriter.upsertFtsRow(value)
 
         // Batched scan-persist path only: genre junctions ride INSIDE this transaction from the
         // pre-resolved ids the prepare phase built, collapsing a genred book to a single commit. The
@@ -1251,62 +1253,6 @@ class BookRepository(
         return accessFilteredDigest(cursor, rows)
     }
 
-    // --- FTS write (inside the open SQLDelight transaction) -------------------
-
-    /**
-     * Replaces the FTS row for [payload] in `book_search`, allocating or reusing the integer
-     * rowid via `book_search_map`.
-     *
-     * `book_search` is a `contentless_delete=1` FTS5 table, so an update is a plain
-     * `DELETE FROM book_search WHERE rowid = ?` (generated `deleteFtsRow`) followed by a fresh
-     * `INSERT` (generated `insertFtsRow`). The insert covers all 8 columns; `tags`/`genres` are
-     * written EMPTY on this book-upsert path (the richer population happens in the reindexer),
-     * preserving the prior write-time behaviour, which only wrote the first five columns.
-     *
-     * Mirrors the prior Exposed `upsertFtsRow` exactly: resolve-or-allocate the rowid, blind
-     * DELETE (harmless when no row exists for the rowid), then INSERT — never a read-then-merge.
-     */
-    private fun upsertFtsRow(payload: BookSyncPayload) {
-        val rowid = resolveOrAllocateFtsRowid(payload.id)
-        val contributorNames = payload.contributors.joinToString(", ") { it.name }
-        val seriesNames = payload.series.joinToString(", ") { it.name }
-        db.bookSearchQueries.deleteFtsRow(rowid)
-        db.bookSearchQueries.insertFtsRow(
-            rowid = rowid,
-            title = payload.title,
-            subtitle = payload.subtitle ?: "",
-            description = payload.description ?: "",
-            contributor_names = contributorNames,
-            series_names = seriesNames,
-            // tags/genres are populated by the reindexer (U3b), not at book-upsert time. Pass
-            // EMPTY strings (not null/omitted) to preserve the prior write-time behaviour.
-            tags = "",
-            genres = "",
-        )
-    }
-
-    /**
-     * Returns the existing FTS rowid for [bookId], or allocates `MAX(rowid)+1` and records the
-     * mapping. The rowid is a SQLite INTEGER — `Long` in SQLDelight (it was `Int` in Exposed);
-     * the boundary conversion is deliberate, and FTS rowids never approach the Int ceiling at
-     * library scale, so the wider type is purely safer.
-     */
-    private fun resolveOrAllocateFtsRowid(bookId: String): Long {
-        db.bookSearchQueries
-            .selectRowidForBook(bookId)
-            .executeAsOneOrNull()
-            ?.let { return it }
-        val nextRowid =
-            (
-                db.bookSearchQueries
-                    .selectMaxRowid()
-                    .executeAsOne()
-                    .MAX ?: 0L
-            ) + 1L
-        db.bookSearchQueries.insertMap(book_id = bookId, rowid = nextRowid)
-        return nextRowid
-    }
-
     /**
      * Writes the `(systemCollectionId, bookId)` membership into `collection_books` inside the
      * open SQLDelight book transaction, atomically with the book insert (#680 pure-union model).
@@ -1430,9 +1376,3 @@ class BookRepository(
     internal suspend fun readPayloadsForTest(idStrs: List<String>): List<BookSyncPayload> =
         suspendTransaction(db) { readPayloads(idStrs) }
 }
-
-/** Returns the SHA-256 hex digest of [this] byte array. */
-private fun ByteArray.sha256Hex(): String = hashBytesSha256(this)
-
-/** Maps a wire `Boolean` to the SQLite `0/1` INTEGER the books table stores. */
-private fun Boolean.toDbLong(): Long = if (this) 1L else 0L
