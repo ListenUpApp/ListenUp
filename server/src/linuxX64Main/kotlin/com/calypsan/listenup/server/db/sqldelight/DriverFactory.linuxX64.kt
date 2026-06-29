@@ -9,6 +9,15 @@ import co.touchlab.sqliter.SynchronousFlag
 import kotlinx.io.files.Path
 
 /**
+ * Reader connections in the SQLiter pool. WAL (set below) lets these readers run concurrently
+ * with the single writer, so the pool size is the native server's read-concurrency ceiling.
+ * A small fixed pool: the native request pipeline dispatches on [kotlinx.coroutines.Dispatchers.Default]
+ * (CPU-core sized, >= 2), and each reader connection is a real SQLite connection (memory + an fd), so an
+ * unbounded pool buys nothing on a self-hosted single instance. Raise if read contention is ever observed.
+ */
+private const val MAX_READER_CONNECTIONS = 4
+
+/**
  * Linux/Native actual: opens the SQLite file at [dbPath] via [NativeSqliteDriver] backed by
  * SQLiter, with the project-standard PRAGMAs wired through [DatabaseConfiguration].
  *
@@ -60,7 +69,7 @@ actual class DriverFactory {
                         // MigrationRunner owns migrations
                     },
                 ),
-            maxReaderConnections = 1,
+            maxReaderConnections = MAX_READER_CONNECTIONS,
         )
     }
 }
