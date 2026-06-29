@@ -177,7 +177,7 @@ kotlin {
             // AboutLibraries — open-source license loader (compose-m3 includes core + compose-core)
             implementation(libs.aboutlibraries.compose.m3)
         }
-        val desktopMain by getting {
+        getByName("desktopMain") {
             dependencies {
                 // FFmpeg for audio decoding (self-contained, decodes all formats)
                 implementation(libs.javacv)
@@ -196,7 +196,7 @@ kotlin {
                 }
             }
         }
-        val androidHostTest by getting {
+        getByName("androidHostTest") {
             dependencies {
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.mokkery.runtime)
@@ -221,7 +221,7 @@ kotlin {
                 implementation(libs.androidx.work.testing)
             }
         }
-        val desktopTest by getting {
+        getByName("desktopTest") {
             dependencies {
                 implementation(libs.kotlinx.coroutines.test)
                 implementation(libs.mokkery.runtime)

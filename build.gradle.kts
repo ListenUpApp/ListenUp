@@ -83,5 +83,13 @@ spotless {
         target("**/*.gradle.kts")
         targetExclude("**/build/**")
         ktlint(libs.versions.ktlint.get())
+        // Mirror the `kotlin` block: max-line-length is not enforced on build scripts. Beyond the
+        // long dependency-coordinate / URL strings that motivate it for source, the embedded-Kotlin
+        // parser ktlint uses to read .gradle.kts mis-measures lines in template-heavy blocks (e.g.
+        // server's generateMigrationCatalog), so the rule false-positives on sub-120 lines.
+        suppressLintsFor {
+            step = "ktlint"
+            shortCode = "standard:max-line-length"
+        }
     }
 }
