@@ -11,3 +11,9 @@ internal expect fun readEnv(name: String): String?
  * string when it cannot be determined. The base for the default `~/ListenUp` data home.
  */
 internal expect fun userHomeDir(): String
+
+/**
+ * The host's network name (JVM `InetAddress.getLocalHost().hostName` / native `gethostname`), or an
+ * empty string when it cannot be determined. The basis for the mDNS instance label.
+ */
+internal expect fun hostname(): String

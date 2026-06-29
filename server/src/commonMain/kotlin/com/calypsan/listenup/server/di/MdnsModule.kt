@@ -3,12 +3,12 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.server.mdns.InstanceIdentity
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.mdns.MulticastMdnsResponder
+import com.calypsan.listenup.server.io.hostname
 import com.calypsan.listenup.server.mdns.buildMdnsTxt
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.net.InetAddress
 
 /**
  * mDNS advertisement wiring. [applicationScope] hosts the responder's receive/announce coroutines;
@@ -29,7 +29,7 @@ fun mdnsModule(
             val identity = get<InstanceIdentity>()
             val settings = get<ServerSettingsRepository>()
             MulticastMdnsResponder(
-                instanceName = hostname(),
+                instanceName = singleLabelHostname(hostname()),
                 port = port,
                 txtProvider = {
                     buildMdnsTxt(identity.instanceId(), settings.serverName(), settings.remoteUrl())
@@ -43,9 +43,6 @@ fun mdnsModule(
             )
         }
     }
-
-private fun hostname(): String =
-    runCatching { singleLabelHostname(InetAddress.getLocalHost().hostName) }.getOrDefault("listenup-server")
 
 /**
  * Strips a dotted FQDN to the first label (e.g. "host.example.com" → "host").
