@@ -8,13 +8,10 @@ import org.slf4j.event.Level
 
 /**
  * JVM request logging: binds the correlation id (from [installCallId]) into the SLF4J MDC under
- * [MDC_KEY] and logs each request at INFO.
- *
- * JVM-only — `ktor-server-call-logging` has no native artifact, so the native server omits this
- * and installs only [installCallId]. Install order on the JVM is [installCallId] then
- * [installCallLogging] so the correlation id exists before the MDC binding reads it.
+ * [MDC_KEY] and logs each request at INFO. Install order is [installCallId] then [installCallLogging]
+ * so the correlation id exists before the MDC binding reads it.
  */
-fun Application.installCallLogging() {
+actual fun Application.installCallLogging() {
     install(CallLogging) {
         level = Level.INFO
         callIdMdc(MDC_KEY)

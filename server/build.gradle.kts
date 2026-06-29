@@ -120,9 +120,10 @@ kotlin {
                 // PartialContent — byte-range/seek support behind the file-response seam
                 // (respondSeekable). Publishes a linuxX64 variant.
                 implementation(libs.ktor.server.partial.content)
-                // Koin DI — the di/ Koin modules move to commonMain (Phase 5-4). koin-core is KMP
-                // (linuxX64 variant); koin-ktor (the install(Koin) plugin) stays jvmMain.
+                // Koin DI — the di/ Koin modules + Application.module() are commonMain (Phase 5).
+                // koin-core and koin-ktor (the install(Koin) plugin) both publish linuxX64 variants.
                 implementation(libs.koin.core)
+                implementation(libs.koin.ktor)
                 // Ktor HTTP client (CIO engine) — the metadata slice's Audible/iTunes/image client.
                 // KMP: linuxX64 variants exist; MetadataModule moved to commonMain (Phase 5-4c).
                 implementation(libs.ktor.client.core)
@@ -161,10 +162,6 @@ kotlin {
 
                 // Kotlin-native cryptography (HMAC for AudioUrlSigner)
                 implementation(libs.cryptography.provider.jdk)
-
-                // Koin — koin-core is in commonMain (the di/ modules moved there in Phase 5-4);
-                // koin-ktor (the install(Koin) plugin) stays jvmMain until Application.module() moves.
-                implementation(libs.koin.ktor)
 
                 // kotlinx.rpc core — jvmMain only; krpc-server/krpc-ktor-server/krpc-serialization-json
                 // are in commonMain (moved for the linuxX64 CIO-server spike).

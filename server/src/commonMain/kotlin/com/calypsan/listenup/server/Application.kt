@@ -132,7 +132,7 @@ import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
 import io.ktor.server.auth.authenticate
 import io.ktor.server.config.ApplicationConfig
-import io.ktor.server.plugins.autohead.AutoHeadResponse
+import com.calypsan.listenup.server.plugins.installAutoHeadResponse
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.partialcontent.PartialContent
 import io.ktor.server.resources.Resources
@@ -150,9 +150,10 @@ import kotlinx.rpc.krpc.ktor.server.Krpc
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
 import org.koin.ktor.plugin.KoinIsolated
-import java.nio.file.Files
-import java.nio.file.Path
-import kotlinx.io.files.Path as DataDirPath
+import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.io.userHomeDir
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = KotlinLogging.logger {}
 
@@ -268,7 +269,7 @@ private fun Application.installCorePlugins() {
     }
     install(Krpc)
     install(PartialContent)
-    install(AutoHeadResponse)
+    installAutoHeadResponse()
     monitor.subscribe(ApplicationStopped) { logger.info { "See You Space Cowboy..." } }
 }
 
@@ -291,13 +292,10 @@ private fun Application.installDependencies(
     // it removes the global `on(ApplicationStopped){ stopKoin() }` whose late async firing could rip
     // the live context out of the next test spec (the BookAccessPolicy NoDefinitionFound E2E flake).
     install(KoinIsolated) {
-        // The di modules now take a kotlinx.io path (they moved to commonMain in Phase 5-4); convert
-        // the bootstrap java.nio homeDir once. Drops out when Application.module() goes native (P5-5).
-        val ioHome = DataDirPath(homeDir.toString())
         val modules = mutableListOf(authModule(environment.config))
         modules += scannerModule(applicationScope, metadataPrecedence, watchEnabled)
-        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, ioHome)
-        modules += metadataModule(ioHome)
+        modules += booksModule(metadataPrecedence, embeddedCoverCacheSize, homeDir)
+        modules += metadataModule(homeDir)
         modules += playbackModule()
         modules += libraryModule()
         modules += embeddedmetaModule
@@ -310,10 +308,10 @@ private fun Application.installDependencies(
                 ?.getString()
                 ?.toIntOrNull() ?: 8080
         modules += mdnsModule(applicationScope, httpPort)
-        modules += profileModule(DataDirPath(ioHome, "avatars"))
+        modules += profileModule(Path(homeDir, "avatars"))
         modules += userPreferencesModule()
-        modules += backupModule(ioHome)
-        modules += importModule(ioHome)
+        modules += backupModule(homeDir)
+        modules += importModule(homeDir)
         if (seedProfile == SEED_PROFILE_DEMO) {
             modules +=
                 seedModule(
@@ -494,7 +492,7 @@ private fun Application.installAppRoutes(homeDir: Path) {
             playbackRoutes(playbackService)
             playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
             adminRoutes(backfillService, searchReindexService)
-            metadataImageRoutes(contributorRepository, seriesRepository, DataDirPath(homeDir.toString()))
+            metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             metadataRoutes(metadataLookupService)
             searchRoutes(searchService)
             tagRoutes(tagService, bookAccessPolicy)
@@ -560,12 +558,12 @@ private fun Application.resolveLibraryPaths(): List<Path> {
             .orEmpty()
     if (raw.isBlank()) return emptyList()
     return raw
-        .split(java.io.File.pathSeparatorChar)
+        .split(':')
         .map { it.trim() }
         .filter { it.isNotEmpty() }
         .mapNotNull { entry ->
-            val path = Path.of(entry)
-            if (Files.isDirectory(path)) {
+            val path = Path(entry)
+            if (SystemFileSystem.metadataOrNull(path)?.isDirectory == true) {
                 path
             } else {
                 logger.warn { "scanner.libraryPath entry '$entry' is not a directory — skipping" }
@@ -586,12 +584,10 @@ private fun Application.resolveLibraryPaths(): List<Path> {
  * stays pure.
  */
 private fun Application.resolveImageHome(): Path =
-    Path.of(
-        resolveListenupHome(
-            configuredHome = environment.config.propertyOrNull("listenup.home")?.getString(),
-            envHome = System.getenv("LISTENUP_HOME"),
-            userHome = System.getProperty("user.home"),
-        ).toString(),
+    resolveListenupHome(
+        configuredHome = environment.config.propertyOrNull("listenup.home")?.getString(),
+        envHome = readEnv("LISTENUP_HOME"),
+        userHome = userHomeDir(),
     )
 
 /**
@@ -608,8 +604,7 @@ private fun Application.acquireDataDirLockIfEnabled(homeDir: Path) {
             ?.getString()
             ?.toBooleanStrictOrNull() ?: false
     if (!enabled) return
-    // java.nio path → kotlinx-io; transitional until Application.kt moves to commonMain (Phase 5)
-    val lock = DataDirLock.forDataHome(DataDirPath(homeDir.toString()))
+    val lock = DataDirLock.forDataHome(homeDir)
     check(lock.tryAcquire()) {
         "Another ListenUp server is already using the data directory $homeDir. Stop it before " +
             "starting another instance, or point this one at a different LISTENUP_HOME."
@@ -680,8 +675,8 @@ private fun Application.resolveSeedProfile(): String? {
  */
 private fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path? {
     if (seedProfile != SEED_PROFILE_DEMO) return null
-    val candidate = Path.of("build", "seed-library")
-    if (!Files.isDirectory(candidate)) {
+    val candidate = Path("build", "seed-library")
+    if (SystemFileSystem.metadataOrNull(candidate)?.isDirectory != true) {
         logger.warn {
             "seed.profile=demo but no synthetic library at '$candidate' — run " +
                 "':server:generateSeedLibrary' (or use ':server:runDemo'). The demo user is still " +
