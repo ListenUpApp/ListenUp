@@ -31,6 +31,8 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.BookWriteExtras
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.contributorDedupKey
+import com.calypsan.listenup.server.services.normalizeForDedup
 import kotlinx.coroutines.withContext
 
 private const val MAX_SEARCH_LIMIT = 200
@@ -191,21 +193,24 @@ internal class BookServiceImpl(
         val current =
             repo.findById(id)
                 ?: return bookNotFound(id)
+        val sorted = contributors.sortedBy { it.position }
+        // Resolve every id-less contributor in ONE bulk SELECT (creating the missing rows through the
+        // same resolveOrCreate the scanner uses), then look each input's id up by its dedup key —
+        // identical ids, order, duplicate-collapse, and sync events to the prior per-item path.
+        val resolvedByKey = contributorRepo.resolveOrCreateAll(sorted.filter { it.id == null }.map { it.name to null })
         val resolved =
-            contributors
-                .sortedBy { it.position }
-                .map { input ->
-                    val resolvedId =
-                        input.id?.value
-                            ?: contributorRepo.resolveOrCreate(input.name, sortName = null).value
-                    BookContributorPayload(
-                        id = resolvedId,
-                        name = input.name,
-                        sortName = null,
-                        role = input.role,
-                        creditedAs = input.creditedAs,
-                    )
-                }
+            sorted.map { input ->
+                val resolvedId =
+                    input.id?.value
+                        ?: resolvedByKey.getValue(contributorDedupKey(input.name, null)).value
+                BookContributorPayload(
+                    id = resolvedId,
+                    name = input.name,
+                    sortName = null,
+                    role = input.role,
+                    creditedAs = input.creditedAs,
+                )
+            }
         return when (val upsertResult = repo.upsert(current.copy(contributors = resolved))) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(upsertResult.error)
@@ -272,19 +277,21 @@ internal class BookServiceImpl(
         val current =
             repo.findById(id)
                 ?: return bookNotFound(id)
+        val sorted = series.sortedWith(compareBy(nullsLast()) { it.position })
+        // Resolve every id-less series in ONE bulk SELECT, then look each input's id up by its
+        // normalized key — identical ids, order, and sync events to the prior per-item path.
+        val resolvedByKey = seriesRepo.resolveOrCreateAll(sorted.filter { it.id == null }.map { it.name })
         val resolved =
-            series
-                .sortedWith(compareBy(nullsLast()) { it.position })
-                .map { input ->
-                    val resolvedId =
-                        input.id?.value
-                            ?: seriesRepo.resolveOrCreate(input.name).value
-                    BookSeriesPayload(
-                        id = resolvedId,
-                        name = input.name,
-                        sequence = input.position?.toString(),
-                    )
-                }
+            sorted.map { input ->
+                val resolvedId =
+                    input.id?.value
+                        ?: resolvedByKey.getValue(normalizeForDedup(input.name)).value
+                BookSeriesPayload(
+                    id = resolvedId,
+                    name = input.name,
+                    sequence = input.position?.toString(),
+                )
+            }
         return when (val upsertResult = repo.upsert(current.copy(series = resolved))) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(upsertResult.error)
@@ -310,11 +317,13 @@ internal class BookServiceImpl(
         val current = repo.findById(id) ?: return bookNotFound(id)
 
         // Validate every input genre exists and is live BEFORE the relink. Unknown ids surface as
-        // BookError.InvalidInput per spec (no auto-create). genreRepo.findById is a suspend read,
-        // so the validation runs before opening the (non-suspend) SQLDelight relink transaction.
+        // BookError.InvalidInput per spec (no auto-create). One bulk read replaces the per-input
+        // findById storm; the in-order membership check keeps the first-offender (input order) error
+        // byte-identical. genreRepo.findLiveIds is a suspend read, so the validation runs before
+        // opening the (non-suspend) SQLDelight relink transaction.
+        val liveIds = genreRepo.findLiveIds(genres.map { it.genreId.value })
         for (input in genres) {
-            val genre = genreRepo.findById(input.genreId.value)
-            if (genre == null || genre.deletedAt != null) {
+            if (input.genreId.value !in liveIds) {
                 return AppResult.Failure(BookError.InvalidInput(debugInfo = "unknownGenre=${input.genreId.value}"))
             }
         }

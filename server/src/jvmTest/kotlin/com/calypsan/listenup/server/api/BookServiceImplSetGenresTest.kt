@@ -30,6 +30,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
@@ -140,6 +141,30 @@ class BookServiceImplSetGenresTest :
                         )
                     result.shouldBeInstanceOf<AppResult.Failure>()
                     result.error.shouldBeInstanceOf<BookError.InvalidInput>()
+                }
+            }
+        }
+
+        test("setBookGenres names the first unknown genreId in input order") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                seedGenre("g-fant", name = "Fantasy", slug = "fantasy", path = "/fantasy")
+                seedGenre("g-hist", name = "History", slug = "history", path = "/history")
+                runTest {
+                    val service = makeService(this@withSqlDatabase)
+                    val result =
+                        service.setBookGenres(
+                            BookId("book1"),
+                            listOf(
+                                BookGenreInput(GenreId("g-fant")),
+                                BookGenreInput(GenreId("missing")),
+                                BookGenreInput(GenreId("g-hist")),
+                            ),
+                        )
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    val error = result.error.shouldBeInstanceOf<BookError.InvalidInput>()
+                    (error.debugInfo ?: "") shouldContain "unknownGenre=missing"
                 }
             }
         }

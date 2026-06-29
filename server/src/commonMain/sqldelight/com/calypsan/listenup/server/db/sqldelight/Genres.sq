@@ -43,6 +43,11 @@ CREATE INDEX idx_genres_revision ON genres(revision);
 selectById:
 SELECT * FROM genres WHERE id = :id;
 
+-- Ids of the LIVE (non-tombstoned) genres among :ids — one query for the
+-- setBookGenres batch validation. A deleted OR unknown id simply won't appear.
+selectLiveIdsByIds:
+SELECT id FROM genres WHERE id IN :ids AND deleted_at IS NULL;
+
 insert:
 INSERT INTO genres (
     id, name, slug, path, parent_id, depth, sort_order, color, description,

@@ -300,6 +300,71 @@ class BookServiceImplSetSeriesTest :
                 }
             }
         }
+
+        test("setBookSeries collapses duplicate id-less names to one created row, two payload entries") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(db.sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(db.sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(db.sql, bus, syncRegistry)
+                val repo =
+                    BookRepository(
+                        db = db.sql,
+                        driver = db.driver,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = contributorRepo,
+                        seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
+                    )
+                val service =
+                    BookServiceImpl(
+                        repo = repo,
+                        contributorRepo = contributorRepo,
+                        seriesRepo = seriesRepo,
+                        coverStorage = CoverStorage(),
+                        sql = db.sql,
+                        genreRepo = genreRepo,
+                        accessPolicy = BookAccessPolicy(db.sql, db.driver),
+                        permissionPolicy = UserPermissionPolicy(db.sql),
+                        principal = PrincipalProvider { UserPrincipal(UserId("test-admin"), SessionId("s"), UserRole.ROOT) },
+                    )
+                runTest {
+                    val existing = seriesRepo.resolveOrCreate("The Cosmere")
+                    repo.upsert(bookFixture(id = "b1", title = "The Way of Kings"))
+                    val preCount = seriesRepo.listLiveIds().size
+
+                    val result =
+                        service.setBookSeries(
+                            BookId("b1"),
+                            listOf(
+                                BookSeriesInput(id = null, name = "Mistborn", position = 1.0),
+                                BookSeriesInput(id = null, name = "Mistborn", position = 2.0),
+                                BookSeriesInput(id = existing, name = "The Cosmere", position = 3.0),
+                            ),
+                        )
+
+                    result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    // Two "Mistborn" inputs share one normalized key → exactly ONE new row created.
+                    seriesRepo.listLiveIds().size shouldBe preCount + 1
+
+                    // The book_series junction PK is (book_id, series_id), and replaceSeries
+                    // distinctBy { it.id } — so the two same-id "Mistborn" memberships collapse
+                    // to one, keeping the first (sequence "1.0", ordinal 0). Cosmere follows.
+                    val updated = repo.findById(BookId("b1"))!!
+                    updated.series shouldHaveSize 2
+                    updated.series[0].name shouldBe "Mistborn"
+                    updated.series[0].sequence shouldBe "1.0"
+                    updated.series[1].id shouldBe existing.value
+                    updated.series[1].name shouldBe "The Cosmere"
+                    updated.series[1].sequence shouldBe "3.0"
+                }
+            }
+        }
     })
 
 private fun bookFixture(
