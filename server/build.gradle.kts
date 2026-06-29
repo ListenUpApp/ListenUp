@@ -49,11 +49,12 @@ kotlin {
                 entryPoint = "com.calypsan.listenup.server.main"
             }
         }
-        // Provide the system library search path for the K/N bundled ld.lld linker. On Arch
-        // Linux libraries live in /usr/lib; the bundled ld.lld has no default sysroot and won't
-        // find libsqlite3/libargon2 without this. On Debian/Ubuntu the same path also resolves
-        // (multiarch .so is at /usr/lib/x86_64-linux-gnu but /usr/lib contains symlinks).
-        binaries.all { linkerOpts("-L/usr/lib") }
+        // Provide the system library search paths for the K/N bundled ld.lld linker, which has
+        // no default sysroot and won't find libsqlite3/libargon2 without them. /usr/lib covers
+        // distros that put the .so there directly (e.g. Arch); /usr/lib/x86_64-linux-gnu is the
+        // Debian/Ubuntu multiarch location where apt's -dev packages install it. A non-existent
+        // -L dir is harmless — the linker ignores it.
+        binaries.all { linkerOpts("-L/usr/lib", "-L/usr/lib/x86_64-linux-gnu") }
     }
 
     // Mirror the `listenup.jvm` convention plugin: apply the project-wide compiler-args triple
