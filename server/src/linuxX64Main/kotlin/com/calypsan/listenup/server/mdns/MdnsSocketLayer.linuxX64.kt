@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.mdns
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -36,6 +37,7 @@ import platform.posix.SO_REUSEADDR
 import platform.posix.SO_REUSEPORT
 import platform.posix.bind
 import platform.posix.close
+import platform.posix.errno
 import platform.posix.htons
 import platform.posix.in_addr
 import platform.posix.ip_mreq
@@ -45,6 +47,8 @@ import platform.posix.setsockopt
 import platform.posix.sockaddr
 import platform.posix.sockaddr_in
 import platform.posix.socket
+
+private val logger = KotlinLogging.logger {}
 
 private const val GROUP = "224.0.0.251"
 private const val PORT: UShort = 5353u
@@ -169,15 +173,18 @@ private class NativeMdnsSocket(
             dest.sin_port = htons(PORT)
             dest.sin_addr.s_addr = inet_addr(GROUP)
             payload.usePinned { pinned ->
-                sendto(
-                    fd,
-                    pinned.addressOf(0),
-                    payload.size.convert(),
-                    0,
-                    dest.ptr.reinterpret(),
-                    sizeOf<sockaddr_in>().convert(),
-                )
-                Unit
+                val sent =
+                    sendto(
+                        fd,
+                        pinned.addressOf(0),
+                        payload.size.convert(),
+                        0,
+                        dest.ptr.reinterpret(),
+                        sizeOf<sockaddr_in>().convert(),
+                    )
+                if (sent < 0) {
+                    logger.warn { "mDNS sendto failed on $interfaceName (errno=$errno) — advertisement not sent" }
+                }
             }
         }
     }

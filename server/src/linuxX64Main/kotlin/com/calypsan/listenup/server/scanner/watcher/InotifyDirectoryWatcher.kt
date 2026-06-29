@@ -142,6 +142,12 @@ internal class InotifyDirectoryWatcher(
             while (offset < bytesRead) {
                 val event = (buffer + offset)!!.reinterpret<inotify_event>().pointed
                 val nameLen = event.len.toInt()
+                if (nameLen < 0 || offset + headerSize + nameLen > bytesRead) {
+                    logger.warn {
+                        "inotify event with invalid name length ($nameLen) at offset $offset of $bytesRead bytes — dropping rest of batch"
+                    }
+                    break
+                }
                 val name =
                     if (nameLen > 0) {
                         (buffer + offset + headerSize)!!.reinterpret<ByteVar>().toKString()
@@ -225,7 +231,12 @@ internal class InotifyDirectoryWatcher(
         // the fds + thread.
         val counter = ByteArray(Long.SIZE_BYTES)
         counter[0] = 1
-        counter.usePinned { write(shutdownFd, it.addressOf(0), counter.size.convert()) }
+        val woke = counter.usePinned { write(shutdownFd, it.addressOf(0), counter.size.convert()) }
+        if (woke < 0) {
+            logger.warn {
+                "eventfd shutdown write failed (errno=$errno) — relying on Job cancellation to stop the watcher"
+            }
+        }
         loop?.cancelAndJoin()
         close(inotifyFd)
         close(shutdownFd)
