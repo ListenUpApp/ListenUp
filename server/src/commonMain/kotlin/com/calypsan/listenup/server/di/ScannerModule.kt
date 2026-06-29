@@ -9,7 +9,6 @@ import com.calypsan.listenup.server.scanner.Scanner
 import com.calypsan.listenup.server.scanner.ScannerBundle
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
-import com.calypsan.listenup.server.scanner.asPort
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.resolveLibraryPrecedence
@@ -32,9 +31,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
-import java.nio.file.Path
 
 private val logger = KotlinLogging.logger {}
 
@@ -111,7 +110,7 @@ fun scannerModule(
                 // Scanner-internal refs are always system-built with a real path; a null here
                 // means a member-redacted projection leaked into the scanner — fail loudly.
                 val folderPath =
-                    kotlinx.io.files.Path(
+                    Path(
                         requireNotNull(folder.rootPath) {
                             "library folder ${folder.id.value} reached the watcher without a root path"
                         },
@@ -143,7 +142,7 @@ fun scannerModule(
                         watcher.close()
                     }
                 }
-            }.asPort()
+            }
         }
 
         // ScanOrchestrator — the Scanner + ScanCoordinator bundle for the library.
