@@ -6,7 +6,7 @@ import kotlin.experimental.ExperimentalObjCRefinement
 import kotlin.native.HiddenFromObjC
 
 /**
- * linuxX64 (native server) implementation of PlatformUtils.
+ * Linux (native server) implementation of PlatformUtils.
  *
  * The server is not a client device — emulator detection is meaningless,
  * and the other fields carry server-context values instead.

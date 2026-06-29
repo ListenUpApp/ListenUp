@@ -59,7 +59,7 @@ import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.registerService
 
 actual fun Route.rpcRoutes(services: RpcServices) {
-    // MUST stay byte-identical to the sibling actual (jvm ↔ linuxX64). See RpcRoutes.kt KDoc and
+    // MUST stay byte-identical to the sibling actual (jvm ↔ native/linux). See RpcRoutes.kt KDoc and
     // RpcRoutesActualsParityTest. guard(...) is generated per-target, so the body can't move to commonMain.
     publicRpc(services)
     authenticate(JWT_PROVIDER) { authedRpc(services) }

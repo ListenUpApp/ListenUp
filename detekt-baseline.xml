@@ -8,7 +8,7 @@
     <ID>CognitiveComplexMethod:Lz77.kt:internal fun lz77: IntArray</ID>
     <ID>CognitiveComplexMethod:SyncTestApplication.kt:internal fun withTestApplication</ID>
     <ID>CollapsibleIfStatements:Differ.kt:Differ$if (file.fileType == FileType.AUDIO &amp;&amp; inode != null) { // First-write-wins: if two previous books somehow share an // inode (impossible on one filesystem, defensive here), // keep the first. if (inode !in index) index[inode] = book }</ID>
-    <ID>ComplexCondition:MdnsSocketLayer.linuxX64.kt:up &amp;&amp; multicast &amp;&amp; !loopback &amp;&amp; !pointToPoint &amp;&amp; name != null &amp;&amp; !isVirtualInterfaceName(name)</ID>
+    <ID>ComplexCondition:MdnsSocketLayer.linux.kt:up &amp;&amp; multicast &amp;&amp; !loopback &amp;&amp; !pointToPoint &amp;&amp; name != null &amp;&amp; !isVirtualInterfaceName(name)</ID>
     <ID>CyclomaticComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$fun read: Id3v2ReadResult?</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$private fun handleTextFrame</ID>
@@ -42,7 +42,7 @@
     <ID>MagicNumber:Lz77.kt:64</ID>
     <ID>MagicNumber:Lz77.kt:7</ID>
     <ID>MagicNumber:Lz77.kt:8</ID>
-    <ID>MagicNumber:NfcNormalize.linuxX64.kt:0x80</ID>
+    <ID>MagicNumber:NfcNormalize.linux.kt:0x80</ID>
     <ID>MagicNumber:WeeklyStats.kt:WeeklyStats.Companion$7</ID>
     <ID>MagicNumber:ZipEntryNames.kt:0x20</ID>
     <ID>MagicNumber:ZipFormat.kt:0xFF</ID>
@@ -117,14 +117,14 @@
     <ID>UnnecessaryParentheses:Inflate.kt:InflateRawSource$(len.inv() and 0xFFFF)</ID>
     <ID>UnnecessaryParentheses:Inflate.kt:InflateRawSource$(windowPos + 1)</ID>
     <ID>UnnecessaryParentheses:Inflate.kt:InflateRawSource$(windowPos - distance)</ID>
-    <ID>UnnecessaryParentheses:IsSymlink.linuxX64.kt:(s.st_mode.toInt() and S_IFMT)</ID>
+    <ID>UnnecessaryParentheses:IsSymlink.linux.kt:(s.st_mode.toInt() and S_IFMT)</ID>
     <ID>UnnecessaryParentheses:LeaderboardList.kt:(seconds % 3_600)</ID>
     <ID>UnnecessaryParentheses:Lz77.kt:(32 - HASH_BITS)</ID>
     <ID>UnnecessaryParentheses:Lz77.kt:(key * HASH_MULTIPLIER)</ID>
-    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_LOOPBACK)</ID>
-    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_MULTICAST)</ID>
-    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_POINTOPOINT)</ID>
-    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_UP)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linux.kt:(flags and IFF_LOOPBACK)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linux.kt:(flags and IFF_MULTICAST)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linux.kt:(flags and IFF_POINTOPOINT)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linux.kt:(flags and IFF_UP)</ID>
     <ID>UnnecessaryParentheses:MiniXml.kt:MiniXmlReader$(pos + 1)</ID>
     <ID>UnnecessaryParentheses:Mp4ChapterExtractor.kt:Mp4ChapterExtractor$(cursorTimescaleUnits * 1000L)</ID>
     <ID>UnnecessaryParentheses:Mp4ChapterExtractor.kt:Mp4ChapterExtractor$(start100ns / 10_000)</ID>

@@ -51,11 +51,12 @@ internal inline fun <reified T : Any> KrpcRoute.registerScoped(crossinline scope
  * and returns a sanitized `InternalError`. Stacktraces never cross the wire.
  *
  * **Why `expect`/`actual` and not a single commonMain body:** the `guard` dispatcher and the
- * `<Service>Guarded` decorators are KSP-generated PER-TARGET into `:contract`'s jvm + linuxX64
- * compilations (see `contract/build.gradle.kts` `kspJvm`/`kspLinuxX64`), deliberately kept out of
- * `:contract` commonMain to avoid forcing Apple actuals + Swift-export pollution. `guard(...)` is
- * therefore NOT resolvable from `:server` commonMain, so the body must live in each per-target
- * `actual`. The jvm and linuxX64 actuals are byte-identical and pinned that way by
+ * `<Service>Guarded` decorators are KSP-generated PER-TARGET into `:contract`'s jvm + linuxX64 +
+ * linuxArm64 compilations (see `contract/build.gradle.kts` `kspJvm`/`kspLinuxX64`/`kspLinuxArm64`),
+ * deliberately kept out of `:contract` commonMain to avoid forcing Apple actuals + Swift-export
+ * pollution. `guard(...)` is therefore NOT resolvable from `:server` commonMain, so the body must live
+ * in each `actual`. There are two: the jvm actual and the shared-native actual in `linuxMain` (one copy
+ * for both Linux arches — `guard` is arch-agnostic). They are byte-identical and pinned that way by
  * `RpcRoutesActualsParityTest`; edit them together.
  */
 expect fun Route.rpcRoutes(services: RpcServices)

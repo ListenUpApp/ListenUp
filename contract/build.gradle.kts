@@ -29,6 +29,9 @@ kotlin {
     // shared source of truth both sides read, so it must publish a linuxX64 artifact for the server's
     // commonMain to reference contract types (DTOs, @Rpc interfaces, AppError) on native.
     linuxX64()
+    // linuxArm64 — the arm64 native server (Raspberry Pi / AWS Graviton self-host). Same arch-agnostic
+    // actuals as linuxX64, shared via the synthesized linuxMain source set below.
+    linuxArm64()
 
     applyDefaultHierarchyTemplate()
 
@@ -81,4 +84,5 @@ dependencies {
     // commonMain): the @Rpc interfaces are local to :contract here so source discovery works, and
     // keeping guards out of commonMain avoids forcing apple actuals / Swift-export pollution.
     add("kspLinuxX64", project(":rpc-guard-ksp"))
+    add("kspLinuxArm64", project(":rpc-guard-ksp"))
 }

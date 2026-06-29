@@ -43,6 +43,7 @@ detekt {
         "$rootDir/server/src/commonMain/kotlin",
         "$rootDir/server/src/jvmMain/kotlin",
         "$rootDir/server/src/linuxX64Main/kotlin",
+        "$rootDir/server/src/linuxMain/kotlin",
         "$rootDir/server/src/commonTest/kotlin",
         "$rootDir/server/src/jvmTest/kotlin",
         "$rootDir/server/src/linuxX64Test/kotlin",
