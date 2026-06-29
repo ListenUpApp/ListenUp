@@ -76,7 +76,7 @@ kotlin {
     sourceSets {
         // Default hierarchy template provides: commonMain -> nativeMain -> appleMain -> {iosMain, macosMain}
         // We just get references to configure dependencies
-        val appleMain by getting
+        val appleMain = getByName("appleMain")
 
         commonMain.dependencies {
             api(projects.contract)

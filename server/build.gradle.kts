@@ -34,10 +34,10 @@ kotlin {
     linuxX64 {
         compilations.getByName("main") {
             cinterops {
-                val libargon2 by creating {
+                create("libargon2") {
                     defFile(project.file("src/nativeInterop/cinterop/libargon2.def"))
                 }
-                val sqlite3 by creating {
+                create("sqlite3") {
                     defFile(project.file("src/nativeInterop/cinterop/sqlite3.def"))
                 }
             }
@@ -89,7 +89,7 @@ kotlin {
     }
 
     sourceSets {
-        val commonMain by getting {
+        getByName("commonMain") {
             dependencies {
                 implementation(projects.contract)
                 // SQLDelight — shared runtime + coroutines extensions (both JVM + native)
@@ -140,7 +140,7 @@ kotlin {
             }
         }
 
-        val linuxX64Main by getting {
+        getByName("linuxX64Main") {
             dependencies {
                 // SQLDelight native SQLite driver (SQLiter — dynamically links system libsqlite3)
                 implementation(libs.sqldelight.driver.native)
@@ -148,7 +148,7 @@ kotlin {
             }
         }
 
-        val jvmMain by getting {
+        getByName("jvmMain") {
             dependencies {
                 // Ktor server core + CIO engine + content-negotiation + serialization-json plus
                 // the resources/status-pages/auth/sse/call-id/rate-limit plugins are in commonMain
@@ -180,7 +180,7 @@ kotlin {
             }
         }
 
-        val commonTest by getting {
+        getByName("commonTest") {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.kotest.framework.engine)
@@ -197,7 +197,7 @@ kotlin {
             }
         }
 
-        val jvmTest by getting {
+        getByName("jvmTest") {
             dependencies {
                 // Test deps
                 // In-process client<->server end-to-end fixtures (server/src/jvmTest/.../e2e/) drive the
@@ -241,7 +241,7 @@ kotlin {
 val migrationsDir = layout.projectDirectory.dir("src/jvmMain/resources/db/migration")
 val generatedMigrationsDir = layout.buildDirectory.dir("generated/migrations/kotlin")
 
-val generateMigrationCatalog by tasks.registering {
+val generateMigrationCatalog = tasks.register("generateMigrationCatalog") {
     group = "build"
     description = "Embeds db/migration/*.sql into a generated MigrationCatalog.kt"
     val inDir = migrationsDir
