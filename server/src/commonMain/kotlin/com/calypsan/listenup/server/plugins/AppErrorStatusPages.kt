@@ -29,7 +29,8 @@ import com.calypsan.listenup.api.error.TagError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.server.io.MultipartUploadUnsupported
+import com.calypsan.listenup.server.io.MalformedMultipartException
+import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -53,12 +54,19 @@ private val logger = KotlinLogging.logger("AppErrorStatusPages")
  */
 fun Application.installAppErrorStatusPages() {
     install(StatusPages) {
-        // The native server runtime can't parse multipart (KTOR-7361) — surface an upload attempt as
-        // a precise 501 rather than letting it fall through to a generic 500. JVM never throws this.
-        exception<MultipartUploadUnsupported> { call, _ ->
+        // A malformed multipart upload (truncated body, missing boundary) is a client error, not a
+        // server fault — surface 400 rather than letting it fall through to a generic 500.
+        exception<MalformedMultipartException> { call, _ ->
             call.respond(
-                HttpStatusCode.NotImplemented,
-                mapOf("error" to "not_implemented", "reason" to "multipart_upload_unsupported_on_native"),
+                HttpStatusCode.BadRequest,
+                mapOf("error" to "bad_request", "reason" to "malformed_multipart"),
+            )
+        }
+        // An upload past the configured size cap is 413 Payload Too Large, not a 500.
+        exception<MultipartPartTooLargeException> { call, _ ->
+            call.respond(
+                HttpStatusCode.PayloadTooLarge,
+                mapOf("error" to "payload_too_large", "reason" to "multipart_part_too_large"),
             )
         }
         exception<Throwable> { call, ex ->

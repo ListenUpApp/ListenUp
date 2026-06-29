@@ -10,20 +10,13 @@ import kotlinx.io.files.Path
  * (Ktor's 50 MiB default rejects large library backups before they can be staged). [dest] is
  * overwritten; its parent directory must exist.
  *
- * Platform note: the JVM runtime streams the upload. Kotlin/Native's Ktor CIO server cannot parse
- * multipart bodies (JetBrains [KTOR-7361](https://youtrack.jetbrains.com/issue/KTOR-7361)), so the
- * native actual throws [MultipartUploadUnsupported], which [installAppErrorStatusPages] surfaces as
- * `501 Not Implemented`. The native server is a compile/boot target; the JVM runtime serves uploads.
+ * Platform note: the JVM runtime delegates to Ktor's `receiveMultipart`. Kotlin/Native's Ktor CIO
+ * server cannot parse multipart through that transform (JetBrains
+ * [KTOR-7361](https://youtrack.jetbrains.com/issue/KTOR-7361)), so the native actual reads the raw
+ * body channel and decodes the wire format itself via [streamFirstFilePart]. Both runtimes serve
+ * uploads with identical behaviour.
  */
 internal expect suspend fun ApplicationCall.streamFirstFilePartTo(
     dest: Path,
     formFieldLimit: Long,
 ): Boolean
-
-/**
- * Signals that a multipart upload was attempted on the Kotlin/Native server runtime, whose Ktor CIO
- * engine cannot parse multipart bodies (KTOR-7361). Thrown by the native [streamFirstFilePartTo]
- * actual and surfaced as `501 Not Implemented` by [installAppErrorStatusPages].
- */
-internal class MultipartUploadUnsupported :
-    UnsupportedOperationException("Multipart upload is not supported on the native server runtime.")
