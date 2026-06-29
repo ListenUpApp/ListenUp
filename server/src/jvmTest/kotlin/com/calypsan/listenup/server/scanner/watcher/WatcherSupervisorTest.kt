@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 /**
  * Unit tests for [WatcherSupervisor].
@@ -147,7 +147,7 @@ class WatcherSupervisorTest :
 
                 // Simulate a file-change event from the watcher.
                 val watcher = factory.watchers[FolderId("f-1")]!!
-                val changedPath = Path.of("/tmp/books/Author/Title")
+                val changedPath = Path("/tmp/books/Author/Title")
                 watcher.simulateEvent(changedPath)
 
                 mutex.withLock {

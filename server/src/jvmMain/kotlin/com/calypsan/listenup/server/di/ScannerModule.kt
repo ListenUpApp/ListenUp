@@ -111,7 +111,7 @@ fun scannerModule(
                 // Scanner-internal refs are always system-built with a real path; a null here
                 // means a member-redacted projection leaked into the scanner — fail loudly.
                 val folderPath =
-                    Path.of(
+                    kotlinx.io.files.Path(
                         requireNotNull(folder.rootPath) {
                             "library folder ${folder.id.value} reached the watcher without a root path"
                         },

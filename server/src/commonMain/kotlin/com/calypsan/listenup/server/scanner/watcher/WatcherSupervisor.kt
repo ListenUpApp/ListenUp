@@ -6,7 +6,7 @@ import com.calypsan.listenup.core.LibraryId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.nio.file.Path
+import kotlinx.io.files.Path
 
 private val logger = KotlinLogging.logger {}
 

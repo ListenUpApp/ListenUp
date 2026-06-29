@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
+import kotlinx.io.files.Path as IoPath
 import kotlin.io.path.div
 import kotlin.io.path.writeBytes
 import kotlin.time.Duration.Companion.milliseconds
@@ -108,7 +109,7 @@ class StableSizeDebouncerTest :
                             settle = 200.milliseconds,
                             poll = 50.milliseconds,
                         )
-                    debouncer.awaitStable(file) shouldBe true
+                    debouncer.awaitStable(IoPath(file.toString())) shouldBe true
                 } finally {
                     Files.deleteIfExists(file)
                     Files.deleteIfExists(tmp)
@@ -121,7 +122,7 @@ class StableSizeDebouncerTest :
                 val tmp = Files.createTempDirectory("listenup-stable-")
                 try {
                     val debouncer = StableSizeDebouncer(settle = 100.milliseconds, poll = 50.milliseconds)
-                    debouncer.awaitStable(tmp / "missing.mp3") shouldBe false
+                    debouncer.awaitStable(IoPath((tmp / "missing.mp3").toString())) shouldBe false
                 } finally {
                     Files.deleteIfExists(tmp)
                 }
@@ -141,7 +142,7 @@ class StableSizeDebouncerTest :
                         )
                     val task =
                         async(start = CoroutineStart.UNDISPATCHED) {
-                            debouncer.awaitStable(file)
+                            debouncer.awaitStable(IoPath(file.toString()))
                         }
                     // Delete after at least one poll cycle so the debouncer notices the disappearance.
                     kotlinx.coroutines.delay(80)
