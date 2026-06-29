@@ -26,7 +26,6 @@ class RefreshTokenHasher(
             .decodeFromByteArrayBlocking(HMAC.Key.Format.RAW, pepper.copyOf())
 
     /** Returns lowercase hex of the HMAC-SHA-256 digest (64 chars). */
-    @OptIn(ExperimentalStdlibApi::class)
     fun hash(token: String): String =
         key
             .signatureGenerator()
