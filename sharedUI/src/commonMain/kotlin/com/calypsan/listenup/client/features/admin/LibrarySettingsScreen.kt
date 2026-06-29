@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,10 +17,10 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.FolderOpen
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -44,8 +43,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.design.components.ColorBlockHero
 import com.calypsan.listenup.client.design.components.FullScreenLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
+import com.calypsan.listenup.client.design.components.SectionGroup
+import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
@@ -54,6 +56,7 @@ import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_folder
 import listenup.composeapp.generated.resources.admin_add_this_folder
+import listenup.composeapp.generated.resources.admin_library_settings
 import listenup.composeapp.generated.resources.admin_remove_path
 import listenup.composeapp.generated.resources.admin_remove_path_from_library_scan
 import listenup.composeapp.generated.resources.admin_remove_scan_path
@@ -93,18 +96,13 @@ fun LibrarySettingsScreen(
         }
     }
 
-    val topBarTitle = "Library Settings"
-
     ListenUpScaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(topBarTitle) },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
-                    }
-                },
+            ColorBlockHero(
+                title = stringResource(Res.string.admin_library_settings),
+                badgeIcon = Icons.Outlined.FolderOpen,
+                onBack = onBackClick,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -167,64 +165,6 @@ private fun LibrarySettingsContent(
     modifier: Modifier = Modifier,
 ) {
     val library = state.library
-
-    LazyColumn(
-        modifier =
-            modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-    ) {
-        // Scan paths section
-        item {
-            Text(
-                text = stringResource(Res.string.admin_scan_paths),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
-            )
-        }
-
-        item {
-            ScanPathsCard(
-                folders = library.folders,
-                isSaving = state.isSaving,
-                onRemoveFolder = onRemoveFolder,
-                onAddFolder = onAddFolder,
-            )
-        }
-
-        // Rescan section
-        item {
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                text = stringResource(Res.string.admin_scanning),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
-        }
-
-        item {
-            RescanCard(
-                isScanning = state.isScanning,
-                onTriggerScan = onTriggerScan,
-            )
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun ScanPathsCard(
-    folders: List<LibraryFolderRef>,
-    isSaving: Boolean,
-    onRemoveFolder: (String) -> Unit,
-    onAddFolder: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
     var folderToRemove by remember { mutableStateOf<LibraryFolderRef?>(null) }
 
     // Confirm removal dialog
@@ -251,123 +191,68 @@ private fun ScanPathsCard(
         )
     }
 
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
+    LazyColumn(
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            folders.forEachIndexed { index, folder ->
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Folder,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = folder.rootPath ?: folder.id,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (folders.size > 1 && !isSaving) {
-                        IconButton(onClick = { folderToRemove = folder }) {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = stringResource(Res.string.admin_remove_path),
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        }
-                    }
-                }
-                if (index < folders.lastIndex) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    )
-                }
-            }
-
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-            )
-
-            // Add folder button
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = !isSaving, onClick = onAddFolder)
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+        item {
+            SectionGroup(
+                label = stringResource(Res.string.admin_scan_paths),
+                icon = Icons.Outlined.Folder,
+                accent = MaterialTheme.colorScheme.secondary,
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Add,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = stringResource(Res.string.admin_add_folder),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
+                library.folders.forEachIndexed { index, folder ->
+                    val canRemove = library.folders.size > 1 && !state.isSaving
+                    SettingRow(
+                        title = folder.rootPath ?: folder.id,
+                        icon = Icons.Outlined.Folder,
+                        accent = MaterialTheme.colorScheme.secondary,
+                        showDivider = index > 0,
+                        trailing =
+                            if (canRemove) {
+                                {
+                                    IconButton(onClick = { folderToRemove = folder }) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = stringResource(Res.string.admin_remove_path),
+                                            tint = MaterialTheme.colorScheme.error,
+                                        )
+                                    }
+                                }
+                            } else {
+                                null
+                            },
+                    )
+                }
+                SettingRow(
+                    title = stringResource(Res.string.admin_add_folder),
+                    icon = Icons.Outlined.Add,
+                    accent = MaterialTheme.colorScheme.primary,
+                    showDivider = true,
+                    onClick = if (state.isSaving) null else onAddFolder,
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun RescanCard(
-    isScanning: Boolean,
-    onTriggerScan: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ElevatedCard(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors =
-            CardDefaults.elevatedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            ),
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(enabled = !isScanning, onClick = onTriggerScan)
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Refresh,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(Res.string.admin_rescan_library),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.primary,
+        item {
+            SectionGroup(
+                label = stringResource(Res.string.admin_scanning),
+                icon = Icons.Outlined.Refresh,
+                accent = MaterialTheme.colorScheme.primary,
+            ) {
+                SettingRow(
+                    title = stringResource(Res.string.admin_rescan_library),
+                    subtitle = stringResource(Res.string.admin_scan_all_paths_for_new),
+                    icon = Icons.Outlined.Refresh,
+                    onClick = if (state.isScanning) null else onTriggerScan,
+                    trailing =
+                        if (state.isScanning) {
+                            { ListenUpLoadingIndicatorSmall() }
+                        } else {
+                            null
+                        },
                 )
-                Text(
-                    text = stringResource(Res.string.admin_scan_all_paths_for_new),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (isScanning) {
-                ListenUpLoadingIndicatorSmall()
             }
         }
     }

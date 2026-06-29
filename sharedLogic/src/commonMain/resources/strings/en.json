@@ -962,6 +962,8 @@
     "invite_expires_in": "Invite expires in",
     "invite_preview": "Invite preview",
     "invite_someone": "Invite Someone",
+    "library_settings": "Library Settings",
+    "library_settings_subtitle": "Manage scan folders and rescan your library",
     "link_copied": "Link copied!",
     "listening_history": "Listening history",
     "management": "Management",
