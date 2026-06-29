@@ -4,15 +4,56 @@
   <CurrentIssues>
     <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt:DownloadWorkerLogicTest$also</ID>
     <ID>CognitiveComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>CognitiveComplexMethod:Id3v2Reader.kt:Id3v2Reader$fun read: Id3v2ReadResult?</ID>
+    <ID>CognitiveComplexMethod:Lz77.kt:internal fun lz77: IntArray</ID>
     <ID>CognitiveComplexMethod:SyncTestApplication.kt:internal fun withTestApplication</ID>
+    <ID>CollapsibleIfStatements:Differ.kt:Differ$if (file.fileType == FileType.AUDIO &amp;&amp; inode != null) { // First-write-wins: if two previous books somehow share an // inode (impossible on one filesystem, defensive here), // keep the first. if (inode !in index) index[inode] = book }</ID>
+    <ID>ComplexCondition:MdnsSocketLayer.linuxX64.kt:up &amp;&amp; multicast &amp;&amp; !loopback &amp;&amp; !pointToPoint &amp;&amp; name != null &amp;&amp; !isVirtualInterfaceName(name)</ID>
     <ID>CyclomaticComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$fun read: Id3v2ReadResult?</ID>
+    <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$private fun handleTextFrame</ID>
+    <ID>CyclomaticComplexMethod:IlstReader.kt:IlstReader$private fun mapTextTag</ID>
     <ID>LargeClass:BookRepository.kt:BookRepository : SqlSyncableRepositoryBookIngestPortBookRevisionTouch</ID>
     <ID>LongMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
     <ID>LongMethod:WithClientSyncEngineAgainstServer.kt:internal fun withClientSyncEngineAgainstServer</ID>
     <ID>LongMethod:WithTagSyncEngineAgainstServer.kt:internal fun withTagSyncEngineAgainstServer</ID>
+    <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt:Mp4ChapterExtractor$for</ID>
     <ID>MagicNumber:AudioUrlSigner.kt:AudioUrlSigner$64</ID>
+    <ID>MagicNumber:BitIo.kt:BitReader$0xFF</ID>
+    <ID>MagicNumber:BitIo.kt:BitReader$8</ID>
+    <ID>MagicNumber:BitIo.kt:BitWriter$0xFF</ID>
+    <ID>MagicNumber:BitIo.kt:BitWriter$8</ID>
     <ID>MagicNumber:ContributorDetailScreen.kt:12</ID>
+    <ID>MagicNumber:Crc32.kt:Crc32$0xFFFFFFFFuL</ID>
+    <ID>MagicNumber:Crc32.kt:Crc32$0xFFuL</ID>
+    <ID>MagicNumber:Crc32.kt:Crc32$8</ID>
+    <ID>MagicNumber:Deflate.kt:DeflateRawSink$0xFFFF</ID>
+    <ID>MagicNumber:Deflate.kt:DeflateRawSink$8L</ID>
+    <ID>MagicNumber:Inflate.kt:InflateRawSource$0xFFFF</ID>
+    <ID>MagicNumber:Inflate.kt:InflateRawSource$8</ID>
+    <ID>MagicNumber:Lz77.kt:0xFF</ID>
+    <ID>MagicNumber:Lz77.kt:1024</ID>
+    <ID>MagicNumber:Lz77.kt:128</ID>
+    <ID>MagicNumber:Lz77.kt:256</ID>
+    <ID>MagicNumber:Lz77.kt:32</ID>
+    <ID>MagicNumber:Lz77.kt:4096</ID>
+    <ID>MagicNumber:Lz77.kt:512</ID>
+    <ID>MagicNumber:Lz77.kt:6</ID>
+    <ID>MagicNumber:Lz77.kt:64</ID>
+    <ID>MagicNumber:Lz77.kt:7</ID>
+    <ID>MagicNumber:Lz77.kt:8</ID>
+    <ID>MagicNumber:NfcNormalize.linuxX64.kt:0x80</ID>
     <ID>MagicNumber:WeeklyStats.kt:WeeklyStats.Companion$7</ID>
+    <ID>MagicNumber:ZipEntryNames.kt:0x20</ID>
+    <ID>MagicNumber:ZipFormat.kt:0xFF</ID>
+    <ID>MagicNumber:ZipFormat.kt:0xFFL</ID>
+    <ID>MagicNumber:ZipFormat.kt:22</ID>
+    <ID>MagicNumber:ZipFormat.kt:24</ID>
+    <ID>MagicNumber:ZipFormat.kt:32</ID>
+    <ID>MagicNumber:ZipFormat.kt:40</ID>
+    <ID>MagicNumber:ZipFormat.kt:48</ID>
+    <ID>MagicNumber:ZipFormat.kt:56</ID>
+    <ID>MagicNumber:ZipFormat.kt:8</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt:FakeDownloadEnqueuer$override suspend fun enqueue: AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt:JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
     <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt:ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
@@ -20,21 +61,79 @@
     <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-1", index = 1, filename = "02.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:PlaybackServiceImplTest.kt:BookAudioFilePayload(id = "af-2", index = 2, filename = "03.m4b", format = "m4b", codec = "aac", duration = 1_000_000L, size = 100_000_000L)</ID>
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt:private fun fakeJpeg: ByteArray</ID>
+    <ID>NestedBlockDepth:BackupArchive.kt:BackupArchive$private fun extractEntries: ImageDigests</ID>
+    <ID>NestedBlockDepth:Lz77.kt:internal fun lz77: IntArray</ID>
+    <ID>RedundantVisibilityModifier:Deflate.kt:DeflateRawSink : RawSink</ID>
+    <ID>RedundantVisibilityModifier:Inflate.kt:InflateRawSource : RawSource</ID>
+    <ID>RedundantVisibilityModifier:MalformedZipException.kt:MalformedZipException : Exception</ID>
+    <ID>RedundantVisibilityModifier:ZipReader.kt:ZipEntryInfo</ID>
+    <ID>RedundantVisibilityModifier:ZipReader.kt:ZipReader : AutoCloseable</ID>
+    <ID>RedundantVisibilityModifier:ZipReader.kt:ZipReader$public fun entries: List&lt;ZipEntryInfo&gt;</ID>
+    <ID>RedundantVisibilityModifier:ZipReader.kt:ZipReader$public fun entry: ZipEntryInfo?</ID>
+    <ID>RedundantVisibilityModifier:ZipReader.kt:ZipReader$public fun openEntry: RawSource</ID>
+    <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipMethod</ID>
+    <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter : AutoCloseable</ID>
+    <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter$public fun finish</ID>
+    <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter$public fun putEntry: RawSink</ID>
+    <ID>StringLiteralDuplication:InotifyDirectoryWatcherNativeTest.kt:InotifyDirectoryWatcherNativeTest$"book.mp3"</ID>
+    <ID>StringLiteralDuplication:Mp4Parser.kt:Mp4Parser$"&lt;source&gt;"</ID>
     <ID>StringLiteralDuplication:PlaybackServiceImpl.kt:PlaybackServiceImpl$"principal"</ID>
+    <ID>StringShouldBeRawString:MultipartFormDataTest.kt:"Content-Disposition: form-data; name=\"$name\"; filename=\"$filename\""</ID>
     <ID>SwallowedException:CurrentUserApiResponse.kt:CurrentUserApiResponse$e: Exception</ID>
+    <ID>ThrowsCount:AtomWalker.kt:AtomWalker$fun readHeader: Atom</ID>
+    <ID>ThrowsCount:BackupArchive.kt:BackupArchive$private fun verifyExtractedDb</ID>
+    <ID>ThrowsCount:Inflate.kt:InflateRawSource$private fun readDynamicTables: Pair&lt;HuffmanDecoder, HuffmanDecoder&gt;</ID>
+    <ID>ThrowsCount:JwtConfiguration.kt:JwtConfiguration$fun verify: AccessTokenClaims</ID>
+    <ID>ThrowsCount:ZipReader.kt:ZipReader$private fun parseCentralDirectory: List&lt;ZipEntryInfo&gt;</ID>
+    <ID>ThrowsCount:ZipReader.kt:ZipReader$private fun parseHeaders: List&lt;ZipEntryInfo&gt;</ID>
+    <ID>ThrowsCount:ZipReader.kt:ZipReader$private fun readZip64Eocd: Zip64Eocd</ID>
+    <ID>ThrowsCount:ZipReader.kt:ZipReader$public fun openEntry: RawSource</ID>
+    <ID>TooGenericExceptionThrown:RpcGuardNativeTest.kt:RpcGuardNativeTest.ThrowingPing$throw RuntimeException("boom")</ID>
     <ID>TooGenericExceptionThrown:ScannerServiceGuardedBehaviorTest.kt:ScannerServiceGuardedBehaviorTest$throw RuntimeException("boom")</ID>
     <ID>TooManyFunctions:Koin.ios.kt:KoinHelper</ID>
+    <ID>UnderscoresInNumericLiterals:Lz77.kt:1640531527</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$10800_000L</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$12600_000L</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$1800_000L</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$3600_000L</ID>
     <ID>UnderscoresInNumericLiterals:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$7200_000L</ID>
+    <ID>UnnecessaryParentheses:AtomWalker.kt:AtomWalker$(end - offset)</ID>
+    <ID>UnnecessaryParentheses:AtomWalker.kt:AtomWalker$(length - offset)</ID>
+    <ID>UnnecessaryParentheses:AudioFormatDetector.kt:AudioFormatDetector$(headerBytes[1].toInt() and mp3SyncMaskHi)</ID>
+    <ID>UnnecessaryParentheses:BinaryDecoder.kt:(BITS_PER_BYTE * 2)</ID>
+    <ID>UnnecessaryParentheses:BinaryDecoder.kt:(BITS_PER_SYNC_SAFE_BYTE * 2)</ID>
+    <ID>UnnecessaryParentheses:BinaryDecoder.kt:(BITS_PER_SYNC_SAFE_BYTE * 3)</ID>
+    <ID>UnnecessaryParentheses:BinaryDecoder.kt:(raw[0].toInt() and BYTE_MASK)</ID>
+    <ID>UnnecessaryParentheses:BinaryDecoder.kt:(raw[1].toInt() and BYTE_MASK)</ID>
+    <ID>UnnecessaryParentheses:BitIo.kt:BitReader$((1L shl count) - 1)</ID>
+    <ID>UnnecessaryParentheses:BitIo.kt:BitWriter$((1L shl count) - 1)</ID>
     <ID>UnnecessaryParentheses:BuildMp3File.kt:Mp3Builder$(144 * bitrate)</ID>
     <ID>UnnecessaryParentheses:BuildMp4File.kt:MoovBuilder$(ch.startMs + 1)</ID>
     <ID>UnnecessaryParentheses:BuildMp4File.kt:MoovBuilder$(deltaMs * timescale)</ID>
+    <ID>UnnecessaryParentheses:Huffman.kt:(code + blCount[bits - 1])</ID>
+    <ID>UnnecessaryParentheses:Huffman.kt:(maxBits - it)</ID>
+    <ID>UnnecessaryParentheses:Huffman.kt:HuffmanDecoder$(c + blCount[bits - 1])</ID>
+    <ID>UnnecessaryParentheses:Id3v2Reader.kt:Id3v2Reader$(flags and 0x40)</ID>
+    <ID>UnnecessaryParentheses:Inflate.kt:InflateRawSource$(len.inv() and 0xFFFF)</ID>
+    <ID>UnnecessaryParentheses:Inflate.kt:InflateRawSource$(windowPos + 1)</ID>
+    <ID>UnnecessaryParentheses:Inflate.kt:InflateRawSource$(windowPos - distance)</ID>
+    <ID>UnnecessaryParentheses:IsSymlink.linuxX64.kt:(s.st_mode.toInt() and S_IFMT)</ID>
     <ID>UnnecessaryParentheses:LeaderboardList.kt:(seconds % 3_600)</ID>
+    <ID>UnnecessaryParentheses:Lz77.kt:(32 - HASH_BITS)</ID>
+    <ID>UnnecessaryParentheses:Lz77.kt:(key * HASH_MULTIPLIER)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_LOOPBACK)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_MULTICAST)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_POINTOPOINT)</ID>
+    <ID>UnnecessaryParentheses:MdnsSocketLayer.linuxX64.kt:(flags and IFF_UP)</ID>
+    <ID>UnnecessaryParentheses:MiniXml.kt:MiniXmlReader$(pos + 1)</ID>
+    <ID>UnnecessaryParentheses:Mp4ChapterExtractor.kt:Mp4ChapterExtractor$(cursorTimescaleUnits * 1000L)</ID>
+    <ID>UnnecessaryParentheses:Mp4ChapterExtractor.kt:Mp4ChapterExtractor$(start100ns / 10_000)</ID>
+    <ID>UnnecessaryParentheses:Mp4Parser.kt:Mp4Parser$(durationUnits * 1000L)</ID>
     <ID>UnnecessaryParentheses:Mp4ParserPropertyTest.kt:Mp4ParserPropertyTest$(du * 1000L)</ID>
+    <ID>UnnecessaryParentheses:MpegDurationCalculator.kt:MpegDurationCalculator$(bytes[i + 1].toInt() and 0xE0)</ID>
     <ID>UnnecessaryParentheses:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$(endedAt - startedAt)</ID>
+    <ID>UnnecessaryParentheses:ZipFormat.kt:(i * 8)</ID>
+    <ID>UnnecessaryParentheses:ZipReader.kt:ZipReader$(flags and ENCRYPTION_FLAG)</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt:StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
