@@ -33,7 +33,7 @@ final class DeepLinkRouter {
 
     deinit { bridge.cancelAll() }
 
-    /// Decode an incoming URL (custom scheme or universal link) and stash it on the shared
+    /// Decode an incoming universal-link URL and stash it on the shared
     /// seam; the `pendingTarget` binding above drives `resolve`.
     func receive(url: URL) {
         guard let target = ShareLinkCodec.shared.decode(raw: url.absoluteString) else { return }

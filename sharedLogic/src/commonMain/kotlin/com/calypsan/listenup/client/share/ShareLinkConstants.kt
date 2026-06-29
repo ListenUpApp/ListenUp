@@ -17,7 +17,4 @@ object ShareLinkConstants {
 
     /** The `https` prefix every shareable link starts with: `https://link.listenup.audio/o`. */
     const val SHARE_URL_PREFIX: String = "https://$SHARE_DOMAIN$OPEN_PATH"
-
-    /** The custom scheme retained for back-compat and app-to-app links. */
-    const val CUSTOM_SCHEME: String = "listenup"
 }

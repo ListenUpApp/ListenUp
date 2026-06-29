@@ -52,8 +52,7 @@ private val logger = KotlinLogging.logger {}
  * - Disconnects realtime sync when app goes to background (saves battery)
  * - Auto-reconnects on app resume
  *
- * Handles deep links for invite URLs:
- * - listenup://join?server=...&code=... (custom scheme)
+ * Handles share / deep links via the https App Link (https://link.listenup.audio/o#...).
  *
  * This ensures real-time updates when actively using the app
  * while preserving battery life in the background.
@@ -120,13 +119,13 @@ class MainActivity : ComponentActivity() {
      * Parses and stores deep link or shortcut action for navigation layer to consume.
      *
      * Handles:
-     * - Invite deep links (listenup://join)
+     * - Share / deep links (https App Links: book + invite)
      * - App shortcut actions (RESUME, PLAY_BOOK, SEARCH, SLEEP_TIMER)
      */
     private fun handleIntent(intent: Intent?) {
         if (intent == null) return
 
-        // Share / deep links (https App Links + legacy listenup:// scheme) — parsed once, in commonMain.
+        // Share / deep links (https App Links) — parsed once, in commonMain.
         if (intent.action == Intent.ACTION_VIEW) {
             intent.data?.toString()?.let { raw ->
                 ShareLinkCodec.decode(raw)?.let { target ->
