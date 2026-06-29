@@ -21,7 +21,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.sse.ServerSSESession
 import io.ktor.server.sse.sse
 import io.ktor.sse.ServerSentEvent
-import java.util.UUID
+import kotlin.uuid.Uuid
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -332,7 +332,7 @@ private suspend fun ServerSSESession.runKeepalive(intervalMillis: Long) {
  * client never escalates into an unhandled 500.
  */
 private suspend fun ServerSSESession.sendStreamError(e: Exception) {
-    val cid = UUID.randomUUID().toString()
+    val cid = Uuid.random().toString()
     log.error(e) { "Uncaught SSE flow exception [cid=$cid]" }
     try {
         send(

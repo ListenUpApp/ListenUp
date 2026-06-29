@@ -69,7 +69,7 @@ class ApplicationBootstrapTest :
                         libraryAdminService = service,
                         scanOrchestrator = orchestrator,
                         libraryRegistry = registry,
-                        libraryPaths = listOf(dir1, dir2),
+                        libraryPaths = listOf(Path(dir1.toString()), Path(dir2.toString())),
                         rescanOnStartup = false,
                     )
 
@@ -94,7 +94,7 @@ class ApplicationBootstrapTest :
                         libraryAdminService = service,
                         scanOrchestrator = orchestrator,
                         libraryRegistry = registry,
-                        libraryPaths = listOf(realDir, nonDir),
+                        libraryPaths = listOf(Path(realDir.toString()), Path(nonDir.toString())),
                         rescanOnStartup = false,
                     )
 
@@ -118,7 +118,7 @@ class ApplicationBootstrapTest :
                         libraryAdminService = service,
                         scanOrchestrator = orchestrator,
                         libraryRegistry = registry,
-                        libraryPaths = listOf(dir),
+                        libraryPaths = listOf(Path(dir.toString())),
                         rescanOnStartup = false,
                     )
                     // Second boot with same path — DuplicateFolder is skipped, not crash
@@ -128,7 +128,7 @@ class ApplicationBootstrapTest :
                         libraryAdminService = service2,
                         scanOrchestrator = orchestrator2,
                         libraryRegistry = registry2,
-                        libraryPaths = listOf(dir),
+                        libraryPaths = listOf(Path(dir.toString())),
                         rescanOnStartup = false,
                     )
 

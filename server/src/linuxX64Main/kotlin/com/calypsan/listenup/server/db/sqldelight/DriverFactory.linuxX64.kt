@@ -6,6 +6,7 @@ import co.touchlab.sqliter.DatabaseConfiguration
 import co.touchlab.sqliter.JournalMode
 import co.touchlab.sqliter.NO_VERSION_CHECK
 import co.touchlab.sqliter.SynchronousFlag
+import kotlinx.io.files.Path
 
 /**
  * Linux/Native actual: opens the SQLite file at [dbPath] via [NativeSqliteDriver] backed by
@@ -33,11 +34,16 @@ import co.touchlab.sqliter.SynchronousFlag
  * we never want SQLDelight to call create/migrate on our behalf.
  */
 actual class DriverFactory {
-    actual fun createDriver(dbPath: String): SqlDriver =
-        NativeSqliteDriver(
+    actual fun createDriver(dbPath: String): SqlDriver {
+        // SQLiter's [DatabaseConfiguration.name] must be a bare filename — it rejects a path with a
+        // separator — and the directory goes in [DatabaseConfiguration.Extended.basePath]. (The JVM
+        // JDBC driver and our migration cinterop both take a full path, so only this driver needs the
+        // split.) [basePath] is null for a bare filename, leaving SQLiter's default directory.
+        val path = Path(dbPath)
+        return NativeSqliteDriver(
             configuration =
                 DatabaseConfiguration(
-                    name = dbPath,
+                    name = path.name,
                     version = NO_VERSION_CHECK,
                     journalMode = JournalMode.WAL,
                     extendedConfig =
@@ -45,6 +51,7 @@ actual class DriverFactory {
                             foreignKeyConstraints = true,
                             busyTimeout = 5_000,
                             synchronousFlag = SynchronousFlag.NORMAL,
+                            basePath = path.parent?.toString(),
                         ),
                     create = {
                         // MigrationRunner owns schema creation
@@ -55,4 +62,5 @@ actual class DriverFactory {
                 ),
             maxReaderConnections = 1,
         )
+    }
 }
