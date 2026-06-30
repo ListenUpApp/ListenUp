@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.core.CachingSecureStorage
 import com.calypsan.listenup.core.JvmSecureStorage
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
@@ -115,7 +116,7 @@ internal actual val platformStorageModule: Module =
 
         single<SecureStorage> {
             val storagePaths: JvmStoragePaths = get()
-            JvmSecureStorage(storagePaths.getSecureStoragePath())
+            CachingSecureStorage(JvmSecureStorage(storagePaths.getSecureStoragePath()))
         }
 
         single<ImageStorage> {

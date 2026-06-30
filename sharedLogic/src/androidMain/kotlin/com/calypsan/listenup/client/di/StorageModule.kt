@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import android.content.Context
 import com.calypsan.listenup.core.AndroidSecureStorage
+import com.calypsan.listenup.core.CachingSecureStorage
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.local.images.AndroidStoragePaths
 import com.calypsan.listenup.client.data.local.images.CommonImageStorage
@@ -20,7 +21,7 @@ internal actual val platformStorageModule: Module =
     module {
         single<SecureStorage> {
             val context: Context = get()
-            AndroidSecureStorage(context)
+            CachingSecureStorage(AndroidSecureStorage(context))
         }
 
         single<StoragePaths> {

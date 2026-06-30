@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.core.AppleSecureStorage
+import com.calypsan.listenup.core.CachingSecureStorage
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.local.images.CommonImageStorage
 import com.calypsan.listenup.client.data.local.images.AppleStoragePaths
@@ -18,7 +19,7 @@ import org.koin.dsl.module
 internal actual val platformStorageModule: Module =
     module {
         single<SecureStorage> {
-            AppleSecureStorage()
+            CachingSecureStorage(AppleSecureStorage())
         }
 
         single<StoragePaths> {
