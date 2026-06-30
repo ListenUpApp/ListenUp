@@ -24,11 +24,14 @@ import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -99,6 +102,24 @@ class LibraryReadinessTest :
             return sync
         }
 
+        fun progressState(current: Int = 0) =
+            ScanProgressState(
+                phase = "analyzing",
+                current = current,
+                total = current,
+                added = 0,
+                updated = 0,
+                removed = 0,
+            )
+
+        // Admin whose library is already set up; the gate is then driven purely by the scan signal.
+        fun setUpAdminService(): LibraryAdminService {
+            val service = mock<LibraryAdminService>()
+            everySuspend { service.getSetupStatus() } returns
+                AppResult.Success(SetupStatus(needsSetup = false))
+            return service
+        }
+
         val authenticated = AuthState.Authenticated(UserId("user-001"), SessionId("session-001"))
 
         test("fresh admin: Checking -> NeedsSetup -> Populating -> Ready") {
@@ -127,14 +148,16 @@ class LibraryReadinessTest :
                     awaitItem() shouldBe LibraryReadiness.NeedsSetup
 
                     // Wizard done + the initial scan begins: needs-setup clears while scanning is up.
+                    // runCurrent (not advanceUntilIdle) so virtual time doesn't leap past the
+                    // populating stall watchdog and spuriously mark the gate stalled.
                     scanning.value = true
                     vm.onLibrarySetupComplete()
-                    advanceUntilIdle()
+                    runCurrent()
                     awaitItem() shouldBe LibraryReadiness.Populating(null)
 
                     // Server scan + client import settle → shell is safe to mount.
                     scanning.value = false
-                    advanceUntilIdle()
+                    runCurrent()
                     awaitItem() shouldBe LibraryReadiness.Ready
                 }
             }
@@ -183,6 +206,105 @@ class LibraryReadinessTest :
                     advanceUntilIdle()
                     awaitItem() shouldBe LibraryReadiness.CheckFailed
                 }
+            }
+        }
+
+        // ===================== Never-stranded stall escape =====================
+
+        // A scan that goes quiet for the whole timeout must flip the gate to `stalled` so the
+        // populating screen can offer the "Continue" escape. State is read off the Eagerly-shared
+        // StateFlow with explicit clock control, so the not-yet/just-crossed boundary is exact.
+        test("populating gate stalls once scan progress is quiet for the timeout") {
+            runTest(dispatcher) {
+                val scanning = MutableStateFlow(true)
+                val vm =
+                    AppStartupViewModel(
+                        userRepoReturning(adminUser()),
+                        adminFactory(setUpAdminService()),
+                        authSession(MutableStateFlow(authenticated)),
+                        profileRepo(),
+                        syncRepo(scanning),
+                    )
+
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Populating(null)
+
+                // Just shy of the timeout: still not stalled.
+                advanceTimeBy(AppStartupViewModel.POPULATING_STALL_TIMEOUT_MS - 1)
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Populating(null, stalled = false)
+
+                // Crossing the timeout latches stalled.
+                advanceTimeBy(1)
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Populating(null, stalled = true)
+            }
+        }
+
+        // A healthy-but-slow scan keeps advancing progress; each advance must reset the watchdog, so
+        // the gate never trips even though far more than one timeout's worth of time elapses overall.
+        test("advancing scan progress keeps resetting the stall watchdog") {
+            runTest(dispatcher) {
+                val scanning = MutableStateFlow(true)
+                val progress = MutableStateFlow<ScanProgressState?>(progressState(current = 0))
+                val vm =
+                    AppStartupViewModel(
+                        userRepoReturning(adminUser()),
+                        adminFactory(setUpAdminService()),
+                        authSession(MutableStateFlow(authenticated)),
+                        profileRepo(),
+                        syncRepo(scanning, progress),
+                    )
+
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Populating(progressState(0))
+
+                repeat(4) { tick ->
+                    // Nearly a full timeout passes, then progress advances — resetting the timer.
+                    advanceTimeBy(AppStartupViewModel.POPULATING_STALL_TIMEOUT_MS - 1_000)
+                    runCurrent()
+                    vm.readiness.value
+                        .shouldBeInstanceOf<LibraryReadiness.Populating>()
+                        .stalled shouldBe false
+                    progress.value = progressState(current = tick + 1)
+                    runCurrent()
+                }
+
+                vm.readiness.value
+                    .shouldBeInstanceOf<LibraryReadiness.Populating>()
+                    .stalled shouldBe false
+            }
+        }
+
+        // Tapping Continue latches readiness to Ready even though the server scan signal is still up,
+        // and the latch holds — the populating gate never re-shows for the rest of the session.
+        test("Continue latches readiness to Ready and the latch holds while the scan keeps running") {
+            runTest(dispatcher) {
+                val scanning = MutableStateFlow(true)
+                val vm =
+                    AppStartupViewModel(
+                        userRepoReturning(adminUser()),
+                        adminFactory(setUpAdminService()),
+                        authSession(MutableStateFlow(authenticated)),
+                        profileRepo(),
+                        syncRepo(scanning),
+                    )
+
+                runCurrent()
+                advanceTimeBy(AppStartupViewModel.POPULATING_STALL_TIMEOUT_MS)
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Populating(null, stalled = true)
+
+                // Continue → Ready, despite the scan still running underneath.
+                vm.onContinueToPartialLibrary()
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Ready
+                scanning.value shouldBe true
+
+                // Latch holds: more time passes, scan still up — never re-shows the gate.
+                advanceTimeBy(AppStartupViewModel.POPULATING_STALL_TIMEOUT_MS * 2)
+                runCurrent()
+                vm.readiness.value shouldBe LibraryReadiness.Ready
             }
         }
     })

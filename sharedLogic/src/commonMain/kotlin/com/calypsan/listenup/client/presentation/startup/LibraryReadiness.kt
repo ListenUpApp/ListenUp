@@ -28,9 +28,15 @@ sealed interface LibraryReadiness {
      * the server is still scanning or the client is still importing the scanned books (see
      * `applyScanEvent`). Show the dedicated populating screen and do NOT mount the shell. [progress]
      * is the live scan progress when available, null during the indeterminate "finishing up" import.
+     *
+     * [stalled] is the never-stranded escape hatch: it latches `true` once scan progress has gone
+     * quiet for `AppStartupViewModel.POPULATING_STALL_TIMEOUT_MS` (a crashed/stuck server scan that
+     * can never complete), so the screen can offer "Continue" into the partial library. A healthy
+     * scan keeps advancing progress and never trips it.
      */
     data class Populating(
         val progress: ScanProgressState?,
+        val stalled: Boolean = false,
     ) : LibraryReadiness
 
     /** A populated library is queryable in Room. Mount the shell. */
