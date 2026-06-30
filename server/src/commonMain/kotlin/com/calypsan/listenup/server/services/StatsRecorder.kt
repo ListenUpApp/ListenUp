@@ -1,7 +1,10 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.dto.activity.ActivityType
+import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import kotlinx.coroutines.currentCoroutineContext
+import kotlin.uuid.Uuid
 
 /**
  * The single server-side write choke-point for every stats-affecting trigger. [record] runs ONE
@@ -37,10 +40,65 @@ class StatsRecorder(
     /** Routes [event] through its fixed ordering. See the class KDoc for the contract. */
     suspend fun record(event: StatsEvent) {
         when (event) {
-            is StatsEvent.BookCompleted -> Unit // wired in Task 2
-            is StatsEvent.ListeningSessionClosed -> Unit // wired in Task 4
-            is StatsEvent.BookRestarted -> Unit // wired in Task 5
+            is StatsEvent.BookCompleted -> recordBookCompleted(event)
+
+            is StatsEvent.ListeningSessionClosed -> Unit
+
+            // wired in Task 4
+            is StatsEvent.BookRestarted -> Unit
+
+            // wired in Task 5
             is StatsEvent.BulkRecompute -> Unit // wired in Task 6
         }
     }
+
+    /**
+     * Source row (`book_reads`) → `user_stats.booksFinished` → `public_profiles.refresh()` → the
+     * `FINISHED_BOOK` activity, dated [StatsEvent.BookCompleted.occurredAt]. The `user_stats` bump
+     * and the projection refresh are skipped under [StatsCascadeDeferred] — a bulk import writes the
+     * source row per row but defers the expensive recompute to one terminal [StatsEvent.BulkRecompute].
+     */
+    private suspend fun recordBookCompleted(event: StatsEvent.BookCompleted) {
+        val finishedAtMs = event.occurredAt.toEpochMilliseconds()
+        bookReadsRepository.recordRead(
+            id = Uuid.random().toString(),
+            userId = event.userId,
+            bookId = event.bookId,
+            finishedAt = finishedAtMs,
+            source = "playback",
+        )
+        if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
+            val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
+            userStatsRepo.upsert(
+                base.copy(booksFinished = base.booksFinished + 1),
+                clientOpId = null,
+                userId = event.userId,
+            )
+            publicProfileMaintainer.refresh(event.userId)
+        }
+        activityRecorder.record(
+            event.userId,
+            ActivityType.FINISHED_BOOK,
+            bookId = event.bookId,
+            occurredAt = finishedAtMs,
+        )
+    }
+
+    /** A zero-valued `user_stats` payload for a user with no prior row — moved from [UserStatsUpdater]. */
+    private fun emptyStatsFor(userId: String): UserStatsSyncPayload =
+        UserStatsSyncPayload(
+            id = userId,
+            totalSecondsAllTime = 0L,
+            totalSecondsLast7Days = 0L,
+            totalSecondsLast30Days = 0L,
+            booksStarted = 0,
+            booksFinished = 0,
+            currentStreakDays = 0,
+            longestStreakDays = 0,
+            lastEventDate = null,
+            revision = 0L,
+            updatedAt = 0L,
+            createdAt = 0L,
+            deletedAt = null,
+        )
 }
