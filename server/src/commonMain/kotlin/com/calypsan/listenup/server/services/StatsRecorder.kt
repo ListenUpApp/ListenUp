@@ -42,13 +42,12 @@ class StatsRecorder(
         when (event) {
             is StatsEvent.BookCompleted -> recordBookCompleted(event)
 
+            is StatsEvent.BookRestarted -> recordBookRestarted(event)
+
+            // ListeningSessionClosed and BulkRecompute are no-ops until their own implementations land.
             is StatsEvent.ListeningSessionClosed -> Unit
 
-            // wired in Task 4
-            is StatsEvent.BookRestarted -> Unit
-
-            // wired in Task 5
-            is StatsEvent.BulkRecompute -> Unit // wired in Task 6
+            is StatsEvent.BulkRecompute -> Unit
         }
     }
 
@@ -81,6 +80,21 @@ class StatsRecorder(
             ActivityType.FINISHED_BOOK,
             bookId = event.bookId,
             occurredAt = finishedAtMs,
+        )
+    }
+
+    /**
+     * No source row (the caller already wrote `playback_positions`), no `user_stats`/projection
+     * impact (a start moves no windowed stat) — just the `STARTED_BOOK` activity, dated
+     * [StatsEvent.BookRestarted.occurredAt].
+     */
+    private suspend fun recordBookRestarted(event: StatsEvent.BookRestarted) {
+        activityRecorder.record(
+            event.userId,
+            ActivityType.STARTED_BOOK,
+            bookId = event.bookId,
+            isReread = event.isReread,
+            occurredAt = event.occurredAt.toEpochMilliseconds(),
         )
     }
 
