@@ -79,7 +79,7 @@ internal open class KtorTagRpcFactory(
     private suspend fun rpcBaseUrl(): String {
         val httpUrl =
             serverConfig.getActiveUrl()?.value
-                ?: error("Server URL not configured — cannot open RPC connection")
+                ?: throw ServerUrlNotConfiguredException()
         return toWebSocketScheme(httpUrl)
     }
 }

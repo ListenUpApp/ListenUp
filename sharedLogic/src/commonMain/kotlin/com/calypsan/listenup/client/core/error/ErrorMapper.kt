@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
@@ -60,6 +61,13 @@ internal object ErrorMapper {
             }
 
             is IOException -> {
+                TransportError.NetworkUnavailable(debugInfo = exception.message)
+            }
+
+            // "No server configured yet" is an expected pre-connection state (fresh / signed-out
+            // install), not a fault — type it as a transport-unavailable so the boundary folds it
+            // quietly instead of surfacing a generic InternalError "server error".
+            is ServerUrlNotConfiguredException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
 
