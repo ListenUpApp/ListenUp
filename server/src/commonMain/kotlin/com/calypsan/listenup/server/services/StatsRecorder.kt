@@ -55,8 +55,7 @@ class StatsRecorder(
 
             is StatsEvent.ListeningSessionClosed -> recordListeningSessionClosed(event)
 
-            // BulkRecompute is wired in Task 6.
-            is StatsEvent.BulkRecompute -> Unit
+            is StatsEvent.BulkRecompute -> recordBulkRecompute(event)
         }
     }
 
@@ -105,6 +104,15 @@ class StatsRecorder(
             isReread = event.isReread,
             occurredAt = event.occurredAt.toEpochMilliseconds(),
         )
+    }
+
+    /**
+     * Full `user_stats` rebuild from raw rows, then a `public_profiles` refresh — the terminal step
+     * a bulk import or admin backfill calls once per affected user, never once per row.
+     */
+    private suspend fun recordBulkRecompute(event: StatsEvent.BulkRecompute) {
+        statsBackfill.backfillFor(event.userId)
+        publicProfileMaintainer.refresh(event.userId)
     }
 
     /**
