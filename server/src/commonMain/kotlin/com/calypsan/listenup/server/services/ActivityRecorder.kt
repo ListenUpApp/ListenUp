@@ -3,9 +3,9 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ActivityRecorder>()
 
 /**
  * Records a social activity and fires the broadcast [SyncControl.ActivityChanged] nudge so every

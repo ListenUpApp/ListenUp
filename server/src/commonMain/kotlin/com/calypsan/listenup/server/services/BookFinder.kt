@@ -11,9 +11,9 @@ import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.bindRaw
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<BookFinder>()
 
 /** SQLite caps a statement at 999 bound parameters; chunk `IN (…)` lists below it with headroom. */
 private const val SQLITE_IN_CHUNK = 900

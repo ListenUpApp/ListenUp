@@ -16,10 +16,10 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction as sqlTrans
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.sync.BookSearchReindexer
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ContributorServiceImpl>()
 
 /**
  * Thin [ContributorService] implementation.

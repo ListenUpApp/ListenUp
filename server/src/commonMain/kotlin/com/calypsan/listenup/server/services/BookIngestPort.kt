@@ -9,10 +9,10 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.cover.PendingCover
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<BookIngestPort>()
 
 /**
  * The narrow slice of [BookRepository] that [BookPersister] depends on.

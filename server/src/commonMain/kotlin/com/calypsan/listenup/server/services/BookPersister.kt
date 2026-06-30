@@ -21,7 +21,7 @@ import com.calypsan.listenup.server.scanner.CoverSpool
 import com.calypsan.listenup.server.scanner.toSummary
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.io.readBytes
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<BookPersister>()
 
 /**
  * Cap the number of PERSISTING progress ticks emitted per scan, independent of library size: the

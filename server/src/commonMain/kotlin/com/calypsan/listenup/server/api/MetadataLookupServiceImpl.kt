@@ -34,10 +34,10 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.MetadataService
 import com.calypsan.listenup.server.services.SeriesRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<MetadataLookupServiceImpl>()
 
 /**
  * Server-side implementation of [MetadataLookupService].

@@ -16,13 +16,13 @@ import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<MetadataService>()
 
 /**
  * Orchestrator for external metadata lookups. Wraps [AudibleApi] + [ITunesApi]

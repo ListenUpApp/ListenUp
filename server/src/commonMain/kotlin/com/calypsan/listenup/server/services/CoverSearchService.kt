@@ -8,13 +8,13 @@ import com.calypsan.listenup.api.metadata.AudibleRegion
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.metadata.provider.CoverProvider
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<CoverSearchService>()
 
 /** A book's title + primary author, used to query the cover catalogs. */
 data class BookSummary(

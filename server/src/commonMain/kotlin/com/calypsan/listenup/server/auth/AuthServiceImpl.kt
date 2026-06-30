@@ -30,13 +30,13 @@ import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.ExperimentalTime
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<AuthServiceImpl>()
 
 /**
  * The contract implementation. Pure domain logic — Ktor types are deliberately

@@ -18,11 +18,11 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ImportApplier>()
 
 /**
  * The apply stage of an ABS import: writes the staged listening progress into ListenUp through

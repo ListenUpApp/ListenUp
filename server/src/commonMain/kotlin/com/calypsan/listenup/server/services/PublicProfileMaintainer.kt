@@ -5,10 +5,10 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<PublicProfileMaintainer>()
 
 /** Days in the longest rolling window the projection tracks. */
 private const val YEAR_WINDOW_DAYS = 365
