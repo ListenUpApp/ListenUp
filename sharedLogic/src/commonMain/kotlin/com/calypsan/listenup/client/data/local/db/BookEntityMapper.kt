@@ -216,6 +216,7 @@ internal fun BookWithContributors.toDetail(
                 BookContributor(
                     id = entity.id.value,
                     name = creditedAsByContributorId[entity.id] ?: entity.name,
+                    creditedAs = creditedAsByContributorId[entity.id],
                     roles = rolesByContributorId[entity.id] ?: emptyList(),
                 )
             }
