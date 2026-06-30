@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.core.ListeningEventId
@@ -30,26 +29,26 @@ import kotlinx.serialization.KSerializer
  * value class returns `"ListeningEventId(value=foo)"`, which would corrupt every column the id is
  * written to.
  *
- * **Hooks.** [upsert] fires [UserStatsUpdater.onListeningEvent] and [ActivityRecorder.record] on
- * first insert. They are **de-nested**: the event row commits in [SqlSyncableRepository.upsert]'s own
- * transaction first, then the hooks run sequentially in their own transactions afterwards (the
- * `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not merely convenient, because
- * the project's SQLDelight `suspendTransaction` body is a plain (non-suspend) `transactionWithResult`
- * lambda — suspend hook calls (each opening its own transaction, and [UserStatsUpdater] additionally
- * reading the Exposed `users` table for the timezone) cannot nest inside it, so they would never
- * compile, let alone run as savepoints. Running them after the event commits in separate transactions
- * (each on the single SQLite connection, one at a time) is `SQLITE_BUSY`-free. Atomicity-on-crash is
- * preserved by design: the stats hook fires only on first insert (`!alreadyExisted`), and stats accrual
- * self-heals via `UserStatsBackfillService` — so a crash between the event commit and the stats write
- * is recoverable, exactly as the at-least-once pending-op queue already assumes.
+ * **Hooks.** [upsert] fires `statsRecorder.record(StatsEvent.ListeningSessionClosed(...))` on first
+ * insert — the single choke-point that materializes `user_stats`, refreshes `public_profiles`, and
+ * records the `LISTENING_SESSION` activity. It is **de-nested**: the event row commits in
+ * [SqlSyncableRepository.upsert]'s own transaction first, then [StatsRecorder.record] runs afterwards
+ * in its own transactions (the `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not
+ * merely convenient, because the project's SQLDelight `suspendTransaction` body is a plain
+ * (non-suspend) `transactionWithResult` lambda — a suspend hook call (which opens its own transaction,
+ * and additionally reads the Exposed `users` table for the timezone) cannot nest inside it, so it
+ * would never compile, let alone run as a savepoint. Running it after the event commits in a separate
+ * transaction (on the single SQLite connection, one at a time) is `SQLITE_BUSY`-free. Atomicity-on-crash
+ * is preserved by design: the stats hook fires only on first insert (`!alreadyExisted`), and stats
+ * accrual self-heals via `UserStatsBackfillService` — so a crash between the event commit and the
+ * stats write is recoverable, exactly as the at-least-once pending-op queue already assumes.
  */
 class ListeningEventRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-    private val userStatsUpdater: UserStatsUpdater? = null,
-    private val activityRecorder: ActivityRecorder? = null,
+    private val statsRecorder: StatsRecorder? = null,
 ) : SqlSyncableRepository<ListeningEventSyncPayload, ListeningEventId>(
         db = db,
         bus = bus,
@@ -60,8 +59,8 @@ class ListeningEventRepository(
     override val userScoped: Boolean = true
 
     /**
-     * Overrides the base upsert to fire [UserStatsUpdater.onListeningEvent] and the activity hook
-     * after the event row commits. See the class KDoc for why these are de-nested (sequential,
+     * Overrides the base upsert to fire `statsRecorder.record(StatsEvent.ListeningSessionClosed(...))`
+     * after the event row commits. See the class KDoc for why this is de-nested (sequential,
      * post-commit) rather than nested in one transaction.
      *
      * The stats hook fires only when the event row did not already exist: the pending-op queue
@@ -79,14 +78,7 @@ class ListeningEventRepository(
         val alreadyExisted = suspendTransaction(db) { readPayload(value.id) != null }
         val result = super.upsert(value, clientOpId, userId)
         if (result is AppResult.Success && userId != null && !alreadyExisted) {
-            userStatsUpdater?.onListeningEvent(userId, value)
-            activityRecorder?.record(
-                userId,
-                ActivityType.LISTENING_SESSION,
-                bookId = value.bookId,
-                durationMs = value.endedAt - value.startedAt,
-                occurredAt = value.endedAt,
-            )
+            statsRecorder?.record(StatsEvent.ListeningSessionClosed(userId = userId, span = value))
         }
         return result
     }

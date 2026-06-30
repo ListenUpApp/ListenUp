@@ -8,9 +8,10 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.ListeningEventId
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -96,43 +97,62 @@ class ListeningEventRepositoryTest :
             }
         }
 
-        test("upsert with userStatsUpdater wired fires onListeningEvent and materialises totalSecondsAllTime") {
+        test("upsert with statsRecorder wired fires the cascade and materialises totalSecondsAllTime") {
             withSqlDatabase {
-                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val updater =
-                    UserStatsUpdater(
+                sql.seedTestUser("u-wire")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
                         sql = sql,
                         userStatsRepo = statsRepo,
-                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
                     ListeningEventRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        userStatsUpdater = updater,
+                        statsRecorder = recorder,
                     )
                 runTest {
-                    // 60-second span
                     val payload = listeningEventPayload("evt-wire-1", "book-wire-1")
                     repo.upsert(payload, clientOpId = null, userId = "u-wire")
 
                     val stats = statsRepo.getForUser("u-wire").shouldNotBeNull()
-                    // startedAt = 1_730_000_000_000L, endedAt = 1_730_000_060_000L → 60 s
                     stats.totalSecondsAllTime shouldBe 60L
                 }
             }
         }
         test("a completed listening event records one listening_session with durationMs == endedAt - startedAt") {
             withSqlDatabase {
+                sql.seedTestUser("u-act")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val activities = ActivityRepository(db = sql)
-                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val activityRecorder = ActivityRecorder(repo = activities, bus = bus)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = activityRecorder,
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+                    )
                 val repo =
                     ListeningEventRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        activityRecorder = recorder,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     // 60-second span: endedAt - startedAt = 60_000 ms
@@ -149,14 +169,28 @@ class ListeningEventRepositoryTest :
 
         test("re-firing an already-committed listening event records NO duplicate listening_session") {
             withSqlDatabase {
+                sql.seedTestUser("u-act")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val activities = ActivityRepository(db = sql)
-                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val activityRecorder = ActivityRecorder(repo = activities, bus = bus)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = activityRecorder,
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+                    )
                 val repo =
                     ListeningEventRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        activityRecorder = recorder,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     val payload = listeningEventPayload("evt-act-dup", "book-act-dup")
@@ -198,18 +232,32 @@ class ListeningEventRepositoryTest :
         // rather than at their actual play date.
         test("imported listening session stamps the activity at the session's real end time") {
             withSqlDatabase {
+                sql.seedTestUser("u-import")
                 val realEndedAt = 1_000_000L
                 val fixedNow = 9_999_999_999L
                 val fixedClock = FixedClock(Instant.fromEpochMilliseconds(fixedNow))
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
                 val activities = ActivityRepository(db = sql, clock = fixedClock)
-                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val activityRecorder = ActivityRecorder(repo = activities, bus = bus)
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = activityRecorder,
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+                    )
                 val repo =
                     ListeningEventRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
                         clock = fixedClock,
-                        activityRecorder = recorder,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     val payload =

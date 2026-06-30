@@ -20,7 +20,6 @@ import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
-import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.SyncRegistry
@@ -516,14 +515,6 @@ private suspend fun stageAnalyzedImport(
     val registry = SyncRegistry()
     val bookReads = BookReadsRepository(db = dbs.sql)
     val statsRepo = UserStatsRepository(db = dbs.sql, bus = bus, registry = registry)
-    val statsUpdater =
-        UserStatsUpdater(
-            sql = dbs.sql,
-            userStatsRepo = statsRepo,
-            publicProfileMaintainerProvider = { dbs.sql.noOpPublicProfileMaintainer() },
-        )
-    val listeningEventRepo =
-        ListeningEventRepository(db = dbs.sql, bus = bus, registry = registry, userStatsUpdater = statsUpdater)
     val statsBackfill = UserStatsBackfillService(sql = dbs.sql, userStatsRepo = statsRepo)
     val publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer()
     val statsRecorder =
@@ -535,6 +526,8 @@ private suspend fun stageAnalyzedImport(
             activityRecorder = ActivityRecorder(repo = ActivityRepository(db = dbs.sql), bus = bus),
             statsBackfill = statsBackfill,
         )
+    val listeningEventRepo =
+        ListeningEventRepository(db = dbs.sql, bus = bus, registry = registry, statsRecorder = statsRecorder)
     val repo = PlaybackPositionRepository(db = dbs.sql, bus = bus, registry = registry, statsRecorder = statsRecorder)
 
     val analyzer =

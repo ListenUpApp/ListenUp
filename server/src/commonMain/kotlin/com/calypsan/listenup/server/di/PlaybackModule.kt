@@ -50,7 +50,7 @@ import org.koin.dsl.module
  *    for lazy window-decay, and [UserStatsUpdater] needs [UserStatsRepository] to write recomputed rows.
  *    The provider is only invoked at runtime inside `pullSince`, by which time both singletons resolve.
  *  - [ListeningEventRepository] — per-user listening spans; `createdAtStart = true`; fires
- *    [UserStatsUpdater.onListeningEvent] atomically on every upsert.
+ *    `statsRecorder.record(StatsEvent.ListeningSessionClosed(...))` atomically on every upsert.
  *  - [UserStatsBackfillService] — admin-only service that rebuilds the materialized `user_stats`
  *    row from scratch; surfaced via `POST /api/v1/admin/stats/backfill`.
  *  - [ActiveSessionCleanupTask] — periodic sweep that hard-deletes stale `active_sessions` rows
@@ -129,8 +129,7 @@ fun playbackModule(): Module =
                 db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
-                userStatsUpdater = get(),
-                activityRecorder = get(),
+                statsRecorder = get(),
             )
         }
         single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), userStatsRepo = get()) }

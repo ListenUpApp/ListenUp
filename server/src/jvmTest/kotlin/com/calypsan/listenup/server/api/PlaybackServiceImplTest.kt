@@ -28,14 +28,18 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.StatsRecorder
+import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
-import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
@@ -93,18 +97,13 @@ class PlaybackServiceImplTest :
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
             val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
             val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-            val updater =
-                UserStatsUpdater(
-                    sql = sql,
-                    userStatsRepo = statsRepo,
-                    publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
-                )
+            val statsRecorder = buildStatsRecorderForTest(sql, statsRepo)
             val eventRepo =
                 ListeningEventRepository(
                     db = sql,
                     bus = ChangeBus(),
                     registry = SyncRegistry(),
-                    userStatsUpdater = updater,
+                    statsRecorder = statsRecorder,
                 )
             return TestDeps(
                 bookRepo = bookRepo,
@@ -769,6 +768,23 @@ class PlaybackServiceImplTest :
             }
         }
     })
+
+/**
+ * Constructs a [StatsRecorder] over [sql] / [statsRepo] for `PlaybackServiceImplTest.buildDeps`.
+ * Extracted to a top-level function to keep the class within detekt's LargeClass size budget.
+ */
+private fun buildStatsRecorderForTest(
+    sql: ListenUpDatabase,
+    statsRepo: UserStatsRepository,
+): StatsRecorder =
+    StatsRecorder(
+        sql = sql,
+        userStatsRepo = statsRepo,
+        bookReadsRepository = BookReadsRepository(db = sql),
+        publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = ChangeBus()),
+        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+    )
 
 private fun bookWithThreeFiles(bookId: String): BookSyncPayload =
     BookSyncPayload(

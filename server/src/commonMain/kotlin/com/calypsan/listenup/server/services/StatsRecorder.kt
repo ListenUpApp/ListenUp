@@ -3,8 +3,16 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import kotlinx.coroutines.currentCoroutineContext
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import kotlin.math.max
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 
 /**
  * The single server-side write choke-point for every stats-affecting trigger. [record] runs ONE
@@ -36,6 +44,7 @@ class StatsRecorder(
     private val publicProfileMaintainer: PublicProfileMaintainer,
     private val activityRecorder: ActivityRecorder,
     private val statsBackfill: UserStatsBackfillService,
+    private val clock: Clock = Clock.System,
 ) {
     /** Routes [event] through its fixed ordering. See the class KDoc for the contract. */
     suspend fun record(event: StatsEvent) {
@@ -44,9 +53,9 @@ class StatsRecorder(
 
             is StatsEvent.BookRestarted -> recordBookRestarted(event)
 
-            // ListeningSessionClosed and BulkRecompute are no-ops until their own implementations land.
-            is StatsEvent.ListeningSessionClosed -> Unit
+            is StatsEvent.ListeningSessionClosed -> recordListeningSessionClosed(event)
 
+            // BulkRecompute is wired in Task 6.
             is StatsEvent.BulkRecompute -> Unit
         }
     }
@@ -96,6 +105,117 @@ class StatsRecorder(
             isReread = event.isReread,
             occurredAt = event.occurredAt.toEpochMilliseconds(),
         )
+    }
+
+    /**
+     * `user_stats` (all-time + windows + streak) → `public_profiles.refresh()` → milestone activity
+     * → the `LISTENING_SESSION` activity. Moved from [UserStatsUpdater.onListeningEvent]; the
+     * `LISTENING_SESSION` emission is folded in from [ListeningEventRepository.upsert]'s former
+     * caller-side hook. The `user_stats` upsert, refresh, and milestone activity are skipped under
+     * [StatsCascadeDeferred] (stale base totals mid-import would misfire milestones); the
+     * `LISTENING_SESSION` row still fires, historically dated.
+     */
+    private suspend fun recordListeningSessionClosed(event: StatsEvent.ListeningSessionClosed) {
+        val userId = event.userId
+        val span = event.span
+        if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
+            val wallSeconds = (span.endedAt - span.startedAt) / 1_000L
+            val tz = sql.homeTimeZone(userId)
+            val eventInstant = Instant.fromEpochMilliseconds(span.endedAt)
+            val eventDateStr = eventInstant.toLocalDateTime(tz).date.toString()
+
+            val existing = userStatsRepo.getForUser(userId)
+            val isFirstEventForBook = !hasOtherEventForBook(userId, span.bookId, excludingId = span.id)
+            val newCurrentStreak =
+                newStreakValue(existing?.lastEventDate, eventDateStr, existing?.currentStreakDays ?: 0)
+            val nowMs = clock.now().toEpochMilliseconds()
+            val last7 = sumWindowSeconds(userId, days = 7, asOfMs = nowMs)
+            val last30 = sumWindowSeconds(userId, days = 30, asOfMs = nowMs)
+
+            val base = existing ?: emptyStatsFor(userId)
+            val updated =
+                base.copy(
+                    totalSecondsAllTime = base.totalSecondsAllTime + wallSeconds,
+                    totalSecondsLast7Days = last7,
+                    totalSecondsLast30Days = last30,
+                    booksStarted = base.booksStarted + if (isFirstEventForBook) 1 else 0,
+                    currentStreakDays = newCurrentStreak,
+                    longestStreakDays = max(base.longestStreakDays, newCurrentStreak),
+                    lastEventDate = eventDateStr,
+                )
+            userStatsRepo.upsert(updated, clientOpId = null, userId = userId)
+            publicProfileMaintainer.refresh(userId)
+
+            if (updated.currentStreakDays != base.currentStreakDays && updated.currentStreakDays in STREAK_MILESTONES) {
+                activityRecorder.record(
+                    userId,
+                    ActivityType.STREAK_MILESTONE,
+                    milestoneValue = updated.currentStreakDays,
+                    milestoneUnit = "days",
+                )
+            }
+            val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
+            val newHours = (updated.totalSecondsAllTime / 3600L).toInt()
+            LISTENING_MILESTONES.firstOrNull { prevHours < it && newHours >= it }?.let { milestone ->
+                activityRecorder.record(
+                    userId,
+                    ActivityType.LISTENING_MILESTONE,
+                    milestoneValue = milestone,
+                    milestoneUnit = "hours",
+                )
+            }
+        }
+        activityRecorder.record(
+            userId,
+            ActivityType.LISTENING_SESSION,
+            bookId = span.bookId,
+            durationMs = span.endedAt - span.startedAt,
+            occurredAt = span.endedAt,
+        )
+    }
+
+    private suspend fun hasOtherEventForBook(
+        userId: String,
+        bookId: String,
+        excludingId: String,
+    ): Boolean =
+        suspendTransaction(sql) {
+            sql.listeningEventsQueries.existsOtherEventForBook(userId, bookId, excludingId).executeAsOne()
+        }
+
+    private suspend fun sumWindowSeconds(
+        userId: String,
+        days: Int,
+        asOfMs: Long,
+    ): Long {
+        val cutoffMs = asOfMs - days * 86_400_000L
+        return suspendTransaction(sql) {
+            sql.listeningEventsQueries.sumWallSecondsSince(userId, cutoffMs).executeAsOne()
+        }
+    }
+
+    /**
+     * New `currentStreakDays` given the prior `lastEventDate`, the new event's date, and the prior
+     * streak count. Moved verbatim from [UserStatsUpdater.newStreakValue].
+     */
+    private fun newStreakValue(
+        lastEventDate: String?,
+        eventDate: String,
+        existingStreak: Int,
+    ): Int {
+        if (lastEventDate == null) return 1
+        val last = LocalDate.parse(lastEventDate)
+        val today = LocalDate.parse(eventDate)
+        return when (today) {
+            last -> existingStreak.coerceAtLeast(1)
+            last.plus(DatePeriod(days = 1)) -> existingStreak + 1
+            else -> 1
+        }
+    }
+
+    private companion object {
+        private val STREAK_MILESTONES = listOf(7, 14, 30, 60, 100, 365)
+        private val LISTENING_MILESTONES = listOf(10, 50, 100, 250, 500, 1000)
     }
 
     /** A zero-valued `user_stats` payload for a user with no prior row — moved from [UserStatsUpdater]. */
