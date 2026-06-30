@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
+import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -145,6 +146,18 @@ class ErrorMapperTest :
             val error = ErrorMapper.map(exception)
 
             checkIs<InternalError>(error)
+        }
+
+        // ========== ServerUrlNotConfiguredException → TransportError.NetworkUnavailable ==========
+
+        test("map ServerUrlNotConfiguredException returns NetworkUnavailable, not InternalError") {
+            // "No server configured yet" is an expected pre-connection state, not a bug — it must
+            // map to a typed transport error (matching InstanceRepositoryImpl's precedent) so the
+            // boundary can fold it quietly instead of surfacing a generic "server error".
+            val error = ErrorMapper.map(ServerUrlNotConfiguredException())
+
+            val networkUnavailable = error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+            (networkUnavailable.debugInfo?.contains("Server URL not configured") == true) shouldBe true
         }
 
         test("map NullPointerException returns InternalError") {

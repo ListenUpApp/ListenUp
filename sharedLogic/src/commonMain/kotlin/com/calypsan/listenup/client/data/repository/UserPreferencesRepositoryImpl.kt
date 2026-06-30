@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserPreferencesDao
 import com.calypsan.listenup.client.data.local.db.UserPreferencesEntity
+import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.UserPreferences
@@ -134,6 +135,12 @@ internal class UserPreferencesRepositoryImpl(
             block()
         } catch (e: CancellationException) {
             throw e
+        } catch (e: ServerUrlNotConfiguredException) {
+            // Expected before the user connects to a server (fresh / signed-out install) — fold it
+            // quietly. Logging it as a warning with a stacktrace would imply a fault where there is
+            // none; ErrorMapper types it as a transient NetworkUnavailable.
+            logger.debug { "User-preferences RPC skipped — no server configured yet" }
+            AppResult.Failure(ErrorMapper.map(e))
         } catch (e: Throwable) {
             logger.warn(e) { "User-preferences RPC failed" }
             AppResult.Failure(ErrorMapper.map(e))

@@ -107,6 +107,10 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             !line.contains("throw e") && // cancellation rethrow: throw e
             !line.contains("throw cause") && // cancellation rethrow: throw cause
             !line.contains("throw NotImplementedError(") && // placeholder
-            !line.contains("throw EnvelopeMismatchException(") // protocol contract guard
+            !line.contains("throw EnvelopeMismatchException(") && // protocol contract guard
+            // not-connected guard: RPC-proxy factories throw this typed exception when no server
+            // URL is configured (an expected pre-connection state). ErrorMapper folds it to a
+            // transient NetworkUnavailable; it is a configuration guard, not a swallowed failure.
+            !line.contains("throw ServerUrlNotConfiguredException(")
     }
 }
