@@ -1,0 +1,7 @@
+<resources>
+    <!-- MediaRouteButton's MediaRouterThemeHelper requires an opaque android:colorBackground to
+         compute controller contrast. The app's edge-to-edge Compose window theme leaves it
+         translucent (#0), which crashes the button's constructor. Theme.AppCompat.DayNight provides
+         an opaque colorBackground; we build the button in this theme via ContextThemeWrapper. -->
+    <style name="Theme.ListenUp.CastButton" parent="Theme.AppCompat.DayNight" />
+</resources>

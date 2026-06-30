@@ -1,11 +1,13 @@
 package com.calypsan.listenup.client.features.nowplaying.components
 
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.mediarouter.app.MediaRouteButton
+import com.calypsan.listenup.client.composeapp.R
 import com.google.android.gms.cast.framework.CastButtonFactory
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
@@ -25,7 +27,11 @@ actual fun CastButton(modifier: Modifier) {
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
-            MediaRouteButton(ctx).also { button ->
+            // MediaRouteButton's constructor computes controller contrast against the theme's
+            // android:colorBackground, which the edge-to-edge Compose window leaves translucent
+            // (#0) — crashing the button. Build it in an opaque AppCompat theme instead.
+            val themed = ContextThemeWrapper(ctx, R.style.Theme_ListenUp_CastButton)
+            MediaRouteButton(themed).also { button ->
                 CastButtonFactory.setUpMediaRouteButton(ctx.applicationContext, button)
             }
         },
