@@ -12,11 +12,16 @@ typealias ContributorRole = com.calypsan.listenup.api.dto.ContributorRole
  *
  * Domain model representing a contributor that can be modified.
  * Used by [BookEditData] and related use cases.
+ *
+ * [creditedAs] preserves the per-book alias loaded from the book↔contributor join so an unedited
+ * contributor is saved back under the same credited name instead of reverting to its canonical name.
+ * `null` means the book credits the contributor under their canonical name.
  */
 data class EditableContributor(
     val id: String? = null, // null for newly added contributors
     val name: String,
     val roles: Set<ContributorRole>,
+    val creditedAs: String? = null,
 )
 
 /**

@@ -171,6 +171,7 @@ open class UpdateBookUseCase(
                         id = editable.id?.let { ContributorId(it) },
                         name = editable.name,
                         role = role.apiValue,
+                        creditedAs = editable.creditedAs,
                         position = index,
                     )
                 }

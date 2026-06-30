@@ -185,6 +185,7 @@ open class LoadBookForEditUseCase(
                     contributor.roles
                         .mapNotNull { ContributorRole.fromApiValue(it) }
                         .toSet(),
+                creditedAs = contributor.creditedAs,
             )
         }
 
