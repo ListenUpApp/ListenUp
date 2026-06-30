@@ -730,6 +730,7 @@ private fun authenticatedNavEntries(
         nowPlayingViewModel = nowPlayingViewModel,
         readiness = readiness,
         onSignOut = onSignOut,
+        onContinueToPartialLibrary = startupViewModel::onContinueToPartialLibrary,
     )
     librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
     bookEntries(backStack)

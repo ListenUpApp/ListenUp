@@ -35,6 +35,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
     nowPlayingViewModel: NowPlayingViewModel,
     readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
+    onContinueToPartialLibrary: () -> Unit,
 ) {
     entry<Shell> {
         // Read the hoisted state INSIDE the entry content (not as a captured parameter) so the
@@ -50,7 +51,11 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
         // the heap → OOM). Populating spans the server scan AND the client import, so
         // when it clears the books are already in Room (see applyScanEvent).
         (readinessState as? LibraryReadiness.Populating)?.let { populating ->
-            LibraryScanScreen(scanProgress = populating.progress)
+            LibraryScanScreen(
+                scanProgress = populating.progress,
+                stalled = populating.stalled,
+                onContinue = onContinueToPartialLibrary,
+            )
             return@entry
         }
 

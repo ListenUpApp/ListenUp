@@ -15,12 +15,17 @@ import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -52,6 +57,15 @@ data class AppStartupState(
      * a resolved "go to shell" one.
      */
     val checkResolved: Boolean = false,
+    /**
+     * True once the user taps "Continue" on a stalled "Building your library" screen. Latches the
+     * readiness gate to [LibraryReadiness.Ready] so the shell mounts on the partial library that
+     * incremental sync has already landed in Room — the never-stranded escape from a server scan
+     * that can't complete. Process-lived, mirroring the sync layer's initial-scan latch: a fresh
+     * launch or a re-auth starts `false`, and once latched the populating gate never re-shows this
+     * session.
+     */
+    val populatingDismissed: Boolean = false,
 )
 
 /**
@@ -95,7 +109,10 @@ class AppStartupViewModel(
      *
      * `Eagerly`, not `WhileSubscribed`, so [LibraryReadiness] is live for the whole ViewModel
      * lifetime — the splash gate and lifecycle hooks read state without an active UI subscription.
+     * The Eagerly collector also keeps the populating stall watchdog ([flatMapLatest] below) ticking
+     * regardless of UI subscription, so a stall is detected even between recompositions.
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val readiness: StateFlow<LibraryReadiness> =
         combine(
             state,
@@ -104,10 +121,32 @@ class AppStartupViewModel(
         ) { s, scanning, progress ->
             when {
                 !s.checkResolved || s.isChecking -> LibraryReadiness.Checking
+
                 s.setupCheckFailed -> LibraryReadiness.CheckFailed
+
                 s.needsLibrarySetup -> LibraryReadiness.NeedsSetup
-                scanning -> LibraryReadiness.Populating(progress)
+
+                // Once the user has escaped a stalled populate, the latch wins over a still-true
+                // scan signal so the shell stays mounted on the partial library.
+                scanning && !s.populatingDismissed -> LibraryReadiness.Populating(progress)
+
                 else -> LibraryReadiness.Ready
+            }
+        }.flatMapLatest { readiness ->
+            // Stall watchdog, only for the populating gate. Emit the live state immediately, then —
+            // if no fresh upstream value (advancing progress, a cleared scan, a dismiss) arrives
+            // within POPULATING_STALL_TIMEOUT_MS — re-emit it as `stalled`. flatMapLatest cancels and
+            // restarts this inner flow on every upstream change, so each progress tick resets the
+            // timer: a healthy slow scan keeps advancing and never reaches the stalled emission;
+            // only a quiet, stuck scan does.
+            if (readiness is LibraryReadiness.Populating) {
+                flow {
+                    emit(readiness)
+                    delay(POPULATING_STALL_TIMEOUT_MS)
+                    emit(readiness.copy(stalled = true))
+                }
+            } else {
+                flowOf(readiness)
             }
         }.stateIn(
             scope = viewModelScope,
@@ -118,6 +157,13 @@ class AppStartupViewModel(
     companion object {
         /** Apps backgrounded longer than this will re-run the library-setup check on resume. */
         const val BACKGROUND_THRESHOLD_MS = 30 * 60 * 1000L // 30 minutes
+
+        /**
+         * How long the "Building your library" gate may go without scan progress advancing before it
+         * is marked stalled and offers the never-stranded "Continue" escape. A healthy scan advances
+         * progress far more often than this; only a stuck or crashed server scan reaches it.
+         */
+        const val POPULATING_STALL_TIMEOUT_MS = 45_000L
     }
 
     init {
@@ -189,6 +235,17 @@ class AppStartupViewModel(
                 setupCheckFailed = false,
                 checkResolved = true,
             )
+    }
+
+    /**
+     * Escape the "Building your library" gate when the initial scan has stalled (see
+     * [LibraryReadiness.Populating.stalled]). Latches [AppStartupState.populatingDismissed] so
+     * [readiness] computes [LibraryReadiness.Ready] and the shell mounts on the partial library
+     * already in Room — books still scanning keep appearing as incremental sync lands them, and the
+     * user can re-run the scan from Settings whenever they like. Never re-shows the gate this session.
+     */
+    fun onContinueToPartialLibrary() {
+        state.value = state.value.copy(populatingDismissed = true)
     }
 
     /** Re-run the library-setup check after a transient failure (the retry the nav layer offers). */

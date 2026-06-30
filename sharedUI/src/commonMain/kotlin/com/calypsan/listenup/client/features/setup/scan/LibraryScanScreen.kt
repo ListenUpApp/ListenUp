@@ -37,11 +37,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calypsan.listenup.client.design.TwoPaneMinWidth
+import com.calypsan.listenup.client.design.components.ListenUpButton
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.etaMinutes
 import com.calypsan.listenup.client.features.auth.components.BrandMark
 import com.calypsan.listenup.client.features.setup.components.SetupHeroBlob
 import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.library_scan_continue
+import listenup.composeapp.generated.resources.library_scan_stalled_message
+import listenup.composeapp.generated.resources.library_scan_stalled_settings_hint
 import listenup.composeapp.generated.resources.library_setup_building_title
 import listenup.composeapp.generated.resources.scan_building_subtitle
 import listenup.composeapp.generated.resources.scan_files_total
@@ -61,18 +65,24 @@ private const val ETA_TICK_MS = 1_000L
  * [com.calypsan.listenup.client.features.setup.LibrarySetupScreen]. Drives live progress, ETA and
  * matched-book stats off [scanProgress]; renders the loader + headline alone when it's null (the
  * brief "finishing up" tail after the scan's Completed event clears granular progress).
+ *
+ * When [stalled] is true the scan has gone quiet long enough to be considered stuck, so a
+ * never-stranded escape is shown: an [onContinue] action to enter the partial library now, plus a
+ * hint that the scan can be re-run from Settings.
  */
 @Composable
 fun LibraryScanScreen(
     scanProgress: ScanProgressState?,
     modifier: Modifier = Modifier,
+    stalled: Boolean = false,
+    onContinue: () -> Unit = {},
 ) {
     Surface(modifier = modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         BoxWithConstraints {
             if (maxWidth >= TwoPaneMinWidth) {
-                DesktopLayout(progress = scanProgress)
+                DesktopLayout(progress = scanProgress, stalled = stalled, onContinue = onContinue)
             } else {
-                PhoneLayout(progress = scanProgress)
+                PhoneLayout(progress = scanProgress, stalled = stalled, onContinue = onContinue)
             }
         }
     }
@@ -81,7 +91,11 @@ fun LibraryScanScreen(
 // ──────────────────────────── PHONE ────────────────────────────
 
 @Composable
-private fun PhoneLayout(progress: ScanProgressState?) {
+private fun PhoneLayout(
+    progress: ScanProgressState?,
+    stalled: Boolean,
+    onContinue: () -> Unit,
+) {
     Column(
         modifier =
             Modifier
@@ -92,14 +106,18 @@ private fun PhoneLayout(progress: ScanProgressState?) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        ScanBody(progress = progress, wide = false)
+        ScanBody(progress = progress, wide = false, stalled = stalled, onContinue = onContinue)
     }
 }
 
 // ──────────────────────────── DESKTOP ────────────────────────────
 
 @Composable
-private fun DesktopLayout(progress: ScanProgressState?) {
+private fun DesktopLayout(
+    progress: ScanProgressState?,
+    stalled: Boolean,
+    onContinue: () -> Unit,
+) {
     Row(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(modifier = Modifier.fillMaxHeight()) {
             val brandWidth = (maxWidth * 0.42f).coerceIn(360.dp, 560.dp)
@@ -147,7 +165,7 @@ private fun DesktopLayout(progress: ScanProgressState?) {
                     .padding(48.dp),
             contentAlignment = Alignment.Center,
         ) {
-            ScanBody(progress = progress, wide = true)
+            ScanBody(progress = progress, wide = true, stalled = stalled, onContinue = onContinue)
         }
     }
 }
@@ -159,6 +177,8 @@ private fun DesktopLayout(progress: ScanProgressState?) {
 private fun ScanBody(
     progress: ScanProgressState?,
     wide: Boolean,
+    stalled: Boolean,
+    onContinue: () -> Unit,
 ) {
     Column(
         modifier = Modifier.widthIn(max = if (wide) 500.dp else 360.dp),
@@ -184,6 +204,43 @@ private fun ScanBody(
             Spacer(Modifier.height(26.dp))
             ScanStatsBlock(progress = progress, wide = wide)
         }
+        if (stalled) {
+            Spacer(Modifier.height(30.dp))
+            StalledEscape(onContinue = onContinue)
+        }
+    }
+}
+
+/**
+ * Never-stranded escape shown when the scan has stalled: an honest message, a primary "Continue"
+ * into the partial library, and a hint pointing at the existing manual rescan in Settings.
+ */
+@Composable
+private fun StalledEscape(onContinue: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = stringResource(Res.string.library_scan_stalled_message),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = 360.dp),
+        )
+        Spacer(Modifier.height(16.dp))
+        ListenUpButton(
+            text = stringResource(Res.string.library_scan_continue),
+            onClick = onContinue,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = stringResource(Res.string.library_scan_stalled_settings_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.widthIn(max = 360.dp),
+        )
     }
 }
 

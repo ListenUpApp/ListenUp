@@ -978,9 +978,12 @@ One beautiful library.</string>
     <string name="library_your_audiobooks_will_appear_here">Your audiobooks will appear here once the scan is complete</string>
     <string name="library_scan_authors">Authors</string>
     <string name="library_scan_books">Books</string>
+    <string name="library_scan_continue">Continue</string>
     <string name="library_scan_eta">about %1$d min left</string>
     <string name="library_scan_hours">Hours</string>
     <string name="library_scan_progress_a11y">Building your library, %1$d percent complete</string>
+    <string name="library_scan_stalled_message">This is taking longer than expected. You can continue to your library now — the rest will keep appearing as it syncs.</string>
+    <string name="library_scan_stalled_settings_hint">You can re-run the scan anytime from Settings.</string>
     <string name="library_scan_subtitle_analyzing">Analyzing %1$d of %2$d files — your shelves are filling in.</string>
     <string name="library_scan_subtitle_finishing">Finishing up — almost there.</string>
     <string name="library_scan_subtitle_persisting">Saving your library — almost done.</string>
