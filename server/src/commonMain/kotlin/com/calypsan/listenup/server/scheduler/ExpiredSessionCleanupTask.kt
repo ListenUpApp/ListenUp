@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.scheduler
 
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -12,7 +12,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ExpiredSessionCleanupTask>()
 
 /**
  * Periodic sweep that hard-deletes session rows whose `expires_at` timestamp is

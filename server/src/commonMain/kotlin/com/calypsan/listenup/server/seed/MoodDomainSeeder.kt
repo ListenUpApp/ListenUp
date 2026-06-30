@@ -5,11 +5,11 @@ import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.MoodRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<MoodDomainSeeder>()
 
 /**
  * A seeded mood — the canonical Audible affective vocabulary. The slug is the

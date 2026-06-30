@@ -9,7 +9,7 @@ import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.io.copyDirectoryRecursively
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.fileIoDispatcher
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<RestoreOrchestrator>()
 
 /**
  * Orchestrates a live in-process restore: validate → drain → safety-copy → extract → close pool

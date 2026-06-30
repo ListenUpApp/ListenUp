@@ -35,7 +35,7 @@ import kotlinx.io.files.Path
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-private val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.di.ScannerModule")
 
 /**
  * Koin module for the scanner slice. Wires:

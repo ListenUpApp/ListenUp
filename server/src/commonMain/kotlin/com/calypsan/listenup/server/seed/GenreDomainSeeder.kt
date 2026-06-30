@@ -3,11 +3,11 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.GenreSyncPayload
 import com.calypsan.listenup.server.services.GenreRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<GenreDomainSeeder>()
 
 /**
  * Seeded genre node — the curator-controlled default taxonomy.

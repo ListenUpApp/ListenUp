@@ -12,7 +12,7 @@ import kotlinx.coroutines.SupervisorJob
 import org.koin.ktor.ext.get as koinGet
 import org.koin.ktor.ext.inject
 
-internal val logger = KotlinLogging.logger {}
+internal val logger = KotlinLogging.logger("com.calypsan.listenup.server.Application")
 
 internal const val SEED_PROFILE_DEMO = "demo"
 
