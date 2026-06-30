@@ -243,7 +243,19 @@ tasks.matching { it.name.endsWith("GenerateSPMPackage") }.configureEach {
     // regenerating composes cleanly. Mirrors the always-verify gate in
     // `listenup.localization.gradle.kts`.
     outputs.upToDateWhen { false }
-    val spmPackageDir = project.layout.buildDirectory.dir("SPMPackage")
+    // Patch only THIS task's own per-target SPM package, not the shared `build/SPMPackage` parent.
+    // That dir holds one subdir per iOS target+config (`iosArm64/Debug`, `iosSimulatorArm64/Debug`, …),
+    // and `patchPackage` selects a single `Shared.swift` via `firstOrNull`. Pointing it at the parent
+    // lets an already-patched sibling target — whose sealed-enum marker makes `appendSealedEnumSupport`
+    // return 0 — trip the `count > 0` floor below. That's the intermittent "matched 0 sealed types"
+    // failure seen when a device build runs while a simulator package is already patched (or vice
+    // versa). Scoping to this task's own `<target>/<config>` dir isolates the per-target patches.
+    val packageStem = name.removeSuffix("GenerateSPMPackage") // e.g. "iosArm64Debug"
+    val configName =
+        listOf("Debug", "Release").firstOrNull(packageStem::endsWith)
+            ?: error("Unexpected GenerateSPMPackage task name '$name' — cannot derive its SPM config dir.")
+    val targetName = packageStem.removeSuffix(configName) // e.g. "iosArm64"
+    val spmPackageDir = project.layout.buildDirectory.dir("SPMPackage/$targetName/$configName")
     doLast {
         val counts =
             com.calypsan.listenup.gradle.SwiftExportSourcePatcher
