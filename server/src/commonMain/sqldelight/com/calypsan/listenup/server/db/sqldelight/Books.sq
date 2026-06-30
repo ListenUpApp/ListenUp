@@ -1,8 +1,10 @@
 -- Books table: the books domain's only syncable aggregate root.
 -- Effective schema is the union of:
---   V4__books_table.sql          (base columns + SyncableTable substrate)
---   V11__books_scan_warning.sql  (has_scan_warning)
---   V20__library_substrate.sql   (folder_id)
+--   V4__books_table.sql                  (base columns + SyncableTable substrate)
+--   V11__books_scan_warning.sql          (has_scan_warning)
+--   V20__library_substrate.sql           (folder_id)
+--   V43__books_chapter_source.sql        (chapter_source)
+--   V48__books_user_edited_fields.sql    (user_edited_fields)
 --
 -- revision / created_at / updated_at / scanned_at / total_duration are declared
 -- NOT NULL here so the generated column types are non-null `Long` — every row
@@ -46,6 +48,7 @@ CREATE TABLE books (
     cover_path       TEXT,
     cover_hash       TEXT,
     chapter_source   TEXT    NOT NULL DEFAULT 'embedded',
+    user_edited_fields TEXT  NOT NULL DEFAULT '',
     root_rel_path    TEXT    NOT NULL,
     inode            INTEGER,
     scanned_at       INTEGER NOT NULL,
@@ -148,14 +151,14 @@ INSERT INTO books (
     id, library_id, folder_id, title, sort_title, subtitle, description,
     publish_year, publisher, language, isbn, asin, abridged, explicit,
     has_scan_warning, total_duration, cover_source, cover_path, cover_hash,
-    root_rel_path, inode, scanned_at, revision, created_at, updated_at,
-    deleted_at, client_op_id
+    user_edited_fields, root_rel_path, inode, scanned_at, revision, created_at,
+    updated_at, deleted_at, client_op_id
 ) VALUES (
     :id, :library_id, :folder_id, :title, :sort_title, :subtitle, :description,
     :publish_year, :publisher, :language, :isbn, :asin, :abridged, :explicit,
     :has_scan_warning, :total_duration, :cover_source, :cover_path, :cover_hash,
-    :root_rel_path, :inode, :scanned_at, :revision, :created_at, :updated_at,
-    :deleted_at, :client_op_id
+    :user_edited_fields, :root_rel_path, :inode, :scanned_at, :revision, :created_at,
+    :updated_at, :deleted_at, :client_op_id
 );
 
 -- Full content update (the writePayload edit branch). Writes every scalar column
@@ -170,7 +173,8 @@ SET title = :title, sort_title = :sort_title, subtitle = :subtitle,
     language = :language, isbn = :isbn, asin = :asin, abridged = :abridged,
     explicit = :explicit, has_scan_warning = :has_scan_warning,
     total_duration = :total_duration, cover_source = :cover_source,
-    cover_path = :cover_path, cover_hash = :cover_hash, root_rel_path = :root_rel_path,
+    cover_path = :cover_path, cover_hash = :cover_hash,
+    user_edited_fields = :user_edited_fields, root_rel_path = :root_rel_path,
     inode = :inode, scanned_at = :scanned_at, revision = :revision,
     updated_at = :updated_at, deleted_at = NULL, client_op_id = :client_op_id
 WHERE id = :id;
@@ -183,9 +187,10 @@ SET title = :title, sort_title = :sort_title, subtitle = :subtitle,
     description = :description, publish_year = :publish_year, publisher = :publisher,
     language = :language, isbn = :isbn, asin = :asin, abridged = :abridged,
     explicit = :explicit, has_scan_warning = :has_scan_warning,
-    total_duration = :total_duration, root_rel_path = :root_rel_path,
-    inode = :inode, scanned_at = :scanned_at, revision = :revision,
-    updated_at = :updated_at, deleted_at = NULL, client_op_id = :client_op_id
+    total_duration = :total_duration, user_edited_fields = :user_edited_fields,
+    root_rel_path = :root_rel_path, inode = :inode, scanned_at = :scanned_at,
+    revision = :revision, updated_at = :updated_at, deleted_at = NULL,
+    client_op_id = :client_op_id
 WHERE id = :id;
 
 -- Edit-path created_at override — moves the added date only on an explicit

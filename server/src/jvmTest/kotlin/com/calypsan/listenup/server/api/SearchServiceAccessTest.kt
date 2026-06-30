@@ -292,6 +292,7 @@ private fun SqlTestDatabases.seedBook(
         cover_source = null,
         cover_path = null,
         cover_hash = null,
+        user_edited_fields = "",
         root_rel_path = "$bookId/book.mp3",
         inode = null,
         scanned_at = now,

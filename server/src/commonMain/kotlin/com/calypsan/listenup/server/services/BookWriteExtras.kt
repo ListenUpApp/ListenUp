@@ -46,6 +46,17 @@ class BookWriteExtras(
      * call. An empty list is meaningful: it wipes the book's genres (a rescan that dropped every string).
      */
     val genreIds: List<String>? = null,
+    /**
+     * Per-field user-edit provenance preserve flags (rescan data-safety). True when the stored book
+     * carries a `CONTRIBUTORS` / `SERIES` edit that THIS write isn't itself re-editing — computed by
+     * the scan paths' merge (`existing.userEditedFields − incoming.userEditedFields`). When set,
+     * [BookRepository.writePayload] skips the corresponding `replace` so the user's hand-edited
+     * contributor/series rows survive the rescan, exactly as `chapter_source = 'user'` protects
+     * chapters. Scalar fields (title/subtitle/description) are preserved on the payload itself, so
+     * they need no flag. Every non-scan write path leaves these false (replace as normal).
+     */
+    val preserveContributors: Boolean = false,
+    val preserveSeries: Boolean = false,
 ) {
     companion object {
         /** The extras active on the current transaction thread, or null when none is installed. */

@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -277,6 +278,15 @@ class BookRepository(
         val extras = BookWriteExtras.current()
         val managedCover = extras?.managedCover
 
+        // Per-field user-edit provenance (rescan data-safety). The scan paths' merge has already
+        // restored any protected scalar field (title/subtitle/description) onto `value` and folded the
+        // union into `value.userEditedFields`; this serializes that set into the row. The collection
+        // preserve flags ride in via the extras (the merged payload can't carry the incoming-vs-existing
+        // distinction the skip-the-replace decision needs), defaulting false for every non-scan path.
+        val userEditedFieldsColumn = value.userEditedFields.toUserEditedFieldsColumn()
+        val preserveContributors = extras?.preserveContributors == true
+        val preserveSeries = extras?.preserveSeries == true
+
         // Sticky-user-chapters merge: if the existing row carries a user-edited chapter set
         // (chapter_source = 'user'), preserve the chapter rows so a re-scan does not clobber
         // an intentional user edit. A subsequent USER edit (value.chapterSource == USER) is
@@ -320,6 +330,7 @@ class BookRepository(
                     explicit = value.explicit.toDbLong(),
                     has_scan_warning = value.hasScanWarning.toDbLong(),
                     total_duration = value.totalDuration,
+                    user_edited_fields = userEditedFieldsColumn,
                     root_rel_path = value.rootRelPath,
                     inode = value.inode,
                     scanned_at = value.scannedAt,
@@ -347,6 +358,7 @@ class BookRepository(
                     cover_source = cover.source,
                     cover_path = cover.path,
                     cover_hash = cover.hash,
+                    user_edited_fields = userEditedFieldsColumn,
                     root_rel_path = value.rootRelPath,
                     inode = value.inode,
                     scanned_at = value.scannedAt,
@@ -382,6 +394,7 @@ class BookRepository(
                 cover_source = cover.source,
                 cover_path = cover.path,
                 cover_hash = cover.hash,
+                user_edited_fields = userEditedFieldsColumn,
                 root_rel_path = value.rootRelPath,
                 inode = value.inode,
                 scanned_at = value.scannedAt,
@@ -404,8 +417,29 @@ class BookRepository(
             extras?.systemCollectionId?.let { sysId -> writeSystemMembership(sysId, value.id, now) }
         }
 
-        bookAggregateWriter.replaceContributors(value.id, value.contributors)
-        bookAggregateWriter.replaceSeries(value.id, value.series)
+        replaceBookChildren(value, preserveContributors, preserveSeries, preserveChapters)
+
+        // Batched scan-persist path only: genre junctions ride INSIDE this transaction from the
+        // pre-resolved ids the prepare phase built, collapsing a genred book to a single commit. The
+        // single-book paths leave genreIds null and run the separate post-commit processGenreStrings
+        // pass in upsertFromAnalyzed instead (no double write — the two are mutually exclusive).
+        extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
+    }
+
+    /**
+     * Replaces a book's child-collection rows after the parent upsert, honouring the per-field
+     * user-edit provenance preserve flags: a `CONTRIBUTORS`/`SERIES`/chapters edit the stored book
+     * carries (and this write isn't itself re-editing) keeps its rows — the collection analogue of the
+     * scalar preserve in [mergeUserEdits]. Audio files, documents, and the FTS row always refresh.
+     */
+    private fun replaceBookChildren(
+        value: BookSyncPayload,
+        preserveContributors: Boolean,
+        preserveSeries: Boolean,
+        preserveChapters: Boolean,
+    ) {
+        if (!preserveContributors) bookAggregateWriter.replaceContributors(value.id, value.contributors)
+        if (!preserveSeries) bookAggregateWriter.replaceSeries(value.id, value.series)
         if (!preserveChapters) {
             bookAggregateWriter.replaceChapters(value.id, value.chapters)
             db.booksQueries.updateChapterSource(value.chapterSource.name.lowercase(), value.id)
@@ -413,12 +447,6 @@ class BookRepository(
         bookAggregateWriter.replaceAudioFiles(value.id, value.audioFiles)
         bookAggregateWriter.replaceDocuments(value.id, value.documents)
         bookFtsWriter.upsertFtsRow(value)
-
-        // Batched scan-persist path only: genre junctions ride INSIDE this transaction from the
-        // pre-resolved ids the prepare phase built, collapsing a genred book to a single commit. The
-        // single-book paths leave genreIds null and run the separate post-commit processGenreStrings
-        // pass in upsertFromAnalyzed instead (no double write — the two are mutually exclusive).
-        extras?.genreIds?.let { genreIds -> bookGenreWriter.writeJunctions(value.id, genreIds) }
     }
 
     /**
@@ -792,12 +820,17 @@ class BookRepository(
                     )
 
                 val existing = existingById[bookId.value]
+                // Merge per-field user-edit provenance BEFORE the skip check (see [mergeUserEdits]):
+                // the effective payload carries the restored protected scalars + the unioned set, and
+                // the preserve flags ride into writePayload via the extras.
+                val merge = existing?.let { mergeUserEdits(incoming = payload, existing = it) }
+                val effectivePayload = merge?.payload ?: payload
                 val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
                 val coverUnchanged =
                     existing?.cover?.source == CoverSource.UPLOADED ||
                         pendingCoverHash == existing?.cover?.hash
                 val skip =
-                    existing != null && coverUnchanged && payload.matchesStoredContent(existing)
+                    existing != null && coverUnchanged && effectivePayload.matchesStoredContent(existing)
 
                 val storedCover =
                     when {
@@ -812,7 +845,7 @@ class BookRepository(
 
                 PreparedBook(
                     bookId = bookId,
-                    payload = payload,
+                    payload = effectivePayload,
                     skip = skip,
                     genreIds = genreIds,
                     tags = analyzed.tags,
@@ -821,6 +854,8 @@ class BookRepository(
                             managedCover = storedCover,
                             systemCollectionId = if (isNew) systemCollectionId else null,
                             genreIds = genreIds,
+                            preserveContributors = merge?.preserveContributors == true,
+                            preserveSeries = merge?.preserveSeries == true,
                         ),
                 )
             }
@@ -984,12 +1019,17 @@ class BookRepository(
         // sticky-UPLOADED skip, and the only-on-create system-collection membership gate.
         val existing = findById(bookId)
         val isNew = existing == null
+        // Merge per-field user-edit provenance BEFORE the skip check: protected scalars are restored
+        // onto the effective payload (so a protected-only rescan matches stored and skips), and the
+        // contributor/series preserve flags ride into writePayload via the extras.
+        val merge = existing?.let { mergeUserEdits(incoming = payload, existing = it) }
+        val effectivePayload = merge?.payload ?: payload
         val pendingCoverHash = pendingCover?.bytes?.sha256Hex()
         val coverUnchanged =
             existing?.cover?.source == CoverSource.UPLOADED ||
                 pendingCoverHash == existing?.cover?.hash
         val result: AppResult<BookSyncPayload> =
-            if (existing != null && coverUnchanged && payload.matchesStoredContent(existing)) {
+            if (existing != null && coverUnchanged && effectivePayload.matchesStoredContent(existing)) {
                 // Idempotent re-scan: content identical to what's stored — skip the
                 // revision-bumping upsert AND the cover file-write.
                 log.debug { "upsertFromAnalyzed: idempotent re-scan for ${bookId.value}, skipping revision bump" }
@@ -1014,10 +1054,12 @@ class BookRepository(
                         BookWriteExtras(
                             managedCover = storedCover,
                             systemCollectionId = if (isNew) systemCollectionId else null,
+                            preserveContributors = merge?.preserveContributors == true,
+                            preserveSeries = merge?.preserveSeries == true,
                         ),
                     ),
                 ) {
-                    upsert(payload, clientOpId = null)
+                    upsert(effectivePayload, clientOpId = null)
                 }
             }
         if (result is AppResult.Success) {
@@ -1029,6 +1071,58 @@ class BookRepository(
             bookTagWriter?.writeScanTags(bookId, analyzed.tags)
         }
         return result
+    }
+
+    /**
+     * The outcome of merging an incoming write against the stored book's per-field user-edit
+     * provenance: the [payload] to persist (protected scalar fields restored to their stored values,
+     * [BookSyncPayload.userEditedFields] carrying the union) plus the contributor/series preserve
+     * flags [writePayload] honours via the [BookWriteExtras].
+     */
+    private class UserEditMerge(
+        val payload: BookSyncPayload,
+        val preserveContributors: Boolean,
+        val preserveSeries: Boolean,
+    )
+
+    /**
+     * Merges an [incoming] write against the [existing] stored aggregate so a user's hand-edits
+     * survive a rescan (per-field user-edit provenance — the generalization of the sticky-chapters /
+     * sticky-uploaded-cover guards to the five edit-protected metadata fields).
+     *
+     * For every field the user has edited but THIS write isn't itself re-editing —
+     * `existing.userEditedFields − incoming.userEditedFields` — the stored value wins: scalar fields
+     * (title/subtitle/description) are restored onto the returned [UserEditMerge.payload]; the
+     * contributor/series collections are flagged so [writePayload] skips their replace. The persisted
+     * [BookSyncPayload.userEditedFields] is the union, so protection is sticky — a scan (empty set)
+     * never removes it, while a genuine user edit both writes the new value AND keeps the field
+     * protected. Computing the merge BEFORE the [matchesStoredContent] skip check is load-bearing: a
+     * rescan that only "disagrees" on a protected scalar then matches stored and naturally skips, with
+     * no revision bump or firehose event — no separate provenance branch in [matchesStoredContent].
+     */
+    private fun mergeUserEdits(
+        incoming: BookSyncPayload,
+        existing: BookSyncPayload,
+    ): UserEditMerge {
+        val stillProtected = existing.userEditedFields - incoming.userEditedFields
+
+        fun <T> kept(
+            field: UserEditedField,
+            stored: T,
+            scanned: T,
+        ): T = if (field in stillProtected) stored else scanned
+        val merged =
+            incoming.copy(
+                title = kept(UserEditedField.TITLE, existing.title, incoming.title),
+                subtitle = kept(UserEditedField.SUBTITLE, existing.subtitle, incoming.subtitle),
+                description = kept(UserEditedField.DESCRIPTION, existing.description, incoming.description),
+                userEditedFields = existing.userEditedFields + incoming.userEditedFields,
+            )
+        return UserEditMerge(
+            payload = merged,
+            preserveContributors = UserEditedField.CONTRIBUTORS in stillProtected,
+            preserveSeries = UserEditedField.SERIES in stillProtected,
+        )
     }
 
     /**
