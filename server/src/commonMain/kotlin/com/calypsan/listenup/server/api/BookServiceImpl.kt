@@ -21,6 +21,7 @@ import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.server.cover.CoverImageStore
 import com.calypsan.listenup.server.cover.CoverInfo
 import com.calypsan.listenup.server.cover.CoverStorage
@@ -211,7 +212,14 @@ internal class BookServiceImpl(
                     creditedAs = input.creditedAs,
                 )
             }
-        return when (val upsertResult = repo.upsert(current.copy(contributors = resolved))) {
+        // Record CONTRIBUTORS provenance so a later rescan preserves this edit (the merge in
+        // BookRepository skips replaceContributors while the field stays in the sticky set).
+        val patched =
+            current.copy(
+                contributors = resolved,
+                userEditedFields = current.userEditedFields + UserEditedField.CONTRIBUTORS,
+            )
+        return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
@@ -292,7 +300,14 @@ internal class BookServiceImpl(
                     sequence = input.position?.toString(),
                 )
             }
-        return when (val upsertResult = repo.upsert(current.copy(series = resolved))) {
+        // Record SERIES provenance so a later rescan preserves this edit (the merge in BookRepository
+        // skips replaceSeries while the field stays in the sticky set).
+        val patched =
+            current.copy(
+                series = resolved,
+                userEditedFields = current.userEditedFields + UserEditedField.SERIES,
+            )
+        return when (val upsertResult = repo.upsert(patched)) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(upsertResult.error)
         }
@@ -493,4 +508,14 @@ private fun BookSyncPayload.applyPatch(patch: BookUpdate): BookSyncPayload =
         // The added date is stored as createdAt; null leaves it untouched. The DB write is gated by
         // BookWriteExtras.createdAtOverride in writePayload so only this edit path can move it.
         createdAt = patch.addedAt ?: createdAt,
+        // Record per-field user-edit provenance so a later rescan preserves these hand-edits instead
+        // of re-deriving them from the files. Each edited scalar is added to the sticky set; the merge
+        // in BookRepository keeps it protected from then on.
+        userEditedFields =
+            userEditedFields +
+                buildSet {
+                    if (patch.title != null) add(UserEditedField.TITLE)
+                    if (patch.subtitle != null) add(UserEditedField.SUBTITLE)
+                    if (patch.description != null) add(UserEditedField.DESCRIPTION)
+                },
     )

@@ -50,6 +50,14 @@ data class BookSyncPayload(
     val chapters: List<BookChapterPayload>,
     /** Provenance of [chapters]; [ChapterSource.USER] is rescan-protected. Defaults to EMBEDDED for forward-compat. */
     val chapterSource: ChapterSource = ChapterSource.EMBEDDED,
+    /**
+     * The scalar/collection metadata fields the user has hand-edited in the app — each is
+     * rescan-protected. For a field in this set, a rescan preserves the existing DB value instead of
+     * overwriting it with the value re-derived from the files/sidecars. Empty on scanner-produced
+     * payloads; populated by the edit API. Defaults to empty for forward-compat. Chapters and covers
+     * carry their own provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not listed here.
+     */
+    val userEditedFields: Set<UserEditedField> = emptySet(),
     val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
@@ -185,6 +193,23 @@ enum class ChapterSource {
     EMBEDDED,
     AUDNEXUS,
     USER,
+}
+
+/**
+ * A user-editable book metadata field whose in-app edit is rescan-protected.
+ *
+ * When the user edits one of these in the app, the field is recorded in
+ * [BookSyncPayload.userEditedFields], so a later rescan preserves the user's value instead of
+ * re-deriving it from the files/sidecars and clobbering the edit. Chapters and covers carry their own
+ * provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not part of this set.
+ */
+@Serializable
+enum class UserEditedField {
+    TITLE,
+    SUBTITLE,
+    DESCRIPTION,
+    CONTRIBUTORS,
+    SERIES,
 }
 
 /**

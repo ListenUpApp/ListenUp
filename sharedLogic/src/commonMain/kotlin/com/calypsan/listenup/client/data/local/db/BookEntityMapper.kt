@@ -69,6 +69,9 @@ internal class BookEntityMapper {
             // When existing is null (first-seen book) it is null and will be populated after the
             // cover image is downloaded and analysed.
             coverBlurHash = existing?.coverBlurHash,
+            // Wire-authoritative per-field edit provenance — the server owns this set (it unions an
+            // edited field on every edit RPC), so a sync update always takes the payload's value.
+            userEditedFields = payload.userEditedFields,
             // Sync substrate fields.
             revision = payload.revision,
             deletedAt = payload.deletedAt,

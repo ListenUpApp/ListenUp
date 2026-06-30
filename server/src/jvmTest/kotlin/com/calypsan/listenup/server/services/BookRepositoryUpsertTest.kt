@@ -249,6 +249,7 @@ class BookRepositoryUpsertTest :
                             cover_source = "TOTALLY_INVALID_VALUE",
                             cover_path = null,
                             cover_hash = "somehash",
+                            user_edited_fields = "",
                             root_rel_path = "books/corrupt-cover",
                             inode = null,
                             scanned_at = 1_730_000_000_000L,

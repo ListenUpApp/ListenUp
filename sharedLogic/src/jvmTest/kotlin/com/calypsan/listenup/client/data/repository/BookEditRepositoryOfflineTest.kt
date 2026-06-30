@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -70,6 +72,65 @@ class BookEditRepositoryOfflineTest :
                     .nextDispatchable(maxAttempts = 5)
                     .firstOrNull()
                     ?.domainName shouldBe "books"
+                db.close()
+            }
+        }
+
+        test("editing title and description records TITLE+DESCRIPTION provenance locally and in the pushed patch") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val bookId = BookId("book1")
+                db.bookDao().upsert(
+                    BookEntity(
+                        id = bookId,
+                        libraryId = LibraryId("lib1"),
+                        folderId = FolderId("folder1"),
+                        title = "Old Title",
+                        totalDuration = 0L,
+                        createdAt = Timestamp(0L),
+                        updatedAt = Timestamp(0L),
+                    ),
+                )
+
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val txRunner =
+                    object : TransactionRunner {
+                        override suspend fun <R> atomically(block: suspend () -> R): R = block()
+                    }
+                val authSession: AuthSession = mock()
+                everySuspend { authSession.getUserId() } returns "u1"
+
+                val repo =
+                    BookEditRepositoryImpl(
+                        bookRpcFactory = mock<BookRpcFactory>(),
+                        collectionRpcFactory = mock<CollectionRpcFactory>(),
+                        bookDao = db.bookDao(),
+                        pendingQueue = queue,
+                        transactionRunner = txRunner,
+                        authSession = authSession,
+                    )
+
+                repo.updateBook(bookId, BookUpdate(title = "New Title", description = "New Desc"))
+
+                // Local: the optimistic Room write mirrors the server's per-field provenance union.
+                db.bookDao().getById(bookId)?.userEditedFields shouldBe
+                    setOf(UserEditedField.TITLE, UserEditedField.DESCRIPTION)
+
+                // Pushed: the queued patch carries the edited scalars, so the server unions the same set.
+                val pushedPayload =
+                    db
+                        .pendingOperationV2Dao()
+                        .nextDispatchable(maxAttempts = 5)
+                        .first()
+                        .payload
+                val pushedPatch = contractJson.decodeFromString(BookUpdate.serializer(), pushedPayload)
+                pushedPatch.title shouldBe "New Title"
+                pushedPatch.description shouldBe "New Desc"
+
                 db.close()
             }
         }

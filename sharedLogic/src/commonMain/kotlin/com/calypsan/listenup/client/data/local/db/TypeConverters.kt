@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.local.db
 
 import androidx.room.TypeConverter
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.FolderId
@@ -167,6 +168,29 @@ internal class CoverDownloadStatusConverter {
 
     @TypeConverter
     fun toStatus(value: String): CoverDownloadStatus = CoverDownloadStatus.valueOf(value)
+}
+
+/**
+ * Room type converter for the [UserEditedField] provenance set on [BookEntity].
+ *
+ * Stores the set as a comma-joined list of enum `name`s in declaration order — empty string is the
+ * empty set. Mirrors [Converters]' store-by-name discipline: declaration order makes the column value
+ * canonical (the same set always serializes identically), and names survive enum reordering where
+ * ordinals would silently corrupt. `valueOf` throws on an unknown token, so the app refuses to
+ * interpret provenance it no longer understands rather than dropping a user's rescan protection.
+ */
+internal class UserEditedFieldsConverter {
+    @TypeConverter
+    fun fromSet(value: Set<UserEditedField>): String =
+        UserEditedField.entries.filter { it in value }.joinToString(",") { it.name }
+
+    @TypeConverter
+    fun toSet(value: String): Set<UserEditedField> =
+        if (value.isEmpty()) {
+            emptySet()
+        } else {
+            value.split(",").mapTo(mutableSetOf()) { UserEditedField.valueOf(it) }
+        }
 }
 
 /**

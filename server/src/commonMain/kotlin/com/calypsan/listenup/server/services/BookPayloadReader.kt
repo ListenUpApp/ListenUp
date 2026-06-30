@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.Books
@@ -17,6 +18,28 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 
 /** Keeps `id IN (?, ?, …)` under SQLite's variable-parameter ceiling. */
 private const val SQLITE_IN_CHUNK = 900
+
+/**
+ * Serializes a user-edit-provenance set to its stable `books.user_edited_fields` column form: the
+ * uppercase [UserEditedField] names joined by commas in declaration order, or `""` for the empty set.
+ * Declaration order keeps the stored string deterministic regardless of the source set's iteration order.
+ */
+internal fun Set<UserEditedField>.toUserEditedFieldsColumn(): String =
+    UserEditedField.entries.filter { it in this }.joinToString(",") { it.name }
+
+/**
+ * Parses the `books.user_edited_fields` column back to a set. An empty column is the empty set; any
+ * token that no longer maps to a [UserEditedField] is silently dropped so an older row stays readable
+ * after the enum evolves (forward-compat, matching the wire DTO's `ignoreUnknownKeys`).
+ */
+internal fun String.toUserEditedFields(): Set<UserEditedField> =
+    if (isEmpty()) {
+        emptySet()
+    } else {
+        split(",").mapNotNullTo(LinkedHashSet()) { token ->
+            UserEditedField.entries.firstOrNull { it.name == token }
+        }
+    }
 
 /**
  * Builds a [BookSyncPayload] from an already-fetched root [bookRow] (a generated
@@ -75,6 +98,7 @@ internal fun assembleBookPayload(
         chapterSource =
             ChapterSource.entries.firstOrNull { it.name.equals(bookRow.chapter_source, ignoreCase = true) }
                 ?: ChapterSource.EMBEDDED,
+        userEditedFields = bookRow.user_edited_fields.toUserEditedFields(),
         documents = documents,
         revision = bookRow.revision,
         updatedAt = bookRow.updated_at,
