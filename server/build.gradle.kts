@@ -1,5 +1,6 @@
 import java.security.MessageDigest
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -47,6 +48,11 @@ kotlin {
         binaries {
             executable {
                 entryPoint = "com.calypsan.listenup.server.main"
+                // Strip the symbol/debug tables from the release binary only (debug keeps them for
+                // native debugging). `-s` passes through K/N's ld.lld; .dynsym and .eh_frame survive,
+                // so dynamic linking and stack-unwinding are intact and the binary still boots. This
+                // drops server.kexe ~33MB -> ~23MB and the distroless image ~58MB -> ~49MB.
+                if (buildType == NativeBuildType.RELEASE) linkerOpts("-s")
             }
         }
         // Provide the system library search paths for the K/N bundled ld.lld linker, which has
@@ -74,6 +80,8 @@ kotlin {
         binaries {
             executable {
                 entryPoint = "com.calypsan.listenup.server.main"
+                // Strip the release binary (see the linuxX64 note above); debug keeps its symbols.
+                if (buildType == NativeBuildType.RELEASE) linkerOpts("-s")
             }
         }
         // arm64 multiarch dir (Debian/Ubuntu aarch64), present on an arm64 host / cross-sysroot.
