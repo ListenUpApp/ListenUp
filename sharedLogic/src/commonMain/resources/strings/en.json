@@ -1343,7 +1343,10 @@
     "books": "Books",
     "authors": "Authors",
     "hours": "Hours",
-    "progress_a11y": "Building your library, %1$d percent complete"
+    "progress_a11y": "Building your library, %1$d percent complete",
+    "stalled_message": "This is taking longer than expected. You can continue to your library now — the rest will keep appearing as it syncs.",
+    "continue": "Continue",
+    "stalled_settings_hint": "You can re-run the scan anytime from Settings."
   },
   "genre": {
     "browse_title": "Browse by Genre",

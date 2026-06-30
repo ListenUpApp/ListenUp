@@ -9771,6 +9771,16 @@
         }
       }
     },
+    "library_scan.continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
     "library_scan.eta": {
       "localizations": {
         "en": {
@@ -9797,6 +9807,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Building your library, %1$d percent complete"
+          }
+        }
+      }
+    },
+    "library_scan.stalled_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This is taking longer than expected. You can continue to your library now — the rest will keep appearing as it syncs."
+          }
+        }
+      }
+    },
+    "library_scan.stalled_settings_hint": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can re-run the scan anytime from Settings."
           }
         }
       }
