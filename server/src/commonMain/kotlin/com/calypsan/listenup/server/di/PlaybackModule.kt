@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
@@ -83,15 +84,23 @@ fun playbackModule(): Module =
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
         single { ActivityRecorder(repo = get(), bus = get()) }
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
+        single {
+            StatsRecorder(
+                sql = get<ListenUpDatabase>(),
+                userStatsRepo = get(),
+                bookReadsRepository = get(),
+                publicProfileMaintainer = get(),
+                activityRecorder = get(),
+                statsBackfill = get(),
+            )
+        }
         single(createdAtStart = true) {
             PlaybackPositionRepository(
                 db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
-                userStatsUpdater = get(),
+                statsRecorder = get(),
                 activeSessionRepo = get(),
-                activityRecorder = get(),
-                bookReadsRepository = get(),
             )
         }
         // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
