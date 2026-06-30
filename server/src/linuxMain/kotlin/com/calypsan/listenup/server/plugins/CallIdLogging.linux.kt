@@ -9,7 +9,7 @@ import io.ktor.server.request.httpMethod
 import io.ktor.server.request.path
 import kotlin.time.TimeSource
 
-private val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.plugins.CallIdLogging")
 
 /**
  * Native request logging: `ktor-server-call-logging` has no Kotlin/Native artifact, so this actual

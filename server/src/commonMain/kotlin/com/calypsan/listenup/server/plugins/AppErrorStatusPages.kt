@@ -41,7 +41,7 @@ import io.ktor.server.response.respond
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 
-private val logger = KotlinLogging.logger("AppErrorStatusPages")
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.plugins.AppErrorStatusPages")
 
 /**
  * Surfaces unexpected throwables — genuine bugs, framework errors, OOM —

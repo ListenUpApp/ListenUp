@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.mdns
 import com.calypsan.listenup.server.api.ServerIdentity
 import io.github.oshai.kotlinlogging.KotlinLogging
 
-private val log = KotlinLogging.logger("mdns.MdnsTxt")
+private val log = KotlinLogging.logger("com.calypsan.listenup.server.mdns.MdnsTxt")
 
 /** RFC 6763 §6.1: each `key=value` TXT string is limited to 255 octets. */
 private const val MAX_TXT_OCTETS = 255

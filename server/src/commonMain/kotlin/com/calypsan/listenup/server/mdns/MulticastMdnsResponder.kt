@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.mdns
 
 import com.calypsan.listenup.core.IODispatcher
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -12,7 +12,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val log = KotlinLogging.logger("mdns.MulticastMdnsResponder")
+private val log = loggerFor<MulticastMdnsResponder>()
 
 /**
  * Advertise-only mDNS responder over the platform [MdnsSocketLayer] seam (java.net on JVM, POSIX on

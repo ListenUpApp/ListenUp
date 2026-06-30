@@ -24,7 +24,7 @@ import org.slf4j.helpers.MessageFormatter
  * - **TRACE** — verbose payload dumps (rare).
  *
  * Always carry the correlation id (propagated via MDC) and key entity ids (bookId/userId/scanId) in the message.
- * New code obtains loggers via `io.github.oshai.kotlinlogging.KotlinLogging.logger {}`, never `org.slf4j` directly.
+ * New code obtains loggers via `com.calypsan.listenup.server.logging.loggerFor`, never `org.slf4j` directly.
  * Never log tokens, password hashes, secrets, or user content.
  */
 class ListenUpLogger(
