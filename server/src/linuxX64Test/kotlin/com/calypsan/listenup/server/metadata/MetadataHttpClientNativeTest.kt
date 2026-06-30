@@ -1,9 +1,8 @@
 package com.calypsan.listenup.server.metadata
 
+import com.calypsan.listenup.server.di.metadataHttpClient
 import io.kotest.matchers.shouldBe
-import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO as ClientCIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.serialization.kotlinx.json.json
@@ -22,11 +21,12 @@ import kotlinx.serialization.json.Json
 import kotlin.test.Test
 
 /**
- * Native capability proof for the metadata HTTP client: `MetadataModule` wires an
- * `HttpClient(CIO)` with ContentNegotiation to call Audible/iTunes. This pins that a Kotlin/Native
- * CIO client can perform a GET **and deserialize a JSON body via ContentNegotiation** — the exact
- * path the scrapers rely on (an earlier multipart test proved client request/response but not the
- * client-side JSON ContentNegotiation seam).
+ * Native capability proof for the metadata HTTP client seam (`metadataHttpClient`): on Kotlin/Native
+ * it builds a Curl-engine client (libcurl) with ContentNegotiation — the engine `MetadataModule`
+ * wires for the Audible/iTunes scrapers (CIO's TLS is unsupported on K/N). This pins that the native
+ * metadata client can perform a GET **and deserialize a JSON body via ContentNegotiation** — the exact
+ * path the scrapers rely on. Real outbound HTTPS is verified manually via `runNative` (CI has no
+ * outbound network), so this exercises the request + JSON-deserialize seam over loopback HTTP.
  *
  * `kotlin.test.@Test` + `runBlocking`, `Unit` body, real `embeddedServer(CIO)` over an ephemeral port.
  */
@@ -54,7 +54,7 @@ class MetadataHttpClientNativeTest {
                 }
             server.start(wait = false)
             val client =
-                HttpClient(ClientCIO) {
+                metadataHttpClient {
                     install(ClientContentNegotiation) { json(lenientJson) }
                 }
             try {

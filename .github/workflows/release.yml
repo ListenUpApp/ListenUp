@@ -270,11 +270,11 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      # Dev packages provide the libargon2.so / libsqlite3.so symlinks the K/N linker resolves
-      # via -largon2 / -lsqlite3 (against -L/usr/lib). The runtime image installs the .so.N
-      # siblings (libargon2-1, libsqlite3-0) for execution.
+      # Dev packages provide the libargon2.so / libsqlite3.so / libcurl.so symlinks the K/N linker
+      # resolves via -largon2 / -lsqlite3 / -lcurl (against -L/usr/lib). The runtime image installs the
+      # .so.N siblings (libargon2-1, libsqlite3-0, libcurl4) for execution.
       - name: Install native link dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev libsqlite3-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev libsqlite3-dev libcurl4-openssl-dev
 
       - name: Build native server binary (server.kexe)
         run: ./gradlew :server:linkReleaseExecutableLinuxX64 --no-daemon

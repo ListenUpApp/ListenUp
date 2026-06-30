@@ -7,7 +7,7 @@ FROM debian:12-slim AS libs
 ARG SQLITE_AMALGAMATION_URL=https://www.sqlite.org/2024/sqlite-amalgamation-3450000.zip
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        gcc libc6-dev ca-certificates curl unzip libargon2-1 \
+        gcc libc6-dev ca-certificates curl unzip libargon2-1 libcurl4 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
@@ -20,6 +20,15 @@ RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
 # An empty /data to seed the runtime image's data dir — the distroless base has no shell, so the dir is
 # created here and COPY --chown'd into the final stage below.
 RUN mkdir -p /data
+# Stage libcurl + its full transitive .so closure for the Kotlin/Native Curl HTTP engine (metadata
+# outbound HTTPS). distroless/cc ships none of these. `ldd` resolves the complete recursive closure;
+# exclude the glibc/libgcc/libstdc++ core libs the distroless/cc base already provides.
+RUN mkdir -p /curl-deps \
+    && cp -L /usr/lib/x86_64-linux-gnu/libcurl.so.4 /curl-deps/ \
+    && ldd /usr/lib/x86_64-linux-gnu/libcurl.so.4 \
+        | awk '/=> \// { print $3 }' \
+        | grep -vE '/(libc|libm|libdl|libpthread|librt|libgcc_s|libstdc\+\+)\.so' \
+        | while read -r lib; do cp -L "$lib" /curl-deps/; done
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 # libcrypt.so.1 is NOT in distroless/cc (Debian split it out of glibc into libcrypt1); the binary links
@@ -27,6 +36,11 @@ FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=libs /build/libsqlite3.so.0                     /usr/lib/x86_64-linux-gnu/
 COPY --from=libs /usr/lib/x86_64-linux-gnu/libargon2.so.1   /usr/lib/x86_64-linux-gnu/
 COPY --from=libs /usr/lib/x86_64-linux-gnu/libcrypt.so.1    /usr/lib/x86_64-linux-gnu/
+# CA trust store + libcurl and its transitive closure, for the Kotlin/Native Curl HTTP engine the
+# metadata slice uses for outbound HTTPS (Audible/iTunes). distroless/cc ships neither; CIO's native TLS
+# is unsupported, so metadata lookups need libcurl + a CA bundle present at runtime.
+COPY --from=libs /curl-deps/                                /usr/lib/x86_64-linux-gnu/
+COPY --from=libs /etc/ssl/certs/ca-certificates.crt        /etc/ssl/certs/ca-certificates.crt
 COPY server-binary /usr/local/bin/listenup-server
 # The server runs as nonroot (uid 65532, from the distroless base) and writes its DB, secrets, and
 # extracted covers under /data. Ship /data pre-created and owned by 65532 so a fresh Docker *named
