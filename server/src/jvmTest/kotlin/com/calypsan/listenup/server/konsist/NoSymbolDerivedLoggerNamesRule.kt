@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.konsist
 import com.lemonappdev.konsist.api.Konsist
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.ints.shouldBeGreaterThan
 
 /**
  * Guard for issue #949: the native release binary is stripped (`-s`), erasing the symbol table that
@@ -19,15 +20,20 @@ class NoSymbolDerivedLoggerNamesRule :
         val namedLogger = Regex("""KotlinLogging\.logger\s*\(\s*"([^"]+)"""")
 
         test("no server logger uses the symbol-derived KotlinLogging.logger {} form") {
-            val offenders =
+            val serverFiles =
                 Konsist
                     .scopeFromProduction()
                     .files
                     .filter { serverProduction.containsMatchIn(it.path) }
-                    .filter { file ->
-                        val strippedText = stripComments(file.text)
-                        emptyLambdaLogger.containsMatchIn(strippedText)
-                    }.map { it.path }
+
+            // Guard against a vacuous pass: a future scope misconfiguration that matches no server
+            // production files must fail loudly, not silently report zero offenders.
+            serverFiles.size shouldBeGreaterThan 0
+
+            val offenders =
+                serverFiles
+                    .filter { file -> emptyLambdaLogger.containsMatchIn(stripComments(file.text)) }
+                    .map { it.path }
 
             offenders.shouldBeEmpty()
         }
@@ -50,8 +56,3 @@ class NoSymbolDerivedLoggerNamesRule :
             offenders.shouldBeEmpty()
         }
     })
-
-private fun stripComments(source: String): String =
-    source
-        .replace(Regex("""//[^\n]*"""), "")
-        .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
