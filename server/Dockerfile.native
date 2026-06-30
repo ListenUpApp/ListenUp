@@ -17,6 +17,9 @@ RUN curl -fsSL -o amalg.zip "$SQLITE_AMALGAMATION_URL" \
         -shared -o /build/libsqlite3.so.0 sqlite3.c \
     && cat sqlite3.h | grep -m1 '#define SQLITE_VERSION ' \
     && awk '/#define SQLITE_VERSION_NUMBER/ { if ($3 < 3043000) { print "SQLite too old: " $3; exit 1 } }' sqlite3.h
+# An empty /data to seed the runtime image's data dir — the distroless base has no shell, so the dir is
+# created here and COPY --chown'd into the final stage below.
+RUN mkdir -p /data
 
 FROM gcr.io/distroless/cc-debian12:nonroot
 # libcrypt.so.1 is NOT in distroless/cc (Debian split it out of glibc into libcrypt1); the binary links
@@ -25,5 +28,13 @@ COPY --from=libs /build/libsqlite3.so.0                     /usr/lib/x86_64-linu
 COPY --from=libs /usr/lib/x86_64-linux-gnu/libargon2.so.1   /usr/lib/x86_64-linux-gnu/
 COPY --from=libs /usr/lib/x86_64-linux-gnu/libcrypt.so.1    /usr/lib/x86_64-linux-gnu/
 COPY server-binary /usr/local/bin/listenup-server
+# The server runs as nonroot (uid 65532, from the distroless base) and writes its DB, secrets, and
+# extracted covers under /data. Ship /data pre-created and owned by 65532 so a fresh Docker *named
+# volume* inherits that ownership (Docker seeds a new volume from the image mountpoint's owner/perms),
+# letting the server write on first boot. Without it, a named-volume run fails: the nonroot process
+# can't create /data/.lock, which the data-dir lock then misreports as "another server is running".
+# (Bind mounts still need a host-side `chown 65532` or `--user`; that's inherent to bind mounts.)
+COPY --from=libs --chown=65532:65532 /data /data
+VOLUME /data
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/listenup-server"]
