@@ -73,7 +73,7 @@ import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
-import com.calypsan.listenup.server.services.UserStatsBackfillService
+import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.sync.syncRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.auth.authenticate
@@ -108,7 +108,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val bookAccessPolicy by inject<BookAccessPolicy>()
     val playbackService by inject<PlaybackService>()
     val playbackProgressService by inject<PlaybackProgressService>()
-    val backfillService by inject<UserStatsBackfillService>()
+    val statsRecorder by inject<StatsRecorder>()
     val searchReindexService by inject<SearchReindexService>()
     val audioFileLocator by inject<AudioFileLocator>()
     val audioUrlSigner by inject<AudioUrlSigner>()
@@ -171,7 +171,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             seriesRoutes(seriesService, bookAccessPolicy)
             playbackRoutes(playbackService)
             playbackProgressRoutes(playbackProgressService, bookAccessPolicy)
-            adminRoutes(backfillService, searchReindexService)
+            adminRoutes(statsRecorder, searchReindexService)
             metadataImageRoutes(contributorRepository, seriesRepository, homeDir)
             metadataRoutes(metadataLookupService)
             searchRoutes(searchService)

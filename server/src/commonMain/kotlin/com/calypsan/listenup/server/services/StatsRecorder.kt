@@ -50,11 +50,8 @@ class StatsRecorder(
     suspend fun record(event: StatsEvent) {
         when (event) {
             is StatsEvent.BookCompleted -> recordBookCompleted(event)
-
             is StatsEvent.BookRestarted -> recordBookRestarted(event)
-
             is StatsEvent.ListeningSessionClosed -> recordListeningSessionClosed(event)
-
             is StatsEvent.BulkRecompute -> recordBulkRecompute(event)
         }
     }

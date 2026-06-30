@@ -29,14 +29,15 @@ import org.koin.dsl.module
  *  - [MappingValidator] — rejects an incoherent admin mapping before it is written.
  *  - [ImportAnalyzer] — read + match → [com.calypsan.listenup.api.dto.imports.ImportAnalysis].
  *  - [com.calypsan.listenup.server.absimport.SessionConverter] — ABS session → listening event.
- *  - [ImportApplier] — write listening progress + sessions, then backfill per-user stats.
+ *  - [ImportApplier] — write listening progress + sessions, then recompute per-user stats via
+ *    [com.calypsan.listenup.server.services.StatsRecorder].
  *  - [MutableSharedFlow]<[ImportEvent]> — process-wide progress event bus.
  *  - [ImportService] / [ImportServiceImpl] — admin-only RPC surface.
  *
  * [com.calypsan.listenup.server.db.DatabaseHandle], [com.calypsan.listenup.server.services.LibraryRegistry],
  * [com.calypsan.listenup.server.services.PlaybackPositionRepository],
  * [com.calypsan.listenup.server.services.ListeningEventRepository], and
- * [com.calypsan.listenup.server.services.UserStatsBackfillService] are resolved from the auth, books,
+ * [com.calypsan.listenup.server.services.StatsRecorder] are resolved from the auth, books,
  * and playback modules respectively (all installed in the same Koin container).
  */
 fun importModule(homeDir: Path): Module =
@@ -69,8 +70,7 @@ fun importModule(homeDir: Path): Module =
                 playbackPositionRepository = get(),
                 sessionConverter = get(),
                 listeningEventRepository = get(),
-                statsBackfill = get(),
-                publicProfileMaintainer = get(),
+                statsRecorder = get(),
                 changeBus = get(),
             )
         }

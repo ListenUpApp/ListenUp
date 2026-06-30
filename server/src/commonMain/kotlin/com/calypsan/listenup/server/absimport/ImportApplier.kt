@@ -14,8 +14,9 @@ import com.calypsan.listenup.server.io.canonicalize
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
-import com.calypsan.listenup.server.services.PublicProfileMaintainer
-import com.calypsan.listenup.server.services.UserStatsBackfillService
+import com.calypsan.listenup.server.services.StatsCascadeDeferred
+import com.calypsan.listenup.server.services.StatsEvent
+import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.logging.loggerFor
@@ -28,19 +29,20 @@ private val logger = loggerFor<ImportApplier>()
  * The apply stage of an ABS import: writes the staged listening progress into ListenUp through
  * [PlaybackPositionRepository.recordPosition] (one row per resolvable `(ABS user, ABS item)` pair),
  * imports each playback session as a [com.calypsan.listenup.api.sync.ListeningEventSyncPayload] via
- * [ListeningEventRepository.upsert], then recomputes every affected user's stats with
- * [UserStatsBackfillService.backfillFor].
+ * [ListeningEventRepository.upsert], then recomputes every affected user's stats with one
+ * [StatsRecorder.record] call carrying [StatsEvent.BulkRecompute].
  *
  * Apply is deliberately thin. Analyze already did the matching (persisted as `matches.json`) and the
  * admin already confirmed the user map and any per-item overrides (`mapping.json`). Apply re-reads
  * the ABS progress + session rows, resolves each against those two artifacts, and writes. It never
  * matches, never guesses, and never writes a row it can't fully resolve.
  *
- * **The progress + session writes run under [FirehoseSuppressed]** — a bulk import can produce an
- * arbitrarily large burst, and the lossy live-tail would overflow. The rows still commit and bump
- * the sync revision, so clients catch up via REST `pullSince`. The per-user [backfillFor][
- * UserStatsBackfillService.backfillFor] runs *after* (outside) the suppressed block, so the final
- * authoritative stats row publishes live.
+ * **The progress + session writes run under [FirehoseSuppressed] and [StatsCascadeDeferred]** — a
+ * bulk import can produce an arbitrarily large burst, and the lossy live-tail would overflow; the
+ * per-row `user_stats` upsert and `public_profiles` refresh would also misfire repeatedly against
+ * stale base totals mid-import. The source rows still commit and bump the sync revision, so clients
+ * catch up via REST `pullSince`. The per-user [StatsEvent.BulkRecompute] runs *after* (outside) the
+ * suppressed block, so the final authoritative stats row publishes live.
  *
  * **On success, apply broadcasts [SyncControl.LibraryDataChanged]** to every connected client. The
  * suppressed burst never reached the live tail, so without this nudge other clients would only see
@@ -50,9 +52,10 @@ private val logger = loggerFor<ImportApplier>()
  *
  * **Idempotency is inherited, not engineered.** `recordPosition` upserts on `(userId, bookId)` with
  * last-played-wins; sessions carry the stable `abs:<sessionId>` id, so a re-upsert no-ops the domain
- * fields (append-only) and the per-event stats hook fires only on first insert. The final backfill
- * is itself idempotent (it recomputes from the full event/position history). Re-applying the same
- * import therefore produces no duplicate events and leaves stats unchanged.
+ * fields (append-only) and the per-event stats hook fires only on first insert. The final
+ * [StatsEvent.BulkRecompute] is itself idempotent (it recomputes from the full event/position
+ * history). Re-applying the same import therefore produces no duplicate events and leaves stats
+ * unchanged.
  *
  * Unmapped users and unresolved items are **skipped, not errored** — a partial library overlap is
  * the normal case, not a failure. A mapped user's books that aren't in this library are surfaced
@@ -65,8 +68,7 @@ class ImportApplier internal constructor(
     private val playbackPositionRepository: PlaybackPositionRepository,
     private val sessionConverter: SessionConverter,
     private val listeningEventRepository: ListeningEventRepository,
-    private val statsBackfill: UserStatsBackfillService,
-    private val publicProfileMaintainer: PublicProfileMaintainer,
+    private val statsRecorder: StatsRecorder,
     private val changeBus: ChangeBus,
 ) {
     /**
@@ -107,9 +109,11 @@ class ImportApplier internal constructor(
                 val booksNotInLibrary =
                     mappedUserBooksNotInLibrary(progress, sessions, mapping.userMappings, effectiveBooks)
                 // Bulk import: suppress the live firehose so the burst can't overflow the lossy
-                // tail. Rows still commit + bump the revision, so clients catch up via REST.
+                // tail, and defer the per-row stats cascade so the importer doesn't refresh
+                // user_stats/public_profiles once per row. Source rows still commit + bump the
+                // revision, so clients catch up via REST.
                 val result =
-                    withContext(FirehoseSuppressed) {
+                    withContext(FirehoseSuppressed + StatsCascadeDeferred) {
                         val perUser =
                             recordAll(progress, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
                         val sessionsImported =
@@ -122,15 +126,13 @@ class ImportApplier internal constructor(
                         )
                     }
 
-                // Outside suppression: recompute each affected user's stats, then rebuild their
-                // public_profiles projection from those fresh stats. The projection is what the
-                // leaderboard reads and what the activity-feed / book-detail readers surfaces resolve
-                // identities through, so a backfill that skipped the refresh left those surfaces stale
-                // (or empty) until a server restart rebuilt the projection. Both publish live.
-                affectedUsers.forEach { userId ->
-                    statsBackfill.backfillFor(userId)
-                    publicProfileMaintainer.refresh(userId)
-                }
+                // Outside deferral: one BulkRecompute per affected user — the full rebuild +
+                // projection refresh that StatsCascadeDeferred skipped per row above. The
+                // projection is what the leaderboard reads and what the activity-feed /
+                // book-detail readers surfaces resolve identities through, so a backfill that
+                // skipped the refresh left those surfaces stale (or empty) until a server
+                // restart rebuilt the projection. Both publish live.
+                affectedUsers.forEach { userId -> statsRecorder.record(StatsEvent.BulkRecompute(userId)) }
 
                 store.markApplied(importId)
 

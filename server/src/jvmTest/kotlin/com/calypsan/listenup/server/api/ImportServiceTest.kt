@@ -23,9 +23,13 @@ import com.calypsan.listenup.server.absimport.buildSyntheticAbsDb
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -225,6 +229,15 @@ private suspend fun stageService(
     val statsRepo = UserStatsRepository(db = dbs.sql, bus = bus, registry = registry)
     val listeningEventRepo = ListeningEventRepository(db = dbs.sql, bus = bus, registry = registry)
     val statsBackfill = UserStatsBackfillService(sql = dbs.sql, userStatsRepo = statsRepo)
+    val statsRecorder =
+        StatsRecorder(
+            sql = dbs.sql,
+            userStatsRepo = statsRepo,
+            bookReadsRepository = BookReadsRepository(db = dbs.sql),
+            publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer(),
+            activityRecorder = ActivityRecorder(repo = ActivityRepository(db = dbs.sql), bus = bus),
+            statsBackfill = statsBackfill,
+        )
     val analyzer =
         ImportAnalyzer(
             reader = AbsBackupReader(),
@@ -243,8 +256,7 @@ private suspend fun stageService(
             playbackPositionRepository = repo,
             sessionConverter = SessionConverter(),
             listeningEventRepository = listeningEventRepo,
-            statsBackfill = statsBackfill,
-            publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer(),
+            statsRecorder = statsRecorder,
             changeBus = bus,
         )
     val service =

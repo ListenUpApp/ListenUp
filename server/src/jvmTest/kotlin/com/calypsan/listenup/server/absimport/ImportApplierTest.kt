@@ -474,9 +474,8 @@ private data class StagedImport(
     val repo: PlaybackPositionRepository,
     val statsRepo: UserStatsRepository,
     val listeningEventRepo: ListeningEventRepository,
-    val statsBackfill: UserStatsBackfillService,
+    val statsRecorder: StatsRecorder,
     val bookReads: BookReadsRepository,
-    val publicProfileMaintainer: PublicProfileMaintainer,
     val bus: ChangeBus,
 )
 
@@ -547,9 +546,8 @@ private suspend fun stageAnalyzedImport(
         repo,
         statsRepo,
         listeningEventRepo,
-        statsBackfill,
+        statsRecorder,
         bookReads,
-        publicProfileMaintainer,
         bus,
     )
 }
@@ -564,8 +562,7 @@ private fun applierFor(
         playbackPositionRepository = staged.repo,
         sessionConverter = SessionConverter(),
         listeningEventRepository = staged.listeningEventRepo,
-        statsBackfill = staged.statsBackfill,
-        publicProfileMaintainer = staged.publicProfileMaintainer,
+        statsRecorder = staged.statsRecorder,
         changeBus = staged.bus,
     )
 
