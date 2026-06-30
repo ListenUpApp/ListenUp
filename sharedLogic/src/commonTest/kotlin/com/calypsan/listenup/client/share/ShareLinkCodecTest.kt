@@ -91,6 +91,16 @@ class ShareLinkCodecTest :
                 ShareTarget.Invite(serverUrl = "http://192.168.86.24:8080", code = "ejOvmuYJBGyMDb2DoLgtsg")
         }
 
+        test("decode parses the https /o/ form (trailing slash) for an invite") {
+            val target =
+                ShareLinkCodec.decode(
+                    "https://link.listenup.audio/o/#t=invite&server=http%3A%2F%2F192.168.86.24%3A8080&code=ejOvmuYJBGyMDb2DoLgtsg",
+                )
+
+            target shouldBe
+                ShareTarget.Invite(serverUrl = "http://192.168.86.24:8080", code = "ejOvmuYJBGyMDb2DoLgtsg")
+        }
+
         test("decode returns null for an https invite missing the code") {
             ShareLinkCodec.decode("https://link.listenup.audio/o#t=invite&server=https%3A%2F%2Flib.example.com") shouldBe null
         }

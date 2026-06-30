@@ -60,10 +60,12 @@ object ShareLinkCodec {
     private fun decodeHttpsForm(url: String): ShareTarget? {
         // Length-based slice is safe: the prefix matched ignore-case, so its length is unchanged.
         val remainder = url.substring(ShareLinkConstants.SHARE_URL_PREFIX.length)
-        // The path must end at /o exactly — reject /o/something or /other.
-        if (remainder.isNotEmpty() && remainder[0] !in charArrayOf('#', '?')) return null
-        val query = remainder.substringAfter('?', "").substringBefore('#')
-        val fragment = remainder.substringAfter('#', "")
+        // A single trailing slash is equivalent to no slash (redirectors/bots hand us both forms);
+        // beyond that the path must end at /o exactly — reject /o/something or /other.
+        val afterOptionalSlash = remainder.removePrefix("/")
+        if (afterOptionalSlash.isNotEmpty() && afterOptionalSlash[0] !in charArrayOf('#', '?')) return null
+        val query = afterOptionalSlash.substringAfter('?', "").substringBefore('#')
+        val fragment = afterOptionalSlash.substringAfter('#', "")
         val params = parseQueryString(fragment.ifEmpty { query })
         return when (params["t"]) {
             "book" -> decodeBookParams(params)
