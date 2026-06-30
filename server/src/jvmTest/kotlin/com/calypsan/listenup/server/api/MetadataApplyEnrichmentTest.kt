@@ -108,7 +108,7 @@ private val ENRICH_SELECTION =
  *    `book_tags`; a value the user deselected is never written.
  *  - **Empty selection:** a selection with no moods/tags removes all of the book's moods/tags
  *    (explicit "none"), but the match still succeeds (the text metadata commits regardless).
- *  - **Reconciling re-match (#573):** re-applying with a second selection replaces the first —
+ *  - **Reconciling re-match:** re-applying with a second selection replaces the first —
  *    a deselected mood/tag is dropped, only the new selection survives.
  *
  * Drives [BookMetadataApplier] directly (rather than through [MetadataLookupServiceImpl]) so the
@@ -160,7 +160,7 @@ class MetadataApplyEnrichmentTest :
             }
         }
 
-        // #573: re-matching now RECONCILES moods/tropes to the new selection (replace, not add).
+        // Re-matching RECONCILES moods/tropes to the new selection (replace, not add).
         // A deselected mood/tag from the first apply is dropped; only the second selection survives.
         test("re-matching reconciles moods/tropes to the new selection instead of accumulating (#573)") {
             withSqlDatabase {

@@ -10,12 +10,12 @@ import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 
 /**
- * Regression test for [MIGRATION_18_19] — the Playback-P2 stats domain landing.
+ * Regression test for [MIGRATION_18_19] — the stats domain landing.
  *
  * Asserts:
- * - `listening_events` is rebuilt with the P2 schema (userId, tz, deviceLabel, revision,
+ * - `listening_events` is rebuilt with the new schema (userId, tz, deviceLabel, revision,
  *   deletedAt; old columns deviceId, syncState, source, createdAt are gone).
- * - `user_stats` is rebuilt with the P2 stats shape (id, totalSecondsAllTime, …, revision,
+ * - `user_stats` is rebuilt with the new stats shape (id, totalSecondsAllTime, …, revision,
  *   deletedAt; old leaderboard columns are gone).
  * - `tentative_span` is created with all expected columns.
  * - The three composite indexes on `listening_events` exist.
@@ -48,7 +48,7 @@ class Migration18To19Test :
                     )
 
                 val columns = db.columnsOf("listening_events")
-                // New P2 columns
+                // New columns
                 columns shouldContain "id"
                 columns shouldContain "userId"
                 columns shouldContain "bookId"
@@ -96,7 +96,7 @@ class Migration18To19Test :
                     )
 
                 val columns = db.columnsOf("user_stats")
-                // New P2 columns
+                // New columns
                 columns shouldContain "id"
                 columns shouldContain "totalSecondsAllTime"
                 columns shouldContain "totalSecondsLast7Days"

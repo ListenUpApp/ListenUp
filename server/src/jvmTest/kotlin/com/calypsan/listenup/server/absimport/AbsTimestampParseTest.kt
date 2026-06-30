@@ -12,7 +12,7 @@ import kotlin.time.Instant
  * The regression that motivated this: Sequelize-on-SQLite writes `DataTypes.DATE` columns as
  * `2024-06-12 02:48:10.063 +00:00` — space-separated, with a millisecond fraction and an explicit
  * ` +00:00` offset. The old parser fell through every branch on that form and returned 0L, so every
- * imported listening position got `lastPlayedAt = 0` and Continue Listening lost its ordering (#537).
+ * imported listening position got `lastPlayedAt = 0` and Continue Listening lost its ordering.
  */
 class AbsTimestampParseTest :
     FunSpec({

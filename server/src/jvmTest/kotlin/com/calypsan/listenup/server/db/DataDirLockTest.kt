@@ -7,7 +7,7 @@ import kotlinx.io.files.Path
 
 /**
  * Pins [DataDirLock] — the single-instance guard that stops two servers from sharing one data home
- * and racing the scan-spool (#703).
+ * and racing the scan-spool.
  */
 class DataDirLockTest :
     FunSpec({

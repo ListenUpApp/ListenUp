@@ -8,7 +8,7 @@ private val SUFFIX_ABRIDGED = Regex("""\s*[-:]\s*abridged\s*""", RegexOption.IGN
 /**
  * Detects an `(Abridged)`/`(Unabridged)` (or ` - / : abridged`) indicator in [title],
  * strips it, and returns `(cleanedTitle, isAbridged)`. Defaults to unabridged (most
- * audiobooks are). Ports Go's `scanner/analyzer.go parseAbridgedFromTitle`.
+ * audiobooks are).
  */
 fun parseAbridgedFromTitle(title: String): Pair<String, Boolean> {
     val lower = title.lowercase()

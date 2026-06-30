@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
  * Pins [HeroNavRow]'s interactive contract: the back control fires `onBack`, and the trailing
  * `actions` slot renders.
  *
- * The status-bar inset itself (the #595 / #563 guard) is NOT asserted pixel-wise: Robolectric
+ * The status-bar inset itself is NOT asserted pixel-wise: Robolectric
  * reports zero system-bar insets, so `windowInsetsPadding(WindowInsets.statusBars)` resolves to
  * 0.dp here and a positional assertion could not distinguish inset-applied from inset-absent. The
  * inset is instead guaranteed structurally — it is baked into the component and toggled only by the

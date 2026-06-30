@@ -14,7 +14,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 /**
- * Client-side sync handler for the `playback_positions` domain (Playback-P1).
+ * Client-side sync handler for the `playback_positions` domain.
  *
  * Applies server sync events into the Room `playback_positions` table. One row
  * per book is the client's resume point; the server is the shared authority for

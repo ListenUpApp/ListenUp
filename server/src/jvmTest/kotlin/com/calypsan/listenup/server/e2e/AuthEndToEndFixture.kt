@@ -39,7 +39,7 @@ import java.nio.file.Files
  * | `ServerConfig`         | [TestServerConfig] returning the embedded URL            |
  * | `InstanceRepository`   | [StubInstanceRepository] — auth flow doesn't read it     |
  * | `UserRepository` /     | Not bound — `LoginUseCase` / `LogoutUseCase` aren't      |
- * | `PlaybackManager`      | resolved by F12; tests call `AuthRepository` direct      |
+ * | `PlaybackManager`      | resolved here; tests call `AuthRepository` direct        |
  *
  * The test exercises the full client→server round-trip, including kotlinx.rpc
  * serialization, JWT signing, refresh-token rotation, and Exposed/SQLite
@@ -124,8 +124,8 @@ internal class AuthEndToEndFixture private constructor(
                 // jvmMain) — the type is internal to :sharedLogic so it can't be bound from here.
                 // `UserRepository` and `PlaybackManager` are only needed by
                 // `LoginUseCase` / `LogoutUseCase` (factory bindings in
-                // `clientAuthModule`). F12 calls `AuthRepository` directly and
-                // never resolves the use cases, so omitting these bindings
+                // `clientAuthModule`). These tests call `AuthRepository` directly and
+                // never resolve the use cases, so omitting these bindings
                 // keeps the test surface minimal.
             }
 

@@ -349,7 +349,7 @@ class AdminUserServiceImplTest :
                 runTest {
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     // Search is an active-roster operation — pending/denied have their own surfaces
-                    // and must not leak in (#624, sibling of the listUsers filter).
+                    // and must not leak in (sibling of the listUsers filter).
                     val ids = svc.searchUsers("alice").shouldSucceed().map { it.id.value }
                     ids shouldContain "activeAlice"
                     ids shouldNotContain "pendingAlice"

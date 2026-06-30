@@ -28,7 +28,7 @@ private val logger = KotlinLogging.logger {}
 /**
  * Fraction of total duration a position must reach for an `Ended` state to count
  * as genuine completion. Guards against spurious `Ended` events on player
- * release/stop falsely marking a book finished (#204).
+ * release/stop falsely marking a book finished.
  */
 private const val BOOK_FINISHED_THRESHOLD = 0.90f
 
@@ -233,12 +233,12 @@ internal class PlaybackManagerImpl(
                         val playing = playbackState == PlaybackState.Playing
                         setPlaying(playing)
 
-                        // Drift #29 — error routing. AudioPlayer actuals emit
+                        // Error routing: AudioPlayer actuals emit
                         // PlaybackState.Error(message?) for platform-native failures;
                         // PlaybackManager turns that into PlaybackError on the public flow.
                         // (Android emits errors via [reportError] from MediaControllerHolder;
                         // setPlaybackState never carries Error on the Android path.)
-                        // Drift #28 — Playing/Paused → [reporter] (position + listening-event)
+                        // Playing/Paused → [reporter] (position + listening-event)
                         // routing lives in [setPlaybackState] so both Desktop (via this collect)
                         // and Android (via PlaybackStateWriter.setPlaybackState from
                         // MediaControllerHolder.Player.Listener) flow through one path.
@@ -258,7 +258,7 @@ internal class PlaybackManagerImpl(
                             val position = currentPositionMs.value
                             // Guard: only mark finished if position is actually near the end.
                             // Prevents false completion from spurious Ended events on player
-                            // release/stop (#204).
+                            // release/stop.
                             if (duration > 0 && position.toFloat() / duration >= BOOK_FINISHED_THRESHOLD) {
                                 reporter.onBookFinished(bookId, duration)
                             } else {
@@ -274,7 +274,7 @@ internal class PlaybackManagerImpl(
 
         // Start playback. The Playing transition is routed through progressTracker
         // by [setPlaybackState] when the collect above forwards the player's
-        // emission (drift #28); no explicit call here.
+        // emission; no explicit call here.
         player.play()
 
         logger.info { "Playback started via AudioPlayer at position ${resumePositionMs}ms, speed ${resumeSpeed}x" }
@@ -302,7 +302,7 @@ internal class PlaybackManagerImpl(
      * Update playback state (Idle/Buffering/Playing/Paused/Ended/Error). Same
      * caller scheme as [setBuffering].
      *
-     * Drift #28 — every Playing/Paused transition (whether triggered by Desktop's
+     * Every Playing/Paused transition (whether triggered by Desktop's
      * AudioPlayer state observation in [playerObservationJob] or Android's
      * [MediaControllerHolder.Player.Listener] pushing through this seam) routes
      * through [reporter] here, which persists position and (on Desktop/macOS, where a

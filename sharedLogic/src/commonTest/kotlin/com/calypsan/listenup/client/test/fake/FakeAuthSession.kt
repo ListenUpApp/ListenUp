@@ -13,8 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 /**
  * Minimal [AuthSession] test fake.
  *
- * Supports two independent control points so tests can simulate the startup race that
- * caused issue #532 — [authState] still `Initializing` while [getUserId] already has the
+ * Supports two independent control points so tests can simulate the startup race where
+ * [authState] is still `Initializing` while [getUserId] already has the
  * persisted id from secure storage:
  *
  * - [authState]: the reactive state observable. Defaults to [AuthState.Authenticated] so

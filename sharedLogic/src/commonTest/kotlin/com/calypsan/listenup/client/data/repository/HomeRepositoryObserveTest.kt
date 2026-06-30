@@ -28,7 +28,7 @@ import kotlin.time.ExperimentalTime
  * Kotest FunSpec tests for [HomeRepositoryImpl.observeContinueListening].
  *
  * Covers the new [ContinueListeningItem]-typed Flow that replaced the old
- * [ContinueListeningBook]-typed implementation in CL-B Task 5:
+ * [ContinueListeningBook]-typed implementation:
  *
  *  A) Defense-in-depth: isFinished=true books are excluded even at low progress
  *  B) No undercount: books at high progress but isFinished=false are included

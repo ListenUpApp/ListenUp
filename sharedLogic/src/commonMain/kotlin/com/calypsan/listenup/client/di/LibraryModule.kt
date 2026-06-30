@@ -58,7 +58,7 @@ internal val libraryModule: Module =
             SyncApi(clientFactory = get())
         }
 
-        // UserPreferencesRpcFactory — kotlinx.rpc proxy for UserPreferencesService (#599).
+        // UserPreferencesRpcFactory — kotlinx.rpc proxy for UserPreferencesService.
         single<UserPreferencesRpcFactory> {
             KtorUserPreferencesRpcFactory(
                 apiClientFactory = get(),

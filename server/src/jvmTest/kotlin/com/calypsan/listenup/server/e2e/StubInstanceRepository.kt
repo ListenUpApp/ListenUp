@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.VerifiedServer
 
 /**
- * Stub [InstanceRepository] for the F12 fixture — `AuthSessionStore` reads it
+ * Stub [InstanceRepository] for the auth end-to-end fixture — `AuthSessionStore` reads it
  * during `checkServerStatus()` and `initializeAuthState()`, but those paths
  * are never exercised by the auth round-trip we test here. A failing stub is
  * enough; if a future test needs the instance check, replace this with a real

@@ -487,9 +487,8 @@ internal class PlaybackPositionRepositoryImpl(
     }
 
     private suspend fun handleDiscardProgress(bookId: BookId) {
-        // Local-only reset. A DISCARD_PROGRESS pending-op enqueue is deferred to a
-        // follow-up phase; until then DiscardProgress flows through the legacy REST path.
-        // See docs/superpowers/followups.md — "DiscardProgress / Restart legacy REST path".
+        // Local-only reset. A DISCARD_PROGRESS pending-op enqueue is not yet implemented;
+        // until then DiscardProgress flows through the REST path.
         val existing = dao.get(bookId) ?: return // no-op if no row
         val now = currentEpochMilliseconds()
         dao.save(
@@ -505,9 +504,8 @@ internal class PlaybackPositionRepositoryImpl(
     }
 
     private suspend fun handleRestart(bookId: BookId) {
-        // Local-only reset. A RESTART_BOOK pending-op enqueue is deferred to a
-        // follow-up phase; until then Restart flows through the legacy REST path.
-        // See docs/superpowers/followups.md — "DiscardProgress / Restart legacy REST path".
+        // Local-only reset. A RESTART_BOOK pending-op enqueue is not yet implemented;
+        // until then Restart flows through the REST path.
         val existing = dao.get(bookId) ?: return // no-op if no row
         val now = currentEpochMilliseconds()
         dao.save(

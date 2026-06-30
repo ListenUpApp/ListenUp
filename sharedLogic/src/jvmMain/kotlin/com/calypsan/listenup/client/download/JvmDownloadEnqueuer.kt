@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 
 /**
- * Desktop no-op enqueuer. Desktop doesn't support downloads (per W8 Phase A's Desktop hide).
+ * Desktop no-op enqueuer. Desktop doesn't support downloads.
  */
 internal class JvmDownloadEnqueuer : DownloadEnqueuer {
     override suspend fun enqueue(entity: DownloadEntity): AppResult<Unit> =

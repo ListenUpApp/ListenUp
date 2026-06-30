@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.map
 /**
  * Room-backed implementation of [ListeningEventRepository].
  *
- * Read-only: listening-event writes are owned by the canonical P2 recording path
+ * Read-only: listening-event writes are owned by the canonical recording path
  * ([com.calypsan.listenup.client.playback.ListeningEventRecorder]). This class
  * surfaces DAO read queries as domain types.
  *

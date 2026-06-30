@@ -185,7 +185,7 @@ class AndroidPlaybackControllerTest :
                 )
 
             // Total duration = 150_000. seekTo(200_000) — past end.
-            // Drift #26 (a) fix: should return (1, 90_000L) — LAST item's durationMs, not controller.duration
+            // Should return (1, 90_000L) — LAST item's durationMs, not controller.duration
             sut.resolveQueuePosition(items, 200_000L) shouldBe (1 to 90_000L)
         }
 

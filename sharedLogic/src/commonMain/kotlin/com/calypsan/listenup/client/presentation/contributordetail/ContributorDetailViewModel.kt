@@ -43,7 +43,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * main pipeline — success emits a `NavAction.Deleted` through a nav Channel,
  * failure projects into `Ready.deleteError` for snackbar rendering.
  *
- * N+1 query on per-role book previews — tracked for W6; do not fix here.
+ * N+1 query on per-role book previews — known issue; do not fix here.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ContributorDetailViewModel(

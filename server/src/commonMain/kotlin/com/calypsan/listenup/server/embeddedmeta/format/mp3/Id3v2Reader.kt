@@ -16,8 +16,7 @@ import com.calypsan.listenup.server.embeddedmeta.decode.TextDecoding
  * tag size (header + body) so the caller can locate the audio region.
  *
  * Returns `null` if the buffer doesn't start with the "ID3" magic. Malformed
- * frames are skipped in line with the Go reference's tolerant behaviour
- * (`/home/simonh/Code/audiometa/internal/mp3/id3v2.go`).
+ * frames are skipped rather than aborting the read — a tolerant parse.
  */
 internal data class Id3v2ReadResult(
     val tags: AudioTags,

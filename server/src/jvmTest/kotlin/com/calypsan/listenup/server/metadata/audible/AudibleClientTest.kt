@@ -275,7 +275,7 @@ class AudibleClientTest :
                 val profile = (result as AppResult.Success<AudibleContributorProfile?>).data
                 profile.shouldNotBeNull()
                 profile.name shouldBe "Brandon Sanderson"
-                // The 120px thumbnail src is upsized to a 600px rendition (#615).
+                // The 120px thumbnail src is upsized to a 600px rendition.
                 profile.imageUrl shouldBe
                     "https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/" +
                     "o1ehbft4gejvtoskr22jt89eit._SX600_.jpg"
@@ -568,8 +568,8 @@ private val CONTRIBUTOR_PAGE_WITH_OG_IMAGE =
     """.trimIndent()
 
 /**
- * Author page HTML mirroring the REAL Audible structure (verified against a live author page,
- * #615): there is **no** `og:image` meta tag — the photo lives only in the
+ * Author page HTML mirroring the REAL Audible structure (verified against a live author page):
+ * there is **no** `og:image` meta tag — the photo lives only in the
  * `author-image-outline` `<img>`, whose `src` carries Amazon size params (commas) and is followed
  * by an `onerror` attribute. Guards that the `author-image-outline` fallback (not just the
  * synthetic og:image fixture) extracts a real photo URL.

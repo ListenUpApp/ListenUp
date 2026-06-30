@@ -7,7 +7,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
-/** Per-user playback-preferences RPC service (issue #599). */
+/** Per-user playback-preferences RPC service. */
 fun userPreferencesModule(): Module =
     module {
         single<UserPreferencesService> {

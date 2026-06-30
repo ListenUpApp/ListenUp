@@ -24,7 +24,7 @@ import kotlinx.coroutines.Job
 
 // Shared construction helpers for PlaybackManager jvmTests.
 //
-// [ProgressTracker] is `open` (W7 Phase E2.2.3 Task 2) so seam-level tests can
+// [ProgressTracker] is `open` so seam-level tests can
 // substitute a hand-rolled [FakeProgressTracker] (see Testing rubric: "seam-level
 // tests use fakes with in-memory state, not mocks"). Tests that need real
 // session-state behaviour continue to use [buildProgressTracker] for a real

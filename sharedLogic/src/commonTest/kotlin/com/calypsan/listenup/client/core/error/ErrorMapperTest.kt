@@ -13,7 +13,7 @@ import kotlinx.serialization.SerializationException
 /**
  * Tests for ErrorMapper.
  *
- * Covers the unified-AppError contract introduced in Task 13: the mapper produces
+ * Covers the unified-AppError contract: the mapper produces
  * `api.error.AppError` subtypes (`TransportError.*`, `ValidationError`, `InternalError`)
  * with body-level `message`/`code`/`isRetryable` constants per subtype and per-instance
  * detail in `debugInfo`.

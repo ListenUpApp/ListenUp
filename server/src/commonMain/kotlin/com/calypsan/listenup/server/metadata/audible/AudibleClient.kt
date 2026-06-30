@@ -33,9 +33,8 @@ private val logger = KotlinLogging.logger {}
  *    - decode failure → [MetadataError.Malformed]
  *    - network failure → [MetadataError.ExternalUnavailable]
  *
- * URL paths and query-parameter shapes are ported from the Go reference at
- * `server/internal/metadata/audible/`. The `response_groups` values are the
- * authoritative set from that implementation.
+ * URL paths, query-parameter shapes, and the `response_groups` values target
+ * Audible's regional `/1.0/` catalog endpoints.
  *
  * [CancellationException] is never swallowed — it is always rethrown.
  */
@@ -133,8 +132,7 @@ class AudibleClient(
      * Endpoint: `GET https://www.audible.{tld}/author/x/{asin}`
      *
      * Audible's catalog API no longer returns contributor images or biographies,
-     * so the author web page is the only reliable source — mirroring Go's
-     * `GetContributorProfile` in `server/internal/metadata/audible/contributor.go`.
+     * so the author web page is the only reliable source.
      * A placeholder name (`x`) is used in the URL because Audible redirects to
      * the canonical slug regardless.
      *
@@ -298,7 +296,7 @@ class AudibleClient(
                     )
                     // The storefront locale cookie forces the correct regional catalog and turns
                     // Audible's 503-without-cookie into a 200 (covers /pd product pages + the
-                    // contributor scrape, fixing non-US contributor lookups — #551 residual).
+                    // contributor scrape, fixing non-US contributor lookups).
                     header("Cookie", region.localeCookie())
                     queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
@@ -362,14 +360,12 @@ class AudibleClient(
 
         /**
          * Standard response_groups for product requests.
-         * Matches Go's `responseGroups()` in `client.go`.
          */
         const val RESPONSE_GROUPS =
             "contributors,product_desc,product_attrs,product_extended_attrs,media,rating,series,category_ladders"
 
         /**
          * Image size variants to request.
-         * Matches Go's `imageSizes()` in `client.go`.
          */
         const val IMAGE_SIZES = "500,1024"
     }
@@ -387,8 +383,6 @@ class AudibleClient(
  * non-Kotlin-native dependency. The patterns are robust to Audible's typical
  * minification and attribute ordering because they target unique class names
  * and meta-tag attributes rather than tag structure.
- *
- * Ported from Go's `parseContributorProfile` in `contributor.go`.
  */
 internal fun parseContributorProfile(
     html: String,
@@ -401,7 +395,7 @@ internal fun parseContributorProfile(
     val biography = extractElementText(html, "bc-expander-content") ?: ""
 
     // Image: prefer og:image meta tag; fall back to author-image-outline img src. The
-    // author-image-outline thumbnail is a tiny 120px rendition — upsize it (#615).
+    // author-image-outline thumbnail is a tiny 120px rendition — upsize it.
     val imageUrl =
         upsizeAmazonImage(
             extractOgImage(html)?.takeUnless { it.contains(PLACEHOLDER_IMAGE_FRAGMENT) }
@@ -420,7 +414,7 @@ private const val AUTHOR_IMAGE_TARGET_PX = 600
  * Rewrites an Amazon image URL's size operator to request a larger rendition. Audible's
  * `author-image-outline` photo is served as a 120px thumbnail (e.g.
  * `…/{id}.__01_SX120_CR0,0,120,120__.jpg`); Amazon's image server honours a `._SX{n}_` operator,
- * so this swaps whichever operator block is present for `._SX600_` to fetch a sharp avatar (#615).
+ * so this swaps whichever operator block is present for `._SX600_` to fetch a sharp avatar.
  * Non-Amazon URLs (and URLs with no operator block) are returned unchanged.
  */
 private fun upsizeAmazonImage(url: String): String {
@@ -485,15 +479,13 @@ private fun extractImgSrc(
  *
  * Uses regex extraction matching the approach in [parseContributorProfile]:
  * no full HTML parser to avoid a non-Kotlin-native dependency.
- *
- * Ported from Go's `parseContributorSearch` in `contributor.go`.
  */
 internal fun parseContributorSearch(html: String): List<AudibleContributorProfile> {
     // Author links are `href="/author/{slug}/{ASIN}?{tracking}"` — Audible always appends tracking
     // query params (ref, pf_rd_*, plink, …) after the ASIN. The pattern must therefore tolerate
     // anything up to the closing quote after the ASIN; requiring a quote *immediately* after it
-    // (the previous behaviour) matched nothing, so every contributor search returned empty (#551).
-    // The anchor's inner text is the contributor name. Mirrors Go's `parseContributorSearch`.
+    // (the previous behaviour) matched nothing, so every contributor search returned empty.
+    // The anchor's inner text is the contributor name.
     val anchorPattern =
         Regex(
             """href="/author/[^/]+/([A-Z0-9]+)[^"]*"[^>]*>(.*?)</a>""",
@@ -562,9 +554,8 @@ private fun RawProduct.toBook(): AudibleBook {
 }
 
 /**
- * Separates contributors by role. Go's API sometimes places narrators in the
+ * Separates contributors by role. Audible's API sometimes places narrators in the
  * `authors` array with `role = "narrator"`, so both arrays must be inspected.
- * Mirrors Go's `separateContributorsByRole` in `client.go`.
  */
 private fun separateContributors(
     rawAuthors: List<RawContributor>,

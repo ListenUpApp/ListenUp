@@ -8,8 +8,7 @@ import kotlinx.coroutines.test.runTest
  * Verifies [createInMemoryTestDatabase] constructs a usable [com.calypsan.listenup.client.data.local.db.ListenUpDatabase]
  * backed by an in-memory SQLite, with DAOs resolvable and a basic round-trip working.
  *
- * Lives in jvmTest (not commonTest) until W4 proves out a cross-platform test-DB seam — see the
- * W1 plan's checkpoint resolution on in-memory Room placement.
+ * Lives in jvmTest (not commonTest) until a cross-platform test-DB seam is proven out.
  */
 class TestDatabaseTest :
     FunSpec({

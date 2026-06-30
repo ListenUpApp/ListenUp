@@ -7,8 +7,8 @@ package com.calypsan.listenup.client.domain.model
  * Failures use [com.calypsan.listenup.api.result.AppResult.Failure] with a
  * [com.calypsan.listenup.api.error.DownloadError].
  *
- * Replaces the legacy `DownloadResult` sealed type per W8 Phase B
- * (W8 handoff design § "Migrate `DownloadResult` → `AppResult<DownloadOutcome>`").
+ * Replaces the legacy `DownloadResult` sealed type — fallible downloads now return
+ * `AppResult<DownloadOutcome>`.
  */
 sealed interface DownloadOutcome {
     /** New download enqueued (one or more files queued for fetch). */

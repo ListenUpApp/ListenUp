@@ -4,10 +4,9 @@ package com.calypsan.listenup.client.domain.model
  * Aggregated download status for a book, modeled as a sealed hierarchy so consumers
  * can exhaustively match on the variant shape without illegal-state combinations.
  *
- * Replaces the legacy flat `data class BookDownloadStatus(state: BookDownloadState, ...)` per
- * W8 Phase B (W8 handoff design § "Refactor `BookDownloadStatus` from flat data class to sealed
- * hierarchy"). Closes the rubric drift around "UI state is a per-screen sealed hierarchy, not a
- * flat data class."
+ * Replaces a legacy flat `data class BookDownloadStatus(state: BookDownloadState, ...)`,
+ * following the rule that state is modeled as a sealed hierarchy rather than a
+ * flat data class.
  */
 sealed interface BookDownloadStatus {
     val bookId: String

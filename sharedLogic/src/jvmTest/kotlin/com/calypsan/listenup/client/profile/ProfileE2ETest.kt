@@ -56,7 +56,7 @@ import app.cash.sqldelight.db.SqlDriver
  *
  * This validates the contract layer (serialization round-trips), the service impl
  * (update semantics, null-field-preservation), and the WrongPassword typed-error path —
- * the same coverage the Go parity ledger requires for "Update own profile".
+ * the coverage required for "Update own profile".
  *
  * Avatar upload/serve is an HTTP REST surface, not RPC; it is covered by the
  * server-side route test and intentionally excluded here.

@@ -21,14 +21,12 @@ private val log = KotlinLogging.logger {}
  * series, chapters). iTunes is used here because its artwork resolution is
  * typically higher than Audible's (up to 7000×7000, vs Audible's 500px cap).
  *
- * The URL transformation and matching heuristic are ported directly from
- * Go's implementation at `server/internal/metadata/itunes/cover.go` and
- * `search.go`. Key deviations from Go's full surface:
+ * Key scope limits of this iTunes client:
  * - No `SearchAudiobooks` — only [findCover] is exposed; chapter/metadata
  *   lookups are Audible's domain.
- * - No image-dimension probing — Go's `GetImageDimensions` is not ported
- *   because we request the maximum-size URL and trust iTunes to serve the
- *   actual maximum; probing would require an extra HTTP round-trip per cover.
+ * - No image-dimension probing — we request the maximum-size URL and trust
+ *   iTunes to serve the actual maximum; probing would require an extra HTTP
+ *   round-trip per cover.
  * - No rate limiter — the caller is responsible for pacing; the client itself
  *   is stateless so tests can inject a `MockEngine` without timing concerns.
  *
@@ -140,19 +138,18 @@ class ITunesClient(
     /**
      * Pick the best match from [results].
      *
-     * Strategy (ported from Go's `SearchAudiobooks` filter + ordering):
+     * Strategy:
      * 1. Filter to real audiobook entries: `wrapperType == "audiobook"` OR
-     *    `collectionType == "Audiobook"` (Go applies this filter after fetching).
+     *    `collectionType == "Audiobook"` (applied after fetching).
      * 2. Among filtered candidates, prefer the first whose [ITunesSearchResult.collectionName]
      *    or [ITunesSearchResult.artistName] contains [title]/[author] respectively
-     *    (case-insensitive substring match — equivalent to Go combining title+author
-     *    into a single query and relying on iTunes relevance ordering).
+     *    (case-insensitive substring match, relying on iTunes relevance ordering).
      * 3. Fall back to the first filtered result (iTunes' own relevance ranking).
      * 4. If no audiobook-typed result exists at all, fall back to the first raw result.
      *
-     * Go does not implement a separate fuzzy scorer; it relies on iTunes relevance
-     * ordering. The substring check here is an improvement that avoids picking a
-     * clearly wrong result when multiple candidates are returned.
+     * The substring check is a deliberate addition on top of iTunes' relevance
+     * ordering: it avoids picking a clearly wrong result when multiple candidates
+     * are returned.
      */
     private fun pickBest(
         results: List<ITunesSearchResult>,
@@ -182,16 +179,10 @@ class ITunesClient(
      * serves the actual maximum available size (typically 2400×2400 or 3000×3000;
      * requesting 7000×7000 never overshoots, it just gets the max).
      *
-     * Pattern: `Regex("/\\d+x\\d+bb\\.jpg$")`, identical to Go's `sizePattern`
-     * in `cover.go`:
+     * Pattern: `Regex("/\\d+x\\d+bb\\.jpg$")` — replace the matched size segment
+     * with the maximum-size segment.
      *
-     *     var sizePattern = regexp.MustCompile(`/\d+x\d+bb\.jpg$`)
-     *     func MaxCoverURL(url string) string {
-     *         return sizePattern.ReplaceAllString(url, "/"+MaxCoverSize)
-     *     }
-     *
-     * [artworkUrl60] is used as a fallback when [artworkUrl100] is absent,
-     * matching Go's selection logic (`artworkURL := r.ArtworkURL100; if artworkURL == "" { artworkURL = r.ArtworkURL60 }`).
+     * [artworkUrl60] is used as a fallback when [artworkUrl100] is absent.
      */
     private fun toCoverHit(result: ITunesSearchResult): ITunesCoverHit {
         val sourceId = result.collectionId?.toString() ?: ""
@@ -213,9 +204,6 @@ class ITunesClient(
          * Matches iTunes artwork size fragments like `/100x100bb.jpg`, `/60x60bb.jpg`,
          * `/200x200bb.jpg`, etc. Anchored to end-of-string so partial paths are not
          * accidentally replaced.
-         *
-         * Identical to Go's `sizePattern` in `cover.go`:
-         *     regexp.MustCompile(`/\d+x\d+bb\.jpg$`)
          */
         val SIZE_PATTERN = Regex("""/\d+x\d+bb\.jpg$""")
     }

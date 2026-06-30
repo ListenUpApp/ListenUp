@@ -16,7 +16,7 @@ private val logger = KotlinLogging.logger {}
  *
  *  1. **Position persistence** — delegated to [ProgressTracker] (never lose the user's place).
  *  2. **Listening-event recording** — delegated to [ListeningEventRecorder], the canonical
- *     P2 span recorder that stamps events with the account user id and enqueues a server
+ *     span recorder that stamps events with the account user id and enqueues a server
  *     sync op.
  *
  * **Why this exists.** Before this seam, only Android drove [ListeningEventRecorder] (from
@@ -35,9 +35,9 @@ private val logger = KotlinLogging.logger {}
  * derive listening time from wall-clock and content from positions, both accurate regardless.
  *
  * @property progressTracker Position-persistence collaborator; always driven.
- * @property recorder Listening-event recorder; `null` on Android (see above), non-null on
+ * @property recorder Listening-event recorder; `null` on Android, non-null on
  *   iOS/Desktop/macOS. When `null`, every recording call is skipped and only [progressTracker]
- *   runs — exactly the pre-existing behaviour.
+ *   runs.
  * @property scope Scope on which the recorder's suspend calls are launched, mirroring
  *   [ProgressTracker]'s own fire-and-forget style. Recording failures are non-fatal (the
  *   recorder logs and self-heals via orphan recovery), so they never block playback.

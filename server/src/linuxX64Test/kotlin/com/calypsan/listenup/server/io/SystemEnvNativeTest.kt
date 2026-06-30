@@ -6,7 +6,7 @@ import platform.posix.setenv
 import kotlin.test.Test
 
 /**
- * Native proof for the [readEnv] / [userHomeDir] / [hostname] env seam (Phase 5 capability port): the
+ * Native proof for the [readEnv] / [userHomeDir] / [hostname] env seam: the
  * linuxX64 actuals read the process environment via `platform.posix.getenv` and the host name via
  * `gethostname`. Round-trips a value set with `setenv`, confirms an unset name reads as null, and proves
  * the host-name actual returns a sane, NUL-stripped string.

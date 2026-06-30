@@ -163,7 +163,7 @@ class AdminViewModel(
 
             // Every section degrades independently. A single failed fetch must never black out the
             // whole page — that strands the admin without the (independent) registration-policy
-            // control and every other section (#620). Failures surface as a sectional error banner
+            // control and every other section. Failures surface as a sectional error banner
             // on Ready, never as a full Error screen.
             val users =
                 when (usersResult) {

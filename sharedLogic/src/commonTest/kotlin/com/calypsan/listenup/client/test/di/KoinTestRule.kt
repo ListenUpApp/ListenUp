@@ -22,7 +22,7 @@ import org.koin.core.module.Module
  * ```
  *
  * Source: Koin testing guide — https://insert-koin.io/docs/reference/koin-test/testing.
- * See Finding 12 D5 for the motivation (every VM test manually constructs dependencies).
+ * Motivation: every VM test manually constructs dependencies.
  */
 class KoinTestRule(
     private val modules: List<Module>,

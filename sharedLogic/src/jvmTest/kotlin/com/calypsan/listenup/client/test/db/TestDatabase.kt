@@ -22,8 +22,8 @@ import kotlinx.coroutines.Dispatchers
  * make all Room queries run on the test scheduler. This lets `advanceUntilIdle()` drain DB
  * work deterministically, eliminating races between assertions and in-flight IO continuations.
  *
- * Scope: jvmTest only. Promoted to commonTest in W4 once cross-platform migration tests
- * need the same seam — see the W1 plan's checkpoint resolution on in-memory Room placement.
+ * Scope: jvmTest only. Promote to commonTest once cross-platform migration tests
+ * need the same seam.
  *
  * Source: Room KMP testing guide — https://developer.android.com/kotlin/multiplatform/room.
  */

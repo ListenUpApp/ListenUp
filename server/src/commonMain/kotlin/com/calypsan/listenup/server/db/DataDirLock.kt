@@ -22,7 +22,7 @@ internal expect fun tryLockFile(lockFile: Path): FileLockHandle?
  *
  * Two instances sharing one `$LISTENUP_HOME` — a stale JVM that wasn't fully killed plus a fresh
  * boot — race the scan-spool: the new boot's `sweepOrphans()` could delete a live scan's covers out
- * from under the other instance's persist. That is the cause of #703's spooled-cover 404s. This lock
+ * from under the other instance's persist, the cause of spooled-cover 404s. This lock
  * turns that silent corruption into an explicit, fail-fast startup error.
  *
  * Backed by a [FileLockHandle] on `<dataHome>/.lock`: the OS releases it automatically on process

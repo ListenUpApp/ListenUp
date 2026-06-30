@@ -10,10 +10,9 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * Unit tests for [GenreSlug.normalize].
  *
  * Mirrors `TagSlug` semantics: NFKD diacritic strip → lowercase → `&` → ` and `
- * → non-alphanum runs → `-` → collapse + trim. The Go reference in
- * `internal/genre/slug.go` differs (no `& → and` substitution); we deliberately
- * adopt the TagSlug rule because `defaults.go` authors canonical slugs such as
- * `"sword-and-sorcery"` that only this pipeline reproduces.
+ * → non-alphanum runs → `-` → collapse + trim. The `& → and` substitution is
+ * deliberate: it produces canonical slugs such as `"sword-and-sorcery"` that no
+ * other pipeline reproduces.
  */
 class GenreSlugNormalizeTest :
     FunSpec({

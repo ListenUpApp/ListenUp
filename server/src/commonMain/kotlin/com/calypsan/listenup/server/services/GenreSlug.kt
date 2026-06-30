@@ -19,13 +19,10 @@ import com.calypsan.listenup.server.sync.foldDiacritics
  * 6. Empty result → [GenreError.InvalidInput].
  * 7. Length > 100 → [GenreError.InvalidInput].
  *
- * Mirrors [com.calypsan.listenup.server.sync.TagSlug]. Diverges from Go's
- * `internal/genre/slug.go`, which has no `& → and` substitution. The Go-era
- * `defaults.go` authors canonical slugs such as `"sword-and-sorcery"` that
- * only this pipeline reproduces — the Go `Slugify()` was inconsistent with
- * its own seeded taxonomy. The Kotlin port resolves the inconsistency by
- * adopting TagSlug's rule, so `aliases.go` raw strings map to the same
- * canonical slugs at scanner time.
+ * Mirrors [com.calypsan.listenup.server.sync.TagSlug]. The `& → and` substitution
+ * is what produces canonical slugs such as `"sword-and-sorcery"`; adopting
+ * TagSlug's rule keeps raw alias strings mapping to the same canonical slugs at
+ * scanner time.
  */
 object GenreSlug {
     private const val MAX_SLUG_LENGTH = 100

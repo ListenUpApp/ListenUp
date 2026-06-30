@@ -400,7 +400,7 @@ internal class CollectionServiceImpl(
     //
     // These are ADMIN-INTERNAL operations, deliberately NOT part of the @Rpc
     // CollectionService contract (frozen at 12 user-facing methods). They are exposed as
-    // public methods so the admin REST routes (and, eventually, the scanner) can call them.
+    // public methods so the admin REST routes (and potentially the scanner) can call them.
 
     /**
      * Resolves the library's per-library system collection of [type], creating it on first use.

@@ -26,7 +26,7 @@ import kotlinx.io.files.Path as IoPath
 
 /**
  * Exercises the sidecar precedence tier through the real [Analyzer] path with
- * a fake [SidecarParser]. The plan's `mergeWithPrecedence` method is a fiction
+ * a fake [SidecarParser]. There is no single `mergeWithPrecedence` method
  * — the Analyzer composes via per-field `pick*` chains, so these tests assert
  * the resolved [com.calypsan.listenup.api.dto.scanner.AnalyzedBook] fields.
  *

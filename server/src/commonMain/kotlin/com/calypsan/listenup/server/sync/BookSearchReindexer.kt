@@ -18,8 +18,8 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
  * source tables, then uses the FTS5 `DELETE` + re-insert idiom required by
  * `contentless_delete=1` tables.
  *
- * **Why service-layer and not a SQL trigger?** The spec chose application-layer
- * reindexing for testability and decoupling — a trigger cannot join across
+ * **Why service-layer and not a SQL trigger?** Application-layer reindexing
+ * wins on testability and decoupling — a trigger cannot join across
  * `book_tags → tags → book_search_map` cleanly, whereas this class does it in
  * readable, testable Kotlin.
  */

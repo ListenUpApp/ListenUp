@@ -61,7 +61,7 @@ import java.io.File
  * - androidHostTest requires Robolectric / Android libs.
  * - jvmTest sees jvmMain actuals (including DownloadFileManager with StoragePaths interface).
  *
- * Per project memory `feedback_fakes_for_seams.md`: hand-rolled fakes + MockEngine, not mokkery.
+ * Uses hand-rolled fakes + MockEngine, not mokkery.
  *
  * Download URL is resolved via PlaybackService.prepare signed URLs.
  */

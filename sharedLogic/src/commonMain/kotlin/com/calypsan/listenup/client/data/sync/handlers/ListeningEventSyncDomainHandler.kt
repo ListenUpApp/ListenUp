@@ -14,7 +14,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 private val logger = KotlinLogging.logger {}
 
 /**
- * Client-side sync handler for the `listening_events` domain (Playback-P2).
+ * Client-side sync handler for the `listening_events` domain.
  *
  * Applies server sync events into the Room `listening_events` table. Each row is a
  * closed, uninterrupted listening span; the domain is **append-only** — no merge
@@ -27,7 +27,7 @@ private val logger = KotlinLogging.logger {}
  * listening-event rows are not propagated to the client (the server never mutates
  * domain fields on a committed span).
  *
- * **Tombstone handling.** The server does not emit listening-event tombstones in P2,
+ * **Tombstone handling.** The server does not emit listening-event tombstones,
  * but the substrate interface requires handling them. A tombstone received via
  * [onCatchUpItem] applies a soft-delete by `id` and revision; a [SyncEvent.Deleted]
  * at the SSE level is a no-op (same reasoning as [PlaybackPositionSyncDomainHandler]'s

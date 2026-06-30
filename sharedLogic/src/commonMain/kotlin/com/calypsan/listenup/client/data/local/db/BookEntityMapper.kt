@@ -29,7 +29,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
  * ## Children
  *
  * This mapper handles the book root row only. Chapter, contributor, and series rows are
- * the responsibility of `BookSyncDomainHandler` (Task 27).
+ * the responsibility of `BookSyncDomainHandler`.
  */
 internal class BookEntityMapper {
     /**
@@ -188,7 +188,7 @@ internal fun BookWithContributors.toListItem(
  * Convert BookWithContributors to domain BookDetail for the detail screen.
  *
  * Computes [BookDetail.allContributors] via dedup-and-role-aggregation — same
- * algorithm as the (deleted in Task 12) private mapper in BookRepositoryImpl.
+ * algorithm as the now-deleted private mapper in BookRepositoryImpl.
  * Genres, tags, and moods are loaded externally and passed through.
  */
 internal fun BookWithContributors.toDetail(

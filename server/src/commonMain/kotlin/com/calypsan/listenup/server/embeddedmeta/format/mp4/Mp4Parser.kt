@@ -35,8 +35,6 @@ import kotlinx.io.IOException
  * - Required atom missing (`moov` or `mvhd`) →
  *   [AudioMetadataError.CorruptHeader] — the file is structurally invalid
  *   per ISO/IEC 14496-12; best surfaced rather than guessed at.
- *
- * Reference: spec §8.4 + Go `/home/simonh/Code/audiometa/internal/m4a/`.
  */
 internal class Mp4Parser : AudioFormatParser {
     override val supports: Set<AudioFormat> = setOf(AudioFormat.Mp4)

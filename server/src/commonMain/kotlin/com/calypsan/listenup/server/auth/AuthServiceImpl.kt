@@ -367,7 +367,7 @@ class AuthServiceImpl(
 
     private fun deviceInfoOf(s: Sessions): DeviceInfo? {
         // The read path must not assume stored rows honour the current DeviceInfo
-        // invariants: legacy sessions (old Go server / pre-validation) may hold blank
+        // invariants: legacy sessions (pre-validation) may hold blank
         // or over-long fields. Sanitize before constructing so DeviceInfo.init's
         // length `require` — the correct *inbound* guard — never throws on outbound data.
         fun field(value: String?): String? = value?.takeIf { it.isNotBlank() }?.take(DEVICE_FIELD_MAX)
@@ -401,7 +401,7 @@ class AuthServiceImpl(
         now: Long,
     ): AuthUser =
         AuthUser(
-            // Phase 1 placeholder. UUIDv7 (lexicographically sortable, time-ordered) is the
+            // UUIDv4. UUIDv7 (lexicographically sortable, time-ordered) would be the
             // long-term shape — UUIDv4 is fine while ids are TEXT primary keys with no
             // timestamp-driven scan path.
             id = Uuid.random().toString(),

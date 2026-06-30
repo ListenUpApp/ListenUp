@@ -80,10 +80,10 @@ interface MetadataLookupService {
      * Searches Audible for contributors matching [query].
      *
      * **Currently stubs to an empty list.** Audible has no official
-     * contributor-search API; the Go reference implementation used HTML
+     * contributor-search API; the available approach is HTML
      * scraping of `www.audible.com/search?searchAuthor=`, which requires a
-     * Kotlin-first HTML parser dependency not yet added to `:server`. A later
-     * phase will land a proper implementation — either via HTML scraping or an
+     * Kotlin-first HTML parser dependency not yet added to `:server`. A proper
+     * implementation will land later — either via HTML scraping or an
      * alternative metadata source (e.g. MusicBrainz, OpenLibrary).
      *
      * The method signature is included in the contract now so client code can

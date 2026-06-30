@@ -5,8 +5,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * One chapter as ABS encodes it in `metadata.json`. Times are in seconds.
- * Phase 2 reads but does not use these — chapter inference lands in Phase 3
- * once audiometa is ported.
+ * Currently read but not yet used — chapter inference is future work.
  */
 @Serializable
 data class AbsChapter(

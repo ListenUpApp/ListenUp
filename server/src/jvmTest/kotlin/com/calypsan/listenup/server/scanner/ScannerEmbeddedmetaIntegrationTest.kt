@@ -30,7 +30,7 @@ import java.nio.file.Path
 
 /**
  * End-to-end integration coverage: real audio bytes through Walker →
- * Grouper → Analyzer → Differ, exercising the full Phase 3b enrichment
+ * Grouper → Analyzer → Differ, exercising the full enrichment
  * pipeline.
  *
  * Three deliberate book fixtures probe distinct contracts:

@@ -5,7 +5,7 @@ import io.kotest.matchers.shouldBe
 import kotlin.reflect.full.memberProperties
 
 /**
- * Guards #635: the iOS Book Detail rendered the whole `Ready` toString because Swift's
+ * Guards against SKIE field shadowing: the iOS Book Detail rendered the whole `Ready` toString because Swift's
  * universal `description` (CustomStringConvertible) shadows a Kotlin `description` field
  * over the SKIE bridge. The fix renamed the field to `descriptionText`. If anyone renames
  * it back to `description`, SKIE will shadow it again — so pin the names here.

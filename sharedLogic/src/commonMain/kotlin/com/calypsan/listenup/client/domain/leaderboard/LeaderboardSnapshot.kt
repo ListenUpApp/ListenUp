@@ -7,7 +7,7 @@ package com.calypsan.listenup.client.domain.leaderboard
  *
  * For Week/Month/Year, the [time] ranking is computed over `listening_events`
  * within the period bounds; [books] and [streak] lists are empty since per-period
- * book/streak rankings require domain-specific math beyond P3's scope. Time is
+ * book/streak rankings require domain-specific math that is out of scope here. Time is
  * the headline ranking for bounded periods.
  *
  * For AllTime, all three lists are sourced from `user_stats`.

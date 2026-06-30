@@ -322,6 +322,6 @@ private fun AudibleContributorProfile.toMetadataContributorProfile(): MetadataCo
         deathDate = null,
         // Audible author pages expose no external website (the scrape yields only name, biography,
         // and og:image), so there is nothing to populate here — website stays a manual-only field
-        // edited on the contributor page (#616).
+        // edited on the contributor page.
         website = null,
     )

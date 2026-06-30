@@ -26,9 +26,9 @@ internal data class TrackInfo(
  *
  * Track number is the first 1–4 digit run remaining in the filename after
  * stripping any matched disc prefix. Strict heuristic: ABS additionally
- * strips title/author/series/year text before this match, but Phase 2
- * skips that — embedded-tag-driven track inference is the right fix and
- * lands in Phase 3 (`TrackNumberSource.METADATA`).
+ * strips title/author/series/year text before this match, but this parser
+ * skips that — embedded-tag-driven track inference (`TrackNumberSource.METADATA`)
+ * is the better fix.
  */
 internal object TrackInference {
     private val discInFilename = Regex("""\b(disc|cd) ?(\d{1,2})\b""", RegexOption.IGNORE_CASE)

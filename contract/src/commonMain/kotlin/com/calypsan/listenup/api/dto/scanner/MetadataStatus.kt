@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
  *
  * Surfaces in scan summaries so operators see "12 FLAC files detected,
  * parser not available" instead of an opaque per-file error. The
- * aggregator (Phase 3 scan-summary task) groups books by status.
+ * scan-summary aggregator groups books by status.
  *
  * `null` on [AnalyzedBook] means the parser was never invoked (e.g. no
  * audio file in the candidate at all). [Available] means the parser

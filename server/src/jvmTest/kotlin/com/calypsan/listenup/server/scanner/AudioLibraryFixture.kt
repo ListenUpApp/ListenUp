@@ -9,9 +9,9 @@ import kotlin.io.path.writeText
 /**
  * A test-only DSL for assembling synthetic audiobook libraries on disk.
  *
- * Phase 2 doesn't read audio file content, so audio "tracks" are zero-byte
- * placeholders with the correct extension. Phase 3 will add a separate
- * fixture that emits real test audio for the audiometa port.
+ * The scan path under test doesn't read audio file content, so audio "tracks" are
+ * zero-byte placeholders with the correct extension. A separate fixture emits real
+ * test audio for the audio-metadata parser tests.
  *
  * Usage:
  * ```

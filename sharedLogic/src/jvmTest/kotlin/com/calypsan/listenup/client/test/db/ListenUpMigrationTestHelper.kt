@@ -56,7 +56,7 @@ class ListenUpMigrationTestHelper internal constructor(
  *
  * Jvm-scoped because Room 2.8's [MigrationTestHelper] only ships JVM/Android
  * and native source-set actuals; the appleMain equivalent can be added when
- * iOS/macOS migration tests are needed (see W4.5 in the restoration roadmap).
+ * iOS/macOS migration tests are needed.
  */
 fun createMigrationTestHelper(): ListenUpMigrationTestHelper {
     val schemaDirectory: Path = Paths.get("schemas").toAbsolutePath()

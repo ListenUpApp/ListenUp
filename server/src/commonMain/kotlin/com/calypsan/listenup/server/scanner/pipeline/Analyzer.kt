@@ -414,8 +414,7 @@ internal class Analyzer(
      * Chapter precedence:
      *   metadata.json (non-empty) → embedded (non-empty) → synthesized (multi-file) → empty.
      *
-     * Spec §3 of `2026-05-07-phase-4-multifile-chapter-synthesis-design.md`. The
-     * sidecar wins when present so user-curated chapter titles in ABS survive
+     * The sidecar wins when present so user-curated chapter titles in ABS survive
      * a rescan. Synthesis activates only when no higher source exists AND the
      * book is multi-file.
      *

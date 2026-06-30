@@ -388,7 +388,7 @@ private fun withTestHandler(block: suspend (BookSyncDomainHandler, ListenUpDatab
 
 /**
  * Like [withTestHandler] but injects a [RecordingDocumentStorage] so document-cache GC
- * (issue #699) can be asserted. The storage is exposed to the block.
+ * can be asserted. The storage is exposed to the block.
  */
 private fun withGcHandler(
     block: suspend (BookSyncDomainHandler, ListenUpDatabase, RecordingDocumentStorage) -> Unit,

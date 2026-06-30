@@ -27,8 +27,7 @@ internal val AudibleRegion.apiHost: String
 
 /**
  * The Audible website host for this region, used for web-scraping endpoints
- * such as the contributor author page (`/author/x/{asin}`). Ported from Go's
- * `Region.WebHost()` in `server/internal/metadata/audible/types.go`.
+ * such as the contributor author page (`/author/x/{asin}`).
  */
 internal val AudibleRegion.webHost: String
     get() =
@@ -51,10 +50,7 @@ internal val AudibleRegion.webHost: String
  * Audible's website (`/pd/{ASIN}` product pages, the author page, and the
  * author-search page) returns **HTTP 503** without a storefront locale cookie
  * and **HTTP 200** with one. Sending the right cookie both unblocks product-tag
- * scraping and fixes the non-US contributor lookup (issue #551 residual).
- *
- * Ported from Go's `Region.localeCookie()` in
- * `server/internal/metadata/audible/types.go` — values match exactly.
+ * scraping and fixes the non-US contributor lookup.
  */
 internal fun AudibleRegion.localeCookie(): String =
     when (this) {

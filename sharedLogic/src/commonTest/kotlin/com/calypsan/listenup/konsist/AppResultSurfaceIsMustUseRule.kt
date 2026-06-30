@@ -4,7 +4,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
 /**
- * Pins Phase 2c's compiler-enforced `AppResult` must-use invariant.
+ * Pins the compiler-enforced `AppResult` must-use invariant.
  *
  * Every `domain/repository/` interface file that declares an `AppResult`-returning function
  * carries `@file:MustUseReturnValues`, so the unused-return-value checker

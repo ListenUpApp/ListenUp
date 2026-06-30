@@ -35,7 +35,7 @@ import kotlinx.rpc.withService
  * connects via WebSocket, and the test asserts that the client receives a typed
  * [InternalError] — never a raw stacktrace.
  *
- * This is the load-bearing security test for the rpc-exception-guard phase.
+ * This is the load-bearing security test for the RPC exception guard.
  * If it passes, stacktraces structurally cannot cross the wire for any service
  * wrapped by [guard].
  */

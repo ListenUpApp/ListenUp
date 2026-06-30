@@ -69,7 +69,7 @@ class CreateInviteViewModel(
 
     /**
      * Classify a [Failure]'s [AppError] into the UI's error type by *type*, not by
-     * substring-matching the message text. The pre-Phase-3 implementation matched on
+     * substring-matching the message text. An earlier implementation matched on
      * `result.message` substrings — that worked for the [ValidationError] cases
      * (constructor-supplied message text travels through verbatim) but silently fell
      * through for "already exists" / "conflict" (server 409 → `TransportError.Server4xx`

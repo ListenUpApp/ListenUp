@@ -25,7 +25,7 @@ import io.kotest.matchers.types.shouldBeSameInstanceAs
 /**
  * Tests for [AppResult] — the canonical result type.
  *
- * See Finding 01 D1 for motivation: the codebase previously had three parallel error
+ * Motivation: the codebase previously had three parallel error
  * models ([Result], `AsyncState`, [AppError]) with no conversion path. [AppResult] is
  * the single sealed hierarchy carrying [AppError] directly.
  */

@@ -10,7 +10,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Covers the reactive query surface of [PlaybackPositionDao]:
- * - [PlaybackPositionDao.observeRecentPositions] — Continue Listening shelf (W4.3)
+ * - [PlaybackPositionDao.observeRecentPositions] — Continue Listening shelf
  */
 class PlaybackPositionDaoTest :
     FunSpec({

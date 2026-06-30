@@ -221,7 +221,7 @@ class SyncRepositoryScanProgressTest :
             }
         }
 
-        // #587: the marquee shows the front (oldest) tiles and deliberately falls behind; dropping
+        // The marquee shows the front (oldest) tiles and deliberately falls behind; dropping
         // from the front to honour a cap yanked visible tiles out, causing the blink/swap. Accumulation
         // is now pure append-only — every matched book is retained, in order.
         test("recentBooks accumulation is append-only — nothing is dropped from the front") {

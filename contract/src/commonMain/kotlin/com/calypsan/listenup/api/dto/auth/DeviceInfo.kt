@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 /**
  * Structured device metadata a first-party client sends when it creates a session
  * (login/register/setup/invite-claim). All fields optional — third-party REST callers
- * may omit any. Trimmed from the Go/ABS DeviceInfo: no browser_* / client_build / ip_address.
+ * may omit any. Intentionally excludes browser_*, client_build, and ip_address.
  */
 @Serializable
 data class DeviceInfo(

@@ -15,7 +15,7 @@ import kotlinx.coroutines.delay
  * `io.kotest.provided.ProjectConfig` on the server test classpath — distinct from the `:sharedLogic`
  * config, which is not on this module's classpath).
  *
- * The server suite boots an in-process Ktor server + a real SQLite DB per spec. On the contended
+ * The server suite boots an in-process Ktor server + a real SQLite DB. On the contended
  * 2-core CI runner a few timing-sensitive specs intermittently stall or fail in ways that never
  * reproduce on a fast local box — historically the `Test (JVM)` job's recurring hang. Two guards,
  * mirroring the proven `:sharedLogic` config:

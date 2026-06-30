@@ -5,7 +5,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.Test
 
 /**
- * Pins the profile-less avatar fallback (#625): a pending registrant has no server-side public
+ * Pins the profile-less avatar fallback: a pending registrant has no server-side public
  * profile, so without a fallback name the avatar is stuck on the loading circle. With a name we
  * render initials; without one we keep the original loading behaviour for a profile still in flight.
  *

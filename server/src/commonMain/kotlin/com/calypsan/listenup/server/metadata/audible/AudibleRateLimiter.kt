@@ -14,17 +14,11 @@ import kotlin.time.Instant
  *
  * Maintains an independent token bucket per [AudibleRegion] — a US call does
  * not consume a UK token and vice versa. Each region allows one request per
- * [perRegionInterval], matching the Go reference's `defaultRPS = 1.0` (with
- * Go's burst-of-3 folded into the design: the first call is always free, the
- * delay only applies to rapid successive calls).
+ * [perRegionInterval] (a default of 1 request/sec): the first call to a region
+ * is always free, and the delay only applies to rapid successive calls.
  *
  * [await] is cooperative: it uses [delay] rather than blocking, so cancellation
  * propagates immediately through the waiting period.
- *
- * Ported from Go's `internal/ratelimit.KeyedRateLimiter`. The Go version uses
- * `golang.org/x/time/rate` (token bucket, 1 rps, burst 3). This Kotlin version
- * matches the steady-state behaviour: 1 request per second per region, with the
- * first call per region always returning immediately.
  */
 open class AudibleRateLimiter(
     /** Minimum gap between successive calls to the same region. */

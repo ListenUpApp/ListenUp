@@ -218,8 +218,7 @@ internal class Mp3Builder internal constructor() {
  * | 2     | Original        | `0`                                         |
  * | 1..0  | Emphasis        | `0b00`                                      |
  *
- * Ported from `/home/simonh/Code/audiometa/internal/mp3/technical.go` (the
- * reverse direction — that file decodes; this one encodes).
+ * This is the encode direction — the inverse of the frame-header decoder.
  */
 internal fun mpegFrameHeader(
     bitrate: Int,

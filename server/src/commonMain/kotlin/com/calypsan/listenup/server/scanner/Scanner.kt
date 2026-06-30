@@ -303,7 +303,7 @@ internal class Scanner(
         // Build the artwork-bearing result for BookPersister (so covers get written to disk).
         val incrementalResult =
             lastResult?.copy(
-                // Stamp THIS scan's id — never inherit lastResult's. Inheriting it (#703) made the
+                // Stamp THIS scan's id — never inherit lastResult's. Inheriting it made the
                 // incremental spool to its real correlationId but clear/report the previous full
                 // scan's, leaking the live spool dir and mis-keying ScanEvent.Completed.
                 correlationId = correlationId,

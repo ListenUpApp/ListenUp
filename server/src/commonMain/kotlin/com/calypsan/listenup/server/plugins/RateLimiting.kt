@@ -23,9 +23,9 @@ object RateLimitBuckets {
 }
 
 /**
- * Phase 1 in-memory rate limiting keyed by remote host. Acceptable for the
- * self-hosted threat model — distributed/cluster-aware limits would be a
- * later concern if we ever leave the single-process deployment.
+ * In-memory rate limiting keyed by remote host. Acceptable for the
+ * self-hosted threat model — distributed/cluster-aware limits would only
+ * matter beyond the single-process deployment.
  */
 fun Application.installRateLimiting() {
     install(RateLimit) {

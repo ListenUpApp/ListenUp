@@ -182,7 +182,7 @@ internal class SyncRepositoryImpl(
     private suspend fun startEngineForCurrentUser(): AppResult<Unit> =
         suspendRunCatching {
             val userId = authSession.getUserId() ?: return@suspendRunCatching Unit
-            // One-time repair (#532): re-stamp rows written with a blank userId during a startup
+            // One-time repair: re-stamp rows written with a blank userId during a startup
             // catch-up race (authState still Initializing when insertIfAbsent ran). Idempotent.
             listeningEventDao.reassignBlankUserId(userId).let { repaired ->
                 if (repaired > 0) logger.info { "Repaired $repaired listening_events rows with a blank userId" }
@@ -491,7 +491,7 @@ internal suspend fun applyScanEvent(
  * its contents swapped for a different book just because that book was just scanned.
  *
  * Append-only with no cap: the marquee deliberately drifts slowly and shows the front (oldest) tiles,
- * so trimming from the front would yank visible tiles out and make the strip blink/swap (#587).
+ * so trimming from the front would yank visible tiles out and make the strip blink/swap.
  * [ScanBookRef] is tiny (title + author) and a scan is bounded, so retaining all matched books is
  * negligible and the rendering `LazyRow` stays lazy.
  */

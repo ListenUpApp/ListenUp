@@ -12,7 +12,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Regression coverage for the Discover "Recently Added" half-list bug (W6 Phase A, Bug 5).
+ * Regression coverage for the Discover "Recently Added" half-list bug.
  *
  * Prior to this fix [BookDao.observeRecentlyAddedWithAuthor] silently applied
  * a `bs.sequence IN ('1', '0', '0.5')` filter, hiding every mid-series book from

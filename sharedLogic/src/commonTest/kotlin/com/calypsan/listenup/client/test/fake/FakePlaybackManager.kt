@@ -14,8 +14,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Test fake for [PlaybackManager] — implements the interface (extracted in W7 Phase
- * E2.2.4 Task 1A) without inheritance. Tests drive backing flows directly; assertions
+ * Test fake for [PlaybackManager] — implements the interface without inheritance.
+ * Tests drive backing flows directly; assertions
  * check recorder lists.
  *
  * Mirrors the [FakeProgressTracker] pattern in spirit (rubric-aligned "fakes for

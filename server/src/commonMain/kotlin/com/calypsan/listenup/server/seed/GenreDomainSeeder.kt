@@ -10,8 +10,7 @@ import kotlin.uuid.Uuid
 private val logger = KotlinLogging.logger {}
 
 /**
- * Seeded genre node — the curator-controlled default taxonomy. Mirrors Go's
- * `internal/genre/defaults.go` (`GenreSeed`) verbatim.
+ * Seeded genre node — the curator-controlled default taxonomy.
  */
 private data class GenreSeed(
     val name: String,
@@ -20,8 +19,7 @@ private data class GenreSeed(
 )
 
 /**
- * Default genre tree — ported verbatim from
- * `/Users/simon/Code/listenup/server/internal/genre/defaults.go::DefaultGenres`.
+ * Default genre tree.
  *
  * Three top-level roots: Fiction, Non-Fiction, Children's & Young Adult. Mostly
  * two levels deep; a few branches reach depth 3.
@@ -210,8 +208,7 @@ private val DEFAULT_GENRES: List<GenreSeed> =
     )
 
 /**
- * Seeds the default Genre taxonomy on a fresh installation. Mirrors Go's
- * `internal/genre/defaults.go` tree verbatim. Writes through
+ * Seeds the default Genre taxonomy on a fresh installation. Writes through
  * [GenreRepository.upsert] — the real domain write path — so every seeded row is
  * indistinguishable from a curator creation. Idempotent: when any live genre
  * already exists, [isAlreadySeeded] returns `true` and [seed] is skipped, so a

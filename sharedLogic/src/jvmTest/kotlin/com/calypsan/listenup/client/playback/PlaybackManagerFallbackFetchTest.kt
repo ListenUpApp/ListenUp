@@ -40,7 +40,7 @@ import kotlinx.coroutines.test.runTest
  * missing. Seeds a book with NO audio files in the junction; stubs `syncApi.getBook` to return the
  * contract [BookSyncPayload] the Kotlin server actually emits; calls `prepareForPlayback`; asserts
  * the junction is populated — INCLUDING the audio-stream fields (`codecProfile`/`spatial`/`bitrate`/
- * `sampleRate`/`channels`) that #746 dropped on the stale `SingleBookResponse` path.
+ * `sampleRate`/`channels`) that were dropped on the stale `SingleBookResponse` path.
  *
  * Uses a real in-memory DB + a real [BookSyncDomainHandler] so it exercises the full decode →
  * persist path the fallback now shares with the RPC on-demand fetch.
@@ -216,7 +216,7 @@ class PlaybackManagerFallbackFetchTest :
                     rows.map { it.id } shouldBe listOf("af-1", "af-2")
                     rows.map { it.index } shouldBe listOf(0, 1)
 
-                    // ...and the audio-stream fields must survive the fallback write (the #746 fix).
+                    // ...and the audio-stream fields must survive the fallback write.
                     val first = rows.first { it.id == "af-1" }
                     first.codecProfile shouldBe "lc"
                     first.spatial shouldBe "atmos"

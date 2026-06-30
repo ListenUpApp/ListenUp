@@ -7,8 +7,8 @@ import kotlinx.serialization.Serializable
  * PATCH payload for [com.calypsan.listenup.api.ContributorService.updateContributor].
  *
  * Every field is nullable — `null` means "don't touch." Aliases are **not**
- * present in C1 because contributor aliases are not yet a server-side concept;
- * the C2 phase introduces the `contributor_aliases` server substrate.
+ * present because contributor aliases are not yet a server-side concept; a
+ * future `contributor_aliases` server substrate will introduce them.
  */
 @Serializable
 @SerialName("ContributorUpdate")

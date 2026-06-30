@@ -8,8 +8,7 @@ import kotlinx.serialization.Serializable
  *
  * Sources: ID3v2/ID3v1 frames (MP3), Vorbis comments (FLAC, Ogg, Opus),
  * MP4 `ilst` atoms (M4A, M4B). The mapping from format-specific frame/key
- * names to these fields lives in the per-format parser; see spec §8 for
- * the full mapping tables.
+ * names to these fields lives in the per-format parser.
  *
  * [custom] surfaces every unmapped tag key/value the parser saw, rather than
  * silently dropping them — a downstream phase can use them later without
@@ -41,7 +40,7 @@ data class AudioTags(
     companion object {
         /** The [custom] map key under which every format reader stores the file's
          *  comment tag (ID3v2 COMM, MP4 `©cmt`, Vorbis COMMENT). The Analyzer uses it
-         *  as the `description` fallback, matching the Go reference. */
+         *  as the `description` fallback. */
         const val COMMENT_KEY: String = "comment"
 
         /** The [custom] map key under which every format reader stores the album tag

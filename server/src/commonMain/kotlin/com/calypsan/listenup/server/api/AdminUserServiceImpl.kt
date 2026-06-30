@@ -91,7 +91,7 @@ class AdminUserServiceImpl(
         return suspendTransaction(sql) {
             AppResult.Success(
                 // ACTIVE only: pending/denied registrations have their own surfaces and must not
-                // appear in the active roster (#624). Soft-deleted users are excluded as always.
+                // appear in the active roster. Soft-deleted users are excluded as always.
                 sql.usersQueries
                     .selectActiveLive()
                     .executeAsList()
@@ -128,7 +128,7 @@ class AdminUserServiceImpl(
         return suspendTransaction(sql) {
             AppResult.Success(
                 // ACTIVE only: search is an active-roster operation; pending/denied registrations
-                // have their own surfaces and must not leak in (#624, sibling of listUsers).
+                // have their own surfaces and must not leak in (sibling of listUsers).
                 sql.usersQueries
                     .selectActiveLive()
                     .executeAsList()

@@ -13,8 +13,7 @@ package com.calypsan.listenup.client.data.local.db
  * ranking and the FTS5 tokenizer pipeline we currently depend on in SearchDao.
  *
  * Revisit when Room 3.x ships a stable release — at that point these data
- * classes fold into @Fts5 @Entity declarations and the Callback disappears
- * (restoration-roadmap W4.4 deferred item).
+ * classes fold into @Fts5 @Entity declarations and the Callback disappears.
  *
  * Why standalone tables (not external content)?
  * - Simpler sync: delete all + reinsert during sync

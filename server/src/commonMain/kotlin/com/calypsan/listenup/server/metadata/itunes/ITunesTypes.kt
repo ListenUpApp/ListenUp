@@ -19,8 +19,8 @@ internal data class ITunesSearchResponse(
  * A single match from the iTunes Search API.
  *
  * The [wrapperType] and [collectionType] fields are used to filter to real
- * audiobook entries (Go's SearchAudiobooks filters out non-audiobook wrapper
- * types). [artworkUrl100] is transformed to the maximum-resolution variant by
+ * audiobook entries, dropping non-audiobook wrapper types. [artworkUrl100] is
+ * transformed to the maximum-resolution variant by
  * [ITunesClient.toCoverHit]; [artworkUrl60] is used as a fallback if 100px is
  * absent.
  */
@@ -43,7 +43,7 @@ internal data class ITunesSearchResult(
  * [coverUrl] is the original 100×100 thumbnail URL from iTunes (kept for
  * reference and low-bandwidth contexts). [maxSizeUrl] is the high-resolution
  * variant — typically up to 7000×7000, with iTunes serving the actual maximum
- * available size — derived by URL substitution per Go's cover.go pattern.
+ * available size — derived by URL substitution.
  */
 data class ITunesCoverHit(
     val coverUrl: String,

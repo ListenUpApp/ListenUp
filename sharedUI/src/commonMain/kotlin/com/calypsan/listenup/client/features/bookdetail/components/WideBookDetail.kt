@@ -145,7 +145,7 @@ fun WideBookDetail(
             )
 
             // Identity — full-width color band: title, independent subtitle, series chips, talent,
-            // and the stat chips as the last element of the identity column (per the design).
+            // and the stat chips as the last element of the identity column.
             WideHeroBand(
                 coverPath = book.coverPath,
                 coverHash = book.coverHash,

@@ -5,18 +5,18 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 
 /**
- * Room schema migration v18 → v19 — Playback-P2 stats domain landing.
+ * Room schema migration v18 → v19 — stats domain landing.
  *
  * Changes:
- * - `listening_events` — rebuilt with the P2 shape: drops the old leaderboard-era
+ * - `listening_events` — rebuilt with the new shape: drops the old leaderboard-era
  *   columns (`deviceId`, `syncState`, `source`, `createdAt`) and replaces them with
  *   the sync-substrate columns (`userId`, `tz`, `deviceLabel`, `revision`, `deletedAt`).
  *   Index set also changes to composite `(userId, endedAt)` / `(userId, revision)` /
  *   `(userId, bookId)`. Existing rows are discarded (pre-launch; no production data at risk).
- * - `user_stats` — rebuilt with the P2 stats shape: drops the old leaderboard-cache
+ * - `user_stats` — rebuilt with the new stats shape: drops the old leaderboard-cache
  *   columns (`userId`, `displayName`, `avatarColor`, `avatarType`, `avatarValue`,
  *   `totalTimeMs`, `totalBooks`, `currentStreak`, `updatedAt`) and replaces with the
- *   materialized P2 stats columns mirroring `UserStatsSyncPayload`. Existing rows discarded.
+ *   materialized stats columns mirroring `UserStatsSyncPayload`. Existing rows discarded.
  * - `tentative_span` — new local-only crash-recovery table (not synced).
  *
  * Both table rebuilds use DROP + CREATE rather than ALTER TABLE because the column sets

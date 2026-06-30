@@ -35,7 +35,7 @@ import kotlinx.rpc.withService
  * End-to-end reachability test for [AdminUserService.listUsers] over the authed kotlinx.rpc
  * surface — the exact path the Android admin screen drives (`AdminRepositoryImpl` → RPC proxy).
  *
- * Regression for #619: with a PENDING_APPROVAL applicant present, the admin page showed
+ * Regression: with a PENDING_APPROVAL applicant present, the admin page showed
  * "Something Went Wrong on the Server" and the pending list never appeared. The REST surface
  * serializes a pending [User] fine; this test exercises the RPC transport specifically.
  */
@@ -91,7 +91,7 @@ class AdminUserServiceRpcTest :
                         }.withService<AdminUserService>()
 
                 val users = service.listUsers().shouldBeInstanceOf<AppResult.Success<List<User>>>().data
-                // #624: the active roster excludes a pending applicant (it belongs only in the
+                // The active roster excludes a pending applicant (it belongs only in the
                 // pending section); the root admin (ACTIVE) is present. Serialization round-trips
                 // cleanly over RPC either way.
                 users.any { it.id.value == pendingId } shouldBe false

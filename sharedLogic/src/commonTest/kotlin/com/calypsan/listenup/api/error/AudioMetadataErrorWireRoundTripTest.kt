@@ -11,8 +11,7 @@ import io.kotest.matchers.shouldBe
  *
  * `AppError` is a sealed interface; kotlinx.serialization auto-resolves
  * its subtypes from the sealed hierarchy, so no explicit module
- * registration is required (refinement spec §1 — and Task 53 in the plan
- * collapses to this test once the sealed-hierarchy assertion holds).
+ * registration is required.
  */
 class AudioMetadataErrorWireRoundTripTest :
     FunSpec({

@@ -37,7 +37,7 @@ internal interface ActivityRpcFactory {
  * (server URL changed, manual reset).
  *
  * Wire serialization uses the contract-layer [contractJson] — one wire format, two
- * transports. Token rotation is a known phase-1-auth deferral, shared across every RPC factory.
+ * transports. Token rotation is not yet implemented; the same gap exists in every RPC factory.
  */
 internal open class KtorActivityRpcFactory(
     private val apiClientFactory: ApiClientFactory,

@@ -12,7 +12,7 @@ import io.ktor.client.HttpClientConfig
  * it through [com.calypsan.listenup.client.core.error.ErrorMapper] to produce an
  * `AppResult.Failure(typedError)`.
  *
- * (Finding 01 D6 / rubric rule "Ktor clients must enable `expectSuccess = true`.")
+ * (Ktor clients must enable `expectSuccess = true`.)
  */
 internal fun HttpClientConfig<*>.installListenUpErrorHandling() {
     expectSuccess = true

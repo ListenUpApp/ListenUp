@@ -7,9 +7,9 @@ import io.ktor.client.request.url
 
 /**
  * Pins [isAuthEndpoint] semantics: `encodedPath.startsWith(AUTH_PATH_PREFIX)` rather than
- * the substring match the pre-W2b.4 code used. The substring form would false-positive on
+ * the substring match the earlier code used. The substring form would false-positive on
  * any URL containing `/auth/` anywhere, including legitimate API paths like
- * `/api/v1/books/by-author/123`. See Finding 04 D2.
+ * `/api/v1/books/by-author/123`.
  */
 class AuthEndpointPredicateTest :
     FunSpec({

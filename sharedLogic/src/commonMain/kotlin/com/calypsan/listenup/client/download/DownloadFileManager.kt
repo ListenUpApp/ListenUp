@@ -16,7 +16,7 @@ expect class DownloadFileManager {
     /**
      * Get the path for a downloaded file. [isTemp]=true returns the in-progress temp path
      * (supports resume); [isTemp]=false returns the final destination path. Single function
-     * eliminates format-divergence risk between the two paths (Finding 08 D12).
+     * eliminates format-divergence risk between the two paths.
      */
     fun getAudioFilePath(
         bookId: String,

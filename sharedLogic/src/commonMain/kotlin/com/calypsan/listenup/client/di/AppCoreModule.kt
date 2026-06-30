@@ -52,7 +52,7 @@ internal val appCoreModule: Module =
         }
 
         // Global auth-failure watcher: a session-invalidating AuthError on the bus
-        // soft-logs-out → login (issue #640). createdAtStart so it subscribes before
+        // soft-logs-out → login. createdAtStart so it subscribes before
         // any auth error can be emitted.
         single(createdAtStart = true) {
             AuthFailureObserver(

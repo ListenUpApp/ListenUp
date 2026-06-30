@@ -10,8 +10,8 @@ import kotlinx.serialization.Serializable
  * Wire representation of a Library — the top-level grouping entity that owns N
  * [LibraryFolder]s and scopes a collection of audiobooks.
  *
- * Libraries are server-wide (cross-user) for now. [accessMode] and
- * [createdByUserId] are forward-staged for the Multi-user phase: they carry
+ * Libraries are server-wide (cross-user). [accessMode] and
+ * [createdByUserId] are forward-staged for multi-user support: they carry
  * default values (`SHARED` / `null`) and are not enforced until per-user
  * permission gating lands.
  *
@@ -34,13 +34,13 @@ data class Library(
     val metadataPrecedence: String,
     /**
      * Who can see this library. Defaults to [AccessMode.SHARED] (all users).
-     * Forward-staged for Multi-user phase — not enforced until permissions land.
+     * Forward-staged for multi-user support — not enforced until permissions land.
      */
     val accessMode: AccessMode,
     /**
      * The user who created this library. `null` for bootstrap-created libraries
-     * (env-var path at first boot) or pre-Multi-user libraries.
-     * Forward-staged for Multi-user phase.
+     * (env-var path at first boot) or pre-multi-user libraries.
+     * Forward-staged for multi-user support.
      */
     val createdByUserId: UserId?,
     /** Unix epoch milliseconds when this library was created. */
@@ -127,13 +127,13 @@ data class DirectoryEntry(
 /**
  * Library access mode — controls which users can see and play from a library.
  *
- * Forward-staged for the Multi-user phase: the column exists and is stored, but
+ * Forward-staged for multi-user support: the column exists and is stored, but
  * enforcement is deferred until per-user permission gating lands. All libraries
- * behave as [SHARED] regardless of the stored value until that phase.
+ * behave as [SHARED] regardless of the stored value until then.
  *
  * - [SHARED] — visible to all authenticated users (default).
  * - [PRIVATE] — visible only to the library owner ([Library.createdByUserId]).
- * - [RESTRICTED] — visible to an explicit allowlist (managed in Multi-user phase).
+ * - [RESTRICTED] — visible to an explicit allowlist (managed under multi-user support).
  */
 @Serializable
 enum class AccessMode {

@@ -142,7 +142,7 @@ class DownloadManager internal constructor(
             }
 
         // Persistence Rule 1: insert is transactional. resumeIncompleteDownloads is the
-        // documented recovery path for crash-between-commit-and-enqueue (Finding 08 D9).
+        // documented recovery path for crash-between-commit-and-enqueue.
         transactionRunner.atomically {
             downloadDao.insertAll(entities)
         }
@@ -194,7 +194,7 @@ class DownloadManager internal constructor(
     override suspend fun cancelDownload(bookId: BookId) {
         // Await WorkManager cancellation completion before updating DB state. Closes the race
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
-        // but before the state update fires (Finding 08 D10).
+        // but before the state update fires.
         workManager.cancelAllWorkByTag(bookTag(bookId)).await()
         downloadRepository
             .cancelForBook(bookId)
@@ -211,7 +211,7 @@ class DownloadManager internal constructor(
         // Cancel any active downloads first
         // Await WorkManager cancellation completion before deleting files. Closes the race
         // where a worker's final updateProgress write lands after cancelAllWorkByTag returns
-        // but before the deletion fires (Finding 08 D10).
+        // but before the deletion fires.
         workManager.cancelAllWorkByTag(bookTag(bookId)).await()
 
         // Delete files from disk

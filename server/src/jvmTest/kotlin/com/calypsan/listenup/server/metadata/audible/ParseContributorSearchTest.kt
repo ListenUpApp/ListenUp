@@ -8,7 +8,7 @@ import io.kotest.matchers.shouldBe
  * Unit tests for [parseContributorSearch] — extracts the contributor hits from an Audible
  * search-by-author page (`/search?searchAuthor=...`).
  *
- * Fixtures mirror the real anchor shape rather than full page snapshots. The key case is #551:
+ * Fixtures mirror the real anchor shape rather than full page snapshots. The key case:
  * Audible appends tracking query params (`?ref=…`, `pf_rd_*`, …) after the ASIN, which the previous
  * regex (requiring a quote immediately after the ASIN) failed to match, making every search empty.
  */

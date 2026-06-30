@@ -98,7 +98,7 @@ class RegistrationStatusRoutesTest :
         }
 
         test("registration-status stream reports approved on connect when the decision was already made") {
-            // Regression for #623: the registrant's SSE wasn't live at the instant the admin
+            // Regression: the registrant's SSE wasn't live at the instant the admin
             // approved (replay=0 broadcaster → the live push was dropped). On a fresh connect
             // / reconnect / "check status", the stream must report the PERSISTED status, not an
             // eternal "pending". Otherwise the iOS Awaiting screen never advances.

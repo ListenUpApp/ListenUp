@@ -447,7 +447,7 @@ class ContributorRepositoryImplTest :
                 val result = repository.observeByBookId("book-42").first()
 
                 // Then — aliases come from the junction table and are not covered by this path;
-                // task 8 removes the entity field entirely. Scope this test to the non-alias fields.
+                // the entity field will be removed entirely. Scope this test to the non-alias fields.
                 result.size shouldBe 1
                 result[0].id.value shouldBe "contrib-1"
                 result[0].name shouldBe "Kate Reading"

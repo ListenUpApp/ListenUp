@@ -14,8 +14,8 @@ private val logger = KotlinLogging.logger {}
  * Coordinates clearing data across multiple DAOs while preserving
  * non-library data (downloads, preferences).
  *
- * Every delete runs inside a single write transaction — Finding 05 D2 / W4.2 —
- * so a failure at any step leaves the DB untouched rather than partially wiped.
+ * Every delete runs inside a single write transaction, so a failure at any step
+ * leaves the DB untouched rather than partially wiped.
  * Because the reset spans essentially every library table, the helper depends on
  * the [ListenUpDatabase] directly instead of listing each DAO individually; the
  * semantic is "operate on the library as a whole".

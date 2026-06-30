@@ -88,7 +88,6 @@ internal class ListenUpApi(
             // HTTP logging. Authorization is always sanitised — the bearer token is
             // sensitive and must never appear in logs, even in debug builds. Verbosity
             // drops in release builds so production log sinks don't receive header dumps.
-            // See Finding 04 D6.
             install(Logging) {
                 logger =
                     object : Logger {

@@ -25,8 +25,7 @@ import kotlinx.coroutines.withTimeout
 private val ROUND_TRIP_TIMEOUT = 30.seconds
 
 /**
- * Tier 3 E2E for the collection sync handlers + the `AccessChanged` reconcile/prune — the
- * Collections-2a Task 11 deliverable.
+ * Tier 3 E2E for the collection sync handlers + the `AccessChanged` reconcile/prune.
  *
  * Two roles share one in-process server (see
  * [withCollectionSyncEngineAgainstServer][com.calypsan.listenup.client.data.sync.testing.withCollectionSyncEngineAgainstServer]):

@@ -18,8 +18,8 @@ import kotlinx.coroutines.delay
  * server, real DI graph, real Walker → Grouper → Analyzer → Differ pipeline,
  * real REST + Resources surface. The contract boundary is exercised in full.
  *
- * Following Phase 1's F12 pattern: NO test-only overrides on the production
- * graph — failures here mean the production wiring is broken.
+ * NO test-only overrides on the production graph — failures here mean the
+ * production wiring is broken.
  *
  * Coverage:
  *  - A triggered scan picks up every book in the library
@@ -40,7 +40,7 @@ import kotlinx.coroutines.delay
  * These cases run in Kotest's plain test scope — NOT `runTest`. They make
  * real socket I/O against a real embedded server, so virtual time is the
  * wrong tool: Ktor 3.5.0's `HttpTimeout` plugin launches its timeout coroutine
- * in the *caller's* context (KTOR issue #4720 fix), so under `runTest` the
+ * in the *caller's* context (a Ktor coroutine-context behavior), so under `runTest` the
  * request-timeout's `delay` rides the auto-advancing virtual clock and fires
  * instantly — before the real network round-trip can complete. Real I/O tests
  * use real time; `AuthEndToEndTest` is the reference. The polling helper

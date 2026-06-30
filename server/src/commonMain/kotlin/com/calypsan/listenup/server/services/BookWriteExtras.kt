@@ -18,7 +18,7 @@ import com.calypsan.listenup.server.db.sqldelight.currentTransactionLocal
 class BookWriteExtras(
     val managedCover: StoredCoverInfo? = null,
     /**
-     * The library's target system collection id (#680 pure-union model), set only when a
+     * The library's target system collection id (pure-union membership model), set only when a
      * genuinely-new book must be auto-assigned to a system collection: ALL_BOOKS when the inbox
      * gate is off (immediately member-visible via the default grant), or INBOX when on
      * (quarantined, admin-only). The two are mutually exclusive — a held book joins INBOX only.

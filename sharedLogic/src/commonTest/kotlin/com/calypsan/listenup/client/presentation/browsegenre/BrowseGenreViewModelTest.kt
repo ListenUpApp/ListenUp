@@ -29,7 +29,7 @@ import kotlinx.coroutines.test.setMain
 /**
  * Tests for BrowseGenreViewModel.
  *
- * Backfill characterization tests for the screen shipped in PR #329. Covers:
+ * Backfill characterization tests for the screen. Covers:
  * - Initial Loading before observeAll emits
  * - Ready carries the observed genre tree
  * - selectGenre loads books via browseBooks(includeDescendants = current flag)

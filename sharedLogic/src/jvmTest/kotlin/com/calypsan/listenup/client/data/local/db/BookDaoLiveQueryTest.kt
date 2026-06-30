@@ -15,7 +15,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Pins that the live read paths exclude tombstoned (soft-deleted) books.
  *
- * Regression guard for the audit finding where [BookDao.observeAllWithContributors]
+ * Regression guard for the case where [BookDao.observeAllWithContributors]
  * (library list + series view) and the FTS feeder query returned server-deleted books,
  * despite the DAO KDoc promising `deletedAt IS NULL` filtering.
  */

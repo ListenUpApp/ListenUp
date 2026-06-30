@@ -12,7 +12,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Regression coverage for the Discover "Random Unstarted" silent-filter bug (W6 Phase F, Drift #1).
+ * Regression coverage for the Discover "Random Unstarted" silent-filter bug.
  *
  * Prior to this test suite, three DAO methods silently applied a
  * `bs.sequence IN ('1', '0', '0.5')` filter, hiding every mid-series book from

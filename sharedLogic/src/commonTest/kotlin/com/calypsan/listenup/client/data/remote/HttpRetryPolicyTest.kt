@@ -28,7 +28,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Verifies the retry policy installed by [ApiClientFactory]'s authenticated client:
  * idempotent requests retry on 5xx and transient IO failures; non-idempotent methods never
- * retry. See Finding 04 D3 and rubric rule "HttpRequestRetry is installed on authenticated
+ * retry: "HttpRequestRetry is installed on authenticated
  * clients with idempotent-only semantics."
  *
  * After [installListenUpErrorHandling] was shrunk to `expectSuccess = true` only, non-2xx

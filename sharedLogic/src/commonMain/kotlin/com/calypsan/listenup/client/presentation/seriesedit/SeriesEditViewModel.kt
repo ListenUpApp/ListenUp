@@ -38,8 +38,8 @@ private const val STOP_TIMEOUT_MS = 5_000L
  * Lightweight projection of a series as a merge-target candidate.
  *
  * Used by [SeriesEditViewModel.mergeCandidates] to populate the series merge
- * picker dialog. [bookCount] is a placeholder (always `0`) until a per-series
- * book-count query lands; the dialog hides it for now.
+ * picker dialog. [bookCount] is a placeholder (always `0`) — there is no per-series
+ * book-count query yet, so the dialog hides it.
  */
 data class SeriesCandidate(
     val id: SeriesId,

@@ -52,7 +52,7 @@ private const val PROGRESS_BYTES_INTERVAL = 256 * 1024L // 256KB — emit progre
  * cancellation from failure.
  *
  * Features:
- * - Signed URL resolution via [PlaybackService.prepare] (Task 3 of the playback-fix plan)
+ * - Signed URL resolution via [PlaybackService.prepare]
  * - Resume support (Range headers)
  * - Progress updates via [setProgress] lambda
  * - Cancellation handling via [isStopped] lambda

@@ -22,7 +22,7 @@ import kotlin.time.Duration.Companion.seconds
  * Rather than special-case per OS, we layer this debouncer on every
  * platform: the file is "stable" when its size and mtime don't change
  * for [settle] consecutive duration. A 2 s settle with 500 ms polling is
- * the spec default — fast enough for human latency, slow enough to handle
+ * the default — fast enough for human latency, slow enough to handle
  * an SMB share's chattier events.
  *
  * Returns `false` if the file is deleted (or moved away) during the wait,

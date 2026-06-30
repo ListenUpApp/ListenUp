@@ -106,7 +106,7 @@ internal fun Route.bookRoutes(
         call.respondGatedCover(res.id, accessPolicy, coverResponder)
     }
 
-    // The KMP/mobile client downloads covers from /api/v1/covers/{bookId} (the Go-era URL).
+    // The KMP/mobile client downloads covers from /api/v1/covers/{bookId}.
     // Serve the same access-gated bytes there: the books-nested route alone left every client
     // cover request 404'ing, so covers never rendered.
     routingGet("/api/v1/covers/{id}") {

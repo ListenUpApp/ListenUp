@@ -2,7 +2,7 @@ package com.calypsan.listenup.server.scanner.pipeline
 
 /**
  * Normalizes a raw language string to a lowercase ISO 639-1 code, or `null`
- * when unrecognized. Port of the Go scanner's `normalize.LanguageCode`.
+ * when unrecognized.
  *
  * Handles ISO 639-1 ("en"), ISO 639-2 incl. bibliographic alternates
  * ("eng"/"ger" -> "en"/"de"), locale codes ("en-US"/"en_GB" -> "en"), and

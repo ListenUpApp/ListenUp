@@ -6,7 +6,7 @@ import io.kotest.matchers.shouldBe
 /**
  * Only `com.calypsan.listenup.client.design.components.UserAvatar` may be
  * imported by feature code. The legacy `ProfileAvatar` and `ClickableUserAvatar`
- * composables are deleted in Playback P3 — this rule prevents their
+ * composables have been deleted — this rule prevents their
  * re-introduction.
  */
 class OneUserAvatarComposableRule :

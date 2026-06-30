@@ -354,7 +354,7 @@ internal data class BookMoodEntity(
  *
  * Ordering semantics: aliases have no intrinsic order — DAO queries sort
  * alphabetically via `COLLATE NOCASE` for stable display across merges and
- * syncs. See Finding 05 D3 in the architecture audit.
+ * syncs.
  *
  * @property contributorId Foreign key to the contributor
  * @property alias Single alias name (stored as typed — dedup is case-insensitive

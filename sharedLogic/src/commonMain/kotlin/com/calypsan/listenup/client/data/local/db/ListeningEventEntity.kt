@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.Flow
  * [tz] is the IANA timezone name recorded at the time of the event (e.g.
  * `"Europe/London"`); it drives streak day-boundary math on both client and server.
  *
- * Carries the P2 sync substrate ([revision], [deletedAt]) for bidirectional
+ * Carries the sync substrate ([revision], [deletedAt]) for bidirectional
  * reconciliation with the server.
  */
 @Entity(
@@ -308,7 +308,7 @@ internal interface ListeningEventDao {
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /**
-     * Observe every live event's [endedAt] for [userId], oldest-first (#532). Drives the
+     * Observe every live event's [endedAt] for [userId], oldest-first. Drives the
      * client-side streak computation — the week window isn't enough because the longest streak
      * spans all history. A list of longs is cheap; only distinct calendar days matter downstream.
      *
@@ -318,7 +318,7 @@ internal interface ListeningEventDao {
     fun observeEndedAt(userId: String): Flow<List<Long>>
 
     /**
-     * One-time repair (#532): re-stamp rows poisoned with a blank userId (written during a startup
+     * One-time repair: re-stamp rows poisoned with a blank userId (written during a startup
      * catch-up before auth resolved) with the now-known signed-in [userId]. Idempotent — a no-op
      * once no blank rows remain. Returns the number of rows updated.
      */

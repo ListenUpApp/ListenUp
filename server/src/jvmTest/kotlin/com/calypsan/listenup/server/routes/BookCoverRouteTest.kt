@@ -299,7 +299,7 @@ class BookCoverRouteTest :
             }
         }
 
-        // ── The mobile-client cover URL: GET /api/v1/covers/{id} (Go-parity alias) ──
+        // ── The mobile-client cover URL: GET /api/v1/covers/{id} ──
         // The KMP client downloads covers from /api/v1/covers/{bookId}; the Kotlin server
         // only had /api/v1/books/{id}/cover, so every client cover request 404'd and covers
         // never rendered. This alias serves the same access-gated bytes at the client's URL.

@@ -5,7 +5,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 /**
- * Mirrors the Go GetRandomBooks series-starter heuristic: standalones, blanks,
+ * The series-starter heuristic: standalones, blanks,
  * prequels (0 / 0.5), and "1"-family sequences are starters; "2"+ are mid-series.
  */
 class SeriesSequenceTest :

@@ -15,7 +15,7 @@ import java.io.File
 class JvmSecureStorageTest :
     FunSpec({
         // A fresh, empty storage file inside a per-test temp directory ([tempdir] is cleaned up
-        // by Kotest after the spec). Starting fresh mirrors the original @BeforeTest setup.
+        // by Kotest after the spec). Starting fresh gives each test isolated state.
         fun newStorageFile(): File = File(tempdir(), "test-auth.enc").apply { delete() }
 
         test("save and read round-trip works") {

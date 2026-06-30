@@ -160,6 +160,6 @@ internal val macosPlaybackModule: Module =
             )
         }
 
-        // Background sync scheduler (stub for now)
+        // Background sync scheduler (stub)
         single<BackgroundSyncScheduler> { MacosBackgroundSyncScheduler() }
     }

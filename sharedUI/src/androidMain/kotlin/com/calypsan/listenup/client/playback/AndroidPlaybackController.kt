@@ -82,7 +82,7 @@ class AndroidPlaybackController(
      * - Empty list → `(0, 0)`
      * - Position within an item → `(itemIndex, bookPositionMs - item.offsetMs)`
      * - Before first item → `(0, 0)`
-     * - Past last item → `(lastIndex, lastItem.durationMs)` (Drift #26 fix: uses item duration, not controller duration)
+     * - Past last item → `(lastIndex, lastItem.durationMs)` (uses item duration, not controller duration)
      */
     internal fun resolveQueuePosition(
         items: List<PlaybackMediaItem>,
@@ -100,7 +100,7 @@ class AndroidPlaybackController(
             0 to 0L
         } else {
             // Past end → snap to last item's end
-            // Drift #26 (a) fix: use LAST item's durationMs, not controller.duration
+            // Use LAST item's durationMs, not controller.duration
             val lastIndex = items.size - 1
             lastIndex to items.last().durationMs
         }

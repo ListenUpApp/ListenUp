@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
  * Diagnostic provenance — surfaces in logs and metrics so a "wrong chapters"
  * report immediately tells you which extraction path produced them.
  *
- * Per spec §8.4, MP4 dual-emission (Nero + Apple) prefers Nero, so the
+ * When an MP4 emits both Nero and Apple chapter formats, the parser prefers Nero, so the
  * source value reflects that precedence outcome, not all sources present.
  */
 @Serializable

@@ -50,8 +50,7 @@ interface AudibleApi {
      * Audible author page at `www.audible.{tld}/author/x/{asin}`.
      *
      * The official catalog API no longer returns contributor images or
-     * biographies, so web scraping is the only reliable source — mirroring
-     * Go's `GetContributorProfile` in `server/internal/metadata/audible/contributor.go`.
+     * biographies, so web scraping is the only reliable source.
      *
      * @return [AppResult.Success] with the profile (or `null` for a 404),
      *   or a typed [com.calypsan.listenup.api.error.MetadataError] on failure.
@@ -65,9 +64,8 @@ interface AudibleApi {
      * Searches Audible's contributor catalog by [name] using HTML scraping of
      * `www.audible.{tld}/search?searchAuthor={name}`.
      *
-     * The official catalog API offers no contributor-search endpoint — HTML
-     * scraping mirrors Go's `SearchContributors` in
-     * `server/internal/metadata/audible/contributor.go`.
+     * The official catalog API offers no contributor-search endpoint, so this
+     * relies on HTML scraping.
      *
      * Results are deduplicated by ASIN and ranked by name-similarity to [name].
      *

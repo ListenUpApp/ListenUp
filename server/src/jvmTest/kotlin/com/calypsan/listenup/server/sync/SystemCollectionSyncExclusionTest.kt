@@ -23,8 +23,7 @@ import kotlinx.coroutines.test.runTest
 private const val PULL_LIMIT = 100
 
 /**
- * Fragment-materialisation tests for the system-collection exclusion rules introduced in
- * Collections Phase 2b-i.
+ * Fragment-materialisation tests for the system-collection exclusion rules.
  *
  * System collections (`ALL_BOOKS`, `INBOX`) are server-managed substrate and must never
  * appear in a member's COLLECTION-domain sync payload. A book that lives in `ALL_BOOKS`

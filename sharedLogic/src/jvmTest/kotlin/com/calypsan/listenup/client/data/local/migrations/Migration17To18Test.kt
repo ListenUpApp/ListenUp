@@ -10,7 +10,7 @@ import io.kotest.matchers.longs.shouldBeExactly
 import io.kotest.matchers.shouldBe
 
 /**
- * Regression test for [MIGRATION_17_18] — the Playback-P1 syncable-domain landing
+ * Regression test for [MIGRATION_17_18] — the syncable-domain landing
  * for `playback_positions`. Asserts the table gains `revision` and `deletedAt`, and
  * that an existing row survives the rebuild with `revision = 0` and `deletedAt` null.
  * All pre-existing columns (bookId, positionMs, playbackSpeed, hasCustomSpeed, updatedAt,

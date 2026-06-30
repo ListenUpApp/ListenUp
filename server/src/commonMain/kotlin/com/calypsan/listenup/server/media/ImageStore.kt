@@ -11,7 +11,7 @@ import kotlinx.io.files.SystemFileSystem
  * Reusable validate-store-serve primitive for user-uploaded images, rooted at [baseDir]
  * (e.g. `$LISTENUP_HOME/avatars`). Validates the bytes are a real JPEG/PNG/WebP by magic number
  * (not the declared content type) and enforces [maxBytes]. Files are stored as `<key>.<ext>`.
- * Designed to back avatars now and book covers later.
+ * Designed to back avatars, and built to extend to book covers.
  */
 class ImageStore(
     private val baseDir: Path,

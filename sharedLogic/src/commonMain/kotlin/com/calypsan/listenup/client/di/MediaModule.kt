@@ -75,7 +75,7 @@ internal val mediaModule: Module =
         single<ImageStagingRepository> { get<ImageRepositoryImpl>() }
 
         // DownloadRepository — read-side of download state. Per-book commands still live
-        // on DownloadService; W8 will consolidate.
+        // on DownloadService.
         single<DownloadRepository> {
             DownloadRepositoryImpl(
                 downloadDao = get(),
@@ -130,7 +130,7 @@ internal val mediaModule: Module =
         }
 
         // On-disk document cache. A single binding so both the repository (fetch + cache) and
-        // the book sync handler (orphan GC on docId rotation, issue #699) share one instance.
+        // the book sync handler (orphan GC on docId rotation) share one instance.
         single<DocumentStorage> { DocumentStorageImpl(get()) }
 
         // DocumentRepository — on-demand fetch + disk cache for supplementary book documents.

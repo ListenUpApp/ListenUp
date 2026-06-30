@@ -51,9 +51,9 @@ class KoinModuleVerifyTest :
     FunSpec({
         // Verify voiceModule — the voice intent resolver and its four repository dependencies.
         //
-        // Narrow module; the extraTypes list is correspondingly small. Covered as step 1 of
-        // the Finding 12 D4 expansion ("every leaf module is verified"). PresentationModule
-        // verification is deferred to W3, which rewrites the DI layout (Finding 02 R1) and
+        // Narrow module; the extraTypes list is correspondingly small. Part of the
+        // "every leaf module is verified" expansion. PresentationModule
+        // verification is deferred until the DI layout is rewritten, which
         // would immediately invalidate any extraTypes enumerated today.
         test("verifyVoiceModule") {
             voiceModule.verify(
@@ -67,9 +67,8 @@ class KoinModuleVerifyTest :
             )
         }
 
-        // Verify [playbackPresentationModule] — single shared playback VM bound as `single`
-        // per W7 Phase E2.2.3 consolidation. Closes drift #33 ("playbackPresentationModule
-        // not covered by module.verify()").
+        // Verify [playbackPresentationModule] — the single shared playback VM is bound as `single`.
+        // This module was previously not covered by module.verify().
         //
         // `extraTypes` enumerates cross-module dependencies that other Koin modules satisfy.
         test("verifyPlaybackPresentationModule") {

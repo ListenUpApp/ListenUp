@@ -36,8 +36,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 
 /**
- * Verifies the isBuffering and playbackState flows added in W7 Phase E2.1 Task 1,
- * and the AudioPlayer state observation wired in Task 4.
+ * Verifies the isBuffering and playbackState flows,
+ * and the AudioPlayer state observation.
  *
  * These flows serve as the receiving end for platform-specific state pushes:
  * Android's MediaControllerHolder Player.Listener and Desktop's AudioPlayer.state
@@ -353,7 +353,7 @@ class PlaybackManagerBufferingStateTest :
         }
 
         // -------------------------------------------------------------------------
-        // Drift #28 — Android arm. PlaybackStateWriter (implemented by PlaybackManager)
+        // Android arm. PlaybackStateWriter (implemented by PlaybackManager)
         // is the seam Android's MediaControllerHolder.Player.Listener pushes state
         // changes through. Verify setPlaybackState routes Playing/Paused transitions
         // to the progressTracker so VMs no longer call it directly. MediaControllerHolder

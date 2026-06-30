@@ -11,9 +11,9 @@ data class ParsedContributor(
 /**
  * Splits a raw author/narrator metadata string into individual contributors with roles.
  *
- * A synthesis of two references: name-splitting + `Last, First` normalization from
- * Audiobookshelf's `parseNameString.js`, and ` - Role` suffix extraction from the Go
- * scanner's `roleMap`. Splits on the explicit person separators `;` / `&` / ` and `;
+ * A synthesis of two approaches: name-splitting + `Last, First` normalization from
+ * Audiobookshelf's `parseNameString.js`, plus ` - Role` suffix extraction via a
+ * role map. Splits on the explicit person separators `;` / `&` / ` and `;
  * within a segment a single comma is treated as `Last, First`. When no explicit
  * separator is present, a comma list is disambiguated by Audiobookshelf's rule: if the
  * first comma chunk is a bare surname (no space) the chunks are alternating `Last, First`

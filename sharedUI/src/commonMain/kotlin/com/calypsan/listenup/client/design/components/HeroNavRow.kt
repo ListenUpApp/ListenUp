@@ -34,7 +34,7 @@ private val HERO_NAV_BUTTON_SIZE = 48.dp
  *
  * This is the single inset-safe source of truth for the Profile / Series / Contributor
  * detail heroes — each floats edge-to-edge behind the status bar, so each must inset its
- * controls. Encapsulating the inset here makes the #595 / #563 class of bug (controls
+ * controls. Encapsulating the inset here makes the class of bug (controls
  * trapped under the status bar) unrepresentable in those screens.
  *
  * @param onBack Invoked when the back button is tapped.

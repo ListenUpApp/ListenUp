@@ -5,12 +5,12 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 
 /**
- * Pins the data-layer error contract delivered by Task 27d (Phase 3.5).
+ * Pins the data-layer error contract.
  *
- * After Task 27d, fallible work in `data/remote/` and `data/repository/` returns
+ * Fallible work in `data/remote/` and `data/repository/` returns
  * [com.calypsan.listenup.api.result.AppResult] rather than throwing. This rule
  * detects functions whose body contains `throw` expressions, then filters out
- * patterns that are still legitimate after the migration:
+ * patterns that are still legitimate:
  *
  * - **Cooperative cancellation rethrows** (`throw e`, `throw cause`) — the
  *   `throw e` after `catch (e: CancellationException)` pattern that every
@@ -18,16 +18,15 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * - **Programmer-error contract guards** (`throw EnvelopeMismatchException(`) —
  *   the API envelope's structural canary, raised when the server has shipped a
  *   protocol-incompatible payload. This is a build-against-the-server-contract
- *   mismatch, not a runtime business error, and predates Task 27d.
- * - **Phase-D placeholders** (`throw NotImplementedError(`) — `DownloadRepositoryImpl`
- *   stubs out platform code that lands in a later phase.
+ *   mismatch, not a runtime business error.
+ * - **Placeholders** (`throw NotImplementedError(`) — `DownloadRepositoryImpl`
+ *   stubs out platform code that is not yet implemented.
  *
  * After those exclusions, any `throw` left over represents a residual data-layer
- * exception-propagation pattern that Task 27d would migrate. Several un-migrated
- * APIs and repo impls were discovered during slice 18 (slices 1–17 chose specific
- * APIs and did not enumerate the rest of the data layer). Those files appear in
- * [RESIDUAL_THROWS_ALLOWLIST] so this rule passes today while still pinning what
- * slice 18 actually delivered.
+ * exception-propagation pattern still awaiting migration to AppResult. Several
+ * un-migrated APIs and repo impls remain; those files appear in
+ * [RESIDUAL_THROWS_ALLOWLIST] so this rule passes today while still pinning the
+ * already-migrated surface.
  *
  * **The allowlist is not a discrete clean-up backlog** — the project is being
  * rewritten in place, so each entry naturally migrates to AppResult when its
@@ -43,7 +42,7 @@ class NoThrowsInDataLayerRule :
                     .functions()
                     .filter { it.path.contains("/data/remote/") }
                     // `data/remote/model/` holds DTOs + pure mappers (e.g. Instant parsing).
-                    // Those are utility functions, not API-call boundaries — Task 27d's
+                    // Those are utility functions, not API-call boundaries — the
                     // AppResult contract applies to API methods, not parser utilities.
                     .filter { !it.path.contains("/data/remote/model/") }
                     .filter { fn -> fn.containsDisallowedThrow() }
@@ -67,7 +66,7 @@ class NoThrowsInDataLayerRule :
     })
 
 /**
- * Files known to still throw post-Task-27d. The in-place rewrite will migrate
+ * Files known to still throw. The in-place rewrite will migrate
  * each entry to AppResult when its domain is re-touched; removing a file from
  * this set is the explicit signal that the migration of that area has shipped.
  *
@@ -80,7 +79,7 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
         // APIs (each typically pairs with a repo-impl below):
         "/data/remote/SearchApi.kt",
         "/data/remote/StatsApi.kt",
-        // Auth / refresh / SSE infrastructure with throwing patterns that pre-date 27d:
+        // Auth / refresh / SSE infrastructure with throwing patterns:
         "/data/remote/ApiClientFactory.kt",
         // Repo impls still in throwing style:
         "/data/repository/AuthRepositoryImpl.kt",

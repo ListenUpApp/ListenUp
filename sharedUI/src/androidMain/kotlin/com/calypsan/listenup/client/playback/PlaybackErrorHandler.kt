@@ -21,7 +21,7 @@ private const val HTTP_NOT_FOUND = 404
  * 2. ALWAYS show clear, actionable error message (never silent failures)
  * 3. AUTO-RETRY network errors (transient failures are common)
  * 4. FAIL FAST on auth/404/codec errors (don't waste time retrying the impossible)
- * 5. LOG everything (debugging > user messaging in Phase 1)
+ * 5. LOG everything (debugging > user messaging)
  */
 class PlaybackErrorHandler(
     private val progressTracker: ProgressTracker,

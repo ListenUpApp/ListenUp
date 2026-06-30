@@ -238,7 +238,7 @@ fun CompactNowPlaying(
 
             Spacer(Modifier.height(24.dp))
 
-            // Transport — slightly smaller FAB (88 dp) per the mobile design reference.
+            // Transport — slightly smaller FAB (88 dp).
             PlayerTransport(
                 isPlaying = state.isPlaying,
                 isBuffering = state.isBuffering,

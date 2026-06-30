@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * Architectural assertions for the contract boundary. These are the
- * structural invariants Phase 1 set out to make true and Phase G1 pins in CI.
+ * structural invariants of the contract boundary, pinned in CI.
  *
  * Rules:
  *  1. `@Serializable` DTOs in `com.calypsan.listenup.api..` are in commonMain
@@ -19,13 +19,13 @@ import kotlinx.serialization.Serializable
  *  3. No `:server` symbols (`com.calypsan.listenup.server..`) are imported
  *     outside the `:server` module.
  *
- * Each rule fails the build with a list of offenders. The plan also called
- * out two more rules — "every @Rpc has a matching @Resource" and "every
- * Koin leaf module has a `module.verify()` test" — both are deferred:
+ * Each rule fails the build with a list of offenders. Two further rules —
+ * "every @Rpc has a matching @Resource" and "every
+ * Koin leaf module has a `module.verify()` test" — are deferred:
  * `PingService` is a smoke-test service that deliberately has no REST mirror,
  * and `module.verify()` coverage is already enforced ad-hoc by
  * `AuthModuleVerifyTest` + `AuthModuleVerifyTest` server-side. Those rules
- * become useful once we have multiple feature modules to compare; today
+ * become useful once there are multiple feature modules to compare; today
  * they would mostly false-positive.
  */
 class ArchitectureTest :

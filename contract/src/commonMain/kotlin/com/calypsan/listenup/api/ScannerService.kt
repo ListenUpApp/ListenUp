@@ -9,9 +9,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.annotations.Rpc
 
 /**
- * Public scanner contract. Mounted at `/api/rpc/public` (no auth wall in
- * Phase 2; admin-gating lands when the auth surface gets a role check in
- * Phase 4).
+ * Public scanner contract. Mounted at `/api/rpc/public` (no auth wall
+ * currently; admin-gating lands when the auth surface gets a role check).
  *
  * `observeProgress()` is a server-pushed [Flow] of [RpcEvent]-wrapped [ScanEvent]s —
  * kotlinx.rpc opens a dedicated WebSocket frame stream for it. Multiple

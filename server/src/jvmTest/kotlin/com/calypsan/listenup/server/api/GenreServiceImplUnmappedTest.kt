@@ -32,7 +32,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Integration tests for [GenreServiceImpl.listUnmappedStrings] and
- * [GenreServiceImpl.mapUnmappedToGenre]. Covers the spec Path 3 flow end-to-end:
+ * [GenreServiceImpl.mapUnmappedToGenre]. Covers the full flow end-to-end:
  * curator picks a raw string from the unmapped queue, binds it to a target
  * genre, alias is recorded, every affected book gets a junction row, pending
  * entries are cleared, and affected books are re-upserted so their

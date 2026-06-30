@@ -313,7 +313,7 @@ class ScannerTest :
 
                     scanner.runIncremental(Path(fixture.root.resolve("Author/Title").toString())) // scan-2
 
-                    // Bug #703: `lastResult?.copy(...)` inherited the prior full scan's correlationId,
+                    // Regression: `lastResult?.copy(...)` inherited the prior full scan's correlationId,
                     // so the incremental spooled to scan-2 but cleared/reported scan-1 — leaking the
                     // real spool dir and mis-keying ScanEvent.Completed.
                     withClue("incremental result must carry its own correlationId (scan-2), not inherit scan-1") {

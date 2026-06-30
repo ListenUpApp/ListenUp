@@ -52,7 +52,7 @@ import kotlinx.coroutines.test.runTest
  *    via playbackPreferences.setDefaultPlaybackSpeed (was double-writing
  *    via scope.launch at PlaybackManager:471, conflating per-book and global).
  *
- * If any of these tests regress in the future, the corresponding W7 Phase A
+ * If any of these tests regress in the future, the corresponding
  * deletion was likely re-introduced. Investigate before "fixing" the test.
  */
 @OptIn(ExperimentalCoroutinesApi::class)

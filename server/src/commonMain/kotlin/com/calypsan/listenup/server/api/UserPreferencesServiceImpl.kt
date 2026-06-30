@@ -27,7 +27,7 @@ private val SLEEP_RANGE = 1..480
  * Both operations are scoped to the authenticated principal. `getMyPreferences` returns the
  * caller's stored row or [defaults] when none exists; `updateMyPreferences` does get-or-create →
  * partial-merge (only non-null request fields) → clamp numeric values into range → persist with a
- * fresh `updated_at`. Mirrors the legacy Go preferences endpoint.
+ * fresh `updated_at`.
  *
  * Route handlers call [copyWith] to bind each request to the authenticated principal; the Koin
  * singleton carries [PrincipalProvider.None] so an un-scoped call is denied rather than running

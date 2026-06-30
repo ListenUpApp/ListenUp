@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
  * Three concerns coexist on the shape, deliberately separated:
  *
  *  1. **Resolved view** — `title`/`authors`/`narrators`/`series`/etc. The
- *     merged result of every signal source after applying ABS invariant #7
+ *     merged result of every signal source after applying source
  *     precedence. UI list rendering reads these.
  *  2. **Raw signal** — [embedded] preserves the parser's output verbatim.
  *     Fields like real `durationMs`, `chapters`, and embedded `artwork`

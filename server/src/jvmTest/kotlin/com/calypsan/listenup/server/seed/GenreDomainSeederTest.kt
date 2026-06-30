@@ -150,7 +150,7 @@ class GenreDomainSeederTest :
                             .filter { it.id in children }
                             .map { it.slug }
                             .toSet()
-                    // From defaults.go — 10 sub-genres under Fantasy.
+                    // The default taxonomy has 10 sub-genres under Fantasy.
                     childSlugs.size shouldBe 10
                     childSlugs shouldContain "epic-fantasy"
                     childSlugs shouldContain "urban-fantasy"

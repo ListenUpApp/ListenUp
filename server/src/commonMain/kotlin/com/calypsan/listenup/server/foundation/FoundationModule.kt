@@ -31,7 +31,7 @@ class FoundationDeps(
  * `KoinIsolated` and the full route graph. The production server uses
  * [com.calypsan.listenup.server.module] (jvmMain) — which additionally keeps `CallLogging`,
  * `PartialContent`, the full DI graph, and every domain route. This is the substrate those
- * verticals grow onto; the production native `main()` (Phase 5) builds on [foundationServer].
+ * verticals grow onto; the production native `main()` builds on [foundationServer].
  *
  * **RPC service registration is intentionally not done here.** The `guard(...)` decorator that every
  * RPC registration must wrap its impl in (it sanitises escaped exceptions into typed `AppError`
@@ -39,7 +39,7 @@ class FoundationDeps(
  * registration is impossible from commonMain until rpc-guard generates for native. This skeleton
  * therefore installs only the [Krpc] transport; callers register services. The native RPC smoke
  * proves the transport serves by registering an unguarded test ping via [foundationServer]'s
- * `configure` hook (test scope), and the production native `main()` (Phase 5) registers the real
+ * `configure` hook (test scope), and the production native `main()` registers the real
  * guarded services once rpc-guard is native.
  */
 fun Application.installFoundation(deps: FoundationDeps) {
