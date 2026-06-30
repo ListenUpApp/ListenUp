@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.scanner.watcher
 import com.calypsan.listenup.server.io.isSymlink
 import com.calypsan.listenup.server.scanner.inference.MultiDiscPattern
 import com.calypsan.listenup.server.scanner.inference.SkipRules
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.coroutines.CancellationException
@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<FolderWatcher>()
 
 /**
  * Watches a library tree for filesystem changes and emits the

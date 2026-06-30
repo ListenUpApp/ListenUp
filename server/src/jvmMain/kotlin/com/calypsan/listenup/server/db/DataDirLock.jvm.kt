@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.db
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import java.nio.channels.FileChannel
 import java.nio.channels.FileLock
@@ -8,7 +8,7 @@ import java.nio.channels.OverlappingFileLockException
 import java.nio.file.StandardOpenOption
 import java.nio.file.Path as NioPath
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<JvmFileLockHandle>()
 
 internal actual fun tryLockFile(lockFile: Path): FileLockHandle? {
     val channel =

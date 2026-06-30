@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.scanner.watcher
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.atomicfu.locks.SynchronizedObject
 import kotlinx.atomicfu.locks.synchronized
 import kotlinx.cinterop.ByteVar
@@ -54,7 +54,7 @@ import platform.posix.pollfd
 import platform.posix.read
 import platform.posix.write
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<InotifyDirectoryWatcher>()
 
 /** inotify mask we register per directory — the create/modify/delete + rename pair the JVM WatchService surfaces. */
 private val WATCH_MASK: UInt = (IN_CREATE or IN_MODIFY or IN_DELETE or IN_MOVED_TO or IN_MOVED_FROM).toUInt()

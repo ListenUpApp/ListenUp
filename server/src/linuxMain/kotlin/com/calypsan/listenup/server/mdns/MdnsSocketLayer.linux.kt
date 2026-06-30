@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.mdns
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -48,7 +48,7 @@ import platform.posix.sockaddr
 import platform.posix.sockaddr_in
 import platform.posix.socket
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<NativeMdnsSocket>()
 
 private const val GROUP = "224.0.0.251"
 private const val PORT: UShort = 5353u

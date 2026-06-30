@@ -22,10 +22,10 @@ import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.GenreSlug
 import com.calypsan.listenup.server.sync.BookSearchReindexer
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.uuid.Uuid
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<GenreServiceImpl>()
 
 private const val MIN_BROWSE_LIMIT = 1
 private const val MAX_BROWSE_LIMIT = 1000

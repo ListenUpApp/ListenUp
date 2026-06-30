@@ -13,7 +13,8 @@ private val TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:
  * Pattern: `yyyy-MM-dd HH:mm:ss.SSS [thread] LEVEL [correlationId] logger - message`
  * Followed by `\tat class.method(file:line)` lines if a throwable is present.
  *
- * Logger name is trimmed to at most 36 characters (rightmost), matching logback's `%logger{36}`.
+ * Logger name is rendered as its final dotted segment (the simple class name), e.g.
+ * `com.calypsan.listenup.server.scanner.ScanOrchestrator` -> `ScanOrchestrator`.
  */
 internal fun formatPlain(
     level: Level,
@@ -24,7 +25,7 @@ internal fun formatPlain(
     val timestamp = LocalDateTime.now().format(TIMESTAMP_FORMATTER)
     val thread = Thread.currentThread().name
     val correlationId = MDC.get("correlationId") ?: ""
-    val shortName = if (loggerName.length > 36) loggerName.takeLast(36) else loggerName
+    val shortName = loggerName.substringAfterLast('.')
 
     val sb = StringBuilder()
     sb.append(timestamp)

@@ -3,11 +3,11 @@ package com.calypsan.listenup.server.scanner.pipeline
 import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
 import com.calypsan.listenup.api.dto.scanner.ChangeEventDto
 import com.calypsan.listenup.api.dto.scanner.FileType
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<Differ>()
 
 /**
  * Stage 4 of the scanner pipeline: emits a [ChangeEventDto] per book that

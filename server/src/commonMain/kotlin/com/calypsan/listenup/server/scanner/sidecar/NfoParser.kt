@@ -7,10 +7,10 @@ import com.calypsan.listenup.server.scanner.sidecar.xml.directText
 import com.calypsan.listenup.server.scanner.sidecar.xml.firstText
 import com.calypsan.listenup.server.scanner.sidecar.xml.getElementsByTagName
 import com.calypsan.listenup.server.scanner.sidecar.xml.parseXml
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<NfoParser>()
 
 /**
  * Parses Kodi/Plex-style `.nfo` XML metadata sidecars.

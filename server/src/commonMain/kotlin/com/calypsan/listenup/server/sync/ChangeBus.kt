@@ -2,13 +2,13 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ChangeBus>()
 
 private const val LIVE_TAIL_BUFFER = 256
 

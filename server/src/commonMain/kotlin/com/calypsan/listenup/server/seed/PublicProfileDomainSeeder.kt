@@ -3,9 +3,9 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<PublicProfileDomainSeeder>()
 
 /**
  * Refreshes the `public_profiles` projection for every seeded user so the dev

@@ -6,7 +6,7 @@ import com.calypsan.listenup.server.embeddedmeta.EmbeddedMetadataParser
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.services.BookRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -17,7 +17,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<CoverResponder>()
 
 /**
  * Serves a book's cover image bytes for `GET /api/v1/books/{id}/cover`.

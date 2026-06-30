@@ -22,10 +22,10 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreHierarchyFromLadder
 import com.calypsan.listenup.server.services.SeriesRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<BookMetadataApplier>()
 
 /**
  * Applies a chosen Audible match to an existing book aggregate, honoring a per-field

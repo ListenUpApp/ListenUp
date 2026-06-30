@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.scanner.sidecar
 
 import com.calypsan.listenup.server.io.readText
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<DescTxtParser>()
 
 /**
  * Parses a `desc.txt` sidecar — the entire file is the book description.

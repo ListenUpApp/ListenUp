@@ -4,9 +4,9 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.contributorDedupKey
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ContributorEnrichmentSeeder>()
 
 /**
  * Adds biography, sort name, and website enrichment to the demo contributors

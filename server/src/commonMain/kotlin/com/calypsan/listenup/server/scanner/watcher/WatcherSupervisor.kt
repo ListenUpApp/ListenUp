@@ -4,12 +4,12 @@ import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<WatcherSupervisor>()
 
 /**
  * Manages the lifecycle of [FolderWatcher] instances — one per registered

@@ -5,7 +5,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -15,7 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ActiveSessionCleanupTask>()
 
 /**
  * Periodic sweep that hard-deletes stale `active_sessions` rows.

@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.seed
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.add
@@ -13,7 +13,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.math.abs
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<SeedLibraryGenerator>()
 
 private val prettyJson = Json { prettyPrint = true }
 

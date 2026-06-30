@@ -5,11 +5,11 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.TagRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<TagDomainSeeder>()
 
 /**
  * Default tags seeded for the demo profile:

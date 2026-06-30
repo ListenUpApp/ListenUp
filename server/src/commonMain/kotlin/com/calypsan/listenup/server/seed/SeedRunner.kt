@@ -1,8 +1,8 @@
 package com.calypsan.listenup.server.seed
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<SeedRunner>()
 
 /**
  * Runs the registered [DomainSeeder]s in ascending [DomainSeeder.order]. Each seeder

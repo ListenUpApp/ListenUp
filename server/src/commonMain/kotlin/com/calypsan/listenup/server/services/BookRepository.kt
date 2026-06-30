@@ -36,7 +36,7 @@ import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import com.calypsan.listenup.server.sync.accessFilteredDigest
 import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
 import app.cash.sqldelight.db.SqlDriver
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
@@ -45,7 +45,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<BookRepository>()
 
 /**
  * Books per chunked write transaction in [BookRepository.resolveOrInsertAll]. Each chunk is one

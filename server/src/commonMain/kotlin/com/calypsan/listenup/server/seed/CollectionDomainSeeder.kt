@@ -6,11 +6,11 @@ import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.CollectionRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<CollectionDomainSeeder>()
 
 /** Display name of the single demo collection seeded for the demo profile. */
 private const val DEMO_COLLECTION_NAME = "Favourites"

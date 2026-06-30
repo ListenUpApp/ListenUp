@@ -10,7 +10,7 @@ import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.TransactionWithReturn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.io.hashBytesSha256
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
@@ -22,7 +22,7 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<SqlSyncableRepository<*, *>>()
 
 /**
  * SQLDelight twin of [SyncableRepository] — the abstract base every syncable

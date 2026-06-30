@@ -11,7 +11,7 @@ import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.uri
 import io.ktor.server.response.respond
 
-private val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.routes.RouteResponses")
 
 /**
  * Renders an [AppResult] as the canonical wire response: `Success → 200`, `Failure →` the

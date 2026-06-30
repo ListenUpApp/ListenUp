@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.auth
 import com.calypsan.listenup.server.io.createTempFileIn
 import com.calypsan.listenup.server.io.restrictFileToOwner
 import dev.whyoleg.cryptography.random.CryptographyRandom
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -61,7 +61,7 @@ internal fun resolveSecret(
     return if (configValue == committedDefault) store.getOrGenerate(storeKey) else configValue
 }
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ServerSecrets>()
 
 private const val SECRETS_FILENAME = "secrets.properties"
 private const val SECRET_BYTE_LENGTH = 48

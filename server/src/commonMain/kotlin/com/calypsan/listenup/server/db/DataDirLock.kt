@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.db
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<DataDirLock>()
 
 /** A handle to a held [DataDirLock]; closing it releases the OS lock. */
 internal interface FileLockHandle : AutoCloseable

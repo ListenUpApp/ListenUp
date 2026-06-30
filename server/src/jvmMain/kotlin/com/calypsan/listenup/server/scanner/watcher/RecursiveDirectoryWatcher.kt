@@ -1,6 +1,6 @@
 package com.calypsan.listenup.server.scanner.watcher
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -25,7 +25,7 @@ import java.nio.file.WatchKey
 import java.nio.file.WatchService
 import java.util.concurrent.ConcurrentHashMap
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<RecursiveDirectoryWatcher>()
 
 /**
  * JVM-native recursive directory watcher over [java.nio.file.WatchService].

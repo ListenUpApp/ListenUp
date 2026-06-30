@@ -25,7 +25,7 @@ import com.calypsan.listenup.server.scanner.pipeline.Differ
 import com.calypsan.listenup.server.scanner.pipeline.Grouper
 import com.calypsan.listenup.server.scanner.pipeline.Walker
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import com.calypsan.listenup.server.io.isUnder
 import com.calypsan.listenup.server.io.relativeTo
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -37,7 +37,7 @@ import kotlin.uuid.Uuid
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<Scanner>()
 
 /** Minimum interval between throttled ANALYZING [ScanEvent.Progress] emissions. */
 private const val PROGRESS_THROTTLE_MS = 200L

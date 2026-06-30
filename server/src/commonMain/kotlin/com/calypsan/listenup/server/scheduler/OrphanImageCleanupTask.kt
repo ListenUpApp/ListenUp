@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.scheduler
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlinx.coroutines.CoroutineScope
@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<OrphanImageCleanupTask>()
 
 /**
  * Periodic sweep that removes `.jpg` image files under `{imageHome}/contributors/`

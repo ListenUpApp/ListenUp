@@ -22,13 +22,13 @@ import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<LibraryAdminServiceImpl>()
 
 /**
  * Server-side implementation of [LibraryAdminService].

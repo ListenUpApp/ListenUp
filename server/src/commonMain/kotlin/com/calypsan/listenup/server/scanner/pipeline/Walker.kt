@@ -7,7 +7,7 @@ import com.calypsan.listenup.server.io.relativeTo
 import com.calypsan.listenup.server.io.statFile
 import com.calypsan.listenup.server.scanner.inference.FileTypeRules
 import com.calypsan.listenup.server.scanner.inference.SkipRules
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -15,7 +15,7 @@ import kotlinx.io.IOException
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<Walker>()
 
 /**
  * Stage 1 of the scanner pipeline: enumerates every file beneath a library

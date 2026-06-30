@@ -8,10 +8,10 @@ import com.calypsan.listenup.server.scanner.sidecar.xml.getAttribute
 import com.calypsan.listenup.server.scanner.sidecar.xml.getElementsByTagName
 import com.calypsan.listenup.server.scanner.sidecar.xml.parseXml
 import com.calypsan.listenup.server.scanner.sidecar.xml.textContent
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<OpfParser>()
 
 /**
  * Captures a leading four-digit year — either a bare year (`2014`) or the year

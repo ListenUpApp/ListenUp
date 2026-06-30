@@ -4,9 +4,9 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActivityRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ActivitySeeder>()
 
 /**
  * Seeds a couple of social-activity rows for the [UserDomainSeeder.DEMO_EMAIL] account, so a fresh

@@ -3,9 +3,9 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<PendingGenrePromotion>()
 
 /**
  * One-time, idempotent migration of the legacy `pending_book_genres` backlog into

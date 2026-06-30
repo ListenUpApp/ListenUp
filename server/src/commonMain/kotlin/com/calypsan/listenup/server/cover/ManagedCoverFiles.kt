@@ -5,13 +5,13 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.io.fileIoDispatcher
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ManagedCoverFiles>()
 
 /**
  * The result of storing a scanned cover to the managed cover store.

@@ -10,9 +10,9 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<InviteDomainSeeder>()
 
 /**
  * Seeds the demo profile's invite surface — one unclaimed, pending invite so a

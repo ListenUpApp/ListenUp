@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-private val log = KotlinLogging.logger("mdns.MdnsRefreshOnServerInfoChange")
+private val log = KotlinLogging.logger("com.calypsan.listenup.server.mdns.MdnsRefreshOnServerInfoChange")
 
 /**
  * Re-announce mDNS whenever the server's identity changes. The admin "update server settings" path

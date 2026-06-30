@@ -4,10 +4,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<PlaybackPositionDomainSeeder>()
 
 /** Spacing between the seeded positions' `lastPlayedAt` timestamps. */
 private const val ONE_HOUR_MS = 60 * 60 * 1000L

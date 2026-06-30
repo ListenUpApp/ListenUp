@@ -22,11 +22,11 @@ import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.http.encodeURLParameter
 import kotlin.time.Clock
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<PlaybackServiceImpl>()
 
 /**
  * [PlaybackService] implementation. Combines signed audio URLs from

@@ -10,11 +10,11 @@ import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.metadata.audible.AudibleContributorProfile
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.MetadataService
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.io.files.Path
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ContributorMetadataApplier>()
 
 /**
  * Applies Audible contributor metadata to an existing contributor row.

@@ -6,7 +6,7 @@ import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
 import java.nio.file.Path as NioPath
 
-private val logger = KotlinLogging.logger {}
+private val logger = KotlinLogging.logger("com.calypsan.listenup.server.io.FilePermissions")
 
 internal actual fun restrictFileToOwner(path: Path) {
     runCatching {

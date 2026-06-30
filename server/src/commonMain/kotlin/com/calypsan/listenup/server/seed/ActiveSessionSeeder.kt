@@ -3,9 +3,9 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActiveSessionRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ActiveSessionSeeder>()
 
 /** How many demo books to seed live presence sessions for (at most). */
 private const val DEMO_SESSION_COUNT = 2L

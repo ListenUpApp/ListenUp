@@ -6,12 +6,12 @@ import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<DefaultAllBooksGrantIssuer>()
 
 /**
  * Best-effort collaborator that grants the per-library ALL_BOOKS system collection to a new

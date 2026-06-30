@@ -30,7 +30,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.ktor.ext.inject
 
-private val log = KotlinLogging.logger("rpc.SyncFirehose")
+private val log = KotlinLogging.logger("com.calypsan.listenup.server.sync.SyncFirehose")
 
 // SSE `event:` line for out-of-band SyncControl frames (CursorStale, StreamError).
 // Distinct from the per-domain `event: <domainName>` lines used for SyncEvent payloads.

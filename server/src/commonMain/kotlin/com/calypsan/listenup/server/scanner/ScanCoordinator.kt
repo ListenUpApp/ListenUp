@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.LibraryId
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.atomicfu.locks.SynchronizedObject
@@ -15,7 +15,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ScanCoordinator>()
 
 /**
  * Single-flight coordinator for the library's full scans and incremental re-analysis.
