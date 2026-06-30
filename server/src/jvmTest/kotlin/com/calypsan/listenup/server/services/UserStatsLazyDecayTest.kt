@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.longs.shouldBeGreaterThan
@@ -102,8 +101,6 @@ class UserStatsLazyDecayTest :
                         UserStatsUpdater(
                             sql = sql,
                             userStatsRepo = statsRepoThen,
-                            clock = nowClock,
-                            publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                         )
                     val statsRepoWithDecay =
                         UserStatsRepository(
@@ -165,8 +162,6 @@ class UserStatsLazyDecayTest :
                         UserStatsUpdater(
                             sql = sql,
                             userStatsRepo = statsRepoThen,
-                            clock = nowClock,
-                            publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                         )
                     val statsRepoWithDecay =
                         UserStatsRepository(
@@ -216,8 +211,6 @@ class UserStatsLazyDecayTest :
                     UserStatsUpdater(
                         sql = sql,
                         userStatsRepo = statsRepoThen,
-                        clock = nowClock,
-                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
 
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())

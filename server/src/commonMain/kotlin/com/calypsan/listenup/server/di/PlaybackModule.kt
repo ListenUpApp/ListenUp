@@ -23,7 +23,6 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
-import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
@@ -120,8 +119,6 @@ fun playbackModule(): Module =
             UserStatsUpdater(
                 sql = get<ListenUpDatabase>(),
                 userStatsRepo = get(),
-                publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
-                activityRecorder = get(),
             )
         }
         single(createdAtStart = true) {

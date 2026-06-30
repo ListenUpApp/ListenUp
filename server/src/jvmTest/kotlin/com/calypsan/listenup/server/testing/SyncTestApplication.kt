@@ -185,12 +185,11 @@ internal fun withTestApplication(
                 )
             val publicProfileMaintainer = buildPublicProfileMaintainer(sqlDb, bus, registry)
             // Still constructed for UserStatsRepository's lazy window-decay provider above —
-            // onListeningEvent itself is no longer wired into ListeningEventRepository below.
+            // the event-driven write cascade now lives entirely in StatsRecorder below.
             updater =
                 UserStatsUpdater(
                     sql = sqlDb,
                     userStatsRepo = statsRepo,
-                    publicProfileMaintainerProvider = { publicProfileMaintainer },
                 )
             val statsRecorder = buildStatsRecorder(sqlDb, bus, statsRepo, publicProfileMaintainer)
             val eventRepo =
