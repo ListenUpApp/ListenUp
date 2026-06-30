@@ -168,10 +168,10 @@ kotlin {
                 // koin-core and koin-ktor (the install(Koin) plugin) both publish linuxX64 variants.
                 implementation(libs.koin.core)
                 implementation(libs.koin.ktor)
-                // Ktor HTTP client (CIO engine) — the metadata slice's Audible/iTunes/image client.
-                // KMP: linuxX64 variants exist; MetadataModule moved to commonMain (Phase 5-4c).
+                // Ktor HTTP client — the metadata slice's Audible/iTunes/image client. The engine is a
+                // per-platform seam (metadataHttpClient): CIO on jvmMain, Curl on linuxMain, because
+                // Ktor CIO's TLS is unsupported for outbound HTTPS on Kotlin/Native (Phase 5-4c).
                 implementation(libs.ktor.client.core)
-                implementation(libs.ktor.client.cio)
                 implementation(libs.ktor.client.content.negotiation)
             }
         }
@@ -182,6 +182,10 @@ kotlin {
                 // Shared by both Linux arches; both publish linuxArm64 + linuxX64 variants.
                 implementation(libs.sqldelight.driver.native)
                 implementation(libs.cryptography.provider.openssl3.prebuilt)
+                // Ktor Curl client engine (libcurl) — the metadata slice's outbound HTTPS on native.
+                // CIO's TLS is unsupported on Kotlin/Native. Publishes linuxX64 + linuxArm64 variants;
+                // links the system libcurl (shipped into the runtime image — see Dockerfile.native).
+                implementation(libs.ktor.client.curl)
             }
         }
 
@@ -192,6 +196,9 @@ kotlin {
                 // (moved there for the native HTTP foundation). JVM-only Ktor plugins below:
                 implementation(libs.ktor.server.call.logging)
                 implementation(libs.ktor.server.auto.head.response)
+
+                // Ktor CIO client engine — the JVM metadata client (metadataHttpClient.jvm.kt).
+                implementation(libs.ktor.client.cio)
 
                 // Persistence
                 implementation(libs.sqlite.jdbc)

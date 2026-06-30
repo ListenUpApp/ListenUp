@@ -231,8 +231,8 @@ jobs:
           key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-konan-
 
-      - name: Install native link dependencies (libargon2 + libsqlite3)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev libsqlite3-dev
+      - name: Install native link dependencies (libargon2 + libsqlite3 + libcurl)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libargon2-dev libsqlite3-dev libcurl4-openssl-dev
 
       - name: Compile :server linuxX64
         run: ./gradlew :server:compileKotlinLinuxX64 --no-daemon

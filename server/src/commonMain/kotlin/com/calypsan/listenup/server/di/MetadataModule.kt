@@ -35,7 +35,6 @@ import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.TagRepository
 import kotlin.time.Clock
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.io.files.Path
@@ -77,7 +76,7 @@ private const val METADATA_HTTP_CLIENT = "metadataHttpClient"
 fun metadataModule(imageHome: Path): Module =
     module {
         single(named(METADATA_HTTP_CLIENT)) {
-            HttpClient(CIO) {
+            metadataHttpClient {
                 install(ContentNegotiation) {
                     json(
                         Json {
