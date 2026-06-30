@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server
 
 import com.calypsan.listenup.server.io.readEnv
+import com.calypsan.listenup.server.logging.installNativeLogFormatting
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
@@ -15,6 +16,7 @@ private const val DEFAULT_PORT = 8080
  * engine and blocks until shutdown.
  */
 fun main() {
+    installNativeLogFormatting()
     val port = readEnv("PORT")?.toIntOrNull() ?: DEFAULT_PORT
     embeddedServer(
         factory = CIO,
