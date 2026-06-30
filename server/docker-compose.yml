@@ -1,0 +1,34 @@
+# ListenUp server — recommended LAN deployment.
+#
+# Uses host networking so the mobile/desktop apps discover this server automatically over mDNS
+# (_listenup._tcp on your LAN). On Docker's default bridge network that multicast never leaves the
+# container, so discovery silently fails and you'd have to type the server URL in by hand.
+#
+#   docker compose up -d
+#   curl http://localhost:8080/healthz   # {"status":"ok"} once it's ready
+#
+# Host networking is Linux-host only and shares the host's network stack (the server binds the host's
+# :8080 directly — no port mapping). If you're exposing ListenUp to the internet, running behind a
+# reverse proxy, or on Docker Desktop (macOS/Windows), use the bridge variant in the install docs
+# instead and connect the app by URL. See https://listenupapp.github.io/website/getting-started/installation/
+services:
+  listenup:
+    image: ghcr.io/listenupapp/listenup-server:latest
+    container_name: listenup
+    network_mode: host
+    environment:
+      # ListenUp's own data directory (database, server secret, cached cover art).
+      LISTENUP_HOME: /data
+      # Optional: pre-seed library folders, ':'-separated. Leave unset to add them later from the app.
+      LISTENUP_LIBRARY_PATH: /audiobooks
+      # Optional: the port the server listens on (default 8080). With host networking this is the
+      # host's port directly, so change it only if 8080 is already taken on the host.
+      # PORT: 8080
+    volumes:
+      - listenup-data:/data
+      # Your audiobooks, mounted read-only — ListenUp only ever reads them.
+      - /mnt/media/audiobooks:/audiobooks:ro
+    restart: unless-stopped
+
+volumes:
+  listenup-data:
