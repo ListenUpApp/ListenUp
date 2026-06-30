@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.metadata.itunes
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -13,7 +13,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<ITunesClient>()
 
 /**
  * Ktor-backed adapter for the iTunes Search API. Used **only** for cover art —

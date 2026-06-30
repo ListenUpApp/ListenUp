@@ -31,14 +31,14 @@ import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedenceSource
 import com.calypsan.listenup.server.scanner.document.DocumentCollector
 import com.calypsan.listenup.server.scanner.sidecar.SidecarMetadata
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.io.files.Path
 import com.calypsan.listenup.domain.embeddedmeta.SeriesEntry as EmbeddedSeriesEntry
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<Analyzer>()
 
 /**
  * Stage 3 of the scanner pipeline: turns each [CandidateBook] into an

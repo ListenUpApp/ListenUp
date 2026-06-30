@@ -7,12 +7,12 @@ import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.io.statFile
 import com.calypsan.listenup.server.io.writeBytes
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<CoverSpool>()
 
 /**
  * Scan-scoped on-disk staging for embedded cover bytes, so the scanner never holds all of a

@@ -14,9 +14,9 @@ import com.calypsan.listenup.server.metadata.audible.AudibleSearchResult
 import com.calypsan.listenup.server.metadata.audible.AudibleSeriesEntry
 import com.calypsan.listenup.server.metadata.audible.SearchParams
 import com.calypsan.listenup.server.services.MetadataService
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 
-private val log = KotlinLogging.logger {}
+private val log = loggerFor<AudibleMetadataProvider>()
 
 /**
  * [MetadataProvider] backed by Audible via [MetadataService] (which adds TTL caching +

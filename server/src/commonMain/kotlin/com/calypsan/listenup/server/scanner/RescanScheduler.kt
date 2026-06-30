@@ -1,7 +1,7 @@
 package com.calypsan.listenup.server.scanner
 
 import com.calypsan.listenup.core.LibraryId
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -10,7 +10,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<RescanScheduler>()
 
 /**
  * Never-Stranded backstop: periodically full-rescans the registered library so

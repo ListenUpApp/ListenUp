@@ -4,7 +4,7 @@ import com.calypsan.listenup.api.dto.scanner.SeriesEntry
 import com.calypsan.listenup.api.external.abs.AbsMetadata
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.io.readText
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -12,7 +12,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<AbsMetadataReader>()
 
 /**
  * Reads ABS-authored `metadata.json` sidecar files. Two-step parse:

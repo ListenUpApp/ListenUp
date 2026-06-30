@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.io.isUnder
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.files.Path
@@ -24,7 +24,7 @@ internal interface ScannerResultPort {
     fun lastResult(): ScanResult?
 }
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<ScanOrchestrator>()
 
 /**
  * Top-level orchestrator that manages the single [Scanner] + [ScanCoordinator] bundle

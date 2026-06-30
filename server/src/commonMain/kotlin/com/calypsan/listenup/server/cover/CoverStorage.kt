@@ -1,10 +1,10 @@
 package com.calypsan.listenup.server.cover
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-private val logger = KotlinLogging.logger {}
+private val logger = loggerFor<CoverStorage>()
 
 /**
  * Filesystem-side counterpart to the cover-state column on `books`: the only
