@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -67,6 +68,9 @@ internal class BookEditRepositoryImpl(
                         isbn = patch.isbn ?: existing.isbn,
                         asin = patch.asin ?: existing.asin,
                         abridged = patch.abridged ?: existing.abridged,
+                        // Mirror the server's per-field provenance union locally so the rescan-protected set
+                        // is correct offline and before the SSE echo — matches BookServiceImpl.applyPatch.
+                        userEditedFields = existing.userEditedFields + patch.editedFields(),
                         // revision + updatedAt deliberately untouched; addedAt handled server-side.
                     ),
                 )
@@ -131,3 +135,17 @@ internal class BookEditRepositoryImpl(
             AppResult.Failure(ErrorMapper.map(e))
         }
 }
+
+/**
+ * The rescan-protected fields this patch edits — a non-null scalar means the user set it.
+ *
+ * Mirrors `BookServiceImpl.applyPatch` exactly so the client's optimistic provenance matches what the
+ * server will record. Only [UserEditedField] scalars are mapped here; contributor and series
+ * provenance is set by their own RPCs ([UserEditedField.CONTRIBUTORS] / [UserEditedField.SERIES]).
+ */
+private fun BookUpdate.editedFields(): Set<UserEditedField> =
+    buildSet {
+        if (title != null) add(UserEditedField.TITLE)
+        if (subtitle != null) add(UserEditedField.SUBTITLE)
+        if (description != null) add(UserEditedField.DESCRIPTION)
+    }

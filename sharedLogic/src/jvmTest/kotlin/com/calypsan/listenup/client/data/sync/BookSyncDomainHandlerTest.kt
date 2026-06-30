@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CoverPayload
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
@@ -56,6 +57,31 @@ class BookSyncDomainHandlerTest :
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 3
+            }
+        }
+
+        test("server-set userEditedFields round-trip into the book row") {
+            withTestHandler { handler, db ->
+                val payload =
+                    bookPayload(id = "b1").copy(
+                        userEditedFields = setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS),
+                    )
+                handler
+                    .onEvent(created(payload), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe
+                    setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS)
+            }
+        }
+
+        test("a scanner payload with no provenance persists an empty userEditedFields set") {
+            withTestHandler { handler, db ->
+                handler
+                    .onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe emptySet()
             }
         }
 
