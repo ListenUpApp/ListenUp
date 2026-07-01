@@ -59,6 +59,22 @@ class RpcUpdateOpSenderTest :
                 failure.error shouldBe expectedError
             }
         }
+
+        test("a corrupt payload returns Failure instead of throwing out of the drain loop") {
+            runTest {
+                var pushInvoked = false
+                val sender =
+                    RpcUpdateOpSender(BookEdit) { _, _ ->
+                        pushInvoked = true
+                        WireAppResult.Success(Unit)
+                    }
+
+                val result = sender.send(fakeOp("not-json"))
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                pushInvoked shouldBe false
+            }
+        }
     })
 
 private fun fakeOp(payload: String): PendingOperation =

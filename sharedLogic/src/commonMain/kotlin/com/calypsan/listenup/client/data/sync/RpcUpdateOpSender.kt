@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.result.AppResult
+import kotlinx.coroutines.CancellationException
 
 /**
  * The one push-side sender for entity-PATCH edits, replacing every hand-rolled
@@ -22,7 +24,19 @@ internal class RpcUpdateOpSender<T : Any>(
     private val push: suspend (entityId: String, patch: T) -> WireAppResult<*>,
 ) : PendingOperationSender {
     override suspend fun send(op: PendingOperation): AppResult<Unit> {
-        val patch = contractJson.decodeFromString(domain.serializer, op.payload)
+        val patch =
+            try {
+                contractJson.decodeFromString(domain.serializer, op.payload)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // A corrupt / schema-drifted payload can never succeed — surface it as a terminal
+                // failure so the queue flags the op past its retry ceiling instead of the decode
+                // throwing out of the drain loop and aborting every op in the wave forever.
+                return AppResult.Failure(
+                    SyncError.SyncFailed(debugInfo = "failed to decode '${domain.name}' payload: ${e.message}"),
+                )
+            }
         return when (val result = push(op.entityId, patch)) {
             is WireAppResult.Success -> AppResult.Success(Unit)
             is WireAppResult.Failure -> AppResult.Failure(result.error)
