@@ -3,9 +3,12 @@ import Shared
 
 /// Public invite redeem flow: enter code → preview → set password → join.
 ///
-/// Navigation is fully automatic on success — `ClaimInviteViewModel` persists a session on
-/// claim, flipping `AuthState` to `.authenticated`, and the root routing exits automatically.
-/// `onDismiss` is called for the error/back path (sheet dismissal).
+/// On a successful claim `ClaimInviteViewModel` persists a session and flips `AuthState` to
+/// `.authenticated`, so the root routing swaps in the authenticated app beneath this view. When
+/// presented as a deep-link sheet, though, the sheet is bound to the router outcome — not to auth
+/// state — so it does not tear itself down. This view therefore calls `onDismiss()` on `.claimed`
+/// (and on the error/back path) to dismiss the panel. Mirrors Android's `JoinScreen`, which
+/// dismisses via `LaunchedEffect(Claimed) { onClaimed() }`.
 struct ClaimInviteView: View {
 
     // MARK: - Configuration
@@ -61,6 +64,13 @@ struct ClaimInviteView: View {
                 Log.info("ClaimInviteView appeared from deep link — starting lookup")
                 wrapper.start(serverURL: seed.serverURL, code: seed.code, remoteURL: seed.remoteURL)
             }
+        }
+        .onChange(of: wrapper.phase) { _, phase in
+            // Claim succeeded: the session is persisted and AuthState has flipped, so the root
+            // routing has already swapped in the authenticated app beneath us. Dismiss the panel
+            // explicitly — the deep-link sheet is keyed to the router outcome, not auth state, so
+            // it won't tear itself down. Without this it sits on the spinner until manually closed.
+            if phase == .claimed { onDismiss() }
         }
     }
 
