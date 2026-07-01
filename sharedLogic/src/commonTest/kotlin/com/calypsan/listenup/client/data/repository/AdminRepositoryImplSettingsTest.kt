@@ -39,6 +39,7 @@ class AdminRepositoryImplSettingsTest :
                 inviteRpc = mock(),
                 libraryAdminRpc = mock(),
                 serverConfig = mock(),
+                adminUserRosterDao = mock(),
             )
 
         test("getServerSettings maps the RPC DTO to the domain model") {
@@ -61,7 +62,7 @@ class AdminRepositoryImplSettingsTest :
 
                     override suspend fun invalidate() = Unit
                 }
-            val r = AdminRepositoryImpl(mock(), throwing, mock(), mock(), mock()).getServerSettings()
+            val r = AdminRepositoryImpl(mock(), throwing, mock(), mock(), mock(), mock()).getServerSettings()
             (r is AppResult.Failure) shouldBe true
         }
     })

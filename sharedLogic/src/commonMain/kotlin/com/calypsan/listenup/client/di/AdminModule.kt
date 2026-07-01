@@ -112,6 +112,7 @@ internal val adminModule: Module =
                 inviteRpc = get(),
                 libraryAdminRpc = get(),
                 serverConfig = get(),
+                adminUserRosterDao = get(),
                 rpcCacheInvalidator = get(),
             )
         }

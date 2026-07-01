@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.dto.AccessMode as ContractAccessMode
 import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.client.data.local.db.AdminUserRosterDao
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
@@ -32,6 +33,8 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 private val logger = KotlinLogging.logger {}
 
@@ -48,6 +51,8 @@ private val logger = KotlinLogging.logger {}
  * @property inviteRpc RPC factory for invite-management operations
  * @property libraryAdminRpc RPC factory for library-admin operations (add/remove folder, scan)
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
+ * @property adminUserRosterDao Room DAO for the synced `admin_user_roster` sync domain, backing
+ *   [observeRoster]
  */
 internal class AdminRepositoryImpl(
     private val adminUserRpc: AdminUserRpcFactory,
@@ -55,6 +60,7 @@ internal class AdminRepositoryImpl(
     private val inviteRpc: InviteRpcFactory,
     private val libraryAdminRpc: LibraryAdminRpcFactory,
     private val serverConfig: ServerConfig,
+    private val adminUserRosterDao: AdminUserRosterDao,
     private val rpcCacheInvalidator: RpcCacheInvalidator = RpcCacheInvalidator {},
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
@@ -70,6 +76,9 @@ internal class AdminRepositoryImpl(
         catching("getPendingUsers") {
             adminUserRpc.get().listPendingUsers().map { users -> users.map { it.toAdminUserInfo() } }
         }
+
+    override fun observeRoster(): Flow<List<AdminUserInfo>> =
+        adminUserRosterDao.observeAll().map { rows -> rows.map { it.toAdminUserInfo() } }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
         catching("approveUser") {

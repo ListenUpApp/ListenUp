@@ -103,6 +103,7 @@ private fun buildRepo(service: FakeLibraryAdminService): AdminRepositoryImpl =
         inviteRpc = mock<InviteRpcFactory>(),
         libraryAdminRpc = FakeLibraryAdminRpcFactory(service),
         serverConfig = mock<ServerConfig>(),
+        adminUserRosterDao = mock(),
     )
 
 // ─── Tests ──────────────────────────────────────────────────────────────────────
