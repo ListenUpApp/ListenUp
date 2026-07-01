@@ -75,16 +75,18 @@ fun JoinScreen(
     modifier: Modifier = Modifier,
     initialCode: String? = null,
     serverUrl: String? = null,
+    remoteUrl: String? = null,
     viewModel: ClaimInviteViewModel = koinViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     // Deep-link entry contract: when a code arrives with the link, hand it to the
-    // ViewModel's start() so the server URL is persisted before the lookup fires,
-    // landing the user on Preview rather than an empty field.
-    LaunchedEffect(initialCode, serverUrl) {
+    // ViewModel's start() so a reachable server URL is persisted before the lookup fires,
+    // landing the user on Preview rather than an empty field. The link's optional remote
+    // URL rides along so an off-LAN invitee still connects (local-first, remote fallback).
+    LaunchedEffect(initialCode, serverUrl, remoteUrl) {
         if (!initialCode.isNullOrBlank()) {
-            viewModel.start(serverUrl = serverUrl, code = initialCode)
+            viewModel.start(serverUrl = serverUrl, code = initialCode, remoteUrl = remoteUrl)
         }
     }
 
@@ -166,7 +168,7 @@ private fun CodeEntryStep(
 @Composable
 private fun ClaimStep(
     preview: InvitePreview,
-    onClaim: (password: String, displayName: String?) -> Unit,
+    onClaim: (password: String, firstName: String, lastName: String) -> Unit,
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -182,7 +184,8 @@ private fun ClaimStep(
     }
 
     var password by remember { mutableStateOf("") }
-    var displayName by remember { mutableStateOf(preview.displayName) }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
     AuthScaffold(
@@ -195,9 +198,18 @@ private fun ClaimStep(
         InvitePreviewCard(preview)
 
         ListenUpTextField(
-            value = displayName,
-            onValueChange = { displayName = it },
-            label = "Display name",
+            value = firstName,
+            onValueChange = { firstName = it },
+            label = "First name",
+            leadingIcon = Icons.Outlined.Person,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+            keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
+        )
+
+        ListenUpTextField(
+            value = lastName,
+            onValueChange = { lastName = it },
+            label = "Last name",
             leadingIcon = Icons.Outlined.Person,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) }),
@@ -215,15 +227,16 @@ private fun ClaimStep(
                 KeyboardActions(
                     onDone = {
                         focusManager.clearFocus()
-                        onClaim(password, displayName.ifBlank { null })
+                        onClaim(password, firstName, lastName)
                     },
                 ),
         )
 
         ListenUpButton(
-            onClick = { onClaim(password, displayName.ifBlank { null }) },
+            onClick = { onClaim(password, firstName, lastName) },
             text = "Get started",
             leadingIcon = Icons.AutoMirrored.Outlined.Login,
+            enabled = firstName.isNotBlank() && lastName.isNotBlank() && password.isNotBlank(),
         )
     }
 }

@@ -93,6 +93,40 @@ class ShareLinkCodecTest :
             ShareLinkCodec.decode(ShareLinkCodec.encode(original)) shouldBe original
         }
 
+        test("encode carries the optional remote URL so an off-LAN invitee can connect") {
+            val url =
+                ShareLinkCodec.encode(
+                    ShareTarget.Invite(
+                        serverUrl = "http://192.168.1.5:8080",
+                        code = "JOIN9",
+                        remoteUrl = "https://lib.example.com",
+                    ),
+                )
+
+            url shouldContain "server=http%3A%2F%2F192.168.1.5%3A8080"
+            url shouldContain "remote=https%3A%2F%2Flib.example.com"
+        }
+
+        test("encode then decode round-trips an invite that carries a remote URL") {
+            val original =
+                ShareTarget.Invite(
+                    serverUrl = "http://192.168.1.5:8080",
+                    code = "JOIN9",
+                    remoteUrl = "https://lib.example.com",
+                )
+
+            ShareLinkCodec.decode(ShareLinkCodec.encode(original)) shouldBe original
+        }
+
+        test("decode of a link with no remote param yields a null remoteUrl (backward compatible)") {
+            val target =
+                ShareLinkCodec.decode(
+                    "https://link.listenup.audio/o?t=invite&server=http%3A%2F%2F192.168.1.5%3A8080&code=JOIN9",
+                )
+
+            target shouldBe ShareTarget.Invite(serverUrl = "http://192.168.1.5:8080", code = "JOIN9", remoteUrl = null)
+        }
+
         test("decode parses the https /o form for an invite") {
             val target =
                 ShareLinkCodec.decode(

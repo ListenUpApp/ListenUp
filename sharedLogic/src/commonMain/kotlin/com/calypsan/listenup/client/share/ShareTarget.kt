@@ -34,12 +34,16 @@ sealed interface ShareTarget {
     /**
      * An invite / join claim.
      *
-     * @property serverUrl The server the invite is for (persisted before lookup so a fresh
-     *   install can reach it).
+     * @property serverUrl The server the invite is for — the admin's local/active URL, persisted
+     *   before lookup so a fresh install can reach it.
      * @property code The invite code.
+     * @property remoteUrl The server's operator-set remote (WAN) URL when configured, so an invitee
+     *   off the local network can still connect; `null` when the server advertises none. The claim
+     *   flow tries [serverUrl] first and falls back to [remoteUrl].
      */
     data class Invite(
         val serverUrl: String,
         val code: String,
+        val remoteUrl: String? = null,
     ) : ShareTarget
 }

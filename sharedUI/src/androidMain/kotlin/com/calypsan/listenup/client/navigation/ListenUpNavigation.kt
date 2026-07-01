@@ -140,6 +140,7 @@ fun ListenUpNavigation(
         JoinNavigation(
             serverUrl = invite.serverUrl,
             inviteCode = invite.code,
+            remoteUrl = invite.remoteUrl,
             onComplete = { deepLinkManager.consumeTarget() },
             onCancel = { deepLinkManager.consumeTarget() },
         )
@@ -233,6 +234,7 @@ private fun PendingApprovalNavigation(
 private fun JoinNavigation(
     serverUrl: String,
     inviteCode: String,
+    remoteUrl: String?,
     onComplete: () -> Unit,
     onCancel: () -> Unit,
 ) {
@@ -241,6 +243,7 @@ private fun JoinNavigation(
         onCancel = onCancel,
         initialCode = inviteCode,
         serverUrl = serverUrl,
+        remoteUrl = remoteUrl,
     )
 }
 

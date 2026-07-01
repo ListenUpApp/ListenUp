@@ -11,13 +11,14 @@ struct ClaimInviteView: View {
     // MARK: - Configuration
 
     let onDismiss: () -> Void
-    private let deepLinkSeed: (serverURL: String, code: String)?
+    private let deepLinkSeed: (serverURL: String, code: String, remoteURL: String?)?
 
     // MARK: - State
 
     @State private var wrapper: ClaimInviteViewModelWrapper
     @State private var code = ""
-    @State private var displayName = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
     @State private var password = ""
     @State private var didStart = false
 
@@ -31,9 +32,9 @@ struct ClaimInviteView: View {
         ))
     }
 
-    init(deepLinkServerURL: String, deepLinkCode: String, onDismiss: @escaping () -> Void) {
+    init(deepLinkServerURL: String, deepLinkCode: String, deepLinkRemoteURL: String?, onDismiss: @escaping () -> Void) {
         self.onDismiss = onDismiss
-        self.deepLinkSeed = (deepLinkServerURL, deepLinkCode)
+        self.deepLinkSeed = (deepLinkServerURL, deepLinkCode, deepLinkRemoteURL)
         _wrapper = State(initialValue: ClaimInviteViewModelWrapper(
             viewModel: Dependencies.shared.claimInviteViewModel
         ))
@@ -57,7 +58,8 @@ struct ClaimInviteView: View {
         .onAppear {
             if let seed = deepLinkSeed, !didStart {
                 didStart = true
-                wrapper.start(serverURL: seed.serverURL, code: seed.code)
+                Log.info("ClaimInviteView appeared from deep link — starting lookup")
+                wrapper.start(serverURL: seed.serverURL, code: seed.code, remoteURL: seed.remoteURL)
             }
         }
     }
@@ -117,11 +119,19 @@ struct ClaimInviteView: View {
                 AuthLargeHeader(title: String(localized: "invite.set_password_title"))
                 AuthFieldGroup {
                     AppTextField(
-                        placeholder: String(localized: "common.display_name"),
-                        text: $displayName,
+                        placeholder: String(localized: "auth.first_name"),
+                        text: $firstName,
                         icon: "person",
                         isLast: false,
-                        textContentType: .name,
+                        textContentType: .givenName,
+                        autocapitalization: .words
+                    )
+                    AppTextField(
+                        placeholder: String(localized: "auth.last_name"),
+                        text: $lastName,
+                        icon: "person",
+                        isLast: false,
+                        textContentType: .familyName,
                         autocapitalization: .words
                     )
                     AppTextField(
@@ -136,17 +146,9 @@ struct ClaimInviteView: View {
                     title: String(localized: "invite.get_started"),
                     isLoading: false
                 ) {
-                    wrapper.claim(
-                        password: password,
-                        displayName: displayName.isEmpty ? nil : displayName
-                    )
+                    wrapper.claim(password: password, firstName: firstName, lastName: lastName)
                 }
-                .disabled(password.isEmpty)
-            }
-            .onAppear {
-                if displayName.isEmpty {
-                    displayName = preview.displayName
-                }
+                .disabled(firstName.isEmpty || lastName.isEmpty || password.isEmpty)
             }
         }
     }

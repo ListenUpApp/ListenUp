@@ -167,7 +167,8 @@ internal class AdminRepositoryImpl(
     override suspend fun getInvites(): AppResult<List<InviteInfo>> =
         catching("getInvites") {
             val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
-            inviteRpc.adminService().listInvites().map { list -> list.map { it.toInviteInfo(serverUrl) } }
+            val remoteUrl = inviteRemoteUrl(serverUrl)
+            inviteRpc.adminService().listInvites().map { list -> list.map { it.toInviteInfo(serverUrl, remoteUrl) } }
         }
 
     override suspend fun createInvite(
@@ -187,8 +188,16 @@ internal class AdminRepositoryImpl(
                     displayName = email.substringBefore('@'),
                     role = role.toInviteRole(),
                     expiresInDays = expiresInDays,
-                ).map { it.toInviteInfo(serverUrl) }
+                ).map { it.toInviteInfo(serverUrl, inviteRemoteUrl(serverUrl)) }
         }
+
+    /**
+     * The operator-set remote (WAN) URL to embed alongside the local [serverUrl] in an invite link,
+     * so an invitee off the local network can still connect. `null` when unset or identical to the
+     * local URL (no point carrying a duplicate). The claim flow tries local first, then this.
+     */
+    private suspend fun inviteRemoteUrl(serverUrl: String): String? =
+        serverConfig.getRemoteUrl()?.value?.takeIf { it.isNotBlank() && it != serverUrl }
 
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
         catching("deleteInvite") { inviteRpc.adminService().revokeInvite(InviteId(inviteId)) }

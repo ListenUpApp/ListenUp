@@ -13,6 +13,7 @@ import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
@@ -21,6 +22,7 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.shouldBe
@@ -76,7 +78,7 @@ class ClaimInviteViewModelTest :
 
         test("initial state is Idle") {
             val repo = mock<InviteRepository>()
-            val vm = ClaimInviteViewModel(repo, mock())
+            val vm = ClaimInviteViewModel(repo, mock(), mock())
 
             vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Idle>()
         }
@@ -85,7 +87,7 @@ class ClaimInviteViewModelTest :
             runTest(testDispatcher) {
                 val repo = mock<InviteRepository>()
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
-                val vm = ClaimInviteViewModel(repo, mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock())
 
                 vm.state.test {
                     awaitItem().shouldBeInstanceOf<ClaimInviteUiState.Idle>()
@@ -103,7 +105,7 @@ class ClaimInviteViewModelTest :
                 val repo = mock<InviteRepository>()
                 everySuspend { repo.lookupInvite(any()) } returns
                     AppResult.Failure(InternalError(correlationId = "corr-1"))
-                val vm = ClaimInviteViewModel(repo, mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock())
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -119,18 +121,35 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Success(fakeSession())
-                val vm = ClaimInviteViewModel(repo, mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock())
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
 
                 vm.state.test {
                     awaitItem().shouldBeInstanceOf<ClaimInviteUiState.Preview>()
-                    vm.onClaimSubmit("password123", "Alice")
+                    vm.onClaimSubmit("password123", "Alice", "Anderson")
                     awaitItem().shouldBeInstanceOf<ClaimInviteUiState.Submitting>()
                     awaitItem().shouldBeInstanceOf<ClaimInviteUiState.Claimed>()
                     cancelAndIgnoreRemainingEvents()
                 }
+            }
+        }
+
+        test("onClaimSubmit joins the first and last name into a single display name") {
+            runTest(testDispatcher) {
+                val repo = mock<InviteRepository>()
+                everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
+                everySuspend { repo.claimInvite(any(), any(), any()) } returns
+                    AppResult.Success(fakeSession())
+                val vm = ClaimInviteViewModel(repo, mock(), mock())
+
+                vm.onCodeEntered(INVITE_CODE)
+                testDispatcher.scheduler.advanceUntilIdle()
+                vm.onClaimSubmit("password123", " Alice ", " Anderson ")
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                verifySuspend { repo.claimInvite(INVITE_CODE, "password123", "Alice Anderson") }
             }
         }
 
@@ -140,11 +159,11 @@ class ClaimInviteViewModelTest :
                 everySuspend { repo.lookupInvite(any()) } returns AppResult.Success(fakePreview())
                 everySuspend { repo.claimInvite(any(), any(), any()) } returns
                     AppResult.Failure(AuthError.InvalidCredentials())
-                val vm = ClaimInviteViewModel(repo, mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock())
 
                 vm.onCodeEntered(INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
-                vm.onClaimSubmit("password123", null)
+                vm.onClaimSubmit("password123", "", "")
                 testDispatcher.scheduler.advanceUntilIdle()
 
                 val error = vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Error>()
@@ -155,9 +174,9 @@ class ClaimInviteViewModelTest :
         test("onClaimSubmit before a code is known is a no-op") {
             runTest(testDispatcher) {
                 val repo = mock<InviteRepository>()
-                val vm = ClaimInviteViewModel(repo, mock())
+                val vm = ClaimInviteViewModel(repo, mock(), mock())
 
-                vm.onClaimSubmit("password123", null)
+                vm.onClaimSubmit("password123", "", "")
                 testDispatcher.scheduler.advanceUntilIdle()
 
                 vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Idle>()
@@ -185,7 +204,11 @@ class ClaimInviteViewModelTest :
                                 AppResult.Success(fakePreview())
                             }
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig)
+                val instanceRepository =
+                    mock<InstanceRepository> {
+                        everySuspend { findReachableUrl(any()) } returns "https://example.com"
+                    }
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository)
 
                 vm.start(serverUrl = "https://example.com", code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
@@ -213,12 +236,45 @@ class ClaimInviteViewModelTest :
                                 AppResult.Success(fakePreview())
                             }
                     }
-                val vm = ClaimInviteViewModel(repo, serverConfig)
+                val vm = ClaimInviteViewModel(repo, serverConfig, mock())
 
                 vm.start(serverUrl = null, code = INVITE_CODE)
                 testDispatcher.scheduler.advanceUntilIdle()
 
                 events shouldBe listOf("lookupInvite")
+                vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Preview>()
+            }
+        }
+
+        // Off-LAN invitee: the link's local URL is unreachable, so the reachability probe picks the
+        // remote (WAN) URL and that is what gets persisted before lookup. Local is offered first.
+        test("start persists the reachable URL from the link, falling back local → remote") {
+            runTest(testDispatcher) {
+                val serverConfig =
+                    mock<ServerConfig> {
+                        everySuspend { setServerUrl(any()) } returns Unit
+                    }
+                val instanceRepository =
+                    mock<InstanceRepository> {
+                        everySuspend { findReachableUrl(any()) } returns "https://remote.example.com"
+                    }
+                val repo =
+                    mock<InviteRepository> {
+                        everySuspend { lookupInvite(any()) } returns AppResult.Success(fakePreview())
+                    }
+                val vm = ClaimInviteViewModel(repo, serverConfig, instanceRepository)
+
+                vm.start(
+                    serverUrl = "http://192.168.1.5:8080",
+                    code = INVITE_CODE,
+                    remoteUrl = "https://remote.example.com",
+                )
+                testDispatcher.scheduler.advanceUntilIdle()
+
+                verifySuspend {
+                    instanceRepository.findReachableUrl(listOf("http://192.168.1.5:8080", "https://remote.example.com"))
+                }
+                verifySuspend { serverConfig.setServerUrl(ServerUrl("https://remote.example.com")) }
                 vm.state.value.shouldBeInstanceOf<ClaimInviteUiState.Preview>()
             }
         }

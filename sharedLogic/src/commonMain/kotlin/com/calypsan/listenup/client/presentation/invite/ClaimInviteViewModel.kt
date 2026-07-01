@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.invite
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.InviteRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.ServerUrl
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 class ClaimInviteViewModel(
     private val repository: InviteRepository,
     private val serverConfig: ServerConfig,
+    private val instanceRepository: InstanceRepository,
 ) : ViewModel() {
     val state: StateFlow<ClaimInviteUiState>
         field = MutableStateFlow<ClaimInviteUiState>(ClaimInviteUiState.Idle)
@@ -30,24 +32,32 @@ class ClaimInviteViewModel(
     private var code: String? = null
 
     /**
-     * Entry point for the deep-link claim path: persist the server URL the link
-     * carries, then look up the invite — in that order, on one coroutine.
+     * Entry point for the deep-link claim path: pick a reachable server URL from the link, persist
+     * it, then look up the invite — in that order, on one coroutine.
      *
-     * The single launch is load-bearing. The RPC factory resolves its base URL
-     * from [ServerConfig], so on a fresh install the lookup must not run until
-     * [ServerConfig.setServerUrl] has completed; sequencing both on one coroutine
-     * makes the set-before-lookup order deterministic. A null [serverUrl] is the
-     * manual-entry path, where the user already selected a server via Connect, so
-     * the set step is skipped and we go straight to lookup.
+     * The link carries the admin's local [serverUrl] and, when the server advertises one, a
+     * [remoteUrl] (WAN). We probe the local URL first and fall back to the remote, so an invitee off
+     * the LAN still connects — the same Never-Stranded reachability probe
+     * ([InstanceRepository.findReachableUrl]) that `ServerSelectViewModel` uses. If neither probes as
+     * reachable we still persist the local URL so the lookup surfaces a real connection error.
+     *
+     * The single launch is load-bearing. The RPC factory resolves its base URL from [ServerConfig],
+     * so on a fresh install the lookup must not run until [ServerConfig.setServerUrl] has completed;
+     * sequencing the probe, the set, and the lookup on one coroutine keeps that order deterministic.
+     * A null [serverUrl] is the manual-entry path, where the user already selected a server via
+     * Connect, so the set step is skipped and we go straight to lookup.
      */
     fun start(
         serverUrl: String?,
         code: String,
+        remoteUrl: String? = null,
     ) {
         this.code = code
         viewModelScope.launch {
-            if (serverUrl != null) {
-                serverConfig.setServerUrl(ServerUrl(serverUrl))
+            val candidates = listOfNotNull(serverUrl, remoteUrl).distinct()
+            if (candidates.isNotEmpty()) {
+                val reachable = instanceRepository.findReachableUrl(candidates) ?: candidates.first()
+                serverConfig.setServerUrl(ServerUrl(reachable))
             }
             lookUp(code)
         }
@@ -69,11 +79,19 @@ class ClaimInviteViewModel(
             }
     }
 
+    /**
+     * Claim the invite. The UI collects the user's name as separate first/last fields
+     * (matching registration); they are joined here into the single `displayName` the
+     * contract carries — the one place the combination lives, so both platforms stay in
+     * step. Blank names collapse to `null`, letting the server fall back to the invite's name.
+     */
     fun onClaimSubmit(
         password: String,
-        displayName: String? = null,
+        firstName: String,
+        lastName: String,
     ) {
         val code = code ?: return
+        val displayName = "${firstName.trim()} ${lastName.trim()}".trim().ifBlank { null }
         viewModelScope.launch {
             state.value = ClaimInviteUiState.Submitting
             state.value =

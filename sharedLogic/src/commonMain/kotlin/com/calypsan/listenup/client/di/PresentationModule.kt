@@ -86,6 +86,7 @@ internal val authPresentationModule =
             com.calypsan.listenup.client.presentation.invite.ClaimInviteViewModel(
                 repository = get(),
                 serverConfig = get(),
+                instanceRepository = get(),
             )
         }
         // LibrarySetupViewModel for initial library configuration

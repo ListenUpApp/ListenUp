@@ -57,6 +57,10 @@ object ShareLinkCodec {
             append("?t=invite")
             append("&server=").append(invite.serverUrl.percentEncodeQueryValue())
             append("&code=").append(invite.code.percentEncodeQueryValue())
+            // Optional remote (WAN) URL so an off-LAN invitee can still connect; older links omit it.
+            invite.remoteUrl?.takeIf { it.isNotBlank() }?.let {
+                append("&remote=").append(it.percentEncodeQueryValue())
+            }
         }
 
     private fun decodeHttpsForm(url: String): ShareTarget? {
@@ -88,7 +92,11 @@ object ShareLinkCodec {
     private fun decodeInviteParams(params: Parameters): ShareTarget? {
         val server = params["server"]?.takeIf { it.isNotBlank() } ?: return null
         val code = params["code"]?.takeIf { it.isNotBlank() } ?: return null
-        return ShareTarget.Invite(serverUrl = server, code = code)
+        return ShareTarget.Invite(
+            serverUrl = server,
+            code = code,
+            remoteUrl = params["remote"]?.takeIf { it.isNotBlank() },
+        )
     }
 
     /**
