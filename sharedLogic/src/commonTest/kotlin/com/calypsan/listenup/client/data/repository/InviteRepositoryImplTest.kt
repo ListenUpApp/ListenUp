@@ -14,7 +14,10 @@ import com.calypsan.listenup.api.dto.invite.InvitePreview
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.domain.model.toDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession as AuthSessionStore
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -22,6 +25,7 @@ import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode.Companion.exactly
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
@@ -69,10 +73,12 @@ class InviteRepositoryImplTest :
         fun repo(
             rpc: InviteRpcFactory = mock(),
             authSession: AuthSessionStore = mock(),
+            userRepository: UserRepository = mock { everySuspend { saveUser(any()) } returns Unit },
             deviceInfo: DeviceInfo = DeviceInfo(),
         ) = InviteRepositoryImpl(
             rpc = rpc,
             authSession = authSession,
+            userRepository = userRepository,
             deviceInfoProvider = { deviceInfo },
         )
 
@@ -112,6 +118,34 @@ class InviteRepositoryImplTest :
                         "user-1",
                     )
                 }
+            }
+        }
+
+        test("claimInvite success saves the user locally before flipping auth state") {
+            runTest {
+                val events = mutableListOf<String>()
+                val service = mock<InviteServicePublic>()
+                everySuspend { service.claimInvite(any(), any(), any(), any()) } returns
+                    AppResult.Success(fakeSession())
+                val rpc = mock<InviteRpcFactory>()
+                everySuspend { rpc.publicService() } returns service
+                val store =
+                    mock<AuthSessionStore> {
+                        everySuspend { saveAuthTokens(any(), any(), any(), any()) } calls
+                            { events.add("saveAuthTokens") }
+                    }
+                val userRepo =
+                    mock<UserRepository> {
+                        everySuspend { saveUser(any()) } calls { events.add("saveUser") }
+                    }
+
+                repo(rpc = rpc, authSession = store, userRepository = userRepo)
+                    .claimInvite(INVITE_CODE, "password123", null)
+
+                // Save-first, then authenticate — mirrors LoginUseCase so the post-auth startup
+                // check never races an empty user store and reads a null current user.
+                events shouldContainInOrder listOf("saveUser", "saveAuthTokens")
+                verifySuspend { userRepo.saveUser(fakeSession().user.toDomain()) }
             }
         }
 

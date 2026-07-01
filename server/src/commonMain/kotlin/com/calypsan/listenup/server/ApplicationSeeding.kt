@@ -3,6 +3,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.seed.SeedRunner
+import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import io.ktor.server.application.Application
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,33 @@ internal fun Application.backfillPublicProfiles() {
         }.onFailure { e ->
             if (e is kotlinx.coroutines.CancellationException) throw e
             logger.error(e) { "public_profiles startup backfill failed — projection will self-heal on next refresh" }
+        }
+    }
+}
+
+/**
+ * One-time startup backfill for the `admin_user_roster` projection.
+ *
+ * Pre-existing users (created before the projection existed) have no roster row until
+ * something refreshes them. This call populates them once, guarded by an emptiness check
+ * so subsequent boots skip it instantly. Must run after schema migrations (so
+ * `admin_user_roster` exists) and after Koin starts (so [AdminUserRosterMaintainer] is
+ * resolvable) — both are guaranteed by calling this from [module] after [installDependencies].
+ * Mirrors [backfillPublicProfiles].
+ */
+internal fun Application.backfillAdminUserRoster() {
+    val sql by inject<ListenUpDatabase>()
+    val maintainer by inject<AdminUserRosterMaintainer>()
+    runBlocking {
+        runCatching {
+            val isEmpty =
+                suspendTransaction(sql) {
+                    sql.adminUserRosterQueries.isEmpty().executeAsOne()
+                }
+            if (isEmpty) maintainer.backfillAll()
+        }.onFailure { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            logger.error(e) { "admin_user_roster startup backfill failed — projection will self-heal on next refresh" }
         }
     }
 }

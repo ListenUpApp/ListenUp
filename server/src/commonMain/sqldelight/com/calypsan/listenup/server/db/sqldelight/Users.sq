@@ -169,6 +169,17 @@ SELECT * FROM users WHERE deleted_at IS NULL AND status = 'ACTIVE';
 selectPendingLive:
 SELECT * FROM users WHERE deleted_at IS NULL AND status = 'PENDING_APPROVAL';
 
+-- Roster fields for the admin-only admin_user_roster projection (AdminUserRosterMaintainer) —
+-- any status, since the roster covers ACTIVE and PENDING_APPROVAL alike. A tombstoned or
+-- absent user yields no row and the projection refresh no-ops, matching selectIdentityLiveById.
+selectRosterRowById:
+SELECT email, display_name, role, status, can_share, created_at FROM users WHERE id = :id AND deleted_at IS NULL;
+
+-- Ids of every LIVE (non-tombstoned) ACTIVE or PENDING_APPROVAL user — drives the one-time
+-- admin_user_roster backfill (AdminUserRosterMaintainer.backfillAll).
+selectRosterUserIds:
+SELECT id FROM users WHERE deleted_at IS NULL AND status IN ('ACTIVE', 'PENDING_APPROVAL');
+
 -- Count of LIVE (non-tombstoned) ROOT+ADMIN users — the last-admin safety rail.
 countActiveAdmins:
 SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND role IN ('ROOT', 'ADMIN');

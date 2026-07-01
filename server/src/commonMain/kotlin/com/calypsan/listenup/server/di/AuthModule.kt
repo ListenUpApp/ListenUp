@@ -138,6 +138,8 @@ fun authModule(config: ApplicationConfig): Module {
                 // Nullable — playbackModule (which binds ActivityRecorder) may not be loaded.
                 activityRecorder = getOrNull(),
                 defaultGrantIssuer = getOrNull(),
+                // Nullable — the admin-roster module may not be loaded in minimal test containers.
+                adminUserRosterMaintainer = getOrNull(),
             )
         }
 
@@ -152,6 +154,8 @@ fun authModule(config: ApplicationConfig): Module {
                 publicProfileMaintainer = getOrNull(),
                 activityRecorder = getOrNull(),
                 defaultGrantIssuer = getOrNull(),
+                // Nullable — the admin-roster module may not be loaded in minimal test containers.
+                adminUserRosterMaintainer = getOrNull(),
             )
         }
 
@@ -176,6 +180,7 @@ fun authModule(config: ApplicationConfig): Module {
                 serverName = config.serverName(),
                 clock = get(),
                 defaultGrantIssuer = getOrNull(),
+                adminUserRosterMaintainer = getOrNull(),
             )
         }
 

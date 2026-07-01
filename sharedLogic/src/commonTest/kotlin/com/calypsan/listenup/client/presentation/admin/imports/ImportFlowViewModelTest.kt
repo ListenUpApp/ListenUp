@@ -53,6 +53,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.advanceTimeBy
@@ -1026,6 +1027,8 @@ private class FakeAdminRepository(
     override suspend fun getUsers(): AppResult<List<AdminUserInfo>> = getUsersResult
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> = AppResult.Success(emptyList())
+
+    override fun observeRoster(): Flow<List<AdminUserInfo>> = flowOf(emptyList())
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> = AppResult.Success(fakeAdminUser(userId, "stub@example.com"))
 

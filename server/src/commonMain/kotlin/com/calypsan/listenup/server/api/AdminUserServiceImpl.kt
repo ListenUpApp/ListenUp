@@ -18,6 +18,7 @@ import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
 import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
@@ -70,6 +71,12 @@ class AdminUserServiceImpl(
      * not receive a default ALL_BOOKS grant — approval still succeeds.
      */
     private val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
+    /**
+     * Nullable so the auth module assembles independently of the admin-roster module (test
+     * environments, phased startup). A null value means admin-roster changes here are not
+     * published — the roster self-heals via [AdminUserRosterMaintainer.backfillAll] at startup.
+     */
+    private val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
 ) : AdminUserService {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): AdminUserServiceImpl =
@@ -84,6 +91,7 @@ class AdminUserServiceImpl(
             publicProfileMaintainer,
             activityRecorder,
             defaultGrantIssuer,
+            adminUserRosterMaintainer,
         )
 
     override suspend fun listUsers(): AppResult<List<User>> {
@@ -146,38 +154,46 @@ class AdminUserServiceImpl(
         patch: AdminUserPatch,
     ): AppResult<User> {
         requireAdmin()?.let { return it }
-        return suspendTransaction(sql) {
-            val user =
-                activeUser(id)
-                    ?: return@suspendTransaction AppResult.Failure(AdminError.UserNotFound())
+        val outcome: AppResult<User> =
+            suspendTransaction(sql) {
+                val user =
+                    activeUser(id)
+                        ?: return@suspendTransaction AppResult.Failure(AdminError.UserNotFound())
 
-            val roleChange = roleChangeFor(user, patch.role)
-            roleChange?.let { return@suspendTransaction it }
+                val roleChange = roleChangeFor(user, patch.role)
+                roleChange?.let { return@suspendTransaction it }
 
-            // Merge only the non-null patch fields, then write the merged row back.
-            val mergedDisplayName = patch.displayName ?: user.displayName
-            val mergedRole = patch.role?.toColumn() ?: user.role
-            val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
-            val mergedCanShare = patch.permissions?.canShare ?: user.canShare
-            val now = clock.now().toEpochMilliseconds()
-            sql.usersQueries.updateAdminFields(
-                display_name = mergedDisplayName,
-                role = mergedRole.name,
-                can_edit = mergedCanEdit.toDbLong(),
-                can_share = mergedCanShare.toDbLong(),
-                updated_at = now,
-                id = id.value,
-            )
-            AppResult.Success(
-                user
-                    .copy(
-                        displayName = mergedDisplayName,
-                        role = mergedRole,
-                        canEdit = mergedCanEdit,
-                        canShare = mergedCanShare,
-                    ).toContract(),
-            )
+                // Merge only the non-null patch fields, then write the merged row back.
+                val mergedDisplayName = patch.displayName ?: user.displayName
+                val mergedRole = patch.role?.toColumn() ?: user.role
+                val mergedCanEdit = patch.permissions?.canEdit ?: user.canEdit
+                val mergedCanShare = patch.permissions?.canShare ?: user.canShare
+                val now = clock.now().toEpochMilliseconds()
+                sql.usersQueries.updateAdminFields(
+                    display_name = mergedDisplayName,
+                    role = mergedRole.name,
+                    can_edit = mergedCanEdit.toDbLong(),
+                    can_share = mergedCanShare.toDbLong(),
+                    updated_at = now,
+                    id = id.value,
+                )
+                AppResult.Success(
+                    user
+                        .copy(
+                            displayName = mergedDisplayName,
+                            role = mergedRole,
+                            canEdit = mergedCanEdit,
+                            canShare = mergedCanShare,
+                        ).toContract(),
+                )
+            }
+
+        // Publish AFTER commit, mirroring deleteUser's capture-then-act shape: the merged-row
+        // write is the durable fact, so the roster refresh only fires once it's actually landed.
+        if (outcome is AppResult.Success) {
+            adminUserRosterMaintainer?.refreshBestEffort(id.value)
         }
+        return outcome
     }
 
     override suspend fun deleteUser(id: UserId): AppResult<Unit> {
@@ -211,6 +227,7 @@ class AdminUserServiceImpl(
             )
             sessions.revokeAll(id)
             publicProfileMaintainer?.tombstoneBestEffort(id.value)
+            adminUserRosterMaintainer?.removeBestEffort(id.value)
         }
         return outcome
     }
@@ -269,6 +286,10 @@ class AdminUserServiceImpl(
                 if (role != null) defaultGrantIssuer?.grantDefaultAllBooks(request.userId.value, role)
                 publicProfileMaintainer?.refreshBestEffort(request.userId.value)
                 activityRecorder?.record(request.userId.value, ActivityType.USER_JOINED)
+                adminUserRosterMaintainer?.refreshBestEffort(request.userId.value)
+            } else {
+                // Denied users are never active and must leave the admin roster.
+                adminUserRosterMaintainer?.removeBestEffort(request.userId.value)
             }
         }
         return outcome

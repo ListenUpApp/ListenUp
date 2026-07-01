@@ -130,6 +130,7 @@ class AdminRepositoryImplUserTest :
                 inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                 libraryAdminRpc = mock(),
                 serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
+                adminUserRosterDao = mock(),
             )
 
         test("getUsers maps contract Users to AdminUserInfo, ROOT user has isRoot=true") {
@@ -266,6 +267,7 @@ class AdminRepositoryImplUserTest :
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                     libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
+                    adminUserRosterDao = mock(),
                     rpcCacheInvalidator = { invalidations++ },
                 )
 
@@ -312,6 +314,7 @@ class AdminRepositoryImplUserTest :
                     inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
                     libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
+                    adminUserRosterDao = mock(),
                 )
             val result = repo.setRegistrationPolicy(RegistrationPolicy.OPEN)
             (result is AppResult.Failure) shouldBe true

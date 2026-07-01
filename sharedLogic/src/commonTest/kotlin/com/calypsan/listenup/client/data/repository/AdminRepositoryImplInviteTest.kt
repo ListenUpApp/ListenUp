@@ -130,6 +130,7 @@ class AdminRepositoryImplInviteTest :
                 inviteRpc = FakeInviteRpcFactory(service),
                 libraryAdminRpc = mock(),
                 serverConfig = FakeServerConfig(serverUrl),
+                adminUserRosterDao = mock(),
             )
 
         test("getInvites maps InviteSummary list to InviteInfo with reconstructed url") {
@@ -232,6 +233,7 @@ class AdminRepositoryImplInviteTest :
                     inviteRpc = throwingFactory,
                     libraryAdminRpc = mock(),
                     serverConfig = FakeServerConfig(),
+                    adminUserRosterDao = mock(),
                 )
 
             (repo.getInvites() is AppResult.Failure) shouldBe true

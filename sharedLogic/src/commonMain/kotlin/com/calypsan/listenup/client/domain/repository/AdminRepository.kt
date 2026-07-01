@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.model.InviteInfo
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.model.ServerSettings
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository contract for admin operations.
@@ -40,6 +41,15 @@ interface AdminRepository {
      * @return [AppResult] carrying list of pending users, or a failure.
      */
     suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>>
+
+    /**
+     * Observe the live admin user roster from the Room-backed `admin_user_roster` sync
+     * domain — the offline-first, always-current projection of ACTIVE/PENDING_APPROVAL
+     * users backing the admin Users and pending-approval screens.
+     *
+     * @return [Flow] emitting the full roster whenever it changes.
+     */
+    fun observeRoster(): Flow<List<AdminUserInfo>>
 
     /**
      * Approve a pending user registration.
