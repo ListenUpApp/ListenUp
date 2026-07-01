@@ -53,8 +53,8 @@ private struct RootView: View {
                 if let url = activity.webpageURL { deepLinkRouter.receive(url: url) }
             }
             .sheet(isPresented: invitePresented) {
-                if case .claimInvite(let serverURL, let code) = deepLinkRouter.outcome {
-                    ClaimInviteView(deepLinkServerURL: serverURL, deepLinkCode: code) {
+                if case .claimInvite(let serverURL, let code, let remoteURL) = deepLinkRouter.outcome {
+                    ClaimInviteView(deepLinkServerURL: serverURL, deepLinkCode: code, deepLinkRemoteURL: remoteURL) {
                         deepLinkRouter.consume()
                     }
                 }

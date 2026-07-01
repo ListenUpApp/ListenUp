@@ -13,7 +13,7 @@ final class DeepLinkRouter {
     /// The resolved, view-facing outcome of the current pending share-link target.
     enum Outcome: Equatable {
         case none
-        case claimInvite(serverURL: String, code: String)
+        case claimInvite(serverURL: String, code: String, remoteURL: String?)
         case openBook(id: String)
         case wrongServer
         case notConnected
@@ -58,7 +58,7 @@ final class DeepLinkRouter {
         switch onEnum(of: target) {
         case .invite(let invite):
             Log.info("DeepLink: resolved invite → presenting claim sheet")
-            outcome = .claimInvite(serverURL: invite.serverUrl, code: invite.code)
+            outcome = .claimInvite(serverURL: invite.serverUrl, code: invite.code, remoteURL: invite.remoteUrl)
         case .book(let book):
             Task { @MainActor [weak self] in await self?.resolveBook(book) }
         case .unknown:

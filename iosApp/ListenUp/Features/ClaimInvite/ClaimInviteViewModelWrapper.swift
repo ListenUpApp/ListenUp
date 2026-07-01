@@ -32,12 +32,12 @@ final class ClaimInviteViewModelWrapper {
         viewModel.onCodeEntered(code: code.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    func start(serverURL: String?, code: String) {
-        viewModel.start(serverUrl: serverURL, code: code)
+    func start(serverURL: String?, code: String, remoteURL: String?) {
+        viewModel.start(serverUrl: serverURL, code: code, remoteUrl: remoteURL)
     }
 
-    func claim(password: String, displayName: String?) {
-        viewModel.onClaimSubmit(password: password, displayName: displayName)
+    func claim(password: String, firstName: String, lastName: String) {
+        viewModel.onClaimSubmit(password: password, firstName: firstName, lastName: lastName)
     }
 
     // MARK: - State mapping
