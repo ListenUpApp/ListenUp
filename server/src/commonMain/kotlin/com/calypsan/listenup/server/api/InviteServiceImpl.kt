@@ -28,6 +28,7 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.Invites
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 import kotlin.time.Duration.Companion.days
@@ -73,11 +74,26 @@ class InviteServiceImpl(
      * (test environments, phased startup). A null value silently skips default grant issuance.
      */
     private val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
+    /**
+     * Nullable so the invite module assembles independently of the admin-roster module (test
+     * environments, phased startup). A null value silently skips the roster-projection refresh.
+     */
+    private val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
 ) : InviteService,
     InviteServicePublic {
     /** Returns a copy scoped to the given [provider]. Route handlers call this per-request. */
     fun copyWith(provider: PrincipalProvider): InviteServiceImpl =
-        InviteServiceImpl(db, codeGenerator, hasher, sessionIssuer, serverName, clock, provider, defaultGrantIssuer)
+        InviteServiceImpl(
+            db,
+            codeGenerator,
+            hasher,
+            sessionIssuer,
+            serverName,
+            clock,
+            provider,
+            defaultGrantIssuer,
+            adminUserRosterMaintainer,
+        )
 
     override suspend fun createInvite(
         email: String,
@@ -173,6 +189,10 @@ class InviteServiceImpl(
         // is needed; a MEMBER claim that fails to grant self-heals on next login. ROOT/ADMIN invites
         // are a no-op inside the issuer (role gate).
         defaultGrantIssuer?.grantDefaultAllBooks(user.id, user.role)
+        // Best-effort admin_user_roster refresh — mirrors AuthServiceImpl.register's
+        // publicProfileMaintainer wiring. Never throws (see refreshBestEffort); a claim that
+        // fails to publish self-heals on the next backfillAll pass.
+        adminUserRosterMaintainer?.refreshBestEffort(user.id)
         return AppResult.Success(sessionIssuer.issue(user, label = null, deviceInfo = deviceInfo))
     }
 

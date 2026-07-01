@@ -176,6 +176,7 @@ fun authModule(config: ApplicationConfig): Module {
                 serverName = config.serverName(),
                 clock = get(),
                 defaultGrantIssuer = getOrNull(),
+                adminUserRosterMaintainer = getOrNull(),
             )
         }
 
