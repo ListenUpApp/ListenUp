@@ -129,13 +129,15 @@ class ProfileEditOfflineTest :
                         offlineEditor = offlineEditor,
                     )
 
-                repo.updateProfile(
-                    firstName = null,
-                    lastName = null,
-                    tagline = null,
-                    password = PasswordChange(currentPassword = "old12345", newPassword = "newpass123"),
-                )
+                val result =
+                    repo.updateProfile(
+                        firstName = null,
+                        lastName = null,
+                        tagline = null,
+                        password = PasswordChange(currentPassword = "old12345", newPassword = "newpass123"),
+                    )
 
+                result shouldBe AppResult.Success(Unit)
                 db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).firstOrNull() shouldBe null
                 db.close()
             }

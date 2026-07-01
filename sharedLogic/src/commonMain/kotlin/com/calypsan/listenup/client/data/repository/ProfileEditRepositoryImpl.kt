@@ -8,6 +8,7 @@ import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
+import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
@@ -115,26 +116,31 @@ internal class ProfileEditRepositoryImpl(
         lastName: String?,
         tagline: String?,
         password: PasswordChange?,
-    ): AppResult<Unit> {
+    ): AppResult<Unit> =
         // Password requires immediate server validation — never queue it. A password-bearing
-        // change stays fully synchronous online (preserving today's behavior).
+        // change stays fully synchronous online; a pure name/tagline change is offline-first.
         if (password != null) {
-            return updateProfileOnline(firstName, lastName, tagline, password)
+            updateProfileOnline(firstName, lastName, tagline, password)
+        } else {
+            updateProfileOffline(firstName, lastName, tagline)
         }
+
+    /**
+     * The offline-first path (no password): apply the optimistic name/tagline merge to Room and
+     * enqueue a durable pending op via [OfflineEditor], replaying to the server on reconnect.
+     */
+    private suspend fun updateProfileOffline(
+        firstName: String?,
+        lastName: String?,
+        tagline: String?,
+    ): AppResult<Unit> {
         val user =
             userDao.getCurrentUser()
                 ?: run {
                     logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
                     return AppResult.Failure(ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)))
                 }
-        val displayName =
-            if (firstName != null || lastName != null) {
-                listOfNotNull(firstName ?: user.firstName, lastName ?: user.lastName)
-                    .joinToString(" ")
-                    .ifBlank { null }
-            } else {
-                null
-            }
+        val displayName = mergedDisplayName(firstName, lastName, user)
         val now = currentEpochMilliseconds()
         return offlineEditor.edit(
             ProfileEdit,
@@ -160,8 +166,8 @@ internal class ProfileEditRepositoryImpl(
      * The password-bearing path: consolidates name, tagline, and password into one
      * [com.calypsan.listenup.api.ProfileService.updateMyProfile] RPC call, then updates local
      * Room on success so the UI reflects changes immediately. Always synchronous online — this
-     * is the exact behavior [updateProfile] had before the offline-first split, preserved
-     * verbatim for the password-bearing case.
+     * preserves the pre-split behavior for the password-bearing case, where immediate
+     * current-password validation from the server must never be queued.
      */
     private suspend fun updateProfileOnline(
         firstName: String?,
@@ -179,15 +185,7 @@ internal class ProfileEditRepositoryImpl(
                 }
 
             // Build the displayName for the RPC only when a name change is requested.
-            val displayName =
-                if (firstName != null || lastName != null) {
-                    listOfNotNull(
-                        firstName ?: user.firstName,
-                        lastName ?: user.lastName,
-                    ).joinToString(" ").ifBlank { null }
-                } else {
-                    null
-                }
+            val displayName = mergedDisplayName(firstName, lastName, user)
 
             rpcCall {
                 profileRpcFactory.get().updateMyProfile(
@@ -295,6 +293,23 @@ internal class ProfileEditRepositoryImpl(
         }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────
+
+    /**
+     * Collapses an optional first/last-name change into a display name, merging each unchanged
+     * half from [user], or null when neither name field changed (so the patch leaves it untouched).
+     */
+    private fun mergedDisplayName(
+        firstName: String?,
+        lastName: String?,
+        user: UserEntity,
+    ): String? =
+        if (firstName != null || lastName != null) {
+            listOfNotNull(firstName ?: user.firstName, lastName ?: user.lastName)
+                .joinToString(" ")
+                .ifBlank { null }
+        } else {
+            null
+        }
 
     /**
      * Run an RPC call, converting the contract-layer [WireAppResult] to the client [AppResult].
