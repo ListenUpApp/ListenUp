@@ -8,19 +8,23 @@ import com.calypsan.listenup.api.result.AppResult
 /**
  * Repository contract for profile editing operations.
  *
- * Provides a single [updateProfile] for all text-field changes (name, tagline, password)
- * and separate methods for avatar binary transport ([uploadAvatar], [revertToAutoAvatar]).
- *
- * Implementations apply changes via the [com.calypsan.listenup.api.ProfileService] RPC and
- * update the local Room cache on success so the UI reflects changes immediately.
+ * [updateProfile] splits by whether a password change is present: name/tagline changes are
+ * offline-first (written to Room and queued for durable replay on reconnect); a password-bearing
+ * change stays online (immediate server-side current-password validation, never queued). Avatar
+ * binary transport ([uploadAvatar], [revertToAutoAvatar]) also stays online, unaffected by the
+ * offline-first split.
  */
 interface ProfileEditRepository {
     /**
-     * Persist all changed profile text fields in one RPC call.
+     * Persist changed profile text fields.
      *
      * Only non-null arguments are sent to the server; null means "no change for this field."
-     * On success, the local Room cache is updated for any changed field so the UI
-     * reflects the change immediately without waiting for the next sync.
+     * When [password] is null, the change is offline-first: it writes the local Room cache
+     * and enqueues a durable pending op, so the UI reflects the change immediately and the
+     * edit survives being offline, replaying to the server on reconnect. When [password] is
+     * non-null, the entire call — including any name/tagline change bundled with it — stays
+     * fully synchronous online, since the server must validate the current password
+     * immediately; it is never queued.
      *
      * @param firstName The user's first name, or null to leave unchanged.
      * @param lastName The user's last name, or null to leave unchanged.

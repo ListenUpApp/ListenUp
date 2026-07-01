@@ -45,6 +45,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.PublicProfileDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncRenovationModule`
  *  - [com.calypsan.listenup.client.data.remote.AuthRpcFactory] — `clientAuthModule`
  *  - [com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
@@ -77,13 +78,15 @@ internal val socialModule: Module =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // ProfileEditRepository for profile editing operations (RPC-dispatched mutations).
+        // ProfileEditRepository for profile editing operations: name/tagline offline-first via
+        // OfflineEditor, password + avatar stay online (RPC-dispatched mutations).
         single<ProfileEditRepository> {
             ProfileEditRepositoryImpl(
                 userDao = get(),
                 profileRpcFactory = get(),
                 avatarUploader = avatarUploaderOf(get()),
                 imageStorage = get(),
+                offlineEditor = get(),
             )
         }
 

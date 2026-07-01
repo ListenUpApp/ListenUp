@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
+import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
@@ -34,6 +36,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PreferencesEdit
+import com.calypsan.listenup.client.data.sync.ProfileEdit
 import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -445,6 +448,15 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 PreferencesEdit.name to
                                     RpcUpdateOpSender(PreferencesEdit) { _, patch ->
                                         TestUserPreferencesRpcFactory(testClient).get().updateMyPreferences(patch)
+                                    },
+                                // No harness test yet drains a "profile" op end-to-end (the RPC
+                                // route isn't mounted server-side above, and no ProfileEditRepository
+                                // is wired in this harness); the entry exists so a future e2e test's
+                                // queued op has a sender to resolve against, mirroring the
+                                // Preferences registration above.
+                                ProfileEdit.name to
+                                    RpcUpdateOpSender(ProfileEdit) { _, patch ->
+                                        TestProfileRpcFactory(testClient).get().updateMyProfile(patch)
                                     },
                             ),
                         ),
@@ -986,6 +998,37 @@ internal class TestUserPreferencesRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<UserPreferencesService>()
+}
+
+/**
+ * Test-only [ProfileRpcFactory] that opens a kotlinx.rpc [ProfileService] proxy
+ * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
+ *
+ * Mirrors [TestUserPreferencesRpcFactory] exactly, substituting [ProfileService]. No harness
+ * test mounts the service server-side yet (see the `ProfileEdit` `byDomain` registration
+ * above) — this factory exists so a future e2e test for the profile offline-edit push can
+ * resolve a sender the same way every other domain does.
+ */
+internal class TestProfileRpcFactory(
+    private val httpClient: HttpClient,
+) : ProfileRpcFactory {
+    private val mutex = Mutex()
+    private var cachedService: ProfileService? = null
+
+    override suspend fun get(): ProfileService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
+
+    override suspend fun invalidate() {
+        mutex.withLock { cachedService = null }
+    }
+
+    private suspend fun connect(): ProfileService =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<ProfileService>()
 }
 
 /**

@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
@@ -26,6 +27,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
 import com.calypsan.listenup.client.data.sync.PreferencesEdit
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
+import com.calypsan.listenup.client.data.sync.ProfileEdit
 import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.data.sync.SseClient
@@ -139,6 +141,10 @@ internal val clientSyncRenovationModule =
                         PreferencesEdit.name to
                             RpcUpdateOpSender(PreferencesEdit) { _, patch ->
                                 get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
+                            },
+                        ProfileEdit.name to
+                            RpcUpdateOpSender(ProfileEdit) { _, patch ->
+                                get<ProfileRpcFactory>().get().updateMyProfile(patch)
                             },
                     ),
             )

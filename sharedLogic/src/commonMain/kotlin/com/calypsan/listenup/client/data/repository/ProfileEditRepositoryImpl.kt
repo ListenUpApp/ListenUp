@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.ProfileEdit
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -83,27 +85,85 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
 /**
  * Repository for profile editing operations.
  *
- * [updateProfile] consolidates all text-field changes (name, tagline, password) into one
- * [com.calypsan.listenup.api.ProfileService.updateMyProfile] RPC call, then updates local
- * Room on success so the UI reflects changes immediately.
+ * [updateProfile] splits on whether a password change is present: a pure name/tagline change
+ * routes through [OfflineEditor] (offline-first — writes Room and queues for durable replay on
+ * reconnect); a password-bearing change stays fully synchronous online via
+ * [updateProfileOnline], because password changes need immediate current-password validation
+ * from the server and must never be queued.
  *
  * Avatar upload delegates to [AvatarUploader] (a REST multipart POST) and flips the local
  * [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` on success.
+ * Avatar methods stay online-only, unchanged by the offline-first split.
  */
 internal class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
     private val profileRpcFactory: ProfileRpcFactory,
     private val avatarUploader: AvatarUploader,
     private val imageStorage: ImageStorage,
+    private val offlineEditor: OfflineEditor,
 ) : ProfileEditRepository {
     /**
-     * Persist all changed profile text fields in one RPC call.
+     * Persist changed profile text fields.
      *
-     * Null arguments are forwarded as-is to [UpdateProfileRequest], which the server treats
-     * as "no change for this field." On success, Room is updated for name and tagline if
-     * the corresponding argument is non-null; password changes have no local cache effect.
+     * A password-bearing change is routed to [updateProfileOnline] — always synchronous,
+     * never queued, since the server must validate the current password immediately. A pure
+     * name/tagline change (no password) is offline-first: it writes Room and enqueues a
+     * durable pending op via [OfflineEditor], replaying to the server on reconnect.
      */
     override suspend fun updateProfile(
+        firstName: String?,
+        lastName: String?,
+        tagline: String?,
+        password: PasswordChange?,
+    ): AppResult<Unit> {
+        // Password requires immediate server validation — never queue it. A password-bearing
+        // change stays fully synchronous online (preserving today's behavior).
+        if (password != null) {
+            return updateProfileOnline(firstName, lastName, tagline, password)
+        }
+        val user =
+            userDao.getCurrentUser()
+                ?: run {
+                    logger.error { NO_CURRENT_USER_FOUND_MESSAGE }
+                    return AppResult.Failure(ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)))
+                }
+        val displayName =
+            if (firstName != null || lastName != null) {
+                listOfNotNull(firstName ?: user.firstName, lastName ?: user.lastName)
+                    .joinToString(" ")
+                    .ifBlank { null }
+            } else {
+                null
+            }
+        val now = currentEpochMilliseconds()
+        return offlineEditor.edit(
+            ProfileEdit,
+            entityId = user.id.value,
+            patch = UpdateProfileRequest(displayName = displayName, tagline = tagline),
+        ) {
+            if (firstName != null || lastName != null) {
+                userDao.updateName(
+                    userId = user.id.value,
+                    firstName = firstName ?: user.firstName ?: "",
+                    lastName = lastName ?: user.lastName ?: "",
+                    displayName = displayName ?: user.displayName,
+                    updatedAt = now,
+                )
+            }
+            if (tagline != null) {
+                userDao.updateTagline(userId = user.id.value, tagline = tagline.ifEmpty { null }, updatedAt = now)
+            }
+        }
+    }
+
+    /**
+     * The password-bearing path: consolidates name, tagline, and password into one
+     * [com.calypsan.listenup.api.ProfileService.updateMyProfile] RPC call, then updates local
+     * Room on success so the UI reflects changes immediately. Always synchronous online — this
+     * is the exact behavior [updateProfile] had before the offline-first split, preserved
+     * verbatim for the password-bearing case.
+     */
+    private suspend fun updateProfileOnline(
         firstName: String?,
         lastName: String?,
         tagline: String?,
