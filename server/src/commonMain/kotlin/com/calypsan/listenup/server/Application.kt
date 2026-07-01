@@ -40,6 +40,7 @@ fun Application.module() {
     )
 
     backfillPublicProfiles()
+    backfillAdminUserRoster()
     launchSeeders(applicationScope, seedProfile, resolvedLibraryPaths.isNotEmpty())
 
     installRequestPipeline()

@@ -2,6 +2,7 @@ package com.calypsan.listenup.server
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.server.db.DatabaseHandle
+import com.calypsan.listenup.server.di.adminUserRosterModule
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
@@ -96,6 +97,7 @@ internal fun Application.installDependencies(
         modules += embeddedmetaModule
         modules += syncModule()
         modules += publicProfileModule()
+        modules += adminUserRosterModule()
         modules += shelfModule()
         val httpPort =
             environment.config
