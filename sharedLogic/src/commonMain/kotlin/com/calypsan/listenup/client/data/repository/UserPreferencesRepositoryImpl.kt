@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.data.local.db.UserPreferencesDao
 import com.calypsan.listenup.client.data.local.db.UserPreferencesEntity
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.PreferencesEdit
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.UserPreferences
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
@@ -39,9 +41,10 @@ private val DEFAULTS =
  *   change lands live once a [com.calypsan.listenup.api.sync.SyncControl.PreferencesChanged] nudge
  *   re-pulls it.
  * - [getPreferences] fetches from the server and writes through to Room (authoritative refresh).
- * - The setters write Room optimistically (instant UI), then push the single-field PATCH and write
- *   the server's merged result through to Room. Re-applying identical values is a no-op, so neither a
- *   local echo nor a firehose echo flickers.
+ * - The setters write Room optimistically (instant UI) and enqueue the single-field PATCH through
+ *   [OfflineEditor] — so a change made offline persists and replays on reconnect rather than being
+ *   lost. Re-applying identical values is a no-op, so a firehose echo (via [getPreferences]) never
+ *   flickers.
  *
  * All fallible suspend functions return [AppResult]; a thrown RPC transport error is folded into a
  * typed [AppResult.Failure] (the data layer never throws; cancellation is always re-raised).
@@ -50,6 +53,7 @@ internal class UserPreferencesRepositoryImpl(
     private val rpcFactory: UserPreferencesRpcFactory,
     private val dao: UserPreferencesDao,
     private val authSession: AuthSession,
+    private val offlineEditor: OfflineEditor,
 ) : UserPreferencesRepository {
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override fun observePreferences(): Flow<UserPreferences> =
@@ -95,20 +99,21 @@ internal class UserPreferencesRepositoryImpl(
         ) { it.copy(shakeToResetSleepTimer = enabled) }
 
     /**
-     * Offline-first write: apply [mutate] to the cached row and write it through immediately (instant
-     * UI), then push [patch] and write the server's authoritative merged result through. A failed push
-     * leaves the optimistic value in place — the next [getPreferences] or firehose nudge reconciles it.
+     * Offline-first write: apply [mutate] to the cached row inside the outbox transaction and
+     * enqueue [patch] for durable replay on reconnect. The server's authoritative merged result
+     * arrives via the SSE firehose (`onPreferencesChanged`) and reconciles the cache — so a change
+     * made offline is no longer lost, and no inline RPC is fired.
      */
     private suspend fun optimisticUpdate(
         patch: UpdateUserPreferencesRequest,
         mutate: (UserPreferences) -> UserPreferences,
     ): AppResult<Unit> {
-        val current = cachedOrDefaults()
-        cache(mutate(current))
-        return rpcCall { rpcFactory.get().updateMyPreferences(patch) }
-            .map { it.toDomain() }
-            .also { result -> if (result is AppResult.Success) cache(result.data) }
-            .toUnit()
+        val userId =
+            authSession.getUserId()
+                ?: return AppResult.Failure(ErrorMapper.map(IllegalStateException("No signed-in user")))
+        return offlineEditor.edit(PreferencesEdit, userId, patch) {
+            cache(mutate(cachedOrDefaults()))
+        }
     }
 
     /** The current cached preferences, or [DEFAULTS] when nothing is cached / no user is signed in. */
@@ -144,12 +149,6 @@ internal class UserPreferencesRepositoryImpl(
         } catch (e: Throwable) {
             logger.warn(e) { "User-preferences RPC failed" }
             AppResult.Failure(ErrorMapper.map(e))
-        }
-
-    private fun <T> AppResult<T>.toUnit(): AppResult<Unit> =
-        when (this) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> this
         }
 
     private fun UserPreferencesDto.toDomain(): UserPreferences =

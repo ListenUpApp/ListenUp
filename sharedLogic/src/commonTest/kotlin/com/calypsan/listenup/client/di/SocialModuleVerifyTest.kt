@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -30,6 +31,7 @@ import org.koin.test.verify.verify
  *  - [PublicProfileDao] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [PresenceRefreshSignal] — owned by `clientSyncRenovationModule`.
+ *  - [OfflineEditor] — owned by `clientSyncRenovationModule`.
  *  - [AuthRpcFactory] — owned by `clientAuthModule`.
  *  - [AvatarDownloadRepository] — owned by `mediaModule`.
  *  - [PlaybackPositionRepository] — owned by `listeningModule`.
@@ -49,6 +51,7 @@ class SocialModuleVerifyTest :
                         PublicProfileDao::class,
                         ImageStorage::class,
                         PresenceRefreshSignal::class,
+                        OfflineEditor::class,
                         AuthRpcFactory::class,
                         AvatarDownloadRepository::class,
                         PlaybackPositionRepository::class,

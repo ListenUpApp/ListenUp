@@ -95,9 +95,7 @@ internal val bookModule: Module =
                 bookRpcFactory = get(),
                 collectionRpcFactory = get(),
                 bookDao = get(),
-                pendingQueue = get(),
-                transactionRunner = get(),
-                authSession = get(),
+                offlineEditor = get(),
             )
         }
 

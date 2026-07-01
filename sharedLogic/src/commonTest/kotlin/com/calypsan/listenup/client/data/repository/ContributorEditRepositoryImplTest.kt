@@ -5,7 +5,14 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.ContributorDao
+import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.ContributorId
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -42,9 +49,26 @@ class ContributorEditRepositoryImplTest :
                         everySuspend { contributorService() } returns service
                     }
 
+                val repo =
+                    ContributorEditRepositoryImpl(
+                        contributorRpcFactory = factory,
+                        contributorDao = mock<ContributorDao>(),
+                        offlineEditor =
+                            OfflineEditor(
+                                pendingQueue =
+                                    PendingOperationQueue(
+                                        dao = mock<PendingOperationV2Dao>(),
+                                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                                    ),
+                                transactionRunner =
+                                    object : TransactionRunner {
+                                        override suspend fun <R> atomically(block: suspend () -> R): R = block()
+                                    },
+                                authSession = FakeAuthSession(userId = "u1"),
+                            ),
+                    )
                 val result =
-                    ContributorEditRepositoryImpl(factory)
-                        .mergeContributor(ContributorId("source"), ContributorId("target"))
+                    repo.mergeContributor(ContributorId("source"), ContributorId("target"))
 
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()

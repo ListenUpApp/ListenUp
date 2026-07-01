@@ -7,12 +7,19 @@ import com.calypsan.listenup.api.dto.profile.Profile
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
+import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -30,9 +37,10 @@ import kotlinx.coroutines.test.runTest
 /**
  * Unit tests for [ProfileEditRepositoryImpl].
  *
- * Covers [ProfileEditRepositoryImpl.updateProfile] — the consolidated RPC call for all
- * text-field changes — plus the avatar REST transport helpers. Each test verifies that the
- * correct [ProfileService.updateMyProfile] request is sent and that Room is updated on success.
+ * Covers [ProfileEditRepositoryImpl.updateProfile] — offline-first for name/tagline (writes
+ * Room + enqueues via [OfflineEditor], no inline RPC), fully online for a password-bearing
+ * change (the consolidated [ProfileService.updateMyProfile] RPC call) — plus the avatar REST
+ * transport helpers.
  */
 class ProfileEditRepositoryImplTest :
     FunSpec({
@@ -66,11 +74,34 @@ class ProfileEditRepositoryImplTest :
         /** No-op [AvatarUploader] — avatar upload is not exercised in unit tests. */
         val noOpUploader = AvatarUploader { _, _ -> AppResult.Success(Unit) }
 
+        /**
+         * Builds a real [OfflineEditor] over a mocked [PendingOperationV2Dao] — no Room needed,
+         * since [PendingOperationQueue] only calls the DAO interface directly. The queue's
+         * [PendingOperationSender] is never exercised here (nothing drains synchronously in
+         * these unit tests); the transaction runner runs [OfflineEditor]'s local write inline.
+         */
+        fun buildOfflineEditor(
+            pendingDao: PendingOperationV2Dao = mock<PendingOperationV2Dao> { everySuspend { insert(any()) } returns Unit },
+            authSession: AuthSession = FakeAuthSession(userId = userId),
+        ): OfflineEditor {
+            val queue =
+                PendingOperationQueue(
+                    dao = pendingDao,
+                    sender = PendingOperationSender { AppResult.Success(Unit) },
+                )
+            val txRunner =
+                object : TransactionRunner {
+                    override suspend fun <R> atomically(block: suspend () -> R): R = block()
+                }
+            return OfflineEditor(pendingQueue = queue, transactionRunner = txRunner, authSession = authSession)
+        }
+
         fun repo(
             userDao: UserDao = mock(),
             service: ProfileService = mock(),
             avatarUploader: AvatarUploader = noOpUploader,
             imageStorage: ImageStorage = mock<ImageStorage>(),
+            offlineEditor: OfflineEditor = buildOfflineEditor(),
         ): ProfileEditRepositoryImpl {
             val rpcFactory: ProfileRpcFactory = mock()
             everySuspend { rpcFactory.get() } returns service
@@ -80,23 +111,29 @@ class ProfileEditRepositoryImplTest :
                 profileRpcFactory = rpcFactory,
                 avatarUploader = avatarUploader,
                 imageStorage = imageStorage,
+                offlineEditor = offlineEditor,
             )
         }
 
-        // ── updateProfile — tagline only ──────────────────────────────────────
+        // ── updateProfile — tagline only (offline-first: no password) ────────
 
-        test("updateProfile sends only tagline when name and password are null") {
+        test("updateProfile with tagline only and no password is offline-first: writes Room, enqueues, no RPC") {
             runTest {
+                // service is a bare mock with no stub for updateMyProfile — if the offline path
+                // regressed into an inline RPC call, the unstubbed invocation would throw.
                 val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
+                val pendingDao = mock<PendingOperationV2Dao>()
+                everySuspend { pendingDao.insert(any()) } returns Unit
                 everySuspend { userDao.getCurrentUser() } returns userEntity
-                everySuspend {
-                    service.updateMyProfile(UpdateProfileRequest(tagline = "Hi"))
-                } returns WireAppResult.Success(stubProfile)
                 everySuspend { userDao.updateTagline(any(), any(), any()) } returns Unit
 
                 val result =
-                    repo(userDao = userDao, service = service).updateProfile(
+                    repo(
+                        userDao = userDao,
+                        service = service,
+                        offlineEditor = buildOfflineEditor(pendingDao = pendingDao),
+                    ).updateProfile(
                         firstName = null,
                         lastName = null,
                         tagline = "Hi",
@@ -104,22 +141,21 @@ class ProfileEditRepositoryImplTest :
                     )
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                verifySuspend { service.updateMyProfile(UpdateProfileRequest(tagline = "Hi")) }
                 verifySuspend { userDao.updateTagline(userId, "Hi", any()) }
+                verifySuspend { pendingDao.insert(any()) }
             }
         }
 
-        test("updateProfile returns Failure when service returns wire failure") {
+        test("updateProfile with no signed-in user returns Failure without writing Room") {
             runTest {
-                val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
                 everySuspend { userDao.getCurrentUser() } returns userEntity
-                everySuspend {
-                    service.updateMyProfile(UpdateProfileRequest(tagline = "Hi"))
-                } returns WireAppResult.Failure(ProfileError.WrongPassword())
 
                 val result =
-                    repo(userDao = userDao, service = service).updateProfile(
+                    repo(
+                        userDao = userDao,
+                        offlineEditor = buildOfflineEditor(authSession = FakeAuthSession(userId = null)),
+                    ).updateProfile(
                         firstName = null,
                         lastName = null,
                         tagline = "Hi",
@@ -130,20 +166,21 @@ class ProfileEditRepositoryImplTest :
             }
         }
 
-        // ── updateProfile — name only ─────────────────────────────────────────
+        // ── updateProfile — name only (offline-first: no password) ───────────
 
-        test("updateProfile sends displayName computed from firstName+lastName and updates Room") {
+        test("updateProfile with name only and no password is offline-first: writes Room and enqueues") {
             runTest {
-                val service = mock<ProfileService>()
                 val userDao = mock<UserDao>()
+                val pendingDao = mock<PendingOperationV2Dao>()
+                everySuspend { pendingDao.insert(any()) } returns Unit
                 everySuspend { userDao.getCurrentUser() } returns userEntity
-                everySuspend {
-                    service.updateMyProfile(UpdateProfileRequest(displayName = "Bob Jones"))
-                } returns WireAppResult.Success(stubProfile)
                 everySuspend { userDao.updateName(any(), any(), any(), any(), any()) } returns Unit
 
                 val result =
-                    repo(userDao = userDao, service = service).updateProfile(
+                    repo(
+                        userDao = userDao,
+                        offlineEditor = buildOfflineEditor(pendingDao = pendingDao),
+                    ).updateProfile(
                         firstName = "Bob",
                         lastName = "Jones",
                         tagline = null,
@@ -152,11 +189,9 @@ class ProfileEditRepositoryImplTest :
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
                 verifySuspend {
-                    service.updateMyProfile(UpdateProfileRequest(displayName = "Bob Jones"))
-                }
-                verifySuspend {
                     userDao.updateName(userId, "Bob", "Jones", "Bob Jones", any())
                 }
+                verifySuspend { pendingDao.insert(any()) }
             }
         }
 

@@ -1,6 +1,5 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookContributorInput
 import com.calypsan.listenup.api.dto.BookGenreInput
 import com.calypsan.listenup.api.dto.BookSeriesInput
@@ -9,11 +8,10 @@ import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.sync.PendingOperationQueue
-import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.data.sync.BookEdit
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -43,18 +41,13 @@ internal class BookEditRepositoryImpl(
     private val bookRpcFactory: BookRpcFactory,
     private val collectionRpcFactory: CollectionRpcFactory,
     private val bookDao: BookDao,
-    private val pendingQueue: PendingOperationQueue,
-    private val transactionRunner: TransactionRunner,
-    private val authSession: AuthSession,
+    private val offlineEditor: OfflineEditor,
 ) : BookEditRepository {
     override suspend fun updateBook(
         id: BookId,
         patch: BookUpdate,
-    ): AppResult<Unit> {
-        val ownerUserId =
-            authSession.getUserId()
-                ?: return AppResult.Failure(ErrorMapper.map(IllegalStateException("No signed-in user")))
-        transactionRunner.atomically {
+    ): AppResult<Unit> =
+        offlineEditor.edit(BookEdit, id.value, patch) {
             bookDao.getById(id)?.let { existing ->
                 bookDao.upsert(
                     existing.copy(
@@ -76,15 +69,6 @@ internal class BookEditRepositoryImpl(
                 )
             }
         }
-        pendingQueue.enqueue(
-            domainName = "books",
-            entityId = id.value,
-            opType = "update",
-            payload = contractJson.encodeToString(BookUpdate.serializer(), patch),
-            ownerUserId = ownerUserId,
-        )
-        return AppResult.Success(Unit)
-    }
 
     override suspend fun setBookContributors(
         id: BookId,

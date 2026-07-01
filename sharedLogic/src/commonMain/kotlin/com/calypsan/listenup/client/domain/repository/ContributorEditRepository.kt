@@ -9,7 +9,9 @@ import com.calypsan.listenup.core.ContributorId
 /**
  * Client-side write surface for contributor editing.
  *
- * RPC-backed. SSE delivers authoritative state back via
+ * [updateContributor] is offline-first; [deleteContributor], [mergeContributor],
+ * and [unmergeContributor] are RPC-backed and server-canonical. SSE delivers
+ * authoritative state back via
  * [com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler].
  */
 interface ContributorEditRepository {
@@ -17,8 +19,10 @@ interface ContributorEditRepository {
      * Applies the PATCH payload [patch] to the contributor identified by [id].
      *
      * Every non-null field on [patch] replaces the current value; null fields
-     * leave existing state untouched. The server emits an SSE event with the
-     * updated payload on success; clients update Room reactively.
+     * leave existing state untouched. Writes Room immediately and enqueues a
+     * durable pending op, so an edit made offline persists and replays on
+     * reconnect. The server's authoritative state still arrives via SSE and
+     * reconciles Room.
      */
     suspend fun updateContributor(
         id: ContributorId,

@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -30,11 +31,8 @@ class BookEditRepositorySetChaptersTest :
                 val chapters = listOf(ChapterInput(id = "c1", title = "A", startTime = 0, duration = 1000))
                 everySuspend { service.setBookChapters(BookId("b1"), chapters) } returns AppResult.Success(Unit)
 
-                val repo =
-                    BookEditRepositoryImpl(
-                        bookRpcFactory = rpcFactory,
-                        collectionRpcFactory = mock<CollectionRpcFactory>(MockMode.autoUnit),
-                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                val offlineEditor =
+                    OfflineEditor(
                         pendingQueue =
                             PendingOperationQueue(
                                 dao = mock<PendingOperationV2Dao>(MockMode.autoUnit),
@@ -42,6 +40,14 @@ class BookEditRepositorySetChaptersTest :
                             ),
                         transactionRunner = mock<TransactionRunner>(MockMode.autoUnit),
                         authSession = mock<AuthSession>(MockMode.autoUnit),
+                    )
+
+                val repo =
+                    BookEditRepositoryImpl(
+                        bookRpcFactory = rpcFactory,
+                        collectionRpcFactory = mock<CollectionRpcFactory>(MockMode.autoUnit),
+                        bookDao = mock<BookDao>(MockMode.autoUnit),
+                        offlineEditor = offlineEditor,
                     )
                 repo.setBookChapters(BookId("b1"), chapters)
 

@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
 import com.calypsan.listenup.client.data.local.db.dao.LibraryFolderDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -28,6 +29,7 @@ import org.koin.test.verify.verify
  *  - [ApiClientFactory] — owned by `networkModule`.
  *  - [SyncEngine] — owned by `clientSyncRenovationModule`.
  *  - [SyncEngineState] — owned by `clientSyncRenovationModule`.
+ *  - [OfflineEditor] — owned by `clientSyncRenovationModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
  *  - [ListeningEventRecorder] — owned by `listeningModule`.
  *  - [BookDao] — owned by `persistenceModule`.
@@ -52,6 +54,7 @@ class LibraryModuleVerifyTest :
                     listOf(
                         SyncEngine::class,
                         SyncEngineState::class,
+                        OfflineEditor::class,
                         AuthSession::class,
                         ListeningEventRecorder::class,
                         BookDao::class,

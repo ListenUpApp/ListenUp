@@ -52,10 +52,12 @@ internal val seriesModule: Module =
             )
         }
 
-        // SeriesEditRepository — pure RPC dispatcher (Books-C1).
+        // SeriesEditRepository — offline-first via OfflineEditor (Books-C1, Offline-Edit-Sync Phase 2).
         single<SeriesEditRepository> {
             SeriesEditRepositoryImpl(
                 seriesRpcFactory = get(),
+                seriesDao = get(),
+                offlineEditor = get(),
             )
         }
 

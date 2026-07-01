@@ -2,7 +2,10 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
+import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
@@ -13,22 +16,44 @@ import kotlinx.coroutines.CancellationException
 private val logger = KotlinLogging.logger {}
 
 /**
- * Pure RPC dispatcher for series edits.
+ * Offline-first series editor.
  *
- * No optimistic Room writes — the SSE echo from the server is the single write
- * path back into Room. This keeps state consistent across devices and matches
- * the [BookEditRepositoryImpl] / [ContributorEditRepositoryImpl] write pattern.
+ * [updateSeries] writes the patch into Room immediately and enqueues a durable
+ * pending op (the same outbox the playback-position writes use), so an edit made
+ * offline persists and replays on reconnect rather than failing with a
+ * [com.calypsan.listenup.api.error.ServerConnectError]. The authoritative state
+ * still arrives via the SSE sync engine and reconciles through
+ * [com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler].
  *
- * Wire [WireAppResult] values returned by the RPC service are converted to the
- * client-layer [AppResult] at this boundary.
+ * [deleteSeries] and [mergeSeries] stay pure RPC dispatchers — the SSE echo from
+ * the server is their single write path back into Room. Wire [WireAppResult]
+ * values returned by the RPC service are converted to the client-layer
+ * [AppResult] at this boundary, following the same pattern as
+ * [BookEditRepositoryImpl].
  */
 internal class SeriesEditRepositoryImpl(
     private val seriesRpcFactory: SeriesRpcFactory,
+    private val seriesDao: SeriesDao,
+    private val offlineEditor: OfflineEditor,
 ) : SeriesEditRepository {
     override suspend fun updateSeries(
         id: SeriesId,
         patch: SeriesUpdate,
-    ): AppResult<Unit> = rpcCallUnit { seriesRpcFactory.seriesService().updateSeries(id, patch) }
+    ): AppResult<Unit> =
+        offlineEditor.edit(SeriesEdit, id.value, patch) {
+            seriesDao.getById(id.value)?.let { existing ->
+                seriesDao.upsert(
+                    existing.copy(
+                        name = patch.name ?: existing.name,
+                        sortName = patch.sortName ?: existing.sortName,
+                        description = patch.description ?: existing.description,
+                        coverPath = patch.coverPath ?: existing.coverPath,
+                        asin = patch.asin ?: existing.asin,
+                        // revision + updatedAt deliberately untouched.
+                    ),
+                )
+            }
+        }
 
     override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> =
         rpcCallUnit { seriesRpcFactory.seriesService().deleteSeries(id) }
