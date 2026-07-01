@@ -53,10 +53,13 @@ internal val contributorModule: Module =
                 )
             }
 
-            // ContributorEditRepository — pure RPC dispatcher (Books-C1).
+            // ContributorEditRepository — offline-first update via OfflineEditor;
+            // merge/delete stay pure RPC dispatchers (Books-C1).
             single<ContributorEditRepository> {
                 ContributorEditRepositoryImpl(
                     contributorRpcFactory = get(),
+                    contributorDao = get(),
+                    offlineEditor = get(),
                 )
             }
 

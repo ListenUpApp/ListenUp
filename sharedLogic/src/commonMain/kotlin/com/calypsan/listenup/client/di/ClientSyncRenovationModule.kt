@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
+import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
@@ -13,6 +14,7 @@ import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.BookEdit
 import com.calypsan.listenup.client.data.sync.CatchUp
+import com.calypsan.listenup.client.data.sync.ContributorEdit
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -62,6 +64,7 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
@@ -121,6 +124,9 @@ internal val clientSyncRenovationModule =
                         },
                         SeriesEdit.name to RpcUpdateOpSender(SeriesEdit) { id, patch ->
                             get<SeriesRpcFactory>().seriesService().updateSeries(SeriesId(id), patch)
+                        },
+                        ContributorEdit.name to RpcUpdateOpSender(ContributorEdit) { id, patch ->
+                            get<ContributorRpcFactory>().contributorService().updateContributor(ContributorId(id), patch)
                         },
                     ),
             )

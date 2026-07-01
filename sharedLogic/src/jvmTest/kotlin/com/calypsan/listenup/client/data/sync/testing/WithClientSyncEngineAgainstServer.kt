@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImp
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.sync.BookEdit
+import com.calypsan.listenup.client.data.sync.ContributorEdit
 import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
@@ -59,6 +60,7 @@ import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
@@ -387,8 +389,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 installKrpc()
             }
         val testBookRpcFactory = TestBookRpcFactory(testClient)
-        val contributorEditRepository: ContributorEditRepository =
-            ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
+        val testContributorRpcFactory = TestContributorRpcFactory(testClient)
         val genreRepository: ClientGenreRepository =
             GenreRepositoryImpl(
                 dao = clientDb.genreDao(),
@@ -425,6 +426,9 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 SeriesEdit.name to RpcUpdateOpSender(SeriesEdit) { id, patch ->
                                     testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
                                 },
+                                ContributorEdit.name to RpcUpdateOpSender(ContributorEdit) { id, patch ->
+                                    testContributorRpcFactory.contributorService().updateContributor(ContributorId(id), patch)
+                                },
                             ),
                         ),
                 )
@@ -454,6 +458,17 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 SeriesEditRepositoryImpl(
                     seriesRpcFactory = testSeriesRpcFactory,
                     seriesDao = clientDb.seriesDao(),
+                    offlineEditor = offlineEditor,
+                )
+
+            // Offline-first contributor edits write to client Room and enqueue a
+            // "contributors" op; the engine drains it through the RpcUpdateOpSender above
+            // to the in-process server, whose SSE echo reconciles client Room via
+            // ContributorSyncDomainHandler.
+            val contributorEditRepository: ContributorEditRepository =
+                ContributorEditRepositoryImpl(
+                    contributorRpcFactory = testContributorRpcFactory,
+                    contributorDao = clientDb.contributorDao(),
                     offlineEditor = offlineEditor,
                 )
 

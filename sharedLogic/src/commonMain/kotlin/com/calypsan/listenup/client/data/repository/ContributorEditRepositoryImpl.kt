@@ -2,7 +2,10 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
+import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.sync.ContributorEdit
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -22,22 +25,47 @@ private val logger = KotlinLogging.logger {}
 private const val MERGE_TIMEOUT_MS = 30_000L
 
 /**
- * Pure RPC dispatcher for contributor edits.
+ * Contributor editor: offline-first update, server-canonical merge/delete.
  *
- * No optimistic Room writes — the SSE echo from the server is the single write
- * path back into Room. This keeps state consistent across devices and matches
- * the [BookEditRepositoryImpl] / [TagRepositoryImpl] write pattern.
+ * [updateContributor] writes the patch into Room immediately and enqueues a
+ * durable pending op (the same outbox the playback-position writes use), so
+ * an edit made offline persists and replays on reconnect rather than failing
+ * with a [com.calypsan.listenup.api.error.ServerConnectError]. The
+ * authoritative state still arrives via the SSE sync engine and reconciles
+ * through [com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler].
  *
- * Wire [WireAppResult] values returned by the RPC service are converted to the
- * client-layer [AppResult] at this boundary.
+ * [deleteContributor], [mergeContributor], and [unmergeContributor] stay pure
+ * RPC dispatchers — no optimistic Room writes; the SSE echo from the server is
+ * their single write path back into Room. Wire [WireAppResult] values returned
+ * by the RPC service are converted to the client-layer [AppResult] at this
+ * boundary, following the same pattern as [BookEditRepositoryImpl].
  */
 internal class ContributorEditRepositoryImpl(
     private val contributorRpcFactory: ContributorRpcFactory,
+    private val contributorDao: ContributorDao,
+    private val offlineEditor: OfflineEditor,
 ) : ContributorEditRepository {
     override suspend fun updateContributor(
         id: ContributorId,
         patch: ContributorUpdate,
-    ): AppResult<Unit> = rpcCallUnit { contributorRpcFactory.contributorService().updateContributor(id, patch) }
+    ): AppResult<Unit> =
+        offlineEditor.edit(ContributorEdit, id.value, patch) {
+            contributorDao.getById(id.value)?.let { existing ->
+                contributorDao.upsert(
+                    existing.copy(
+                        name = patch.name ?: existing.name,
+                        sortName = patch.sortName ?: existing.sortName,
+                        asin = patch.asin ?: existing.asin,
+                        description = patch.description ?: existing.description,
+                        imagePath = patch.imagePath ?: existing.imagePath,
+                        birthDate = patch.birthDate ?: existing.birthDate,
+                        deathDate = patch.deathDate ?: existing.deathDate,
+                        website = patch.website ?: existing.website,
+                        // revision + updatedAt deliberately untouched.
+                    ),
+                )
+            }
+        }
 
     override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> =
         rpcCallUnit { contributorRpcFactory.contributorService().deleteContributor(id) }
