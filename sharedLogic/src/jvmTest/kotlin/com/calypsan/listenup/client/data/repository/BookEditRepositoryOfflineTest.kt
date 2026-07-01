@@ -102,17 +102,19 @@ class BookEditRepositoryOfflineTest :
                     object : TransactionRunner {
                         override suspend fun <R> atomically(block: suspend () -> R): R = block()
                     }
-                val authSession: AuthSession = mock()
-                everySuspend { authSession.getUserId() } returns "u1"
+                val offlineEditor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner = txRunner,
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
 
                 val repo =
                     BookEditRepositoryImpl(
                         bookRpcFactory = mock<BookRpcFactory>(),
                         collectionRpcFactory = mock<CollectionRpcFactory>(),
                         bookDao = db.bookDao(),
-                        pendingQueue = queue,
-                        transactionRunner = txRunner,
-                        authSession = authSession,
+                        offlineEditor = offlineEditor,
                     )
 
                 repo.updateBook(bookId, BookUpdate(title = "New Title", description = "New Desc"))
