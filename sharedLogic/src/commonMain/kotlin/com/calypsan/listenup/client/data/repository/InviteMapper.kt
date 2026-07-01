@@ -18,7 +18,7 @@ internal fun InviteDto.toInviteInfo(serverUrl: String): InviteInfo =
         expiresAt = expiresAt.toString(),
         claimedAt = claimedAt?.toString(),
         // The shared, copyable invite link is a Universal Link / App Link via the deep-link codec
-        // (https://link.listenup.audio/o#t=invite&server=…&code=…) — NOT the old "$serverUrl/invite/$code"
+        // (https://link.listenup.audio/o?t=invite&server=…&code=…) — NOT the old "$serverUrl/invite/$code"
         // plain-server URL, which the server has no route for (it 404s) and which never deep-linked.
         url = ShareLinkCodec.encode(ShareTarget.Invite(serverUrl = serverUrl, code = code)),
         createdAt = createdAt.toString(),

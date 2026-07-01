@@ -151,7 +151,7 @@ class AdminRepositoryImplInviteTest :
             info.id shouldBe "inv1"
             info.code shouldBe "abc123"
             info.name shouldBe "Ada"
-            info.url shouldBe "https://link.listenup.audio/o#t=invite&server=https%3A%2F%2Fsrv.example&code=abc123"
+            info.url shouldBe "https://link.listenup.audio/o?t=invite&server=https%3A%2F%2Fsrv.example&code=abc123"
             info.claimedAt shouldBe null
         }
 
@@ -191,7 +191,7 @@ class AdminRepositoryImplInviteTest :
             val info = (result as AppResult.Success).data
             info.email shouldBe "ada@example.com"
             info.role shouldBe "ADMIN"
-            info.url shouldBe "https://link.listenup.audio/o#t=invite&server=https%3A%2F%2Fsrv.example&code=code-abc"
+            info.url shouldBe "https://link.listenup.audio/o?t=invite&server=https%3A%2F%2Fsrv.example&code=code-abc"
         }
 
         test("createInvite maps the lowercase 'member' role token to UserRole.MEMBER (least privilege)") {

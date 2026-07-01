@@ -52,7 +52,7 @@ private val logger = KotlinLogging.logger {}
  * - Disconnects realtime sync when app goes to background (saves battery)
  * - Auto-reconnects on app resume
  *
- * Handles share / deep links via the https App Link (https://link.listenup.audio/o#...).
+ * Handles share / deep links via the https App Link (https://link.listenup.audio/o?...).
  *
  * This ensures real-time updates when actively using the app
  * while preserving battery life in the background.
@@ -128,7 +128,8 @@ class MainActivity : ComponentActivity() {
         // Share / deep links (https App Links) — parsed once, in commonMain.
         if (intent.action == Intent.ACTION_VIEW) {
             intent.data?.toString()?.let { raw ->
-                ShareLinkCodec.decode(raw)?.let { target ->
+                val target = ShareLinkCodec.decode(raw)
+                if (target != null) {
                     logger.debug {
                         when (target) {
                             is ShareTarget.Book -> "Received book share link: bookId=${target.bookId.value}"
@@ -138,6 +139,10 @@ class MainActivity : ComponentActivity() {
                     deepLinkManager.setPendingTarget(target)
                     return
                 }
+                // Diagnosability: an App-Link VIEW reached our host but did not decode to a share
+                // target (e.g. a stripped/malformed link). Log it so one logcat pinpoints the failure
+                // instead of the previous silent fall-through to auth routing.
+                logger.warn { "ACTION_VIEW did not decode to a share target: data=$raw" }
             }
         }
 
