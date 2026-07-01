@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @preconcurrency import Shared
 @testable import ListenUp
@@ -21,5 +22,23 @@ struct DeepLinkRouterTests {
         await awaitUntil { router.outcome == .claimInvite(serverURL: "https://lib.example.com", code: "JOIN9") }
 
         #expect(router.outcome == .claimInvite(serverURL: "https://lib.example.com", code: "JOIN9"))
+    }
+
+    /// Covers the full `receive(url:)` → `ShareLinkCodec.decode` → `pendingTarget` → resolve seam
+    /// that a delivery modifier (`.onOpenURL`) feeds — the end-to-end path the prior invite fixes
+    /// never exercised. URL is the real universal-link shape (query payload per #971) with a
+    /// synthetic code, incl. a percent-encoded cleartext-LAN `server` and a non-standard port.
+    @Test func receiveDecodesUniversalLinkIntoClaimInvite() async throws {
+        let manager = DeepLinkManager()
+        let router = DeepLinkRouter(deepLinkManager: manager)
+
+        let url = URL(
+            string: "https://link.listenup.audio/o?t=invite&server=http%3A%2F%2F192.168.86.250%3A8080&code=TESTINVITECODE"
+        )!
+        router.receive(url: url)
+
+        await awaitUntil { router.outcome == .claimInvite(serverURL: "http://192.168.86.250:8080", code: "TESTINVITECODE") }
+
+        #expect(router.outcome == .claimInvite(serverURL: "http://192.168.86.250:8080", code: "TESTINVITECODE"))
     }
 }

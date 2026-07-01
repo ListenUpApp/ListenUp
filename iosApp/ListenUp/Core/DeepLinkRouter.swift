@@ -36,7 +36,14 @@ final class DeepLinkRouter {
     /// Decode an incoming universal-link URL and stash it on the shared
     /// seam; the `pendingTarget` binding above drives `resolve`.
     func receive(url: URL) {
-        guard let target = ShareLinkCodec.shared.decode(raw: url.absoluteString) else { return }
+        // Redact the query when logging — it carries the invite `code` (a bearer secret)
+        // and the server URL. Host + path (`link.listenup.audio/o`) is enough to trace delivery.
+        let safe = "\(url.host ?? "?")\(url.path)"
+        guard let target = ShareLinkCodec.shared.decode(raw: url.absoluteString) else {
+            Log.error("DeepLink: decode returned nil for \(safe)")
+            return
+        }
+        Log.info("DeepLink: decoded a share target from \(safe)")
         deepLinkManager.setPendingTarget(target: target)
     }
 
@@ -50,6 +57,7 @@ final class DeepLinkRouter {
         guard let target else { outcome = .none; return }
         switch onEnum(of: target) {
         case .invite(let invite):
+            Log.info("DeepLink: resolved invite → presenting claim sheet")
             outcome = .claimInvite(serverURL: invite.serverUrl, code: invite.code)
         case .book(let book):
             Task { @MainActor [weak self] in await self?.resolveBook(book) }

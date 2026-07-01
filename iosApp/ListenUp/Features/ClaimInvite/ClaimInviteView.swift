@@ -57,6 +57,7 @@ struct ClaimInviteView: View {
         .onAppear {
             if let seed = deepLinkSeed, !didStart {
                 didStart = true
+                Log.info("ClaimInviteView appeared from deep link — starting lookup")
                 wrapper.start(serverURL: seed.serverURL, code: seed.code)
             }
         }

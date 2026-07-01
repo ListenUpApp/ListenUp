@@ -40,7 +40,16 @@ private struct RootView: View {
             .environment(currentUser)
             .environment(hapticsSettings)
             .environment(deepLinkRouter)
+            // Universal links: `.onOpenURL` is the reliable SwiftUI App-lifecycle delivery path
+            // (cold launch *and* while running). `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)`
+            // does not fire for universal links under the SwiftUI lifecycle — kept only as a
+            // belt-and-suspenders and to confirm delivery in logs.
+            .onOpenURL { url in
+                Log.info("onOpenURL fired: \(url.host ?? "?")\(url.path)")
+                deepLinkRouter.receive(url: url)
+            }
             .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                Log.info("onContinueUserActivity fired: \(activity.webpageURL?.host ?? "nil")")
                 if let url = activity.webpageURL { deepLinkRouter.receive(url: url) }
             }
             .sheet(isPresented: invitePresented) {
