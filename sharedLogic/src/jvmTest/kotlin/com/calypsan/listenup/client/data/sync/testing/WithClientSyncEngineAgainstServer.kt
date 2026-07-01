@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImp
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.sync.BookEdit
+import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -58,6 +59,7 @@ import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -387,8 +389,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
         val testBookRpcFactory = TestBookRpcFactory(testClient)
         val contributorEditRepository: ContributorEditRepository =
             ContributorEditRepositoryImpl(contributorRpcFactory = TestContributorRpcFactory(testClient))
-        val seriesEditRepository: SeriesEditRepository =
-            SeriesEditRepositoryImpl(seriesRpcFactory = TestSeriesRpcFactory(testClient))
         val genreRepository: ClientGenreRepository =
             GenreRepositoryImpl(
                 dao = clientDb.genreDao(),
@@ -410,6 +410,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // with no HTTP/RPC round-trip.
             val playbackSender = DirectPlaybackPositionSender(serverRepos.playbackPositionRepo)
             val listeningEventSender = DirectListeningEventSender(serverRepos.listeningEventRepo)
+            val testSeriesRpcFactory = TestSeriesRpcFactory(testClient)
             val queue =
                 PendingOperationQueue(
                     dao = clientDb.pendingOperationV2Dao(),
@@ -420,6 +421,9 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 "listening_events" to listeningEventSender,
                                 BookEdit.name to RpcUpdateOpSender(BookEdit) { id, patch ->
                                     testBookRpcFactory.bookService().updateBook(BookId(id), patch)
+                                },
+                                SeriesEdit.name to RpcUpdateOpSender(SeriesEdit) { id, patch ->
+                                    testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
                                 },
                             ),
                         ),
@@ -440,6 +444,16 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     bookRpcFactory = testBookRpcFactory,
                     collectionRpcFactory = TestCollectionRpcFactory(testClient),
                     bookDao = clientDb.bookDao(),
+                    offlineEditor = offlineEditor,
+                )
+
+            // Offline-first series edits write to client Room and enqueue a "series" op;
+            // the engine drains it through the RpcUpdateOpSender above to the in-process
+            // server, whose SSE echo reconciles client Room via SeriesSyncDomainHandler.
+            val seriesEditRepository: SeriesEditRepository =
+                SeriesEditRepositoryImpl(
+                    seriesRpcFactory = testSeriesRpcFactory,
+                    seriesDao = clientDb.seriesDao(),
                     offlineEditor = offlineEditor,
                 )
 

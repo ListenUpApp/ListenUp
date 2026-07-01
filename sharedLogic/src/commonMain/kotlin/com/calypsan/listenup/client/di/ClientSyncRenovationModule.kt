@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
@@ -22,6 +23,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
+import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -60,6 +62,7 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.SeriesId
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -115,6 +118,9 @@ internal val clientSyncRenovationModule =
                         "listening_events" to ListeningEventOpSender(rpcFactory = get()),
                         BookEdit.name to RpcUpdateOpSender(BookEdit) { id, patch ->
                             get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
+                        },
+                        SeriesEdit.name to RpcUpdateOpSender(SeriesEdit) { id, patch ->
+                            get<SeriesRpcFactory>().seriesService().updateSeries(SeriesId(id), patch)
                         },
                     ),
             )
