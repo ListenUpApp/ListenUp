@@ -3,17 +3,14 @@ package com.calypsan.listenup.client.presentation.admin
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
-import com.calypsan.listenup.client.domain.repository.EventStreamRepository
+import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import dev.mokkery.answering.calls
@@ -31,12 +28,12 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -53,16 +50,23 @@ class AdminViewModelTest :
             return useCase
         }
 
-        fun createMockEventStreamRepository(): EventStreamRepository {
-            val eventStreamRepo: EventStreamRepository = mock()
-            val adminEvents = MutableSharedFlow<AdminEvent>()
-            every { eventStreamRepo.adminEvents } returns adminEvents
-            return eventStreamRepo
+        /**
+         * A fake-ish [AdminRepository] whose only wired behaviour is [AdminRepository.observeRoster]
+         * — the only method [AdminViewModel] calls on it. [rosterFlow] is exposed to the caller so
+         * a test can push new roster snapshots and assert the ViewModel reacts without a poll.
+         */
+        fun createMockAdminRepository(
+            rosterFlow: MutableStateFlow<List<AdminUserInfo>> = MutableStateFlow(emptyList()),
+        ): AdminRepository {
+            val repo: AdminRepository = mock()
+            every { repo.observeRoster() } returns rosterFlow
+            return repo
         }
 
         fun createUser(
             id: String = "user-1",
             email: String = "test@example.com",
+            status: String = "ACTIVE",
         ) = AdminUserInfo(
             id = id,
             email = email,
@@ -71,7 +75,7 @@ class AdminViewModelTest :
             lastName = "User",
             isRoot = false,
             role = "user",
-            status = "active",
+            status = status,
             createdAt = "2024-01-01T00:00:00Z",
         )
 
@@ -101,8 +105,6 @@ class AdminViewModelTest :
         test("initial state is Loading") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -110,58 +112,43 @@ class AdminViewModelTest :
                 val denyUserUseCase: DenyUserUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
 
                 viewModel.state.value.shouldBeInstanceOf<AdminUiState.Loading>()
             }
         }
 
-        test("loadData transitions to Ready with users and invites") {
+        test("loadData transitions to Ready with invites, and the roster populates users") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
-                val deleteUserUseCase: DeleteUserUseCase = mock()
-                val revokeInviteUseCase: RevokeInviteUseCase = mock()
-                val approveUserUseCase: ApproveUserUseCase = mock()
-                val denyUserUseCase: DenyUserUseCase = mock()
-                val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
-                val users = listOf(createUser("user-1"), createUser("user-2"))
                 val invites = listOf(createInvite("invite-1"))
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(users)
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(invites)
+                val rosterFlow = MutableStateFlow(listOf(createUser("user-1"), createUser("user-2")))
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
-                        deleteUserUseCase = deleteUserUseCase,
-                        revokeInviteUseCase = revokeInviteUseCase,
-                        approveUserUseCase = approveUserUseCase,
-                        denyUserUseCase = denyUserUseCase,
-                        setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
 
@@ -171,30 +158,92 @@ class AdminViewModelTest :
             }
         }
 
+        test("the roster splits into ACTIVE users and PENDING_APPROVAL pendingUsers") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+
+                val rosterFlow =
+                    MutableStateFlow(
+                        listOf(
+                            createUser(id = "active-1", status = "ACTIVE"),
+                            createUser(id = "pending-1", status = "PENDING_APPROVAL"),
+                        ),
+                    )
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        adminRepository = createMockAdminRepository(rosterFlow),
+                    )
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
+                ready.users.map { it.id } shouldBe listOf("active-1")
+                ready.pendingUsers.map { it.id } shouldBe listOf("pending-1")
+            }
+        }
+
+        test("pushing a new ACTIVE user onto the roster flow updates users with no time advance") {
+            runTest {
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                val rosterFlow = MutableStateFlow<List<AdminUserInfo>>(emptyList())
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        adminRepository = createMockAdminRepository(rosterFlow),
+                    )
+                advanceUntilIdle()
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .users
+                    .shouldBeEmpty()
+
+                // Simulate the sync engine landing a claimed-invite user in Room. No delay/poll —
+                // just letting the already-queued collector coroutine run — proves this is
+                // event-driven, not polled.
+                rosterFlow.value = listOf(createUser(id = "u1", status = "ACTIVE"))
+                runCurrent()
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .users
+                    .map { it.id } shouldBe listOf("u1")
+            }
+        }
+
         test("setRegistrationPolicy(APPROVAL_QUEUE) round-trips to the approval-queue state on success") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(RegistrationPolicy.OPEN)
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(listOf(createUser()))
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { setRegistrationPolicyUseCase(any()) } returns AppResult.Success(Unit)
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = mock(),
                         revokeInviteUseCase = mock(),
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
 
@@ -214,12 +263,8 @@ class AdminViewModelTest :
         test("setRegistrationPolicy failure surfaces an error and leaves the policy unchanged") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(RegistrationPolicy.OPEN)
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(listOf(createUser()))
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { setRegistrationPolicyUseCase(any()) } returns
                     AppResult.Failure(
@@ -230,15 +275,13 @@ class AdminViewModelTest :
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = mock(),
                         revokeInviteUseCase = mock(),
                         approveUserUseCase = mock(),
                         denyUserUseCase = mock(),
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
 
@@ -258,8 +301,6 @@ class AdminViewModelTest :
         test("loadData filters out claimed invites") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -272,22 +313,18 @@ class AdminViewModelTest :
                         createInvite("pending", claimedAt = null),
                         createInvite("claimed", claimedAt = "2024-01-15T00:00:00Z"),
                     )
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(invites)
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
 
@@ -297,11 +334,9 @@ class AdminViewModelTest :
             }
         }
 
-        test("loadData users failure degrades to Ready and keeps the registration-policy control usable (#620)") {
+        test("loadData invites failure degrades to Ready and keeps the registration-policy control usable (#620)") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(RegistrationPolicy.OPEN)
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -309,33 +344,29 @@ class AdminViewModelTest :
                 val denyUserUseCase: DenyUserUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
-                everySuspend { loadUsersUseCase() } returns Failure(RuntimeException("Network error"))
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
-                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+                everySuspend { loadInvitesUseCase() } returns Failure(RuntimeException("Network error"))
                 everySuspend { setRegistrationPolicyUseCase(any()) } returns AppResult.Success(Unit)
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
 
-                // A users-load failure must NOT black out the page. It degrades to Ready —
-                // policy loaded, users empty, and the failure surfaced honestly — so the
+                // An invites-load failure must NOT black out the page. It degrades to Ready —
+                // policy loaded, invites empty, and the failure surfaced honestly — so the
                 // (independent) registration-policy control stays reachable.
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
                 ready.registrationPolicy shouldBe RegistrationPolicy.OPEN
-                ready.users.shouldBeEmpty()
-                ready.error.shouldBeInstanceOf<String>() shouldContain "users"
+                ready.pendingInvites.shouldBeEmpty()
+                ready.error.shouldBeInstanceOf<String>() shouldContain "invites"
 
                 // The control now actually works: changing the policy takes effect.
                 viewModel.setRegistrationPolicy(RegistrationPolicy.CLOSED)
@@ -349,8 +380,6 @@ class AdminViewModelTest :
         test("deleteUser removes user from list") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -358,24 +387,20 @@ class AdminViewModelTest :
                 val denyUserUseCase: DenyUserUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
-                val users = listOf(createUser("user-1"), createUser("user-2"))
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(users)
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+                val rosterFlow = MutableStateFlow(listOf(createUser("user-1"), createUser("user-2")))
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { deleteUserUseCase("user-1") } returns AppResult.Success(Unit)
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(rosterFlow),
                     )
                 advanceUntilIdle()
                 val afterLoad = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
@@ -393,8 +418,6 @@ class AdminViewModelTest :
         test("revokeInvite removes invite from list") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -403,23 +426,19 @@ class AdminViewModelTest :
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
                 val invites = listOf(createInvite("invite-1"), createInvite("invite-2"))
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
                 everySuspend { loadInvitesUseCase() } returns AppResult.Success(invites)
                 everySuspend { revokeInviteUseCase("invite-1") } returns AppResult.Success(Unit)
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
 
@@ -435,8 +454,6 @@ class AdminViewModelTest :
         test("clearError clears error state") {
             runTest {
                 val getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -444,23 +461,19 @@ class AdminViewModelTest :
                 val denyUserUseCase: DenyUserUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
-                // Users succeeds to land in Ready; invites fails to surface transient error on Ready.
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+                // Invites fails to surface a transient error on Ready.
                 everySuspend { loadInvitesUseCase() } returns Failure(RuntimeException("Invites error"))
 
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
                 advanceUntilIdle()
                 val beforeClear = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
@@ -473,7 +486,7 @@ class AdminViewModelTest :
             }
         }
 
-        test("loadData fetches all data in parallel") {
+        test("loadData fetches registrationPolicy and invites in parallel") {
             runTest {
                 val getRegistrationPolicyUseCase: GetRegistrationPolicyUseCase = mock()
                 everySuspend { getRegistrationPolicyUseCase() } calls {
@@ -481,8 +494,6 @@ class AdminViewModelTest :
                     AppResult.Success(RegistrationPolicy.CLOSED)
                 }
 
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
                 val loadInvitesUseCase: LoadInvitesUseCase = mock()
                 val deleteUserUseCase: DeleteUserUseCase = mock()
                 val revokeInviteUseCase: RevokeInviteUseCase = mock()
@@ -490,14 +501,6 @@ class AdminViewModelTest :
                 val denyUserUseCase: DenyUserUseCase = mock()
                 val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase = mock()
 
-                everySuspend { loadUsersUseCase() } calls {
-                    delay(100)
-                    AppResult.Success(listOf(createUser()))
-                }
-                everySuspend { loadPendingUsersUseCase() } calls {
-                    delay(100)
-                    AppResult.Success(emptyList())
-                }
                 everySuspend { loadInvitesUseCase() } calls {
                     delay(100)
                     AppResult.Success(listOf(createInvite()))
@@ -506,115 +509,22 @@ class AdminViewModelTest :
                 val viewModel =
                     AdminViewModel(
                         getRegistrationPolicyUseCase = getRegistrationPolicyUseCase,
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
                         loadInvitesUseCase = loadInvitesUseCase,
                         deleteUserUseCase = deleteUserUseCase,
                         revokeInviteUseCase = revokeInviteUseCase,
                         approveUserUseCase = approveUserUseCase,
                         denyUserUseCase = denyUserUseCase,
                         setRegistrationPolicyUseCase = setRegistrationPolicyUseCase,
-                        eventStreamRepository = createMockEventStreamRepository(),
+                        adminRepository = createMockAdminRepository(),
                     )
 
-                // If parallel, all 4 calls start at t=0 and complete at t=100ms.
-                // If sequential, they'd complete at t=400ms.
+                // If parallel, both calls start at t=0 and complete at t=100ms.
+                // If sequential, they'd complete at t=200ms.
                 // Advance 150ms — enough for parallel, not enough for sequential.
                 advanceTimeBy(150)
 
                 val ready = viewModel.state.value.shouldBeInstanceOf<AdminUiState.Ready>()
-                ready.users.size shouldBe 1
                 ready.pendingInvites.size shouldBe 1
-            }
-        }
-
-        test("the pending list refreshes on a poll tick while the screen is observed") {
-            runTest {
-                // Server-side pending list, flipped mid-test to simulate a new registration arriving.
-                var pending: List<AdminUserInfo> = emptyList()
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
-                everySuspend { loadPendingUsersUseCase() } calls { AppResult.Success(pending) }
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                everySuspend { loadUsersUseCase() } returns AppResult.Success(emptyList())
-                val loadInvitesUseCase: LoadInvitesUseCase = mock()
-                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
-
-                val viewModel =
-                    AdminViewModel(
-                        getRegistrationPolicyUseCase =
-                            createMockGetRegistrationPolicyUseCase(RegistrationPolicy.APPROVAL_QUEUE),
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
-                        loadInvitesUseCase = loadInvitesUseCase,
-                        deleteUserUseCase = mock(),
-                        revokeInviteUseCase = mock(),
-                        approveUserUseCase = mock(),
-                        denyUserUseCase = mock(),
-                        setRegistrationPolicyUseCase = mock(),
-                        eventStreamRepository = createMockEventStreamRepository(),
-                    )
-
-                // Observe state so the subscription-gated poll runs (auto-cancelled at test end).
-                backgroundScope.launch { viewModel.state.collect {} }
-                advanceTimeBy(200) // initial load settles → Ready, empty pending
-                viewModel.state.value
-                    .shouldBeInstanceOf<AdminUiState.Ready>()
-                    .pendingUsers
-                    .shouldBeEmpty()
-
-                pending = listOf(createUser(id = "p1"))
-                advanceTimeBy(11_000) // crosses the 10s poll cadence
-
-                viewModel.state.value
-                    .shouldBeInstanceOf<AdminUiState.Ready>()
-                    .pendingUsers
-                    .map { it.id } shouldBe listOf("p1")
-            }
-        }
-
-        // A user who claims an invite is created ACTIVE, so it lands in the active roster (not the
-        // pending list). The poll must refresh that roster too, otherwise a newly-joined member only
-        // appears after the admin manually refreshes.
-        test("the active user roster refreshes on a poll tick while the screen is observed") {
-            runTest {
-                // Server-side active roster, flipped mid-test to simulate a claimed-invite user landing.
-                var users: List<AdminUserInfo> = emptyList()
-                val loadUsersUseCase: LoadUsersUseCase = mock()
-                everySuspend { loadUsersUseCase() } calls { AppResult.Success(users) }
-                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
-                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
-                val loadInvitesUseCase: LoadInvitesUseCase = mock()
-                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
-
-                val viewModel =
-                    AdminViewModel(
-                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
-                        loadUsersUseCase = loadUsersUseCase,
-                        loadPendingUsersUseCase = loadPendingUsersUseCase,
-                        loadInvitesUseCase = loadInvitesUseCase,
-                        deleteUserUseCase = mock(),
-                        revokeInviteUseCase = mock(),
-                        approveUserUseCase = mock(),
-                        denyUserUseCase = mock(),
-                        setRegistrationPolicyUseCase = mock(),
-                        eventStreamRepository = createMockEventStreamRepository(),
-                    )
-
-                // Observe state so the subscription-gated poll runs (auto-cancelled at test end).
-                backgroundScope.launch { viewModel.state.collect {} }
-                advanceTimeBy(200) // initial load settles → Ready, empty roster
-                viewModel.state.value
-                    .shouldBeInstanceOf<AdminUiState.Ready>()
-                    .users
-                    .shouldBeEmpty()
-
-                users = listOf(createUser(id = "u1"))
-                advanceTimeBy(11_000) // crosses the 10s poll cadence
-
-                viewModel.state.value
-                    .shouldBeInstanceOf<AdminUiState.Ready>()
-                    .users
-                    .map { it.id } shouldBe listOf("u1")
             }
         }
     })

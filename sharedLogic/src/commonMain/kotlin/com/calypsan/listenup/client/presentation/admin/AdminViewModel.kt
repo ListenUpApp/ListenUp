@@ -4,152 +4,67 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.core.Failure
-import com.calypsan.listenup.client.domain.model.AdminEvent
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
-import com.calypsan.listenup.client.domain.repository.EventStreamRepository
+import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DenyUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.LoadInvitesUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadPendingUsersUseCase
-import com.calypsan.listenup.client.domain.usecase.admin.LoadUsersUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.GetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-private val logger = KotlinLogging.logger {}
-
-/**
- * Cadence for refreshing the admin roster (active users + pending registrations) while the
- * admin screen is open.
- *
- * The live admin-event firehose isn't wired yet ([com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl]
- * stubs `adminEvents` to `emptyFlow()`), so without this a newly-registered pending user — or a
- * user who just claimed an invite (created ACTIVE, landing in the active roster) — only appears
- * after an app restart. This poll is the never-stranded refresh until that migration lands.
- */
-private const val ADMIN_POLL_INTERVAL_MS = 10_000L
 
 /**
  * ViewModel for the combined admin screen.
  *
- * Manages users, pending invites, and pending users on a single screen.
- * Subscribes to SSE events for real-time updates of pending users.
+ * Manages users, pending invites, and pending users on a single screen. The active-user and
+ * pending-registration lists are derived from [AdminRepository.observeRoster] — the Room-backed,
+ * server-synced roster — so a new registration or a claimed invite appears the moment the sync
+ * echo lands, with no poll and no dead SSE reducer standing in for it.
  */
 class AdminViewModel(
     private val getRegistrationPolicyUseCase: GetRegistrationPolicyUseCase,
-    private val loadUsersUseCase: LoadUsersUseCase,
-    private val loadPendingUsersUseCase: LoadPendingUsersUseCase,
     private val loadInvitesUseCase: LoadInvitesUseCase,
     private val deleteUserUseCase: DeleteUserUseCase,
     private val revokeInviteUseCase: RevokeInviteUseCase,
     private val approveUserUseCase: ApproveUserUseCase,
     private val denyUserUseCase: DenyUserUseCase,
     private val setRegistrationPolicyUseCase: SetRegistrationPolicyUseCase,
-    private val eventStreamRepository: EventStreamRepository,
+    private val adminRepository: AdminRepository,
 ) : ViewModel() {
     val state: StateFlow<AdminUiState>
         field = MutableStateFlow<AdminUiState>(AdminUiState.Loading)
 
     init {
         loadData()
-        observeSSEEvents()
-        pollAdminRoster()
+        observeRoster()
     }
 
     /**
-     * Periodically re-fetch the admin roster — both the active users and the pending-registrations
-     * list — so a user who registers (lands in `pendingUsers`) or claims an invite (created ACTIVE,
-     * lands in `users`) appears without an app restart. Updates only an existing [AdminUiState.Ready]
-     * (no-op while Loading, and per-action overlays are preserved); a transient failure of either
-     * fetch keeps the current list for that section.
-     *
-     * Gated on [state] having subscribers, so it only runs while the admin screen is actually on
-     * screen — no wasted polling in the background. Stops automatically when the scope is cancelled.
+     * Collects the live admin roster and splits it into `users` (ACTIVE) and `pendingUsers`
+     * (PENDING_APPROVAL). Cooperates with [loadData]: it constructs [AdminUiState.Ready] on the
+     * first emission if [loadData] hasn't landed yet, and only touches `users`/`pendingUsers` on
+     * an existing [AdminUiState.Ready] otherwise — so neither collector clobbers the other's
+     * fields (registrationPolicy, pendingInvites, per-action overlays).
      */
-    private fun pollAdminRoster() {
+    private fun observeRoster() {
         viewModelScope.launch {
-            state.subscriptionCount
-                .map { it > 0 }
-                .distinctUntilChanged()
-                .collectLatest { isObserved ->
-                    if (!isObserved) return@collectLatest
-                    while (true) {
-                        delay(ADMIN_POLL_INTERVAL_MS)
-                        // Refresh both sections in parallel — no dependency between them.
-                        val deferredUsers = async { loadUsersUseCase() }
-                        val deferredPending = async { loadPendingUsersUseCase() }
-                        when (val result = deferredUsers.await()) {
-                            is AppResult.Success -> updateReady { it.copy(users = sortUsers(result.data)) }
-                            is AppResult.Failure -> Unit
-                        }
-                        when (val result = deferredPending.await()) {
-                            is AppResult.Success -> updateReady { it.copy(pendingUsers = result.data) }
-                            is AppResult.Failure -> Unit
-                        }
+            adminRepository.observeRoster().collect { roster ->
+                val active = sortUsers(roster.filter { it.status == "ACTIVE" })
+                val pending = roster.filter { it.status == "PENDING_APPROVAL" }
+                state.update { current ->
+                    when (current) {
+                        is AdminUiState.Ready -> current.copy(users = active, pendingUsers = pending)
+                        AdminUiState.Loading -> AdminUiState.Ready(users = active, pendingUsers = pending)
                     }
-                }
-        }
-    }
-
-    /**
-     * Observe admin events for real-time pending user updates.
-     */
-    private fun observeSSEEvents() {
-        viewModelScope.launch {
-            eventStreamRepository.adminEvents.collect { event ->
-                when (event) {
-                    is AdminEvent.UserPending -> {
-                        handleUserPending(event.user)
-                    }
-
-                    is AdminEvent.UserApproved -> {
-                        handleUserApproved(event.user)
-                    }
-
-                    else -> { /* Other admin events handled elsewhere */ }
                 }
             }
-        }
-    }
-
-    private fun handleUserPending(user: AdminUserInfo) {
-        logger.debug { "SSE: User pending - ${user.email}" }
-        updateReady { ready ->
-            // Only add if not already in list
-            if (ready.pendingUsers.none { it.id == user.id }) {
-                ready.copy(pendingUsers = ready.pendingUsers + user)
-            } else {
-                ready
-            }
-        }
-    }
-
-    private fun handleUserApproved(user: AdminUserInfo) {
-        logger.debug { "SSE: User approved - ${user.email}" }
-        updateReady { ready ->
-            // Remove from pending
-            val updatedPending = ready.pendingUsers.filter { it.id != user.id }
-            // Only add to users if not already present (avoid duplicates from button + SSE)
-            val updatedUsers =
-                if (ready.users.none { it.id == user.id }) {
-                    ready.users + user
-                } else {
-                    ready.users
-                }
-            ready.copy(pendingUsers = updatedPending, users = updatedUsers)
         }
     }
 
@@ -157,8 +72,6 @@ class AdminViewModel(
         viewModelScope.launch {
             // Load all data in parallel — no dependencies between these calls
             val deferredOpenReg = async { getRegistrationPolicyUseCase() }
-            val deferredUsers = async { loadUsersUseCase() }
-            val deferredPending = async { loadPendingUsersUseCase() }
             val deferredInvites = async { loadInvitesUseCase() }
 
             val registrationPolicy =
@@ -167,59 +80,36 @@ class AdminViewModel(
                     is AppResult.Failure -> RegistrationPolicy.CLOSED
                 }
 
-            val usersResult = deferredUsers.await()
-            val pendingResult = deferredPending.await()
             val invitesResult = deferredInvites.await()
 
             // Every section degrades independently. A single failed fetch must never black out the
             // whole page — that strands the admin without the (independent) registration-policy
             // control and every other section. Failures surface as a sectional error banner
             // on Ready, never as a full Error screen.
-            val users =
-                when (usersResult) {
-                    is AppResult.Success -> usersResult.data
-                    is AppResult.Failure -> emptyList()
-                }
-            val usersError =
-                when (usersResult) {
-                    is AppResult.Success -> null
-                    is AppResult.Failure -> "Failed to load users: ${usersResult.message}"
-                }
-            val pendingUsers =
-                when (pendingResult) {
-                    is AppResult.Success -> pendingResult.data
-                    is AppResult.Failure -> emptyList()
-                }
             val pendingInvites =
                 when (invitesResult) {
                     is AppResult.Success -> invitesResult.data.filter { it.claimedAt == null }
                     is AppResult.Failure -> emptyList()
                 }
-            val invitesError =
+            val loadError =
                 when (invitesResult) {
                     is AppResult.Success -> null
                     is AppResult.Failure -> "Failed to load invites: ${invitesResult.message}"
                 }
-            val loadError = listOfNotNull(usersError, invitesError).joinToString("; ").ifEmpty { null }
-
-            val sortedUsers = sortUsers(users)
 
             state.update { current ->
                 if (current is AdminUiState.Ready) {
                     current.copy(
                         registrationPolicy = registrationPolicy,
-                        users = sortedUsers,
-                        pendingUsers = pendingUsers,
                         pendingInvites = pendingInvites,
                         error = loadError,
                     )
                 } else {
                     // First emission (from Loading) or recovering from Error:
-                    // transition to Ready with fresh data and default UI fields.
+                    // transition to Ready with fresh data and default UI fields. Users/pendingUsers
+                    // stay at their AdminUiState.Ready defaults (empty) until observeRoster emits.
                     AdminUiState.Ready(
                         registrationPolicy = registrationPolicy,
-                        users = sortedUsers,
-                        pendingUsers = pendingUsers,
                         pendingInvites = pendingInvites,
                         error = loadError,
                     )

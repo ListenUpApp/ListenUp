@@ -115,15 +115,13 @@ internal val adminPresentationModule =
         single {
             AdminViewModel(
                 getRegistrationPolicyUseCase = get(),
-                loadUsersUseCase = get(),
-                loadPendingUsersUseCase = get(),
                 loadInvitesUseCase = get(),
                 deleteUserUseCase = get(),
                 revokeInviteUseCase = get(),
                 approveUserUseCase = get(),
                 denyUserUseCase = get(),
                 setRegistrationPolicyUseCase = get(),
-                eventStreamRepository = get(),
+                adminRepository = get(),
             )
         }
         factory { CreateInviteViewModel(createInviteUseCase = get()) }
