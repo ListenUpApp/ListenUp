@@ -58,6 +58,17 @@ private const val LIBRARY_FOLDERS_DOMAIN = "library_folders"
 private val LIBRARY_FOLDERS_HIDDEN =
     SqlFragment(sql = "SELECT id FROM library_folders WHERE 1 = 0", args = emptyList())
 
+// Admin-only domain: a row carries a user's email/role/status, which non-admins must never
+// see. Whole-domain by role, same shape as LIBRARY_FOLDERS_DOMAIN above — members hold no
+// roster rows at all, so there is nothing for them to reconcile and tombstones need not pass
+// through.
+private const val ADMIN_USER_ROSTER_DOMAIN = "admin_user_roster"
+
+// Splices into `id IN (...)` to yield no rows — hides the admin_user_roster domain from
+// non-admins on catch-up/digest. `1 = 0` is a constant predicate, no interpolated input.
+private val ADMIN_USER_ROSTER_HIDDEN =
+    SqlFragment(sql = "SELECT id FROM admin_user_roster WHERE 1 = 0", args = emptyList())
+
 private fun isAdmin(role: UserRole): Boolean = role == UserRole.ROOT || role == UserRole.ADMIN
 
 /**
@@ -81,6 +92,7 @@ private fun accessFilterFor(
         COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionGrantIdsSql(userId, role)
         COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
         LIBRARY_FOLDERS_DOMAIN -> if (isAdmin(role)) null else LIBRARY_FOLDERS_HIDDEN
+        ADMIN_USER_ROSTER_DOMAIN -> if (isAdmin(role)) null else ADMIN_USER_ROSTER_HIDDEN
         else -> null
     }
 
@@ -264,6 +276,7 @@ private suspend fun ServerSSESession.streamFirehose(
                         isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
                         isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
                         isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
+                        isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
                         else -> null
                     }
                 if (gatedReason != null) {
@@ -397,6 +410,21 @@ private fun isLibraryFolderEventHidden(
     busEvent: BusEvent<*>,
     role: UserRole,
 ): Boolean = busEvent.repo.domainName == LIBRARY_FOLDERS_DOMAIN && !isAdmin(role)
+
+/**
+ * Whether a live firehose [busEvent] on the `admin_user_roster` domain must be withheld from
+ * [role]. The domain is admin-only — its rows carry a user's email/role/status — so a
+ * non-admin sees nothing on it.
+ *
+ * Whole-domain gate, same as [isLibraryFolderEventHidden]: tombstones are withheld too, since a
+ * member holds no roster rows and has nothing to reconcile. Matches the
+ * [ADMIN_USER_ROSTER_HIDDEN] catch-up fragment exactly, so the live tail and REST replay never
+ * disagree.
+ */
+private fun isAdminRosterEventHidden(
+    busEvent: BusEvent<*>,
+    role: UserRole,
+): Boolean = busEvent.repo.domainName == ADMIN_USER_ROSTER_DOMAIN && !isAdmin(role)
 
 /**
  * Whether a live firehose [busEvent] on a collection domain

@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.di
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.sync.AdminUserRosterRepository
+import app.cash.sqldelight.db.SqlDriver
 import org.koin.core.module.Module
 import org.koin.dsl.module
 
@@ -18,6 +19,13 @@ import org.koin.dsl.module
  */
 fun adminUserRosterModule(): Module =
     module {
-        single(createdAtStart = true) { AdminUserRosterRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) {
+            AdminUserRosterRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
+        }
         single { AdminUserRosterMaintainer(sql = get<ListenUpDatabase>(), rosterRepo = get()) }
     }

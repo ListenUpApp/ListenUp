@@ -1,8 +1,12 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
+import com.calypsan.listenup.api.sync.DomainDigest
+import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.server.db.sqldelight.Admin_user_roster
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
 import kotlinx.serialization.KSerializer
 
@@ -18,11 +22,21 @@ import kotlinx.serialization.KSerializer
  * (see [Admin_user_roster.can_share]); [writePayload] / [toSyncPayload] convert at the boundary.
  *
  * `id` is a plain `String` (`id == userId`), so the default `idAsString` is correct.
+ *
+ * **Access-filtered sync.** A row carries a user's email/role/status, so the firehose gates
+ * the whole domain admin-only: a non-admin catch-up/digest arrives with a non-null
+ * [SqlFragment] `extraWhere` (the `WHERE 1 = 0` hidden subquery) that the base
+ * [SqlSyncableRepository] cannot splice. This class [overrides][pullSince] the filtered path
+ * the same way [com.calypsan.listenup.server.services.LibraryFolderRepository] does — splicing
+ * `id IN (<extraWhere.sql>)` engine-neutrally over the shared SQLDelight [SqlDriver]
+ * ([selectIdRevAccessFiltered]) and hydrating via the base's [readPayloads]. The unfiltered
+ * (admin / null) path delegates to the base.
  */
 class AdminUserRosterRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
+    private val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<AdminUserRosterSyncPayload, String>(
         db = db,
@@ -121,6 +135,64 @@ class AdminUserRosterRepository(
                 client_op_id = clientOpId,
             )
         }
+    }
+
+    /**
+     * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins, who
+     * see every roster row) delegates to the base; the filtered path (a non-admin's
+     * `WHERE 1 = 0` hidden subquery) reads the `(id, revision)` page engine-neutrally over the
+     * SQLDelight driver and hydrates via the base's [readPayloads]. Mirrors
+     * [com.calypsan.listenup.server.services.LibraryFolderRepository.pullSince].
+     */
+    override suspend fun pullSince(
+        userId: String?,
+        cursor: Long,
+        limit: Int,
+        extraWhere: SqlFragment?,
+    ): Page<AdminUserRosterSyncPayload> {
+        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
+        return suspendTransaction(db) {
+            val idsWithRev =
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision > ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = true,
+                    limit = limit,
+                )
+            Page(
+                items = readPayloads(idsWithRev.map { it.id }),
+                nextCursor = idsWithRev.lastOrNull()?.revision,
+                hasMore = idsWithRev.size == limit,
+            )
+        }
+    }
+
+    /**
+     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
+     * path reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and
+     * computes the permanent-wire-contract SHA-256 digest identically to the base. Mirrors
+     * [com.calypsan.listenup.server.services.LibraryFolderRepository.digest].
+     */
+    override suspend fun digest(
+        userId: String?,
+        cursor: Long,
+        extraWhere: SqlFragment?,
+    ): DomainDigest {
+        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
+        val rows =
+            suspendTransaction(db) {
+                driver.selectIdRevAccessFiltered(
+                    table = domainName,
+                    revisionPredicate = "revision <= ?",
+                    revisionArg = cursor,
+                    extraWhere = extraWhere,
+                    ascendingByRevision = false,
+                    limit = null,
+                )
+            }.sortedBy { it.id }
+        return accessFilteredDigest(cursor, rows)
     }
 
     /** Maps a generated [Admin_user_roster] row to the wire [AdminUserRosterSyncPayload] DTO. */

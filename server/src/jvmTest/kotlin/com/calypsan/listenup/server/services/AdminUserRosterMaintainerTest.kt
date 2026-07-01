@@ -37,7 +37,7 @@ class AdminUserRosterMaintainerTest :
                     )
                 }
 
-                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry())
+                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
                 val maintainer = AdminUserRosterMaintainer(sql, repo)
 
                 runTest {
@@ -82,7 +82,7 @@ class AdminUserRosterMaintainerTest :
                     )
                 }
 
-                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry())
+                val repo = AdminUserRosterRepository(sql, ChangeBus(), SyncRegistry(), driver = driver)
                 val maintainer = AdminUserRosterMaintainer(sql, repo)
 
                 runTest {

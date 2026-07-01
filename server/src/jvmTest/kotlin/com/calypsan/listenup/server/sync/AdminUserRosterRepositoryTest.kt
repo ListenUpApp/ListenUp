@@ -26,7 +26,7 @@ class AdminUserRosterRepositoryTest :
     FunSpec({
         test("upsert persists a roster row and pullSince returns it") {
             withSqlDatabase {
-                val repo = AdminUserRosterRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val repo = AdminUserRosterRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver)
 
                 runTest {
                     repo.upsert(row("user-1"))
