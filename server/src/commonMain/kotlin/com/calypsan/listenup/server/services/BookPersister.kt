@@ -113,10 +113,6 @@ class BookPersister internal constructor(
     internal suspend fun persist(result: ScanResult) {
         try {
             val libraryId = libraryRegistry.currentLibrary()
-            // Resolve the folder whose root_path matches the scan result's rootPath.
-            // Falls back to a sentinel folderId so a misconfigured folder doesn't
-            // block persistence; the TODO below tracks proper error surfacing.
-            val folderId = resolveFolderId(result.rootPath)
 
             // Suppress the per-book firehose PUBLISH for any BULK persist so the lossy live tail
             // (ChangeBus replay=256, DROP_OLDEST) never carries the burst — otherwise it overflows
@@ -132,9 +128,9 @@ class BookPersister internal constructor(
             try {
                 counts =
                     if (suppressFirehose) {
-                        withContext(FirehoseSuppressed) { persistAll(result, libraryId, folderId) }
+                        withContext(FirehoseSuppressed) { persistAll(result, libraryId) }
                     } else {
-                        persistAll(result, libraryId, folderId)
+                        persistAll(result, libraryId)
                     }
             } catch (e: OutOfMemoryError) {
                 // OOM means the JVM heap is compromised. We still emit Completed with the partial
@@ -182,7 +178,6 @@ class BookPersister internal constructor(
     private suspend fun persistAll(
         result: ScanResult,
         libraryId: LibraryId,
-        folderId: FolderId,
     ): PersistCounts {
         // Build the seen-paths set cheaply from the scan result — no DB, no per-book work.
         // This represents every rootRelPath present on disk at scan time.
@@ -198,9 +193,11 @@ class BookPersister internal constructor(
         fun coverBearing(change: AnalyzedBook): AnalyzedBook =
             coverBearingByPath[change.candidate.rootRelPath] ?: change
 
-        // Use the scan result's rootPath for filesystem cover reads — aligned
-        // with Analyzer's own path resolution (Analyzer.kt: rootPath.resolve(relPath)).
-        val scanRoot = Path(result.rootPath)
+        // Each book carries the absolute root of the folder it was walked from. A book's folder_id
+        // and its cover both resolve against THIS root — not the scan's primary rootPath — so a
+        // multi-folder library attributes every book to its own folder. Resolving one folder for the
+        // whole scan misplaced every non-primary-folder book, whose audio/cover then 404'd.
+        fun folderRootOf(book: AnalyzedBook): String = book.folderRootPath ?: result.rootPath
         // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
         // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —
         // a held book must never join ALL_BOOKS or it becomes visible to all members. A resolution
@@ -209,6 +206,9 @@ class BookPersister internal constructor(
         val systemCollectionId = resolveSystemCollectionId(libraryId)
         var persisted = 0
         var failed = 0
+        // Running failed count from folder groups already fully processed — the per-group callback adds
+        // its own in-flight failures on top for live progress ticks.
+        var failedBase = 0
 
         // Persistence is a visible phase, not a silent gap. The bar binds to booksAnalyzed/booksTotal
         // and hits 100% the instant ANALYZING ends; without these events the client would freeze at
@@ -240,7 +240,7 @@ class BookPersister internal constructor(
         val coversByBook =
             buildMap {
                 for (book in changedBooks) {
-                    extractPendingCover(book, scanRoot)?.let { put(book.candidate.rootRelPath, it) }
+                    extractPendingCover(book, Path(folderRootOf(book)))?.let { put(book.candidate.rootRelPath, it) }
                 }
             }
 
@@ -264,26 +264,39 @@ class BookPersister internal constructor(
         // Initial tick at 0 so the UI leaves the 100%-analyze state the moment persistence begins.
         if (toPersist > 0) emitPersistProgress(0)
 
-        // Batched persist: identity/genre/cover resolution + bulk existence in a suspend prepare phase,
-        // then chunked write transactions (O(chunks), not O(books)). The progress callback fires per
-        // chunk; we throttle emission to ~PERSIST_PROGRESS_TICKS ticks for a large library.
-        val persistResult =
-            ingest.resolveOrInsertAll(
-                libraryId = libraryId,
-                folderId = folderId,
-                books = changedBooks,
-                coversByBook = coversByBook,
-                systemCollectionId = systemCollectionId,
-                identityMaps = identityMaps,
-            ) { processed, failedSoFar ->
-                failed = failedSoFar
-                if (processed - lastTickAt >= persistProgressStride || processed == toPersist) {
-                    lastTickAt = processed
-                    emitPersistProgress(processed)
+        // Resolve every distinct owning-folder root to its FolderId ONCE (fallback sentinel per root
+        // handled by resolveFolderId).
+        val folderIdByRoot: Map<String, FolderId> =
+            changedBooks.mapTo(mutableSetOf(), ::folderRootOf).associateWith { resolveFolderId(it) }
+
+        // Batched persist, folder group by folder group so each book lands under the folder it was
+        // walked from. Within a group it is the same chunked O(chunks) write. Progress and counts
+        // accumulate across groups so the PERSISTING bar and the Completed summary stay whole-scan.
+        // (An OutOfMemoryError throws PersistAbortedByOom out of the group, carrying its own partial
+        // counts, so this accumulation only needs to be correct on the normal path.)
+        var processedBase = 0
+        for ((folderRoot, group) in changedBooks.groupBy(::folderRootOf)) {
+            val groupResult =
+                ingest.resolveOrInsertAll(
+                    libraryId = libraryId,
+                    folderId = folderIdByRoot.getValue(folderRoot),
+                    books = group,
+                    coversByBook = coversByBook,
+                    systemCollectionId = systemCollectionId,
+                    identityMaps = identityMaps,
+                ) { processedInGroup, failedInGroup ->
+                    val processedTotal = processedBase + processedInGroup
+                    failed = failedBase + failedInGroup
+                    if (processedTotal - lastTickAt >= persistProgressStride || processedTotal == toPersist) {
+                        lastTickAt = processedTotal
+                        emitPersistProgress(processedTotal)
+                    }
                 }
-            }
-        persisted = persistResult.persisted
-        failed = persistResult.failed
+            persisted += groupResult.persisted
+            failedBase += groupResult.failed
+            processedBase += group.size
+        }
+        failed = failedBase
 
         // Incremental Removed changes tombstone the book at their path immediately so deletions reflow
         // without waiting for the next Full scan. Idempotent: a no-op when the book is already deleted

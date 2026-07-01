@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.domain.embeddedmeta.EmbeddedArtwork
 import com.calypsan.listenup.server.api.CollectionAccessPolicy
@@ -46,6 +47,65 @@ import kotlinx.coroutines.test.runTest
 
 class BookPersisterTest :
     FunSpec({
+
+        test("multi-folder scan persists each book under the folderId of ITS OWN folder") {
+            withSqlDatabase {
+                runTest {
+                    // One library, two folders at distinct roots. Each book carries the root it was
+                    // walked from; the persister must resolve folder_id per book from that root — not
+                    // one folder for the whole scan (the bug that 404'd every non-primary-folder book).
+                    val now = 0L
+                    sql.librariesQueries.insert(
+                        id = "lib",
+                        name = "L",
+                        metadata_precedence = "embedded",
+                        access_mode = "shared",
+                        created_by_user_id = null,
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
+                    sql.libraryFoldersQueries.insert(
+                        id = "folder-a",
+                        library_id = "lib",
+                        root_path = "/mnt/A",
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
+                    sql.libraryFoldersQueries.insert(
+                        id = "folder-b",
+                        library_id = "lib",
+                        root_path = "/mnt/B",
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
+
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    val bookA = analyzedBook("Book A").copy(folderRootPath = "/mnt/A")
+                    val bookB = analyzedBook("Book B").copy(folderRootPath = "/mnt/B")
+                    persister.persist(
+                        scanResult(
+                            books = listOf(bookA, bookB),
+                            changes = listOf(ChangeEventDto.Added(bookA), ChangeEventDto.Added(bookB)),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    fake.folderIdByPath["Book A"] shouldBe FolderId("folder-a")
+                    fake.folderIdByPath["Book B"] shouldBe FolderId("folder-b")
+                }
+            }
+        }
 
         test("persists changed books from ScanResult.changes") {
             withSqlDatabase {
@@ -602,6 +662,9 @@ private class FakeBookIngest(
     /** The [AnalyzedBook.cover] each [resolveOrInsert] saw, keyed by rootRelPath. */
     val coverByPath = mutableMapOf<String, CoverSource?>()
 
+    /** The [com.calypsan.listenup.core.FolderId] each [resolveOrInsert] saw, keyed by rootRelPath. */
+    val folderIdByPath = mutableMapOf<String, com.calypsan.listenup.core.FolderId>()
+
     /** seenPaths sets passed to each [softDeleteAbsentByPaths] call. */
     val softDeleteAbsentByPathsCalls = mutableListOf<Set<String>>()
 
@@ -634,6 +697,7 @@ private class FakeBookIngest(
         suppressionObserved += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         val path = analyzed.candidate.rootRelPath
         coverByPath[path] = analyzed.cover
+        folderIdByPath[path] = folderId
         if (path in oomForRootRelPath) {
             throw OutOfMemoryError("simulated OOM for $path")
         }
