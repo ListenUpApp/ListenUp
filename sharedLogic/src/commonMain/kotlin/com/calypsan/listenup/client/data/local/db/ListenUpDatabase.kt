@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v41. Migrations live in the `data/local/migrations/` package
+ * Schema is at v42. Migrations live in the `data/local/migrations/` package
  * (e.g. `Migration14To15`, `Migration19To20`) and are registered via `.addMigrations(...)`
  * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
  * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
@@ -59,8 +59,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         CoverDownloadTaskEntity::class,
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
+        AdminUserRosterEntity::class,
     ],
-    version = 41,
+    version = 42,
     exportSchema = true,
 )
 @TypeConverters(
@@ -142,6 +143,8 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun syncCursorDao(): SyncCursorDao
 
     abstract fun pendingOperationV2Dao(): PendingOperationV2Dao
+
+    abstract fun adminUserRosterDao(): AdminUserRosterDao
 }
 
 /**

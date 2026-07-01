@@ -46,6 +46,7 @@ import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomai
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -342,6 +343,13 @@ internal val clientSyncRenovationModule =
                 database = get(),
                 transactionRunner = get(),
                 avatarDownloadRepository = get(),
+                registry = get(),
+            )
+        }
+        single(createdAtStart = true) {
+            AdminUserRosterSyncDomainHandler(
+                database = get(),
+                transactionRunner = get(),
                 registry = get(),
             )
         }
