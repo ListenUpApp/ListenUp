@@ -7,13 +7,15 @@ import io.ktor.http.parseQueryString
 /**
  * Pure, two-way translation between share-link URL strings and [ShareTarget].
  *
- * Every shareable link is the `https://link.listenup.audio/o#…` universal-link form — one shape
+ * Every shareable link is the `https://link.listenup.audio/o?…` universal-link form — one shape
  * for books and invites alike, so a tapped link opens the app (or falls back to the install page)
  * on both platforms. [encode] builds it; [decode] parses it, living once in `commonMain` rather
  * than per platform.
  *
- * The payload rides in the URL `#fragment` (the host never receives it); [decode] also accepts
- * the same params in the `?query` as a fallback, in case a platform strips the fragment.
+ * The payload rides in the URL `?query`: iOS Universal Links do not reliably deliver the URL
+ * `#fragment` to the app (`NSUserActivity.webpageURL` drops it), and the redirector's `/o`→`/o/`
+ * 308 strands a fragment too — a query survives both. [decode] still accepts the legacy `#fragment`
+ * form so links shared before this change keep working when they arrive intact (e.g. on Android).
  */
 object ShareLinkCodec {
     /**
@@ -43,7 +45,7 @@ object ShareLinkCodec {
     private fun encodeBook(book: ShareTarget.Book): String =
         buildString {
             append(ShareLinkConstants.SHARE_URL_PREFIX)
-            append("#t=book")
+            append("?t=book")
             append("&b=").append(book.bookId.value.percentEncodeQueryValue())
             book.serverInstanceId?.let { append("&i=").append(it.percentEncodeQueryValue()) }
             book.serverUrl?.let { append("&u=").append(it.percentEncodeQueryValue()) }
@@ -52,7 +54,7 @@ object ShareLinkCodec {
     private fun encodeInvite(invite: ShareTarget.Invite): String =
         buildString {
             append(ShareLinkConstants.SHARE_URL_PREFIX)
-            append("#t=invite")
+            append("?t=invite")
             append("&server=").append(invite.serverUrl.percentEncodeQueryValue())
             append("&code=").append(invite.code.percentEncodeQueryValue())
         }

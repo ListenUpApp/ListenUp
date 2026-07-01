@@ -4,6 +4,7 @@ import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 
 class ShareLinkCodecTest :
@@ -19,7 +20,7 @@ class ShareLinkCodecTest :
                     ),
                 )
 
-            url shouldStartWith "https://link.listenup.audio/o#t=book"
+            url shouldStartWith "https://link.listenup.audio/o?t=book"
             url shouldContain "b=book-abc"
             url shouldContain "i=inst-123"
             // serverUrl is percent-encoded as a query component.
@@ -32,15 +33,26 @@ class ShareLinkCodecTest :
                     ShareTarget.Book(bookId = BookId("book-abc"), serverInstanceId = null, serverUrl = null),
                 )
 
-            url shouldBe "https://link.listenup.audio/o#t=book&b=book-abc"
+            url shouldBe "https://link.listenup.audio/o?t=book&b=book-abc"
         }
 
         test("encode produces the https /o form for an invite") {
             val url = ShareLinkCodec.encode(ShareTarget.Invite(serverUrl = "https://lib.example.com", code = "JOIN9"))
 
-            url shouldStartWith "https://link.listenup.audio/o#t=invite"
+            url shouldStartWith "https://link.listenup.audio/o?t=invite"
             url shouldContain "server=https%3A%2F%2Flib.example.com"
             url shouldContain "code=JOIN9"
+        }
+
+        test("encode puts the invite payload in the query, not the fragment, so it survives iOS Universal Link delivery") {
+            val invite = ShareTarget.Invite(serverUrl = "http://192.168.86.24:8080", code = "JOIN9")
+            val url = ShareLinkCodec.encode(invite)
+
+            // iOS Universal Links (NSUserActivity.webpageURL) drop the #fragment; the payload must ride in ?query.
+            url shouldContain "?t=invite"
+            url shouldNotContain "#"
+            // Simulate a delivery that strips everything from '#' onward: the invite still decodes.
+            ShareLinkCodec.decode(url.substringBefore("#")) shouldBe invite
         }
 
         test("decode parses the https /o form from the fragment") {
