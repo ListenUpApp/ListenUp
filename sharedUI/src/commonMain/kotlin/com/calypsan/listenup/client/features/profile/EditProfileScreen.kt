@@ -64,7 +64,6 @@ import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
 import com.calypsan.listenup.client.presentation.profile.EditProfileUiState
 import com.calypsan.listenup.client.presentation.profile.EditProfileViewModel
-import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import listenup.composeapp.generated.resources.Res
@@ -76,7 +75,6 @@ import listenup.composeapp.generated.resources.profile_current_password
 import listenup.composeapp.generated.resources.profile_edit_profile_title
 import listenup.composeapp.generated.resources.profile_name
 import listenup.composeapp.generated.resources.profile_name_description
-import listenup.composeapp.generated.resources.profile_profile_saved
 import listenup.composeapp.generated.resources.profile_new_password
 import listenup.composeapp.generated.resources.profile_password_description
 import listenup.composeapp.generated.resources.profile_remove_photo
@@ -117,8 +115,10 @@ fun EditProfileScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
             when (event) {
+                // Redirect straight back to the profile screen on save — the refreshed profile is
+                // the confirmation. (Previously awaited a snackbar first, whose suspend delayed the
+                // navigation by the snackbar's full duration, and which wasn't visible post-nav anyway.)
                 is EditProfileEvent.SaveSucceeded -> {
-                    snackbarHostState.showSnackbar(getString(Res.string.profile_profile_saved))
                     onBack()
                 }
 
