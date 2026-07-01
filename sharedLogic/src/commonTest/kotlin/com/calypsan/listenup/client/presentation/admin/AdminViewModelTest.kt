@@ -571,4 +571,50 @@ class AdminViewModelTest :
                     .map { it.id } shouldBe listOf("p1")
             }
         }
+
+        // A user who claims an invite is created ACTIVE, so it lands in the active roster (not the
+        // pending list). The poll must refresh that roster too, otherwise a newly-joined member only
+        // appears after the admin manually refreshes.
+        test("the active user roster refreshes on a poll tick while the screen is observed") {
+            runTest {
+                // Server-side active roster, flipped mid-test to simulate a claimed-invite user landing.
+                var users: List<AdminUserInfo> = emptyList()
+                val loadUsersUseCase: LoadUsersUseCase = mock()
+                everySuspend { loadUsersUseCase() } calls { AppResult.Success(users) }
+                val loadPendingUsersUseCase: LoadPendingUsersUseCase = mock()
+                everySuspend { loadPendingUsersUseCase() } returns AppResult.Success(emptyList())
+                val loadInvitesUseCase: LoadInvitesUseCase = mock()
+                everySuspend { loadInvitesUseCase() } returns AppResult.Success(emptyList())
+
+                val viewModel =
+                    AdminViewModel(
+                        getRegistrationPolicyUseCase = createMockGetRegistrationPolicyUseCase(),
+                        loadUsersUseCase = loadUsersUseCase,
+                        loadPendingUsersUseCase = loadPendingUsersUseCase,
+                        loadInvitesUseCase = loadInvitesUseCase,
+                        deleteUserUseCase = mock(),
+                        revokeInviteUseCase = mock(),
+                        approveUserUseCase = mock(),
+                        denyUserUseCase = mock(),
+                        setRegistrationPolicyUseCase = mock(),
+                        eventStreamRepository = createMockEventStreamRepository(),
+                    )
+
+                // Observe state so the subscription-gated poll runs (auto-cancelled at test end).
+                backgroundScope.launch { viewModel.state.collect {} }
+                advanceTimeBy(200) // initial load settles → Ready, empty roster
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .users
+                    .shouldBeEmpty()
+
+                users = listOf(createUser(id = "u1"))
+                advanceTimeBy(11_000) // crosses the 10s poll cadence
+
+                viewModel.state.value
+                    .shouldBeInstanceOf<AdminUiState.Ready>()
+                    .users
+                    .map { it.id } shouldBe listOf("u1")
+            }
+        }
     })

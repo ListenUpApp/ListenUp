@@ -32,13 +32,15 @@ import kotlinx.coroutines.launch
 private val logger = KotlinLogging.logger {}
 
 /**
- * Cadence for refreshing the pending-registrations list while the admin screen is open.
+ * Cadence for refreshing the admin roster (active users + pending registrations) while the
+ * admin screen is open.
  *
  * The live admin-event firehose isn't wired yet ([com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl]
- * stubs `adminEvents` to `emptyFlow()`), so without this a newly-registered pending user only
- * appears after an app restart. This poll is the never-stranded refresh until that migration lands.
+ * stubs `adminEvents` to `emptyFlow()`), so without this a newly-registered pending user — or a
+ * user who just claimed an invite (created ACTIVE, landing in the active roster) — only appears
+ * after an app restart. This poll is the never-stranded refresh until that migration lands.
  */
-private const val PENDING_POLL_INTERVAL_MS = 10_000L
+private const val ADMIN_POLL_INTERVAL_MS = 10_000L
 
 /**
  * ViewModel for the combined admin screen.
@@ -64,19 +66,20 @@ class AdminViewModel(
     init {
         loadData()
         observeSSEEvents()
-        pollPendingUsers()
+        pollAdminRoster()
     }
 
     /**
-     * Periodically re-fetch the pending-registrations list so a newly-registered applicant appears
-     * without an app restart. Updates only the `pendingUsers` of an existing [AdminUiState.Ready]
-     * (no-op while Loading, and per-action overlays are preserved); a transient failure keeps
-     * the current list.
+     * Periodically re-fetch the admin roster — both the active users and the pending-registrations
+     * list — so a user who registers (lands in `pendingUsers`) or claims an invite (created ACTIVE,
+     * lands in `users`) appears without an app restart. Updates only an existing [AdminUiState.Ready]
+     * (no-op while Loading, and per-action overlays are preserved); a transient failure of either
+     * fetch keeps the current list for that section.
      *
      * Gated on [state] having subscribers, so it only runs while the admin screen is actually on
      * screen — no wasted polling in the background. Stops automatically when the scope is cancelled.
      */
-    private fun pollPendingUsers() {
+    private fun pollAdminRoster() {
         viewModelScope.launch {
             state.subscriptionCount
                 .map { it > 0 }
@@ -84,8 +87,15 @@ class AdminViewModel(
                 .collectLatest { isObserved ->
                     if (!isObserved) return@collectLatest
                     while (true) {
-                        delay(PENDING_POLL_INTERVAL_MS)
-                        when (val result = loadPendingUsersUseCase()) {
+                        delay(ADMIN_POLL_INTERVAL_MS)
+                        // Refresh both sections in parallel — no dependency between them.
+                        val deferredUsers = async { loadUsersUseCase() }
+                        val deferredPending = async { loadPendingUsersUseCase() }
+                        when (val result = deferredUsers.await()) {
+                            is AppResult.Success -> updateReady { it.copy(users = sortUsers(result.data)) }
+                            is AppResult.Failure -> Unit
+                        }
+                        when (val result = deferredPending.await()) {
                             is AppResult.Success -> updateReady { it.copy(pendingUsers = result.data) }
                             is AppResult.Failure -> Unit
                         }
@@ -192,12 +202,7 @@ class AdminViewModel(
                 }
             val loadError = listOfNotNull(usersError, invitesError).joinToString("; ").ifEmpty { null }
 
-            // Sort users: root user first, then by creation date (oldest first)
-            val sortedUsers =
-                users.sortedWith(
-                    compareByDescending<AdminUserInfo> { it.isRoot }
-                        .thenBy { it.createdAt },
-                )
+            val sortedUsers = sortUsers(users)
 
             state.update { current ->
                 if (current is AdminUiState.Ready) {
@@ -367,6 +372,13 @@ class AdminViewModel(
             }
         }
     }
+
+    /** Root user first, then by creation date (oldest first). */
+    private fun sortUsers(users: List<AdminUserInfo>): List<AdminUserInfo> =
+        users.sortedWith(
+            compareByDescending<AdminUserInfo> { it.isRoot }
+                .thenBy { it.createdAt },
+        )
 
     /**
      * Apply [transform] to state only if it is currently [AdminUiState.Ready].
