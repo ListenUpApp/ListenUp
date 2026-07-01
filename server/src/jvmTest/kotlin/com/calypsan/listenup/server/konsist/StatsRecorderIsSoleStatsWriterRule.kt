@@ -31,6 +31,17 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * — a same-named method on a *different* repository. A bare-token match would misreport that as a
  * `UserStatsRepository.upsert(` call. Anchoring to `userStatsRepository.upsert(` (the exact
  * receiver) resolves it without widening the allowlist.
+ *
+ * **Known blind spot (false NEGATIVE — this rule can miss a real violation).** The scan is
+ * class-scoped and constructor-param-anchored: it only inspects a class's primary-constructor
+ * parameters and that class's own function bodies. It does NOT see (a) a top-level function (e.g.
+ * `fun Route.xxxRoutes()`) that writes via a repository obtained through `get()` / a route
+ * parameter rather than a constructor param, or (b) a repository obtained any other way than a
+ * primary-constructor parameter (a property, a function parameter, a Koin `get()` call inline).
+ * Either shape reaches `.upsert(`/`.recordRead(` on the real repository with zero classes involved,
+ * so this rule reports no offenders and stays green while the invariant it exists to protect is
+ * broken. Treat "the rule is green" as "no *constructor-held, class-scoped* violation exists" —
+ * not as a blanket guarantee that no 5th recurrence of the bug class is possible.
  */
 class StatsRecorderIsSoleStatsWriterRule :
     FunSpec({

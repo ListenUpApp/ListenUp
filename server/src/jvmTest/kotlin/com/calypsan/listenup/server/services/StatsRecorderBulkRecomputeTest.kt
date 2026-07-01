@@ -13,6 +13,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlin.time.Instant
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 
 class StatsRecorderBulkRecomputeTest :
     FunSpec({
@@ -74,6 +75,75 @@ class StatsRecorderBulkRecomputeTest :
                     stats.totalSecondsAllTime shouldBe 60L
                     val profile = publicProfileRepo.pullSince(userId = null, cursor = 0L, limit = 10).items.single()
                     profile.totalSecondsAllTime shouldBe 60L
+                }
+            }
+        }
+
+        test(
+            "StatsCascadeDeferred suppresses public_profiles refresh across several BookCompleted rows; " +
+                "BulkRecompute refreshes exactly once",
+        ) {
+            val nowMs = 1_700_000_000_000L
+            withSqlDatabase {
+                sql.seedTestUser("u1")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val userStatsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = userStatsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer =
+                            PublicProfileMaintainer(
+                                sql = sql,
+                                publicProfileRepo = publicProfileRepo,
+                                clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
+                            ),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        statsBackfill =
+                            UserStatsBackfillService(
+                                sql = sql,
+                                userStatsRepo = userStatsRepo,
+                                clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
+                            ),
+                    )
+
+                // Observable equivalent of "PublicProfileMaintainer.refresh() was called N times":
+                // every refresh() ends in publicProfileRepo.upsert(), which — per
+                // SqlSyncableRepository.upsert's afterCommit hook — publishes exactly one
+                // BusEvent<PublicProfileSyncPayload> tagged with domainName = "public_profiles"
+                // onto this shared bus. ChangeBus retains a 256-entry replay buffer, so counting
+                // that domain's entries in the replay cache is a direct, tooling-free proxy for the
+                // refresh call count (PublicProfileMaintainer is a concrete class with no test
+                // double available in :server's jvmTest — mokkery's compiler plugin isn't applied
+                // to this module — so this counts the class's one durable side effect instead of
+                // spying the call itself).
+                fun publicProfileWriteCount(): Int = bus.subscribe().replayCache.count { it.repo.domainName == "public_profiles" }
+
+                runTest {
+                    withContext(StatsCascadeDeferred) {
+                        repeat(3) { i ->
+                            recorder.record(
+                                StatsEvent.BookCompleted(
+                                    userId = "u1",
+                                    bookId = "book-$i",
+                                    occurredAt = Instant.fromEpochMilliseconds(nowMs),
+                                ),
+                            )
+                        }
+                    }
+
+                    // The suppression half: three completions ran under the deferred marker and
+                    // none of them refreshed the projection.
+                    publicProfileWriteCount() shouldBe 0
+
+                    recorder.record(StatsEvent.BulkRecompute(userId = "u1"))
+
+                    // The terminal half: the bulk import's one closing recompute refreshes exactly
+                    // once, not once per suppressed row.
+                    publicProfileWriteCount() shouldBe 1
                 }
             }
         }

@@ -75,7 +75,12 @@ class StatsRecorderInvariantTest :
                         ),
                     )
 
-                    userStatsRepo.getForUser("u1").shouldNotBeNull().booksFinished shouldBe 1
+                    val stats = userStatsRepo.getForUser("u1").shouldNotBeNull()
+                    stats.booksFinished shouldBe 1
+                    // Spec §6: a completion moves booksFinished but must never fabricate listening
+                    // time or touch the streak — no synthesized listening_events.
+                    stats.totalSecondsAllTime shouldBe 0
+                    stats.currentStreakDays shouldBe 0
                     val profile = publicProfileRepo.pullSince(userId = null, cursor = 0L, limit = 10).items.single()
                     profile.booksFinished shouldBe 1
                     profile.booksFinishedLast7Days shouldBe 1

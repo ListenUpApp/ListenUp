@@ -64,6 +64,7 @@ class StatsRecorderListeningSessionClosedTest :
                         publicProfileMaintainer = publicProfileMaintainer,
                         activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo),
+                        clock = clock,
                     )
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
