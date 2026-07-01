@@ -6,10 +6,8 @@ import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
-import dev.mokkery.answering.returns
-import dev.mokkery.everySuspend
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -29,8 +27,7 @@ class UserPreferencesOfflineTest :
                     object : TransactionRunner {
                         override suspend fun <R> atomically(block: suspend () -> R): R = block()
                     }
-                val authSession: AuthSession = mock()
-                everySuspend { authSession.getUserId() } returns "u1"
+                val authSession = FakeAuthSession(userId = "u1")
                 val offlineEditor = OfflineEditor(pendingQueue = queue, transactionRunner = txRunner, authSession = authSession)
 
                 // The RPC factory is a bare mock: if the repo tries to push inline, the call throws.
