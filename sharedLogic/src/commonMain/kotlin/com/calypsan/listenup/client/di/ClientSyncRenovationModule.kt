@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.ListeningEventOpSender
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
@@ -119,6 +120,7 @@ internal val clientSyncRenovationModule =
                 sender = get(),
             )
         }
+        single { OfflineEditor(pendingQueue = get(), transactionRunner = get(), authSession = get()) }
 
         single<SseClient> {
             val apiClientFactory: ApiClientFactory = get()
