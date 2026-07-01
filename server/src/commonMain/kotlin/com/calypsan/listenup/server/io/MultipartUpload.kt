@@ -20,3 +20,20 @@ internal expect suspend fun ApplicationCall.streamFirstFilePartTo(
     dest: Path,
     formFieldLimit: Long,
 ): Boolean
+
+/**
+ * Receives a multipart request and returns the bytes of the first file part, or null when no file part
+ * is present. Non-file parts and any parts after the first are released and ignored. [formFieldLimit]
+ * caps the accepted size; a file part larger than it raises [MultipartPartTooLargeException] before it
+ * fully lands in memory. For small uploads (avatars) that must be buffered for magic-number validation
+ * — large streaming uploads use [streamFirstFilePartTo] instead.
+ *
+ * Platform note: the JVM runtime delegates to Ktor's `receiveMultipart`. Kotlin/Native's Ktor CIO
+ * server cannot parse multipart through that transform (JetBrains
+ * [KTOR-7361](https://youtrack.jetbrains.com/issue/KTOR-7361)), so the native actual reads the raw
+ * body channel and decodes the wire format itself via [streamFirstFilePart]. Both runtimes serve
+ * uploads with identical behaviour.
+ *
+ * @throws MultipartPartTooLargeException if the file part exceeds [formFieldLimit].
+ */
+internal expect suspend fun ApplicationCall.receiveFirstFilePartBytes(formFieldLimit: Long): ByteArray?
