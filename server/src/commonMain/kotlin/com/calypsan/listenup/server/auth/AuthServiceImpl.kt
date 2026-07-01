@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Sessions
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -76,6 +77,11 @@ class AuthServiceImpl(
      * without a default ALL_BOOKS grant — user creation still succeeds.
      */
     internal val defaultGrantIssuer: DefaultAllBooksGrantIssuer? = null,
+    /**
+     * Nullable so the auth module assembles independently of the admin-roster module (test
+     * environments, phased startup). A null value silently skips the roster-projection refresh.
+     */
+    internal val adminUserRosterMaintainer: AdminUserRosterMaintainer? = null,
 ) : AuthServicePublic,
     AuthServiceAuthed {
     override suspend fun login(request: LoginRequest): AppResult<AuthSession> {
@@ -178,6 +184,10 @@ class AuthServiceImpl(
                 )
             }
         createStarterShelfBestEffort(user.id)
+        // Both ACTIVE and PENDING_APPROVAL users belong in the admin roster — the admin
+        // pending-approvals list reads PENDING_APPROVAL rows straight out of it — so this
+        // refresh runs unconditionally, unlike the ACTIVE-only side-effects below.
+        adminUserRosterMaintainer?.refreshBestEffort(user.id)
         // Only ACTIVE users get side-effects immediately; PENDING_APPROVAL users
         // get theirs when the admin approves them (via AdminUserServiceImpl).
         if (status == UserStatusColumn.ACTIVE) {
@@ -212,6 +222,7 @@ class AuthServiceImpl(
             )
         suspendTransaction(db) { insert(user) }
         createStarterShelfBestEffort(user.id)
+        adminUserRosterMaintainer?.refreshBestEffort(user.id)
         publicProfileMaintainer?.refreshBestEffort(user.id)
         activityRecorder?.record(user.id, ActivityType.USER_JOINED)
         return AppResult.Success(
@@ -292,6 +303,7 @@ class AuthServiceImpl(
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
         )
 
     /** Bind the captured User-Agent (REST path only) so login/register/setup persist it. */
@@ -310,6 +322,7 @@ class AuthServiceImpl(
             publicProfileMaintainer = publicProfileMaintainer,
             activityRecorder = activityRecorder,
             defaultGrantIssuer = defaultGrantIssuer,
+            adminUserRosterMaintainer = adminUserRosterMaintainer,
         )
 
     /**
