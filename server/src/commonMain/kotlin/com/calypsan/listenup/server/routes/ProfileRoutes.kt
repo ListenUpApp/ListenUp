@@ -2,23 +2,21 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.io.MultipartPartTooLargeException
+import com.calypsan.listenup.server.io.readBytes
+import com.calypsan.listenup.server.io.receiveFirstFilePartBytes
 import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
-import io.ktor.server.request.receiveMultipart
 import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
-import com.calypsan.listenup.server.io.readBytes
-import io.ktor.utils.io.toByteArray
 import kotlin.time.Clock
 import kotlinx.io.files.SystemFileSystem
 
@@ -45,27 +43,17 @@ fun Route.profileRoutes(
         val principal = call.userPrincipalOrNull() ?: return@post call.respond(HttpStatusCode.Unauthorized)
         val userId = principal.userId.value
 
-        var bytes: ByteArray? = null
-        var declared = ContentType.Application.OctetStream.toString()
-        var oversized = false
-        call.receiveMultipart().forEachPart { part ->
-            if (part is PartData.FileItem && bytes == null) {
-                val declaredLength = part.headers[HttpHeaders.ContentLength]?.toLongOrNull()
-                if (declaredLength != null && declaredLength > AVATAR_MAX_BYTES) {
-                    part.release()
-                    oversized = true
-                    return@forEachPart
-                }
-                declared = part.contentType?.toString() ?: declared
-                bytes = part.provider().toByteArray()
-            }
-            part.release()
-        }
-        if (oversized) return@post call.respond(HttpStatusCode.PayloadTooLarge)
-        val data = bytes ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
+        val data =
+            try {
+                call.receiveFirstFilePartBytes(AVATAR_MAX_BYTES)
+            } catch (e: MultipartPartTooLargeException) {
+                return@post call.respond(HttpStatusCode.PayloadTooLarge, "image exceeds ${e.limit} bytes")
+            } ?: return@post call.respond(HttpStatusCode.BadRequest, "missing file part")
 
+        // ImageStore validates by magic number, not the declared content type — the octet-stream
+        // default only surfaces in its invalid-image error text, so no per-part content type is read.
         try {
-            imageStore.store(userId, data, declared)
+            imageStore.store(userId, data, ContentType.Application.OctetStream.toString())
         } catch (e: ImageStore.InvalidImageException) {
             return@post call.respond(HttpStatusCode.UnprocessableEntity, e.message ?: "invalid image")
         }
