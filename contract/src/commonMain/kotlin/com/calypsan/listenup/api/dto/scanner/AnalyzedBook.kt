@@ -62,6 +62,16 @@ data class AnalyzedBook(
      */
     val hasScanWarning: Boolean = false,
     val documents: List<AnalyzedDocument> = emptyList(),
+    /**
+     * Absolute filesystem root of the library folder this book was walked from — the anchor
+     * [candidate].rootRelPath is relative to. The persister resolves the book's `folder_id` and
+     * reads its cover from THIS root, so a multi-folder library attributes every book to its own
+     * folder (resolving one folder for the whole scan misplaces every non-primary-folder book,
+     * which then fails to serve — a 404). `null` on books produced before folder attribution;
+     * the persister falls back to the scan's primary root for those.
+     */
+    @SerialName("folderRootPath")
+    val folderRootPath: String? = null,
 )
 
 /**

@@ -105,6 +105,10 @@ internal class Scanner(
         var totalFileCount = 0
         var totalCandidateCount = 0
         val folderRoots = mutableListOf<Path>()
+        // The ORIGINAL configured root-path string per folder — stamped onto each book below so the
+        // persister resolves folder_id by an exact library_folders.root_path match (a Path round-trip
+        // could differ). Parallel to [folderRoots].
+        val folderRootPaths = mutableListOf<String>()
         val candidatesPerFolder = mutableListOf<List<CandidateBook>>()
 
         for (folder in library.folders) {
@@ -115,6 +119,7 @@ internal class Scanner(
             totalFileCount += files.size
             totalCandidateCount += candidates.size
             folderRoots += folderRoot
+            folderRootPaths += rootPath
             candidatesPerFolder += candidates
         }
 
@@ -165,7 +170,9 @@ internal class Scanner(
                     folderRoots[i],
                     previousByPath,
                 )
-            allBooks += pass.books
+            // Stamp every book in this pass (fresh AND fingerprint-cache reuses) with its owning
+            // folder's root so the persister attributes it to the correct library_folders row.
+            allBooks += pass.books.map { it.copy(folderRootPath = folderRootPaths[i]) }
             allErrors += pass.errors
             authorsMatched += pass.authorsMatched
             totalDurationMs += pass.totalDurationMs
@@ -244,13 +251,13 @@ internal class Scanner(
             library.folders.firstOrNull { folder ->
                 folder.rootPath?.let { bookRoot.isUnder(Path(it)) } ?: false
             }
-        val folderRoot =
-            owningFolder?.rootPath?.let { Path(it) }
-                ?: library.folders
-                    .firstOrNull()
-                    ?.rootPath
-                    ?.let { Path(it) }
-                ?: bookRoot
+        // The ORIGINAL configured root-path string (exact library_folders.root_path) this subtree
+        // belongs to — stamped onto each book so the persister resolves the right folder_id.
+        val folderRootPath =
+            owningFolder?.rootPath
+                ?: library.folders.firstOrNull()?.rootPath
+                ?: bookRoot.toString()
+        val folderRoot = Path(folderRootPath)
 
         val walker = Walker()
         val rawFiles = walker.walk(bookRoot).toList()
@@ -279,7 +286,8 @@ internal class Scanner(
         // the untouched books are preserved via previousUntouched below.
         val previousByPath = lastResult?.books.orEmpty().associateBy { it.candidate.rootRelPath }
         val pass = collectAnalyzed(analyzer, candidates, correlationId, rebasedFiles.size, folderRoot, previousByPath)
-        val books = pass.books
+        // Stamp each book with its owning folder's root so the persister attributes it correctly.
+        val books = pass.books.map { it.copy(folderRootPath = folderRootPath) }
         val errors = pass.errors
 
         val (previousAffected, previousUntouched) =
