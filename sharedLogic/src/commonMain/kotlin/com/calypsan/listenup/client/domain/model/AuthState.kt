@@ -38,7 +38,16 @@ sealed interface AuthState {
     data class PendingApproval(
         val userId: UserId,
         val email: String,
-    ) : AuthState
+    ) : AuthState {
+        /**
+         * The raw user id as a plain `String`.
+         *
+         * Swift Export exposes [userId] as an opaque `UserId` wrapper with no `.value` accessor,
+         * so iOS reads this instead — the same `idString` convention every other Swift-consumed
+         * domain model follows.
+         */
+        val userIdString: String get() = userId.value
+    }
 
     /** User is authenticated with a valid session. */
     data class Authenticated(

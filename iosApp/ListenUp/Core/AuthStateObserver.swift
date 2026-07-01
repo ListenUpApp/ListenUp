@@ -58,7 +58,7 @@ final class AuthStateObserver {
             openRegistration = login.openRegistration
         case .pendingApproval(let pending):
             state = .pendingApproval
-            pendingApprovalUserId = pending.userId as? String ?? ""
+            pendingApprovalUserId = pending.userIdString
             pendingApprovalEmail = pending.email
         case .authenticated:
             state = .authenticated
