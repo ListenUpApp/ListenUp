@@ -38,6 +38,7 @@ private const val APP_SCOPE = "appScope"
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
  *  - [com.calypsan.listenup.client.data.sync.SyncEngine] — `clientSyncRenovationModule`
  *  - [com.calypsan.listenup.client.data.sync.SyncEngineState] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncRenovationModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
  *  - [com.calypsan.listenup.client.playback.ListeningEventRecorder] — `listeningModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
@@ -116,6 +117,7 @@ internal val libraryModule: Module =
                 rpcFactory = get(),
                 dao = get(),
                 authSession = get(),
+                offlineEditor = get(),
             )
         }
 

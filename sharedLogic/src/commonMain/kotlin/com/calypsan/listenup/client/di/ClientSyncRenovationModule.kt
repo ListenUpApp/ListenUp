@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
@@ -23,6 +24,7 @@ import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
+import com.calypsan.listenup.client.data.sync.PreferencesEdit
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SeriesEdit
@@ -119,15 +121,25 @@ internal val clientSyncRenovationModule =
                     mapOf(
                         "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
                         "listening_events" to ListeningEventOpSender(rpcFactory = get()),
-                        BookEdit.name to RpcUpdateOpSender(BookEdit) { id, patch ->
-                            get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
-                        },
-                        SeriesEdit.name to RpcUpdateOpSender(SeriesEdit) { id, patch ->
-                            get<SeriesRpcFactory>().seriesService().updateSeries(SeriesId(id), patch)
-                        },
-                        ContributorEdit.name to RpcUpdateOpSender(ContributorEdit) { id, patch ->
-                            get<ContributorRpcFactory>().contributorService().updateContributor(ContributorId(id), patch)
-                        },
+                        BookEdit.name to
+                            RpcUpdateOpSender(BookEdit) { id, patch ->
+                                get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
+                            },
+                        SeriesEdit.name to
+                            RpcUpdateOpSender(SeriesEdit) { id, patch ->
+                                get<SeriesRpcFactory>().seriesService().updateSeries(SeriesId(id), patch)
+                            },
+                        ContributorEdit.name to
+                            RpcUpdateOpSender(ContributorEdit) { id, patch ->
+                                get<ContributorRpcFactory>().contributorService().updateContributor(
+                                    ContributorId(id),
+                                    patch,
+                                )
+                            },
+                        PreferencesEdit.name to
+                            RpcUpdateOpSender(PreferencesEdit) { _, patch ->
+                                get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
+                            },
                     ),
             )
         }

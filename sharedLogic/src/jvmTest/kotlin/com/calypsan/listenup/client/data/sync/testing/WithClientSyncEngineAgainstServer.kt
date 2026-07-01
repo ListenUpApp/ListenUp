@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
@@ -31,6 +33,7 @@ import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.PreferencesEdit
 import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -420,15 +423,29 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                             mapOf(
                                 "playback_positions" to playbackSender,
                                 "listening_events" to listeningEventSender,
-                                BookEdit.name to RpcUpdateOpSender(BookEdit) { id, patch ->
-                                    testBookRpcFactory.bookService().updateBook(BookId(id), patch)
-                                },
-                                SeriesEdit.name to RpcUpdateOpSender(SeriesEdit) { id, patch ->
-                                    testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
-                                },
-                                ContributorEdit.name to RpcUpdateOpSender(ContributorEdit) { id, patch ->
-                                    testContributorRpcFactory.contributorService().updateContributor(ContributorId(id), patch)
-                                },
+                                BookEdit.name to
+                                    RpcUpdateOpSender(BookEdit) { id, patch ->
+                                        testBookRpcFactory.bookService().updateBook(BookId(id), patch)
+                                    },
+                                SeriesEdit.name to
+                                    RpcUpdateOpSender(SeriesEdit) { id, patch ->
+                                        testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
+                                    },
+                                ContributorEdit.name to
+                                    RpcUpdateOpSender(ContributorEdit) { id, patch ->
+                                        testContributorRpcFactory.contributorService().updateContributor(
+                                            ContributorId(id),
+                                            patch,
+                                        )
+                                    },
+                                // No harness test yet drains a "preferences" op end-to-end (the
+                                // RPC route isn't mounted server-side above); the entry exists so a
+                                // future e2e test's queued op has a sender to resolve against,
+                                // mirroring the Books/Series/Contributor registrations.
+                                PreferencesEdit.name to
+                                    RpcUpdateOpSender(PreferencesEdit) { _, patch ->
+                                        TestUserPreferencesRpcFactory(testClient).get().updateMyPreferences(patch)
+                                    },
                             ),
                         ),
                 )
@@ -938,6 +955,37 @@ internal class TestSeriesRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<SeriesService>()
+}
+
+/**
+ * Test-only [UserPreferencesRpcFactory] that opens a kotlinx.rpc [UserPreferencesService] proxy
+ * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
+ *
+ * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly, substituting
+ * [UserPreferencesService]. No harness test mounts the service server-side yet (see the
+ * `PreferencesEdit` `byDomain` registration above) — this factory exists so a future e2e test for
+ * the preferences offline-edit push can resolve a sender the same way every other domain does.
+ */
+internal class TestUserPreferencesRpcFactory(
+    private val httpClient: HttpClient,
+) : UserPreferencesRpcFactory {
+    private val mutex = Mutex()
+    private var cachedService: UserPreferencesService? = null
+
+    override suspend fun get(): UserPreferencesService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
+
+    override suspend fun invalidate() {
+        mutex.withLock { cachedService = null }
+    }
+
+    private suspend fun connect(): UserPreferencesService =
+        httpClient
+            .rpc("ws://localhost/api/rpc/authed") {
+                rpcConfig { serialization { krpcJson(contractJson) } }
+            }.withService<UserPreferencesService>()
 }
 
 /**
