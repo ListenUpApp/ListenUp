@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One row in PENDING REGISTRATIONS: an initials avatar, name + email, and Deny / Approve
+/// One row in PENDING REGISTRATIONS: the user's avatar, name + email, and Deny / Approve
 /// actions. While either action is in flight a spinner replaces both buttons.
 struct AdminPendingUserRow: View {
     let user: AdminUserRowModel
@@ -10,8 +10,7 @@ struct AdminPendingUserRow: View {
 
     var body: some View {
         HStack(spacing: 13) {
-            ContributorAvatar(name: user.name, imagePath: nil, id: user.id, fontSize: 15)
-                .frame(width: 40, height: 40)
+            UserAvatarView(userId: user.id, fallbackName: user.name, size: 40)
             VStack(alignment: .leading, spacing: 1) {
                 Text(user.name)
                     .font(.body)
