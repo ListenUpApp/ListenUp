@@ -154,6 +154,8 @@ fun authModule(config: ApplicationConfig): Module {
                 publicProfileMaintainer = getOrNull(),
                 activityRecorder = getOrNull(),
                 defaultGrantIssuer = getOrNull(),
+                // Nullable — the admin-roster module may not be loaded in minimal test containers.
+                adminUserRosterMaintainer = getOrNull(),
             )
         }
 
