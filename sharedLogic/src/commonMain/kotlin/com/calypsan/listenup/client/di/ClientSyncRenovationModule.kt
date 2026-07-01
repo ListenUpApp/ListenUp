@@ -3,13 +3,14 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
-import com.calypsan.listenup.client.data.sync.BookUpdateOpSender
+import com.calypsan.listenup.client.data.sync.BookEdit
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
@@ -20,6 +21,7 @@ import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
+import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -57,6 +59,7 @@ import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
+import com.calypsan.listenup.core.BookId
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -110,7 +113,9 @@ internal val clientSyncRenovationModule =
                     mapOf(
                         "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
                         "listening_events" to ListeningEventOpSender(rpcFactory = get()),
-                        "books" to BookUpdateOpSender(rpcFactory = get()),
+                        BookEdit.name to RpcUpdateOpSender(BookEdit) { id, patch ->
+                            get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
+                        },
                     ),
             )
         }

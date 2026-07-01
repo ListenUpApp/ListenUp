@@ -21,13 +21,15 @@ import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
-import com.calypsan.listenup.client.data.sync.BookUpdateOpSender
+import com.calypsan.listenup.client.data.sync.BookEdit
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -55,6 +57,7 @@ import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientG
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -415,22 +418,29 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                             mapOf(
                                 "playback_positions" to playbackSender,
                                 "listening_events" to listeningEventSender,
-                                "books" to BookUpdateOpSender(testBookRpcFactory),
+                                BookEdit.name to RpcUpdateOpSender(BookEdit) { id, patch ->
+                                    testBookRpcFactory.bookService().updateBook(BookId(id), patch)
+                                },
                             ),
                         ),
                 )
 
+            val offlineEditor =
+                OfflineEditor(
+                    pendingQueue = queue,
+                    transactionRunner = RoomTransactionRunner(clientDb),
+                    authSession = FakeAuthSession(),
+                )
+
             // Offline-first book edits write to client Room and enqueue a "books" op;
-            // the engine drains it through the BookUpdateOpSender above to the in-process
+            // the engine drains it through the RpcUpdateOpSender above to the in-process
             // server, whose SSE echo reconciles client Room via BookSyncDomainHandler.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
                     bookRpcFactory = testBookRpcFactory,
                     collectionRpcFactory = TestCollectionRpcFactory(testClient),
                     bookDao = clientDb.bookDao(),
-                    pendingQueue = queue,
-                    transactionRunner = RoomTransactionRunner(clientDb),
-                    authSession = FakeAuthSession(),
+                    offlineEditor = offlineEditor,
                 )
 
             val catchUp =

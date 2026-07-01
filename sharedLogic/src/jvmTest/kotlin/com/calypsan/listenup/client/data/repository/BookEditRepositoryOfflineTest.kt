@@ -8,16 +8,15 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
-import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
-import dev.mokkery.answering.returns
-import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -50,17 +49,19 @@ class BookEditRepositoryOfflineTest :
                     object : TransactionRunner {
                         override suspend fun <R> atomically(block: suspend () -> R): R = block()
                     }
-                val authSession: AuthSession = mock()
-                everySuspend { authSession.getUserId() } returns "u1"
+                val offlineEditor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner = txRunner,
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
 
                 val repo =
                     BookEditRepositoryImpl(
                         bookRpcFactory = mock<BookRpcFactory>(),
                         collectionRpcFactory = mock<CollectionRpcFactory>(),
                         bookDao = db.bookDao(),
-                        pendingQueue = queue,
-                        transactionRunner = txRunner,
-                        authSession = authSession,
+                        offlineEditor = offlineEditor,
                     )
 
                 val result = repo.updateBook(bookId, BookUpdate(title = "New Title"))
