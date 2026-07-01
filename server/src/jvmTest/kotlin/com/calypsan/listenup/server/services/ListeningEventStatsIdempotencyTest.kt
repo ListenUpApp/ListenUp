@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -19,8 +20,8 @@ import kotlinx.coroutines.test.runTest
  * can be re-fired after the server already committed it (ack lost to a network
  * flap, a client crash/restart in the ack window). The append-only `writePayload`
  * already treats a duplicate id as a no-op for domain fields — but the materialized
- * `UserStatsUpdater.onListeningEvent` side-effect must be equally idempotent, or a
- * single re-fire permanently inflates the user's all-time listening total.
+ * `StatsRecorder.record(StatsEvent.ListeningSessionClosed(...))` side-effect must be equally
+ * idempotent, or a single re-fire permanently inflates the user's all-time listening total.
  *
  * Pins the contract the OpSender/DTO KDocs already promise: re-firing a committed
  * event is safe, the stats are counted exactly once.
@@ -34,22 +35,26 @@ class ListeningEventStatsIdempotencyTest :
 
         test("re-firing the same listening event does not double-count totalSecondsAllTime") {
             withSqlDatabase {
+                sql.seedTestUser("u1")
                 val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val updater =
-                    UserStatsUpdater(
+                val recorder =
+                    StatsRecorder(
                         sql = sql,
                         userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = ChangeBus()),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                         clock = clock,
-                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
                 // The repository fires the stats hook internally on a successful upsert —
-                // wire the real updater so the idempotency guard is exercised end-to-end.
+                // wire the real recorder so the idempotency guard is exercised end-to-end.
                 val eventRepo =
                     ListeningEventRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        userStatsUpdater = updater,
+                        statsRecorder = recorder,
                     )
 
                 runTest {

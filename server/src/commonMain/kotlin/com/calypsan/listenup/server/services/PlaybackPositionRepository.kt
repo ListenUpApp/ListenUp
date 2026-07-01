@@ -1,6 +1,5 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
@@ -15,6 +14,7 @@ import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import kotlinx.serialization.KSerializer
 
@@ -38,23 +38,21 @@ import kotlinx.serialization.KSerializer
  * position row commits in [SqlSyncableRepository.upsert]'s own transaction first, then the hooks run
  * sequentially afterwards (the `BookServiceImpl.setBookGenres` pattern). De-nesting is required, not
  * merely convenient: the project's SQLDelight `suspendTransaction` body is a plain (non-suspend)
- * `transactionWithResult` lambda, so the suspend hook calls — [userStatsUpdater] / [activityRecorder]
- * / [bookReadsRepository], each opening its own transaction — cannot nest inside it; and
- * [activeSessionRepo] is still Exposed (`active_sessions`, V17, out of this cluster's scope), so it
- * would in any case deadlock on the SQLite write lock if run while a SQLDelight write transaction were
- * held. Running each hook in its own transaction after the position commits, on the single serialized
- * SQLite connection, is `SQLITE_BUSY`-free. The flip/start decision is taken with the in-transaction
- * `existed`/`priorFinished` view captured before the write, so it is unaffected by the de-nesting.
+ * `transactionWithResult` lambda, so the suspend [statsRecorder] call — which opens its own
+ * transactions — cannot nest inside it; and [activeSessionRepo] is still Exposed (`active_sessions`,
+ * V17, out of this cluster's scope), so it would in any case deadlock on the SQLite write lock if run
+ * while a SQLDelight write transaction were held. Running each hook after the position commits, on the
+ * single serialized SQLite connection, is `SQLITE_BUSY`-free. The flip/start decision is taken with the
+ * in-transaction `existed`/`priorFinished` view captured before the write, so it is unaffected by the
+ * de-nesting.
  */
 class PlaybackPositionRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-    private val userStatsUpdater: UserStatsUpdater? = null,
+    private val statsRecorder: StatsRecorder? = null,
     private val activeSessionRepo: ActiveSessionRepository? = null,
-    private val activityRecorder: ActivityRecorder? = null,
-    private val bookReadsRepository: BookReadsRepository? = null,
 ) : SqlSyncableRepository<PlaybackPositionSyncPayload, PlaybackPositionId>(
         db = db,
         bus = bus,
@@ -230,34 +228,36 @@ class PlaybackPositionRepository(
         if (result !is AppResult.Success) return result
 
         // De-nested cascade (post-commit). Fire the finished flip when false → true; the caller is
-        // responsible for detecting the flip condition. Each hook runs in its own transaction.
+        // responsible for detecting the flip condition. Each event routes through StatsRecorder,
+        // which runs its own fixed ordering in its own transactions.
         if (finished && !priorFinished) {
-            userStatsUpdater?.onPositionFinishedFlip(userId)
             activeSessionRepo?.deleteForUserBook(userId, bookId)
-            activityRecorder?.record(userId, ActivityType.FINISHED_BOOK, bookId = bookId, occurredAt = lastPlayedAt)
-            bookReadsRepository?.recordRead(
-                id = Uuid.random().toString(),
-                userId = userId,
-                bookId = bookId,
-                finishedAt = lastPlayedAt,
-                source = "playback",
+            statsRecorder?.record(
+                StatsEvent.BookCompleted(
+                    userId = userId,
+                    bookId = bookId,
+                    occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                ),
             )
         } else if (!finished) {
             activeSessionRepo?.startOrRefresh(userId, bookId)
             if (existing == null) {
-                activityRecorder?.record(
-                    userId,
-                    ActivityType.STARTED_BOOK,
-                    bookId = bookId,
-                    occurredAt = lastPlayedAt,
+                statsRecorder?.record(
+                    StatsEvent.BookRestarted(
+                        userId = userId,
+                        bookId = bookId,
+                        occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                        isReread = false,
+                    ),
                 )
             } else if (priorFinished) {
-                activityRecorder?.record(
-                    userId,
-                    ActivityType.STARTED_BOOK,
-                    bookId = bookId,
-                    isReread = true,
-                    occurredAt = lastPlayedAt,
+                statsRecorder?.record(
+                    StatsEvent.BookRestarted(
+                        userId = userId,
+                        bookId = bookId,
+                        occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                        isReread = true,
+                    ),
                 )
             }
         }

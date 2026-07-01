@@ -4,9 +4,10 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
+import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -21,29 +22,38 @@ import kotlinx.coroutines.test.runTest
  * overwrite `totalSecondsLast7/30Days` with a total computed for a window in the
  * past — wrong materialized stats. This pins the now-anchored contract.
  */
-class UserStatsWindowAnchorTest :
+class StatsRecorderWindowAnchorTest :
     FunSpec({
 
-        // "now" = 2026-05-22 12:00:00 UTC
         val nowMs = 1_779_451_200_000L
         val dayMs = 86_400_000L
         val clock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
 
         test("a backfilled event 10 days old is excluded from the now-anchored 7-day window") {
             withSqlDatabase {
-                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                // No internal updater — we drive onListeningEvent explicitly.
+                sql.seedTestUser("u1")
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val updater =
-                    UserStatsUpdater(
+                val recorder =
+                    StatsRecorder(
                         sql = sql,
                         userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer =
+                            PublicProfileMaintainer(
+                                sql = sql,
+                                publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
+                                clock = clock,
+                            ),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                         clock = clock,
-                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
                     )
 
                 runTest {
-                    val endedAt = nowMs - 10 * dayMs // 10 days before "now"
+                    val endedAt = nowMs - 10 * dayMs
                     val event =
                         ListeningEventSyncPayload(
                             id = "old-evt",
@@ -61,7 +71,7 @@ class UserStatsWindowAnchorTest :
                             deletedAt = null,
                         )
                     eventRepo.upsert(event, clientOpId = null, userId = "u1")
-                    updater.onListeningEvent("u1", event)
+                    recorder.record(StatsEvent.ListeningSessionClosed(userId = "u1", span = event))
 
                     val stats = statsRepo.getForUser("u1").shouldNotBeNull()
                     // All-time always counts it.

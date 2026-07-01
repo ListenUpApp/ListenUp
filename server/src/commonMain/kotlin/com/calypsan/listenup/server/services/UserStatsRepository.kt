@@ -199,7 +199,7 @@ class UserStatsRepository(
      * (`totalSecondsLast7Days` / `totalSecondsLast30Days`) when the stats row is stale
      * (older than [STATS_STALENESS_LIMIT_MS]).
      *
-     * A user who listens actively keeps their stats fresh via [UserStatsUpdater.onListeningEvent].
+     * A user who listens actively keeps their stats fresh via the [StatsRecorder] write cascade.
      * An idle user's windows drift stale as time passes — an event from 6 days ago is inside the
      * 7-day window today but outside it in 2 days. This catch-up path ensures the row is corrected
      * before it is returned to a syncing client.

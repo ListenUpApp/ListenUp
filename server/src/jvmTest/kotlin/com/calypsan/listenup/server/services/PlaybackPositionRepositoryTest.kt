@@ -7,9 +7,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
-import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
@@ -195,21 +195,27 @@ class PlaybackPositionRepositoryTest :
             }
         }
 
-        test("recordPosition false→true flip increments booksFinished via UserStatsUpdater") {
+        test("recordPosition false→true flip increments booksFinished via StatsRecorder") {
             withSqlDatabase {
-                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val updater =
-                    UserStatsUpdater(
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
                         sql = sql,
                         userStatsRepo = statsRepo,
-                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
                     PlaybackPositionRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        userStatsUpdater = updater,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     // First call: not finished — no flip
@@ -241,19 +247,25 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition finished=true on a new row (no prior) also counts as a flip") {
             withSqlDatabase {
-                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val updater =
-                    UserStatsUpdater(
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val recorder =
+                    StatsRecorder(
                         sql = sql,
                         userStatsRepo = statsRepo,
-                        publicProfileMaintainerProvider = { sql.noOpPublicProfileMaintainer() },
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
                     PlaybackPositionRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        userStatsUpdater = updater,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     repo.recordPosition(
@@ -407,14 +419,30 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition finish-flip records exactly one finished_book for (user, book)") {
             withSqlDatabase {
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val userStatsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val bookReadsRepo = BookReadsRepository(db = sql)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo)
                 val activities = ActivityRepository(db = sql)
-                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val activityRecorder = ActivityRecorder(repo = activities, bus = bus)
+                val statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo)
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = userStatsRepo,
+                        bookReadsRepository = bookReadsRepo,
+                        publicProfileMaintainer = publicProfileMaintainer,
+                        activityRecorder = activityRecorder,
+                        statsBackfill = statsBackfill,
+                    )
                 val repo =
                     PlaybackPositionRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        activityRecorder = recorder,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     // First record: in progress — no finish
@@ -448,14 +476,26 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition first-ever in-progress position records one started_book (isReread=false)") {
             withSqlDatabase {
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
                 val activities = ActivityRepository(db = sql)
-                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+                    )
                 val repo =
                     PlaybackPositionRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        activityRecorder = recorder,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     repo.recordPosition(
@@ -478,14 +518,26 @@ class PlaybackPositionRepositoryTest :
 
         test("recordPosition re-read (prior finished, new in-progress) records one started_book with isReread=true") {
             withSqlDatabase {
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
                 val activities = ActivityRepository(db = sql)
-                val recorder = ActivityRecorder(repo = activities, bus = ChangeBus())
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = BookReadsRepository(db = sql),
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
+                    )
                 val repo =
                     PlaybackPositionRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        activityRecorder = recorder,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     // Seed a finished position
@@ -545,17 +597,30 @@ class PlaybackPositionRepositoryTest :
 
         test("finishing a book appends a book_reads row dated lastPlayedAt") {
             withSqlDatabase {
+                val bus = ChangeBus()
+                val registry = SyncRegistry()
+                val statsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
+                val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
                 val reads =
                     BookReadsRepository(
                         db = sql,
                         clock = FixedClock(Instant.fromEpochMilliseconds(1_700_000_000_000L)),
+                    )
+                val recorder =
+                    StatsRecorder(
+                        sql = sql,
+                        userStatsRepo = statsRepo,
+                        bookReadsRepository = reads,
+                        publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
+                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
                     PlaybackPositionRepository(
                         db = sql,
                         bus = ChangeBus(),
                         registry = SyncRegistry(),
-                        bookReadsRepository = reads,
+                        statsRecorder = recorder,
                     )
                 runTest {
                     repo.recordPosition(

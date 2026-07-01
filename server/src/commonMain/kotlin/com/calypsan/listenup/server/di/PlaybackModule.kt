@@ -23,7 +23,7 @@ import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
-import com.calypsan.listenup.server.services.PublicProfileMaintainer
+import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
@@ -38,20 +38,27 @@ import org.koin.dsl.module
  *    key from the JWT secret so operators manage no extra secret.
  *  - [ActiveSessionRepository] — per-user active listening sessions; `createdAtStart = true`; injected into
  *    [PlaybackPositionRepository] to cascade a hard-delete when a book's `finished` flag flips `false→true`.
+ *  - [StatsRecorder] — the single write choke-point for every stats-affecting trigger; dispatches each
+ *    `StatsEvent` through a fixed ordering (durable source rows → `user_stats` →
+ *    `public_profiles.refresh()` → activity emission). Injected into [PlaybackPositionRepository] and
+ *    [ListeningEventRepository] in place of the direct [UserStatsUpdater]/[BookReadsRepository]/
+ *    [ActivityRecorder] wiring they used before.
  *  - [PlaybackPositionRepository] — per-user `(userId, bookId)` resume positions; `createdAtStart = true`
  *    so its `init` block registers `"playback_positions"` with [com.calypsan.listenup.server.sync.SyncRegistry]
- *    at bootstrap. Receives [ActiveSessionRepository] for the completion cascade.
- *  - [UserStatsUpdater] — incremental updater wired into [ListeningEventRepository] and
- *    [PlaybackPositionRepository]; drives the materialized `user_stats` row.
+ *    at bootstrap. Receives [ActiveSessionRepository] for the completion cascade and [StatsRecorder] to
+ *    route the finish-flip / start-and-re-read cascade.
+ *  - [UserStatsUpdater] — the lazy window-decay self-heal [UserStatsRepository.pullSince] depends on; the
+ *    event-driven write cascade it used to own now lives in [StatsRecorder].
  *  - [UserStatsRepository] — materialized per-user stats; `createdAtStart = true`; receives
  *    [UserStatsUpdater] via a **lazy provider** (`userStatsUpdaterProvider = { get<UserStatsUpdater>() }`)
  *    to break the construction-time mutual reference: [UserStatsRepository] needs [UserStatsUpdater]
  *    for lazy window-decay, and [UserStatsUpdater] needs [UserStatsRepository] to write recomputed rows.
  *    The provider is only invoked at runtime inside `pullSince`, by which time both singletons resolve.
  *  - [ListeningEventRepository] — per-user listening spans; `createdAtStart = true`; fires
- *    [UserStatsUpdater.onListeningEvent] atomically on every upsert.
+ *    `statsRecorder.record(StatsEvent.ListeningSessionClosed(...))` atomically on every upsert.
  *  - [UserStatsBackfillService] — admin-only service that rebuilds the materialized `user_stats`
- *    row from scratch; surfaced via `POST /api/v1/admin/stats/backfill`.
+ *    row from scratch; surfaced via `POST /api/v1/admin/stats/backfill`, and called by [StatsRecorder]
+ *    to service `StatsEvent.BulkRecompute`.
  *  - [ActiveSessionCleanupTask] — periodic sweep that hard-deletes stale `active_sessions` rows
  *    left by ungraceful disconnects. Started on the application scope in [Application.module].
  *  - [PlaybackService] / [PlaybackServiceImpl] — the RPC+REST implementation. Bound at module level
@@ -83,15 +90,23 @@ fun playbackModule(): Module =
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
         single { ActivityRecorder(repo = get(), bus = get()) }
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
+        single {
+            StatsRecorder(
+                sql = get<ListenUpDatabase>(),
+                userStatsRepo = get(),
+                bookReadsRepository = get(),
+                publicProfileMaintainer = get(),
+                activityRecorder = get(),
+                statsBackfill = get(),
+            )
+        }
         single(createdAtStart = true) {
             PlaybackPositionRepository(
                 db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
-                userStatsUpdater = get(),
+                statsRecorder = get(),
                 activeSessionRepo = get(),
-                activityRecorder = get(),
-                bookReadsRepository = get(),
             )
         }
         // UserStatsRepository references UserStatsUpdater (for lazy window decay), while
@@ -111,8 +126,6 @@ fun playbackModule(): Module =
             UserStatsUpdater(
                 sql = get<ListenUpDatabase>(),
                 userStatsRepo = get(),
-                publicProfileMaintainerProvider = { get<PublicProfileMaintainer>() },
-                activityRecorder = get(),
             )
         }
         single(createdAtStart = true) {
@@ -120,8 +133,7 @@ fun playbackModule(): Module =
                 db = get<ListenUpDatabase>(),
                 bus = get(),
                 registry = get(),
-                userStatsUpdater = get(),
-                activityRecorder = get(),
+                statsRecorder = get(),
             )
         }
         single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), userStatsRepo = get()) }

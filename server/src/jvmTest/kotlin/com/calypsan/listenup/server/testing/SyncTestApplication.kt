@@ -15,6 +15,9 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.playbackRoutes
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreRepository
@@ -22,6 +25,8 @@ import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SeriesRepository
+import com.calypsan.listenup.server.services.StatsRecorder
+import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -179,17 +184,20 @@ internal fun withTestApplication(
                     userStatsUpdaterProvider = { updater },
                 )
             val publicProfileMaintainer = buildPublicProfileMaintainer(sqlDb, bus, registry)
+            // Still constructed for UserStatsRepository's lazy window-decay provider above —
+            // the event-driven write cascade now lives entirely in StatsRecorder below.
+            updater =
+                UserStatsUpdater(
+                    sql = sqlDb,
+                    userStatsRepo = statsRepo,
+                )
+            val statsRecorder = buildStatsRecorder(sqlDb, bus, statsRepo, publicProfileMaintainer)
             val eventRepo =
                 ListeningEventRepository(
                     db = sqlDb,
                     bus = bus,
                     registry = registry,
-                    userStatsUpdater =
-                        UserStatsUpdater(
-                            sql = sqlDb,
-                            userStatsRepo = statsRepo,
-                            publicProfileMaintainerProvider = { publicProfileMaintainer },
-                        ).also { updater = it },
+                    statsRecorder = statsRecorder,
                 )
             val positionRepoForPlayback = PlaybackPositionRepository(sqlDb, bus, SyncRegistry())
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
@@ -333,3 +341,22 @@ private fun buildPublicProfileMaintainer(
     val repo = PublicProfileRepository(db = sqlDb, bus = bus, registry = registry)
     return PublicProfileMaintainer(sql = sqlDb, publicProfileRepo = repo)
 }
+
+/**
+ * Constructs a [StatsRecorder] wired to the shared [bus] and [statsRepo]/[publicProfileMaintainer].
+ * Extracted from [withTestApplication] to keep that function within the size budget.
+ */
+private fun buildStatsRecorder(
+    sqlDb: ListenUpDatabase,
+    bus: ChangeBus,
+    statsRepo: UserStatsRepository,
+    publicProfileMaintainer: PublicProfileMaintainer,
+): StatsRecorder =
+    StatsRecorder(
+        sql = sqlDb,
+        userStatsRepo = statsRepo,
+        bookReadsRepository = BookReadsRepository(db = sqlDb),
+        publicProfileMaintainer = publicProfileMaintainer,
+        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sqlDb), bus = bus),
+        statsBackfill = UserStatsBackfillService(sql = sqlDb, userStatsRepo = statsRepo),
+    )

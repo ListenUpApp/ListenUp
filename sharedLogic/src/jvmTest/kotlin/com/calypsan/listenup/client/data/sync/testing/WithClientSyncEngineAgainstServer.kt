@@ -85,6 +85,11 @@ import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsRepository
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.BookReadsRepository
+import com.calypsan.listenup.server.services.StatsRecorder
+import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsUpdater
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -692,17 +697,14 @@ private fun buildServerRepositories(
         )
     val publicProfileMaintainer =
         PublicProfileMaintainer(serverSqlDb, PublicProfileRepository(serverSqlDb, bus, registry))
+    statsUpdater = UserStatsUpdater(sql = serverSqlDb, userStatsRepo = userStatsRepo)
+    val statsRecorder = buildStatsRecorder(serverSqlDb, bus, userStatsRepo, publicProfileMaintainer)
     val listeningEventRepo =
         ListeningEventRepository(
             db = serverSqlDb,
             bus = bus,
             registry = registry,
-            userStatsUpdater =
-                UserStatsUpdater(
-                    sql = serverSqlDb,
-                    userStatsRepo = userStatsRepo,
-                    publicProfileMaintainerProvider = { publicProfileMaintainer },
-                ).also { statsUpdater = it },
+            statsRecorder = statsRecorder,
         )
 
     return ServerRepositories(
@@ -719,6 +721,21 @@ private fun buildServerRepositories(
         libraryFolderRepo,
     )
 }
+
+private fun buildStatsRecorder(
+    sqlDb: ServerSqlDatabase,
+    bus: ChangeBus,
+    statsRepo: UserStatsRepository,
+    publicProfileMaintainer: PublicProfileMaintainer,
+): StatsRecorder =
+    StatsRecorder(
+        sql = sqlDb,
+        userStatsRepo = statsRepo,
+        bookReadsRepository = BookReadsRepository(db = sqlDb),
+        publicProfileMaintainer = publicProfileMaintainer,
+        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sqlDb), bus = bus),
+        statsBackfill = UserStatsBackfillService(sql = sqlDb, userStatsRepo = statsRepo),
+    )
 
 /**
  * Test-only [PendingOperationSender] that routes a `playback_positions` pending op directly
