@@ -182,6 +182,22 @@ tasks.named<Test>("jvmTest") {
     // worker, and the Konsist architectural rules, which hold a single shared PSI scope of the whole
     // production tree (~1.5k files) for the lifetime of the run (see konsist/KonsistScope.kt).
     maxHeapSize = "4g"
+    // Pin the E2E retry ledger (written by HeavyweightE2ERetryExtension) to an absolute path under
+    // this module's build/, so its location is workingDir-independent and identical in shape to the
+    // server's — CI reads sharedLogic/build/e2e-retries.log.
+    val e2eRetryLedger =
+        layout.buildDirectory
+            .file("e2e-retries.log")
+            .get()
+            .asFile
+    systemProperty("listenup.e2eRetryLedger", e2eRetryLedger.absolutePath)
+    // Truncate the ledger ONCE per task run so the retry extension is purely append-only — identical
+    // model to :server:jvmTest (which forks workers every 25 classes and must not truncate per-worker).
+    // This module runs a single non-forked worker, but keeping both on the same append-only contract
+    // means the extension code is byte-identical and can't drift.
+    doFirst {
+        e2eRetryLedger.delete()
+    }
 }
 
 // androidHostTest compiles commonTest sources (which include Konsist rules) but is not part
