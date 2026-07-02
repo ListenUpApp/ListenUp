@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 
 /**
- * The explicit, ordered list of every declared sync domain — the client's complete
+ * The explicit list of every declared sync domain — the client's complete
  * sync rulebook in one value. Grows as Phase 2 migrates the remaining hand-written
  * handlers; when the migration completes, this list and the server's registrations
  * are asserted 1:1 by the completeness spec.

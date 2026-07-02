@@ -5,6 +5,9 @@ package com.calypsan.listenup.client.data.sync.domains
  * and WHEN to write — lives in [ConflictPolicy]/[DeleteSemantics] and is enforced by
  * [ComposedSyncDomainHandler]; implementations of this interface contain mapping and
  * genuinely domain-specific side effects only (e.g. books' cover-hash invalidation).
+ * Two declared exceptions live here by design: [ConflictPolicy.AppendOnly]'s
+ * insert-if-absent guard is the apply's DAO conflict strategy, and the soft-vs-hard
+ * distinction behind [DeleteSemantics] is how the apply implements [tombstoneById].
  *
  * Every method runs inside the composed handler's IMMEDIATE write transaction.
  */

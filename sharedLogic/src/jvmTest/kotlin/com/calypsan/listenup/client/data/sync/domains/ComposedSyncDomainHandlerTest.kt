@@ -108,6 +108,36 @@ class ComposedSyncDomainHandlerTest :
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
         }
 
+        test("NewerWins skips when stamps are equal — the >= boundary absorbs own-echoes") {
+            val apply = RecordingApply()
+            val handler =
+                domain(
+                    apply,
+                    conflict =
+                        ConflictPolicy.NewerWins(
+                            incomingStamp = { it.updatedAt },
+                            existingStamp = { 100L }, // equal to tag().updatedAt
+                        ),
+                ).toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(updated(tag()), isOwnEcho = false)
+            apply.upserts.shouldBeEmpty()
+        }
+
+        test("NewerWins applies when no local row exists (null stamp)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(
+                    apply,
+                    conflict =
+                        ConflictPolicy.NewerWins(
+                            incomingStamp = { it.updatedAt },
+                            existingStamp = { null },
+                        ),
+                ).toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(updated(tag()), isOwnEcho = false)
+            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+        }
+
         test("EchoShielded consumes an own echo when the shield handles it") {
             val apply = RecordingApply()
             val shielded = mutableListOf<String>()
@@ -136,6 +166,35 @@ class ComposedSyncDomainHandlerTest :
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(updated(tag()), isOwnEcho = true)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+        }
+
+        test("EchoShielded never intercepts Deleted — an own-echo delete still tombstones") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, conflict = ConflictPolicy.EchoShielded { _, _ -> true })
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L), isOwnEcho = true)
+            apply.tombstonesById shouldContainExactly listOf(Triple("t1", 99L, 7L))
+        }
+
+        test("EchoShielded intercepts Created echoes like Updated echoes") {
+            val apply = RecordingApply()
+            val shielded = mutableListOf<String>()
+            val handler =
+                domain(
+                    apply,
+                    conflict =
+                        ConflictPolicy.EchoShielded { id, _ ->
+                            shielded += id
+                            true
+                        },
+                ).toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(
+                SyncEvent.Created(id = "t1", revision = 5L, occurredAt = 1L, payload = tag()),
+                isOwnEcho = true,
+            )
+            shielded shouldContainExactly listOf("t1")
+            apply.upserts.shouldBeEmpty()
         }
 
         test("SoftDelete routes SSE Deleted to tombstoneById") {
