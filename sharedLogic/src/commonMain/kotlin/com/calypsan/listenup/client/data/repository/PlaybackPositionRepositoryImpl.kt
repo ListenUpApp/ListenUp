@@ -32,7 +32,7 @@ private val logger = KotlinLogging.logger {}
  *
  * After each position-moving write, enqueues a [RecordPositionRequest] onto the
  * pending-operation queue so the sync engine pushes the updated position to the server.
- * Enqueues with `coalesce = true`: rapid successive writes for one book replace the
+ * Enqueues with coalescing on: rapid successive writes for one book replace the
  * still-queued op for that `(domain, entityId, opType)` slot instead of piling up, so
  * only the latest position is ever pushed — no flooding.
  *
