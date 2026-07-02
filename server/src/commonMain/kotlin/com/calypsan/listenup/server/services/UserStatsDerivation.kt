@@ -5,8 +5,40 @@ import com.calypsan.listenup.domain.stats.StreakReducer
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
+
+/**
+ * Insert a `source = "reconcile"` `book_reads` row for every finished, non-deleted `playback_positions`
+ * row that has no completion row yet — recovering finishes lost to a crash between the position commit
+ * and the completion cascade, and backfilling pre-Spec-004 imports that never wrote `book_reads`.
+ * Idempotent: a book that already has any completion row is skipped. Runs as the first step of a full
+ * rebuild ([UserStatsBackfillService.backfillFor]) so the re-derived `booksFinished` — counted from
+ * `book_reads` — reflects every finished book. Re-read multiplicity for pre-crash finishes is
+ * unrecoverable; reconcile restores at least one read per finished book, never invents extras.
+ */
+suspend fun reconcileBookReadsFromPositions(
+    sql: ListenUpDatabase,
+    userId: String,
+    nowMs: Long,
+) {
+    suspendTransaction(sql) {
+        sql.playbackPositionsQueries.selectFinishedBooksForUser(userId).executeAsList().forEach { finished ->
+            val alreadyLogged = sql.bookReadsQueries.existsForUserBook(userId, finished.book_id).executeAsOne()
+            if (!alreadyLogged) {
+                sql.bookReadsQueries.insert(
+                    id = Uuid.random().toString(),
+                    user_id = userId,
+                    book_id = finished.book_id,
+                    finished_at = finished.last_played_at,
+                    source = "reconcile",
+                    created_at = nowMs,
+                )
+            }
+        }
+    }
+}
 
 /**
  * The single pure re-derivation of a user's `user_stats` from the durable primitives
@@ -65,12 +97,12 @@ suspend fun deriveUserStats(
         if (endedAtMs >= cutoff30) last30 += (endedAtMs - maxOf(event.started_at, cutoff30)) / 1_000L
     }
 
-    // 4. Finished-book count (non-deleted positions). Spec 004 will move this onto the `book_reads`
-    //    primitive; kept here for now so the incremental and rebuilt rows agree.
+    // 4. Finished-book count from the `book_reads` primitive (re-reads counted). All-time and windowed
+    //    finished-books now derive from the same table, so they cannot disagree.
     val booksFinished =
         suspendTransaction(sql) {
-            sql.playbackPositionsQueries
-                .countFinishedForUser(userId)
+            sql.bookReadsQueries
+                .countForUser(userId)
                 .executeAsOne()
                 .toInt()
         }

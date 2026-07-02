@@ -27,7 +27,10 @@ class UserStatsBackfillService(
      * derivation [StatsRecorder] runs per event — so a bulk rebuild and the live path always agree.
      */
     suspend fun backfillFor(userId: String) {
-        val derived = deriveUserStats(sql, userId, clock.now().toEpochMilliseconds())
-        userStatsRepo.upsert(derived, clientOpId = null, userId = userId)
+        val nowMs = clock.now().toEpochMilliseconds()
+        // Self-heal the `book_reads` primitive first, so the re-derived booksFinished reflects every
+        // finished book even for crash-orphaned or pre-Spec-004-imported completions.
+        reconcileBookReadsFromPositions(sql, userId, nowMs)
+        userStatsRepo.upsert(deriveUserStats(sql, userId, nowMs), clientOpId = null, userId = userId)
     }
 }

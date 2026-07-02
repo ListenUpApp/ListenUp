@@ -36,3 +36,24 @@ ORDER BY finished_at DESC;
 countDistinctFinishedSince:
 SELECT COUNT(DISTINCT book_id) FROM book_reads
 WHERE user_id = :userId AND finished_at >= :cutoffMs;
+
+-- All-time completions for a user (re-reads counted) — the all-time booksFinished metric, now sourced
+-- from this primitive so it agrees with the windowed counts above.
+countForUser:
+SELECT COUNT(*) FROM book_reads WHERE user_id = :userId;
+
+-- The most recent completion row for a user+book pair (id + timestamp). The re-read rule reads its
+-- finished_at as the "previous finish" and, on a below-threshold replay, updates that row in place.
+latestFinishForUserBook:
+SELECT id, finished_at FROM book_reads
+WHERE user_id = :userId AND book_id = :bookId
+ORDER BY finished_at DESC
+LIMIT 1;
+
+-- Move an existing completion's finish time forward (the below-threshold "same read" case).
+updateFinishedAtById:
+UPDATE book_reads SET finished_at = :finished_at WHERE id = :id;
+
+-- True iff the user has any completion row for this book — gates the idempotent reconcile insert.
+existsForUserBook:
+SELECT EXISTS(SELECT 1 FROM book_reads WHERE user_id = :userId AND book_id = :bookId);

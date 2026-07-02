@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import kotlin.time.Clock
-import kotlin.uuid.Uuid
 import kotlinx.coroutines.currentCoroutineContext
 
 /**
@@ -50,27 +49,20 @@ class StatsRecorder(
     }
 
     /**
-     * Source row (`book_reads`) → `user_stats.booksFinished` → `public_profiles.refresh()` → the
-     * `FINISHED_BOOK` activity, dated [StatsEvent.BookCompleted.occurredAt]. The `user_stats` bump
-     * and the projection refresh are skipped under [StatsCascadeDeferred] — a bulk import writes the
-     * source row per row but defers the expensive recompute to one terminal [StatsEvent.BulkRecompute].
+     * `book_reads` (via the coverage rule — append a new read or merge a below-threshold replay) →
+     * re-derived `user_stats` (booksFinished counted from `book_reads`) → `public_profiles.refresh()` →
+     * the `FINISHED_BOOK` activity, dated [StatsEvent.BookCompleted.occurredAt]. The re-derive and the
+     * projection refresh are skipped under [StatsCascadeDeferred] — a bulk import writes the source row
+     * per row but defers the recompute to one terminal [StatsEvent.BulkRecompute].
      */
     private suspend fun recordBookCompleted(event: StatsEvent.BookCompleted) {
         val finishedAtMs = event.occurredAt.toEpochMilliseconds()
-        bookReadsRepository.recordRead(
-            id = Uuid.random().toString(),
-            userId = event.userId,
-            bookId = event.bookId,
-            finishedAt = finishedAtMs,
-            source = "playback",
-        )
+        // The coverage rule decides append-vs-merge on `book_reads`; the re-derive then reads the new
+        // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
+        bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
-            val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
-            userStatsRepo.upsert(
-                base.copy(booksFinished = base.booksFinished + 1),
-                clientOpId = null,
-                userId = event.userId,
-            )
+            val derived = deriveUserStats(sql, event.userId, clock.now().toEpochMilliseconds())
+            userStatsRepo.upsert(derived, clientOpId = null, userId = event.userId)
             publicProfileMaintainer.refresh(event.userId)
         }
         activityRecorder.record(

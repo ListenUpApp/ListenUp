@@ -109,6 +109,15 @@ SELECT CAST(COALESCE(SUM((ended_at - MAX(started_at, :cutoffMs)) / 1000), 0) AS 
 FROM listening_events
 WHERE user_id = :userId AND ended_at >= :cutoffMs AND deleted_at IS NULL;
 
+-- Stats support: content coverage (summed end-start position deltas, negatives clamped to 0) a user
+-- accrued on :bookId strictly after :sinceMs. Drives the re-read coverage rule — a genuine re-read
+-- traverses real content since the last finish, a "rewound to the last chapter" replay does not.
+-- Live rows only. CAST keeps the result Long; the two-arg MAX is SQLite's scalar max, not the aggregate.
+sumPositionDeltaForBookSince:
+SELECT CAST(COALESCE(SUM(MAX(end_position_ms - start_position_ms, 0)), 0) AS INTEGER)
+FROM listening_events
+WHERE user_id = :userId AND book_id = :bookId AND ended_at > :sinceMs AND deleted_at IS NULL;
+
 -- Stats support: the ended-at timestamps of a user's non-deleted events at/after :cutoffMs, ascending.
 -- Feeds the windowed-streak walk (longest consecutive listening-day run within a trailing window).
 selectEndedAtForUserSince:
