@@ -102,3 +102,22 @@ spotless {
         }
     }
 }
+
+// VERIFY LOCAL — one-shot local equivalent of the Linux-lane CI gates (mirrors ci.yml Lint + Test (JVM)).
+// Native server lane excluded (needs system libs + long native compiles) — run per CLAUDE.md "Pushing".
+// If ci.yml's task lists change, this list must change with them.
+tasks.register("verifyLocal") {
+    group = "verification"
+    description = "Runs the local equivalent of every Linux-lane CI gate (Lint + Test (JVM))."
+    dependsOn(
+        "spotlessCheck",
+        "detekt",
+        ":sharedUI:verifyStrings",
+        ":sharedLogic:compileCommonMainKotlinMetadata",
+        ":contract:jvmTest",
+        ":sharedLogic:jvmTest",
+        ":sharedLogic:testAndroidHostTest",
+        ":server:jvmTest",
+        ":sharedUI:testAndroidHostTest",
+    )
+}
