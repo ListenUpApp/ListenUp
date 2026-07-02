@@ -69,6 +69,10 @@ internal class BookEntityMapper {
             // When existing is null (first-seen book) it is null and will be populated after the
             // cover image is downloaded and analysed.
             coverBlurHash = existing?.coverBlurHash,
+            // Client-local cover-presence marker — preserved like coverBlurHash, except when the
+            // server's cover hash changed: BookSyncDomainHandler deletes the stale local file in the
+            // same upsert flow, so presence must reset until the new cover is downloaded.
+            coverDownloadedAt = existing?.takeIf { it.coverHash == payload.cover?.hash }?.coverDownloadedAt,
             // Wire-authoritative per-field edit provenance — the server owns this set (it unions an
             // edited field on every edit RPC), so a sync update always takes the payload's value.
             userEditedFields = payload.userEditedFields,

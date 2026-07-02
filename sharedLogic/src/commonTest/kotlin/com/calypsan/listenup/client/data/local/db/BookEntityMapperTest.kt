@@ -95,6 +95,8 @@ class BookEntityMapperTest :
         fun bookEntity(
             id: BookId = BookId("book-1"),
             coverBlurHash: String? = "L5H2EC=PM+yV",
+            coverHash: String? = null,
+            coverDownloadedAt: Timestamp? = null,
         ): BookEntity =
             BookEntity(
                 id = id,
@@ -103,6 +105,8 @@ class BookEntityMapperTest :
                 title = "Old Title",
                 totalDuration = 1_000L,
                 coverBlurHash = coverBlurHash,
+                coverHash = coverHash,
+                coverDownloadedAt = coverDownloadedAt,
                 createdAt = Timestamp(ENTITY_CREATED_AT_MS),
                 updatedAt = Timestamp(ENTITY_UPDATED_AT_MS),
             )
@@ -179,6 +183,31 @@ class BookEntityMapperTest :
             val result = mapper.toBookEntity(payload, existing = existing)
 
             result.title shouldBe "New Title from Server"
+        }
+
+        test("toBookEntity preserves coverDownloadedAt from existing row when coverHash is unchanged") {
+            val downloadedAt = Timestamp(ENTITY_UPDATED_AT_MS)
+            val existing = bookEntity(coverHash = "abc123", coverDownloadedAt = downloadedAt)
+            val payload = bookPayload(cover = CoverPayload(source = CoverSource.FILESYSTEM, hash = "abc123"))
+            val result = mapper.toBookEntity(payload, existing = existing)
+
+            result.coverDownloadedAt shouldBe downloadedAt
+        }
+
+        test("toBookEntity clears coverDownloadedAt when the server cover hash changed") {
+            val downloadedAt = Timestamp(ENTITY_UPDATED_AT_MS)
+            val existing = bookEntity(coverHash = "old-hash", coverDownloadedAt = downloadedAt)
+            val payload = bookPayload(cover = CoverPayload(source = CoverSource.FILESYSTEM, hash = "new-hash"))
+            val result = mapper.toBookEntity(payload, existing = existing)
+
+            result.coverDownloadedAt.shouldBeNull()
+        }
+
+        test("toBookEntity with existing null sets coverDownloadedAt to null") {
+            val payload = bookPayload()
+            val result = mapper.toBookEntity(payload, existing = null)
+
+            result.coverDownloadedAt.shouldBeNull()
         }
 
         test("toBookEntity carries hasScanWarning from payload — true and false") {
