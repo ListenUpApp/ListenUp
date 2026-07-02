@@ -186,7 +186,7 @@ These are the rules most likely to affect day-to-day work.
 - **ViewModels produce state via `.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue)`**, not via `init { viewModelScope.launch { collect { state.update { } } } }`.
 - **UI state is a per-screen sealed hierarchy**, not a flat `data class` with `error: String?`.
 - **One-shot events use `Channel<Event>(Channel.BUFFERED).receiveAsFlow()`** — never `StateFlow<Event?>`.
-- **Multi-table writes use `performInTransactionSuspending { }`**.
+- **Multi-table writes go through `TransactionRunner.atomically { }`** (`data/local/db/DatabaseTransactions.kt`) — every call site issuing more than one DAO write for a single logical operation routes through that seam.
 - **All writes to the data layer go through a repository** — no component outside `data/repository/` writes directly to a DAO.
 - **Compose-UI specifics** (flow collection, `koinViewModel`, Navigation 3 routes/decorators, the VM failure-branch shape) live in `sharedUI/CLAUDE.md` — they load when you work on the UI.
 
