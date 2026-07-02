@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -136,6 +137,11 @@ internal class PendingOperationQueue(
      * One call = one wave. Caller schedules subsequent waves; drain() does not
      * loop. Returns a [DrainOutcome] so the engine can decide whether a retry
      * backoff is warranted.
+     *
+     * A [PendingOperationSender] that throws instead of returning
+     * [AppResult.Failure] is a bug in that sender, not a reason to abort the
+     * wave — the op is flagged terminally failed (past [MAX_RETRYABLE_ATTEMPTS])
+     * and the loop continues to the next op.
      */
     suspend fun drain(): DrainOutcome {
         val ops = dao.nextDispatchable()
@@ -144,7 +150,23 @@ internal class PendingOperationQueue(
         var terminalFailures = 0
         for (entity in ops) {
             val op = entity.toDomain()
-            val result = sender.send(op)
+            val result =
+                try {
+                    sender.send(op)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.error(e) { "Sender threw for op ${op.clientOpId} (${op.domainName}); flagging terminal" }
+                    dao.update(
+                        entity.copy(
+                            failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                            lastAttemptAt = nowMillis(),
+                            lastError = e::class.simpleName ?: "SenderException",
+                        ),
+                    )
+                    terminalFailures++
+                    continue
+                }
             when (result) {
                 is AppResult.Success -> {
                     dao.delete(op.clientOpId)

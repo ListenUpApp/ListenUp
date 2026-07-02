@@ -163,4 +163,29 @@ class PendingOperationQueueTest :
                 db.close()
             }
         }
+
+        test("a sender that throws is flagged terminally failed and the wave continues") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sent = mutableListOf<String>()
+                val sender =
+                    PendingOperationSender { op ->
+                        if (op.entityId == "poison") error("sender blew up")
+                        sent += op.clientOpId
+                        AppResult.Success(Unit)
+                    }
+                var clock = 0L
+                val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = sender, nowMillis = { clock++ })
+                val poison = queue.enqueue("tags", "poison", "upsert", "{}", "u1")
+                val healthy = queue.enqueue("tags", "healthy", "upsert", "{}", "u1")
+                val outcome = queue.drain()
+                sent shouldContainExactly listOf(healthy)
+                outcome.sent shouldBe 1
+                outcome.terminalFailures shouldBe 1
+                val stored = db.pendingOperationV2Dao().get(poison)
+                stored shouldNotBe null
+                ((stored?.failureCount ?: 0) > 5) shouldBe true
+                db.close()
+            }
+        }
     })
