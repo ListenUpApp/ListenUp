@@ -126,6 +126,11 @@ internal data class BookEntity(
     val subtitle: String? = null, // Book subtitle
     val coverHash: String? = null, // Content hash of the cover image, supplied by the sync wire event
     val coverBlurHash: String? = null, // BlurHash for cover placeholder
+    // Client-local cover-presence marker: set when the cover file lands on disk
+    // (ImageDownloader), cleared when it is invalidated (server cover-hash change or
+    // local delete). Never on the wire — replaces the per-book filesystem stat that
+    // list mapping used to pay on every emission.
+    val coverDownloadedAt: Timestamp? = null,
     val totalDuration: Long, // Total audiobook duration in milliseconds
     val description: String? = null,
     // Series is now managed via book_series junction table (many-to-many)
