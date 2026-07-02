@@ -57,8 +57,8 @@ internal class BookTagMirrorApply(
      * Tombstone from an SSE `Deleted` frame. The server synthesises `"$bookId:$tagId"`
      * as the stable envelope id (see `BookTagId.asString()` server-side); the `:`
      * delimiter cannot appear in either part because book/tag ids are UUIDv7 strings.
-     * The DAO keeps the stored revision — [revision] is deliberately unused, matching
-     * the hand-written handler this replaces.
+     * The DAO advances its own revision, ignoring the event's revision — [revision] is
+     * deliberately unused, matching the hand-written handler this replaces.
      */
     override suspend fun tombstoneById(
         id: String,

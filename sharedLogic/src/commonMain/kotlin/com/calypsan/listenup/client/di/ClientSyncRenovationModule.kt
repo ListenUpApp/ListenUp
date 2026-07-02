@@ -44,7 +44,6 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
-import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
@@ -269,13 +268,6 @@ internal val clientSyncRenovationModule =
         // seam (ContributorRepositoryImpl); consumers inject it by qualified name.
         consumerSyncHandlerSingle(SyncDomains.CONTRIBUTORS)
 
-        single(createdAtStart = true) {
-            BookMoodSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
         single(createdAtStart = true) {
             ListeningEventSyncDomainHandler(
                 database = get(),
