@@ -115,6 +115,11 @@ class ArchitectureTest :
                 // in-process to prove the admin backup routes return domain-typed results (not a
                 // transport 404). Same exemption class as the Profile E2E — confined to jvmTest.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/admin/" !in it.path }
+                // Sync-domain completeness spec: boots the real server module in-process and reads
+                // GET /api/v1/sync/domains to assert contract ↔ client catalog ↔ server registrations
+                // are exactly 1:1:1. Asserting against the real production DI graph is the whole point,
+                // so the server import is intentional. Same exemption class — confined to jvmTest.
+                .filter { "data/sync/domains/SyncDomainCompletenessSpec" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }
