@@ -45,7 +45,6 @@ import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
@@ -264,13 +263,6 @@ internal val clientSyncRenovationModule =
         // seam (ContributorRepositoryImpl); consumers inject it by qualified name.
         consumerSyncHandlerSingle(SyncDomains.CONTRIBUTORS)
 
-        single(createdAtStart = true) {
-            UserStatsSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
         single(createdAtStart = true) {
             PublicProfileSyncDomainHandler(
                 database = get(),

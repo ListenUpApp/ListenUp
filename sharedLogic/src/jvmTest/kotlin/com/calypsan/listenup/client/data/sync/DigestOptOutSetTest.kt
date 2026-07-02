@@ -14,10 +14,10 @@ import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
@@ -61,7 +61,7 @@ class DigestOptOutSetTest :
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     listeningEventsDomain(clientDb, FakeAuthSession())
                         .toHandler(transactionRunner = txRunner, registry = registry)
-                    UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    userStatsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     collectionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)

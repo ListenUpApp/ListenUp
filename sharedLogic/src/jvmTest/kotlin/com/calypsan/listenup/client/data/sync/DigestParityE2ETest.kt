@@ -9,8 +9,8 @@ import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -136,11 +136,8 @@ class DigestParityE2ETest :
                     // the exact (id, revision) that the server digest hashed).
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        UserStatsSyncDomainHandler(
-                            database = clientDb,
-                            transactionRunner = RoomTransactionRunner(clientDb),
-                            registry = registry,
-                        )
+                        userStatsDomain(clientDb)
+                            .toHandler(RoomTransactionRunner(clientDb), registry)
 
                     val serverPage = userStatsRepo.pullSince(userId = userId, cursor = 0L, limit = 100)
                     for (item in serverPage.items) {

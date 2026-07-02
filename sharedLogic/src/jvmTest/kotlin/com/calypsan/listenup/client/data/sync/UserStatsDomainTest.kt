@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -14,7 +15,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class UserStatsSyncDomainHandlerTest :
+class UserStatsDomainTest :
     FunSpec({
 
         test("Created event upserts a new user_stats row matching the payload") {
@@ -94,7 +95,7 @@ class UserStatsSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = UserStatsSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = userStatsDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "user_stats"
                 registry.lookup("user_stats") shouldBe handler
             } finally {
@@ -105,11 +106,11 @@ class UserStatsSyncDomainHandlerTest :
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (UserStatsSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<UserStatsSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(UserStatsSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(userStatsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }
