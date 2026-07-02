@@ -102,4 +102,56 @@ class PendingOperationV2DaoTest :
                 db.close()
             }
         }
+
+        test("observePending emits only ops within retry budget, oldest first") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val maxAttempts = 5
+                dao.insert(row("healthy", "tags", "t1", 100L, failureCount = 0))
+                dao.insert(row("terminal", "tags", "t2", 200L, failureCount = maxAttempts + 1))
+                val pending = dao.observePending().first()
+                pending.map { it.clientOpId } shouldContainExactly listOf("healthy")
+                db.close()
+            }
+        }
+
+        test("observeFailed emits only ops past the retry budget") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val maxAttempts = 5
+                dao.insert(row("healthy", "tags", "t1", 100L, failureCount = 0))
+                dao.insert(row("terminal", "tags", "t2", 200L, failureCount = maxAttempts + 1))
+                val failed = dao.observeFailed().first()
+                failed.map { it.clientOpId } shouldContainExactly listOf("terminal")
+                db.close()
+            }
+        }
+
+        test("resetFailureCount zeroes failureCount and clears lastError") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                dao.insert(
+                    PendingOperationV2Entity(
+                        clientOpId = "terminal",
+                        domainName = "tags",
+                        entityId = "t1",
+                        opType = "upsert",
+                        payload = "{}",
+                        enqueuedAt = 100L,
+                        lastAttemptAt = 200L,
+                        failureCount = 6,
+                        lastError = "SOME_CODE",
+                        ownerUserId = "u1",
+                    ),
+                )
+                dao.resetFailureCount("terminal")
+                val updated = dao.get("terminal")
+                updated?.failureCount shouldBe 0
+                updated?.lastError shouldBe null
+                db.close()
+            }
+        }
     })

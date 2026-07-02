@@ -87,6 +87,14 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
         }
     }
 
+    override fun observePending(maxAttempts: Int): Flow<List<PendingOperationV2Entity>> = flowOf(inserted.toList())
+
+    override fun observeFailed(maxAttempts: Int): Flow<List<PendingOperationV2Entity>> = flowOf(emptyList())
+
+    override suspend fun resetFailureCount(clientOpId: String) {
+        inserted.replaceAll { if (it.clientOpId == clientOpId) it.copy(failureCount = 0, lastError = null) else it }
+    }
+
     override fun observeQueueDepth(): Flow<Int> = flowOf(inserted.size)
 
     override fun observeFailureCount(maxAttempts: Int): Flow<Int> = flowOf(0)
