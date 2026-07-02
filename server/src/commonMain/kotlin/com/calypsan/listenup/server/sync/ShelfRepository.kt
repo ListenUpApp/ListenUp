@@ -2,13 +2,13 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Shelves
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
-import kotlinx.serialization.KSerializer
 
 /**
  * A live shelf paired with its owner's user id.
@@ -57,12 +57,10 @@ class ShelfRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "shelves",
+        key = SyncDomains.SHELVES,
         clock = clock,
     ) {
     override val userScoped: Boolean = true
-
-    override val elementSerializer: KSerializer<ShelfSyncPayload> = ShelfSyncPayload.serializer()
 
     override fun idAsString(id: ShelfId): String = id.value
 

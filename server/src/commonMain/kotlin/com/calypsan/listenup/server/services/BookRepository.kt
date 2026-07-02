@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.core.BookId
@@ -43,7 +44,6 @@ import kotlin.time.Clock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.KSerializer
 
 private val log = loggerFor<BookRepository>()
 
@@ -151,7 +151,7 @@ class BookRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "books",
+        key = SyncDomains.BOOKS,
         clock = clock,
     ),
     BookIngestPort,
@@ -184,8 +184,6 @@ class BookRepository(
         } else {
             null
         }
-
-    override val elementSerializer: KSerializer<BookSyncPayload> = BookSyncPayload.serializer()
 
     override fun idAsString(id: BookId): String = id.value
 

@@ -22,7 +22,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * crosses the live kotlinx.rpc transport into the in-process `:server`'s
  * `BookService`, which replaces the chapter set and marks provenance as USER,
  * then emits an SSE `Updated<BookSyncPayload>` event. The client sync engine
- * applies the event via [com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler]
+ * applies the event via [com.calypsan.listenup.client.data.sync.domains.BookMirrorApply]
  * into the client Room DB, and [com.calypsan.listenup.client.domain.repository.BookRepository.observeChapters]
  * reflects the new chapter list.
  *
@@ -73,7 +73,7 @@ class BookChaptersE2ETest :
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 // Poll the client Room DB until the SSE-driven Book Updated event has
-                // been applied by BookSyncDomainHandler — the chapter rows exist only
+                // been applied by BookMirrorApply — the chapter rows exist only
                 // once the handler has processed the event.
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {
                     while (clientDatabase.chapterDao().getChaptersForBook(BookId("chapters-b1")).isEmpty()) {

@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
@@ -38,10 +40,14 @@ import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
+import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
+import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
@@ -53,7 +59,6 @@ import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -244,13 +249,53 @@ internal val clientSyncRenovationModule =
 
         single { BookEntityMapper() }
 
-        single(createdAtStart = true) {
-            TagSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
+        single {
+            SyncDomainCatalog(
+                mirrored =
+                    listOf(
+                        tagsDomain(database = get()),
+                        playbackPositionsDomain(database = get()),
+                        booksDomain(
+                            database = get(),
+                            mapper = get(),
+                            imageStorage = get(),
+                            documentStorage = get(),
+                        ),
+                    ),
             )
         }
+        single(createdAtStart = true) {
+            ComposedHandlerRegistrar(
+                catalog = get(),
+                transactionRunner = get(),
+                registry = get(),
+            ).apply { registerAll() }
+        }
+
+        // Books' composed handler doubles as the on-demand aggregate write-through seam
+        // (BookRepositoryImpl's cache-miss fallback fetch, PlaybackPreparer's ingest).
+        // The registrar above creates and registers it from the catalog; resolve that
+        // same instance by domain lookup so DI consumers and the SSE dispatcher share
+        // one handler. The cast is safe: SyncDomains.BOOKS binds the "books" name to
+        // BookSyncPayload in the contract.
+        //
+        // ⚠️ PHASE 2 LANDMINE: this binding is UNQUALIFIED, which only works while books
+        // is the sole consumer-injected SyncDomainHandler<*> single. Koin keys on the
+        // ERASED class (SyncDomainHandler::class), so a second such single — contributors
+        // and series are both consumer-injected today (ContributorModule, SeriesModule) and
+        // migrate in Phase 2 — collides on the same key and fails at graph construction.
+        // When migrating them, qualify ALL these bindings with named(SyncDomains.X.name)
+        // and add the matching qualifier to every consumer get(); do it uniformly in one
+        // pass (incl. the ios/macos PlaybackModules, CI-only compile).
+        single<SyncDomainHandler<BookSyncPayload>> {
+            val _ = get<ComposedHandlerRegistrar>()
+            @Suppress("UNCHECKED_CAST")
+            checkNotNull(
+                get<ClientSyncDomainRegistry>().lookup(SyncDomains.BOOKS.name)
+                    as SyncDomainHandler<BookSyncPayload>?,
+            ) { "books domain missing from the sync catalog" }
+        }
+
         single(createdAtStart = true) {
             BookTagSyncDomainHandler(
                 database = get(),
@@ -273,16 +318,6 @@ internal val clientSyncRenovationModule =
             )
         }
         single(createdAtStart = true) {
-            BookSyncDomainHandler(
-                database = get(),
-                mapper = get(),
-                transactionRunner = get(),
-                imageStorage = get(),
-                registry = get(),
-                documentStorage = get(),
-            )
-        }
-        single(createdAtStart = true) {
             ContributorSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
@@ -299,13 +334,6 @@ internal val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             GenreSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            PlaybackPositionSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),

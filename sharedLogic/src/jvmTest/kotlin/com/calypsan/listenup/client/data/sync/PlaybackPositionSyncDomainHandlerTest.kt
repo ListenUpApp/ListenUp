@@ -7,7 +7,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -171,7 +172,7 @@ class PlaybackPositionSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = PlaybackPositionSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = playbackPositionsDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "playback_positions"
                 registry.lookup("playback_positions") shouldBe handler
             } finally {
@@ -182,11 +183,11 @@ class PlaybackPositionSyncDomainHandlerTest :
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (PlaybackPositionSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<PlaybackPositionSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(PlaybackPositionSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(playbackPositionsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

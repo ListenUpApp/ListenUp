@@ -11,7 +11,8 @@ import com.calypsan.listenup.client.playback.ApplePlaybackController
 import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioPlayer
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.AvFoundationAudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
@@ -140,7 +141,7 @@ internal val macosPlaybackModule: Module =
                 syncApi = get(),
                 deviceContext = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookSyncDomainHandler = get<BookSyncDomainHandler>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
             )
         }
 

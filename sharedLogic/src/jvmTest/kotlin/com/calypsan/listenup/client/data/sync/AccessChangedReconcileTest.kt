@@ -9,7 +9,8 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
@@ -49,13 +50,11 @@ class AccessChangedReconcileTest :
         test("books: revoked book is tombstoned, accessible book remains live") {
             withReconcileEngine { harness, db, _ ->
                 val handler =
-                    BookSyncDomainHandler(
-                        db,
-                        BookEntityMapper(),
-                        RoomTransactionRunner(db),
-                        stubImageStorage(),
-                        ClientSyncDomainRegistry(),
-                    )
+                    booksDomain(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
                 handler.onCatchUpItem(bookPayload("b1"), isTombstone = false)
                 handler.onCatchUpItem(bookPayload("b2"), isTombstone = false)
                 db.bookDao().getById(BookId("b1")).shouldNotBeNull()
@@ -121,13 +120,11 @@ class AccessChangedReconcileTest :
         test("the persisted cursor store is never touched by the reconcile") {
             withReconcileEngine { harness, db, store ->
                 val handler =
-                    BookSyncDomainHandler(
-                        db,
-                        BookEntityMapper(),
-                        RoomTransactionRunner(db),
-                        stubImageStorage(),
-                        ClientSyncDomainRegistry(),
-                    )
+                    booksDomain(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
                 handler.onCatchUpItem(bookPayload("b1"), isTombstone = false)
                 store.setCursor("books", 42L)
 
@@ -188,7 +185,11 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
             // Register the four access-gated handlers under one shared registry.
             val registry = ClientSyncDomainRegistry()
             val txn = RoomTransactionRunner(db)
-            BookSyncDomainHandler(db, BookEntityMapper(), txn, stubImageStorage(), registry)
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
+            ).toHandler(transactionRunner = txn, registry = registry)
             CollectionSyncDomainHandler(db, txn, registry)
             CollectionBookSyncDomainHandler(db, txn, registry)
             CollectionShareSyncDomainHandler(db, txn, registry)

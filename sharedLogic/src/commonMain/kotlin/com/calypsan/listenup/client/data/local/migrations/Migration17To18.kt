@@ -10,7 +10,7 @@ import androidx.sqlite.execSQL
  * `playback_positions` becomes a first-class syncable domain. The table gains
  * `revision` (monotonic server revision) and `deletedAt` (epoch-ms tombstone).
  * Existing rows are rebuilt with `revision = 0` and `deletedAt` null — the
- * client's `PlaybackPositionSyncDomainHandler` overwrites them with real values
+ * client's `playbackPositionsDomain` handler overwrites them with real values
  * on the first catch-up from the server.
  *
  * The table is rebuilt (create-new → copy → drop → rename) rather than

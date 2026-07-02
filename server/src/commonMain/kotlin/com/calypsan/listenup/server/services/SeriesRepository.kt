@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.Book_series
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -12,7 +13,6 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for book series (Books-B1, SQLDelight cutover).
@@ -36,11 +36,9 @@ class SeriesRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "series",
+        key = SyncDomains.SERIES,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<SeriesSyncPayload> = SeriesSyncPayload.serializer()
-
     override fun idAsString(id: SeriesId): String = id.value
 
     override val SeriesSyncPayload.id: SeriesId

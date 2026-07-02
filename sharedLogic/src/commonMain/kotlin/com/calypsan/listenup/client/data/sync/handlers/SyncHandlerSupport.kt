@@ -12,7 +12,7 @@ import kotlin.coroutines.cancellation.CancellationException
  * re-thrown — cancellation is not a sync failure.
  *
  * The canonical apply-wrapper for every [com.calypsan.listenup.client.data.sync.SyncDomainHandler]:
- * `BookSyncDomainHandler`, `ContributorSyncDomainHandler`, `SeriesSyncDomainHandler`
+ * `ComposedSyncDomainHandler`, `ContributorSyncDomainHandler`, `SeriesSyncDomainHandler`
  * all route their `onEvent` / `onCatchUpItem` work through it.
  */
 internal suspend fun TransactionRunner.applyEventAtomically(

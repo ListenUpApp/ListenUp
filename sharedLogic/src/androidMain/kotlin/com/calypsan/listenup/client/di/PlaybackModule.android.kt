@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
@@ -42,7 +43,7 @@ val androidPlaybackModule: Module =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 scope = get(),
-                bookSyncDomainHandler = get<BookSyncDomainHandler>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
             )
         }
     }

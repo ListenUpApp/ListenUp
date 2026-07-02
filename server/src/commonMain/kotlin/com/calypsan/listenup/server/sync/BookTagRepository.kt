@@ -2,12 +2,12 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookTagSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.db.sqldelight.Book_tags
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * Composite key for `book_tags` junction rows.
@@ -56,11 +56,9 @@ class BookTagRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "book_tags",
+        key = SyncDomains.BOOK_TAGS,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<BookTagSyncPayload> = BookTagSyncPayload.serializer()
-
     override val BookTagSyncPayload.id: BookTagId get() = BookTagId(bookId, tagId)
 
     override fun BookTagSyncPayload.revisionOf(): Long = revision

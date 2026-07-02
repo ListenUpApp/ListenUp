@@ -11,7 +11,8 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -27,7 +28,7 @@ import kotlinx.coroutines.test.runTest
  * [ContributorSyncPayload] for a contributor it references can arrive in either order. Both
  * handlers share a single Room database and the two compositions are tested end-to-end:
  *
- * - **Book-first:** [BookSyncDomainHandler] inserts a bootstrap stub (`revision == 0`); a later
+ * - **Book-first:** [BookMirrorApply] inserts a bootstrap stub (`revision == 0`); a later
  *   [ContributorSyncDomainHandler] event supersedes it with the real entity.
  * - **Contributor-first:** [ContributorSyncDomainHandler] inserts the real row first; a later
  *   stale book event does NOT clobber it.
@@ -41,7 +42,11 @@ class ContributorSelfHealIntegrationTest :
                 try {
                     val registry = ClientSyncDomainRegistry()
                     val bookHandler =
-                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
+                        booksDomain(
+                            database = db,
+                            mapper = BookEntityMapper(),
+                            imageStorage = stubImageStorage(),
+                        ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = registry)
                     val contributorHandler =
                         ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
 
@@ -85,7 +90,11 @@ class ContributorSelfHealIntegrationTest :
                 try {
                     val registry = ClientSyncDomainRegistry()
                     val bookHandler =
-                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
+                        booksDomain(
+                            database = db,
+                            mapper = BookEntityMapper(),
+                            imageStorage = stubImageStorage(),
+                        ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = registry)
                     val contributorHandler =
                         ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
 

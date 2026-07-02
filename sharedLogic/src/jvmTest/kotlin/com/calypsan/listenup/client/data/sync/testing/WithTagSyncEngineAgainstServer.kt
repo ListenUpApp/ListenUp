@@ -17,15 +17,16 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.TagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.tagsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -79,8 +80,9 @@ internal data class TagSyncEngineScope(
  * with a real in-memory Room DB on the client side.
  *
  * Unlike [withClientSyncEngineAgainstServer], this harness registers the real
- * [TagSyncDomainHandler] and [BookTagSyncDomainHandler] instead of
- * [RecordingTagSyncDomainHandler]. This lets tests assert that tag and book_tag
+ * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] handler and
+ * [BookTagSyncDomainHandler] instead of [RecordingTagSyncDomainHandler]. This lets
+ * tests assert that tag and book_tag
  * SSE events land directly in Room rather than being captured in a recording
  * buffer. The two harnesses cannot be combined because [ClientSyncDomainRegistry]
  * enforces a single handler per domain name.
@@ -164,8 +166,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
             val registry = ClientSyncDomainRegistry()
 
             // Register the REAL tag handlers — not the recording fixture.
-            TagSyncDomainHandler(
-                database = clientDb,
+            tagsDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
@@ -187,13 +188,11 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            BookSyncDomainHandler(
+            booksDomain(
                 database = clientDb,
                 mapper = BookEntityMapper(),
-                transactionRunner = RoomTransactionRunner(clientDb),
                 imageStorage = stubImageStorage(),
-                registry = registry,
-            )
+            ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
             ContributorSyncDomainHandler(
                 database = clientDb,
                 transactionRunner = RoomTransactionRunner(clientDb),
@@ -205,8 +204,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            PlaybackPositionSyncDomainHandler(
-                database = clientDb,
+            playbackPositionsDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )

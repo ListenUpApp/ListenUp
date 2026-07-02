@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.sync
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -17,7 +18,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -130,11 +130,9 @@ internal class UserScopedFixtureRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "user_scoped_fixtures",
+        key = SyncDomainKey("user_scoped_fixtures", UserScopedPayload.serializer()),
     ) {
     override val userScoped: Boolean = true
-
-    override val elementSerializer: KSerializer<UserScopedPayload> = UserScopedPayload.serializer()
 
     override val UserScopedPayload.id: String get() = id
 

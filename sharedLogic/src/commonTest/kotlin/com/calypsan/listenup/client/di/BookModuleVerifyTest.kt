@@ -7,7 +7,7 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
@@ -40,7 +40,7 @@ import org.koin.test.verify.verify
  *  - [CollectionRpcFactory] — owned by `collectionModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
- *  - [BookSyncDomainHandler] — owned by `clientSyncRenovationModule`.
+ *  - [SyncDomainHandler] (books) — owned by `clientSyncRenovationModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookModuleVerifyTest :
@@ -65,7 +65,7 @@ class BookModuleVerifyTest :
                         CollectionRpcFactory::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,
-                        BookSyncDomainHandler::class,
+                        SyncDomainHandler::class,
                     ),
             )
         }

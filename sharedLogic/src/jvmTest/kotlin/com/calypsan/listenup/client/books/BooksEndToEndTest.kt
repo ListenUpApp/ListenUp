@@ -13,7 +13,8 @@ import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -39,7 +40,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * Tier 3 e2e tests for the `books` sync domain: a write on the server's
  * [com.calypsan.listenup.server.services.BookRepository] crosses the live SSE
  * firehose, the client [SyncEngine][com.calypsan.listenup.client.data.sync.SyncEngine]
- * routes it through the real [BookSyncDomainHandler], and the book lands in the
+ * routes it through the real books sync handler ([booksDomain]), and the book lands in the
  * client's Room database — exactly the round-trip production performs.
  *
  * The fixture [withClientSyncEngineAgainstServer] boots a real `:server`
@@ -171,7 +172,11 @@ private fun clientBookRepository(database: ListenUpDatabase): BookRepository {
 
     val transactionRunner = RoomTransactionRunner(database)
     val syncHandler =
-        BookSyncDomainHandler(database, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
+        booksDomain(
+            database = database,
+            mapper = BookEntityMapper(),
+            imageStorage = stubImageStorage(),
+        ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
 
     return BookRepositoryImpl(
         bookDao = database.bookDao(),

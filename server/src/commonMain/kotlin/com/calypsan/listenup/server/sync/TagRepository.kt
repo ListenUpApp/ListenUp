@@ -1,12 +1,12 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Tags
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for tags — the **template** every other aggregate
@@ -23,7 +23,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `tagsQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - [elementSerializer] / `Tag.id` / `Tag.revisionOf`
+ *  - `Tag.id` / `Tag.revisionOf`
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted tag by id
@@ -37,9 +37,7 @@ class TagRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SqlSyncableRepository<Tag, String>(db, bus, registry, "tags", clock) {
-    override val elementSerializer: KSerializer<Tag> = Tag.serializer()
-
+) : SqlSyncableRepository<Tag, String>(db, bus, registry, SyncDomains.TAGS, clock) {
     override val Tag.id: String get() = this.id
 
     override fun Tag.revisionOf(): Long = revision

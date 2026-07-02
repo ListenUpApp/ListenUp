@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.UserStatsId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -13,7 +14,6 @@ import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for per-user materialized listening stats (Playback P2).
@@ -46,13 +46,10 @@ class UserStatsRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "user_stats",
+        key = SyncDomains.USER_STATS,
         clock = clock,
     ) {
     override val userScoped: Boolean = true
-
-    override val elementSerializer: KSerializer<UserStatsSyncPayload> =
-        UserStatsSyncPayload.serializer()
 
     override fun idAsString(id: UserStatsId): String = id.value
 

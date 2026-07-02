@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.GenreSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.server.db.sqldelight.Genres
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -11,7 +12,6 @@ import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable-domain repository for genres.
@@ -38,9 +38,7 @@ class GenreRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SqlSyncableRepository<GenreSyncPayload, GenreId>(db, bus, registry, "genres", clock) {
-    override val elementSerializer: KSerializer<GenreSyncPayload> = GenreSyncPayload.serializer()
-
+) : SqlSyncableRepository<GenreSyncPayload, GenreId>(db, bus, registry, SyncDomains.GENRES, clock) {
     override fun idAsString(id: GenreId): String = id.value
 
     override val GenreSyncPayload.id: GenreId

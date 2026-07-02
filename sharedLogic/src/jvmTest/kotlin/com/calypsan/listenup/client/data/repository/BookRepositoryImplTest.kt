@@ -6,7 +6,8 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -124,7 +125,11 @@ private fun withTestRepo(
 
         val transactionRunner = RoomTransactionRunner(db)
         val syncHandler =
-            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
+            ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
 
         val rpcFactory: com.calypsan.listenup.client.data.remote.BookRpcFactory = mock()
         everySuspend { rpcFactory.bookService() } returns mock()
@@ -156,7 +161,11 @@ private suspend fun seedRoom(
     title: String,
 ) {
     val handler =
-        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry())
+        booksDomain(
+            database = db,
+            mapper = BookEntityMapper(),
+            imageStorage = stubImageStorage(),
+        ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
     handler.onCatchUpItem(
         BookSyncPayload(
             id = id,

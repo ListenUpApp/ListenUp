@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.db.sqldelight.Contributors
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -13,7 +14,6 @@ import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.uuid.Uuid
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for contributors (Books-B1, SQLDelight cutover).
@@ -26,7 +26,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `contributorsQueries`
  *  - [readPayload] / [readPayloads] — root row + alias child rows by id
  *  - [writePayload] — insert-or-update root row, then replace the alias set
- *  - [elementSerializer] / `ContributorSyncPayload.id` / `revisionOf`
+ *  - `ContributorSyncPayload.id` / `revisionOf`
  *
  * `idAsString(ContributorId) = id.value` is load-bearing — the base's default
  * `toString()` on a value class returns `"ContributorId(value=foo)"`, which would
@@ -44,11 +44,9 @@ class ContributorRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "contributors",
+        key = SyncDomains.CONTRIBUTORS,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<ContributorSyncPayload> = ContributorSyncPayload.serializer()
-
     override fun idAsString(id: ContributorId): String = id.value
 
     override val ContributorSyncPayload.id: ContributorId
