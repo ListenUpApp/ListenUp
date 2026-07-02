@@ -5,19 +5,19 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.genresDomain
+import com.calypsan.listenup.client.data.sync.domains.librariesDomain
+import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
@@ -45,36 +45,28 @@ class DigestOptOutSetTest :
                     val registry = ClientSyncDomainRegistry()
                     val txRunner = RoomTransactionRunner(clientDb)
 
-                    // Register all production handlers — mirrors the clientSyncRenovationModule
+                    // Register all production handlers — mirrors the clientSyncModule
                     // Koin wiring so this test tracks production exactly.
                     tagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    BookTagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    bookTagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     booksDomain(
                         database = clientDb,
                         mapper = BookEntityMapper(),
                         imageStorage = stubImageStorage(),
                     ).toHandler(transactionRunner = txRunner, registry = registry)
-                    ContributorSyncDomainHandler(
-                        database = clientDb,
-                        transactionRunner = txRunner,
-                        imageStorage = stubImageStorage(),
-                        registry = registry,
-                    )
-                    SeriesSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    GenreSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    contributorsDomain(database = clientDb, imageStorage = stubImageStorage())
+                        .toHandler(transactionRunner = txRunner, registry = registry)
+                    seriesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    ListeningEventSyncDomainHandler(
-                        database = clientDb,
-                        transactionRunner = txRunner,
-                        registry = registry,
-                        authSession = FakeAuthSession(),
-                    )
-                    UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    LibrarySyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    LibraryFolderSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    CollectionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    CollectionBookSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    CollectionShareSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    listeningEventsDomain(clientDb, FakeAuthSession())
+                        .toHandler(transactionRunner = txRunner, registry = registry)
+                    userStatsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    collectionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    collectionBooksDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    collectionSharesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
 
                     // Collect the domains whose handler returns null from localDigestRows against
                     // an empty DB. An empty DB ensures reconcilable domains return emptyList() (non-null)

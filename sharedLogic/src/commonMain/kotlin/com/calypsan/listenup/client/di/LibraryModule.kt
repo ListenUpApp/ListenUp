@@ -36,9 +36,10 @@ private const val APP_SCOPE = "appScope"
  * External dependencies (owned by other modules):
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
- *  - [com.calypsan.listenup.client.data.sync.SyncEngine] — `clientSyncRenovationModule`
- *  - [com.calypsan.listenup.client.data.sync.SyncEngineState] — `clientSyncRenovationModule`
- *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.SyncEngine] — `clientSyncModule`
+ *  - [com.calypsan.listenup.client.data.sync.SyncEngineState] — `clientSyncModule`
+ *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
+ *  - [com.calypsan.listenup.client.data.sync.PendingOperationQueue] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
  *  - [com.calypsan.listenup.client.playback.ListeningEventRecorder] — `listeningModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
@@ -130,7 +131,7 @@ internal val libraryModule: Module =
         // PendingOperationRepository (domain) for UI observation of sync status
         // Wraps the data layer contract to provide domain models to ViewModels
         single<PendingOperationRepository> {
-            PendingOperationRepositoryImpl()
+            PendingOperationRepositoryImpl(queue = get())
         }
 
         // LibraryRepository — observation-only Room-backed view of the libraries domain.

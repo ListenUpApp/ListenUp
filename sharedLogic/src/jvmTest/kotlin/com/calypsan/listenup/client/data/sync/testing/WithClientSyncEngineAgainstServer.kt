@@ -49,16 +49,16 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.genresDomain
+import com.calypsan.listenup.client.data.sync.domains.librariesDomain
+import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
+import com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -187,10 +187,12 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   [UserStatsUpdater] populated the materialized stats row when a listening event was recorded.
  * @property serverLibraryRepository the server-side library repository; use [LibraryRepository.upsert]
  *   to create or update a library row and publish its SSE event, and [LibraryRepository.softDelete]
- *   to tombstone it. The client [LibrarySyncDomainHandler] applies these events into Room.
+ *   to tombstone it. The client [com.calypsan.listenup.client.data.sync.domains.librariesDomain]
+ *   handler applies these events into Room.
  * @property serverLibraryFolderRepository the server-side library-folder repository; use
  *   [LibraryFolderRepository.upsert] to add folders and [LibraryFolderRepository.softDelete] to
- *   remove them. Folder SSE events arrive via [LibraryFolderSyncDomainHandler] into Room.
+ *   remove them. Folder SSE events arrive via
+ *   [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] into Room.
  * @property clientDatabase the client-side in-memory Room DB the real
  *   books sync handler applies Books events into; tests read it back
  * @property bookEditRepository client-side [BookEditRepository] backed by a real
@@ -483,7 +485,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
 
             // Offline-first series edits write to client Room and enqueue a "series" op;
             // the engine drains it through the RpcUpdateOpSender above to the in-process
-            // server, whose SSE echo reconciles client Room via SeriesSyncDomainHandler.
+            // server, whose SSE echo reconciles client Room via the series composed handler.
             val seriesEditRepository: SeriesEditRepository =
                 SeriesEditRepositoryImpl(
                     seriesRpcFactory = testSeriesRpcFactory,
@@ -494,7 +496,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // Offline-first contributor edits write to client Room and enqueue a
             // "contributors" op; the engine drains it through the RpcUpdateOpSender above
             // to the in-process server, whose SSE echo reconciles client Room via
-            // ContributorSyncDomainHandler.
+            // the contributors sync domain.
             val contributorEditRepository: ContributorEditRepository =
                 ContributorEditRepositoryImpl(
                     contributorRpcFactory = testContributorRpcFactory,
@@ -616,10 +618,13 @@ private data class ServerRepositories(
 
 /**
  * Constructs and registers the real books sync handler ([booksDomain]),
- * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler],
+ * [contributorsDomain], the series composed handler,
  * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
- * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
- * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * [com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain] handler,
+ * [com.calypsan.listenup.client.data.sync.domains.userStatsDomain] handler,
+ * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
+ * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] handler,
+ * and [com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain] handler into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
  * applying them into [clientDb] exactly as production does.
  */
@@ -627,13 +632,11 @@ private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
 ) {
-    LibrarySyncDomainHandler(
-        database = clientDb,
+    librariesDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    LibraryFolderSyncDomainHandler(
-        database = clientDb,
+    libraryFoldersDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
@@ -642,19 +645,15 @@ private fun registerClientSyncHandlers(
         mapper = BookEntityMapper(),
         imageStorage = stubImageStorage(),
     ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
-    ContributorSyncDomainHandler(
-        database = clientDb,
-        transactionRunner = RoomTransactionRunner(clientDb),
-        imageStorage = stubImageStorage(),
-        registry = registry,
-    )
-    SeriesSyncDomainHandler(
-        database = clientDb,
+    contributorsDomain(database = clientDb, imageStorage = stubImageStorage()).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    GenreSyncDomainHandler(
-        database = clientDb,
+    seriesDomain(database = clientDb).toHandler(
+        transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    genresDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
@@ -662,20 +661,16 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    ListeningEventSyncDomainHandler(
-        database = clientDb,
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-        authSession = FakeAuthSession(),
-    )
-    UserStatsSyncDomainHandler(
-        database = clientDb,
+    listeningEventsDomain(clientDb, FakeAuthSession()).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    PublicProfileSyncDomainHandler(
-        database = clientDb,
+    userStatsDomain(clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    publicProfilesDomain(
+        database = clientDb,
         avatarDownloadRepository =
             object : AvatarDownloadRepository {
                 override fun queueAvatarDownload(userId: String) = Unit
@@ -684,8 +679,7 @@ private fun registerClientSyncHandlers(
 
                 override suspend fun deleteAvatar(userId: String) = Unit
             },
-        registry = registry,
-    )
+    ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
 }
 
 /**

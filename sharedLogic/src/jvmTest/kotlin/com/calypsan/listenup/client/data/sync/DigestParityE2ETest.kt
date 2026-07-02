@@ -5,11 +5,12 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -135,11 +136,8 @@ class DigestParityE2ETest :
                     // the exact (id, revision) that the server digest hashed).
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        UserStatsSyncDomainHandler(
-                            database = clientDb,
-                            transactionRunner = RoomTransactionRunner(clientDb),
-                            registry = registry,
-                        )
+                        userStatsDomain(clientDb)
+                            .toHandler(RoomTransactionRunner(clientDb), registry)
 
                     val serverPage = userStatsRepo.pullSince(userId = userId, cursor = 0L, limit = 100)
                     for (item in serverPage.items) {
@@ -224,12 +222,8 @@ class DigestParityE2ETest :
                     // revisions (read back via pullSince to get the real revision values).
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        ListeningEventSyncDomainHandler(
-                            database = clientDb,
-                            transactionRunner = RoomTransactionRunner(clientDb),
-                            registry = registry,
-                            authSession = FakeAuthSession(userId),
-                        )
+                        listeningEventsDomain(clientDb, FakeAuthSession(userId))
+                            .toHandler(RoomTransactionRunner(clientDb), registry)
 
                     val serverPage = listeningEventRepo.pullSince(userId = userId, cursor = 0L, limit = 100)
                     for (item in serverPage.items) {
@@ -314,8 +308,7 @@ class DigestParityE2ETest :
                     // Apply the same live rows to the client via onCatchUpItem.
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        BookTagSyncDomainHandler(
-                            database = clientDb,
+                        bookTagsDomain(database = clientDb).toHandler(
                             transactionRunner = RoomTransactionRunner(clientDb),
                             registry = registry,
                         )
@@ -421,11 +414,8 @@ class DigestParityE2ETest :
                     // Apply the same live rows to the client via onCatchUpItem.
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        CollectionBookSyncDomainHandler(
-                            database = clientDb,
-                            transactionRunner = RoomTransactionRunner(clientDb),
-                            registry = registry,
-                        )
+                        collectionBooksDomain(clientDb)
+                            .toHandler(RoomTransactionRunner(clientDb), registry)
 
                     val serverPage = collectionBookRepo.pullSince(userId = null, cursor = 0L, limit = 100)
                     for (item in serverPage.items) {

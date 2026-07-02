@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.playback.AudioTokenProvider
 import com.calypsan.listenup.client.playback.CachedAudioTokenProvider
 import com.calypsan.listenup.client.playback.AudioPlayer
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.AvFoundationAudioPlayer
 import com.calypsan.listenup.client.playback.PlaybackController
@@ -25,7 +26,6 @@ import com.calypsan.listenup.client.sync.MacosBackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import platform.Foundation.NSProcessInfo
-import platform.Foundation.NSUUID
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -52,7 +52,7 @@ internal val macosPlaybackModule: Module =
         }
 
         // Device ID for listening events
-        // macOS uses a generated UUID persisted via secure storage
+        // macOS derives the id from the host name
         // TODO: Use a more stable identifier when macOS app matures
         single(qualifier = named("deviceId")) {
             val hostName = NSProcessInfo.processInfo.hostName
@@ -141,7 +141,7 @@ internal val macosPlaybackModule: Module =
                 syncApi = get(),
                 deviceContext = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )
         }
 

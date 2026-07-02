@@ -44,8 +44,8 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.PublicProfileDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
- *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncRenovationModule`
- *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncModule`
+ *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.remote.AuthRpcFactory] — `clientAuthModule`
  *  - [com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
@@ -43,7 +44,7 @@ val desktopPlaybackModule: Module =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 scope = get(qualifier = named("playbackScope")),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )
         }
     }

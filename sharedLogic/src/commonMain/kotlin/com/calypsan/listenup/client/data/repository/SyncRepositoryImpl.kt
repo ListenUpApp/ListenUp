@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.EngineSnapshot
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
+import com.calypsan.listenup.client.data.sync.SearchIndexWatermark
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.ScanProgressState
@@ -157,7 +158,8 @@ internal class SyncRepositoryImpl(
             is AppResult.Success -> {
                 suspendRunCatching {
                     syncEngine.forceReconcile()
-                    // The resync pulled fresh rows; refresh the search index so search reflects them.
+                    // Full rebuild, not incremental: forceReconcile's digest repair can rewrite rows at
+                    // unchanged revisions, which a revision-watermark comparison would miss.
                     refreshSearchIndex()
                 }
             }
@@ -168,18 +170,34 @@ internal class SyncRepositoryImpl(
         }
 
     /**
-     * Rebuild the local search index, isolating failure — a search-index hiccup must never fail or
-     * strand a sync. Used after a catch-up/reconcile lands fresh rows into Room.
+     * Refresh the local search index after a reconcile, isolating failure — a search-index hiccup
+     * must never fail or strand a sync. With a [watermark] (snapshotted before the reconcile) only
+     * the rows the reconcile changed are reindexed; without one (forceFullResync's digest repair
+     * can rewrite rows at unchanged revisions, defeating the watermark) the whole index rebuilds.
      */
-    private suspend fun refreshSearchIndex() {
+    private suspend fun refreshSearchIndex(watermark: SearchIndexWatermark? = null) {
         try {
-            ftsPopulator.rebuildAll()
+            if (watermark != null) ftsPopulator.refreshSince(watermark) else ftsPopulator.rebuildAll()
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "Search index rebuild failed; search may be stale until the next sync" }
+            logger.warn(e) { "Search index refresh failed; search may be stale until the next sync" }
         }
     }
+
+    /**
+     * Snapshot the FTS revision watermark before a reconcile; null (→ full rebuild) if the snapshot
+     * itself fails, so an index hiccup can never block the reconcile.
+     */
+    private suspend fun snapshotSearchWatermark(): SearchIndexWatermark? =
+        try {
+            ftsPopulator.snapshotWatermark()
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "Search watermark snapshot failed — falling back to full rebuild" }
+            null
+        }
 
     private suspend fun startEngineForCurrentUser(): AppResult<Unit> =
         suspendRunCatching {
@@ -295,8 +313,9 @@ internal class SyncRepositoryImpl(
                 isScanning = { isServerScanning.value },
                 confirmScanFinished = { isInitialScanFinishedOnServer() },
                 reconcile = {
+                    val watermark = snapshotSearchWatermark()
                     syncEngine.handleCursorStale()
-                    refreshSearchIndex()
+                    refreshSearchIndex(watermark)
                 },
                 setScanning = { isServerScanning.value = it },
                 setProgress = { scanProgress.value = it },
@@ -328,8 +347,9 @@ internal class SyncRepositoryImpl(
                         // dropping any later event. The freshly-scanned books then feed the search
                         // index so search works without an app restart.
                         reconcile = {
+                            val watermark = snapshotSearchWatermark()
                             syncEngine.handleCursorStale()
-                            refreshSearchIndex()
+                            refreshSearchIndex(watermark)
                         },
                         nowMs = { currentEpochMilliseconds() },
                         getStartedAt = { scanStartedAtMs },
@@ -522,8 +542,11 @@ internal fun mergeRecentBooks(
  * Returns `true` when a [ScanResultSummary] reports that at least one row was mutated — added,
  * modified, removed, or moved. When all four counters are zero the scan was a no-op (the server
  * walked the library and found nothing new), so the client can skip the expensive catch-up
- * ([SyncEngine.handleCursorStale] → 19 HTTP pulls → SSE disconnect/reconnect) and the FTS
- * rebuild ([FtsPopulatorContract.rebuildAll] → ~3.3 s on a 1 150-book library).
+ * ([SyncEngine.handleCursorStale] → 19 HTTP pulls → SSE disconnect/reconnect) and the search-index
+ * refresh entirely. A non-skipped reconcile now reindexes incrementally
+ * ([FtsPopulatorContract.refreshSince] — typically milliseconds), reserving the full rebuild
+ * ([FtsPopulatorContract.rebuildAll] → ~3.3 s on a 1 150-book library) for deltas too large to
+ * reindex row-by-row.
  *
  * `moved` is included because a move changes the file path stored in Room even though no book is
  * added or deleted — it is a genuine row mutation that catch-up must pull.

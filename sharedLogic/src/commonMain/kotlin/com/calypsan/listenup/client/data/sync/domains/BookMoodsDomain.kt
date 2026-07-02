@@ -1,0 +1,79 @@
+package com.calypsan.listenup.client.data.sync.domains
+
+import com.calypsan.listenup.api.sync.BookMoodSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
+import com.calypsan.listenup.client.data.local.db.BookMoodEntity
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import io.github.oshai.kotlinlogging.KotlinLogging
+
+private val logger = KotlinLogging.logger {}
+
+/**
+ * The `book_moods` junction domain: composite `(bookId, moodId)` primary key mirrored
+ * under the server's synthetic `"$bookId:$moodId"` envelope id. Server-wins apply,
+ * soft tombstones, full digest participation, online-only writes. Structurally
+ * identical to [bookTagsDomain] — the same junction rules apply: the DAO tombstone
+ * keeps the row (advancing its own revision, ignoring the event's revision) so digest
+ * reconciliation stays faithful, and re-adds arrive as Created/Updated with
+ * `deletedAt = null`.
+ *
+ * No FK constraints on `book_moods` — sync is responsible for integrity. `isOwnEcho`
+ * needs no shield: `@Upsert` is idempotent.
+ */
+internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoodSyncPayload> =
+    MirroredDomain(
+        key = SyncDomains.BOOK_MOODS,
+        syncIdOf = { "${it.bookId}:${it.moodId}" },
+        apply = BookMoodMirrorApply(database),
+        conflict = ConflictPolicy.ServerWins(),
+        deletes = DeleteSemantics.SoftDelete,
+        digest =
+            DigestParticipation.Full { maxRevision ->
+                database.bookMoodDao().digestRows(maxRevision).map { it.id to it.revision }
+            },
+        writes = WriteTier.OnlineOnly,
+    )
+
+/** Room mapping for [BookMoodSyncPayload] junction payloads. */
+internal class BookMoodMirrorApply(
+    private val database: ListenUpDatabase,
+) : MirrorApply<BookMoodSyncPayload> {
+    override suspend fun upsert(payload: BookMoodSyncPayload) {
+        database.bookMoodDao().upsert(
+            BookMoodEntity(
+                bookId = payload.bookId,
+                moodId = payload.moodId,
+                createdAt = payload.createdAt,
+                revision = payload.revision,
+                deletedAt = payload.deletedAt,
+            ),
+        )
+    }
+
+    /**
+     * Tombstone from an SSE `Deleted` frame (`"$bookId:$moodId"` envelope id; `:` is
+     * unambiguous — both parts are UUIDv7 strings). The DAO advances its own revision,
+     * ignoring the event's revision — [revision] is deliberately unused, matching the
+     * old handler.
+     */
+    override suspend fun tombstoneById(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    ) {
+        val parts = id.split(":")
+        if (parts.size != 2) {
+            logger.warn { "book_moods Deleted event has unexpected id format: '$id' — skipping tombstone" }
+            return
+        }
+        database.bookMoodDao().tombstone(bookId = parts[0], moodId = parts[1], deletedAt = deletedAt)
+    }
+
+    override suspend fun tombstoneFromItem(item: BookMoodSyncPayload) {
+        database.bookMoodDao().tombstone(
+            bookId = item.bookId,
+            moodId = item.moodId,
+            deletedAt = item.deletedAt ?: item.createdAt,
+        )
+    }
+}

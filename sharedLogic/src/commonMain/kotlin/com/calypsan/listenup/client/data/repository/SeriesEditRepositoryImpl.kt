@@ -23,7 +23,7 @@ private val logger = KotlinLogging.logger {}
  * offline persists and replays on reconnect rather than failing with a
  * [com.calypsan.listenup.api.error.ServerConnectError]. The authoritative state
  * still arrives via the SSE sync engine and reconciles through
- * [com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler].
+ * [com.calypsan.listenup.client.data.sync.domains.seriesDomain].
  *
  * [deleteSeries] and [mergeSeries] stay pure RPC dispatchers — the SSE echo from
  * the server is their single write path back into Room. Wire [WireAppResult]

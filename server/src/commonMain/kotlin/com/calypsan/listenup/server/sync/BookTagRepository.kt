@@ -171,6 +171,25 @@ class BookTagRepository(
         }
 
     /**
+     * Returns all non-tombstoned junction rows for each id in [bookIds], grouped by
+     * book id, each book's rows ordered by `created_at` — the batched equivalent of
+     * calling [findAllForBook] per id. One round-trip per 900-id chunk (SQLite's
+     * `SQLITE_MAX_VARIABLE_NUMBER` cap). Books with no live junctions are absent
+     * from the map.
+     */
+    suspend fun findAllForBooks(bookIds: List<String>): Map<String, List<BookTagSyncPayload>> {
+        if (bookIds.isEmpty()) return emptyMap()
+        return suspendTransaction(db) {
+            bookIds
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.bookTagsQueries.selectByBookIds(chunk).executeAsList() }
+                .sortedBy { it.created_at }
+                .groupBy { it.book_id }
+                .mapValues { (_, rows) -> rows.map { it.toPayload() } }
+        }
+    }
+
+    /**
      * Returns all non-tombstoned junction rows for [tagId].
      */
     suspend fun findAllForTag(tagId: String): List<BookTagSyncPayload> =

@@ -7,11 +7,14 @@ package com.calypsan.listenup.client.data.sync.domains
  * the server id).
  */
 internal sealed interface DeleteSemantics {
-    /** Soft-delete the row by id (sets `deletedAt`, keeps the tombstone). Entity domains. */
+    /**
+     * Soft-delete the row by id: set `deletedAt`, keep the row and its `revision`.
+     * Used by entity domains AND junction-row domains (`book_tags`, `collection_books`,
+     * …) — junctions keep tombstoned rows so [DigestParticipation.Full] still covers
+     * them; a literal row delete would break digest reconciliation. No domain
+     * hard-deletes (spec correction 2026-07-02).
+     */
     data object SoftDelete : DeleteSemantics
-
-    /** Remove the row by id. Junction-row domains (`book_tags`, `collection_books`, …). */
-    data object HardDelete : DeleteSemantics
 
     /**
      * SSE-level `Deleted` is a declared no-op; the tombstone converges on the next

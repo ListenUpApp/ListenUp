@@ -32,7 +32,7 @@ private const val MERGE_TIMEOUT_MS = 30_000L
  * an edit made offline persists and replays on reconnect rather than failing
  * with a [com.calypsan.listenup.api.error.ServerConnectError]. The
  * authoritative state still arrives via the SSE sync engine and reconciles
- * through [com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler].
+ * through [com.calypsan.listenup.client.data.sync.domains.contributorsDomain].
  *
  * [deleteContributor], [mergeContributor], and [unmergeContributor] stay pure
  * RPC dispatchers — no optimistic Room writes; the SSE echo from the server is

@@ -1,3 +1,5 @@
+import com.calypsan.listenup.gradle.LISTENUP_FREE_COMPILER_ARGS
+import com.calypsan.listenup.gradle.LISTENUP_MAIN_ONLY_COMPILER_ARGS
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions

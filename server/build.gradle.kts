@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 
 plugins {
-    id("org.jetbrains.kotlin.multiplatform")
+    id("listenup.kmp.server")
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
 }
@@ -28,9 +28,6 @@ configurations.all {
 }
 
 kotlin {
-    // Pin compilation to JDK 21 so a newer local/daemon JDK can't shift validation.
-    jvmToolchain(21)
-
     jvm()
     linuxX64 {
         compilations.getByName("main") {
@@ -86,21 +83,6 @@ kotlin {
         }
         // arm64 multiarch dir (Debian/Ubuntu aarch64), present on an arm64 host / cross-sysroot.
         binaries.all { linkerOpts("-L/usr/lib", "-L/usr/lib/aarch64-linux-gnu") }
-    }
-
-    // Mirror the `listenup.jvm` convention plugin: apply the project-wide compiler-args triple
-    // to every compilation, set JVM_21 bytecode on the JVM target, and allow consuming the
-    // pre-release-marked :contract classfiles (compiled against Kotlin 2.3.20).
-    // NOTE: the first three args below mirror LISTENUP_FREE_COMPILER_ARGS (build-logic/convention/src/main/kotlin/ListenUpCompilerArgs.kt).
-    // That constant isn't importable from a leaf module's build script, so they're inlined here —
-    // keep them in sync. Extract a `listenup.kmp.server` convention plugin if a second
-    // native-server module ever needs the same setup.
-    compilerOptions {
-        freeCompilerArgs.addAll(
-            "-Xexpect-actual-classes",
-            "-Xreturn-value-checker=check",
-            "-Xskip-prerelease-check",
-        )
     }
 
     jvm {

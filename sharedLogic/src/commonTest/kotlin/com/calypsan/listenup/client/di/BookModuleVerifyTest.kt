@@ -40,7 +40,7 @@ import org.koin.test.verify.verify
  *  - [CollectionRpcFactory] — owned by `collectionModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
- *  - [SyncDomainHandler] (books) — owned by `clientSyncRenovationModule`.
+ *  - [SyncDomainHandler] (books) — owned by `clientSyncModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookModuleVerifyTest :

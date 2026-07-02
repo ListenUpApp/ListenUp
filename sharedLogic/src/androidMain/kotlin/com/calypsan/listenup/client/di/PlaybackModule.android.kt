@@ -1,11 +1,13 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.playback.PlaybackManager
 import com.calypsan.listenup.client.playback.PlaybackManagerImpl
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 /**
@@ -43,7 +45,7 @@ val androidPlaybackModule: Module =
                 playbackRpcFactory = get(),
                 syncApi = get(),
                 scope = get(),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )
         }
     }

@@ -22,33 +22,19 @@ data class PendingOperation(
 )
 
 /**
- * Operation types visible to the UI layer.
- *
- * Mirrors the data layer OperationType but lives in the domain layer
- * to avoid entity leakage into the presentation layer.
+ * Operation types visible to the UI layer, keyed off the outbox row's
+ * `domainName`. [OTHER] is the forward-compat fallback for a domain name
+ * this build doesn't recognize.
  */
 enum class PendingOperationType {
     BOOK_UPDATE,
-    CONTRIBUTOR_UPDATE,
     SERIES_UPDATE,
-    SET_BOOK_CONTRIBUTORS,
-    SET_BOOK_SERIES,
-    MERGE_CONTRIBUTOR,
-    UNMERGE_CONTRIBUTOR,
-    LISTENING_EVENT,
-    PLAYBACK_POSITION,
-    USER_PREFERENCES,
+    CONTRIBUTOR_UPDATE,
     PROFILE_UPDATE,
-    PROFILE_AVATAR,
-    MARK_COMPLETE,
-    DISCARD_PROGRESS,
-    RESTART_BOOK,
-    END_PLAYBACK_SESSION,
-    CREATE_SHELF,
-    UPDATE_SHELF,
-    DELETE_SHELF,
-    ADD_BOOKS_TO_SHELF,
-    REMOVE_BOOK_FROM_SHELF,
+    USER_PREFERENCES,
+    PLAYBACK_POSITION,
+    LISTENING_EVENT,
+    OTHER,
 }
 
 /**

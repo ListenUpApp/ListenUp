@@ -26,8 +26,9 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.adminUserRosterDomain
+import com.calypsan.listenup.client.data.sync.domains.genresDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -102,7 +103,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * `AuthServiceRosterPublishTest` / `InviteServiceRosterPublishTest` /
  * `AdminUserServiceRosterPublishTest` / `AdminUserRosterMaintainerTest`. This test's unique
  * surface is the client chain those tests can't reach: the role gate in [syncRoutes], the real
- * [SyncEngine] catch-up + firehose, [AdminUserRosterSyncDomainHandler] applying into Room, and
+ * [SyncEngine] catch-up + firehose, the `admin_user_roster` descriptor applying into Room, and
  * [AdminRepositoryImpl.observeRoster] reading it back.
  *
  * The negative assertion borrows the witness technique from
@@ -271,8 +272,8 @@ private fun buildRosterSyncEngine(
     val registry = ClientSyncDomainRegistry()
     val txn = RoomTransactionRunner(clientDb)
 
-    AdminUserRosterSyncDomainHandler(database = clientDb, transactionRunner = txn, registry = registry)
-    GenreSyncDomainHandler(database = clientDb, transactionRunner = txn, registry = registry)
+    adminUserRosterDomain(database = clientDb).toHandler(transactionRunner = txn, registry = registry)
+    genresDomain(database = clientDb).toHandler(transactionRunner = txn, registry = registry)
 
     val state = SyncEngineState()
     val store = SyncCursorStore(clientDb.syncCursorDao())

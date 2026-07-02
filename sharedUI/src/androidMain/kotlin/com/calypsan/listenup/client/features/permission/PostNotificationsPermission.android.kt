@@ -2,7 +2,6 @@ package com.calypsan.listenup.client.features.permission
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -27,19 +26,14 @@ import androidx.core.content.ContextCompat
  * - The already-granted check skips the dialog when the user has previously
  *   accepted.
  *
- * On API 32 and below the permission does not exist and this composable is a no-op.
+ * The app's minSdk is 33, so the permission always exists at runtime.
  */
 @Composable
 actual fun RequestPostNotificationsPermission() {
-    // POST_NOTIFICATIONS was introduced in API 33 (TIRAMISU). This check is a static
-    // device property — the API level never changes at runtime — so it is safe to
-    // return early here without disturbing Compose hook ordering on API 33+ devices.
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
-
     val context = LocalContext.current
     val permission = Manifest.permission.POST_NOTIFICATIONS
 
-    // rememberSaveable must be called unconditionally (after the static SDK guard above).
+    // rememberSaveable must be called unconditionally.
     // It survives configuration changes so a rotation does not re-trigger the dialog.
     var alreadyAsked by rememberSaveable { mutableStateOf(false) }
 

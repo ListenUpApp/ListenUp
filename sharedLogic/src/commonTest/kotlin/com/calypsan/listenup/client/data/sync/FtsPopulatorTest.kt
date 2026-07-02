@@ -368,6 +368,29 @@ class FtsPopulatorTest :
             }
         }
 
+        // ========== Incremental refresh: threshold fallback ==========
+
+        test("refreshSince falls back to a full rebuild when the delta exceeds the threshold") {
+            runTest {
+                // Given — 501 changed book ids (over FTS_FULL_REBUILD_THRESHOLD = 500)
+                val fixture = createFixture()
+                val changedIds = (1..501).map { "book-$it" }
+                everySuspend { fixture.searchDao.bookIdsChangedSince(any()) } returns changedIds
+                everySuspend { fixture.searchDao.bookIdsWithContributorsChangedSince(any()) } returns emptyList()
+                everySuspend { fixture.searchDao.bookIdsWithSeriesChangedSince(any()) } returns emptyList()
+                everySuspend { fixture.searchDao.bookIdsWithGenresChangedSince(any()) } returns emptyList()
+                everySuspend { fixture.searchDao.countContributorsChangedSince(any()) } returns 0
+                everySuspend { fixture.searchDao.countSeriesChangedSince(any()) } returns 0
+                val ftsPopulator = fixture.build()
+
+                // When
+                ftsPopulator.refreshSince(SearchIndexWatermark(0, 0, 0, 0))
+
+                // Then — the full rebuild path ran (proven by the books_fts clear it performs)
+                verifySuspend { fixture.searchDao.clearBooksFts() }
+            }
+        }
+
         // ========== Empty Data Tests ==========
 
         test("rebuildAll handles empty books list") {
