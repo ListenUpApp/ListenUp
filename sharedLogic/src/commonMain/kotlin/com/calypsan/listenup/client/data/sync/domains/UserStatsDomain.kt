@@ -14,6 +14,12 @@ import com.calypsan.listenup.client.data.local.db.UserStatsEntity
  * SSE `Deleted` is declared [DeleteSemantics.CatchUpOnly]: the server never
  * tombstones stats (the row lives for the user's lifetime); a defensive frame
  * converges via catch-up. Full digest participation.
+ *
+ * **Intentionally client-dormant (no production reader):** the mirror is synced into Room but no
+ * surface reads the `user_stats` table today — Home derives its stats locally from `listening_events`
+ * (for instant offline reactivity), and the leaderboard/profile read `public_profiles`. Kept as the
+ * natural home for the owner's canonical server stats (a future rich-stats screen would read it): a
+ * deliberately-maintained-but-unread mirror, not dead code.
  */
 internal fun userStatsDomain(database: ListenUpDatabase): MirroredDomain<UserStatsSyncPayload> =
     MirroredDomain(

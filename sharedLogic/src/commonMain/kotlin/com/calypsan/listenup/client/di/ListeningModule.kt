@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.StatsApi
-import com.calypsan.listenup.client.data.remote.StatsApiContract
 import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
@@ -12,7 +10,6 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.StatsRepository
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import org.koin.core.module.Module
-import org.koin.dsl.bind
 import org.koin.dsl.module
 
 /**
@@ -30,11 +27,6 @@ import org.koin.dsl.module
  */
 internal val listeningModule: Module =
     module {
-        // StatsApi for listening statistics
-        single {
-            StatsApi(clientFactory = get())
-        } bind StatsApiContract::class
-
         // StatsRepository for computing listening stats locally from events
         single<StatsRepository> {
             StatsRepositoryImpl(
