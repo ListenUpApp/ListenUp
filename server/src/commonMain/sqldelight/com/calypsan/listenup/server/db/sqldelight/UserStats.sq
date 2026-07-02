@@ -30,6 +30,11 @@ CREATE        INDEX idx_user_stats_user_revision ON user_stats(user_id, revision
 existsById:
 SELECT EXISTS(SELECT 1 FROM user_stats WHERE id = :id);
 
+-- Every live user with a materialized stats row — drives the periodic freshness sweep, which heals
+-- clock-relative decay (windows + streak) for idle users who never trigger the lazy pull path.
+selectAllLiveUserIds:
+SELECT user_id FROM user_stats WHERE deleted_at IS NULL;
+
 softDeleteById:
 UPDATE user_stats
 SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
