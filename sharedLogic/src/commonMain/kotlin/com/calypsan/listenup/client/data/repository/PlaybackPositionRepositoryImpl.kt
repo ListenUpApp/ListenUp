@@ -32,8 +32,9 @@ private val logger = KotlinLogging.logger {}
  *
  * After each position-moving write, enqueues a [RecordPositionRequest] onto the
  * pending-operation queue so the sync engine pushes the updated position to the server.
- * Per-`(domain, entityId)` queue coalescing means rapid successive writes for one book
- * collapse to the latest — no flooding.
+ * Enqueues with coalescing on: rapid successive writes for one book replace the
+ * still-queued op for that `(domain, entityId, opType)` slot instead of piling up, so
+ * only the latest position is ever pushed — no flooding.
  *
  * The [savePlaybackState] entry point owns per-book Mutex serialization
  * plus per-call transactional dispatch over the 11-variant [PlaybackUpdate]
@@ -277,6 +278,7 @@ internal class PlaybackPositionRepositoryImpl(
                 opType = "upsert",
                 payload = contractJson.encodeToString(RecordPositionRequest.serializer(), request),
                 ownerUserId = userId,
+                coalesce = true,
             )
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e

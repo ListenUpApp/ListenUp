@@ -671,32 +671,45 @@ internal class SyncEngine(
     }
 
     /**
-     * Run one drain wave under [drainMutex] so concurrent triggers (connect-up,
-     * enqueue, retry) coalesce. If the wave produced retryable failures,
-     * schedule a backoff-delayed re-drain — that's the engine's retry timer.
-     * Non-retryable failures stay flagged past `MAX_RETRYABLE_ATTEMPTS` and
-     * are silently skipped on subsequent waves.
+     * Drain the outbox to empty in response to a single trigger (connect-up,
+     * enqueue, retry). A single [PendingOperationQueue.drain] wave dispatches
+     * only one op per (domain, entityId) group, so a per-entity backlog of N
+     * queued ops needs N waves to fully drain — loop immediately as long as a
+     * wave made progress (something sent or terminally quarantined) and more
+     * dispatchable ops remain beyond this wave's own retryable failures.
+     *
+     * Each wave runs under [drainMutex] so concurrent triggers (connect-up,
+     * enqueue, retry) coalesce. If the loop exits with retryable failures still
+     * outstanding, schedule a backoff-delayed re-drain — that's the engine's
+     * retry timer. Non-retryable failures stay flagged past
+     * `MAX_RETRYABLE_ATTEMPTS` and are silently skipped on subsequent waves.
      */
     private suspend fun runDrain() {
-        val outcome =
-            drainMutex.withLock {
-                try {
-                    queue.drain()
-                } catch (e: kotlinx.coroutines.CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    // Re-throwing here would tear down the trigger collector
-                    // and silently stop all future drains. Log and continue —
-                    // a future trigger will re-attempt.
-                    logger.warn(e) { "Drain wave failed unexpectedly; will retry on next trigger" }
-                    return
+        while (true) {
+            val outcome =
+                drainMutex.withLock {
+                    try {
+                        queue.drain()
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        // Re-throwing here would tear down the trigger collector
+                        // and silently stop all future drains. Log and continue —
+                        // a future trigger will re-attempt.
+                        logger.warn(e) { "Drain wave failed unexpectedly; will retry on next trigger" }
+                        return
+                    }
+                }
+            val madeProgress = outcome.sent > 0 || outcome.terminalFailures > 0
+            val backlogBeyondThisWavesFailures = outcome.remainingDispatchable > outcome.retryableFailures
+            if (madeProgress && backlogBeyondThisWavesFailures) continue
+            if (outcome.hasRetryableFailures) {
+                scope.launch {
+                    delay(retryBackoffMillis)
+                    runDrain()
                 }
             }
-        if (outcome.hasRetryableFailures) {
-            scope.launch {
-                delay(retryBackoffMillis)
-                runDrain()
-            }
+            return
         }
     }
 

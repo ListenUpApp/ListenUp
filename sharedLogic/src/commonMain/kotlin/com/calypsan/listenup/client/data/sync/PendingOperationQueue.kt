@@ -6,6 +6,7 @@ import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,11 +28,17 @@ internal const val MAX_RETRYABLE_ATTEMPTS = 5
  *   `failureCount` incremented, will be picked up by a future drain)
  * @property terminalFailures count of ops that failed non-retryably (flagged
  *   past [MAX_RETRYABLE_ATTEMPTS] and will not be retried)
+ * @property remainingDispatchable count of ops still within retry budget after this
+ *   wave — includes ops held back by per-entity FIFO (a second op queued behind
+ *   one just sent) AND this wave's own retryable failures (still eligible, just
+ *   not yet retried). The engine uses this to decide whether looping `drain()`
+ *   again immediately would make further progress.
  */
 internal data class DrainOutcome(
     val sent: Int,
     val retryableFailures: Int,
     val terminalFailures: Int,
+    val remainingDispatchable: Int,
 ) {
     /** True when this wave produced at least one retryable failure that the engine should reschedule. */
     val hasRetryableFailures: Boolean get() = retryableFailures > 0
@@ -80,14 +87,30 @@ internal class PendingOperationQueue(
      */
     fun observeEnqueueSignal(): StateFlow<Long> = enqueueCounter.asStateFlow()
 
-    /** Enqueue a new op. Returns its generated `clientOpId`. */
+    /**
+     * Enqueue a new op. Returns its generated `clientOpId`.
+     *
+     * @param coalesce When true, deletes any still-queued (within retry budget) op for the same
+     *   (domainName, entityId, opType) slot before inserting — so rapid successive writes for one
+     *   entity collapse to the latest snapshot instead of piling up. Valid only for domains where
+     *   the payload is a last-write-wins snapshot of current state (e.g. playback positions);
+     *   event/entity-PATCH domains keep the default `false` so every op is replayed. Terminally
+     *   failed rows are never coalesced away — see [PendingOperationV2Dao.deleteQueuedOps]. The
+     *   delete-then-insert is non-atomic: the one coalescing caller today serializes per entity on
+     *   a Mutex, and racing a concurrent drain is benign (Room `@Update`/`@Delete` on an
+     *   already-removed row is a silent no-op).
+     */
     suspend fun enqueue(
         domainName: String,
         entityId: String,
         opType: String,
         payload: String,
         ownerUserId: String,
+        coalesce: Boolean = false,
     ): String {
+        if (coalesce) {
+            dao.deleteQueuedOps(domainName, entityId, opType)
+        }
         val opId = Uuid.random().toString()
         dao.insert(
             PendingOperationV2Entity(
@@ -136,6 +159,11 @@ internal class PendingOperationQueue(
      * One call = one wave. Caller schedules subsequent waves; drain() does not
      * loop. Returns a [DrainOutcome] so the engine can decide whether a retry
      * backoff is warranted.
+     *
+     * A [PendingOperationSender] that throws instead of returning
+     * [AppResult.Failure] is a bug in that sender, not a reason to abort the
+     * wave — the op is flagged terminally failed (past [MAX_RETRYABLE_ATTEMPTS])
+     * and the loop continues to the next op.
      */
     suspend fun drain(): DrainOutcome {
         val ops = dao.nextDispatchable()
@@ -144,7 +172,23 @@ internal class PendingOperationQueue(
         var terminalFailures = 0
         for (entity in ops) {
             val op = entity.toDomain()
-            val result = sender.send(op)
+            val result =
+                try {
+                    sender.send(op)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    logger.error(e) { "Sender threw for op ${op.clientOpId} (${op.domainName}); flagging terminal" }
+                    dao.update(
+                        entity.copy(
+                            failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                            lastAttemptAt = nowMillis(),
+                            lastError = e::class.simpleName ?: "SenderException",
+                        ),
+                    )
+                    terminalFailures++
+                    continue
+                }
             when (result) {
                 is AppResult.Success -> {
                     dao.delete(op.clientOpId)
@@ -179,6 +223,7 @@ internal class PendingOperationQueue(
             sent = sent,
             retryableFailures = retryableFailures,
             terminalFailures = terminalFailures,
+            remainingDispatchable = dao.countDispatchable(),
         )
     }
 

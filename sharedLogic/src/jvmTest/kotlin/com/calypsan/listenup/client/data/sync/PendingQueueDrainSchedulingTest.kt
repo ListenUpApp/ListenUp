@@ -9,6 +9,7 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -258,6 +259,44 @@ class PendingQueueDrainSchedulingTest :
                 }
             }
         }
+
+        test("a multi-op backlog for one entity fully drains after a single Connected transition") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val sent = MutableSharedFlow<String>(replay = 64)
+                    val sender =
+                        PendingOperationSender { op ->
+                            sent.tryEmit(op.clientOpId)
+                            AppResult.Success(Unit)
+                        }
+                    val clock = AtomicLong(0)
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                            nowMillis = { clock.incrementAndGet() },
+                        )
+                    val state = SyncEngineState()
+                    val sse = FakeSseClient(state)
+                    val engine = buildEngine(db, queue, state, sse, scope)
+                    val a = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                    val b = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                    val c = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                    engine.start(currentUserId = "u1")
+                    withTimeout(TIMEOUT_SECONDS.seconds) { sent.first { it == c } }
+                    db.pendingOperationV2Dao().get(a) shouldBe null
+                    db.pendingOperationV2Dao().get(b) shouldBe null
+                    db.pendingOperationV2Dao().get(c) shouldBe null
+                } finally {
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
     })
 
 private fun buildEngine(
@@ -346,6 +385,15 @@ private class CountingDao(
         dispatchCalls.incrementAndGet()
         return delegate.nextDispatchable(maxAttempts)
     }
+
+    override suspend fun countDispatchable(maxAttempts: Int) = delegate.countDispatchable(maxAttempts)
+
+    override suspend fun deleteQueuedOps(
+        domainName: String,
+        entityId: String,
+        opType: String,
+        maxAttempts: Int,
+    ) = delegate.deleteQueuedOps(domainName, entityId, opType, maxAttempts)
 
     override fun observeQueueDepth() = delegate.observeQueueDepth()
 
