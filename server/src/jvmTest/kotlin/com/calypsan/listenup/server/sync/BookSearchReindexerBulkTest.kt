@@ -286,6 +286,88 @@ class BookSearchReindexerBulkTest :
             }
         }
 
+        test("reindexBooks with an empty list is a no-op") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                runTest {
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
+
+                    // No throw is the assertion.
+                    reindexer.reindexBooks(emptyList())
+                }
+            }
+        }
+
+        test("reindexBooks spanning multiple transaction chunks matches single-chunk output") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bookIds = (1..5).map { "book$it" }
+                bookIds.forEach { sql.seedTestBook(it) }
+                runTest {
+                    bookIds.forEachIndexed { index, bookId -> seedFtsRow(this@withSqlDatabase, bookId, index + 1) }
+
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
+
+                    bookIds.forEachIndexed { index, bookId ->
+                        val tagId = "tag$index"
+                        tagRepo.upsert(Tag(id = tagId, name = "TagFor$bookId", slug = "tag-for-$bookId", revision = 0, updatedAt = 0))
+                        bookTagRepo.upsert(
+                            BookTagSyncPayload(bookId = bookId, tagId = tagId, createdAt = 1000L + index, revision = 0L),
+                        )
+                    }
+
+                    // 5 books, chunk size 2 → 3 transactions (2 + 2 + 1).
+                    reindexer.reindexBooks(bookIds, txChunkSize = 2)
+
+                    bookIds.forEachIndexed { index, bookId ->
+                        val rowid = index + 1
+                        ftsTagsMatch(this@withSqlDatabase, rowid, "TagFor$bookId") shouldBe true
+                    }
+                }
+            }
+        }
+
+        test("reindexBooks resolves each book's tags independently") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                runTest {
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book2", 2)
+
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
+
+                    tagRepo.upsert(Tag(id = "t1", name = "AlphaTag", slug = "alpha-tag", revision = 0, updatedAt = 0))
+                    tagRepo.upsert(Tag(id = "t2", name = "BetaTag", slug = "beta-tag", revision = 0, updatedAt = 0))
+                    bookTagRepo.upsert(
+                        BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L),
+                    )
+                    bookTagRepo.upsert(
+                        BookTagSyncPayload(bookId = "book2", tagId = "t2", createdAt = 1001L, revision = 0L),
+                    )
+
+                    reindexer.reindexBooks(listOf("book1", "book2"))
+
+                    ftsTagsMatch(this@withSqlDatabase, 1, "AlphaTag") shouldBe true
+                    ftsTagsMatch(this@withSqlDatabase, 2, "BetaTag") shouldBe true
+                    ftsTagsMatch(this@withSqlDatabase, 1, "BetaTag") shouldBe false
+                    ftsTagsMatch(this@withSqlDatabase, 2, "AlphaTag") shouldBe false
+                }
+            }
+        }
     })
 
 /** Seeds a `genres` row into [this] database. */
