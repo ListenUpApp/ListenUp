@@ -119,6 +119,7 @@ internal val socialModule: Module =
                 bookDao = get(),
                 imageStorage = get(),
                 presence = get(),
+                cachedSessionDao = get(),
             )
         }
 
@@ -140,6 +141,7 @@ internal val socialModule: Module =
                 socialRpc = get(),
                 presence = get(),
                 userRepository = get(),
+                readershipDao = get(),
             )
         }
 

@@ -1,4 +1,4 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 
 package com.calypsan.listenup.client.data.repository
 
@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookSummary
+import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
+import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.ActiveSession
@@ -17,66 +19,87 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.transform
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Active-session repository backed by the [com.calypsan.listenup.api.SocialService] RPC.
+ * Offline-first active-session ("What Others Are Listening To") repository. Room's
+ * `cached_active_sessions` mirror is the single read source, so the presence surface renders the
+ * last-known roster (possibly stale) when offline or on a transient RPC failure — Never-Stranded, no
+ * blank flash. A background refresh re-fetches the ACL-filtered
+ * [com.calypsan.listenup.api.SocialService] `currentlyListening` RPC on first subscribe and on every
+ * [PresenceRefreshSignal] ping, replacing the cache wholesale; on failure the cache is left untouched.
  *
- * The "What Others Are Listening To" list is ACL-filtered server-side, so this repository fetches
- * it on first subscribe and re-fetches on every [PresenceRefreshSignal] ping (the server's
- * presence nudge or a firehose reconnect). Book identity arrives as a [BookId] only; title,
- * author, blur hash, and the local cover path are enriched from the viewer's local Room library,
- * which holds exactly the books they can access. Sessions whose book is absent locally are dropped.
- *
- * On any RPC failure the flow emits an empty list — Never-Stranded: the UI shows nothing rather
- * than hanging, and the next ping recovers. The avatar background colour is derived from the user
- * id via [stableAvatarColorHex] so it matches the rest of the app; the wire DTO carries no colour.
+ * Book identity is enriched at read time from the viewer's local Room library (which holds exactly the
+ * books they can access); sessions whose book is absent locally are dropped. Because presence is
+ * time-sensitive, each cached row keeps an `observedAt` for a UI staleness affordance. The avatar
+ * background colour is derived from the user id via [stableAvatarColorHex]; the wire DTO carries none.
  *
  * @property socialRpc Supplies the [com.calypsan.listenup.api.SocialService] RPC proxy.
  * @property bookDao Local library reads for enriching each session's book fields.
  * @property imageStorage Resolves the local cover path when a cover is cached.
- * @property presence Pings whenever presence may have changed, driving a re-fetch.
+ * @property presence Pings whenever presence may have changed, driving a background refresh.
+ * @property cachedSessionDao The Room mirror — the offline read source.
+ * @property clock Supplies `observedAt` for each cached row; injected for tests.
  */
 internal class ActiveSessionRepositoryImpl(
     private val socialRpc: SocialRpcFactory,
     private val bookDao: BookDao,
     private val imageStorage: ImageStorage,
     private val presence: PresenceRefreshSignal,
+    private val cachedSessionDao: CachedActiveSessionDao,
+    private val clock: Clock = Clock.System,
 ) : ActiveSessionRepository {
     override fun observeActiveSessions(currentUserId: String): Flow<List<ActiveSession>> =
-        presence.signal
-            .onStart { emit(Unit) }
-            .flatMapLatest { flow { emit(fetchSessions()) } }
+        merge(
+            refreshOnPing(),
+            cachedSessions(),
+        )
 
     override fun observeActiveCount(currentUserId: String): Flow<Int> =
         observeActiveSessions(currentUserId).map { it.size }
 
-    private suspend fun fetchSessions(): List<ActiveSession> =
+    private fun cachedSessions(): Flow<List<ActiveSession>> =
+        cachedSessionDao.observeAll().map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
+
+    private fun refreshOnPing(): Flow<List<ActiveSession>> =
+        presence.signal
+            .onStart { emit(Unit) }
+            .transform { refresh() } // never emits — the Room read carries the data
+
+    /** Re-fetch the presence roster and replace the cache; leave it intact on failure. */
+    private suspend fun refresh() {
         try {
             when (val result = socialRpc.get().currentlyListening()) {
-                is AppResult.Success -> result.data.mapNotNull { it.toDomainOrNull() }
-                is AppResult.Failure -> emptyList()
+                is AppResult.Success -> {
+                    val observedAt = clock.now().toEpochMilliseconds()
+                    cachedSessionDao.replaceAll(result.data.map { it.toEntity(observedAt) })
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "currently-listening refresh failed (${result.error.code}); keeping cache" }
+                }
             }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
-            // Never-Stranded: an RPC fault or a transient Room/disk error during book enrichment
-            // must not terminate the flow. Emit an empty list; the next presence ping recovers.
-            logger.warn(e) { "currently-listening fetch failed" }
-            emptyList()
+            // Never-Stranded: an RPC fault or transient error must not clear the cache or kill the flow.
+            logger.warn(e) { "currently-listening refresh failed; keeping cache" }
         }
+    }
 
-    private suspend fun CurrentlyListeningSession.toDomainOrNull(): ActiveSession? {
+    private suspend fun CachedActiveSessionEntity.toDomainOrNull(): ActiveSession? {
         val summary = bookDao.getBookSummary(bookId) ?: return null
         return toDomain(summary)
     }
 
-    private fun CurrentlyListeningSession.toDomain(summary: BookSummary): ActiveSession {
+    private fun CachedActiveSessionEntity.toDomain(summary: BookSummary): ActiveSession {
         val coverPath = imageStorage.takeIf { it.exists(BookId(bookId)) }?.getCoverPath(BookId(bookId))
         return ActiveSession(
             sessionId = "$userId:$bookId",
@@ -103,3 +126,13 @@ internal class ActiveSessionRepositoryImpl(
         )
     }
 }
+
+private fun CurrentlyListeningSession.toEntity(observedAt: Long): CachedActiveSessionEntity =
+    CachedActiveSessionEntity(
+        userId = userId,
+        displayName = displayName,
+        avatarType = avatarType,
+        bookId = bookId,
+        startedAtMs = startedAtMs,
+        observedAt = observedAt,
+    )
