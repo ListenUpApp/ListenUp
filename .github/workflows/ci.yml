@@ -105,6 +105,32 @@ jobs:
       - name: Run JVM tests
         run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :build-logic:convention:test --no-daemon
 
+      # The E2E retry extensions (sharedLogic + server ProjectConfig) absorb transient
+      # failures, so a flaking spec can trend worse while runs stay green. Each retry is
+      # appended to <module>/build/e2e-retries.log; surface it in the job summary so
+      # retries are visible per-PR without failing the build. The RetryExtensionProbe
+      # specs retry BY DESIGN every run — filtered out so the summary is signal-only.
+      - name: Report E2E auto-retries in job summary
+        if: always()
+        run: |
+          found=0
+          for f in sharedLogic/build/e2e-retries.log server/build/e2e-retries.log; do
+            [ -f "$f" ] || continue
+            entries=$(grep -v 'RetryExtensionProbeE2ETest' "$f" || true)
+            [ -n "$entries" ] || continue
+            if [ "$found" -eq 0 ]; then
+              echo '## E2E auto-retries (absorbed by the retry extension)' >> "$GITHUB_STEP_SUMMARY"
+              found=1
+            fi
+            echo "**\`$f\`**" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$entries" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+          if [ "$found" -eq 0 ]; then
+            echo 'No E2E auto-retries recorded (probe retries excluded).'
+          fi
+
       - name: Upload test results
         uses: actions/upload-artifact@v7
         if: always()
@@ -113,6 +139,8 @@ jobs:
           path: |
             sharedLogic/build/reports/tests/
             server/build/reports/tests/
+            sharedLogic/build/e2e-retries.log
+            server/build/e2e-retries.log
           retention-days: 7
 
   test-ios:

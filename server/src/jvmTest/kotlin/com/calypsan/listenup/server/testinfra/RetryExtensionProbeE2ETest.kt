@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.testinfra
+package com.calypsan.listenup.server.testinfra
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldNotBeEmpty
@@ -8,9 +8,9 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Proves the project-level heavyweight-E2E retry extension (in `io.kotest.provided.ProjectConfig`)
- * actually re-executes a transiently-failing leaf test **and** records that retry in the
- * machine-readable ledger.
+ * Proves the `:server` project-level retry extension (`FlakyServerSpecRetryExtension` in
+ * `io.kotest.provided.ProjectConfig`) actually re-executes a transiently-failing leaf test **and**
+ * records that retry in the machine-readable ledger.
  *
  * This spec's name ends in `E2ETest`, so the extension is in scope. The first test's body fails on
  * its **first** invocation and passes on the **second**; the only way it reports green is if the
@@ -30,9 +30,10 @@ class RetryExtensionProbeE2ETest :
         }
 
         test("the retry is recorded in the machine-readable ledger") {
-            // Written by HeavyweightE2ERetryExtension at retry time; resolve the path via the same
+            // Written by FlakyServerSpecRetryExtension at retry time; resolve the path via the same
             // Gradle-provided `listenup.e2eRetryLedger` system property the extension uses, so this
-            // is independent of the Test task's workingDir.
+            // is independent of the Test task's workingDir (`:server:jvmTest` redirects it under
+            // build/test-cwd).
             val ledger = File(System.getProperty("listenup.e2eRetryLedger") ?: "build/e2e-retries.log")
             ledger.exists() shouldBe true
             val probeLines = ledger.readLines().filter { it.contains("RetryExtensionProbeE2ETest") }

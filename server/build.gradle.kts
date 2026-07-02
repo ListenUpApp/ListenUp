@@ -367,12 +367,23 @@ tasks.named<Test>("jvmTest") {
             .get()
             .asFile
     systemProperty("java.io.tmpdir", testTmpDir.absolutePath)
+    // Pin the E2E retry ledger (written by FlakyServerSpecRetryExtension) to an absolute path under
+    // this module's build/ — the redirected workingDir above would otherwise land it under
+    // build/test-cwd/build/, where the CI summary + artifact steps don't look.
+    val e2eRetryLedger = layout.buildDirectory.file("e2e-retries.log").get().asFile
+    systemProperty("listenup.e2eRetryLedger", e2eRetryLedger.absolutePath)
     // Wipe and recreate before each run: starts every run from empty (bounding disk use) and
     // reclaims leftovers from any previous run whose workers were force-killed.
     doFirst {
         workingDir.mkdirs()
         testTmpDir.deleteRecursively()
         testTmpDir.mkdirs()
+        // Truncate the retry ledger ONCE per task run, before any worker forks. This task recycles
+        // its worker JVM every 25 classes (setForkEvery above), and the retry extension's
+        // beforeProject fires per-worker — so the extension only ever APPENDS; if it truncated, each
+        // fresh worker would wipe the previous worker's retries and the ledger would keep only the
+        // last batch. Truncating here (pre-fork, once) lets every worker's appends accumulate.
+        e2eRetryLedger.delete()
     }
 }
 
