@@ -118,7 +118,9 @@ class StatsRecorder(
      * `LISTENING_SESSION` emission is folded in from [ListeningEventRepository.upsert]'s former
      * caller-side hook. The `user_stats` upsert, refresh, and milestone activity are skipped under
      * [StatsCascadeDeferred] (stale base totals mid-import would misfire milestones); the
-     * `LISTENING_SESSION` row still fires, historically dated.
+     * `LISTENING_SESSION` row still fires, historically dated. A late-arriving event (older than
+     * the stored `lastEventDate`) leaves the streak and `lastEventDate` untouched — see the guard
+     * below.
      */
     private suspend fun recordListeningSessionClosed(event: StatsEvent.ListeningSessionClosed) {
         val userId = event.userId
@@ -127,17 +129,28 @@ class StatsRecorder(
             val wallSeconds = (span.endedAt - span.startedAt) / 1_000L
             val tz = sql.homeTimeZone(userId)
             val eventInstant = Instant.fromEpochMilliseconds(span.endedAt)
-            val eventDateStr = eventInstant.toLocalDateTime(tz).date.toString()
+            val eventDate = eventInstant.toLocalDateTime(tz).date
 
             val existing = userStatsRepo.getForUser(userId)
+            val base = existing ?: emptyStatsFor(userId)
+
+            // A late-arriving event (offline-outbox replay after another device recorded newer
+            // events) must not rewind lastEventDate or reset the streak: streak math is
+            // path-dependent and never self-heals, unlike the as-of-now window sums below.
+            val lastDate = base.lastEventDate?.let(LocalDate::parse)
+            val isLateArrival = lastDate != null && eventDate < lastDate
+
             val isFirstEventForBook = !hasOtherEventForBook(userId, span.bookId, excludingId = span.id)
             val newCurrentStreak =
-                newStreakValue(existing?.lastEventDate, eventDateStr, existing?.currentStreakDays ?: 0)
+                if (isLateArrival) {
+                    base.currentStreakDays
+                } else {
+                    newStreakValue(base.lastEventDate, eventDate.toString(), base.currentStreakDays)
+                }
             val nowMs = clock.now().toEpochMilliseconds()
             val last7 = sumWindowSeconds(userId, days = 7, asOfMs = nowMs)
             val last30 = sumWindowSeconds(userId, days = 30, asOfMs = nowMs)
 
-            val base = existing ?: emptyStatsFor(userId)
             val updated =
                 base.copy(
                     totalSecondsAllTime = base.totalSecondsAllTime + wallSeconds,
@@ -146,7 +159,7 @@ class StatsRecorder(
                     booksStarted = base.booksStarted + if (isFirstEventForBook) 1 else 0,
                     currentStreakDays = newCurrentStreak,
                     longestStreakDays = max(base.longestStreakDays, newCurrentStreak),
-                    lastEventDate = eventDateStr,
+                    lastEventDate = if (isLateArrival) base.lastEventDate else eventDate.toString(),
                 )
             userStatsRepo.upsert(updated, clientOpId = null, userId = userId)
             publicProfileMaintainer.refresh(userId)
@@ -201,7 +214,9 @@ class StatsRecorder(
 
     /**
      * New `currentStreakDays` given the prior `lastEventDate`, the new event's date, and the prior
-     * streak count. Moved verbatim from [UserStatsUpdater.newStreakValue].
+     * streak count. Moved verbatim from [UserStatsUpdater.newStreakValue]. Callers guard against
+     * `eventDate` being older than `lastEventDate` (a late-arriving event) before calling this —
+     * the `else -> 1` branch here is reached only for a genuine forward gap.
      */
     private fun newStreakValue(
         lastEventDate: String?,
