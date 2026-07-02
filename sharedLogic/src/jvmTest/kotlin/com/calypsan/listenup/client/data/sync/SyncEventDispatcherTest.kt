@@ -6,6 +6,11 @@ import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
+import com.calypsan.listenup.client.data.sync.domains.activityDomain
+import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
+import com.calypsan.listenup.client.data.sync.domains.presenceDomain
+import com.calypsan.listenup.client.data.sync.domains.serverInfoDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -183,10 +188,14 @@ class SyncEventDispatcherTest :
             }
         }
 
-        test("control: SyncControl.ServerInfoChanged invokes onServerInfoChanged") {
+        test("control: ServerInfoChanged runs the refreshed-domain refetch strategy") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                var refreshed = false
+                var refetched = false
+                val router =
+                    RefreshedDomainRouter(
+                        listOf(serverInfoDomain(refetch = { refetched = true })),
+                    )
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
@@ -197,7 +206,7 @@ class SyncEventDispatcherTest :
                             ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
-                        onServerInfoChanged = { refreshed = true },
+                        refreshedRouter = router,
                     )
                 val frame =
                     ParsedSseFrame(
@@ -206,15 +215,19 @@ class SyncEventDispatcherTest :
                         data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ServerInfoChanged),
                     )
                 dispatcher.handle(frame)
-                refreshed shouldBe true
+                refetched shouldBe true
                 db.close()
             }
         }
 
-        test("control: SyncControl.PreferencesChanged invokes onPreferencesChanged") {
+        test("control: PreferencesChanged runs the refreshed-domain refetch strategy") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 var refetched = false
+                val router =
+                    RefreshedDomainRouter(
+                        listOf(preferencesDomain(refetch = { refetched = true })),
+                    )
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = ClientSyncDomainRegistry(),
@@ -225,7 +238,7 @@ class SyncEventDispatcherTest :
                             ),
                         state = SyncEngineState(),
                         cursorAdvance = { _, _ -> },
-                        onPreferencesChanged = { refetched = true },
+                        refreshedRouter = router,
                     )
                 val frame =
                     ParsedSseFrame(
@@ -235,6 +248,74 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 refetched shouldBe true
+                db.close()
+            }
+        }
+
+        test("control: ActiveSessionsChanged runs the refreshed-domain ping strategy") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var pinged = false
+                val router =
+                    RefreshedDomainRouter(
+                        listOf(presenceDomain(ping = { pinged = true })),
+                    )
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> },
+                        refreshedRouter = router,
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = null,
+                        event = "control",
+                        data =
+                            contractJson.encodeToString(
+                                SyncControl.serializer(),
+                                SyncControl.ActiveSessionsChanged,
+                            ),
+                    )
+                dispatcher.handle(frame)
+                pinged shouldBe true
+                db.close()
+            }
+        }
+
+        test("control: ActivityChanged runs the refreshed-domain ping strategy") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var pinged = false
+                val router =
+                    RefreshedDomainRouter(
+                        listOf(activityDomain(ping = { pinged = true })),
+                    )
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> },
+                        refreshedRouter = router,
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = null,
+                        event = "control",
+                        data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ActivityChanged),
+                    )
+                dispatcher.handle(frame)
+                pinged shouldBe true
                 db.close()
             }
         }

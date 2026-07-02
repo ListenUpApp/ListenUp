@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.dto.auth.AuthSession
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainList
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
@@ -14,6 +15,7 @@ import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.module
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
+import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -57,11 +59,62 @@ class SyncDomainCompletenessSpec :
                         imageStorage = stubImageStorage(),
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        pingActivity = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
                     )
                 val catalogNames = catalog.mirrored.map { it.key.name }
 
                 catalogNames.toSet() shouldHaveSize catalogNames.size
                 catalogNames.toSet() shouldBe SyncDomains.all.map { it.name }.toSet()
+            } finally {
+                db.close()
+            }
+        }
+
+        test(
+            "refreshed tier claims exactly the four fold-candidate controls, distinct and disjoint from engine controls",
+        ) {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        pingActivity = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+
+                val triggers = catalog.refreshed.map { it.trigger }
+
+                // Distinct — no two refreshed domains claim the same control (else the
+                // router's KClass map would silently drop one).
+                triggers.toSet() shouldHaveSize triggers.size
+
+                // Exactly the four fold-candidate nudges.
+                triggers.toSet() shouldBe
+                    setOf(
+                        SyncControl.ActiveSessionsChanged::class,
+                        SyncControl.ActivityChanged::class,
+                        SyncControl.ServerInfoChanged::class,
+                        SyncControl.PreferencesChanged::class,
+                    )
+
+                // Disjoint from the engine/lifecycle controls the dispatcher owns.
+                triggers shouldNotContainAnyOf
+                    listOf(
+                        SyncControl.CursorStale::class,
+                        SyncControl.StreamError::class,
+                        SyncControl.AccessChanged::class,
+                        SyncControl.UserDeleted::class,
+                        SyncControl.LibraryDataChanged::class,
+                    )
             } finally {
                 db.close()
             }
