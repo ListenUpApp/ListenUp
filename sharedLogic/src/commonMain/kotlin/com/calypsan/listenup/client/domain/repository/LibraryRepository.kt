@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
  * Repository contract for observing libraries and their folders from the local Room database.
  *
  * All methods observe Room exclusively — no network calls. Libraries and folders are kept in
- * sync by [com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler] and
+ * sync by [com.calypsan.listenup.client.data.sync.domains.librariesDomain] and
  * [com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler] respectively.
  *
  * Mutations (create, rename, delete, add/remove folder) go through the `LibraryAdminService`

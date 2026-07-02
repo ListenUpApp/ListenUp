@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.librariesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -13,7 +14,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class LibrarySyncDomainHandlerTest :
+class LibrariesDomainTest :
     FunSpec({
 
         test("a Created event inserts the library row") {
@@ -93,7 +94,7 @@ class LibrarySyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = LibrarySyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = librariesDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "libraries"
                 registry.lookup("libraries") shouldBe handler
             } finally {
@@ -102,11 +103,11 @@ class LibrarySyncDomainHandlerTest :
         }
     })
 
-private fun withHandler(block: suspend (LibrarySyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<LibrarySyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(LibrarySyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(librariesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

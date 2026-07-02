@@ -20,7 +20,8 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  *
  * A write on the server's [com.calypsan.listenup.server.services.LibraryRepository] or
  * [com.calypsan.listenup.server.services.LibraryFolderRepository] crosses the live SSE
- * firehose, the client engine routes it through the real [LibrarySyncDomainHandler] and
+ * firehose, the client engine routes it through the real
+ * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler and
  * [LibraryFolderSyncDomainHandler], and the rows land in the client's Room database —
  * exactly the round-trip production performs.
  *

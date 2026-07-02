@@ -51,8 +51,8 @@ import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
+import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
@@ -187,7 +187,8 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   [UserStatsUpdater] populated the materialized stats row when a listening event was recorded.
  * @property serverLibraryRepository the server-side library repository; use [LibraryRepository.upsert]
  *   to create or update a library row and publish its SSE event, and [LibraryRepository.softDelete]
- *   to tombstone it. The client [LibrarySyncDomainHandler] applies these events into Room.
+ *   to tombstone it. The client [com.calypsan.listenup.client.data.sync.domains.librariesDomain]
+ *   handler applies these events into Room.
  * @property serverLibraryFolderRepository the server-side library-folder repository; use
  *   [LibraryFolderRepository.upsert] to add folders and [LibraryFolderRepository.softDelete] to
  *   remove them. Folder SSE events arrive via [LibraryFolderSyncDomainHandler] into Room.
@@ -618,7 +619,8 @@ private data class ServerRepositories(
  * Constructs and registers the real books sync handler ([booksDomain]),
  * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler],
  * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
- * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
+ * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler],
+ * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
  * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
  * applying them into [clientDb] exactly as production does.
@@ -627,8 +629,7 @@ private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
 ) {
-    LibrarySyncDomainHandler(
-        database = clientDb,
+    librariesDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
