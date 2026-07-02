@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncEvent
 import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.TransactionWithReturn
@@ -39,7 +40,6 @@ private val log = loggerFor<SqlSyncableRepository<*, *>>()
  *    SQLDelight queries wrapper, adapted to the substrate contract)
  *  - [readPayload] / [readPayloads] — aggregate read (root + children) by id
  *  - [writePayload] — aggregate write inside the open transaction
- *  - [elementSerializer] — the concrete DTO serializer
  *  - the `T.id`, `T.revisionOf()`, and (for value-class ids) [idAsString] projections
  *
  * Self-registers with [SyncRegistry] and publishes to [ChangeBus] through the
@@ -51,9 +51,15 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
     protected val db: ListenUpDatabase,
     protected val bus: ChangeBus,
     protected val registry: SyncRegistry,
-    override val domainName: String,
+    key: SyncDomainKey<T>,
     protected val clock: Clock = Clock.System,
 ) : SyncableRepo<T> {
+    /** Wire name, derived from the contract-level [SyncDomainKey]. */
+    override val domainName: String = key.name
+
+    /** Serializer for [T], derived from the contract-level [SyncDomainKey]. */
+    val elementSerializer: KSerializer<T> = key.serializer
+
     init {
         register()
     }
@@ -109,13 +115,6 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         userId: String?,
         existed: Boolean,
     )
-
-    /**
-     * kotlinx.serialization serializer for the concrete DTO type [T].
-     * Provided by each subclass so the route handler can encode [Page] responses
-     * without losing type information through the type-erased registry.
-     */
-    abstract val elementSerializer: KSerializer<T>
 
     /**
      * Encodes a [Page] of [T] to a JSON string using [contractJson] and the

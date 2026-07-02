@@ -6,12 +6,12 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.Collection_grants
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /** Principal type for a user-share grant — the only principal kind today. */
 private const val PRINCIPAL_TYPE_USER = "USER"
@@ -52,13 +52,12 @@ class CollectionGrantRepository(
         db = db,
         bus = bus,
         registry = registry,
-        // Wire domain stays "collection_shares" — see class KDoc. A USER-principal grant is a
-        // share on the wire; the wire/client rename is deferred to when GROUP principals exist.
-        domainName = "collection_shares",
+        // Wire domain stays "collection_shares" — see class KDoc and SyncDomains.COLLECTION_SHARES.
+        // A USER-principal grant is a share on the wire; the wire/client rename is deferred to when
+        // GROUP principals exist.
+        key = SyncDomains.COLLECTION_SHARES,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<CollectionShareSyncPayload> = CollectionShareSyncPayload.serializer()
-
     override val CollectionShareSyncPayload.id: String get() = this.id
 
     override fun CollectionShareSyncPayload.revisionOf(): Long = revision

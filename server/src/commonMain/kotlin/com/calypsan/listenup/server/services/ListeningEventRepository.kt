@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.ListeningEventId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Listening_events
@@ -12,7 +13,6 @@ import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for per-user listening events (Playback P2).
@@ -53,7 +53,7 @@ class ListeningEventRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "listening_events",
+        key = SyncDomains.LISTENING_EVENTS,
         clock = clock,
     ) {
     override val userScoped: Boolean = true
@@ -82,9 +82,6 @@ class ListeningEventRepository(
         }
         return result
     }
-
-    override val elementSerializer: KSerializer<ListeningEventSyncPayload> =
-        ListeningEventSyncPayload.serializer()
 
     override fun idAsString(id: ListeningEventId): String = id.value
 

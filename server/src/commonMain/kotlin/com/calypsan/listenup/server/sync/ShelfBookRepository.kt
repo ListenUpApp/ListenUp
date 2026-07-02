@@ -2,11 +2,11 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.ShelfBookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Shelf_books
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * Composite key for `shelf_books` junction rows.
@@ -65,12 +65,10 @@ class ShelfBookRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "shelf_books",
+        key = SyncDomains.SHELF_BOOKS,
         clock = clock,
     ) {
     override val userScoped: Boolean = true
-
-    override val elementSerializer: KSerializer<ShelfBookSyncPayload> = ShelfBookSyncPayload.serializer()
 
     override val ShelfBookSyncPayload.id: ShelfBookId get() = ShelfBookId(shelfId, bookId)
 

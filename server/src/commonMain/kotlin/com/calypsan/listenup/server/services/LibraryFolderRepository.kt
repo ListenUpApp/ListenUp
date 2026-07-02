@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.server.db.sqldelight.Library_folders
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -17,7 +18,6 @@ import com.calypsan.listenup.server.sync.accessFilteredDigest
 import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for library folders — a **global (cross-user)** aggregate.
@@ -31,7 +31,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `libraryFoldersQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - [elementSerializer] / `LibraryFolderSyncPayload.id` / `LibraryFolderSyncPayload.revisionOf`
+ *  - `LibraryFolderSyncPayload.id` / `LibraryFolderSyncPayload.revisionOf`
  *
  * `idAsString(FolderId) = id.value` is load-bearing — Kotlin's default `toString()`
  * on a value class returns `"FolderId(value=foo)"`, which would corrupt every column
@@ -59,11 +59,9 @@ class LibraryFolderRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "library_folders",
+        key = SyncDomains.LIBRARY_FOLDERS,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<LibraryFolderSyncPayload> = LibraryFolderSyncPayload.serializer()
-
     override fun idAsString(id: FolderId): String = id.value
 
     override val LibraryFolderSyncPayload.id: FolderId get() = FolderId(this.id)

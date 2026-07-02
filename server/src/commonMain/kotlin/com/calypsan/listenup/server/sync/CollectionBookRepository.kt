@@ -4,13 +4,13 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.db.sqldelight.Collection_books
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * Composite key for `collection_books` junction rows.
@@ -67,11 +67,9 @@ class CollectionBookRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "collection_books",
+        key = SyncDomains.COLLECTION_BOOKS,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<CollectionBookSyncPayload> = CollectionBookSyncPayload.serializer()
-
     override val CollectionBookSyncPayload.id: CollectionBookId get() = CollectionBookId(collectionId, bookId)
 
     override fun CollectionBookSyncPayload.revisionOf(): Long = revision

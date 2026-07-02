@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.LibrarySyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.Libraries
@@ -14,7 +15,6 @@ import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for libraries — a **global (cross-user)** aggregate,
@@ -26,7 +26,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `librariesQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - [elementSerializer] / `LibrarySyncPayload.id` / `LibrarySyncPayload.revisionOf`
+ *  - `LibrarySyncPayload.id` / `LibrarySyncPayload.revisionOf`
  *
  * `idAsString(LibraryId) = id.value` is load-bearing — Kotlin's default `toString()`
  * on a value class returns `"LibraryId(value=foo)"`, which would corrupt every column
@@ -48,11 +48,9 @@ class LibraryRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "libraries",
+        key = SyncDomains.LIBRARIES,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<LibrarySyncPayload> = LibrarySyncPayload.serializer()
-
     override fun idAsString(id: LibraryId): String = id.value
 
     override val LibrarySyncPayload.id: LibraryId get() = LibraryId(this.id)
