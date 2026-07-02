@@ -60,7 +60,7 @@ complexity:
     active: true
     allowedFunctionsPerFile: 20
     allowedFunctionsPerClass: 25  # Repositories and ViewModels can be large
-    allowedFunctionsPerInterface: 26  # DAOs have many query methods (+ per-domain digestRows for sync reconciliation)
+    allowedFunctionsPerInterface: 36  # DAOs have many query methods (+ per-domain digestRows for sync reconciliation, + SearchDao's revision-watermark incremental-reindex queries)
     allowedFunctionsPerObject: 15
     allowedFunctionsPerEnum: 15
     ignoreDeprecated: true

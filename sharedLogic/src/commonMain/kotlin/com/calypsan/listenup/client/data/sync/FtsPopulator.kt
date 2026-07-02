@@ -14,17 +14,26 @@ private val logger = KotlinLogging.logger {}
 
 private const val FTS_INSERT_CHUNK_SIZE = 200
 
+/** IN-list chunk for id-scoped queries — safely under SQLite's 999-bound-variable limit. */
+private const val FTS_ID_CHUNK_SIZE = 500
+
+/** Delta size above which an incremental refresh delegates to a full rebuild. */
+private const val FTS_FULL_REBUILD_THRESHOLD = 500
+
 /**
  * Populates FTS5 tables for offline full-text search.
  *
- * Called after sync operations to ensure FTS tables mirror the main tables.
- * Performs a full rebuild strategy:
- * 1. Clear all FTS entries
- * 2. Re-insert from main tables with denormalized data
+ * Called after sync operations to ensure FTS tables mirror the main tables. Two refresh
+ * strategies are available:
  *
- * This approach is simple and correct. For large libraries (>10k books),
- * we could optimize with incremental updates, but full rebuild is fast enough
- * for typical library sizes (<5k books) and avoids complexity of tracking changes.
+ * - [rebuildAll]: clears and repopulates every FTS table from scratch. Used for cold start
+ *   ([rebuildIfEmpty]'s self-heal), `forceFullResync` (whose digest repair can rewrite rows at
+ *   unchanged revisions, which a watermark comparison would miss), and as [refreshSince]'s own
+ *   fallback when a delta is too large to reindex row-by-row.
+ * - [refreshSince]: reindexes only the rows changed since a [SearchIndexWatermark] snapshotted
+ *   immediately before a sync reconcile — the common case (a scan-completion reconcile touching
+ *   a handful of books). Falls back to [rebuildAll] above [FTS_FULL_REBUILD_THRESHOLD] changed
+ *   books.
  *
  * The book rebuild issues four aggregate SQL queries (one per denormalized dimension)
  * instead of four per-book queries, then inserts in chunks of [FTS_INSERT_CHUNK_SIZE]
@@ -82,6 +91,86 @@ internal class FtsPopulator(
                 rebuildAll()
             }
         }
+
+    override suspend fun snapshotWatermark(): SearchIndexWatermark =
+        withContext(IODispatcher) {
+            SearchIndexWatermark(
+                booksRevision = searchDao.maxBookRevision(),
+                contributorsRevision = searchDao.maxContributorRevision(),
+                seriesRevision = searchDao.maxSeriesRevision(),
+                genresRevision = searchDao.maxGenreRevision(),
+            )
+        }
+
+    override suspend fun refreshSince(watermark: SearchIndexWatermark) =
+        withContext(IODispatcher) {
+            val changedBookIds =
+                buildSet {
+                    addAll(searchDao.bookIdsChangedSince(watermark.booksRevision))
+                    addAll(searchDao.bookIdsWithContributorsChangedSince(watermark.contributorsRevision))
+                    addAll(searchDao.bookIdsWithSeriesChangedSince(watermark.seriesRevision))
+                    addAll(searchDao.bookIdsWithGenresChangedSince(watermark.genresRevision))
+                }
+            val contributorsChanged = searchDao.countContributorsChangedSince(watermark.contributorsRevision) > 0
+            val seriesChanged = searchDao.countSeriesChangedSince(watermark.seriesRevision) > 0
+
+            if (changedBookIds.size > FTS_FULL_REBUILD_THRESHOLD) {
+                logger.info { "FTS delta of ${changedBookIds.size} books exceeds threshold — full rebuild" }
+                rebuildAll()
+                return@withContext
+            }
+            if (changedBookIds.isEmpty() && !contributorsChanged && !seriesChanged) {
+                logger.debug { "FTS refresh: nothing changed since watermark — no-op" }
+                return@withContext
+            }
+            val duration =
+                measureTime {
+                    if (changedBookIds.isNotEmpty()) reindexBooks(changedBookIds)
+                    if (contributorsChanged) rebuildContributors()
+                    if (seriesChanged) rebuildSeries()
+                }
+            logger.info {
+                "Incremental FTS refresh: ${changedBookIds.size} books in ${duration.inWholeMilliseconds}ms"
+            }
+        }
+
+    /**
+     * Delete-and-reinsert the books_fts rows for exactly [bookIds]. Tombstoned books in the set get
+     * their FTS row deleted and are not re-inserted (the live fetch excludes them). Ids are chunked
+     * at [FTS_ID_CHUNK_SIZE] to stay under SQLite's bound-variable limit; each chunk's delete +
+     * inserts run in one write transaction so a searcher never sees a half-replaced chunk.
+     */
+    internal suspend fun reindexBooks(bookIds: Set<String>) {
+        for (idChunk in bookIds.chunked(FTS_ID_CHUNK_SIZE)) {
+            val liveBooks = searchDao.getLiveBooksByIds(idChunk)
+            val authorsByBookId = searchDao.getPrimaryAuthorNamesFor(idChunk).associate { it.bookId to it.authorName }
+            val narratorsByBookId =
+                searchDao.getPrimaryNarratorNamesFor(idChunk).associate { it.bookId to it.authorName }
+            val seriesByBookId = searchDao.getSeriesNamesGroupedFor(idChunk).associate { it.bookId to it.authorName }
+            val genresByBookId = searchDao.getGenreNamesGroupedFor(idChunk).associate { it.bookId to it.authorName }
+            transactionRunner.atomically {
+                searchDao.deleteBookFtsEntries(idChunk)
+                for (book in liveBooks) {
+                    try {
+                        searchDao.insertBookFts(
+                            bookId = book.id.value,
+                            title = book.title,
+                            subtitle = book.subtitle,
+                            description = book.description,
+                            author = authorsByBookId[book.id.value],
+                            narrator = narratorsByBookId[book.id.value],
+                            seriesName = seriesByBookId[book.id.value],
+                            genres = genresByBookId[book.id.value],
+                        )
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Failed to reindex book ${book.id} into FTS" }
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * Rebuild book FTS entries.
