@@ -29,8 +29,8 @@ private val logger = KotlinLogging.logger {}
  * pending op (the same outbox the playback-position writes use), so an edit made
  * offline persists and replays on reconnect rather than failing with a
  * [com.calypsan.listenup.api.error.ServerConnectError]. The authoritative state
- * still arrives via the SSE sync engine and reconciles through
- * [com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler].
+ * still arrives via the SSE sync engine and reconciles through the books
+ * domain's composed handler ([com.calypsan.listenup.client.data.sync.domains.booksDomain]).
  *
  * The remaining methods stay pure RPC dispatchers — the SSE echo from the server
  * is their single write path back into Room. Wire [WireAppResult] values returned

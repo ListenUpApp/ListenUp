@@ -13,7 +13,8 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
@@ -42,7 +43,7 @@ import kotlinx.coroutines.test.runTest
  * the junction is populated — INCLUDING the audio-stream fields (`codecProfile`/`spatial`/`bitrate`/
  * `sampleRate`/`channels`) that were dropped on the stale `SingleBookResponse` path.
  *
- * Uses a real in-memory DB + a real [BookSyncDomainHandler] so it exercises the full decode →
+ * Uses a real in-memory DB + a real books sync handler so it exercises the full decode →
  * persist path the fallback now shares with the RPC on-demand fetch.
  */
 class PlaybackManagerFallbackFetchTest :
@@ -135,16 +136,14 @@ class PlaybackManagerFallbackFetchTest :
             // return null (no saved position), which exercises the fresh-playback path.
             val progressTracker = buildProgressTracker()
 
-            // Real BookSyncDomainHandler backed by the same in-memory DB so the fallback's
+            // Real books sync handler backed by the same in-memory DB so the fallback's
             // onCatchUpItem actually writes the aggregate and the junction assertion passes.
             val bookSyncDomainHandler =
-                BookSyncDomainHandler(
+                booksDomain(
                     database = db,
                     mapper = BookEntityMapper(),
-                    transactionRunner = RoomTransactionRunner(db),
                     imageStorage = stubImageStorage(),
-                    registry = ClientSyncDomainRegistry(),
-                )
+                ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
 
             return PlaybackManagerImpl(
                 serverConfig = serverConfig,

@@ -33,7 +33,7 @@ private const val BOOK_TWO_ID = "series-merge-b2"
  * `books.Updated` per affected book + one `series.Deleted` for the source tombstone.
  *
  * All of these must land in client Room: every affected book's `book_series`
- * junction points at the target id (the [BookSyncDomainHandler.applySeries]
+ * junction points at the target id (the [BookMirrorApply.applySeries]
  * path replaces the junction set on every book upsert), and the source row carries
  * `deletedAt != null`. The poll witness combines both signals so the cascade is
  * only fully applied when SSE has delivered every event.

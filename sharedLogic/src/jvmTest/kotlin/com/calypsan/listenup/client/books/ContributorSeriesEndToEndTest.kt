@@ -24,7 +24,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  *
  * A non-zero `revision` on the landed row is the key invariant: it proves the row
  * arrived through the domain-specific sync handler rather than as a `revision = 0`
- * bootstrap stub inserted by [com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler].
+ * bootstrap stub inserted by [com.calypsan.listenup.client.data.sync.domains.BookMirrorApply].
  */
 class ContributorSeriesEndToEndTest :
     FunSpec({

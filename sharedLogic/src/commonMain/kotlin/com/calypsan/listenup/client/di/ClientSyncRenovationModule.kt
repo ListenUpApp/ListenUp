@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
@@ -38,13 +40,14 @@ import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
@@ -252,6 +255,12 @@ internal val clientSyncRenovationModule =
                     listOf(
                         tagsDomain(database = get()),
                         playbackPositionsDomain(database = get()),
+                        booksDomain(
+                            database = get(),
+                            mapper = get(),
+                            imageStorage = get(),
+                            documentStorage = get(),
+                        ),
                     ),
             )
         }
@@ -261,6 +270,21 @@ internal val clientSyncRenovationModule =
                 transactionRunner = get(),
                 registry = get(),
             ).apply { registerAll() }
+        }
+
+        // Books' composed handler doubles as the on-demand aggregate write-through seam
+        // (BookRepositoryImpl's cache-miss fallback fetch, PlaybackPreparer's ingest).
+        // The registrar above creates and registers it from the catalog; resolve that
+        // same instance by domain lookup so DI consumers and the SSE dispatcher share
+        // one handler. The cast is safe: SyncDomains.BOOKS binds the "books" name to
+        // BookSyncPayload in the contract.
+        single<SyncDomainHandler<BookSyncPayload>> {
+            val _ = get<ComposedHandlerRegistrar>()
+            @Suppress("UNCHECKED_CAST")
+            checkNotNull(
+                get<ClientSyncDomainRegistry>().lookup(SyncDomains.BOOKS.name)
+                    as SyncDomainHandler<BookSyncPayload>?,
+            ) { "books domain missing from the sync catalog" }
         }
 
         single(createdAtStart = true) {
@@ -282,16 +306,6 @@ internal val clientSyncRenovationModule =
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            BookSyncDomainHandler(
-                database = get(),
-                mapper = get(),
-                transactionRunner = get(),
-                imageStorage = get(),
-                registry = get(),
-                documentStorage = get(),
             )
         }
         single(createdAtStart = true) {

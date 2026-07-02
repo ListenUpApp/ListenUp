@@ -19,7 +19,7 @@ import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
@@ -188,13 +188,11 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            BookSyncDomainHandler(
+            booksDomain(
                 database = clientDb,
                 mapper = BookEntityMapper(),
-                transactionRunner = RoomTransactionRunner(clientDb),
                 imageStorage = stubImageStorage(),
-                registry = registry,
-            )
+            ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
             ContributorSyncDomainHandler(
                 database = clientDb,
                 transactionRunner = RoomTransactionRunner(clientDb),

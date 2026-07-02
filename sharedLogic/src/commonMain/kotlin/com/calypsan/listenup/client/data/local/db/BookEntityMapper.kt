@@ -29,7 +29,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
  * ## Children
  *
  * This mapper handles the book root row only. Chapter, contributor, and series rows are
- * the responsibility of `BookSyncDomainHandler`.
+ * the responsibility of `BookMirrorApply`.
  */
 internal class BookEntityMapper {
     /**

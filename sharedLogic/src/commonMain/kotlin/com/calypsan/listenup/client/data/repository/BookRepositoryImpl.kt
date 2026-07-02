@@ -231,7 +231,7 @@ internal class BookRepositoryImpl(
      * Composes the Room book/genre/tag Flows exactly as before. The added
      * behaviour: when Room yields `null` (the book is not cached) and the
      * device is online, fire a single on-demand [BookService.getBook] fetch and
-     * write the result through to Room via [BookSyncDomainHandler]. The Room
+     * write the result through to Room via [bookSyncDomainHandler]. The Room
      * Flow then re-emits with the now-present book. The fetch is fired at most
      * once per collection — [attemptedFetch] guards against a persistently-null
      * emission re-firing the RPC on a loop. Offline cache misses skip the RPC

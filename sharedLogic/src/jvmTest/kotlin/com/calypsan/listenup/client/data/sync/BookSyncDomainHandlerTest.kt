@@ -23,7 +23,8 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -264,7 +265,9 @@ class BookSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), registry)
+                val handler =
+                    booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                        .toHandler(transactionRunner = RoomTransactionRunner(db), registry = registry)
                 handler.domainName shouldBe "books"
                 registry.lookup("books") shouldBe handler
             } finally {
@@ -283,13 +286,8 @@ class BookSyncDomainHandlerTest :
                             }
                         }
                     val handler =
-                        BookSyncDomainHandler(
-                            db,
-                            BookEntityMapper(),
-                            throwingRunner,
-                            stubImageStorage(),
-                            ClientSyncDomainRegistry(),
-                        )
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                            .toHandler(transactionRunner = throwingRunner, registry = ClientSyncDomainRegistry())
 
                     val result = handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
 
@@ -310,13 +308,8 @@ class BookSyncDomainHandlerTest :
                             override suspend fun <R> atomically(block: suspend () -> R): R = throw CancellationException("cancelled")
                         }
                     val handler =
-                        BookSyncDomainHandler(
-                            db,
-                            BookEntityMapper(),
-                            cancellingRunner,
-                            stubImageStorage(),
-                            ClientSyncDomainRegistry(),
-                        )
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                            .toHandler(transactionRunner = cancellingRunner, registry = ClientSyncDomainRegistry())
 
                     var threw: Throwable? = null
                     try {
@@ -342,7 +335,8 @@ class BookSyncDomainHandlerTest :
                     val imageStorage =
                         mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
                     val handler =
-                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
 
                     handler.onEvent(
                         created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
@@ -367,7 +361,8 @@ class BookSyncDomainHandlerTest :
                     val imageStorage =
                         mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
                     val handler =
-                        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
 
                     handler.onEvent(
                         created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
@@ -394,18 +389,13 @@ class BookSyncDomainHandlerTest :
  * [RoomTransactionRunner], runs [block] inside [runTest], and closes the database
  * afterwards. Each invocation is fully isolated.
  */
-private fun withTestHandler(block: suspend (BookSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withTestHandler(block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
             val handler =
-                BookSyncDomainHandler(
-                    db,
-                    BookEntityMapper(),
-                    RoomTransactionRunner(db),
-                    stubImageStorage(),
-                    ClientSyncDomainRegistry(),
-                )
+                booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                    .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
             block(handler, db)
         } finally {
             db.close()
@@ -417,20 +407,18 @@ private fun withTestHandler(block: suspend (BookSyncDomainHandler, ListenUpDatab
  * can be asserted. The storage is exposed to the block.
  */
 private fun withGcHandler(
-    block: suspend (BookSyncDomainHandler, ListenUpDatabase, RecordingDocumentStorage) -> Unit,
+    block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase, RecordingDocumentStorage) -> Unit,
 ) = runTest {
     val db = createInMemoryTestDatabase()
     try {
         val storage = RecordingDocumentStorage()
         val handler =
-            BookSyncDomainHandler(
-                db,
-                BookEntityMapper(),
-                RoomTransactionRunner(db),
-                stubImageStorage(),
-                ClientSyncDomainRegistry(),
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
                 documentStorage = storage,
-            )
+            ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
         block(handler, db, storage)
     } finally {
         db.close()

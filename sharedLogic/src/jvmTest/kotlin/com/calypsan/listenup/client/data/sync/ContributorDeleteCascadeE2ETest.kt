@@ -35,7 +35,7 @@ private const val BOOK_TWO_ID = "cascade-b2"
  *  3. `contributors` domain `Deleted` — for the contributor itself
  *
  * All three events must land in client Room: both books' `book_contributors`
- * junction rows are gone (the [BookSyncDomainHandler.applyContributors] path
+ * junction rows are gone (the [BookMirrorApply.applyContributors] path
  * replaces the junction set on every book upsert), and the contributor row carries
  * `deletedAt != null` (the [ContributorSyncDomainHandler]'s `Deleted` branch sets
  * the tombstone). The poll witness is the empty `getByBookId` join for both books
@@ -102,7 +102,7 @@ class ContributorDeleteCascadeE2ETest :
 
                 // Cascade complete only when: both junction sets are empty AND the contributor
                 // row is tombstoned. The two `book.Updated` events drive the junction wipe via
-                // `BookSyncDomainHandler.applyContributors` (which deleteContributorsForBook +
+                // `BookMirrorApply.applyContributors` (which deleteContributorsForBook +
                 // re-inserts the empty list); the `contributor.Deleted` event drives the
                 // `deletedAt` write via `ContributorSyncDomainHandler.softDelete`.
                 withTimeout(ROUND_TRIP_TIMEOUT_SECONDS.seconds) {

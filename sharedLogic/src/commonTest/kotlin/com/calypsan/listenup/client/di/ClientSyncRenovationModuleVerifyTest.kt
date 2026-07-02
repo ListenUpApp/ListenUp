@@ -25,7 +25,7 @@ import org.koin.test.verify.verify
  *
  *  - [ListenUpDatabase] — owned by `platformDatabaseModule` (provides DAOs).
  *  - [TransactionRunner] — owned by `repositoryModule` (bound to `RoomTransactionRunner`).
- *    [BookSyncDomainHandler] routes all multi-DAO writes through this seam.
+ *    The composed handlers route all multi-DAO writes through this seam.
  *  - [ApiClientFactory] — owned by `networkModule` (the bearer-equipped HttpClient
  *    factory; SSE + catch-up clients use it).
  *  - [ServerConfig] — owned by `dataModule` (segregated interface bound to

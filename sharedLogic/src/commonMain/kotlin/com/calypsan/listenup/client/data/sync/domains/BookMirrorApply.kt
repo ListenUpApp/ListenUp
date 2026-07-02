@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.data.sync.handlers
+package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookDocumentPayload
@@ -7,8 +7,6 @@ import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookGenrePayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
-import com.calypsan.listenup.api.sync.SyncEvent
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ChapterId
 import com.calypsan.listenup.core.ContributorId
@@ -27,30 +25,19 @@ import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
-import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import io.github.oshai.kotlinlogging.KotlinLogging
-
-private val logger = KotlinLogging.logger {}
 
 /**
- * Client-side sync handler for the `books` domain.
+ * Room mapping for the `books` domain — the aggregate apply behind [booksDomain].
  *
- * Applies server sync events into Room as a single atomic aggregate write. Three
- * invariants shape this handler:
+ * Applies server book payloads into Room as a single aggregate write. Two invariants
+ * shape this apply:
  *
  * - **Atomic aggregate upsert.** A book is a root row plus child rows (chapters,
- *   contributors, series memberships, audio files). Every event replaces the whole
- *   aggregate inside one IMMEDIATE write transaction — clients never observe a book
+ *   contributors, series memberships, audio files). Every apply replaces the whole
+ *   aggregate; atomicity comes from the composed handler's IMMEDIATE write
+ *   transaction, inside which every method here runs — clients never observe a book
  *   with stale children or a partially-applied update.
- *
- * - **Echo no-flicker.** When an event echoes this client's own write
- *   (`isOwnEcho == true`), the visible fields are already correct locally. The handler
- *   then advances only `revision` and `updatedAt` on the root row, leaving title,
- *   cover, and child rows untouched — repainting them would flicker the UI.
  *
  * - **Bootstrap-only contributor/series writes.** The `contributors` and `series`
  *   sync domains own their respective rows. When a book event references a contributor
@@ -59,100 +46,35 @@ private val logger = KotlinLogging.logger {}
  *   the stub when the contributor/series domain syncs. If the row already exists, it is
  *   left completely untouched — the book payload's embedded fields are never written
  *   back to an existing contributor or series row.
- *
- * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
-internal class BookSyncDomainHandler(
+internal class BookMirrorApply(
     private val database: ListenUpDatabase,
     private val mapper: BookEntityMapper,
-    private val transactionRunner: TransactionRunner,
     private val imageStorage: ImageStorage,
-    registry: ClientSyncDomainRegistry,
     // Optional: only the production graph (and the cache-GC test) supply it. When absent,
     // document-cache garbage collection is skipped — harmless for the many seam tests that
     // never write document cache files. See [applyDocuments].
     private val documentStorage: DocumentStorage? = null,
-) : SyncDomainHandler<BookSyncPayload>,
-    AccessFilteredSyncHandler {
-    override val domainName: String = "books"
-    override val payloadSerializer = BookSyncPayload.serializer()
-
-    override fun syncId(item: BookSyncPayload): String = item.id
-
-    init {
-        registry.register(this)
+) : MirrorApply<BookSyncPayload> {
+    override suspend fun tombstoneById(
+        id: String,
+        deletedAt: Long,
+        revision: Long,
+    ) {
+        database.bookDao().softDelete(id = BookId(id), deletedAt = deletedAt, revision = revision)
     }
 
-    override suspend fun localLiveIds(): Set<String> = database.bookDao().liveIds().toSet()
-
-    override suspend fun pruneTo(
-        accessibleIds: Set<String>,
-        now: Long,
-    ) = database.bookDao().tombstoneNotIn(accessibleIds, now)
-
-    override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> =
-        database.bookDao().digestRows(maxRevision).map { it.id to it.revision }
-
-    override suspend fun onEvent(
-        event: SyncEvent<BookSyncPayload>,
-        isOwnEcho: Boolean,
-    ): AppResult<Unit> =
-        transactionRunner.applyEventAtomically(domainName, event.id, logger) {
-            when (event) {
-                is SyncEvent.Created -> {
-                    upsertAggregate(event.payload, isOwnEcho)
-                }
-
-                is SyncEvent.Updated -> {
-                    upsertAggregate(event.payload, isOwnEcho)
-                }
-
-                is SyncEvent.Deleted -> {
-                    database.bookDao().softDelete(
-                        id = BookId(event.id),
-                        deletedAt = event.occurredAt,
-                        revision = event.revision,
-                    )
-                }
-            }
-        }
-
-    override suspend fun onCatchUpItem(
-        item: BookSyncPayload,
-        isTombstone: Boolean,
-    ): AppResult<Unit> =
-        transactionRunner.applyEventAtomically(domainName, item.id, logger) {
-            if (isTombstone) {
-                database.bookDao().softDelete(
-                    id = BookId(item.id),
-                    deletedAt = item.deletedAt ?: item.updatedAt,
-                    revision = item.revision,
-                )
-            } else {
-                upsertAggregate(item, isOwnEcho = false)
-            }
-        }
+    override suspend fun tombstoneFromItem(item: BookSyncPayload) {
+        tombstoneById(id = item.id, deletedAt = item.deletedAt ?: item.updatedAt, revision = item.revision)
+    }
 
     /**
-     * Upsert the whole book aggregate. On an own-echo for an already-present book, advance
-     * only the sync substrate fields and return — visible fields and children are untouched.
-     * Otherwise upsert the root row and replace every child collection wholesale.
+     * Upsert the whole book aggregate: the root row, then every child collection
+     * replaced wholesale.
      */
-    private suspend fun upsertAggregate(
-        payload: BookSyncPayload,
-        isOwnEcho: Boolean,
-    ) {
+    override suspend fun upsert(payload: BookSyncPayload) {
         val bookId = BookId(payload.id)
         val existing = database.bookDao().getById(bookId)
-
-        if (isOwnEcho && existing != null) {
-            database.bookDao().updateRevisionAndTimestamp(
-                id = bookId,
-                revision = payload.revision,
-                updatedAt = Timestamp(payload.updatedAt),
-            )
-            return
-        }
 
         val updatedEntity = mapper.toBookEntity(payload, existing)
         database.bookDao().upsert(updatedEntity)
@@ -331,7 +253,7 @@ internal class BookSyncDomainHandler(
         )
 
         // Best-effort cache GC — a failed delete must not fail the sync write (mirrors the
-        // cover-file cleanup in [upsertAggregate]).
+        // cover-file cleanup in [upsert]).
         staleDocs.forEach { documentStorage?.deleteCached(bookId, it.id, it.format) }
     }
 

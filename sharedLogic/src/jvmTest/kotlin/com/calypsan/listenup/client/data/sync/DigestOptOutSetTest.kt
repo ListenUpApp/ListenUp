@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.domains.tagsDomain
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
@@ -49,13 +49,11 @@ class DigestOptOutSetTest :
                     // Koin wiring so this test tracks production exactly.
                     tagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     BookTagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    BookSyncDomainHandler(
+                    booksDomain(
                         database = clientDb,
                         mapper = BookEntityMapper(),
-                        transactionRunner = txRunner,
                         imageStorage = stubImageStorage(),
-                        registry = registry,
-                    )
+                    ).toHandler(transactionRunner = txRunner, registry = registry)
                     ContributorSyncDomainHandler(
                         database = clientDb,
                         transactionRunner = txRunner,
