@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.data.sync.domains.MirroredDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -46,6 +47,11 @@ import org.koin.test.verify.verify
  *    the resolved URL with its unauthenticated `verifyServer` to detect instance identity changes.
  *  - [ErrorBus] — owned by the main `Koin.kt` module; [ReconnectionSupervisor] surfaces an
  *    instance-changed signal through it.
+ *  - [MirroredDomain] — Koin's verify special-cases a `List<T>` constructor parameter by
+ *    checking the list's element type against the definition index; [SyncDomainCatalog]'s
+ *    `mirrored: List<MirroredDomain<*>>` is populated by literal `listOf(...)` construction
+ *    inside the module, not by individual `single<MirroredDomain<*>>` bindings, so the
+ *    element type is declared here instead.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ClientSyncRenovationModuleVerifyTest :
@@ -71,6 +77,7 @@ class ClientSyncRenovationModuleVerifyTest :
                         Boolean::class,
                         ImageStorage::class,
                         DocumentStorage::class,
+                        MirroredDomain::class,
                     ),
             )
         }

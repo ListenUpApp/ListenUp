@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.tagsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
@@ -45,7 +47,7 @@ class DigestOptOutSetTest :
 
                     // Register all production handlers — mirrors the clientSyncRenovationModule
                     // Koin wiring so this test tracks production exactly.
-                    TagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    tagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     BookTagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     BookSyncDomainHandler(
                         database = clientDb,

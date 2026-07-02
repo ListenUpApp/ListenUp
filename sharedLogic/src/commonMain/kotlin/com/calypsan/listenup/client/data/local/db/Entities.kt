@@ -278,7 +278,7 @@ internal data class PlaybackPositionEntity(
  * renames change [name] but never [slug].
  *
  * Carries the sync substrate ([revision], [deletedAt], [updatedAt]) required by
- * [com.calypsan.listenup.client.data.sync.TagSyncDomainHandler] for catch-up and
+ * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] for catch-up and
  * SSE event application.
  */
 @Entity(
