@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
+import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -67,6 +68,8 @@ internal fun Application.startBackgroundTasks(
     metadataCacheCleanupTask.start(scope)
     val orphanImageCleanupTask by inject<OrphanImageCleanupTask>()
     orphanImageCleanupTask.start(scope)
+    val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()
+    statsFreshnessSweepTask.start(scope)
 
     val rescanOnStartup = environment.config.rescanOnStartup()
     scope.launch {
