@@ -25,7 +25,7 @@ private val logger = KotlinLogging.logger {}
  * **Observation** (Room-backed, offline-first): all `observe*` and `getTagBySlug` calls
  * read from Room. The SSE sync engine writes server-committed state into Room via
  * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] and
- * [com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler], so the
+ * [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain], so the
  * UI reacts without explicit network polling.
  *
  * **Mutation** (RPC-backed): `addTagToBook`, `removeTagFromBook`, `renameTag`, `deleteTag`

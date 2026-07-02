@@ -33,7 +33,7 @@ private val logger = KotlinLogging.logger {}
  * Room write as any other event, which is safe because `@Upsert` is idempotent.
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction. Mirrors
- * [BookTagSyncDomainHandler].
+ * [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain].
  */
 internal class BookMoodSyncDomainHandler(
     private val database: ListenUpDatabase,

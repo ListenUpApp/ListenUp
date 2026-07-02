@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -14,10 +15,10 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Covers [BookTagSyncDomainHandler]: Room write-through for SSE book_tags junction events
- * (Tags phase — Room v22).
+ * Covers [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain]: Room write-through
+ * for SSE book_tags junction events (Tags phase — Room v22).
  */
-class BookTagSyncDomainHandlerTest :
+class BookTagsDomainTest :
     FunSpec({
 
         test("Created event inserts the junction row") {
@@ -108,7 +109,7 @@ class BookTagSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = BookTagSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = bookTagsDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "book_tags"
                 registry.lookup("book_tags") shouldBe handler
             } finally {
@@ -119,11 +120,11 @@ class BookTagSyncDomainHandlerTest :
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (BookTagSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<BookTagSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(BookTagSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(bookTagsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }
