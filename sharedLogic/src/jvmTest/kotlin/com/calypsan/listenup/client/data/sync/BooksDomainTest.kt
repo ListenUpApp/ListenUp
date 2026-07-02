@@ -1,0 +1,557 @@
+package com.calypsan.listenup.client.data.sync
+
+import com.calypsan.listenup.api.error.SyncError
+import com.calypsan.listenup.api.sync.BookAudioFilePayload
+import com.calypsan.listenup.api.sync.BookChapterPayload
+import com.calypsan.listenup.api.sync.BookContributorPayload
+import com.calypsan.listenup.api.sync.BookDocumentPayload
+import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.CoverPayload
+import com.calypsan.listenup.api.sync.CoverSource
+import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.UserEditedField
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.Timestamp
+import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.local.documents.DocumentStorage
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.domain.repository.ImageStorage
+import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
+import dev.mokkery.answering.returns
+import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
+import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.cancellation.CancellationException
+
+class BooksDomainTest :
+    FunSpec({
+
+        test("Updated event replaces all child rows wholesale") {
+            withTestHandler { handler, db ->
+                val initial = bookPayload(id = "b1", chapters = (1..10).map { chapter(it) })
+                handler
+                    .onEvent(created(initial), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 10
+
+                val updated = initial.copy(revision = 2, chapters = (1..3).map { chapter(it) })
+                handler
+                    .onEvent(updatedEvent(updated), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.chapterDao().getChaptersForBook(BookId("b1")).size shouldBe 3
+            }
+        }
+
+        test("server-set userEditedFields round-trip into the book row") {
+            withTestHandler { handler, db ->
+                val payload =
+                    bookPayload(id = "b1").copy(
+                        userEditedFields = setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS),
+                    )
+                handler
+                    .onEvent(created(payload), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe
+                    setOf(UserEditedField.TITLE, UserEditedField.CONTRIBUTORS)
+            }
+        }
+
+        test("a scanner payload with no provenance persists an empty userEditedFields set") {
+            withTestHandler { handler, db ->
+                handler
+                    .onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookDao().getById(BookId("b1"))?.userEditedFields shouldBe emptySet()
+            }
+        }
+
+        test("Created event persists the audio-stream fields from the payload") {
+            withTestHandler { handler, db ->
+                val payload =
+                    bookPayload(
+                        id = "b1",
+                        audioFiles =
+                            listOf(
+                                BookAudioFilePayload(
+                                    id = "af1",
+                                    index = 0,
+                                    filename = "01.m4b",
+                                    format = "m4b",
+                                    codec = "ac4",
+                                    duration = 100L,
+                                    size = 1024L,
+                                    codecProfile = null,
+                                    spatial = "atmos",
+                                    bitrate = 320_000,
+                                    sampleRate = 48_000,
+                                    channels = 2,
+                                ),
+                            ),
+                    )
+                handler
+                    .onEvent(created(payload), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val row = db.audioFileDao().getForBook("b1").single()
+                row.spatial shouldBe "atmos"
+                row.bitrate shouldBe 320_000
+                row.sampleRate shouldBe 48_000
+                row.channels shouldBe 2
+                row.codecProfile shouldBe null
+            }
+        }
+
+        test("Updated event replaces book document rows wholesale, ordered by index") {
+            withTestHandler { handler, db ->
+                val initial = bookPayload(id = "b1", documents = (1..4).map { document(it) })
+                handler
+                    .onEvent(created(initial), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                db.bookDocumentDao().getForBook("b1").size shouldBe 4
+
+                val updated = initial.copy(revision = 2, documents = (1..2).map { document(it) })
+                handler
+                    .onEvent(updatedEvent(updated), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                val docs = db.bookDocumentDao().getForBook("b1")
+                docs.map { it.id } shouldBe listOf("doc1", "doc2")
+                docs.first().filename shouldBe "doc1.pdf"
+                docs.first().format shouldBe "pdf"
+                docs.first().hash shouldBe "h1"
+            }
+        }
+
+        test("rescan that rotates a document id GCs the orphaned cache file for the old id (#699)") {
+            withGcHandler { handler, _, storage ->
+                handler
+                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // Server mints a fresh UUID on rescan: doc1 -> doc2 for the same file.
+                handler
+                    .onEvent(
+                        updatedEvent(bookPayload(id = "b1", revision = 2, documents = listOf(document(2)))),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                // The stranded old-id cache file is collected; the new current row is not.
+                storage.deletedKeys shouldBe listOf(Triple("b1", "doc1", "pdf"))
+            }
+        }
+
+        test("rescan that keeps the same document ids touches no cache files (#699)") {
+            withGcHandler { handler, _, storage ->
+                handler
+                    .onEvent(created(bookPayload(id = "b1", documents = listOf(document(1)))), isOwnEcho = false)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                handler
+                    .onEvent(
+                        updatedEvent(bookPayload(id = "b1", revision = 2, documents = listOf(document(1)))),
+                        isOwnEcho = false,
+                    ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                storage.deletedKeys shouldBe emptyList()
+            }
+        }
+
+        test("isOwnEcho updates only revision and updatedAt, leaves child rows untouched") {
+            withTestHandler { handler, db ->
+                val echoedUpdatedAt = 200L
+                val initialChapters = (1..5).map { chapter(it) }
+                val initial =
+                    bookPayload(
+                        id = "b1",
+                        title = "Way of Kings",
+                        revision = 1,
+                        updatedAt = 100L,
+                        chapters = initialChapters,
+                    )
+                handler.onEvent(created(initial), isOwnEcho = false)
+
+                val echoed =
+                    initial.copy(
+                        title = "Mutated Title",
+                        revision = 2,
+                        updatedAt = echoedUpdatedAt,
+                        chapters = listOf(chapter(99)), // different child list
+                    )
+                handler.onEvent(updatedEvent(echoed), isOwnEcho = true)
+
+                val row = db.bookDao().getById(BookId("b1"))
+                row shouldNotBe null
+                row!!.title shouldBe "Way of Kings"
+                row.revision shouldBe 2L
+                row.updatedAt shouldBe Timestamp(echoedUpdatedAt)
+
+                // Child rows must not have been replaced — echo fast-path skips child writes.
+                val chapters = db.chapterDao().getChaptersForBook(BookId("b1"))
+                chapters.size shouldBe 5
+                chapters.map { it.id.value }.sorted() shouldBe initialChapters.map { it.id }.sorted()
+            }
+        }
+
+        test("book handler does not clobber an existing contributor row") {
+            withTestHandler { handler, db ->
+                db.contributorDao().upsert(
+                    contributorEntity(id = "c1", name = "Canonical Name", description = "A prolific author."),
+                )
+                val payload =
+                    bookPayload(
+                        id = "b1",
+                        contributors = listOf(contrib(id = "c1", name = "Stale Embedded Name")),
+                    )
+                handler.onEvent(created(payload), isOwnEcho = false)
+
+                // The contributor domain owns this row — the book payload's
+                // embedded name must NOT overwrite it.
+                val contributor = db.contributorDao().getById("c1")!!
+                contributor.name shouldBe "Canonical Name"
+                contributor.description shouldBe "A prolific author."
+            }
+        }
+
+        test("book handler inserts a bootstrap stub for a missing contributor") {
+            withTestHandler { handler, db ->
+                val payload =
+                    bookPayload(
+                        id = "b1",
+                        contributors = listOf(contrib(id = "c9", name = "Newly Seen Author")),
+                    )
+                handler.onEvent(created(payload), isOwnEcho = false)
+
+                val stub = db.contributorDao().getById("c9")
+                stub shouldNotBe null
+                stub!!.name shouldBe "Newly Seen Author"
+                stub.revision shouldBe 0L // sentinel — real revision arrives via the contributors domain
+            }
+        }
+
+        test("onCatchUpItem with isTombstone soft-deletes the book") {
+            withTestHandler { handler, db ->
+                val initial = bookPayload(id = "b1")
+                handler.onEvent(created(initial), isOwnEcho = false)
+
+                handler
+                    .onCatchUpItem(initial.copy(deletedAt = 100L), isTombstone = true)
+                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                db.bookDao().getById(BookId("b1"))?.deletedAt shouldBe 100L
+            }
+        }
+
+        test("handler self-registers under domainName 'books'") {
+            val registry = ClientSyncDomainRegistry()
+            val db = createInMemoryTestDatabase()
+            try {
+                val handler =
+                    booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                        .toHandler(transactionRunner = RoomTransactionRunner(db), registry = registry)
+                handler.domainName shouldBe "books"
+                registry.lookup("books") shouldBe handler
+            } finally {
+                db.close()
+            }
+        }
+
+        test("escaped exception inside atomically maps to AppResult.Failure(SyncFailed)") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val throwingRunner =
+                        object : TransactionRunner {
+                            override suspend fun <R> atomically(block: suspend () -> R): R {
+                                error("simulated storage failure")
+                            }
+                        }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                            .toHandler(transactionRunner = throwingRunner, registry = ClientSyncDomainRegistry())
+
+                    val result = handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<SyncError.SyncFailed>()
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("CancellationException inside atomically is re-thrown, not swallowed") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val cancellingRunner =
+                        object : TransactionRunner {
+                            override suspend fun <R> atomically(block: suspend () -> R): R = throw CancellationException("cancelled")
+                        }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                            .toHandler(transactionRunner = cancellingRunner, registry = ClientSyncDomainRegistry())
+
+                    var threw: Throwable? = null
+                    try {
+                        handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                    } catch (e: CancellationException) {
+                        threw = e
+                    }
+
+                    threw.shouldBeInstanceOf<CancellationException>()
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        // The cover-staleness fix: a re-covered book gets a new content hash on the wire. The local
+        // cover file is id-named and never otherwise re-downloaded, so it must be dropped here, or the
+        // UI keeps rendering the old image even across a restart.
+        test("a changed cover hash drops the stale local cover file") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                        isOwnEcho = false,
+                    )
+                    handler.onEvent(
+                        updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                        isOwnEcho = false,
+                    )
+
+                    verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteCover(BookId("b1")) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("an unchanged cover hash leaves the local cover in place") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                        isOwnEcho = false,
+                    )
+                    // Same cover hash, different title — a real update that must NOT touch the cover file.
+                    handler.onEvent(
+                        updatedEvent(
+                            bookPayload(id = "b1").copy(title = "Renamed", cover = CoverPayload(CoverSource.ENRICHED, "h1")),
+                        ),
+                        isOwnEcho = false,
+                    )
+
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteCover(any()) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+    })
+
+/**
+ * Builds an in-memory [ListenUpDatabase], a fresh handler backed by a real
+ * [RoomTransactionRunner], runs [block] inside [runTest], and closes the database
+ * afterwards. Each invocation is fully isolated.
+ */
+private fun withTestHandler(block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase) -> Unit) =
+    runTest {
+        val db = createInMemoryTestDatabase()
+        try {
+            val handler =
+                booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = stubImageStorage())
+                    .toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+            block(handler, db)
+        } finally {
+            db.close()
+        }
+    }
+
+/**
+ * Like [withTestHandler] but injects a [RecordingDocumentStorage] so document-cache GC
+ * can be asserted. The storage is exposed to the block.
+ */
+private fun withGcHandler(
+    block: suspend (SyncDomainHandler<BookSyncPayload>, ListenUpDatabase, RecordingDocumentStorage) -> Unit,
+) = runTest {
+    val db = createInMemoryTestDatabase()
+    try {
+        val storage = RecordingDocumentStorage()
+        val handler =
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
+                documentStorage = storage,
+            ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+        block(handler, db, storage)
+    } finally {
+        db.close()
+    }
+}
+
+/** In-memory [DocumentStorage] that records every [deleteCached] call as a (bookId, docId, format) triple. */
+private class RecordingDocumentStorage : DocumentStorage {
+    val deletedKeys: MutableList<Triple<String, String, String>> = mutableListOf()
+
+    override fun pathFor(
+        bookId: String,
+        docId: String,
+        format: String,
+    ): String = "$bookId/$docId.$format"
+
+    override fun exists(path: String): Boolean = false
+
+    override suspend fun write(
+        path: String,
+        bytes: ByteArray,
+    ) = Unit
+
+    override suspend fun deleteCached(
+        bookId: String,
+        docId: String,
+        format: String,
+    ) {
+        deletedKeys += Triple(bookId, docId, format)
+    }
+}
+
+private fun created(payload: BookSyncPayload): SyncEvent.Created<BookSyncPayload> =
+    SyncEvent.Created(
+        id = payload.id,
+        revision = payload.revision,
+        occurredAt = payload.updatedAt,
+        clientOpId = null,
+        payload = payload,
+    )
+
+private fun updatedEvent(payload: BookSyncPayload): SyncEvent.Updated<BookSyncPayload> =
+    SyncEvent.Updated(
+        id = payload.id,
+        revision = payload.revision,
+        occurredAt = payload.updatedAt,
+        clientOpId = null,
+        payload = payload,
+    )
+
+private fun chapter(index: Int): BookChapterPayload =
+    BookChapterPayload(
+        id = "ch$index",
+        title = "Chapter $index",
+        duration = 60_000L,
+        startTime = (index - 1) * 60_000L,
+    )
+
+private fun document(index: Int): BookDocumentPayload =
+    BookDocumentPayload(
+        id = "doc$index",
+        index = index - 1,
+        filename = "doc$index.pdf",
+        format = "pdf",
+        size = (index * 100).toLong(),
+        hash = "h$index",
+    )
+
+private fun contrib(
+    id: String,
+    name: String,
+): BookContributorPayload =
+    BookContributorPayload(
+        id = id,
+        name = name,
+        sortName = name,
+        role = "author",
+        creditedAs = null,
+    )
+
+private fun contributorEntity(
+    id: String,
+    name: String,
+    description: String?,
+): ContributorEntity =
+    ContributorEntity(
+        id = ContributorId(id),
+        name = name,
+        sortName = name,
+        description = description,
+        imagePath = null,
+        createdAt = Timestamp(1L),
+        updatedAt = Timestamp(1L),
+    )
+
+private fun bookPayload(
+    id: String,
+    title: String = "Test Book",
+    revision: Long = 1L,
+    updatedAt: Long = 100L,
+    chapters: List<BookChapterPayload> = emptyList(),
+    contributors: List<BookContributorPayload> = emptyList(),
+    series: List<BookSeriesPayload> = emptyList(),
+    audioFiles: List<BookAudioFilePayload> = emptyList(),
+    documents: List<BookDocumentPayload> = emptyList(),
+): BookSyncPayload =
+    BookSyncPayload(
+        id = id,
+        libraryId = LibraryId("test-library"),
+        folderId = FolderId("test-folder"),
+        title = title,
+        sortTitle = title,
+        subtitle = null,
+        description = null,
+        publishYear = null,
+        publisher = null,
+        language = null,
+        isbn = null,
+        asin = null,
+        abridged = false,
+        explicit = false,
+        totalDuration = 3_600_000L,
+        cover = null,
+        rootRelPath = "books/$id",
+        inode = null,
+        scannedAt = 1L,
+        contributors = contributors,
+        series = series,
+        audioFiles = audioFiles,
+        chapters = chapters,
+        documents = documents,
+        revision = revision,
+        updatedAt = updatedAt,
+        createdAt = 1L,
+        deletedAt = null,
+    )

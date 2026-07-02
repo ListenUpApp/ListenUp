@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.auth.Auth
@@ -164,6 +166,13 @@ internal class KtorApiClientFactory(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,
+    /**
+     * Test-only engine override. `null` (production) selects the platform-default
+     * engine; tests inject a `MockEngine` so the real client configuration —
+     * bearer plugin, refresh bridge, retry policy, HttpSend interceptor — can be
+     * driven without a network.
+     */
+    private val engine: HttpClientEngine? = null,
 ) : ApiClientFactory {
     private val mutex = Mutex()
     private var cachedClient: HttpClient? = null
@@ -242,80 +251,80 @@ internal class KtorApiClientFactory(
 
         logger.info { "Creating HTTP client for server: ${initialUrl.value}" }
 
-        val client =
-            HttpClient {
-                installListenUpErrorHandling()
+        val config: HttpClientConfig<*>.() -> Unit = {
+            installListenUpErrorHandling()
 
-                install(ContentNegotiation) {
-                    json(appJson)
+            install(ContentNegotiation) {
+                json(appJson)
+            }
+
+            // Install HttpTimeout plugin to allow per-request timeout configuration
+            // Default timeouts for regular API calls (SSE uses separate client)
+            @Suppress("MagicNumber")
+            install(HttpTimeout) {
+                requestTimeoutMillis = 30_000
+                connectTimeoutMillis = 10_000
+                socketTimeoutMillis = 30_000
+            }
+
+            // Keepalive for the kotlinx.rpc WebSockets (installKrpc opens its sessions over this
+            // base client). Without pings, a half-open / "black-hole" socket is never detected and
+            // an in-flight RPC call awaits its response forever — the contributor-merge hang. A
+            // periodic ping fails the dead session so the call surfaces an error instead of spinning.
+            install(WebSockets) {
+                pingIntervalMillis = WS_PING_INTERVAL_MS
+            }
+
+            // Retry idempotent requests on 5xx responses and transient IO failures.
+            // POST/PATCH are never retried — callers must treat them as at-most-once
+            // or implement their own idempotency keys. See Finding 04 D3.
+            @Suppress("MagicNumber")
+            install(HttpRequestRetry) {
+                retryIf(maxRetries = 3) { request, response ->
+                    request.method in IDEMPOTENT_METHODS && response.status.value in 500..599
                 }
-
-                // Install HttpTimeout plugin to allow per-request timeout configuration
-                // Default timeouts for regular API calls (SSE uses separate client)
-                @Suppress("MagicNumber")
-                install(HttpTimeout) {
-                    requestTimeoutMillis = 30_000
-                    connectTimeoutMillis = 10_000
-                    socketTimeoutMillis = 30_000
+                retryOnExceptionIf(maxRetries = 3) { request, cause ->
+                    request.method in IDEMPOTENT_METHODS &&
+                        (cause is IOException || cause is HttpRequestTimeoutException)
                 }
+                exponentialDelay(base = 2.0, maxDelayMs = 10_000L)
+            }
 
-                // Keepalive for the kotlinx.rpc WebSockets (installKrpc opens its sessions over this
-                // base client). Without pings, a half-open / "black-hole" socket is never detected and
-                // an in-flight RPC call awaits its response forever — the contributor-merge hang. A
-                // periodic ping fails the dead session so the call surfaces an error instead of spinning.
-                install(WebSockets) {
-                    pingIntervalMillis = WS_PING_INTERVAL_MS
-                }
+            install(Auth) {
+                bearer {
+                    // Load initial tokens from storage
+                    loadTokens {
+                        val access = authSession.getAccessToken()?.value
+                        val refresh = authSession.getRefreshToken()?.value
 
-                // Retry idempotent requests on 5xx responses and transient IO failures.
-                // POST/PATCH are never retried — callers must treat them as at-most-once
-                // or implement their own idempotency keys. See Finding 04 D3.
-                @Suppress("MagicNumber")
-                install(HttpRequestRetry) {
-                    retryIf(maxRetries = 3) { request, response ->
-                        request.method in IDEMPOTENT_METHODS && response.status.value in 500..599
-                    }
-                    retryOnExceptionIf(maxRetries = 3) { request, cause ->
-                        request.method in IDEMPOTENT_METHODS &&
-                            (cause is IOException || cause is HttpRequestTimeoutException)
-                    }
-                    exponentialDelay(base = 2.0, maxDelayMs = 10_000L)
-                }
-
-                install(Auth) {
-                    bearer {
-                        // Load initial tokens from storage
-                        loadTokens {
-                            val access = authSession.getAccessToken()?.value
-                            val refresh = authSession.getRefreshToken()?.value
-
-                            if (access != null && refresh != null) {
-                                BearerTokens(
-                                    accessToken = access,
-                                    refreshToken = refresh,
-                                )
-                            } else {
-                                null
-                            }
+                        if (access != null && refresh != null) {
+                            BearerTokens(
+                                accessToken = access,
+                                refreshToken = refresh,
+                            )
+                        } else {
+                            null
                         }
-
-                        // Refresh tokens when receiving 401 Unauthorized
-                        refreshTokens {
-                            refreshAuthTokens(authSession, refreshAccessToken)
-                        }
-
-                        // Send bearer for every request EXCEPT auth endpoints (login, refresh,
-                        // logout) — those authenticate themselves via request body, and
-                        // attaching a bearer would trigger a refresh loop. See Finding 04 D2.
-                        sendWithoutRequest { request -> !isAuthEndpoint(request) }
                     }
-                }
 
-                defaultRequest {
-                    url(initialUrl.value)
-                    contentType(ContentType.Application.Json)
+                    // Refresh tokens when receiving 401 Unauthorized
+                    refreshTokens {
+                        refreshAuthTokens(authSession, refreshAccessToken)
+                    }
+
+                    // Send bearer for every request EXCEPT auth endpoints (login, refresh,
+                    // logout) — those authenticate themselves via request body, and
+                    // attaching a bearer would trigger a refresh loop. See Finding 04 D2.
+                    sendWithoutRequest { request -> !isAuthEndpoint(request) }
                 }
             }
+
+            defaultRequest {
+                url(initialUrl.value)
+                contentType(ContentType.Application.Json)
+            }
+        }
+        val client = engine?.let { HttpClient(it, config) } ?: HttpClient(config)
 
         // Install HttpSend interceptor for dynamic URL resolution and fallback.
         // Skipped for WebSocket upgrades: kotlinx.rpc opens RPC sessions over

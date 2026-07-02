@@ -9,7 +9,8 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -112,7 +113,7 @@ class ContributorRepositoryFallbackTest :
     })
 
 /**
- * Builds an in-memory database, a real [ContributorSyncDomainHandler] for
+ * Builds an in-memory database, a real [contributorsDomain] handler for
  * write-through, a [ContributorRepositoryImpl] wired with mocked RPC + network,
  * runs [block], and closes the database afterwards.
  */
@@ -133,7 +134,8 @@ private fun withTestRepo(
         every { imageStorage.exists(any()) } returns false
 
         val transactionRunner = RoomTransactionRunner(db)
-        val syncHandler = ContributorSyncDomainHandler(db, transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
+        val syncHandler =
+            contributorsDomain(db, stubImageStorage()).toHandler(transactionRunner, ClientSyncDomainRegistry())
 
         val repo =
             ContributorRepositoryImpl(
@@ -159,7 +161,8 @@ private suspend fun seedRoom(
     id: String,
     name: String,
 ) {
-    val handler = ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry())
+    val handler =
+        contributorsDomain(db, stubImageStorage()).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
     handler.onCatchUpItem(payload(id = id, name = name), isTombstone = false)
 }
 

@@ -9,10 +9,10 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.MoodRpcFactory
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.moodsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -169,7 +169,8 @@ private suspend fun seedMood(
     name: String,
     slug: String,
 ) {
-    MoodSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+    moodsDomain(db)
+        .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
         .onCatchUpItem(
             WireMood(id = id, name = name, slug = slug, revision = 1L, updatedAt = 100L, deletedAt = null),
             isTombstone = false,
@@ -181,7 +182,8 @@ private suspend fun seedBookMood(
     bookId: String,
     moodId: String,
 ) {
-    BookMoodSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+    bookMoodsDomain(db)
+        .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
         .onCatchUpItem(
             BookMoodSyncPayload(
                 bookId = bookId,

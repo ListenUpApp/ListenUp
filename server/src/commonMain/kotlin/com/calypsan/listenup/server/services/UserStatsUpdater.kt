@@ -49,7 +49,7 @@ class UserStatsUpdater(
     ): Long {
         val cutoffMs = asOfMs - days * 86_400_000L
         return suspendTransaction(sql) {
-            sql.listeningEventsQueries.sumWallSecondsSince(userId, cutoffMs).executeAsOne()
+            sql.listeningEventsQueries.sumWallSecondsSince(userId = userId, cutoffMs = cutoffMs).executeAsOne()
         }
     }
 }

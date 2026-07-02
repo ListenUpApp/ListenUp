@@ -27,7 +27,7 @@ internal val settingsModule: Module =
 
         // Settings repository — everything *non-auth*: server-URL plumbing, library identity,
         // library + playback preferences, device-local UI preferences. Emits preference change
-        // events for PreferencesSyncObserver (in clientSyncRenovationModule) to consume without circular deps.
+        // events for PreferencesSyncObserver (in clientSyncModule) to consume without circular deps.
         single {
             val scope = this
             SettingsRepositoryImpl(

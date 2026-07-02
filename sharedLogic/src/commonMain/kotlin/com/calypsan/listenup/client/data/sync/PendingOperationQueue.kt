@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 
 private val logger = KotlinLogging.logger {}
@@ -233,6 +234,32 @@ internal class PendingOperationQueue(
     /** Live count of ops past [MAX_RETRYABLE_ATTEMPTS]. Engine forwards to `SyncEngineState`. */
     fun observeFailureCount(): Flow<Int> = dao.observeFailureCount()
 
+    /** Live snapshots of ops still within retry budget, oldest first. */
+    fun observePendingOperations(): Flow<List<PendingOperation>> =
+        dao.observePending().map { rows -> rows.map { it.toDomain() } }
+
+    /** Live snapshots of terminally failed ops (past [MAX_RETRYABLE_ATTEMPTS]), oldest first. */
+    fun observeFailedOperations(): Flow<List<PendingOperation>> =
+        dao.observeFailed().map { rows -> rows.map { it.toDomain() } }
+
+    /**
+     * Re-arm a terminally failed op and tick the enqueue signal so the engine
+     * schedules a drain wave (the same trigger a fresh [enqueue] uses). If the
+     * op fails non-retryably again it returns to the terminal state.
+     */
+    suspend fun retryOp(clientOpId: String) {
+        dao.resetFailureCount(clientOpId)
+        enqueueCounter.update { it + 1 }
+    }
+
+    /**
+     * Drop an op permanently. The optimistic local edit stays in Room; it
+     * reconciles to server truth on the next catch-up/reconcile pass.
+     */
+    suspend fun dismissOp(clientOpId: String) {
+        dao.delete(clientOpId)
+    }
+
     /**
      * Wipe ops not owned by [currentUserId]. Called by `SyncEngine.start` when
      * the signed-in user differs from the one whose ops are queued. Same-user
@@ -252,5 +279,6 @@ internal class PendingOperationQueue(
             enqueuedAt = enqueuedAt,
             failureCount = failureCount,
             ownerUserId = ownerUserId,
+            lastError = lastError,
         )
 }

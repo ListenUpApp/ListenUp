@@ -13,4 +13,6 @@ internal data class PendingOperation(
     val enqueuedAt: Long,
     val failureCount: Int,
     val ownerUserId: String,
+    /** Stable [com.calypsan.listenup.api.error.AppError.code] of the last failure, if any. */
+    val lastError: String? = null,
 )

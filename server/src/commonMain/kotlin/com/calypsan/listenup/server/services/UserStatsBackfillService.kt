@@ -1,15 +1,12 @@
 package com.calypsan.listenup.server.services
 
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
+import com.calypsan.listenup.domain.stats.StreakReducer
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import kotlin.math.max
 import kotlin.time.Clock
 import kotlin.time.Instant
-import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.minus
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -52,30 +49,16 @@ class UserStatsBackfillService(
         val userTz = sql.homeTimeZone(userId)
         var totalAllTime = 0L
         val distinctBooks = mutableSetOf<String>()
-        var lastDate: LocalDate? = null
-        var currentStreak = 0
-        var longestStreak = 0
+        val listeningDays = ArrayList<LocalDate>(events.size)
 
         for (event in events) {
-            val wallSeconds = (event.ended_at - event.started_at) / 1_000L
-            totalAllTime += wallSeconds
+            totalAllTime += (event.ended_at - event.started_at) / 1_000L
             distinctBooks.add(event.book_id)
-
-            val eventDate =
+            listeningDays +=
                 Instant
                     .fromEpochMilliseconds(event.ended_at)
                     .toLocalDateTime(userTz)
                     .date
-
-            currentStreak =
-                when {
-                    lastDate == null -> 1
-                    eventDate == lastDate -> currentStreak.coerceAtLeast(1)
-                    eventDate == lastDate.plus(DatePeriod(days = 1)) -> currentStreak + 1
-                    else -> 1
-                }
-            longestStreak = max(longestStreak, currentStreak)
-            lastDate = eventDate
         }
 
         // 3. Rolling-window sums against nowMs.
@@ -85,9 +68,9 @@ class UserStatsBackfillService(
         var last30 = 0L
         for (event in events) {
             val endedAtMs = event.ended_at
-            val wallSeconds = (endedAtMs - event.started_at) / 1_000L
-            if (endedAtMs >= cutoff7) last7 += wallSeconds
-            if (endedAtMs >= cutoff30) last30 += wallSeconds
+            // Clip a span straddling the cutoff to its post-cutoff seconds, matching sumWallSecondsSince.
+            if (endedAtMs >= cutoff7) last7 += (endedAtMs - maxOf(event.started_at, cutoff7)) / 1_000L
+            if (endedAtMs >= cutoff30) last30 += (endedAtMs - maxOf(event.started_at, cutoff30)) / 1_000L
         }
 
         // 4. Count finished positions (non-deleted) for this user.
@@ -99,16 +82,11 @@ class UserStatsBackfillService(
                     .toInt()
             }
 
-        // 5. The walk's currentStreak is the streak as of lastDate; the *current* streak is only that
-        // value if the last event was today or yesterday — otherwise the streak has lapsed. "Today"
-        // is resolved in the user's home timezone (same frame as the walk above), not the per-event tz.
+        // 5. Current + longest streak via the shared reducer, resolved as-of-today in the user's home
+        // timezone (same frame as the day extraction above). The reducer decays `current` to 0 when the
+        // most recent listening day is older than yesterday, so a lapsed user's streak self-corrects.
         val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(userTz).date
-        val currentStreakAsOfToday =
-            when {
-                lastDate == null -> 0
-                lastDate == today || lastDate == today.minus(DatePeriod(days = 1)) -> currentStreak
-                else -> 0
-            }
+        val streaks = StreakReducer.reduce(listeningDays, today)
 
         // 6. Upsert the rebuilt row. The substrate assigns revision and timestamps.
         val rebuilt =
@@ -119,9 +97,9 @@ class UserStatsBackfillService(
                 totalSecondsLast30Days = last30,
                 booksStarted = distinctBooks.size,
                 booksFinished = booksFinished,
-                currentStreakDays = currentStreakAsOfToday,
-                longestStreakDays = longestStreak,
-                lastEventDate = lastDate?.toString(),
+                currentStreakDays = streaks.current,
+                longestStreakDays = streaks.longest,
+                lastEventDate = listeningDays.lastOrNull()?.toString(),
                 revision = 0L,
                 updatedAt = 0L,
                 createdAt = 0L,

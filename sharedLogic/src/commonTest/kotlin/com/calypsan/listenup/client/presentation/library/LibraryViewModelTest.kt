@@ -33,8 +33,10 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.kotest.matchers.types.shouldBeSameInstanceAs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -1179,6 +1181,117 @@ class LibraryViewModelTest :
                 // Then — the change is reflected in the settled uiState
                 val loaded = viewModel.uiState.value as LibraryUiState.Loaded
                 loaded.syncState shouldBe SyncState.Syncing
+            }
+        }
+
+        // ========== Progress-overlay tests (no re-sort on position ticks) ==========
+
+        test("progress-only update preserves sorted list identity (no re-sort)") {
+            runTest {
+                // Given — two books, positions arrive via a hot flow so we can tick them later
+                val books =
+                    listOf(
+                        createTestBook(id = "1", title = "Zebra", duration = 10_000L),
+                        createTestBook(id = "2", title = "Apple", duration = 10_000L),
+                    )
+                val positionsFlow = MutableStateFlow<Map<BookId, PlaybackPosition>>(emptyMap())
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns flowOf(books)
+                every { fixture.playbackPositionRepository.observeAll() } returns positionsFlow
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+                val before = viewModel.uiState.value as LibraryUiState.Loaded
+                before.books.map { it.title } shouldBe listOf("Apple", "Zebra")
+
+                // When — a playback-position tick arrives (progress-only change)
+                positionsFlow.value =
+                    mapOf(
+                        BookId("1") to
+                            PlaybackPosition(
+                                bookId = "1",
+                                positionMs = 5_000L, // 50%
+                                playbackSpeed = 1.0f,
+                                hasCustomSpeed = false,
+                                updatedAtMs = 0L,
+                                syncedAtMs = null,
+                                lastPlayedAtMs = null,
+                            ),
+                    )
+                advanceUntilIdle()
+
+                // Then — progress IS reflected in new state...
+                val after = viewModel.uiState.value as LibraryUiState.Loaded
+                after.bookProgress[BookId("1")] shouldBe 0.5f
+                // ...but the sorted lists are the SAME instances: the sort stage did not
+                // re-run (every applicable sort branch allocates a fresh list via .map).
+                after.books shouldBeSameInstanceAs before.books
+                after.series shouldBeSameInstanceAs before.series
+                after.authors shouldBeSameInstanceAs before.authors
+                after.narrators shouldBeSameInstanceAs before.narrators
+            }
+        }
+
+        test("content change still re-sorts books") {
+            runTest {
+                // Given — books arrive via a hot shared flow so we can push a second list
+                val booksFlow = MutableSharedFlow<List<BookListItem>>(replay = 1)
+                booksFlow.tryEmit(
+                    listOf(
+                        createTestBook(id = "1", title = "Zebra"),
+                        createTestBook(id = "2", title = "Apple"),
+                    ),
+                )
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns booksFlow
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+                (viewModel.uiState.value as LibraryUiState.Loaded).books.map { it.title } shouldBe
+                    listOf("Apple", "Zebra")
+
+                // When — a new book appears
+                booksFlow.tryEmit(
+                    listOf(
+                        createTestBook(id = "1", title = "Zebra"),
+                        createTestBook(id = "2", title = "Apple"),
+                        createTestBook(id = "3", title = "Mango"),
+                    ),
+                )
+                advanceUntilIdle()
+
+                // Then — the new list is sorted with the new content
+                val loaded = viewModel.uiState.value as LibraryUiState.Loaded
+                loaded.books.map { it.title } shouldBe listOf("Apple", "Mango", "Zebra")
+            }
+        }
+
+        test("structurally equal content re-emission preserves sorted list identity") {
+            runTest {
+                // Given — Room-style re-emission: same content, new list instance.
+                // MutableSharedFlow (unlike MutableStateFlow) does not dedupe equal values.
+                val booksFlow = MutableSharedFlow<List<BookListItem>>(replay = 1)
+                val makeBooks = {
+                    listOf(
+                        createTestBook(id = "1", title = "Zebra"),
+                        createTestBook(id = "2", title = "Apple"),
+                    )
+                }
+                booksFlow.tryEmit(makeBooks())
+                val fixture = createFixture()
+                every { fixture.bookRepository.observeBookListItems() } returns booksFlow
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.uiState.collect { } }
+                advanceUntilIdle()
+                val before = viewModel.uiState.value as LibraryUiState.Loaded
+
+                // When — an equal-but-new list is re-emitted
+                booksFlow.tryEmit(makeBooks())
+                advanceUntilIdle()
+
+                // Then — distinctUntilChanged on the sorted stage swallows the no-op
+                val after = viewModel.uiState.value as LibraryUiState.Loaded
+                after.books shouldBeSameInstanceAs before.books
             }
         }
     })

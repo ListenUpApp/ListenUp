@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.leaderboard.LeaderboardPeriod
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.StatsRepository
+import com.calypsan.listenup.domain.stats.StreakReducer
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -23,11 +24,8 @@ import kotlinx.coroutines.flow.map
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
-import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 
 private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
@@ -151,36 +149,9 @@ private fun computeStreaks(
     tz: TimeZone,
     today: LocalDate,
 ): Pair<Int, Int> {
-    if (endedAtMs.isEmpty()) return 0 to 0
-    // distinct().sorted() (multiplatform-safe; toSortedSet/TreeSet are JVM-only) → ascending unique days.
-    val days =
-        endedAtMs
-            .map { Instant.fromEpochMilliseconds(it).toLocalDateTime(tz).date }
-            .distinct()
-            .sorted()
-    val daySet = days.toSet()
-    var longest = 0
-    var run = 0
-    var prev: LocalDate? = null
-    for (d in days) {
-        run = if (prev != null && d == prev.plus(DatePeriod(days = 1))) run + 1 else 1
-        longest = maxOf(longest, run)
-        prev = d
-    }
-    val last = days.last()
-    val current =
-        if (last == today || last == today.minus(DatePeriod(days = 1))) {
-            var c = 0
-            var cursor = last
-            while (cursor in daySet) {
-                c++
-                cursor = cursor.minus(DatePeriod(days = 1))
-            }
-            c
-        } else {
-            0
-        }
-    return current to longest
+    val days = endedAtMs.map { Instant.fromEpochMilliseconds(it).toLocalDateTime(tz).date }
+    val streaks = StreakReducer.reduce(days, today)
+    return streaks.current to streaks.longest
 }
 
 /**

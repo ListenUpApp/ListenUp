@@ -30,6 +30,85 @@ class BookSearchReindexer(
     private val driver: SqlDriver,
 ) {
     /**
+     * Recomputes the FTS row for one book with its tag names pre-resolved.
+     * Must be called inside an open [suspendTransaction] — uses only synchronous
+     * generated queries. Silently no-ops when the book has no book_search_map row.
+     */
+    private fun reindexBookInOpenTransaction(
+        bookId: String,
+        tagsValue: String,
+    ) {
+        val rowid =
+            db.bookSearchQueries.selectRowidForBook(bookId).executeAsOneOrNull()
+                ?: return
+
+        // Read the existing FTS content from the source tables so we can re-insert
+        // all columns — FTS5 contentless tables don't store the original text.
+        val existing = db.bookSearchQueries.selectFtsSourceByRowid(rowid).executeAsOneOrNull()
+
+        // Live genre names via book_genres JOIN genres; tombstoned genres are filtered
+        // by the query (g.deleted_at IS NULL), name-ordered. Space-joined for FTS5 tokens.
+        val genresValue =
+            db.bookGenresQueries
+                .genreNamesForBook(bookId)
+                .executeAsList()
+                .joinToString(" ")
+
+        // FTS5 contentless_delete=1: delete old tokens first, then re-insert full 8-col row.
+        db.bookSearchQueries.deleteFtsRow(rowid)
+        db.bookSearchQueries.insertFtsRow(
+            rowid = rowid,
+            title = existing?.title ?: "",
+            subtitle = existing?.subtitle ?: "",
+            description = existing?.description ?: "",
+            contributor_names = existing?.contributor_names ?: "",
+            series_names = existing?.series_names ?: "",
+            tags = tagsValue,
+            genres = genresValue,
+        )
+    }
+
+    /**
+     * Recomputes the `book_search` FTS5 rows for every id in [bookIds].
+     *
+     * Tag names are resolved in two batched reads up front (junctions via
+     * [BookTagRepository.findAllForBooks], names via [TagRepository.findByIds]) —
+     * repository calls open their own transactions, so they must complete BEFORE
+     * the write transaction opens (nested [suspendTransaction] calls can land on
+     * a different connection and deadlock against the single writer). The
+     * delete+re-insert pairs then run in one transaction per [txChunkSize]-book
+     * chunk. Books without a `book_search_map` row are silently skipped, matching
+     * [reindexBook]. A mid-run failure rolls back only the current chunk;
+     * previously committed chunks remain — the operation is idempotent, re-run to
+     * complete.
+     */
+    suspend fun reindexBooks(
+        bookIds: List<String>,
+        txChunkSize: Int = REINDEX_TX_CHUNK,
+    ) {
+        if (bookIds.isEmpty()) return
+        val junctionsByBook = bookTagRepository.findAllForBooks(bookIds)
+        val tagIds =
+            junctionsByBook.values
+                .flatten()
+                .map { it.tagId }
+                .distinct()
+        val tagNameById = tagRepository.findByIds(tagIds).associate { it.id to it.name }
+        for (chunk in bookIds.chunked(txChunkSize)) {
+            suspendTransaction<Unit>(db) {
+                for (bookId in chunk) {
+                    val tagsValue =
+                        junctionsByBook[bookId]
+                            .orEmpty()
+                            .mapNotNull { tagNameById[it.tagId] }
+                            .joinToString(" ")
+                    reindexBookInOpenTransaction(bookId, tagsValue)
+                }
+            }
+        }
+    }
+
+    /**
      * Recomputes the `book_search` FTS5 row for [bookId] from the live source tables.
      *
      * `book_search` is a contentless FTS5 table with `contentless_delete=1` (V9/V21);
@@ -41,47 +120,7 @@ class BookSearchReindexer(
      * Safe to call when the book has no `book_search_map` row (never scanned, or
      * tombstoned) — the rowid lookup returns null and the call silently no-ops.
      */
-    suspend fun reindexBook(bookId: String) {
-        // Resolve live tag names for this book (through the already-SQLDelight repos).
-        val junctions = bookTagRepository.findAllForBook(bookId)
-        val tagNames =
-            junctions.mapNotNull { junc ->
-                tagRepository.findById(junc.tagId)?.name
-            }
-        val tagsValue = tagNames.joinToString(" ")
-
-        suspendTransaction<Unit>(db) {
-            // Resolve the FTS5 rowid via book_search_map. If absent, nothing to do.
-            val rowid =
-                db.bookSearchQueries.selectRowidForBook(bookId).executeAsOneOrNull()
-                    ?: return@suspendTransaction
-
-            // Read the existing FTS content from the source tables so we can re-insert
-            // all columns — FTS5 contentless tables don't store the original text.
-            val existing = db.bookSearchQueries.selectFtsSourceByRowid(rowid).executeAsOneOrNull()
-
-            // Live genre names via book_genres JOIN genres; tombstoned genres are filtered
-            // by the query (g.deleted_at IS NULL), name-ordered. Space-joined for FTS5 tokens.
-            val genresValue =
-                db.bookGenresQueries
-                    .genreNamesForBook(bookId)
-                    .executeAsList()
-                    .joinToString(" ")
-
-            // FTS5 contentless_delete=1: delete old tokens first, then re-insert full 8-col row.
-            db.bookSearchQueries.deleteFtsRow(rowid)
-            db.bookSearchQueries.insertFtsRow(
-                rowid = rowid,
-                title = existing?.title ?: "",
-                subtitle = existing?.subtitle ?: "",
-                description = existing?.description ?: "",
-                contributor_names = existing?.contributor_names ?: "",
-                series_names = existing?.series_names ?: "",
-                tags = tagsValue,
-                genres = genresValue,
-            )
-        }
-    }
+    suspend fun reindexBook(bookId: String) = reindexBooks(listOf(bookId))
 
     /**
      * Reindexes every book that currently has a live junction row for [tagId].
@@ -90,9 +129,7 @@ class BookSearchReindexer(
      */
     suspend fun reindexAllBooksForTag(tagId: String) {
         val bookIds = bookTagRepository.findBookIdsForTag(tagId)
-        for (bookId in bookIds) {
-            reindexBook(bookId)
-        }
+        reindexBooks(bookIds)
     }
 
     /**
@@ -108,9 +145,7 @@ class BookSearchReindexer(
                     .bookIdsForContributor(contributorId)
                     .executeAsList()
             }
-        for (bookId in bookIds) {
-            reindexBook(bookId)
-        }
+        reindexBooks(bookIds)
     }
 
     /**
@@ -124,9 +159,7 @@ class BookSearchReindexer(
                     .bookIdsForSeries(seriesId)
                     .executeAsList()
             }
-        for (bookId in bookIds) {
-            reindexBook(bookId)
-        }
+        reindexBooks(bookIds)
     }
 
     /**
@@ -143,9 +176,7 @@ class BookSearchReindexer(
                     .bookIdsForGenre(genreId)
                     .executeAsList()
             }
-        for (bookId in bookIds) {
-            reindexBook(bookId)
-        }
+        reindexBooks(bookIds)
     }
 
     /**
@@ -165,9 +196,7 @@ class BookSearchReindexer(
                     .booksForGenrePrefix(pathPrefix, Int.MAX_VALUE.toLong())
                     .executeAsList()
             }
-        for (bookId in bookIds) {
-            reindexBook(bookId)
-        }
+        reindexBooks(bookIds)
     }
 
     /**
@@ -270,4 +299,13 @@ class BookSearchReindexer(
                 parameters = 1,
                 binders = { bindString(0, contributorId) },
             ).value
+
+    private companion object {
+        /**
+         * Books per write transaction in [reindexBooks]. Large enough that a bulk
+         * reindex costs a handful of commits; small enough that one chunk's
+         * delete+insert churn doesn't monopolize SQLite's single write connection.
+         */
+        const val REINDEX_TX_CHUNK = 200
+    }
 }

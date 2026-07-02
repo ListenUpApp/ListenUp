@@ -54,6 +54,36 @@ internal interface PendingOperationV2Dao {
     fun observeFailureCount(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
 
     /**
+     * Live snapshots of ops still within retry budget, oldest first. Backs the
+     * sync indicator's visible pending list.
+     */
+    @Query(
+        """
+        SELECT * FROM pending_operation
+         WHERE failureCount <= :maxAttempts
+         ORDER BY enqueuedAt ASC
+        """,
+    )
+    fun observePending(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<List<PendingOperationV2Entity>>
+
+    /**
+     * Live snapshots of terminally failed ops (past [maxAttempts]), oldest first.
+     * Backs the sync indicator's failed-operations list.
+     */
+    @Query(
+        """
+        SELECT * FROM pending_operation
+         WHERE failureCount > :maxAttempts
+         ORDER BY enqueuedAt ASC
+        """,
+    )
+    fun observeFailed(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<List<PendingOperationV2Entity>>
+
+    /** Re-arm an op for dispatch: zero its retry budget and clear the stored error. */
+    @Query("UPDATE pending_operation SET failureCount = 0, lastError = NULL WHERE clientOpId = :clientOpId")
+    suspend fun resetFailureCount(clientOpId: String)
+
+    /**
      * Delete still-queued (within retry budget) ops for one (domain, entity, opType) slot.
      * Backs replace-on-enqueue coalescing; terminally-failed rows (failureCount > [maxAttempts])
      * are preserved — diagnostic state for the failed-operation surface, not superseded work.

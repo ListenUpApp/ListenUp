@@ -49,7 +49,8 @@ private val logger = KotlinLogging.logger {}
  * observable: when Room yields `null` (the series is not cached yet) and the
  * device is online, a single on-demand [SeriesService.getSeries] call is fired
  * and the result is written through Room via
- * [SeriesSyncDomainHandler.onCatchUpItem]. The Room Flow then re-emits with the
+ * [com.calypsan.listenup.client.data.sync.domains.seriesDomain]'s
+ * `onCatchUpItem`. The Room Flow then re-emits with the
  * now-present series. Offline cache misses skip the RPC entirely and stay `null`.
  *
  * @property seriesDao Room DAO for series operations
@@ -86,7 +87,8 @@ internal class SeriesRepositoryImpl(
      *
      * When Room yields `null` (the series is not yet cached) and the device is
      * online, fires a single on-demand [SeriesService.getSeries] fetch and writes
-     * the result through Room via [SeriesSyncDomainHandler]. The Room Flow then
+     * the result through Room via
+     * [com.calypsan.listenup.client.data.sync.domains.seriesDomain]. The Room Flow then
      * re-emits with the now-present series. The fetch is fired at most once per
      * collection — [attemptedFetch] guards against a persistently-null emission
      * re-firing the RPC on a loop. Offline cache misses and RPC failures degrade

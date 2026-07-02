@@ -1,12 +1,16 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.remote.KtorSeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.domain.usecase.series.UpdateSeriesUseCase
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
@@ -23,7 +27,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.SeriesApiContract] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
- *  - [com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.domains.seriesDomain] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  */
@@ -48,7 +52,8 @@ internal val seriesModule: Module =
                 networkMonitor = get(),
                 imageStorage = get(),
                 rpcFactory = get(),
-                seriesSyncHandler = get<com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler>(),
+                seriesSyncHandler =
+                    get<SyncDomainHandler<SeriesSyncPayload>>(named(SyncDomains.SERIES.name)),
             )
         }
 
