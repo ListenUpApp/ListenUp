@@ -30,7 +30,8 @@ private val logger = KotlinLogging.logger {}
  * **Tombstone handling.** The server does not emit listening-event tombstones,
  * but the substrate interface requires handling them. A tombstone received via
  * [onCatchUpItem] applies a soft-delete by `id` and revision; a [SyncEvent.Deleted]
- * at the SSE level is a no-op (same reasoning as [PlaybackPositionSyncDomainHandler]'s
+ * at the SSE level is a no-op (same reasoning as the
+ * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler's
  * Deleted handling — the catch-up pass converges it).
  *
  * **Ownership stamping.** The wire payload omits `userId` — the server only streams a

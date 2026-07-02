@@ -25,8 +25,8 @@ import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHand
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -206,8 +206,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            PlaybackPositionSyncDomainHandler(
-                database = clientDb,
+            playbackPositionsDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )

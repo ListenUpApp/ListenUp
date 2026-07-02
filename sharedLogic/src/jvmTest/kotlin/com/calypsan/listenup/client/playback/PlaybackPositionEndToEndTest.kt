@@ -32,7 +32,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * 1. **Server→client**: [serverPlaybackPositionRepository.recordPosition] publishes a
  *    per-user SSE event. The event crosses the real SSE firehose, the client
  *    [com.calypsan.listenup.client.data.sync.SyncEngine] routes it through the real
- *    [com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler],
+ *    [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
  *    and the row lands in the client's Room database — exactly the round-trip production
  *    performs. A non-zero `revision` on the landed row proves the row arrived through the
  *    domain-specific handler rather than as a stub.

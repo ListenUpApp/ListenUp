@@ -53,8 +53,9 @@ import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -615,7 +616,8 @@ private data class ServerRepositories(
 
 /**
  * Constructs and registers the real [BookSyncDomainHandler],
- * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
+ * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler],
+ * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
  * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
@@ -658,8 +660,7 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    PlaybackPositionSyncDomainHandler(
-        database = clientDb,
+    playbackPositionsDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
