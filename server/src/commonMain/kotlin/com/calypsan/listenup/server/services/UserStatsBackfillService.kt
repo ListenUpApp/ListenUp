@@ -85,9 +85,9 @@ class UserStatsBackfillService(
         var last30 = 0L
         for (event in events) {
             val endedAtMs = event.ended_at
-            val wallSeconds = (endedAtMs - event.started_at) / 1_000L
-            if (endedAtMs >= cutoff7) last7 += wallSeconds
-            if (endedAtMs >= cutoff30) last30 += wallSeconds
+            // Clip a span straddling the cutoff to its post-cutoff seconds, matching sumWallSecondsSince.
+            if (endedAtMs >= cutoff7) last7 += (endedAtMs - maxOf(event.started_at, cutoff7)) / 1_000L
+            if (endedAtMs >= cutoff30) last30 += (endedAtMs - maxOf(event.started_at, cutoff30)) / 1_000L
         }
 
         // 4. Count finished positions (non-deleted) for this user.
