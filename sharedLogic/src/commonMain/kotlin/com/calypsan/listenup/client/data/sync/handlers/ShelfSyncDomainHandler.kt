@@ -18,7 +18,7 @@ private val logger = KotlinLogging.logger {}
  * Applies server sync events into the Room `shelves` table. Shelves are user-scoped
  * own-data: the substrate already scopes pull/firehose queries to the caller's rows,
  * so this is a plain [SyncDomainHandler] — no [com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler]
- * access-reconcile (the [GenreSyncDomainHandler] precedent).
+ * access-reconcile (the [com.calypsan.listenup.client.data.sync.domains.genresDomain] precedent).
  *
  * Shelf rows carry the full wire payload on [SyncEvent.Created] and [SyncEvent.Updated];
  * [SyncEvent.Deleted] events soft-delete the row via

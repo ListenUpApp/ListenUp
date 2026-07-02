@@ -119,7 +119,7 @@ internal class BookMirrorApply(
 
     /**
      * Insert a minimal genre stub if the row is missing. Substrate's
-     * `GenreSyncDomainHandler` overwrites the stub on the next catch-up; until
+     * `genresDomain` overwrites the stub on the next catch-up; until
      * then the bootstrap row keeps the FK satisfied and the book renderable.
      */
     private suspend fun genreEnsureExists(payload: BookGenrePayload) {

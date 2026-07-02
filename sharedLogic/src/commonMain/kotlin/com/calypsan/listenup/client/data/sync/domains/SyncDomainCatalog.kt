@@ -32,6 +32,7 @@ internal fun syncDomainCatalog(
         mirrored =
             listOf(
                 tagsDomain(database = database),
+                genresDomain(database = database),
                 playbackPositionsDomain(database = database),
                 booksDomain(
                     database = database,

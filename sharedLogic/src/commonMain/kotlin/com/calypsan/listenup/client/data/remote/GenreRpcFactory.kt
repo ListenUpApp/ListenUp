@@ -16,7 +16,7 @@ import kotlinx.rpc.withService
  * (`createGenre`/`updateGenre`/`deleteGenre`/`moveGenre`/`mergeGenres`).
  *
  * Tree reads (list, getById, getChildren) come from the client Room mirror,
- * which the sync engine populates via [com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler] —
+ * which the sync engine populates via [com.calypsan.listenup.client.data.sync.domains.genresDomain] —
  * so the RPC factory is mutation-shaped, not read-shaped.
  *
  * An interface so repositories depend on a seam that fakes/mocks in tests —

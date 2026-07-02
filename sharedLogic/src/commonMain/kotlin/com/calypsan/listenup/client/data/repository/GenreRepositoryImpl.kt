@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
  *
  * Tree reads (`observeAll`, `getById`, …) come from the local Room mirror,
  * which the sync engine populates via the substrate's SSE stream and
- * [com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler].
+ * [com.calypsan.listenup.client.data.sync.domains.genresDomain].
  * `bookCount` on the returned [Genre] is computed at read time via JOIN on
  * `book_genres` — there is no denormalized column.
  *

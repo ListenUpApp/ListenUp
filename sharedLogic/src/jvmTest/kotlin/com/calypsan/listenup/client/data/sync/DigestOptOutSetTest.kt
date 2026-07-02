@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainH
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
@@ -61,7 +61,7 @@ class DigestOptOutSetTest :
                         registry = registry,
                     )
                     SeriesSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    GenreSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     ListeningEventSyncDomainHandler(
                         database = clientDb,

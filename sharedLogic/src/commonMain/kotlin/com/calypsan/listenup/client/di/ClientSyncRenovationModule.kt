@@ -53,7 +53,6 @@ import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandl
 import com.calypsan.listenup.client.data.sync.handlers.ShelfBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ShelfSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
@@ -300,13 +299,6 @@ internal val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             SeriesSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            GenreSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
