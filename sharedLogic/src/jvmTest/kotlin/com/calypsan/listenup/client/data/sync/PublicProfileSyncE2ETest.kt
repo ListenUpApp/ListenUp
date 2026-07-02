@@ -16,7 +16,8 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
 /**
  * Tier 3 e2e: one listening event on the server triggers [UserStatsUpdater] which calls
  * [com.calypsan.listenup.server.services.PublicProfileMaintainer.refresh], which publishes a
- * `public_profiles` SSE event. The client's [PublicProfileSyncDomainHandler] applies it into
+ * `public_profiles` SSE event. The client's [com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain]
+ * handler applies it into
  * Room, and [LeaderboardRepositoryImpl.observeSnapshot] surfaces it in the leaderboard.
  *
  * Tests the real chain end-to-end in a single process. The user must exist in the server

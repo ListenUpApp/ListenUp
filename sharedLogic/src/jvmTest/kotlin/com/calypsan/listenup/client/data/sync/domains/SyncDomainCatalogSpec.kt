@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -26,6 +27,7 @@ class SyncDomainCatalogSpec :
                     mapper = BookEntityMapper(),
                     imageStorage = stubImageStorage(),
                     authSession = FakeAuthSession(userId = "spec-user"),
+                    avatarDownloadRepository = StubAvatarDownloadRepository(),
                 )
             val names = catalog.mirrored.map { it.key.name }
             val known = SyncDomains.all.map { it.name }
@@ -34,3 +36,11 @@ class SyncDomainCatalogSpec :
             names.forEach { it shouldBeIn known }
         }
     })
+
+private class StubAvatarDownloadRepository : AvatarDownloadRepository {
+    override fun queueAvatarDownload(userId: String) = Unit
+
+    override fun queueAvatarForceRefresh(userId: String) = Unit
+
+    override suspend fun deleteAvatar(userId: String) = Unit
+}

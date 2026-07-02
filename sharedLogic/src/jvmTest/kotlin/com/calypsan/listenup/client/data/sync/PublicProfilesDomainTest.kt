@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -15,7 +16,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
-class PublicProfileSyncDomainHandlerTest :
+class PublicProfilesDomainTest :
     FunSpec({
 
         test("Created event upserts a new public_profiles row matching the payload") {
@@ -168,7 +169,9 @@ class PublicProfileSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = PublicProfileSyncDomainHandler(db, RoomTransactionRunner(db), FakeAvatarDownloadRepository(), registry)
+                val handler =
+                    publicProfilesDomain(db, FakeAvatarDownloadRepository())
+                        .toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "public_profiles"
                 registry.lookup("public_profiles") shouldBe handler
             } finally {
@@ -234,17 +237,13 @@ private class FakeAvatarDownloadRepository : AvatarDownloadRepository {
 
 private fun withHandler(
     fakeAvatarRepo: FakeAvatarDownloadRepository = FakeAvatarDownloadRepository(),
-    block: suspend (PublicProfileSyncDomainHandler, ListenUpDatabase) -> Unit,
+    block: suspend (SyncDomainHandler<PublicProfileSyncPayload>, ListenUpDatabase) -> Unit,
 ) = runTest {
     val db = createInMemoryTestDatabase()
     try {
         block(
-            PublicProfileSyncDomainHandler(
-                db,
-                RoomTransactionRunner(db),
-                fakeAvatarRepo,
-                ClientSyncDomainRegistry(),
-            ),
+            publicProfilesDomain(db, fakeAvatarRepo)
+                .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()),
             db,
         )
     } finally {

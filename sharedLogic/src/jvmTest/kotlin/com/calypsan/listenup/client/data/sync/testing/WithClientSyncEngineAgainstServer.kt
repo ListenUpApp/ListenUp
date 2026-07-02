@@ -58,7 +58,7 @@ import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
-import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -624,7 +624,7 @@ private data class ServerRepositories(
  * [com.calypsan.listenup.client.data.sync.domains.userStatsDomain] handler,
  * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
  * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] handler,
- * and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * and [com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain] handler into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
  * applying them into [clientDb] exactly as production does.
  */
@@ -669,9 +669,8 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    PublicProfileSyncDomainHandler(
+    publicProfilesDomain(
         database = clientDb,
-        transactionRunner = RoomTransactionRunner(clientDb),
         avatarDownloadRepository =
             object : AvatarDownloadRepository {
                 override fun queueAvatarDownload(userId: String) = Unit
@@ -680,8 +679,7 @@ private fun registerClientSyncHandlers(
 
                 override suspend fun deleteAvatar(userId: String) = Unit
             },
-        registry = registry,
-    )
+    ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
 }
 
 /**
