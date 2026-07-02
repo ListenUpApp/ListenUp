@@ -182,8 +182,8 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             profileRoutes(sql, avatarImageStore, publicProfileMaintainer)
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
+            scannerRoutes(scannerService, eventBus)
         }
-        scannerRoutes(scannerService, eventBus)
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
     }
