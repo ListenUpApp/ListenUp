@@ -237,6 +237,14 @@ internal val clientSyncModule =
                 imageStorage = get(),
                 authSession = get(),
                 avatarDownloadRepository = get(),
+                // The nudge tier's refresh strategies — the same closures that used to be
+                // the dispatcher's four nudge lambdas. Presence/activity ping their hot
+                // signals (social repos + activity feed collect them); server-info/preferences
+                // re-fetch through their repositories' write-through side effects.
+                pingPresence = { get<PresenceRefreshSignal>().ping() },
+                pingActivity = { get<ActivityRefreshSignal>().ping() },
+                refetchServerInfo = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
+                refetchPreferences = { val _ = get<UserPreferencesRepository>().getPreferences() },
                 documentStorage = get(),
             )
         }

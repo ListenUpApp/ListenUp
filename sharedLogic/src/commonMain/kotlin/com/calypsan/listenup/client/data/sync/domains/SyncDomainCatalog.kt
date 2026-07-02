@@ -10,13 +10,14 @@ import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 
 /**
- * The explicit list of every declared sync domain — the client's complete
- * sync rulebook in one value. Grows as Phase 2 migrates the remaining hand-written
- * handlers; when the migration completes, this list and the server's registrations
- * are asserted 1:1 by the completeness spec.
+ * The explicit list of every declared sync domain — the client's complete sync
+ * rulebook in one value. [mirrored] domains are Room-mirrored; [refreshed] domains
+ * are nudge-driven. The server's registrations are asserted 1:1 against [mirrored]
+ * by the completeness spec; the four [refreshed] triggers are asserted there too.
  */
 internal class SyncDomainCatalog(
     val mirrored: List<MirroredDomain<*>>,
+    val refreshed: List<RefreshedDomain>,
 )
 
 /**
@@ -30,6 +31,10 @@ internal fun syncDomainCatalog(
     imageStorage: ImageStorage,
     authSession: AuthSession,
     avatarDownloadRepository: AvatarDownloadRepository,
+    pingPresence: () -> Unit,
+    pingActivity: () -> Unit,
+    refetchServerInfo: suspend () -> Unit,
+    refetchPreferences: suspend () -> Unit,
     documentStorage: DocumentStorage? = null,
 ): SyncDomainCatalog =
     SyncDomainCatalog(
@@ -63,6 +68,13 @@ internal fun syncDomainCatalog(
                     documentStorage = documentStorage,
                 ),
                 adminUserRosterDomain(database = database),
+            ),
+        refreshed =
+            listOf(
+                presenceDomain(ping = pingPresence),
+                activityDomain(ping = pingActivity),
+                serverInfoDomain(refetch = refetchServerInfo),
+                preferencesDomain(refetch = refetchPreferences),
             ),
     )
 
