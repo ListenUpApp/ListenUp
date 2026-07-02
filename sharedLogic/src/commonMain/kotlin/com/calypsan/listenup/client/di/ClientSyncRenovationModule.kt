@@ -278,6 +278,15 @@ internal val clientSyncRenovationModule =
         // same instance by domain lookup so DI consumers and the SSE dispatcher share
         // one handler. The cast is safe: SyncDomains.BOOKS binds the "books" name to
         // BookSyncPayload in the contract.
+        //
+        // ⚠️ PHASE 2 LANDMINE: this binding is UNQUALIFIED, which only works while books
+        // is the sole consumer-injected SyncDomainHandler<*> single. Koin keys on the
+        // ERASED class (SyncDomainHandler::class), so a second such single — contributors
+        // and series are both consumer-injected today (ContributorModule, SeriesModule) and
+        // migrate in Phase 2 — collides on the same key and fails at graph construction.
+        // When migrating them, qualify ALL these bindings with named(SyncDomains.X.name)
+        // and add the matching qualifier to every consumer get(); do it uniformly in one
+        // pass (incl. the ios/macos PlaybackModules, CI-only compile).
         single<SyncDomainHandler<BookSyncPayload>> {
             val _ = get<ComposedHandlerRegistrar>()
             @Suppress("UNCHECKED_CAST")
