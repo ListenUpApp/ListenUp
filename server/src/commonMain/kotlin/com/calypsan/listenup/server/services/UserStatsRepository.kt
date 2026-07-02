@@ -209,21 +209,21 @@ class UserStatsRepository(
         limit: Int,
         extraWhere: SqlFragment?,
     ): Page<UserStatsSyncPayload> {
-        if (userId != null) refreshWindowsIfStale(userId)
+        if (userId != null) healStatsIfStale(userId)
         return super.pullSince(userId, cursor, limit, extraWhere)
     }
 
     /**
-     * Recomputes [userId]'s rolling windows when the stats row is older than
-     * [STATS_STALENESS_LIMIT_MS] — the lazy correction path described on [pullSince].
-     * A no-op when no updater is wired or the user has no stats row yet.
+     * Re-derives [userId]'s stats (rolling windows AND current streak) and refreshes the projection
+     * when the stats row is older than [STATS_STALENESS_LIMIT_MS] — the lazy correction path described
+     * on [pullSince]. A no-op when no updater is wired, the user has no stats row yet, or nothing drifted.
      */
-    private suspend fun refreshWindowsIfStale(userId: String) {
+    private suspend fun healStatsIfStale(userId: String) {
         val updater = userStatsUpdaterProvider() ?: return
         val existing = getForUser(userId) ?: return
         val now = clock.now().toEpochMilliseconds()
         if (now - existing.updatedAt > STATS_STALENESS_LIMIT_MS) {
-            updater.recomputeWindowsOnly(userId, asOfMs = now)
+            updater.healStaleStats(userId, asOfMs = now)
         }
     }
 

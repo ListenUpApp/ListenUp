@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
+import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
@@ -126,6 +127,7 @@ fun playbackModule(): Module =
             UserStatsUpdater(
                 sql = get<ListenUpDatabase>(),
                 userStatsRepo = get(),
+                publicProfileMaintainer = get(),
             )
         }
         single(createdAtStart = true) {
@@ -138,6 +140,7 @@ fun playbackModule(): Module =
         }
         single { UserStatsBackfillService(sql = get<ListenUpDatabase>(), userStatsRepo = get()) }
         single { ActiveSessionCleanupTask(sql = get(), bus = get()) }
+        single { StatsFreshnessSweepTask(sql = get(), updater = get()) }
         single<PlaybackService> {
             PlaybackServiceImpl(
                 bookRepository = get<BookRepository>(),

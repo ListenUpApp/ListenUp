@@ -1,13 +1,7 @@
 package com.calypsan.listenup.server.services
 
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
-import com.calypsan.listenup.domain.stats.StreakReducer
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlin.time.Instant
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.toLocalDateTime
 
 /**
  * Rebuilds the materialized `user_stats` row from scratch by replaying all
@@ -28,83 +22,15 @@ class UserStatsBackfillService(
     private val clock: Clock = Clock.System,
 ) {
     /**
-     * Rebuilds the `user_stats` row for [userId] from the raw event and position tables.
-     * Replaces any pre-existing row with the fully recomputed values.
+     * Rebuilds the `user_stats` row for [userId] by re-deriving it from the raw primitives and
+     * replacing any pre-existing row. A thin wrapper over the shared [deriveUserStats] — the same
+     * derivation [StatsRecorder] runs per event — so a bulk rebuild and the live path always agree.
      */
     suspend fun backfillFor(userId: String) {
         val nowMs = clock.now().toEpochMilliseconds()
-
-        // 1. Read all listening_events for this user, ordered by endedAt ascending.
-        val events =
-            suspendTransaction(sql) {
-                sql.listeningEventsQueries
-                    .selectForUserOrderedByEndedAt(userId)
-                    .executeAsList()
-            }
-
-        // 2. Walk events to compute totals, distinct books, and streaks.
-        //    All day-boundary math uses the user's home timezone — one consistent frame
-        //    per user. The per-event tz field is ignored here because it can be "UTC" for
-        //    ABS imports and mixed-frame for travelers, producing wrong streaks.
-        val userTz = sql.homeTimeZone(userId)
-        var totalAllTime = 0L
-        val distinctBooks = mutableSetOf<String>()
-        val listeningDays = ArrayList<LocalDate>(events.size)
-
-        for (event in events) {
-            totalAllTime += (event.ended_at - event.started_at) / 1_000L
-            distinctBooks.add(event.book_id)
-            listeningDays +=
-                Instant
-                    .fromEpochMilliseconds(event.ended_at)
-                    .toLocalDateTime(userTz)
-                    .date
-        }
-
-        // 3. Rolling-window sums against nowMs.
-        val cutoff7 = nowMs - 7 * 86_400_000L
-        val cutoff30 = nowMs - 30 * 86_400_000L
-        var last7 = 0L
-        var last30 = 0L
-        for (event in events) {
-            val endedAtMs = event.ended_at
-            // Clip a span straddling the cutoff to its post-cutoff seconds, matching sumWallSecondsSince.
-            if (endedAtMs >= cutoff7) last7 += (endedAtMs - maxOf(event.started_at, cutoff7)) / 1_000L
-            if (endedAtMs >= cutoff30) last30 += (endedAtMs - maxOf(event.started_at, cutoff30)) / 1_000L
-        }
-
-        // 4. Count finished positions (non-deleted) for this user.
-        val booksFinished =
-            suspendTransaction(sql) {
-                sql.playbackPositionsQueries
-                    .countFinishedForUser(userId)
-                    .executeAsOne()
-                    .toInt()
-            }
-
-        // 5. Current + longest streak via the shared reducer, resolved as-of-today in the user's home
-        // timezone (same frame as the day extraction above). The reducer decays `current` to 0 when the
-        // most recent listening day is older than yesterday, so a lapsed user's streak self-corrects.
-        val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(userTz).date
-        val streaks = StreakReducer.reduce(listeningDays, today)
-
-        // 6. Upsert the rebuilt row. The substrate assigns revision and timestamps.
-        val rebuilt =
-            UserStatsSyncPayload(
-                id = userId,
-                totalSecondsAllTime = totalAllTime,
-                totalSecondsLast7Days = last7,
-                totalSecondsLast30Days = last30,
-                booksStarted = distinctBooks.size,
-                booksFinished = booksFinished,
-                currentStreakDays = streaks.current,
-                longestStreakDays = streaks.longest,
-                lastEventDate = listeningDays.lastOrNull()?.toString(),
-                revision = 0L,
-                updatedAt = 0L,
-                createdAt = 0L,
-                deletedAt = null,
-            )
-        userStatsRepo.upsert(rebuilt, clientOpId = null, userId = userId)
+        // Self-heal the `book_reads` primitive first, so the re-derived booksFinished reflects every
+        // finished book even for crash-orphaned or pre-Spec-004-imported completions.
+        reconcileBookReadsFromPositions(sql, userId, nowMs)
+        userStatsRepo.upsert(deriveUserStats(sql, userId, nowMs), clientOpId = null, userId = userId)
     }
 }
