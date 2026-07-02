@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.EngineSnapshot
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -60,6 +61,7 @@ internal class SyncRepositoryImpl(
     private val bookDao: BookDao,
     private val listeningEventDao: ListeningEventDao,
     private val ftsPopulator: FtsPopulatorContract,
+    private val coverPresenceReconciler: CoverPresenceReconciler,
     private val scope: CoroutineScope,
 ) : SyncRepository {
     /**
@@ -198,6 +200,16 @@ internal class SyncRepositoryImpl(
                 throw e
             } catch (e: Exception) {
                 logger.warn(e) { "Search index self-heal failed; will retry on next startup" }
+            }
+            // Self-heal: converge the cover-presence marker with the on-disk covers directory
+            // (external deletions; upgraders whose files predate the marker column). Cheap —
+            // one directory listing + one SELECT. Isolated — must not fail engine startup.
+            try {
+                coverPresenceReconciler.reconcile()
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.warn(e) { "Cover-presence self-heal failed; will retry on next startup" }
             }
             val shouldRecover =
                 orphanRecoveryMutex.withLock {

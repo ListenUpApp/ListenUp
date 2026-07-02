@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -25,10 +27,15 @@ private const val BATCH_SIZE = 3
  *
  * @property imageApi API client for downloading cover images
  * @property imageStorage Local storage for cover images
+ * @property bookDao maintains [com.calypsan.listenup.client.data.local.db.BookEntity.coverDownloadedAt] —
+ *   the cover-presence marker mapping reads instead of stat-ing the filesystem. This is the single
+ *   choke point every cover download and deletion funnels through, so it is the sole place the
+ *   marker is written.
  */
 internal class ImageDownloader(
     private val imageApi: ImageApiContract,
     private val imageStorage: ImageStorage,
+    private val bookDao: BookDao,
 ) : ImageDownloaderContract {
     // Per-userId serialization so a post-scan fan-out of concurrent avatar requests
     // collapses to a single network fetch + save instead of stampeding the server
@@ -64,7 +71,11 @@ internal class ImageDownloader(
      */
     override suspend fun deleteCover(bookId: BookId): AppResult<Unit> {
         logger.debug { "Deleting local cover for book ${bookId.value}" }
-        return imageStorage.deleteCover(bookId)
+        val result = imageStorage.deleteCover(bookId)
+        if (result is AppResult.Success) {
+            bookDao.clearCoverDownloaded(bookId)
+        }
+        return result
     }
 
     /**
@@ -77,9 +88,12 @@ internal class ImageDownloader(
      * @return Result indicating if cover was successfully downloaded and saved
      */
     override suspend fun downloadCover(bookId: BookId): AppResult<Boolean> {
-        // Skip if already exists locally
+        // Skip if already exists locally. This is also how a v42→v43 upgrader's pre-existing
+        // cover files (written before the marker column existed) get marked ahead of the
+        // startup reconciler running.
         if (imageStorage.exists(bookId)) {
             logger.info { "Cover already exists locally for book ${bookId.value}" }
+            bookDao.markCoverDownloaded(bookId, Timestamp.now())
             return AppResult.Success(false)
         }
 
@@ -104,6 +118,7 @@ internal class ImageDownloader(
             return saveResult
         }
 
+        bookDao.markCoverDownloaded(bookId, Timestamp.now())
         logger.info { "Successfully downloaded and saved cover for book ${bookId.value}" }
         return AppResult.Success(true)
     }

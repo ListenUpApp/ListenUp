@@ -2,7 +2,9 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.ImageApiContract
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import dev.mokkery.answering.calls
@@ -11,6 +13,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -37,11 +40,13 @@ class ImageDownloaderTest :
         class TestFixture {
             val imageApi: ImageApiContract = mock()
             val imageStorage: ImageStorage = mock()
+            val bookDao: BookDao = mock()
 
             fun build(): ImageDownloader =
                 ImageDownloader(
                     imageApi = imageApi,
                     imageStorage = imageStorage,
+                    bookDao = bookDao,
                 )
         }
 
@@ -52,6 +57,8 @@ class ImageDownloaderTest :
             every { fixture.imageStorage.exists(any()) } returns false
             everySuspend { fixture.imageApi.downloadCover(any()) } returns AppResult.Success(ByteArray(100))
             everySuspend { fixture.imageStorage.saveCover(any(), any()) } returns AppResult.Success(Unit)
+            everySuspend { fixture.bookDao.markCoverDownloaded(any(), any()) } returns Unit
+            everySuspend { fixture.bookDao.clearCoverDownloaded(any()) } returns Unit
 
             return fixture
         }
@@ -154,6 +161,99 @@ class ImageDownloaderTest :
 
                 // Then - API should not be called
                 // (verify by not stubbing API - if called, test would fail)
+            }
+        }
+
+        // ========== Cover-Presence Marker Tests ==========
+
+        test("downloadCover marks the cover-presence column after a successful download") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val imageDownloader = fixture.build()
+                val bookId = BookId("book-1")
+                val imageBytes = ByteArray(100) { it.toByte() }
+                everySuspend { fixture.imageApi.downloadCover(bookId) } returns AppResult.Success(imageBytes)
+                everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns AppResult.Success(Unit)
+
+                // When
+                imageDownloader.downloadCover(bookId)
+
+                // Then
+                verifySuspend { fixture.bookDao.markCoverDownloaded(bookId, any()) }
+            }
+        }
+
+        test("downloadCover marks the cover-presence column when the cover already exists locally") {
+            runTest {
+                // Given - already-exists early return still means "present on disk", so the
+                // marker must be written (this is also how a v42→v43 upgrader's pre-existing
+                // cover files first get marked, ahead of the startup reconciler).
+                val fixture = createFixture()
+                val bookId = BookId("book-1")
+                every { fixture.imageStorage.exists(bookId) } returns true
+                val imageDownloader = fixture.build()
+
+                // When
+                imageDownloader.downloadCover(bookId)
+
+                // Then
+                verifySuspend { fixture.bookDao.markCoverDownloaded(bookId, any()) }
+            }
+        }
+
+        test("downloadCover does not mark the cover-presence column when the API returns failure") {
+            runTest {
+                // Given - 404 Not Found (no cover available), no file was ever written.
+                val fixture = createFixture()
+                val bookId = BookId("book-1")
+                everySuspend { fixture.imageApi.downloadCover(bookId) } returns Failure(Exception("Not found"))
+                val imageDownloader = fixture.build()
+
+                // When
+                imageDownloader.downloadCover(bookId)
+
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.bookDao.markCoverDownloaded(any(), any()) }
+            }
+        }
+
+        test("downloadCover does not mark the cover-presence column when the storage save fails") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val bookId = BookId("book-1")
+                val imageBytes = ByteArray(100)
+                val storageFailure =
+                    AppResult.Failure(
+                        com.calypsan.listenup.api.error
+                            .ValidationError(message = "Disk full"),
+                    )
+                everySuspend { fixture.imageApi.downloadCover(bookId) } returns AppResult.Success(imageBytes)
+                everySuspend { fixture.imageStorage.saveCover(bookId, imageBytes) } returns storageFailure
+                val imageDownloader = fixture.build()
+
+                // When
+                imageDownloader.downloadCover(bookId)
+
+                // Then
+                verifySuspend(VerifyMode.not) { fixture.bookDao.markCoverDownloaded(any(), any()) }
+            }
+        }
+
+        test("deleteCover clears the cover-presence column") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val bookId = BookId("book-1")
+                everySuspend { fixture.imageStorage.deleteCover(bookId) } returns AppResult.Success(Unit)
+                val imageDownloader = fixture.build()
+
+                // When
+                imageDownloader.deleteCover(bookId)
+
+                // Then
+                verifySuspend { fixture.bookDao.clearCoverDownloaded(bookId) }
             }
         }
 

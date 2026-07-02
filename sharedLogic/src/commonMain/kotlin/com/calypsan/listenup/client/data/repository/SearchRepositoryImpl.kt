@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.TagEntity
+import com.calypsan.listenup.client.data.local.db.coverPathFor
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.domain.model.SearchFacets
 import com.calypsan.listenup.client.domain.model.SearchHit
@@ -150,7 +151,7 @@ internal class SearchRepositoryImpl(
 // --- Extension functions for mapping ---
 
 private fun BookSearchResult.toSearchHit(imageStorage: ImageStorage): SearchHit {
-    val coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null
+    val coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt)
 
     return SearchHit(
         id = book.id.value,

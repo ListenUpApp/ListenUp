@@ -11,9 +11,11 @@ import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -171,6 +173,11 @@ class ForceReconcileWhileActiveTest :
                             bookDao = db.bookDao(),
                             listeningEventDao = db.listeningEventDao(),
                             ftsPopulator = ftsPopulator,
+                            coverPresenceReconciler =
+                                CoverPresenceReconciler(
+                                    bookDao = db.bookDao(),
+                                    imageStorage = mock<ImageStorage> { every { listCoverBookIds() } returns emptySet() },
+                                ),
                             scope = scope,
                         )
 

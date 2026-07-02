@@ -48,6 +48,13 @@ interface ImageStorage {
     fun exists(bookId: BookId): Boolean
 
     /**
+     * List the book ids that have a cover image file on disk — one directory listing,
+     * no per-book stats. Staging files and non-cover entries are excluded. Used by the
+     * startup cover-presence reconciler to heal the persisted cover marker.
+     */
+    fun listCoverBookIds(): Set<BookId>
+
+    /**
      * Delete a cover image from local storage.
      * No-op if the cover doesn't exist.
      *

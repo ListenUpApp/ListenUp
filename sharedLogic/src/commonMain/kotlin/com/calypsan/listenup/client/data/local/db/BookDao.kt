@@ -232,18 +232,57 @@ internal interface BookDao {
     )
 
     /**
-     * Touch a book's updatedAt timestamp to trigger Flow re-emission.
+     * Mark a single book's cover as present on disk. Conditioned on the column
+     * currently being unset so a redundant mark (the cover was already recorded) touches
+     * zero rows — Room's invalidation tracker only wakes observers on an actual row change.
      *
-     * Used after cover downloads to force UI updates when cover files
-     * appear on disk (even though database content hasn't changed).
-     *
-     * @param id Type-safe book ID to touch
+     * @param id The book whose cover just landed on disk.
+     * @param timestamp When the cover was recorded as downloaded.
      */
-    @Query("UPDATE books SET updatedAt = :timestamp WHERE id = :id")
-    suspend fun touchUpdatedAt(
+    @Query("UPDATE books SET coverDownloadedAt = :timestamp WHERE id = :id AND coverDownloadedAt IS NULL")
+    suspend fun markCoverDownloaded(
         id: BookId,
         timestamp: Timestamp,
     )
+
+    /**
+     * Clear a single book's cover-presence marker (the local file was deleted or
+     * invalidated). Conditioned on the column currently being set, for the same
+     * no-op-touches-zero-rows reason as [markCoverDownloaded].
+     *
+     * @param id The book whose cover was removed or invalidated.
+     */
+    @Query("UPDATE books SET coverDownloadedAt = NULL WHERE id = :id AND coverDownloadedAt IS NOT NULL")
+    suspend fun clearCoverDownloaded(id: BookId)
+
+    /**
+     * Ids of every book currently marked as having a local cover file. Used by the startup
+     * cover-presence reconciler to diff the marker against the on-disk covers directory.
+     */
+    @Query("SELECT id FROM books WHERE coverDownloadedAt IS NOT NULL")
+    suspend fun idsWithCoverMarked(): List<BookId>
+
+    /**
+     * Batch variant of [markCoverDownloaded] for the startup reconciler's backfill pass —
+     * marks every id in [ids] whose column is currently unset in a single statement.
+     *
+     * @param ids Book ids found on disk but not yet marked in Room.
+     * @param timestamp When the covers were recorded as downloaded.
+     */
+    @Query("UPDATE books SET coverDownloadedAt = :timestamp WHERE id IN (:ids) AND coverDownloadedAt IS NULL")
+    suspend fun markCoversDownloaded(
+        ids: List<BookId>,
+        timestamp: Timestamp,
+    )
+
+    /**
+     * Batch variant of [clearCoverDownloaded] for the startup reconciler's heal pass —
+     * clears the marker for every id in [ids] (rows marked but missing on disk).
+     *
+     * @param ids Book ids marked in Room but absent from the on-disk covers directory.
+     */
+    @Query("UPDATE books SET coverDownloadedAt = NULL WHERE id IN (:ids)")
+    suspend fun clearCoversDownloaded(ids: List<BookId>)
 
     /**
      * Observe all books belonging to a specific series.
@@ -361,7 +400,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -387,7 +426,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -417,7 +456,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -509,6 +548,7 @@ internal data class DiscoveryBookWithAuthor(
     val title: String,
     val coverBlurHash: String?,
     val coverHash: String?,
+    val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
     val authorName: String?,
 )
@@ -525,6 +565,7 @@ internal data class DiscoveryBookWithSeries(
     val title: String,
     val coverBlurHash: String?,
     val coverHash: String?,
+    val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
     val authorName: String?,
     val sequence: String?,

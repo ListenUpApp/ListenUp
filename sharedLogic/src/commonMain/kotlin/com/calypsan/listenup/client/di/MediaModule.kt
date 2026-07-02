@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.repository.DocumentRepositoryImpl
 import com.calypsan.listenup.client.data.repository.DownloadRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImageRepositoryImpl
 import com.calypsan.listenup.client.data.sync.CoverDownloadWorker
+import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.ImageDownloader
 import com.calypsan.listenup.client.data.sync.ImageDownloaderContract
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
@@ -55,6 +56,7 @@ internal val mediaModule: Module =
             ImageDownloader(
                 imageApi = get(),
                 imageStorage = get(),
+                bookDao = get(),
             )
         } bind ImageDownloaderContract::class
 
@@ -100,7 +102,6 @@ internal val mediaModule: Module =
         single<CoverDownloadRepository> {
             CoverDownloadRepositoryImpl(
                 imageDownloader = get(),
-                bookDao = get(),
                 scope =
                     get(
                         qualifier =
@@ -126,6 +127,15 @@ internal val mediaModule: Module =
             CoverDownloadWorker(
                 coverDownloadDao = get(),
                 imageDownloader = get(),
+            )
+        }
+
+        // Startup self-heal that converges the coverDownloadedAt marker with the on-disk
+        // covers directory. Consumed by SyncRepositoryImpl at engine start.
+        single {
+            CoverPresenceReconciler(
+                bookDao = get(),
+                imageStorage = get(),
             )
         }
 

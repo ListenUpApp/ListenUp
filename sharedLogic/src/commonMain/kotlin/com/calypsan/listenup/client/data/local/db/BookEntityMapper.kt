@@ -69,6 +69,10 @@ internal class BookEntityMapper {
             // When existing is null (first-seen book) it is null and will be populated after the
             // cover image is downloaded and analysed.
             coverBlurHash = existing?.coverBlurHash,
+            // Client-local cover-presence marker — preserved like coverBlurHash, except when the
+            // server's cover hash changed: BookSyncDomainHandler deletes the stale local file in the
+            // same upsert flow, so presence must reset until the new cover is downloaded.
+            coverDownloadedAt = existing?.takeIf { it.coverHash == payload.cover?.hash }?.coverDownloadedAt,
             // Wire-authoritative per-field edit provenance — the server owns this set (it unions an
             // edited field on every edit RPC), so a sync update always takes the payload's value.
             userEditedFields = payload.userEditedFields,
@@ -81,6 +85,15 @@ internal class BookEntityMapper {
             updatedAt = Timestamp(payload.updatedAt),
         )
 }
+
+/**
+ * Local cover path derived from the persisted cover-presence marker — pure string
+ * construction, no filesystem stat. Null when no local cover file is recorded.
+ */
+internal fun ImageStorage.coverPathFor(
+    bookId: BookId,
+    coverDownloadedAt: Timestamp?,
+): String? = coverDownloadedAt?.let { getCoverPath(bookId) }
 
 /**
  * Convert an [AudioFileEntity] to the domain [AudioFile].
@@ -169,7 +182,7 @@ internal fun BookWithContributors.toListItem(
         authors = authors,
         narrators = narrators,
         duration = book.totalDuration,
-        coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null,
+        coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt),
         coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
         addedAt = book.createdAt,
@@ -243,7 +256,7 @@ internal fun BookWithContributors.toDetail(
         authors = authors,
         narrators = narrators,
         duration = book.totalDuration,
-        coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null,
+        coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt),
         coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
         addedAt = book.createdAt,

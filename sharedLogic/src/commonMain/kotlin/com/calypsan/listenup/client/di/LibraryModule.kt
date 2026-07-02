@@ -103,6 +103,7 @@ internal val libraryModule: Module =
                 bookDao = get(),
                 listeningEventDao = get(),
                 ftsPopulator = get(),
+                coverPresenceReconciler = get(),
                 scope =
                     get(
                         qualifier =

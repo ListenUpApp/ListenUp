@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.ConnectionState
+import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
 import com.calypsan.listenup.client.data.sync.ParsedSseFrame
@@ -24,9 +25,11 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.answering.returns
+import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -110,6 +113,11 @@ class OrphanRecoveryRaceTest :
                             bookDao = db.bookDao(),
                             listeningEventDao = db.listeningEventDao(),
                             ftsPopulator = ftsPopulator,
+                            coverPresenceReconciler =
+                                CoverPresenceReconciler(
+                                    bookDao = db.bookDao(),
+                                    imageStorage = mock<ImageStorage> { every { listCoverBookIds() } returns emptySet() },
+                                ),
                             scope = scope,
                         )
 
@@ -173,6 +181,11 @@ class OrphanRecoveryRaceTest :
                             bookDao = db.bookDao(),
                             listeningEventDao = db.listeningEventDao(),
                             ftsPopulator = ftsPopulator,
+                            coverPresenceReconciler =
+                                CoverPresenceReconciler(
+                                    bookDao = db.bookDao(),
+                                    imageStorage = mock<ImageStorage> { every { listCoverBookIds() } returns emptySet() },
+                                ),
                             scope = scope,
                         )
 
