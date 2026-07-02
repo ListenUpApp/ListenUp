@@ -1,4 +1,4 @@
-package com.calypsan.listenup.client.data.sync.handlers
+package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
@@ -11,9 +11,8 @@ import kotlin.coroutines.cancellation.CancellationException
  * failure to a typed [SyncError.SyncFailed]. [CancellationException] is
  * re-thrown — cancellation is not a sync failure.
  *
- * The canonical apply-wrapper for every [com.calypsan.listenup.client.data.sync.SyncDomainHandler]:
- * `ComposedSyncDomainHandler` and the remaining hand-written handlers
- * all route their `onEvent` / `onCatchUpItem` work through it.
+ * The canonical apply-wrapper for [ComposedSyncDomainHandler] — every domain's
+ * `onEvent` / `onCatchUpItem` work routes through it.
  */
 internal suspend fun TransactionRunner.applyEventAtomically(
     domain: String,
