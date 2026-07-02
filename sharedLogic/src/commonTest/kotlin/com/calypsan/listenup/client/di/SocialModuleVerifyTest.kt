@@ -30,8 +30,8 @@ import org.koin.test.verify.verify
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [PublicProfileDao] — owned by `persistenceModule`.
  *  - [ImageStorage] — owned by the platform storage module.
- *  - [PresenceRefreshSignal] — owned by `clientSyncRenovationModule`.
- *  - [OfflineEditor] — owned by `clientSyncRenovationModule`.
+ *  - [PresenceRefreshSignal] — owned by `clientSyncModule`.
+ *  - [OfflineEditor] — owned by `clientSyncModule`.
  *  - [AuthRpcFactory] — owned by `clientAuthModule`.
  *  - [AvatarDownloadRepository] — owned by `mediaModule`.
  *  - [PlaybackPositionRepository] — owned by `listeningModule`.

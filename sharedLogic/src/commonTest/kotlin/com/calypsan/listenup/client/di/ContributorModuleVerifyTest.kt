@@ -27,7 +27,7 @@ import org.koin.test.verify.verify
  *  - [ContributorApiContract] — owned by `networkModule`.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
- *  - [SyncDomainHandler] (named `contributors`) — owned by `clientSyncRenovationModule`.
+ *  - [SyncDomainHandler] (named `contributors`) — owned by `clientSyncModule`.
  *  - [MetadataRepository] — owned by `bookModule`.
  */
 @OptIn(KoinExperimentalAPI::class)

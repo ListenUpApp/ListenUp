@@ -28,10 +28,10 @@ import org.koin.test.verify.verify
  * the library bindings pull in but other modules own:
  *
  *  - [ApiClientFactory] — owned by `networkModule`.
- *  - [SyncEngine] — owned by `clientSyncRenovationModule`.
- *  - [SyncEngineState] — owned by `clientSyncRenovationModule`.
- *  - [OfflineEditor] — owned by `clientSyncRenovationModule`.
- *  - [PendingOperationQueue] — owned by `clientSyncRenovationModule`.
+ *  - [SyncEngine] — owned by `clientSyncModule`.
+ *  - [SyncEngineState] — owned by `clientSyncModule`.
+ *  - [OfflineEditor] — owned by `clientSyncModule`.
+ *  - [PendingOperationQueue] — owned by `clientSyncModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
  *  - [ListeningEventRecorder] — owned by `listeningModule`.
  *  - [BookDao] — owned by `persistenceModule`.

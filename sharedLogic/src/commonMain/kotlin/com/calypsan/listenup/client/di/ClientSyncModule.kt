@@ -65,8 +65,7 @@ import org.koin.dsl.module
 private const val APP_SCOPE = "appScope"
 
 /**
- * Koin module wiring the renovated client sync engine. Coexists with the legacy
- * `syncModule` until D2 cutover deletes the legacy entries.
+ * Koin module wiring the client sync engine.
  *
  * Lifecycle ordering: handlers are `createdAtStart = true` so they self-register
  * with the [ClientSyncDomainRegistry] before [SyncEngine] is started by app
@@ -75,9 +74,9 @@ private const val APP_SCOPE = "appScope"
  * [SyncEngine] owns frame collection so catch-up, cursor seeding, dispatch, and
  * SSE connect ordering stay in one lifecycle component.
  */
-internal val clientSyncRenovationModule =
+internal val clientSyncModule =
     module {
-        // DAOs needed by the renovated engine. Mirrors the legacy `repositoryModule`
+        // DAOs needed by the sync engine. Mirrors the `repositoryModule`
         // DAO-exposure pattern so Koin's `verify()` can see them as direct deps.
         single { get<ListenUpDatabase>().syncCursorDao() }
         single { get<ListenUpDatabase>().pendingOperationV2Dao() }

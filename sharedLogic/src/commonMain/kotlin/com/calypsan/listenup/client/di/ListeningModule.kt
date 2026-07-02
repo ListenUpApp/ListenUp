@@ -26,7 +26,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.PlaybackPositionDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.TransactionRunner] — `persistenceModule`
  *  - [com.calypsan.listenup.client.domain.repository.AuthSession] — `clientAuthModule`
- *  - [com.calypsan.listenup.client.data.sync.PendingOperationQueue] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.PendingOperationQueue] — `clientSyncModule`
  */
 internal val listeningModule: Module =
     module {
