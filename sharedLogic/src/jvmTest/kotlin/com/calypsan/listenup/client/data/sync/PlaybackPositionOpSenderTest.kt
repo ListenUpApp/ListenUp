@@ -81,6 +81,20 @@ class PlaybackPositionOpSenderTest :
                 failure.error shouldBe expectedError
             }
         }
+
+        test("a corrupt payload returns AppResult.Failure instead of throwing") {
+            runTest {
+                val service: PlaybackService = mock()
+                val rpcFactory: PlaybackRpcFactory = mock()
+                everySuspend { rpcFactory.playbackService() } returns service
+                val sender = PlaybackPositionOpSender(rpcFactory)
+                val op = fakeOp(payload = "{ not json ]")
+                val result = sender.send(op)
+                val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                failure.error.shouldBeInstanceOf<SyncError.SyncFailed>()
+                verifySuspend(exactly(0)) { service.recordPosition(any()) }
+            }
+        }
     })
 
 private fun fakeOp(payload: String): PendingOperation =
