@@ -30,6 +30,13 @@ private val logger = KotlinLogging.logger {}
  * [onCatchUpItem] apply a soft-delete by `id`; [SyncEvent.Deleted] at the SSE
  * level is handled defensively with a log.
  *
+ * **Intentionally client-dormant (no production reader).** This domain is synced into Room but no
+ * production surface reads the `user_stats` table today: the Home screen derives its own stats locally
+ * from `listening_events` (for instant offline reactivity), and the leaderboard/profile read the
+ * `public_profiles` projection. The mirror is kept because it is the natural home for the owner's own
+ * canonical server stats — a future rich-stats screen would read it directly. Do not flag it as dead: it
+ * is a deliberately-maintained-but-unread mirror, not an oversight.
+ *
  * Self-registers in [ClientSyncDomainRegistry] at construction.
  */
 internal class UserStatsSyncDomainHandler(

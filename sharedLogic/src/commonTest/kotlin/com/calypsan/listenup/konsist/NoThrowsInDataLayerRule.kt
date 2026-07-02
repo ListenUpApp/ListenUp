@@ -78,7 +78,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
     setOf(
         // APIs (each typically pairs with a repo-impl below):
         "/data/remote/SearchApi.kt",
-        "/data/remote/StatsApi.kt",
         // Auth / refresh / SSE infrastructure with throwing patterns:
         "/data/remote/ApiClientFactory.kt",
         // Repo impls still in throwing style:
