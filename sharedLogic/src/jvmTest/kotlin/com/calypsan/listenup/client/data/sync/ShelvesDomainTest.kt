@@ -6,8 +6,9 @@ import com.calypsan.listenup.api.sync.ShelfSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.shelvesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.ShelfBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ShelfSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -16,11 +17,12 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Covers the two Shelves sync handlers (Shelves — Room v26): [ShelfSyncDomainHandler]
- * (leaf) and [ShelfBookSyncDomainHandler] (junction). Each exercises Room write-through
- * for Created/Updated upserts, Deleted tombstones, and catch-up tombstone application.
+ * Covers the two Shelves sync domains (Shelves — Room v26): the
+ * [com.calypsan.listenup.client.data.sync.domains.shelvesDomain] descriptor (leaf) and
+ * [ShelfBookSyncDomainHandler] (junction). Each exercises Room write-through for
+ * Created/Updated upserts, Deleted tombstones, and catch-up tombstone application.
  */
-class ShelfSyncHandlerTest :
+class ShelvesDomainTest :
     FunSpec({
 
         // ── shelves (leaf) ──────────────────────────────────────────────────────
@@ -90,7 +92,7 @@ class ShelfSyncHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = ShelfSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = shelvesDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "shelves"
                 registry.lookup("shelves") shouldBe handler
             } finally {
@@ -174,11 +176,11 @@ class ShelfSyncHandlerTest :
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
-private fun withShelfHandler(block: suspend (ShelfSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withShelfHandler(block: suspend (SyncDomainHandler<ShelfSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(ShelfSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(shelvesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

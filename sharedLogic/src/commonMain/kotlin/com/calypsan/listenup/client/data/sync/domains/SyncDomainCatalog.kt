@@ -36,6 +36,7 @@ internal fun syncDomainCatalog(
                 moodsDomain(database = database),
                 librariesDomain(database = database),
                 libraryFoldersDomain(database = database),
+                shelvesDomain(database = database),
                 playbackPositionsDomain(database = database),
                 booksDomain(
                     database = database,
