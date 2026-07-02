@@ -246,10 +246,13 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
 | `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint`); CI runs it via the pinned `ghcr.io/realm/swiftlint` container. †iOS |
-| `Test (JVM)` | Linux | `./gradlew :sharedLogic:jvmTest :server:jvmTest --no-daemon` |
+| `Test (JVM)` | Linux | `./gradlew :sharedUI:verifyStrings :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest --no-daemon` — verbatim the two commands of CI's `test-jvm` job (localization drift gate + full JVM test set) folded into one invocation. |
 | `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
+| `Build & Test (server linuxX64)` | Linux | `./gradlew :server:compileKotlinLinuxX64 :server:linuxX64Test --no-daemon` — needs native link headers (CI: `apt-get install libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch: `argon2`, `sqlite`, `curl`). |
 | `Build (Android)` | Linux | `./gradlew :androidApp:assembleDebug --no-daemon` — **must pass** (restored to green by W7 Phase A on 2026-04-25; previously red on `AudiobookNotificationProvider` Media3 drift since the 2026-04-21 dependency bump). |
 | `Build (iOS)` | macOS | `xcodebuild build -scheme ListenUp -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — from `iosApp/`. †iOS |
+
+`./gradlew verifyLocal --no-daemon` runs the Linux-lane `Lint` + `Test (JVM)` gates above in a single invocation (the native and iOS lanes stay separate).
 
 **†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
 

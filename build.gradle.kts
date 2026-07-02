@@ -33,13 +33,21 @@ detekt {
         "$rootDir/contract/src/androidMain/kotlin",
         "$rootDir/contract/src/iosMain/kotlin",
         "$rootDir/contract/src/jvmMain/kotlin",
+        "$rootDir/contract/src/appleMain/kotlin",
+        "$rootDir/contract/src/macosMain/kotlin",
+        "$rootDir/contract/src/linuxMain/kotlin",
+        "$rootDir/contract/src/nativeMain/kotlin",
         "$rootDir/sharedLogic/src/commonMain/kotlin",
         "$rootDir/sharedLogic/src/androidMain/kotlin",
         "$rootDir/sharedLogic/src/iosMain/kotlin",
+        "$rootDir/sharedLogic/src/appleMain/kotlin",
+        "$rootDir/sharedLogic/src/macosMain/kotlin",
         "$rootDir/sharedLogic/src/jvmMain/kotlin",
         "$rootDir/sharedLogic/src/jvmTest/kotlin",
         "$rootDir/sharedUI/src/commonMain/kotlin",
         "$rootDir/sharedUI/src/androidMain/kotlin",
+        "$rootDir/sharedUI/src/desktopMain/kotlin",
+        "$rootDir/desktopApp/src/main/kotlin",
         "$rootDir/server/src/commonMain/kotlin",
         "$rootDir/server/src/jvmMain/kotlin",
         "$rootDir/server/src/linuxX64Main/kotlin",
@@ -72,7 +80,7 @@ buildscript {
 spotless {
     kotlin {
         target("**/*.kt")
-        targetExclude("**/build/**")
+        targetExclude("**/build/**", "**/.worktrees/**")
         ktlint(libs.versions.ktlint.get())
         // Suppress max-line-length for API files with complex Ktor builders
         suppressLintsFor {
@@ -82,7 +90,7 @@ spotless {
     }
     kotlinGradle {
         target("**/*.gradle.kts")
-        targetExclude("**/build/**")
+        targetExclude("**/build/**", "**/.worktrees/**")
         ktlint(libs.versions.ktlint.get())
         // Mirror the `kotlin` block: max-line-length is not enforced on build scripts. Beyond the
         // long dependency-coordinate / URL strings that motivate it for source, the embedded-Kotlin
@@ -93,4 +101,23 @@ spotless {
             shortCode = "standard:max-line-length"
         }
     }
+}
+
+// VERIFY LOCAL — one-shot local equivalent of the Linux-lane CI gates (mirrors ci.yml Lint + Test (JVM)).
+// Native server lane excluded (needs system libs + long native compiles) — run per CLAUDE.md "Pushing".
+// If ci.yml's task lists change, this list must change with them.
+tasks.register("verifyLocal") {
+    group = "verification"
+    description = "Runs the local equivalent of every Linux-lane CI gate (Lint + Test (JVM))."
+    dependsOn(
+        "spotlessCheck",
+        "detekt",
+        ":sharedUI:verifyStrings",
+        ":sharedLogic:compileCommonMainKotlinMetadata",
+        ":contract:jvmTest",
+        ":sharedLogic:jvmTest",
+        ":sharedLogic:testAndroidHostTest",
+        ":server:jvmTest",
+        ":sharedUI:testAndroidHostTest",
+    )
 }
