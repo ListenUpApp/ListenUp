@@ -9,8 +9,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.rpc.annotations.Rpc
 
 /**
- * Public scanner contract. Mounted at `/api/rpc/public` (no auth wall
- * currently; admin-gating lands when the auth surface gets a role check).
+ * Scanner contract. Mounted at `/api/rpc/authed` behind the JWT gate — every RPC call
+ * requires a valid access token. The REST trigger (`POST /api/v1/scan`) is additionally
+ * ROOT/ADMIN-gated; `scanFull()` over RPC is reachable by any authenticated user but is
+ * unused by first-party clients — scan triggering flows through `LibraryAdminService`.
  *
  * `observeProgress()` is a server-pushed [Flow] of [RpcEvent]-wrapped [ScanEvent]s —
  * kotlinx.rpc opens a dedicated WebSocket frame stream for it. Multiple

@@ -75,7 +75,7 @@ internal val libraryModule: Module =
             )
         } bind LibraryResetHelper::class
 
-        // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (public mount):
+        // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (authed mount):
         // live scan-progress stream that drives the scan UI + post-scan reconcile.
         single<ScannerRpcFactory> {
             KtorScannerRpcFactory(
