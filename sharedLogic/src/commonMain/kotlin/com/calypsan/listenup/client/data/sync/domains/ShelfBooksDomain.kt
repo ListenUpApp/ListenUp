@@ -52,6 +52,11 @@ internal class ShelfBookMirrorApply(
         )
     }
 
+    /**
+     * Unlike book_tags/book_moods (whose DAO advances its own revision), shelf_books'
+     * softDelete takes the event revision — the id is already the primary key, so no
+     * composite parse.
+     */
     override suspend fun tombstoneById(
         id: String,
         deletedAt: Long,

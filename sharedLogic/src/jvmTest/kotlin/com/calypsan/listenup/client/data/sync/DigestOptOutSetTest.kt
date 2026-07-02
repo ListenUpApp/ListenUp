@@ -6,9 +6,9 @@ import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
@@ -68,7 +68,7 @@ class DigestOptOutSetTest :
                     UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    CollectionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    collectionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     CollectionBookSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     CollectionShareSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
 

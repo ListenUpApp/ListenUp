@@ -42,6 +42,7 @@ internal fun syncDomainCatalog(
                 shelfBooksDomain(database = database),
                 playbackPositionsDomain(database = database),
                 seriesDomain(database = database),
+                collectionsDomain(database = database),
                 contributorsDomain(database = database, imageStorage = imageStorage),
                 booksDomain(
                     database = database,
