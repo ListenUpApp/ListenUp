@@ -272,7 +272,8 @@ class BookEntityMapperTest :
 
             bookWithContributors(coverDownloadedAt = null)
                 .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
-                .coverPath.shouldBeNull()
+                .coverPath
+                .shouldBeNull()
             bookWithContributors(coverDownloadedAt = Timestamp(ENTITY_UPDATED_AT_MS))
                 .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
                 .coverPath shouldBe "/covers/book-1.jpg"

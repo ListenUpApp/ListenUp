@@ -24,9 +24,12 @@ class CommonImageStorageListCoversTest :
         }
 
         fun storageOver(filesDir: Path): CommonImageStorage =
-            CommonImageStorage(storagePaths = object : StoragePaths {
-                override val filesDir: Path = filesDir
-            })
+            CommonImageStorage(
+                storagePaths =
+                    object : StoragePaths {
+                        override val filesDir: Path = filesDir
+                    },
+            )
 
         test("returns an empty set when the covers directory does not exist") {
             val storage = storageOver(freshFilesDir())
