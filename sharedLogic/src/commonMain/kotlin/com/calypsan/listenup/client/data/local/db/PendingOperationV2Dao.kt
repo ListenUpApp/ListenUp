@@ -53,6 +53,22 @@ internal interface PendingOperationV2Dao {
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount > :maxAttempts")
     fun observeFailureCount(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
 
+    /**
+     * Delete still-queued (within retry budget) ops for one (domain, entity, opType) slot.
+     * Backs replace-on-enqueue coalescing; terminally-failed rows (failureCount > [maxAttempts])
+     * are preserved — diagnostic state for the failed-operation surface, not superseded work.
+     */
+    @Query(
+        """
+        DELETE FROM pending_operation
+         WHERE domainName = :domainName
+           AND entityId = :entityId
+           AND opType = :opType
+           AND failureCount <= :maxAttempts
+        """,
+    )
+    suspend fun deleteQueuedOps(domainName: String, entityId: String, opType: String, maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS)
+
     @Query("DELETE FROM pending_operation WHERE ownerUserId != :keepUserId")
     suspend fun deleteAllExcept(keepUserId: String)
 

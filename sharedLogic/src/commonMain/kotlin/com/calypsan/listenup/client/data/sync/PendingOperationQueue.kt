@@ -87,14 +87,30 @@ internal class PendingOperationQueue(
      */
     fun observeEnqueueSignal(): StateFlow<Long> = enqueueCounter.asStateFlow()
 
-    /** Enqueue a new op. Returns its generated `clientOpId`. */
+    /**
+     * Enqueue a new op. Returns its generated `clientOpId`.
+     *
+     * @param coalesce When true, deletes any still-queued (within retry budget) op for the same
+     *   (domainName, entityId, opType) slot before inserting — so rapid successive writes for one
+     *   entity collapse to the latest snapshot instead of piling up. Valid only for domains where
+     *   the payload is a last-write-wins snapshot of current state (e.g. playback positions);
+     *   event/entity-PATCH domains keep the default `false` so every op is replayed. Terminally
+     *   failed rows are never coalesced away — see [PendingOperationV2Dao.deleteQueuedOps]. The
+     *   delete-then-insert is non-atomic: the one coalescing caller today serializes per entity on
+     *   a Mutex, and racing a concurrent drain is benign (Room `@Update`/`@Delete` on an
+     *   already-removed row is a silent no-op).
+     */
     suspend fun enqueue(
         domainName: String,
         entityId: String,
         opType: String,
         payload: String,
         ownerUserId: String,
+        coalesce: Boolean = false,
     ): String {
+        if (coalesce) {
+            dao.deleteQueuedOps(domainName, entityId, opType)
+        }
         val opId = Uuid.random().toString()
         dao.insert(
             PendingOperationV2Entity(

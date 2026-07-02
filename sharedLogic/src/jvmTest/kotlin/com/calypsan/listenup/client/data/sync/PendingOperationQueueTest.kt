@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -208,6 +209,44 @@ class PendingOperationQueueTest :
                 val second = queue.drain()
                 second.sent shouldBe 1
                 second.remainingDispatchable shouldBe 0
+                db.close()
+            }
+        }
+
+        test("enqueue with coalesce=true keeps only the latest queued op for the same (domain, entity, opType)") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var clock = 0L
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { clock++ },
+                    )
+                val stale = queue.enqueue("playback_positions", "b1", "upsert", """{"v":1}""", "u1", coalesce = true)
+                val other = queue.enqueue("playback_positions", "b2", "upsert", """{"v":9}""", "u1", coalesce = true)
+                val latest = queue.enqueue("playback_positions", "b1", "upsert", """{"v":2}""", "u1", coalesce = true)
+                db.pendingOperationV2Dao().get(stale) shouldBe null
+                db.pendingOperationV2Dao().get(other) shouldNotBe null
+                db.pendingOperationV2Dao().get(latest)?.payload shouldBe """{"v":2}"""
+                db.pendingOperationV2Dao().countDispatchable() shouldBe 2
+                db.close()
+            }
+        }
+
+        test("coalescing enqueue preserves terminally-failed rows") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                db.pendingOperationV2Dao().insert(
+                    PendingOperationV2Entity(
+                        clientOpId = "terminal-1", domainName = "playback_positions", entityId = "b1",
+                        opType = "upsert", payload = "{}", enqueuedAt = 1L, lastAttemptAt = 2L,
+                        failureCount = 6, lastError = "SYNC_FAILED", ownerUserId = "u1",
+                    ),
+                )
+                val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = PendingOperationSender { AppResult.Success(Unit) }, nowMillis = { 1_000L })
+                queue.enqueue("playback_positions", "b1", "upsert", "{}", "u1", coalesce = true)
+                db.pendingOperationV2Dao().get("terminal-1") shouldNotBe null
                 db.close()
             }
         }

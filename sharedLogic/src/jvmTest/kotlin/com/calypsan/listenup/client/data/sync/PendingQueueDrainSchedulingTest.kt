@@ -378,6 +378,13 @@ private class CountingDao(
 
     override suspend fun countDispatchable(maxAttempts: Int) = delegate.countDispatchable(maxAttempts)
 
+    override suspend fun deleteQueuedOps(
+        domainName: String,
+        entityId: String,
+        opType: String,
+        maxAttempts: Int,
+    ) = delegate.deleteQueuedOps(domainName, entityId, opType, maxAttempts)
+
     override fun observeQueueDepth() = delegate.observeQueueDepth()
 
     override fun observeFailureCount(maxAttempts: Int) = delegate.observeFailureCount(maxAttempts)
