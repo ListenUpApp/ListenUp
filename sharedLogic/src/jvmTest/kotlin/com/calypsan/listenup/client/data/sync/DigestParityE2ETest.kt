@@ -5,8 +5,9 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -314,8 +315,7 @@ class DigestParityE2ETest :
                     // Apply the same live rows to the client via onCatchUpItem.
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        BookTagSyncDomainHandler(
-                            database = clientDb,
+                        bookTagsDomain(database = clientDb).toHandler(
                             transactionRunner = RoomTransactionRunner(clientDb),
                             registry = registry,
                         )
@@ -421,11 +421,8 @@ class DigestParityE2ETest :
                     // Apply the same live rows to the client via onCatchUpItem.
                     val registry = ClientSyncDomainRegistry()
                     val handler =
-                        CollectionBookSyncDomainHandler(
-                            database = clientDb,
-                            transactionRunner = RoomTransactionRunner(clientDb),
-                            registry = registry,
-                        )
+                        collectionBooksDomain(clientDb)
+                            .toHandler(RoomTransactionRunner(clientDb), registry)
 
                     val serverPage = collectionBookRepo.pullSince(userId = null, cursor = 0L, limit = 100)
                     for (item in serverPage.items) {

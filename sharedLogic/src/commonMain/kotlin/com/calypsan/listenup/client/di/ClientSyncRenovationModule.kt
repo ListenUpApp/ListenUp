@@ -44,12 +44,6 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
-import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ShelfBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -271,20 +265,6 @@ internal val clientSyncRenovationModule =
         consumerSyncHandlerSingle(SyncDomains.CONTRIBUTORS)
 
         single(createdAtStart = true) {
-            BookTagSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            BookMoodSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
             ListeningEventSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
@@ -294,34 +274,6 @@ internal val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             UserStatsSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            CollectionSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            CollectionBookSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            CollectionShareSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            ShelfBookSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),

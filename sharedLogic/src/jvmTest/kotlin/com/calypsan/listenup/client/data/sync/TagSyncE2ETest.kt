@@ -21,7 +21,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * [com.calypsan.listenup.server.sync.BookTagRepository] cross the live SSE firehose;
  * the client [SyncEngine] routes them through the real
  * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] handler and
- * [com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler], and the
+ * [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain], and the
  * rows land in the client's Room database — exactly the round-trip production performs.
  *
  * The [withTagSyncEngineAgainstServer] harness registers the real tag handlers rather

@@ -5,10 +5,10 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
@@ -48,7 +48,7 @@ class DigestOptOutSetTest :
                     // Register all production handlers — mirrors the clientSyncRenovationModule
                     // Koin wiring so this test tracks production exactly.
                     tagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    BookTagSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    bookTagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     booksDomain(
                         database = clientDb,
                         mapper = BookEntityMapper(),
@@ -68,9 +68,9 @@ class DigestOptOutSetTest :
                     UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    CollectionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    CollectionBookSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    CollectionShareSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    collectionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    collectionBooksDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    collectionSharesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
 
                     // Collect the domains whose handler returns null from localDigestRows against
                     // an empty DB. An empty DB ensures reconcilable domains return emptyList() (non-null)

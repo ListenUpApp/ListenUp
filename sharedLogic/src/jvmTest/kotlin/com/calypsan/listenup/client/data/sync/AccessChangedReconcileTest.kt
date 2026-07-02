@@ -10,10 +10,10 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.result.AppResult
@@ -71,7 +71,7 @@ class AccessChangedReconcileTest :
 
         test("collections: inaccessible collection is tombstoned, accessible one remains") {
             withReconcileEngine { harness, db, _ ->
-                val handler = CollectionSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                val handler = collectionsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                 handler.onCatchUpItem(collectionPayload("c1"), isTombstone = false)
                 handler.onCatchUpItem(collectionPayload("c2"), isTombstone = false)
 
@@ -86,7 +86,7 @@ class AccessChangedReconcileTest :
 
         test("admin: everything accessible → pruneTo deletes nothing (no over-prune)") {
             withReconcileEngine { harness, db, _ ->
-                val handler = CollectionSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                val handler = collectionsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                 handler.onCatchUpItem(collectionPayload("c1"), isTombstone = false)
                 handler.onCatchUpItem(collectionPayload("c2"), isTombstone = false)
 
@@ -101,7 +101,7 @@ class AccessChangedReconcileTest :
 
         test("total revocation: empty accessible set prunes EVERY local row (no under-prune)") {
             withReconcileEngine { harness, db, _ ->
-                val handler = CollectionSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                val handler = collectionsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                 handler.onCatchUpItem(collectionPayload("c1"), isTombstone = false)
                 handler.onCatchUpItem(collectionPayload("c2"), isTombstone = false)
                 db.collectionDao().liveIds().toSet() shouldBe setOf("c1", "c2")
@@ -190,9 +190,9 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                 mapper = BookEntityMapper(),
                 imageStorage = stubImageStorage(),
             ).toHandler(transactionRunner = txn, registry = registry)
-            CollectionSyncDomainHandler(db, txn, registry)
-            CollectionBookSyncDomainHandler(db, txn, registry)
-            CollectionShareSyncDomainHandler(db, txn, registry)
+            collectionsDomain(db).toHandler(txn, registry)
+            collectionBooksDomain(db).toHandler(txn, registry)
+            collectionSharesDomain(db).toHandler(txn, registry)
 
             val store = SyncCursorStore(db.syncCursorDao())
             val state = SyncEngineState()

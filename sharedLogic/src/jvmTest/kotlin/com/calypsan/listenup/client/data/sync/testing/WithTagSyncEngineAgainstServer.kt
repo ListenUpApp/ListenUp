@@ -21,7 +21,7 @@ import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
-import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
@@ -81,7 +81,8 @@ internal data class TagSyncEngineScope(
  *
  * Unlike [withClientSyncEngineAgainstServer], this harness registers the real
  * [com.calypsan.listenup.client.data.sync.domains.tagsDomain] handler and
- * [BookTagSyncDomainHandler] instead of [RecordingTagSyncDomainHandler]. This lets
+ * [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain] instead of
+ * [RecordingTagSyncDomainHandler]. This lets
  * tests assert that tag and book_tag
  * SSE events land directly in Room rather than being captured in a recording
  * buffer. The two harnesses cannot be combined because [ClientSyncDomainRegistry]
@@ -170,8 +171,7 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            BookTagSyncDomainHandler(
-                database = clientDb,
+            bookTagsDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )

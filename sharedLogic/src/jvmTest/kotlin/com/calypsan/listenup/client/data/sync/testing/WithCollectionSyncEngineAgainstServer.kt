@@ -22,10 +22,10 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -283,9 +283,9 @@ private fun buildMemberSyncEngine(
         mapper = BookEntityMapper(),
         imageStorage = stubImageStorage(),
     ).toHandler(transactionRunner = txn, registry = registry)
-    CollectionSyncDomainHandler(clientDb, txn, registry)
-    CollectionBookSyncDomainHandler(clientDb, txn, registry)
-    CollectionShareSyncDomainHandler(clientDb, txn, registry)
+    collectionsDomain(clientDb).toHandler(txn, registry)
+    collectionBooksDomain(clientDb).toHandler(txn, registry)
+    collectionSharesDomain(clientDb).toHandler(txn, registry)
 
     val state = SyncEngineState()
     val store = SyncCursorStore(clientDb.syncCursorDao())
