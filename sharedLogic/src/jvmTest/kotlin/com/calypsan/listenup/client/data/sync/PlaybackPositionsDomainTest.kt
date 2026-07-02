@@ -17,7 +17,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class PlaybackPositionSyncDomainHandlerTest :
+class PlaybackPositionsDomainTest :
     FunSpec({
 
         test("a Created event for a book with no local row inserts the position") {

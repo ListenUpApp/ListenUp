@@ -51,7 +51,7 @@ internal open class ComposedSyncDomainHandler<T : Any>(
 
                 is SyncEvent.Deleted -> {
                     when (val deletes = domain.deletes) {
-                        DeleteSemantics.SoftDelete, DeleteSemantics.HardDelete -> {
+                        DeleteSemantics.SoftDelete -> {
                             domain.apply.tombstoneById(event.id, event.occurredAt, event.revision)
                         }
 

@@ -43,10 +43,7 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
-import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
-import com.calypsan.listenup.client.data.sync.domains.booksDomain
-import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
-import com.calypsan.listenup.client.data.sync.domains.tagsDomain
+import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
@@ -252,18 +249,11 @@ internal val clientSyncRenovationModule =
         single { BookEntityMapper() }
 
         single {
-            SyncDomainCatalog(
-                mirrored =
-                    listOf(
-                        tagsDomain(database = get()),
-                        playbackPositionsDomain(database = get()),
-                        booksDomain(
-                            database = get(),
-                            mapper = get(),
-                            imageStorage = get(),
-                            documentStorage = get(),
-                        ),
-                    ),
+            syncDomainCatalog(
+                database = get(),
+                mapper = get(),
+                imageStorage = get(),
+                documentStorage = get(),
             )
         }
         single(createdAtStart = true) {
@@ -456,6 +446,7 @@ internal val clientSyncRenovationModule =
  */
 private inline fun <reified T : Any> Module.consumerSyncHandlerSingle(key: SyncDomainKey<T>) {
     single<SyncDomainHandler<T>>(named(key.name)) {
+        // Force the registrar to run registerAll() before we look the handler up.
         val _ = get<ComposedHandlerRegistrar>()
         @Suppress("UNCHECKED_CAST")
         checkNotNull(

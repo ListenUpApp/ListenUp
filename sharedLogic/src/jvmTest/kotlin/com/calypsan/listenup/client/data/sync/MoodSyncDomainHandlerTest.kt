@@ -16,7 +16,7 @@ import kotlinx.coroutines.test.runTest
 /**
  * Covers [MoodSyncDomainHandler]: Room write-through for SSE mood events.
  *
- * Mirrors `TagSyncDomainHandlerTest` — verifies payload → entity mapping across
+ * Mirrors `TagsDomainTest` — verifies payload → entity mapping across
  * Created / Updated / Deleted events and catch-up paging.
  */
 class MoodSyncDomainHandlerTest :

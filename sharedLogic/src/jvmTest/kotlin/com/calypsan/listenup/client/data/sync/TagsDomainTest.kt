@@ -18,7 +18,7 @@ import kotlinx.coroutines.test.runTest
  * Covers [com.calypsan.listenup.client.data.sync.domains.tagsDomain]: Room write-through
  * for SSE tag events (Room v22).
  */
-class TagSyncDomainHandlerTest :
+class TagsDomainTest :
     FunSpec({
 
         test("Created event inserts the tag row into Room") {

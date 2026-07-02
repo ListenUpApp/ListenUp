@@ -41,7 +41,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
 
-class BookSyncDomainHandlerTest :
+class BooksDomainTest :
     FunSpec({
 
         test("Updated event replaces all child rows wholesale") {
