@@ -127,6 +127,9 @@ class StatsRecorderListeningSessionClosedTest :
                 val registry = SyncRegistry()
                 val userStatsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                // Re-derived streaks are as-of-now: the clock must reflect when the latest event is
+                // recorded (day0+4), or the last event reads as "in the future" and current decays to 0.
+                val nowClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms + 4 * dayMs))
                 val recorder =
                     StatsRecorder(
                         sql = sql,
@@ -136,11 +139,11 @@ class StatsRecorderListeningSessionClosedTest :
                             PublicProfileMaintainer(
                                 sql = sql,
                                 publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
-                                clock = clock,
+                                clock = nowClock,
                             ),
                         activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo),
-                        clock = clock,
+                        clock = nowClock,
                     )
 
                 runTest {
@@ -217,6 +220,9 @@ class StatsRecorderListeningSessionClosedTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = bus, registry = registry)
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
+                // Re-derived streaks are as-of-now: pin the clock to the last day (day0+6) so the run of
+                // seven days ends on "today" and the current streak reads 7.
+                val nowClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms + 6 * dayMs))
                 val recorder =
                     StatsRecorder(
                         sql = sql,
@@ -226,15 +232,16 @@ class StatsRecorderListeningSessionClosedTest :
                             PublicProfileMaintainer(
                                 sql = sql,
                                 publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
-                                clock = clock,
+                                clock = nowClock,
                             ),
                         activityRecorder = ActivityRecorder(repo = activities, bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo),
-                        clock = clock,
+                        clock = nowClock,
                     )
 
                 runTest {
-                    // Seven consecutive days → streak climbs 1..7
+                    // Seven consecutive days ending on "today"; the final re-derive reads a 7-day streak,
+                    // crossing the 7-day milestone exactly once.
                     repeat(7) { day ->
                         val e = eventAt("evt-$day", "book-1", endedAtMs = day0Ms + day * dayMs, wallSeconds = 30L)
                         eventRepo.upsert(e, clientOpId = null, userId = "u1")
