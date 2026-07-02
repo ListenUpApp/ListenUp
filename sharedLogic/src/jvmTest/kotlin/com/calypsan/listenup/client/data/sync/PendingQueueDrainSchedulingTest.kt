@@ -266,9 +266,18 @@ class PendingQueueDrainSchedulingTest :
                 val db = createInMemoryTestDatabase()
                 try {
                     val sent = MutableSharedFlow<String>(replay = 64)
-                    val sender = PendingOperationSender { op -> sent.tryEmit(op.clientOpId); AppResult.Success(Unit) }
+                    val sender =
+                        PendingOperationSender { op ->
+                            sent.tryEmit(op.clientOpId)
+                            AppResult.Success(Unit)
+                        }
                     val clock = AtomicLong(0)
-                    val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = sender, nowMillis = { clock.incrementAndGet() })
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                            nowMillis = { clock.incrementAndGet() },
+                        )
                     val state = SyncEngineState()
                     val sse = FakeSseClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
@@ -282,7 +291,8 @@ class PendingQueueDrainSchedulingTest :
                     db.pendingOperationV2Dao().get(c) shouldBe null
                 } finally {
                     scope.cancel()
-                    scope.coroutineContext.job.children.forEach { it.join() }
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
                     db.close()
                 }
             }

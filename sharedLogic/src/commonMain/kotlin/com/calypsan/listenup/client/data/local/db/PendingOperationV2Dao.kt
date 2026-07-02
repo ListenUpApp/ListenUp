@@ -67,7 +67,12 @@ internal interface PendingOperationV2Dao {
            AND failureCount <= :maxAttempts
         """,
     )
-    suspend fun deleteQueuedOps(domainName: String, entityId: String, opType: String, maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS)
+    suspend fun deleteQueuedOps(
+        domainName: String,
+        entityId: String,
+        opType: String,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    )
 
     @Query("DELETE FROM pending_operation WHERE ownerUserId != :keepUserId")
     suspend fun deleteAllExcept(keepUserId: String)

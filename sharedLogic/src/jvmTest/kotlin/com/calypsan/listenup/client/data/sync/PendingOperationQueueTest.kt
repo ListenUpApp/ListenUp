@@ -239,12 +239,24 @@ class PendingOperationQueueTest :
                 val db = createInMemoryTestDatabase()
                 db.pendingOperationV2Dao().insert(
                     PendingOperationV2Entity(
-                        clientOpId = "terminal-1", domainName = "playback_positions", entityId = "b1",
-                        opType = "upsert", payload = "{}", enqueuedAt = 1L, lastAttemptAt = 2L,
-                        failureCount = 6, lastError = "SYNC_FAILED", ownerUserId = "u1",
+                        clientOpId = "terminal-1",
+                        domainName = "playback_positions",
+                        entityId = "b1",
+                        opType = "upsert",
+                        payload = "{}",
+                        enqueuedAt = 1L,
+                        lastAttemptAt = 2L,
+                        failureCount = 6,
+                        lastError = "SYNC_FAILED",
+                        ownerUserId = "u1",
                     ),
                 )
-                val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = PendingOperationSender { AppResult.Success(Unit) }, nowMillis = { 1_000L })
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
                 queue.enqueue("playback_positions", "b1", "upsert", "{}", "u1", coalesce = true)
                 db.pendingOperationV2Dao().get("terminal-1") shouldNotBe null
                 db.close()
