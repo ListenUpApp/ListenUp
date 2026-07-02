@@ -125,17 +125,18 @@ class LiveCorpusBooksPersistenceTest :
                         }
 
                     try {
+                        // Mint an auth token first — required for both the now JWT-gated
+                        // /api/v1/scan/last route and the sync (catch-up) route below.
+                        val token = mintAccessToken(client, baseUrl)
+
                         // Wait for the bootstrap scan to complete. Real corpora can be large;
                         // use a generous timeout to avoid false failures on slow disks.
-                        val scanResult = waitForScanResult(client, baseUrl, timeoutMs = SCAN_TIMEOUT_MS)
+                        val scanResult = waitForScanResult(client, baseUrl, token, timeoutMs = SCAN_TIMEOUT_MS)
 
                         val scannedCount = scanResult.books.size
                         withClue("Live corpus scan produced zero books — check $LIVE_CORPUS_ENV points to a valid audiobook library") {
                             scannedCount shouldBeGreaterThan 0
                         }
-
-                        // Mint an auth token — required for the sync (catch-up) route.
-                        val token = mintAccessToken(client, baseUrl)
 
                         // BookPersister drains the scan-result bus asynchronously in its own
                         // coroutine. waitForScanResult() above guarantees the scan itself is
@@ -205,11 +206,12 @@ class LiveCorpusBooksPersistenceTest :
 private suspend fun waitForScanResult(
     client: HttpClient,
     baseUrl: String,
+    token: String,
     timeoutMs: Long,
 ): ScanResult {
     val deadline = System.currentTimeMillis() + timeoutMs
     while (System.currentTimeMillis() < deadline) {
-        val response = client.get("$baseUrl/api/v1/scan/last")
+        val response = client.get("$baseUrl/api/v1/scan/last") { bearerAuth(token) }
         if (response.status == HttpStatusCode.OK) {
             val text: String = response.body()
             val result =

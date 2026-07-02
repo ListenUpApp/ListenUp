@@ -15,11 +15,12 @@ import kotlinx.rpc.withService
  * Supplies the [ScannerService] kotlinx.rpc proxy used to observe live scan
  * progress (`observeProgress(): Flow<RpcEvent<ScanEvent>>`).
  *
- * [ScannerService] is mounted on the **public** RPC surface (`/api/rpc/public`),
- * so this factory does not attach a bearer token — it mirrors the public-mount
- * pattern of the auth/instance factories. The proxy is cached and reused; the
- * underlying [HttpClient] comes from [ApiClientFactory] (same one the rest of the
- * app uses), so [invalidate] drops the cached proxy when that client is recycled.
+ * [ScannerService] is mounted on the **authed** RPC surface (`/api/rpc/authed`),
+ * so the shared [ApiClientFactory] attaches the bearer token to the WebSocket
+ * upgrade automatically — `/api/rpc/authed` is deliberately not in the auth-exempt
+ * prefix list. The proxy is cached and reused; the underlying [HttpClient] comes
+ * from [ApiClientFactory] (same one the rest of the app uses), so [invalidate]
+ * drops the cached proxy when that client is recycled.
  */
 internal interface ScannerRpcFactory {
     /** Returns the cached [ScannerService] proxy, connecting on first use. */
@@ -30,8 +31,9 @@ internal interface ScannerRpcFactory {
 }
 
 /**
- * Production [ScannerRpcFactory]: mounts [ScannerService] over `/api/rpc/public`.
- * Mirrors [KtorLibraryAdminRpcFactory], substituting the public mount.
+ * Production [ScannerRpcFactory]: mounts [ScannerService] over `/api/rpc/authed` — the
+ * bearer-gated RPC surface. Mirrors [KtorLibraryAdminRpcFactory]; the shared
+ * [ApiClientFactory]'s `Auth`/`bearer` plugin carries the token onto the WebSocket upgrade.
  */
 internal open class KtorScannerRpcFactory(
     private val apiClientFactory: ApiClientFactory,
@@ -56,7 +58,7 @@ internal open class KtorScannerRpcFactory(
 
     internal open suspend fun connect(): ScannerService {
         val baseUrl = rpcBaseUrl()
-        return rpcClient().rpc("$baseUrl/api/rpc/public").withService<ScannerService>()
+        return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<ScannerService>()
     }
 
     private suspend fun rpcClient(): HttpClient =

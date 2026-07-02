@@ -72,13 +72,15 @@ private fun Route.publicRpc(services: RpcServices) {
         registerService<InstanceService> { guard(services.instanceService) }
         registerService<AuthServicePublic> { guard(services.authService as AuthServicePublic) }
         registerService<InviteServicePublic> { guard(services.inviteService as InviteServicePublic) }
-        registerService<ScannerService> { guard(services.scannerService) }
     }
 }
 
 private fun Route.authedRpc(services: RpcServices) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
+        // ScannerService is a principal-free singleton (no copyWith); registered here so the
+        // JWT gate on the authed mount applies, but as a plain service rather than registerScoped.
+        registerService<ScannerService> { guard(services.scannerService) }
         registerScoped<AuthServiceAuthed> { guard(services.authService.copyWith(it) as AuthServiceAuthed) }
         registerScoped<BookService> { guard((services.bookService as BookServiceImpl).copyWith(it)) }
         registerScoped<ContributorService> {
