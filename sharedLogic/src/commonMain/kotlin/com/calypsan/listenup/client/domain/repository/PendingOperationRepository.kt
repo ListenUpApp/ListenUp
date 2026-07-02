@@ -26,7 +26,8 @@ interface PendingOperationRepository {
     /**
      * Observe the currently in-progress operation.
      *
-     * Used to display "Syncing: ..." status.
+     * Always null with the current outbox — it keeps no in-flight marker (a drain
+     * wave deletes an op on success rather than flagging it "sending").
      *
      * @return Flow of the current operation, null if none in progress
      */
@@ -44,7 +45,7 @@ interface PendingOperationRepository {
     /**
      * Retry a failed operation.
      *
-     * Resets the operation to pending state for another sync attempt.
+     * Re-arms the operation for another dispatch attempt.
      *
      * @param id The operation ID to retry
      */
@@ -53,7 +54,8 @@ interface PendingOperationRepository {
     /**
      * Dismiss a failed operation.
      *
-     * Discards local changes and marks the entity for re-sync from server.
+     * Deletes the queued operation; local optimistic state reconciles from the
+     * server on the next catch-up.
      *
      * @param id The operation ID to dismiss
      */
