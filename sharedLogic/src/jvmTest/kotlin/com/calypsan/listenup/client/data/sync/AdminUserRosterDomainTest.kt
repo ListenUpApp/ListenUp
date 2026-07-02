@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.adminUserRosterDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -14,7 +15,7 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
-class AdminUserRosterSyncDomainHandlerTest :
+class AdminUserRosterDomainTest :
     FunSpec({
 
         test("Created event upserts a new admin_user_roster row matching the payload") {
@@ -127,7 +128,9 @@ class AdminUserRosterSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = AdminUserRosterSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler =
+                    adminUserRosterDomain(db)
+                        .toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "admin_user_roster"
                 registry.lookup("admin_user_roster") shouldBe handler
             } finally {
@@ -138,11 +141,15 @@ class AdminUserRosterSyncDomainHandlerTest :
 
 // ── Fixtures ─────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (AdminUserRosterSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<AdminUserRosterSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(AdminUserRosterSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(
+                adminUserRosterDomain(db)
+                    .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()),
+                db,
+            )
         } finally {
             db.close()
         }

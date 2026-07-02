@@ -62,6 +62,7 @@ internal fun syncDomainCatalog(
                     imageStorage = imageStorage,
                     documentStorage = documentStorage,
                 ),
+                adminUserRosterDomain(database = database),
             ),
     )
 
