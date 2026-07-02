@@ -7,8 +7,9 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.MoodRpcFactory
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.data.sync.domains.moodsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -93,7 +94,8 @@ private suspend fun seedMood(
     name: String,
     slug: String,
 ) {
-    MoodSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+    moodsDomain(db)
+        .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
         .onCatchUpItem(
             WireMood(id = id, name = name, slug = slug, revision = 1L, updatedAt = 100L, deletedAt = null),
             isTombstone = false,

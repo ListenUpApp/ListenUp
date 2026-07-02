@@ -33,6 +33,7 @@ internal fun syncDomainCatalog(
             listOf(
                 tagsDomain(database = database),
                 genresDomain(database = database),
+                moodsDomain(database = database),
                 playbackPositionsDomain(database = database),
                 booksDomain(
                     database = database,

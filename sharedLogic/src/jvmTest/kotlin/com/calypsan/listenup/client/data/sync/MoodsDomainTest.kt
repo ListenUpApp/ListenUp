@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.moodsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -14,12 +15,13 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Covers [MoodSyncDomainHandler]: Room write-through for SSE mood events.
+ * Covers [com.calypsan.listenup.client.data.sync.domains.moodsDomain]: Room
+ * write-through for SSE mood events.
  *
- * Mirrors `TagsDomainTest` — verifies payload → entity mapping across
+ * Mirrors [TagsDomainTest] — verifies payload → entity mapping across
  * Created / Updated / Deleted events and catch-up paging.
  */
-class MoodSyncDomainHandlerTest :
+class MoodsDomainTest :
     FunSpec({
 
         test("Created event inserts the mood row into Room") {
@@ -95,7 +97,7 @@ class MoodSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = MoodSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = moodsDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "moods"
                 registry.lookup("moods") shouldBe handler
             } finally {
@@ -106,11 +108,11 @@ class MoodSyncDomainHandlerTest :
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (MoodSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<Mood>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(MoodSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(moodsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

@@ -46,7 +46,6 @@ import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
@@ -270,13 +269,6 @@ internal val clientSyncRenovationModule =
 
         single(createdAtStart = true) {
             BookTagSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            MoodSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
