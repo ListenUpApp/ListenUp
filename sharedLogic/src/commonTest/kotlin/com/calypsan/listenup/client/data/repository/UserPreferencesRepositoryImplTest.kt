@@ -74,6 +74,8 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
 
     override suspend fun nextDispatchable(maxAttempts: Int): List<PendingOperationV2Entity> = inserted.toList()
 
+    override suspend fun countDispatchable(maxAttempts: Int): Int = inserted.count { it.failureCount <= maxAttempts }
+
     override fun observeQueueDepth(): Flow<Int> = flowOf(inserted.size)
 
     override fun observeFailureCount(maxAttempts: Int): Flow<Int> = flowOf(0)

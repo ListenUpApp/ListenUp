@@ -28,11 +28,17 @@ internal const val MAX_RETRYABLE_ATTEMPTS = 5
  *   `failureCount` incremented, will be picked up by a future drain)
  * @property terminalFailures count of ops that failed non-retryably (flagged
  *   past [MAX_RETRYABLE_ATTEMPTS] and will not be retried)
+ * @property remainingDispatchable count of ops still within retry budget after this
+ *   wave — includes ops held back by per-entity FIFO (a second op queued behind
+ *   one just sent) AND this wave's own retryable failures (still eligible, just
+ *   not yet retried). The engine uses this to decide whether looping `drain()`
+ *   again immediately would make further progress.
  */
 internal data class DrainOutcome(
     val sent: Int,
     val retryableFailures: Int,
     val terminalFailures: Int,
+    val remainingDispatchable: Int,
 ) {
     /** True when this wave produced at least one retryable failure that the engine should reschedule. */
     val hasRetryableFailures: Boolean get() = retryableFailures > 0
@@ -201,6 +207,7 @@ internal class PendingOperationQueue(
             sent = sent,
             retryableFailures = retryableFailures,
             terminalFailures = terminalFailures,
+            remainingDispatchable = dao.countDispatchable(),
         )
     }
 

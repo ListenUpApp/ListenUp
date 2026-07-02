@@ -347,6 +347,8 @@ private class CountingDao(
         return delegate.nextDispatchable(maxAttempts)
     }
 
+    override suspend fun countDispatchable(maxAttempts: Int) = delegate.countDispatchable(maxAttempts)
+
     override fun observeQueueDepth() = delegate.observeQueueDepth()
 
     override fun observeFailureCount(maxAttempts: Int) = delegate.observeFailureCount(maxAttempts)

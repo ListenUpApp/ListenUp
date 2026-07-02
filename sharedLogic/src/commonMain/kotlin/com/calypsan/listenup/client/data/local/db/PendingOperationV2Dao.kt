@@ -43,6 +43,10 @@ internal interface PendingOperationV2Dao {
     )
     suspend fun nextDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): List<PendingOperationV2Entity>
 
+    /** Count of ops still within retry budget — i.e. rows a future drain wave could dispatch. */
+    @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
+    suspend fun countDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Int
+
     @Query("SELECT COUNT(*) FROM pending_operation")
     fun observeQueueDepth(): Flow<Int>
 

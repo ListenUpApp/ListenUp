@@ -188,4 +188,27 @@ class PendingOperationQueueTest :
                 db.close()
             }
         }
+
+        test("drain reports remaining dispatchable ops in DrainOutcome") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var clock = 0L
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { clock++ },
+                    )
+                queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                queue.enqueue("tags", "t2", "upsert", "{}", "u1")
+                val first = queue.drain()
+                first.sent shouldBe 2
+                first.remainingDispatchable shouldBe 1
+                val second = queue.drain()
+                second.sent shouldBe 1
+                second.remainingDispatchable shouldBe 0
+                db.close()
+            }
+        }
     })
