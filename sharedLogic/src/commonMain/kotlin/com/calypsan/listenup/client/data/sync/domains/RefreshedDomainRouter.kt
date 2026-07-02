@@ -27,6 +27,7 @@ internal class RefreshedDomainRouter(
      */
     suspend fun dispatch(control: SyncControl): Boolean {
         val strategy = byTrigger[control::class] ?: return false
+        logger.debug { "Nudge $control claimed by a refreshed domain; running ${strategy::class.simpleName} refresh" }
         when (strategy) {
             is RefreshStrategy.Ping -> strategy.ping()
             is RefreshStrategy.Refetch -> runRefetchSafely(strategy.refetch)
