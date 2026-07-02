@@ -221,12 +221,16 @@ class BookEntityMapperTest :
 
         // --- toDetail mapping ---
 
-        fun bookWithContributors(hasScanWarning: Boolean): BookWithContributors =
+        fun bookWithContributors(
+            hasScanWarning: Boolean = false,
+            coverDownloadedAt: Timestamp? = null,
+        ): BookWithContributors =
             BookWithContributors(
                 book =
                     bookEntity().copy(
                         revision = 1L,
                         hasScanWarning = hasScanWarning,
+                        coverDownloadedAt = coverDownloadedAt,
                     ),
                 contributors = emptyList(),
                 contributorRoles = emptyList(),
@@ -235,7 +239,10 @@ class BookEntityMapperTest :
             )
 
         test("toDetail carries hasScanWarning from the book entity — true and false") {
-            val imageStorage = mock<ImageStorage> { every { exists(any()) } returns false }
+            // Stat-elimination regression guard: no `exists` stub — a strict Mokkery mock throws
+            // on any unstubbed call, so if toDetail ever regresses to calling
+            // ImageStorage.exists() again, this test fails.
+            val imageStorage = mock<ImageStorage> { every { getCoverPath(any()) } returns "/covers/book-1.jpg" }
 
             bookWithContributors(hasScanWarning = true)
                 .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
@@ -243,6 +250,32 @@ class BookEntityMapperTest :
             bookWithContributors(hasScanWarning = false)
                 .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
                 .hasScanWarning shouldBe false
+        }
+
+        test("toListItem derives coverPath from coverDownloadedAt — pure string construction, no stat") {
+            // Stat-elimination regression guard: no `exists` stub — a strict Mokkery mock throws
+            // on any unstubbed call, so if toListItem ever regresses to calling
+            // ImageStorage.exists() again, this test fails.
+            val imageStorage = mock<ImageStorage> { every { getCoverPath(any()) } returns "/covers/book-1.jpg" }
+
+            bookWithContributors(coverDownloadedAt = null).toListItem(imageStorage).coverPath.shouldBeNull()
+            bookWithContributors(coverDownloadedAt = Timestamp(ENTITY_UPDATED_AT_MS))
+                .toListItem(imageStorage)
+                .coverPath shouldBe "/covers/book-1.jpg"
+        }
+
+        test("toDetail derives coverPath from coverDownloadedAt — pure string construction, no stat") {
+            // Stat-elimination regression guard: no `exists` stub — a strict Mokkery mock throws
+            // on any unstubbed call, so if toDetail ever regresses to calling
+            // ImageStorage.exists() again, this test fails.
+            val imageStorage = mock<ImageStorage> { every { getCoverPath(any()) } returns "/covers/book-1.jpg" }
+
+            bookWithContributors(coverDownloadedAt = null)
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
+                .coverPath.shouldBeNull()
+            bookWithContributors(coverDownloadedAt = Timestamp(ENTITY_UPDATED_AT_MS))
+                .toDetail(imageStorage, genres = emptyList(), tags = emptyList(), moods = emptyList())
+                .coverPath shouldBe "/covers/book-1.jpg"
         }
 
         test("toAudioFile carries the audio-stream fields") {

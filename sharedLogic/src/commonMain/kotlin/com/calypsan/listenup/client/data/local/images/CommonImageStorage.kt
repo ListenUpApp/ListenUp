@@ -58,6 +58,15 @@ internal class CommonImageStorage(
 
     override fun exists(bookId: BookId): Boolean = SystemFileSystem.exists(getCoverFile(bookId))
 
+    override fun listCoverBookIds(): Set<BookId> {
+        if (!SystemFileSystem.exists(coversDir)) return emptySet()
+        return SystemFileSystem
+            .list(coversDir)
+            .filter { it.name.endsWith(".$FILE_EXTENSION") && !it.name.endsWith("_staging.$FILE_EXTENSION") }
+            .map { BookId(it.name.removeSuffix(".$FILE_EXTENSION")) }
+            .toSet()
+    }
+
     override suspend fun deleteCover(bookId: BookId): AppResult<Unit> =
         withContext(IODispatcher) {
             try {

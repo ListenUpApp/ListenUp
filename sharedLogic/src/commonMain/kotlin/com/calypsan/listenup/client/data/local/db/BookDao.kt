@@ -232,20 +232,6 @@ internal interface BookDao {
     )
 
     /**
-     * Touch a book's updatedAt timestamp to trigger Flow re-emission.
-     *
-     * Used after cover downloads to force UI updates when cover files
-     * appear on disk (even though database content hasn't changed).
-     *
-     * @param id Type-safe book ID to touch
-     */
-    @Query("UPDATE books SET updatedAt = :timestamp WHERE id = :id")
-    suspend fun touchUpdatedAt(
-        id: BookId,
-        timestamp: Timestamp,
-    )
-
-    /**
      * Mark a single book's cover as present on disk. Conditioned on the column
      * currently being unset so a redundant mark (the cover was already recorded) touches
      * zero rows — Room's invalidation tracker only wakes observers on an actual row change.
@@ -414,7 +400,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -440,7 +426,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -470,7 +456,7 @@ internal interface BookDao {
     @Query(
         """
         SELECT
-            b.id, b.title, b.coverBlurHash, b.coverHash, b.createdAt,
+            b.id, b.title, b.coverBlurHash, b.coverHash, b.coverDownloadedAt, b.createdAt,
             (
                 SELECT c.name FROM book_contributors bc
                 INNER JOIN contributors c ON bc.contributorId = c.id
@@ -562,6 +548,7 @@ internal data class DiscoveryBookWithAuthor(
     val title: String,
     val coverBlurHash: String?,
     val coverHash: String?,
+    val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
     val authorName: String?,
 )
@@ -578,6 +565,7 @@ internal data class DiscoveryBookWithSeries(
     val title: String,
     val coverBlurHash: String?,
     val coverHash: String?,
+    val coverDownloadedAt: Timestamp?,
     val createdAt: Timestamp,
     val authorName: String?,
     val sequence: String?,

@@ -467,6 +467,8 @@ private class FakeHomeRepository(
 private class FakeImageStorage : ImageStorage {
     override fun exists(bookId: BookId): Boolean = false
 
+    override fun listCoverBookIds(): Set<BookId> = emptySet()
+
     override fun getCoverPath(bookId: BookId): String = "/fake/covers/${bookId.value}.jpg"
 
     override suspend fun saveCover(

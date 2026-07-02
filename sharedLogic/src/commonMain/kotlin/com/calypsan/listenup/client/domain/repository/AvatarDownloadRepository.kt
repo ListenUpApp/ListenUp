@@ -7,7 +7,7 @@ package com.calypsan.listenup.client.domain.repository
  * from suspend contexts without launching unstructured child coroutines on the caller's scope
  * — the repository is the single structured-concurrency boundary for this work.
  *
- * Mirrors [CoverDownloadRepository] for avatars. No `touchUpdatedAt` analogue — avatars paint
+ * Mirrors [CoverDownloadRepository] for avatars. No post-fetch book-row marking — avatars paint
  * from a stable file path; no Room-invalidation signal is needed.
  */
 internal interface AvatarDownloadRepository {

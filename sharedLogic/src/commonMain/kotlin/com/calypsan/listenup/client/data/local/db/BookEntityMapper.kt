@@ -87,6 +87,15 @@ internal class BookEntityMapper {
 }
 
 /**
+ * Local cover path derived from the persisted cover-presence marker — pure string
+ * construction, no filesystem stat. Null when no local cover file is recorded.
+ */
+internal fun ImageStorage.coverPathFor(
+    bookId: BookId,
+    coverDownloadedAt: Timestamp?,
+): String? = coverDownloadedAt?.let { getCoverPath(bookId) }
+
+/**
  * Convert an [AudioFileEntity] to the domain [AudioFile].
  *
  * Single canonical mapper — used by both [BookWithContributors.toDetail] and [PlaybackPreparer].
@@ -173,7 +182,7 @@ internal fun BookWithContributors.toListItem(
         authors = authors,
         narrators = narrators,
         duration = book.totalDuration,
-        coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null,
+        coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt),
         coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
         addedAt = book.createdAt,
@@ -247,7 +256,7 @@ internal fun BookWithContributors.toDetail(
         authors = authors,
         narrators = narrators,
         duration = book.totalDuration,
-        coverPath = if (imageStorage.exists(book.id)) imageStorage.getCoverPath(book.id) else null,
+        coverPath = imageStorage.coverPathFor(book.id, book.coverDownloadedAt),
         coverHash = book.coverHash,
         coverBlurHash = book.coverBlurHash,
         addedAt = book.createdAt,

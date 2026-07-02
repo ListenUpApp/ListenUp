@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ChapterEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.local.db.coverPathFor
 import com.calypsan.listenup.client.data.local.db.toAudioFile
 import com.calypsan.listenup.client.data.local.db.toDetail
 import com.calypsan.listenup.client.data.local.db.toListItem
@@ -188,20 +189,19 @@ internal class BookRepositoryImpl(
             bookDao
                 .observeAllWithContributors()
                 // conflate BEFORE the combine: during an initial-population burst the book table is
-                // invalidated once per inserted book, and re-mapping the whole library (a BookListItem +
-                // a blocking ImageStorage.exists cover stat per book) on every one is O(n²) allocation
-                // that exhausts the heap → OOM. Conflate collapses a burst into a single re-map of the
-                // latest snapshot; the UI still converges to the correct final list.
+                // invalidated once per inserted book, and re-mapping the whole library on every one is
+                // O(n²) allocation that exhausts the heap → OOM. Conflate collapses a burst into a
+                // single re-map of the latest snapshot; the UI still converges to the correct final
+                // list. (toListItem's coverPath is pure in-memory string construction now — no I/O —
+                // but the conflate is still needed for the O(n²) allocation cost alone.)
                 .conflate(),
             bookDao.observeBookIdsWithDocuments(),
         ) { rows, docIds ->
             val docIdSet = docIds.toSet()
-            // toListItem's per-book cover stat is blocking I/O — kept off Dispatchers.Main via
-            // the flowOn below; do not move this mapping into a non-IO context.
             rows.map { it.toListItem(imageStorage, hasDocuments = it.book.id.value in docIdSet) }
         }
-            // toListItem's per-book cover stat is blocking I/O — keep it off the collector
-            // (Dispatchers.Main for the Library screen), or a large library freezes the UI thread.
+            // Mapping itself is now pure in-memory work, but keep it off Dispatchers.Main (the
+            // Library screen's collector context) so a large library never blocks the UI thread.
             .flowOn(IODispatcher)
             // Room invalidates the entire result set on any book write (even a single row update).
             // distinctUntilChanged drops re-emissions where the mapped List<BookListItem> hasn't
@@ -407,7 +407,7 @@ private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithAuthor.t
         id = id.value,
         title = title,
         authorName = authorName,
-        coverPath = if (imageStorage.exists(id)) imageStorage.getCoverPath(id) else null,
+        coverPath = imageStorage.coverPathFor(id, coverDownloadedAt),
         coverBlurHash = coverBlurHash,
         coverHash = coverHash,
         createdAt = createdAt.epochMillis,
@@ -423,7 +423,7 @@ private fun com.calypsan.listenup.client.data.local.db.DiscoveryBookWithSeries.t
         id = id.value,
         title = title,
         authorName = authorName,
-        coverPath = if (imageStorage.exists(id)) imageStorage.getCoverPath(id) else null,
+        coverPath = imageStorage.coverPathFor(id, coverDownloadedAt),
         coverBlurHash = coverBlurHash,
         coverHash = coverHash,
         createdAt = createdAt.epochMillis,
