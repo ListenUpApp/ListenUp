@@ -204,23 +204,28 @@ class SyncIndicatorViewModel(
 
 internal sealed interface OpDescription {
     /** Operation describes work on a specific entity; [template] is invoked with the entity name. */
-    data class Entity(val template: (String) -> String) : OpDescription
+    data class Entity(
+        val template: (String) -> String,
+    ) : OpDescription
 
     /** Operation has no per-entity context; [text] is the fixed description shown to the user. */
-    data class Global(val text: String) : OpDescription
+    data class Global(
+        val text: String,
+    ) : OpDescription
 }
 
 internal val PendingOperationType.description: OpDescription
-    get() = when (this) {
-        PendingOperationType.BOOK_UPDATE -> OpDescription.Entity { name -> "Updating book $name" }
-        PendingOperationType.SERIES_UPDATE -> OpDescription.Entity { name -> "Updating series $name" }
-        PendingOperationType.CONTRIBUTOR_UPDATE -> OpDescription.Entity { name -> "Updating contributor $name" }
-        PendingOperationType.PROFILE_UPDATE -> OpDescription.Global("Updating profile")
-        PendingOperationType.USER_PREFERENCES -> OpDescription.Global("Syncing preferences")
-        PendingOperationType.PLAYBACK_POSITION -> OpDescription.Global("Syncing playback position")
-        PendingOperationType.LISTENING_EVENT -> OpDescription.Global("Syncing listening data")
-        PendingOperationType.OTHER -> OpDescription.Global("Syncing changes")
-    }
+    get() =
+        when (this) {
+            PendingOperationType.BOOK_UPDATE -> OpDescription.Entity { name -> "Updating book $name" }
+            PendingOperationType.SERIES_UPDATE -> OpDescription.Entity { name -> "Updating series $name" }
+            PendingOperationType.CONTRIBUTOR_UPDATE -> OpDescription.Entity { name -> "Updating contributor $name" }
+            PendingOperationType.PROFILE_UPDATE -> OpDescription.Global("Updating profile")
+            PendingOperationType.USER_PREFERENCES -> OpDescription.Global("Syncing preferences")
+            PendingOperationType.PLAYBACK_POSITION -> OpDescription.Global("Syncing playback position")
+            PendingOperationType.LISTENING_EVENT -> OpDescription.Global("Syncing listening data")
+            PendingOperationType.OTHER -> OpDescription.Global("Syncing changes")
+        }
 
 internal fun PendingOperationType.describe(entityName: String): String =
     when (val d = description) {
