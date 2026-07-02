@@ -1,10 +1,13 @@
 package com.calypsan.listenup.client.data.sync.domains
 
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncDomainKey
+import kotlin.reflect.KClass
 
 /**
- * A declared sync domain — one entry in the catalog. Phase 3 adds the second kind
- * (`RefreshedDomain`, nudge-driven); until then [MirroredDomain] is the only variant.
+ * A declared sync domain — one entry in the catalog. Two kinds: [MirroredDomain]
+ * (Room-mirrored via SSE fat events + catch-up + digest) and [RefreshedDomain]
+ * (nudge-driven; no cursor, a declared refresh strategy fired on a named control).
  */
 internal sealed interface ClientSyncDomain
 
@@ -24,4 +27,14 @@ internal class MirroredDomain<T : Any>(
     val digest: DigestParticipation,
     val writes: WriteTier,
     val accessGate: AccessGate? = null,
+) : ClientSyncDomain
+
+/**
+ * A nudge-driven domain: no Room cursor and no digest. When the server pushes its
+ * [trigger] control frame, the dispatcher runs [refresh]. Server-side emission of the
+ * trigger is unchanged (it stays where it is, semantically owned by each feature).
+ */
+internal class RefreshedDomain(
+    val trigger: KClass<out SyncControl>,
+    val refresh: RefreshStrategy,
 ) : ClientSyncDomain

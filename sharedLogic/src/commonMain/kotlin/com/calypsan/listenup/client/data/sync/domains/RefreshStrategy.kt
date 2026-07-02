@@ -1,0 +1,22 @@
+package com.calypsan.listenup.client.data.sync.domains
+
+/**
+ * How a [RefreshedDomain] responds to its nudge. Extracted from what the two nudge
+ * mechanisms do today: fire a hot refresh signal (collectors re-fetch), or run a
+ * best-effort suspend re-fetch directly.
+ */
+internal sealed interface RefreshStrategy {
+    /**
+     * Ping a hot refresh signal so its collectors re-fetch. Non-suspending and
+     * fire-and-forget — a dropped ping is harmless (the collector re-fetches on the
+     * next one, or on reconnect).
+     */
+    class Ping(val ping: () -> Unit) : RefreshStrategy
+
+    /**
+     * Run a suspend re-fetch inline. Declared best-effort: the router swallows
+     * non-cancellation failures so a nudge re-fetch can never take the SSE dispatch
+     * loop down (codifies `SyncEngine.primeActivityFeedSafely`).
+     */
+    class Refetch(val refetch: suspend () -> Unit) : RefreshStrategy
+}
