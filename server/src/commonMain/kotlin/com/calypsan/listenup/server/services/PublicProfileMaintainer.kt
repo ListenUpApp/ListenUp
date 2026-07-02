@@ -63,7 +63,11 @@ class PublicProfileMaintainer(
             suspendTransaction(sql) {
                 val stats = sql.userStatsQueries.selectLiveForUser(userId).executeAsOneOrNull()
                 val yearWindowSeconds =
-                    sql.listeningEventsQueries.sumWallSecondsSince(userId, yearCutoff).executeAsOne()
+                    sql.listeningEventsQueries
+                        .sumWallSecondsSince(
+                            userId = userId,
+                            cutoffMs = yearCutoff,
+                        ).executeAsOne()
 
                 // Windowed books: distinct books finished within each trailing window.
                 val books = sql.bookReadsQueries
