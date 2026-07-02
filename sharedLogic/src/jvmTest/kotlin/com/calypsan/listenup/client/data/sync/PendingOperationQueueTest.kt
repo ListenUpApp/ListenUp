@@ -9,6 +9,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class PendingOperationQueueTest :
@@ -230,6 +231,85 @@ class PendingOperationQueueTest :
                 db.pendingOperationV2Dao().get(other) shouldNotBe null
                 db.pendingOperationV2Dao().get(latest)?.payload shouldBe """{"v":2}"""
                 db.pendingOperationV2Dao().countDispatchable() shouldBe 2
+                db.close()
+            }
+        }
+
+        test("observeFailedOperations emits terminal ops with their lastError code") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val sender =
+                    PendingOperationSender { op ->
+                        if (op.entityId == "t1") {
+                            AppResult.Failure(SyncError.NotFound(domain = "tags", entityId = "t1"))
+                        } else {
+                            AppResult.Success(Unit)
+                        }
+                    }
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { 1_000L },
+                    )
+                queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                queue.drain()
+                val healthy = queue.enqueue("tags", "t2", "upsert", "{}", "u1")
+                val failed = queue.observeFailedOperations().first()
+                failed.map { it.entityId } shouldContainExactly listOf("t1")
+                failed.single().lastError shouldBe SyncError.NotFound(domain = "tags", entityId = "t1").code
+                val pending = queue.observePendingOperations().first()
+                pending.map { it.clientOpId } shouldContainExactly listOf(healthy)
+                db.close()
+            }
+        }
+
+        test("retryOp makes a terminal op dispatchable again and ticks the enqueue signal") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var shouldFail = true
+                val sender =
+                    PendingOperationSender {
+                        if (shouldFail) {
+                            AppResult.Failure(SyncError.NotFound(domain = "tags", entityId = "t1"))
+                        } else {
+                            AppResult.Success(Unit)
+                        }
+                    }
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                queue.drain()
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldBe emptyList()
+                val signalBefore = queue.observeEnqueueSignal().value
+                queue.retryOp(opId)
+                queue.observeEnqueueSignal().value shouldBe signalBefore + 1
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
+                shouldFail = false
+                queue.drain()
+                db.pendingOperationV2Dao().get(opId) shouldBe null
+                db.close()
+            }
+        }
+
+        test("dismissOp removes the op from the queue") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                queue.dismissOp(opId)
+                db.pendingOperationV2Dao().get(opId) shouldBe null
+                val expectedDepth = 0
+                queue.observeQueueDepth().first() shouldBe expectedDepth
                 db.close()
             }
         }
