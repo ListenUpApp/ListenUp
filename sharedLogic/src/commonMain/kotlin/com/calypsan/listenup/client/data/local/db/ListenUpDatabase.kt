@@ -60,8 +60,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         SyncCursorEntity::class,
         PendingOperationV2Entity::class,
         AdminUserRosterEntity::class,
+        BookReadershipEntity::class,
+        CachedActiveSessionEntity::class,
     ],
-    version = 43,
+    version = 44,
     exportSchema = true,
 )
 @TypeConverters(
@@ -145,6 +147,10 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun pendingOperationV2Dao(): PendingOperationV2Dao
 
     abstract fun adminUserRosterDao(): AdminUserRosterDao
+
+    abstract fun bookReadershipDao(): BookReadershipDao
+
+    abstract fun cachedActiveSessionDao(): CachedActiveSessionDao
 }
 
 /**

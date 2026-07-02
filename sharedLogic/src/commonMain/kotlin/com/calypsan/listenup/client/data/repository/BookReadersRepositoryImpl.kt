@@ -1,10 +1,12 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
+@file:OptIn(ExperimentalCoroutinesApi::class, ExperimentalTime::class)
 
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.BookReadershipDao
+import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.readers.BookReaders
@@ -17,62 +19,73 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.transform
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 private val logger = KotlinLogging.logger {}
 
 /**
- * Book-readers repository over the [com.calypsan.listenup.api.SocialService] `bookReadership` RPC.
+ * Offline-first book-readers repository. Room's `book_readership` mirror is the single read source, so
+ * the Book Detail readers section renders the last-known readership (possibly stale) when offline or on
+ * a transient RPC failure — Never-Stranded, no blank flash. A background refresh re-fetches the
+ * ACL-filtered [com.calypsan.listenup.api.SocialService] `bookReadership` RPC on first subscribe and on
+ * every [PresenceRefreshSignal] ping, replacing the book's cached rows wholesale; on failure the cache
+ * is left untouched and the next ping recovers.
  *
- * The RPC is ACL-filtered and now *includes* the caller, so each [BookReaderEntry] maps straight to a
- * domain [Reader] — the current user flagged via [Reader.isYou] from [UserRepository]. The readership
- * is fetched on first subscribe and re-fetched on every [PresenceRefreshSignal] ping.
- *
- * On any RPC failure the list is empty — Never-Stranded: the section renders empty rather than
- * hanging, and the next ping recovers.
+ * The current user is flagged via [Reader.isYou] from [UserRepository]. `finishes` timestamps are stored
+ * in the mirror as a comma-joined scalar (small, always replaced together — no child table needed).
  *
  * @property socialRpc Supplies the [com.calypsan.listenup.api.SocialService] RPC proxy.
- * @property presence Pings whenever presence may have changed, driving a re-fetch of the readership.
+ * @property presence Pings whenever presence may have changed, driving a background refresh.
  * @property userRepository Source of the current user's identity, used to flag [Reader.isYou].
+ * @property readershipDao The Room mirror — the offline read source.
+ * @property clock Supplies `observedAt` for each cached row; injected for tests.
  */
 internal class BookReadersRepositoryImpl(
     private val socialRpc: SocialRpcFactory,
     private val presence: PresenceRefreshSignal,
     private val userRepository: UserRepository,
+    private val readershipDao: BookReadershipDao,
+    private val clock: Clock = Clock.System,
 ) : BookReadersRepository {
     override fun observeReadersFor(bookId: String): Flow<BookReaders> =
+        merge(
+            // Side-effect flow: refreshes the Room mirror on each ping; emits nothing itself.
+            refreshOnPing(bookId),
+            // Read source: the Room mirror joined with the current user, mapped to the domain.
+            cachedReaders(bookId),
+        )
+
+    private fun cachedReaders(bookId: String): Flow<BookReaders> =
         combine(
-            readershipFlow(bookId),
+            readershipDao.observeForBook(bookId),
             userRepository.observeCurrentUser(),
-        ) { entries, currentUser ->
+        ) { rows, currentUser ->
             val myId = currentUser?.id?.value
-            BookReaders(
-                readers =
-                    entries.map { entry ->
-                        Reader(
-                            userId = entry.userId,
-                            displayName = entry.displayName,
-                            isYou = entry.userId == myId,
-                            currentProgressPct = entry.currentProgressPct,
-                            finishes = entry.finishes,
-                        )
-                    },
-            )
+            BookReaders(readers = rows.map { it.toReader(myId) })
         }
 
-    /** The full readership of the book — ACL-filtered server-side; empty on any RPC failure. */
-    private fun readershipFlow(bookId: String): Flow<List<BookReaderEntry>> =
+    private fun refreshOnPing(bookId: String): Flow<BookReaders> =
         presence.signal
             .onStart { emit(Unit) }
-            .flatMapLatest { flow { emit(fetchReadership(bookId)) } }
+            .transform { refresh(bookId) } // never emits — the Room read carries the data
 
-    private suspend fun fetchReadership(bookId: String): List<BookReaderEntry> =
+    /** Re-fetch the readership and replace the book's cached rows; leave the cache intact on failure. */
+    private suspend fun refresh(bookId: String) {
         when (val result = bookReadership(bookId)) {
-            is AppResult.Success -> result.data.readers
-            is AppResult.Failure -> emptyList()
+            is AppResult.Success -> {
+                val observedAt = clock.now().toEpochMilliseconds()
+                readershipDao.replaceForBook(bookId, result.data.readers.map { it.toEntity(bookId, observedAt) })
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "bookReadership refresh failed (${result.error.code}); keeping cached readership" }
+            }
         }
+    }
 
     private suspend fun bookReadership(bookId: String) =
         try {
@@ -84,3 +97,26 @@ internal class BookReadersRepositoryImpl(
             AppResult.Failure(ErrorMapper.map(e))
         }
 }
+
+private fun BookReaderEntry.toEntity(
+    bookId: String,
+    observedAt: Long,
+): BookReadershipEntity =
+    BookReadershipEntity(
+        bookId = bookId,
+        userId = userId,
+        displayName = displayName,
+        avatarType = avatarType,
+        currentProgressPct = currentProgressPct,
+        finishesJson = finishes.joinToString(","),
+        observedAt = observedAt,
+    )
+
+private fun BookReadershipEntity.toReader(currentUserId: String?): Reader =
+    Reader(
+        userId = userId,
+        displayName = displayName,
+        isYou = userId == currentUserId,
+        currentProgressPct = currentProgressPct,
+        finishes = if (finishesJson.isEmpty()) emptyList() else finishesJson.split(",").map { it.toLong() },
+    )

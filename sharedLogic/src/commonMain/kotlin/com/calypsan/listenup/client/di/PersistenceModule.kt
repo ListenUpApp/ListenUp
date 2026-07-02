@@ -43,6 +43,8 @@ internal val persistenceModule: Module =
         single { get<ListenUpDatabase>().userPreferencesDao() }
         single { get<ListenUpDatabase>().tentativeSpanDao() }
         single { get<ListenUpDatabase>().publicProfileDao() }
+        single { get<ListenUpDatabase>().bookReadershipDao() }
+        single { get<ListenUpDatabase>().cachedActiveSessionDao() }
 
         // Hygiene additions: three DAOs consumed by repositories but previously
         // fetched inline via `get<ListenUpDatabase>().xDao()` at the call site
