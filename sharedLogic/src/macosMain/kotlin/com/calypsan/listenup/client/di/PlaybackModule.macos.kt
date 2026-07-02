@@ -26,7 +26,6 @@ import com.calypsan.listenup.client.sync.MacosBackgroundSyncScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import platform.Foundation.NSProcessInfo
-import platform.Foundation.NSUUID
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -53,7 +52,7 @@ internal val macosPlaybackModule: Module =
         }
 
         // Device ID for listening events
-        // macOS uses a generated UUID persisted via secure storage
+        // macOS derives the id from the host name
         // TODO: Use a more stable identifier when macOS app matures
         single(qualifier = named("deviceId")) {
             val hostName = NSProcessInfo.processInfo.hostName
