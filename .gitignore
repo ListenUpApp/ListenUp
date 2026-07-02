@@ -28,6 +28,9 @@ listenup.db
 listenup.db-shm
 listenup.db-wal
 
+# Locally staged native server binary (release.yml stages server.kexe here for Dockerfile.native)
+server/server-binary
+
 # Git worktrees (Claude Code subagent-driven development)
 .worktrees/
 
