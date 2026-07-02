@@ -60,7 +60,13 @@ class StatsRecorderIsSoleStatsWriterRule :
          */
         val USER_STATS_WRITE_ALLOWLIST = setOf("StatsRecorder", "UserStatsBackfillService", "UserStatsUpdater")
 
-        /** Holders of [com.calypsan.listenup.server.services.BookReadsRepository] allowed to call `.recordRead(`. */
+        /**
+         * Holders of [com.calypsan.listenup.server.services.BookReadsRepository] allowed to call its
+         * write methods — the low-level `.recordRead(` and the Spec-004 coverage-rule entry point
+         * `.recordCompletion(`. Both are stats-source writes and must stay behind the ordered
+         * choke-point. (The rebuild reconcile writes `book_reads` via the top-level
+         * `reconcileBookReadsFromPositions`, not a repository method, so it isn't matched here.)
+         */
         val BOOK_READS_WRITE_ALLOWLIST = setOf("StatsRecorder")
 
         fun findOffenders(scope: KoScope): List<String> =
@@ -74,6 +80,12 @@ class StatsRecorderIsSoleStatsWriterRule :
                     scope,
                     holderType = "BookReadsRepository",
                     callToken = ".recordRead(",
+                    allowlist = BOOK_READS_WRITE_ALLOWLIST,
+                ) +
+                violatingClasses(
+                    scope,
+                    holderType = "BookReadsRepository",
+                    callToken = ".recordCompletion(",
                     allowlist = BOOK_READS_WRITE_ALLOWLIST,
                 )
 
