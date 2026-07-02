@@ -3,20 +3,26 @@
   <ManuallySuppressedIssues/>
   <CurrentIssues>
     <ID>AlsoCouldBeApply:DownloadWorkerLogicTest.kt:DownloadWorkerLogicTest$also</ID>
+    <ID>AlsoCouldBeApply:Main.kt:also</ID>
     <ID>CognitiveComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>CognitiveComplexMethod:DesktopNowPlayingBar.kt:@Composable fun DesktopNowPlayingBar</ID>
     <ID>CognitiveComplexMethod:Id3v2Reader.kt:Id3v2Reader$fun read: Id3v2ReadResult?</ID>
     <ID>CognitiveComplexMethod:Lz77.kt:internal fun lz77: IntArray</ID>
     <ID>CognitiveComplexMethod:SyncTestApplication.kt:internal fun withTestApplication</ID>
     <ID>CollapsibleIfStatements:Differ.kt:Differ$if (file.fileType == FileType.AUDIO &amp;&amp; inode != null) { // First-write-wins: if two previous books somehow share an // inode (impossible on one filesystem, defensive here), // keep the first. if (inode !in index) index[inode] = book }</ID>
     <ID>ComplexCondition:MdnsSocketLayer.linux.kt:up &amp;&amp; multicast &amp;&amp; !loopback &amp;&amp; !pointToPoint &amp;&amp; name != null &amp;&amp; !isVirtualInterfaceName(name)</ID>
     <ID>CyclomaticComplexMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>CyclomaticComplexMethod:DesktopApp.kt:@Composable private fun DetailScreen</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$fun read: Id3v2ReadResult?</ID>
     <ID>CyclomaticComplexMethod:Id3v2Reader.kt:Id3v2Reader$private fun handleTextFrame</ID>
     <ID>CyclomaticComplexMethod:IlstReader.kt:IlstReader$private fun mapTextTag</ID>
     <ID>LargeClass:BookRepository.kt:BookRepository : SqlSyncableRepositoryBookIngestPortBookRevisionTouch</ID>
     <ID>LongMethod:BookCard.kt:@OptIn(ExperimentalFoundationApi::class) @Composable fun BookCard</ID>
+    <ID>LongMethod:DesktopApp.kt:@Composable private fun DetailScreen</ID>
     <ID>LongMethod:WithClientSyncEngineAgainstServer.kt:internal fun withClientSyncEngineAgainstServer</ID>
     <ID>LongMethod:WithTagSyncEngineAgainstServer.kt:internal fun withTagSyncEngineAgainstServer</ID>
+    <ID>LoopWithTooManyJumpStatements:AppleDiscoveryService.kt:AppleDiscoveryService$for</ID>
+    <ID>LoopWithTooManyJumpStatements:FfmpegAudioPlayer.kt:FfmpegAudioPlayer$while</ID>
     <ID>LoopWithTooManyJumpStatements:Mp4ChapterExtractor.kt:Mp4ChapterExtractor$for</ID>
     <ID>MagicNumber:AudioUrlSigner.kt:AudioUrlSigner$64</ID>
     <ID>MagicNumber:BitIo.kt:BitReader$0xFF</ID>
@@ -29,6 +35,9 @@
     <ID>MagicNumber:Crc32.kt:Crc32$8</ID>
     <ID>MagicNumber:Deflate.kt:DeflateRawSink$0xFFFF</ID>
     <ID>MagicNumber:Deflate.kt:DeflateRawSink$8L</ID>
+    <ID>MagicNumber:FfmpegAudioPlayer.kt:FfmpegAudioPlayer$0.5</ID>
+    <ID>MagicNumber:FfmpegAudioPlayer.kt:FfmpegAudioPlayer$0xFF</ID>
+    <ID>MagicNumber:FfmpegAudioPlayer.kt:FfmpegAudioPlayer$8</ID>
     <ID>MagicNumber:Inflate.kt:InflateRawSource$0xFFFF</ID>
     <ID>MagicNumber:Inflate.kt:InflateRawSource$8</ID>
     <ID>MagicNumber:Lz77.kt:0xFF</ID>
@@ -54,6 +63,7 @@
     <ID>MagicNumber:ZipFormat.kt:48</ID>
     <ID>MagicNumber:ZipFormat.kt:56</ID>
     <ID>MagicNumber:ZipFormat.kt:8</ID>
+    <ID>MaxLineLength:AppleDownloadService.kt:DownloadSessionDelegate$"Download $pct%: $filename (${totalBytesWritten / BYTES_PER_MEGABYTE}/${totalBytesExpectedToWrite / BYTES_PER_MEGABYTE}MB)"</ID>
     <ID>MaxLineLength:DownloadRepositoryImplTest.kt:FakeDownloadEnqueuer$override suspend fun enqueue: AppResult&lt;Unit&gt;</ID>
     <ID>MaxLineLength:JmDnsDiscoveryService.kt:JmDnsDiscoveryService.&lt;no name provided&gt;$logger.info { "Service resolved: ${event.name} at ${event.info?.hostAddresses?.firstOrNull()}:${event.info?.port}" }</ID>
     <ID>MaxLineLength:ListeningEventSyncDomainHandlerTest.kt:ListeningEventSyncDomainHandlerTest$handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)</ID>
@@ -63,6 +73,30 @@
     <ID>MaxLineLength:ScannerEmbeddedmetaIntegrationTest.kt:private fun fakeJpeg: ByteArray</ID>
     <ID>NestedBlockDepth:BackupArchive.kt:BackupArchive$private fun extractEntries: ImageDigests</ID>
     <ID>NestedBlockDepth:Lz77.kt:internal fun lz77: IntArray</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:contentDescription = "Skip back"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingBar.kt:contentDescription = "Skip forward"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"${MAX_SPEED}x"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"${MIN_SPEED}x"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Close Book"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Book"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Go to Series"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Playback Speed"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:"Reset to ${formatSpeed(1.0f)}"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Back"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Book cover"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Close player"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "More options"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Next chapter"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Previous chapter"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Skip back 10s"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:contentDescription = "Skip forward 30s"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:text = "-${formatPlaybackTime((durationMs - positionMs).coerceAtLeast(0).milliseconds)}"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:text = "Failed to play ${state.title}"</ID>
+    <ID>NoHardcodedUiString:DesktopNowPlayingScreen.kt:text = "No book is currently playing"</ID>
+    <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.collectionId) }</ID>
+    <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject { parametersOf(destination.userId) }</ID>
+    <ID>NoKoinInjectViewModel:DesktopApp.kt:koinInject()</ID>
+    <ID>NoKoinInjectViewModel:ListenUpWindow.kt:koinInject()</ID>
     <ID>RedundantVisibilityModifier:Deflate.kt:DeflateRawSink : RawSink</ID>
     <ID>RedundantVisibilityModifier:Inflate.kt:InflateRawSource : RawSource</ID>
     <ID>RedundantVisibilityModifier:MalformedZipException.kt:MalformedZipException : Exception</ID>
@@ -77,6 +111,7 @@
     <ID>RedundantVisibilityModifier:ZipWriter.kt:ZipWriter$public fun putEntry: RawSink</ID>
     <ID>StringLiteralDuplication:InotifyDirectoryWatcherNativeTest.kt:InotifyDirectoryWatcherNativeTest$"book.mp3"</ID>
     <ID>StringLiteralDuplication:Mp4Parser.kt:Mp4Parser$"&lt;source&gt;"</ID>
+    <ID>StringLiteralDuplication:PlatformModule.kt:"playbackScope"</ID>
     <ID>StringLiteralDuplication:PlaybackServiceImpl.kt:PlaybackServiceImpl$"principal"</ID>
     <ID>StringShouldBeRawString:MultipartFormDataTest.kt:"Content-Disposition: form-data; name=\"$name\"; filename=\"$filename\""</ID>
     <ID>SwallowedException:CurrentUserApiResponse.kt:CurrentUserApiResponse$e: Exception</ID>
@@ -110,6 +145,7 @@
     <ID>UnnecessaryParentheses:BuildMp3File.kt:Mp3Builder$(144 * bitrate)</ID>
     <ID>UnnecessaryParentheses:BuildMp4File.kt:MoovBuilder$(ch.startMs + 1)</ID>
     <ID>UnnecessaryParentheses:BuildMp4File.kt:MoovBuilder$(deltaMs * timescale)</ID>
+    <ID>UnnecessaryParentheses:FfmpegAudioPlayer.kt:FfmpegAudioPlayer$(bookPositionMs - accumulated)</ID>
     <ID>UnnecessaryParentheses:Huffman.kt:(code + blCount[bits - 1])</ID>
     <ID>UnnecessaryParentheses:Huffman.kt:(maxBits - it)</ID>
     <ID>UnnecessaryParentheses:Huffman.kt:HuffmanDecoder$(c + blCount[bits - 1])</ID>
@@ -134,6 +170,9 @@
     <ID>UnnecessaryParentheses:StatsRepositoryImplTest.kt:StatsRepositoryImplTest$(endedAt - startedAt)</ID>
     <ID>UnnecessaryParentheses:ZipFormat.kt:(i * 8)</ID>
     <ID>UnnecessaryParentheses:ZipReader.kt:ZipReader$(flags and ENCRYPTION_FLAG)</ID>
+    <ID>UnusedParameter:ListenUpTray.kt:onExitApplication: () -&gt; Unit</ID>
+    <ID>UnusedParameter:ListenUpTray.kt:onOpenWindow: () -&gt; Unit</ID>
+    <ID>UseIfInsteadOfWhen:DesktopNowPlayingBar.kt:when (state) { is NowPlayingState.Active -&gt; state.bookProgress.coerceIn(0f, 1f) else -&gt; 0f }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val appData = System.getenv("APPDATA") ?: "${System.getProperty("user.home")}/AppData/Roaming" File(appData, "ListenUp") } else -&gt; { // Linux and others: XDG Base Directory Specification val xdgData = System.getenv("XDG_DATA_HOME") ?: "${System.getProperty("user.home")}/.local/share" File(xdgData, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:JvmStoragePaths.kt:JvmStoragePaths$when { "windows" in os -&gt; { val localAppData = System.getenv("LOCALAPPDATA") ?: "${System.getProperty("user.home")}/AppData/Local" File(localAppData, "ListenUp/cache") } else -&gt; { val xdgCache = System.getenv("XDG_CACHE_HOME") ?: "${System.getProperty("user.home")}/.cache" File(xdgCache, "listenup") } }</ID>
     <ID>UseIfInsteadOfWhen:StatsRepositoryImpl.kt:StatsRepositoryImpl$when (state) { is AuthState.Authenticated -&gt; state.userId.value else -&gt; null }</ID>
