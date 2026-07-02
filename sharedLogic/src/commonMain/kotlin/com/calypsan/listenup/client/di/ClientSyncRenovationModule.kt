@@ -44,10 +44,6 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -240,6 +236,8 @@ internal val clientSyncRenovationModule =
                 database = get(),
                 mapper = get(),
                 imageStorage = get(),
+                authSession = get(),
+                avatarDownloadRepository = get(),
                 documentStorage = get(),
             )
         }
@@ -263,37 +261,6 @@ internal val clientSyncRenovationModule =
         // Contributors' composed handler doubles as the on-demand cache-miss write-through
         // seam (ContributorRepositoryImpl); consumers inject it by qualified name.
         consumerSyncHandlerSingle(SyncDomains.CONTRIBUTORS)
-
-        single(createdAtStart = true) {
-            ListeningEventSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-                authSession = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            UserStatsSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            PublicProfileSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                avatarDownloadRepository = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            AdminUserRosterSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
 
         single<BookAvailability> {
             DefaultBookAvailability(

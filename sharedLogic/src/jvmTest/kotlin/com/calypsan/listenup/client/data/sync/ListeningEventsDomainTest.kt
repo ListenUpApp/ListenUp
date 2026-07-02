@@ -5,7 +5,8 @@ import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
@@ -17,7 +18,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class ListeningEventSyncDomainHandlerTest :
+class ListeningEventsDomainTest :
     FunSpec({
 
         test("Created event for a new id inserts the row with all wire fields") {
@@ -84,7 +85,10 @@ class ListeningEventSyncDomainHandlerTest :
         test("Updated event for an existing id is also a no-op (append-only)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("ev-2", "book-1", startPositionMs = 100L, endPositionMs = 200L)), isOwnEcho = false)
-                handler.onEvent(updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)), isOwnEcho = false)
+                handler.onEvent(
+                    updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)),
+                    isOwnEcho = false,
+                )
 
                 val row = db.listeningEventDao().getById("ev-2").shouldNotBeNull()
                 row.startPositionMs shouldBe 100L
@@ -140,7 +144,9 @@ class ListeningEventSyncDomainHandlerTest :
             runTest {
                 val db = createInMemoryTestDatabase()
                 try {
-                    val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), auth)
+                    val handler =
+                        listeningEventsDomain(db, auth)
+                            .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                     handler.onCatchUpItem(payload("e1", "book-1"), isTombstone = false)
                     db
                         .listeningEventDao()
@@ -159,7 +165,9 @@ class ListeningEventSyncDomainHandlerTest :
             runTest {
                 val db = createInMemoryTestDatabase()
                 try {
-                    val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), auth)
+                    val handler =
+                        listeningEventsDomain(db, auth)
+                            .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
                     handler.onCatchUpItem(payload("e2", "book-1"), isTombstone = false)
                     db.listeningEventDao().getById("e2").shouldBeNull()
                 } finally {
@@ -172,7 +180,9 @@ class ListeningEventSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), registry, FakeAuthSession("u1"))
+                val handler =
+                    listeningEventsDomain(db, FakeAuthSession("u1"))
+                        .toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "listening_events"
                 registry.lookup("listening_events") shouldBe handler
             } finally {
@@ -185,12 +195,13 @@ class ListeningEventSyncDomainHandlerTest :
 
 private fun withHandler(
     userId: String = "u1",
-    block: suspend (ListeningEventSyncDomainHandler, ListenUpDatabase) -> Unit,
+    block: suspend (SyncDomainHandler<ListeningEventSyncPayload>, ListenUpDatabase) -> Unit,
 ) = runTest {
     val db = createInMemoryTestDatabase()
     try {
         val handler =
-            ListeningEventSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry(), FakeAuthSession(userId))
+            listeningEventsDomain(db, FakeAuthSession(userId))
+                .toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
         block(handler, db)
     } finally {
         db.close()

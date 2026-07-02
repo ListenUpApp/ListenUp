@@ -53,12 +53,12 @@ import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
-import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -620,10 +620,11 @@ private data class ServerRepositories(
  * Constructs and registers the real books sync handler ([booksDomain]),
  * [contributorsDomain], the series composed handler,
  * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
- * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler],
+ * [com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain] handler,
+ * [com.calypsan.listenup.client.data.sync.domains.userStatsDomain] handler,
  * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
  * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] handler,
- * and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
+ * and [com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain] handler into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
  * applying them into [clientDb] exactly as production does.
  */
@@ -660,20 +661,16 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    ListeningEventSyncDomainHandler(
-        database = clientDb,
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-        authSession = FakeAuthSession(),
-    )
-    UserStatsSyncDomainHandler(
-        database = clientDb,
+    listeningEventsDomain(clientDb, FakeAuthSession()).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    PublicProfileSyncDomainHandler(
-        database = clientDb,
+    userStatsDomain(clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
+        registry = registry,
+    )
+    publicProfilesDomain(
+        database = clientDb,
         avatarDownloadRepository =
             object : AvatarDownloadRepository {
                 override fun queueAvatarDownload(userId: String) = Unit
@@ -682,8 +679,7 @@ private fun registerClientSyncHandlers(
 
                 override suspend fun deleteAvatar(userId: String) = Unit
             },
-        registry = registry,
-    )
+    ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
 }
 
 /**

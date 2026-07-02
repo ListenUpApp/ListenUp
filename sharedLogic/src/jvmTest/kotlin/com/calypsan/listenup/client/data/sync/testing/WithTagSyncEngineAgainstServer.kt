@@ -24,11 +24,11 @@ import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
+import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
-import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.db.DatabaseConfig
@@ -203,14 +203,11 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            ListeningEventSyncDomainHandler(
-                database = clientDb,
+            listeningEventsDomain(clientDb, FakeAuthSession()).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
-                authSession = FakeAuthSession(),
             )
-            UserStatsSyncDomainHandler(
-                database = clientDb,
+            userStatsDomain(clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )

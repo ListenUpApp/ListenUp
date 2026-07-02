@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
+import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 
 /**
@@ -26,6 +28,8 @@ internal fun syncDomainCatalog(
     database: ListenUpDatabase,
     mapper: BookEntityMapper,
     imageStorage: ImageStorage,
+    authSession: AuthSession,
+    avatarDownloadRepository: AvatarDownloadRepository,
     documentStorage: DocumentStorage? = null,
 ): SyncDomainCatalog =
     SyncDomainCatalog(
@@ -41,6 +45,12 @@ internal fun syncDomainCatalog(
                 shelvesDomain(database = database),
                 shelfBooksDomain(database = database),
                 playbackPositionsDomain(database = database),
+                listeningEventsDomain(database = database, authSession = authSession),
+                userStatsDomain(database = database),
+                publicProfilesDomain(
+                    database = database,
+                    avatarDownloadRepository = avatarDownloadRepository,
+                ),
                 seriesDomain(database = database),
                 collectionsDomain(database = database),
                 collectionBooksDomain(database = database),
@@ -52,6 +62,7 @@ internal fun syncDomainCatalog(
                     imageStorage = imageStorage,
                     documentStorage = documentStorage,
                 ),
+                adminUserRosterDomain(database = database),
             ),
     )
 
