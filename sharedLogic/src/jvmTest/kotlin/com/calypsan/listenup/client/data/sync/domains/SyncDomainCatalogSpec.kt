@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.sync.domains
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeIn
@@ -24,6 +25,7 @@ class SyncDomainCatalogSpec :
                     database = db,
                     mapper = BookEntityMapper(),
                     imageStorage = stubImageStorage(),
+                    authSession = FakeAuthSession(userId = "spec-user"),
                 )
             val names = catalog.mirrored.map { it.key.name }
             val known = SyncDomains.all.map { it.name }

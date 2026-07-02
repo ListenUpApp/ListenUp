@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
@@ -59,12 +59,8 @@ class DigestOptOutSetTest :
                     seriesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    ListeningEventSyncDomainHandler(
-                        database = clientDb,
-                        transactionRunner = txRunner,
-                        registry = registry,
-                        authSession = FakeAuthSession(),
-                    )
+                    listeningEventsDomain(clientDb, FakeAuthSession())
+                        .toHandler(transactionRunner = txRunner, registry = registry)
                     UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)

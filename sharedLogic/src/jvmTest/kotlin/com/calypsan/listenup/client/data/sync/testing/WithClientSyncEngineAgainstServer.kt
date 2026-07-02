@@ -53,7 +53,7 @@ import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
@@ -620,7 +620,8 @@ private data class ServerRepositories(
  * Constructs and registers the real books sync handler ([booksDomain]),
  * [contributorsDomain], the series composed handler,
  * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
- * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler],
+ * [com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain] handler,
+ * [UserStatsSyncDomainHandler],
  * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
  * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] handler,
  * and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
@@ -660,11 +661,9 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    ListeningEventSyncDomainHandler(
-        database = clientDb,
+    listeningEventsDomain(clientDb, FakeAuthSession()).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
-        authSession = FakeAuthSession(),
     )
     UserStatsSyncDomainHandler(
         database = clientDb,
