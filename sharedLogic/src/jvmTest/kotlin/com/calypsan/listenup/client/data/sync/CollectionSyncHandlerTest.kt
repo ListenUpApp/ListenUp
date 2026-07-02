@@ -1,12 +1,10 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.dto.SharePermission
-import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.api.result.AppResult
@@ -17,93 +15,16 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Covers the two remaining Collections-family sync handlers (Collections — Room v24):
- * [CollectionBookSyncDomainHandler] (junction) and [CollectionShareSyncDomainHandler]
- * (leaf). Each exercises Room write-through for Created/Updated upserts, Deleted
- * tombstones, and catch-up tombstone application. (The `collections` leaf domain moved
- * to [com.calypsan.listenup.client.data.sync.domains.collectionsDomain] — see
- * `CollectionsDomainTest`.)
+ * Covers the [CollectionShareSyncDomainHandler] leaf: Room write-through for
+ * Created/Updated upserts, Deleted tombstones, and catch-up tombstone application
+ * (Collections — Room v24). (The `collections` leaf domain moved to
+ * [com.calypsan.listenup.client.data.sync.domains.collectionsDomain] — see
+ * `CollectionsDomainTest`; the `collection_books` junction moved to
+ * [com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain] — see
+ * `CollectionBooksDomainTest`.)
  */
 class CollectionSyncHandlerTest :
     FunSpec({
-
-        // ── collection_books (junction) ─────────────────────────────────────────
-
-        test("collection_books Created event inserts the junction row") {
-            withCollectionBookHandler { handler, db ->
-                handler
-                    .onEvent(createdJunction(junctionPayload("c1", "b1", createdAt = 100L, revision = 1L)), isOwnEcho = false)
-                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                val row = db.collectionBookDao().findByKey("c1", "b1")
-                row shouldNotBe null
-                row!!.collectionId shouldBe "c1"
-                row.bookId shouldBe "b1"
-                row.createdAt shouldBe 100L
-                row.revision shouldBe 1L
-                row.deletedAt shouldBe null
-            }
-        }
-
-        test("collection_books Updated event upserts (re-add clears tombstone)") {
-            withCollectionBookHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("c1", "b1", deletedAt = 500L, revision = 2L)), isOwnEcho = false)
-                handler.onEvent(
-                    SyncEvent.Updated(
-                        id = "c1:b1",
-                        revision = 3L,
-                        occurredAt = 600L,
-                        clientOpId = null,
-                        payload = junctionPayload("c1", "b1", revision = 3L, deletedAt = null),
-                    ),
-                    isOwnEcho = false,
-                )
-                val row = db.collectionBookDao().findByKey("c1", "b1")!!
-                row.deletedAt shouldBe null
-                row.revision shouldBe 3L
-            }
-        }
-
-        test("collection_books Deleted event tombstones via synthetic id") {
-            withCollectionBookHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("c1", "b1", revision = 1L)), isOwnEcho = false)
-                handler
-                    .onEvent(SyncEvent.Deleted(id = "c1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
-                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                val row = db.collectionBookDao().findByKey("c1", "b1")!!
-                row.deletedAt shouldBe 800L
-                row.revision shouldBe 2L
-            }
-        }
-
-        test("collection_books Deleted event with malformed id logs and returns Success") {
-            withCollectionBookHandler { handler, _ ->
-                handler
-                    .onEvent(SyncEvent.Deleted(id = "no-colon-here", revision = 1L, occurredAt = 100L), isOwnEcho = false)
-                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
-            }
-        }
-
-        test("collection_books onCatchUpItem tombstone sets deletedAt") {
-            withCollectionBookHandler { handler, db ->
-                handler.onCatchUpItem(junctionPayload("c1", "b1"), isTombstone = false)
-                handler
-                    .onCatchUpItem(junctionPayload("c1", "b1", deletedAt = 999L, revision = 2L), isTombstone = true)
-                    .shouldBeInstanceOf<AppResult.Success<Unit>>()
-                db.collectionBookDao().findByKey("c1", "b1")!!.deletedAt shouldBe 999L
-            }
-        }
-
-        test("collection_books handler self-registers under domainName 'collection_books'") {
-            val registry = ClientSyncDomainRegistry()
-            val db = createInMemoryTestDatabase()
-            try {
-                val handler = CollectionBookSyncDomainHandler(db, RoomTransactionRunner(db), registry)
-                handler.domainName shouldBe "collection_books"
-                registry.lookup("collection_books") shouldBe handler
-            } finally {
-                db.close()
-            }
-        }
 
         // ── collection_shares (leaf) ──────────────────────────────────────────────
 
@@ -164,16 +85,6 @@ class CollectionSyncHandlerTest :
 
 // ── Helpers ─────────────────────────────────────────────────────────────────────
 
-private fun withCollectionBookHandler(block: suspend (CollectionBookSyncDomainHandler, ListenUpDatabase) -> Unit) =
-    runTest {
-        val db = createInMemoryTestDatabase()
-        try {
-            block(CollectionBookSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
-        } finally {
-            db.close()
-        }
-    }
-
 private fun withCollectionShareHandler(block: suspend (CollectionShareSyncDomainHandler, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
@@ -183,29 +94,6 @@ private fun withCollectionShareHandler(block: suspend (CollectionShareSyncDomain
             db.close()
         }
     }
-
-private fun junctionPayload(
-    collectionId: String,
-    bookId: String,
-    createdAt: Long = 100L,
-    revision: Long = 1L,
-    deletedAt: Long? = null,
-) = CollectionBookSyncPayload(
-    collectionId = collectionId,
-    bookId = bookId,
-    createdAt = createdAt,
-    revision = revision,
-    deletedAt = deletedAt,
-)
-
-private fun createdJunction(payload: CollectionBookSyncPayload) =
-    SyncEvent.Created(
-        id = "${payload.collectionId}:${payload.bookId}",
-        revision = payload.revision,
-        occurredAt = payload.createdAt,
-        clientOpId = null,
-        payload = payload,
-    )
 
 private fun sharePayload(
     id: String,

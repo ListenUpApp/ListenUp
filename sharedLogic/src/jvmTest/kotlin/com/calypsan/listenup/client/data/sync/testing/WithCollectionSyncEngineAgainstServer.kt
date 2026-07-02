@@ -22,9 +22,9 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -284,7 +284,7 @@ private fun buildMemberSyncEngine(
         imageStorage = stubImageStorage(),
     ).toHandler(transactionRunner = txn, registry = registry)
     collectionsDomain(clientDb).toHandler(txn, registry)
-    CollectionBookSyncDomainHandler(clientDb, txn, registry)
+    collectionBooksDomain(clientDb).toHandler(txn, registry)
     CollectionShareSyncDomainHandler(clientDb, txn, registry)
 
     val state = SyncEngineState()
