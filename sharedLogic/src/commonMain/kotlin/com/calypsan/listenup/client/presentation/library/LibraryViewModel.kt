@@ -81,6 +81,20 @@ private data class ProgressSnapshot(
 )
 
 /**
+ * Output of the sort/filter stage: the four sorted collections plus the
+ * [LibraryIntent] that produced them. Recomputed only when intent or raw
+ * content changes — never on progress or sync ticks. Data-class equality
+ * lets `distinctUntilChanged` drop no-op re-emissions from Room.
+ */
+private data class SortedContent(
+    val intent: LibraryIntent,
+    val books: List<BookListItem>,
+    val series: List<SeriesWithBooks>,
+    val authors: List<ContributorWithBookCount>,
+    val narrators: List<ContributorWithBookCount>,
+)
+
+/**
  * Precomputed sort keys for the three-level SERIES sort on [BookListItem].
  *
  * Extracted as a file-level private class (rather than a local data class inside a `when` branch)
@@ -101,6 +115,9 @@ private data class BookSeriesSortKey(
  * a private [LibraryIntent] via `combine(...).stateIn(WhileSubscribed)`.
  * Sorting, filtering, and preference handling run inside the combine transform
  * — never upstream — so the pipeline never reads back from its own output.
+ * The pipeline is two-stage: [sortedContent] sorts/filters on intent + raw
+ * content only, then [uiState] overlays progress/sync onto the pre-sorted
+ * result, so playback-position ticks (every ~30s) never trigger a re-sort.
  *
  * Implements intelligent auto-sync: triggers initial sync automatically
  * if user is authenticated but has never synced before.
@@ -164,6 +181,29 @@ class LibraryViewModel(
             replay = 1,
         )
 
+    // Stage 1: sort + filter. Depends ONLY on intent and raw content — playback
+    // position ticks (every ~30s during playback) never reach this combine, so
+    // the O(n log n) sorts don't re-run when only progress changed.
+    // distinctUntilChanged (cheap O(n) structural compare) additionally drops
+    // Room re-emissions of structurally identical content, keeping downstream
+    // list identity stable.
+    private val sortedContent: Flow<SortedContent> =
+        combine(intent, rawContent) { intentValue, content ->
+            val visibleSeries =
+                if (intentValue.hideSingleBookSeries) {
+                    content.series.filter { it.books.size > 1 }
+                } else {
+                    content.series
+                }
+            SortedContent(
+                intent = intentValue,
+                books = sortBooks(content.books, intentValue.booksSortState, intentValue.ignoreTitleArticles),
+                series = sortSeries(visibleSeries, intentValue.seriesSortState, intentValue.ignoreTitleArticles),
+                authors = sortContributors(content.authors, intentValue.authorsSortState),
+                narrators = sortContributors(content.narrators, intentValue.narratorsSortState),
+            )
+        }.distinctUntilChanged()
+
     private val progressSnapshot: Flow<ProgressSnapshot> =
         combine(
             rawContent,
@@ -189,13 +229,11 @@ class LibraryViewModel(
 
     val uiState: StateFlow<LibraryUiState> =
         combine(
-            intent,
-            rawContent,
+            sortedContent,
             progressSnapshot,
             syncSnapshot,
-        ) { intentValue, content, progress, sync ->
-            val loaded: LibraryUiState =
-                buildLoaded(intentValue, content, progress, sync)
+        ) { sorted, progress, sync ->
+            val loaded: LibraryUiState = buildLoaded(sorted, progress, sync)
             loaded
         }
             // Under sync churn (e.g. post-import flood) the five upstream flows can emit faster than
@@ -382,19 +420,12 @@ class LibraryViewModel(
     }
 
     private fun buildLoaded(
-        intent: LibraryIntent,
-        content: RawContent,
+        sorted: SortedContent,
         progress: ProgressSnapshot,
         sync: SyncSnapshot,
     ): LibraryUiState.Loaded {
-        val sortedBooks = sortBooks(content.books, intent.booksSortState, intent.ignoreTitleArticles)
-        val visibleSeries =
-            if (intent.hideSingleBookSeries) content.series.filter { it.books.size > 1 } else content.series
-        val sortedSeries = sortSeries(visibleSeries, intent.seriesSortState, intent.ignoreTitleArticles)
-        val sortedAuthors = sortContributors(content.authors, intent.authorsSortState)
-        val sortedNarrators = sortContributors(content.narrators, intent.narratorsSortState)
         val seriesProgress =
-            sortedSeries.associate { sb ->
+            sorted.series.associate { sb ->
                 sb.series.id to
                     SeriesProgress(
                         finishedCount = sb.books.count { progress.finishedMap[it.id] == true },
@@ -403,20 +434,20 @@ class LibraryViewModel(
             }
 
         return LibraryUiState.Loaded(
-            booksSortState = intent.booksSortState,
-            seriesSortState = intent.seriesSortState,
-            authorsSortState = intent.authorsSortState,
-            narratorsSortState = intent.narratorsSortState,
-            ignoreTitleArticles = intent.ignoreTitleArticles,
-            hideSingleBookSeries = intent.hideSingleBookSeries,
-            books = sortedBooks,
-            series = sortedSeries,
-            authors = sortedAuthors,
-            narrators = sortedNarrators,
+            booksSortState = sorted.intent.booksSortState,
+            seriesSortState = sorted.intent.seriesSortState,
+            authorsSortState = sorted.intent.authorsSortState,
+            narratorsSortState = sorted.intent.narratorsSortState,
+            ignoreTitleArticles = sorted.intent.ignoreTitleArticles,
+            hideSingleBookSeries = sorted.intent.hideSingleBookSeries,
+            books = sorted.books,
+            series = sorted.series,
+            authors = sorted.authors,
+            narrators = sorted.narrators,
             bookProgress = progress.progressMap,
             bookIsFinished = progress.finishedMap,
             booksInProgress =
-                sortedBooks.filter { book ->
+                sorted.books.filter { book ->
                     val p = progress.progressMap[book.id]
                     p != null && p > 0f && p < 1f && progress.finishedMap[book.id] != true
                 },
