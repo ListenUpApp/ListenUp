@@ -5,8 +5,10 @@ package com.calypsan.listenup.client.presentation.library
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ChapterDao
@@ -35,21 +37,18 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
-import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify
+import dev.mokkery.verify.VerifyMode
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldNotBeEmpty
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.string.shouldNotContain
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.seconds
 
@@ -60,9 +59,9 @@ import kotlin.time.Duration.Companion.seconds
  *
  * Part 1 asserts each `rawContent` source flow emits its first value on an empty DB (so the
  * top-level combine can produce a value and `uiState` leaves its `Loading` seed). Part 2 pins the
- * threading fix: `observeBookListItems` does a blocking per-book cover stat
- * ([ImageStorage.exists]) and must run it OFF the collector (the UI's `Dispatchers.Main`), or a
- * large library freezes the thread.
+ * stat-elimination invariant: `observeBookListItems` derives `coverPath` purely from the
+ * persisted `coverDownloadedAt` marker and never performs a per-book filesystem stat
+ * ([ImageStorage.exists]).
  */
 class LibraryViewModelRealRoomTest :
     FunSpec({
@@ -123,42 +122,34 @@ class LibraryViewModelRealRoomTest :
             }
         }
 
-        // ───────────────────── Part 2: heavy per-book cover I/O runs off the collector ─────────────────────
+        // ───────────────────── Part 2: mapping performs zero per-book filesystem stats ─────────────────────
 
-        test("observeBookListItems performs its per-book cover lookup off the collector's thread") {
+        test("observeBookListItems maps without any per-book filesystem stat") {
             val db = createInMemoryTestDatabase()
-            val collectorDispatcher = newSingleThreadContext("library-collector-thread")
             try {
-                // ImageStorage.exists is a blocking filesystem stat in production. Capture which
-                // thread each call runs on: it must NOT be the flow's collector (in the app, Main).
-                val coverLookupThreads = mutableListOf<String>()
+                // Strict mock: only stub what the pure mapper legitimately needs (getCoverPath).
+                // `exists` is deliberately left unstubbed — Mokkery's default strict mode throws on
+                // any unstubbed call, so if the mapper still called `exists()` this test would fail
+                // with that throw. The absence of a throw IS the guard for the stat-elimination.
                 val imageStorage =
                     mock<ImageStorage> {
-                        every { exists(any()) } calls
-                            {
-                                coverLookupThreads.add(Thread.currentThread().name)
-                                false
-                            }
+                        every { getCoverPath(any()) } returns "/covers/b1.jpg"
                     }
                 val repository = bookRepositoryWith(db, imageStorage)
                 seedBook(db, "b1")
+                // Mark the cover as downloaded so coverPathFor() exercises getCoverPath().
+                db.bookDao().markCoverDownloaded(BookId("b1"), Timestamp(1L))
 
                 runBlocking {
                     val items =
                         withTimeout(5.seconds) {
-                            withContext(collectorDispatcher) {
-                                repository.observeBookListItems().first { it.isNotEmpty() }
-                            }
+                            repository.observeBookListItems().first { it.isNotEmpty() }
                         }
                     items.size shouldBe 1
 
-                    // The per-book cover stat must have happened, but never on the collector thread —
-                    // otherwise a large library blocks the UI thread and the Library tab spins forever.
-                    coverLookupThreads.shouldNotBeEmpty()
-                    coverLookupThreads.forEach { it shouldNotContain "library-collector-thread" }
+                    verify(VerifyMode.not) { imageStorage.exists(any()) }
                 }
             } finally {
-                collectorDispatcher.close()
                 db.close()
             }
         }
