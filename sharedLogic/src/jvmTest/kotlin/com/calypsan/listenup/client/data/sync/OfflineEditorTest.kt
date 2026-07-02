@@ -11,6 +11,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.test.runTest
 
 class OfflineEditorTest :
@@ -79,7 +80,7 @@ class OfflineEditorTest :
             }
         }
 
-        test("a throwing local write rolls back the whole edit — no pending op is enqueued") {
+        test("a throwing local write yields Failure and rolls back — no pending op is enqueued") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -96,13 +97,42 @@ class OfflineEditorTest :
                         authSession = FakeAuthSession(userId = "u1"),
                     )
 
-                shouldThrow<IllegalStateException> {
+                val result =
                     editor.edit(BookEdit, entityId = "book1", patch = BookUpdate(title = "x")) {
                         error("local write blew up")
                     }
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).firstOrNull() shouldBe null
+                db.close()
+            }
+        }
+
+        test("CancellationException from the local write propagates — it is never folded into Failure") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val txRunner =
+                    object : TransactionRunner {
+                        override suspend fun <R> atomically(block: suspend () -> R): R = block()
+                    }
+                val editor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner = txRunner,
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
+
+                shouldThrow<CancellationException> {
+                    editor.edit(BookEdit, entityId = "book1", patch = BookUpdate(title = "x")) {
+                        throw CancellationException("cancelled")
+                    }
                 }
 
-                db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).firstOrNull() shouldBe null
                 db.close()
             }
         }

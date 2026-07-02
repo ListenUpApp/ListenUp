@@ -2,7 +2,9 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.domain.repository.AuthSession
 
@@ -15,7 +17,8 @@ import com.calypsan.listenup.client.domain.repository.AuthSession
  * leave a committed local edit without its outbox row (a silently lost sync). The edit therefore
  * persists and replays on reconnect rather than failing offline; the authoritative state still
  * arrives via the SSE sync engine. Callers pass only the two irreducible facts: which entity, and
- * how to merge the patch into Room.
+ * how to merge the patch into Room. A failing local write rolls the transaction back and surfaces
+ * as a typed [AppResult.Failure] — [edit] never throws (cancellation excepted).
  */
 internal class OfflineEditor(
     private val pendingQueue: PendingOperationQueue,
@@ -31,16 +34,17 @@ internal class OfflineEditor(
         val ownerUserId =
             authSession.getUserId()
                 ?: return AppResult.Failure(ErrorMapper.map(IllegalStateException("No signed-in user")))
-        transactionRunner.atomically {
-            applyLocally()
-            pendingQueue.enqueue(
-                domainName = domain.name,
-                entityId = entityId,
-                opType = "update",
-                payload = contractJson.encodeToString(domain.serializer, patch),
-                ownerUserId = ownerUserId,
-            )
-        }
-        return AppResult.Success(Unit)
+        return suspendRunCatching {
+            transactionRunner.atomically {
+                applyLocally()
+                pendingQueue.enqueue(
+                    domainName = domain.name,
+                    entityId = entityId,
+                    opType = "update",
+                    payload = contractJson.encodeToString(domain.serializer, patch),
+                    ownerUserId = ownerUserId,
+                )
+            }
+        }.map { }
     }
 }
