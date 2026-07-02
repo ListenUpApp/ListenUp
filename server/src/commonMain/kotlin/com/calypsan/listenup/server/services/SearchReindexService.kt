@@ -28,10 +28,10 @@ class SearchReindexService(
 ) {
     /**
      * Rebuilds all FTS5 indexes across all four families. The rebuild spans multiple
-     * transactions (one per book for `book_search`, then a single transaction for the
-     * contributor/series/tag families) and does NOT provide cross-family atomicity — a
-     * crash mid-run leaves some indexes fresh and others stale. The operation is
-     * idempotent, so re-invoking completes partial progress.
+     * transactions (one per 200-book chunk for `book_search`, then a single transaction
+     * for the contributor/series/tag families) and does NOT provide cross-family
+     * atomicity — a crash mid-run leaves some indexes fresh and others stale. The
+     * operation is idempotent, so re-invoking completes partial progress.
      *
      * @return number of books reindexed via [BookSearchReindexer].
      */
@@ -40,7 +40,7 @@ class SearchReindexService(
             suspendTransaction(db) {
                 db.booksQueries.selectAllLiveIds().executeAsList()
             }
-        for (id in bookIds) reindexer.reindexBook(id)
+        reindexer.reindexBooks(bookIds)
         suspendTransaction<Unit>(db) {
             // contributor_search is contentless (V22): rebuild from source, mirroring the
             // contributors_au trigger (server/src/jvmMain/resources/db/migration/V22__contributor_aliases.sql)
