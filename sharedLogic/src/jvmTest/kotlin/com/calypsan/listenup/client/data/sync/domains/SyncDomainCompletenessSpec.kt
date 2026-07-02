@@ -73,7 +73,9 @@ class SyncDomainCompletenessSpec :
             }
         }
 
-        test("refreshed tier claims exactly the four fold-candidate controls, distinct and disjoint from engine controls") {
+        test(
+            "refreshed tier claims exactly the four fold-candidate controls, distinct and disjoint from engine controls",
+        ) {
             val db = createInMemoryTestDatabase()
             try {
                 val catalog =

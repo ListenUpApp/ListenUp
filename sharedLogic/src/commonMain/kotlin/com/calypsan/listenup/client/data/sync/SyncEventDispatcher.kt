@@ -84,8 +84,9 @@ internal class SyncEventDispatcher(
             SyncControl.ActivityChanged,
             SyncControl.ServerInfoChanged,
             SyncControl.PreferencesChanged,
-            ->
+            -> {
                 logger.warn { "Nudge control $control unclaimed by any RefreshedDomain; dropped" }
+            }
         }
     }
 

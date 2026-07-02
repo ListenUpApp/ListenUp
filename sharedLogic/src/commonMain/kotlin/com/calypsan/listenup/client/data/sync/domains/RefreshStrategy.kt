@@ -11,12 +11,16 @@ internal sealed interface RefreshStrategy {
      * fire-and-forget — a dropped ping is harmless (the collector re-fetches on the
      * next one, or on reconnect).
      */
-    class Ping(val ping: () -> Unit) : RefreshStrategy
+    class Ping(
+        val ping: () -> Unit,
+    ) : RefreshStrategy
 
     /**
      * Run a suspend re-fetch inline. Declared best-effort: the router swallows
      * non-cancellation failures so a nudge re-fetch can never take the SSE dispatch
      * loop down (codifies `SyncEngine.primeActivityFeedSafely`).
      */
-    class Refetch(val refetch: suspend () -> Unit) : RefreshStrategy
+    class Refetch(
+        val refetch: suspend () -> Unit,
+    ) : RefreshStrategy
 }

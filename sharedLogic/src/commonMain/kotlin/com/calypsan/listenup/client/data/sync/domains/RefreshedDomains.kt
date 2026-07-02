@@ -2,7 +2,7 @@ package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.sync.SyncControl
 
-/**
+/*
  * The nudge tier: content-free control frames the server pushes to prompt a client
  * re-fetch. Each declares its trigger and refresh strategy — the whole nudge rulebook
  * in one file. Engine/lifecycle controls (`CursorStale`, `StreamError`, `AccessChanged`,
