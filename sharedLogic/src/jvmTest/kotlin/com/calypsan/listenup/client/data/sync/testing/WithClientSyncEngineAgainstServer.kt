@@ -56,7 +56,7 @@ import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
@@ -485,7 +485,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
 
             // Offline-first series edits write to client Room and enqueue a "series" op;
             // the engine drains it through the RpcUpdateOpSender above to the in-process
-            // server, whose SSE echo reconciles client Room via SeriesSyncDomainHandler.
+            // server, whose SSE echo reconciles client Room via the series composed handler.
             val seriesEditRepository: SeriesEditRepository =
                 SeriesEditRepositoryImpl(
                     seriesRpcFactory = testSeriesRpcFactory,
@@ -618,7 +618,7 @@ private data class ServerRepositories(
 
 /**
  * Constructs and registers the real books sync handler ([booksDomain]),
- * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler],
+ * [ContributorSyncDomainHandler], the series composed handler,
  * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler],
  * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
@@ -650,8 +650,7 @@ private fun registerClientSyncHandlers(
         imageStorage = stubImageStorage(),
         registry = registry,
     )
-    SeriesSyncDomainHandler(
-        database = clientDb,
+    seriesDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )

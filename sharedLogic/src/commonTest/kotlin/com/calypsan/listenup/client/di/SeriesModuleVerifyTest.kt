@@ -5,7 +5,7 @@ import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStagingRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -28,7 +28,7 @@ import org.koin.test.verify.verify
  *  - [SeriesApiContract] — owned by `networkModule`.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
- *  - [SeriesSyncDomainHandler] — owned by `clientSyncRenovationModule`.
+ *  - [SyncDomainHandler] (series) — owned by `clientSyncRenovationModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
  */
@@ -46,7 +46,7 @@ class SeriesModuleVerifyTest :
                         SeriesApiContract::class,
                         NetworkMonitor::class,
                         ImageStorage::class,
-                        SeriesSyncDomainHandler::class,
+                        SyncDomainHandler::class,
                         ImageRepository::class,
                         ImageStagingRepository::class,
                         ApiClientFactory::class,

@@ -288,7 +288,7 @@ internal class BookMirrorApply(
     /**
      * Ensure a series row exists for [series]. When already present, leave it
      * untouched — the `series` sync domain owns it
-     * ([com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler]).
+     * ([com.calypsan.listenup.client.data.sync.domains.seriesDomain]).
      * When absent, insert a minimal bootstrap stub so the book renders
      * immediately; the real row supersedes it when the series domain syncs.
      */

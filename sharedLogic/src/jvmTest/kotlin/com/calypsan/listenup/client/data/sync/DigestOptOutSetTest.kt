@@ -16,7 +16,7 @@ import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -60,7 +60,7 @@ class DigestOptOutSetTest :
                         imageStorage = stubImageStorage(),
                         registry = registry,
                     )
-                    SeriesSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    seriesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     ListeningEventSyncDomainHandler(

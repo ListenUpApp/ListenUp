@@ -10,7 +10,8 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -112,7 +113,7 @@ class SeriesRepositoryFallbackTest :
     })
 
 /**
- * Builds an in-memory database, a real [SeriesSyncDomainHandler] for
+ * Builds an in-memory database, a real `series` composed handler for
  * write-through, a [SeriesRepositoryImpl] wired with mocked RPC + network,
  * runs [block], and closes the database afterwards.
  */
@@ -133,7 +134,7 @@ private fun withTestRepo(
         every { imageStorage.exists(any()) } returns false
 
         val transactionRunner = RoomTransactionRunner(db)
-        val syncHandler = SeriesSyncDomainHandler(db, transactionRunner, ClientSyncDomainRegistry())
+        val syncHandler = seriesDomain(db).toHandler(transactionRunner, ClientSyncDomainRegistry())
 
         val repo =
             SeriesRepositoryImpl(
@@ -159,7 +160,7 @@ private suspend fun seedRoom(
     id: String,
     name: String,
 ) {
-    val handler = SeriesSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry())
+    val handler = seriesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
     handler.onCatchUpItem(payload(id = id, name = name), isTombstone = false)
 }
 
