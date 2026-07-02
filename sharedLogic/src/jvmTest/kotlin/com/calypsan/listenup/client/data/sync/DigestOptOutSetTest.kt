@@ -45,7 +45,7 @@ class DigestOptOutSetTest :
                     val registry = ClientSyncDomainRegistry()
                     val txRunner = RoomTransactionRunner(clientDb)
 
-                    // Register all production handlers — mirrors the clientSyncRenovationModule
+                    // Register all production handlers — mirrors the clientSyncModule
                     // Koin wiring so this test tracks production exactly.
                     tagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     bookTagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)

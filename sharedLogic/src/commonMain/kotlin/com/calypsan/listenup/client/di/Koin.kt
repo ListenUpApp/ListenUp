@@ -65,7 +65,7 @@ internal val sharedModules =
         socialModule,
         listeningModule,
         libraryModule,
-        clientSyncRenovationModule,
+        clientSyncModule,
         clientAuthModule,
         voiceModule,
     ) + allPresentationModules

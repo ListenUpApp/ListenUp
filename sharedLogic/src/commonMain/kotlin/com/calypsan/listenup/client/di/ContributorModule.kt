@@ -29,7 +29,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.ContributorApiContract] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
- *  - `SyncDomainHandler<ContributorSyncPayload>` (named `contributors`) — `clientSyncRenovationModule`
+ *  - `SyncDomainHandler<ContributorSyncPayload>` (named `contributors`) — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.MetadataRepository] — `bookModule`
  */
 internal val contributorModule: Module =

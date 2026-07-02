@@ -41,7 +41,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.CollectionRpcFactory] — `collectionModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
- *  - the books [com.calypsan.listenup.client.data.sync.SyncDomainHandler] — `clientSyncRenovationModule`
+ *  - the books [com.calypsan.listenup.client.data.sync.SyncDomainHandler] — `clientSyncModule`
  */
 internal val bookModule: Module =
     module {

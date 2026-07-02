@@ -25,7 +25,7 @@ import org.koin.test.verify.verify
  *  - [TransactionRunner] — owned by `persistenceModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
  *  - [String] (named `"deviceId"`) — owned by the platform playback modules.
- *  - [PendingOperationQueue] — owned by `clientSyncRenovationModule`.
+ *  - [PendingOperationQueue] — owned by `clientSyncModule`.
  *  - [TentativeSpanDao] — owned by `persistenceModule` (pulled in by the recorder binding).
  *  - [DeviceInfoProvider] — owned by the platform playback modules (recorder binding).
  *

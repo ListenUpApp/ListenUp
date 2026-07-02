@@ -31,10 +31,10 @@ import org.koin.test.verify.verify
  *  - [SeriesRepository] — owned by `seriesModule`.
  *  - [ContributorRepository] — owned by `contributorModule`.
  *  - [PlaybackPositionRepository] — owned by `listeningModule`.
- *  - [SyncRepository] — owned by `clientSyncRenovationModule`.
+ *  - [SyncRepository] — owned by `clientSyncModule`.
  *  - [AuthSession] — owned by `clientAuthModule`.
  *  - [LibraryPreferences] — owned by `settingsModule`.
- *  - [SyncStatusRepository] — owned by `clientSyncRenovationModule`.
+ *  - [SyncStatusRepository] — owned by `clientSyncModule`.
  *  - [UserRepository] — owned by `socialModule`.
  *  - [CollectionRepository] — owned by `collectionModule`.
  *  - [ShelfRepository] — owned by `shelfModule`.

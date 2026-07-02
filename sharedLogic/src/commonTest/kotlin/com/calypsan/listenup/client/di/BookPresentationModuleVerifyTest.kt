@@ -40,8 +40,8 @@ import org.koin.test.verify.verify
  *  - [AddBooksToShelfUseCase] — owned by `shelfModule`.
  *  - [CreateShelfUseCase] — owned by `shelfModule`.
  *  - [ErrorBus] — owned by `appCoreModule`.
- *  - [BookAvailability] — owned by `clientSyncRenovationModule`.
- *  - [ServerReachability] — owned by `clientSyncRenovationModule`.
+ *  - [BookAvailability] — owned by `clientSyncModule`.
+ *  - [ServerReachability] — owned by `clientSyncModule`.
  *  - [DocumentRepository] — owned by `mediaModule`.
  *  - [BookReadersRepository] — owned by `socialModule`.
  *  - [LoadBookForEditUseCase] — owned by `bookModule`.

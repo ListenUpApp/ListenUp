@@ -27,7 +27,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.SeriesApiContract] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
- *  - [com.calypsan.listenup.client.data.sync.domains.seriesDomain] — `clientSyncRenovationModule`
+ *  - [com.calypsan.listenup.client.data.sync.domains.seriesDomain] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  */

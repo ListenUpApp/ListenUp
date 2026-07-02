@@ -18,9 +18,9 @@ import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
 /**
- * Leaf verify for [clientSyncRenovationModule]. Per the architecture rubric every leaf
+ * Leaf verify for [clientSyncModule]. Per the architecture rubric every leaf
  * Koin module is covered by a `module.verify()` test in commonTest — this is the
- * renovated sync engine module's. The whitelist enumerates dependencies the
+ * sync engine module's. The whitelist enumerates dependencies the
  * module's bindings pull in but other modules own:
  *
  *  - [ListenUpDatabase] — owned by `platformDatabaseModule` (provides DAOs).
@@ -30,7 +30,7 @@ import org.koin.test.verify.verify
  *    factory; SSE + catch-up clients use it).
  *  - [ServerConfig] — owned by `dataModule` (segregated interface bound to
  *    SettingsRepositoryImpl). SSE + catch-up clients use it for current-URL reads.
- *  - [CoroutineScope] (named `appScope`) — owned by `syncModule` until D2 cutover.
+ *  - [CoroutineScope] (named `appScope`) — owned by `appCoreModule`.
  *  - [Function1], [Function2], [Function3] — Koin's verify treats constructor lambda params
  *    (`DomainDigestClient`'s `httpClientProvider`/`serverUrlProvider` are `suspend () -> X` =
  *    Function1; `SyncEventDispatcher.onCursorStale` is `suspend (Long?) -> Unit` =
@@ -54,11 +54,11 @@ import org.koin.test.verify.verify
  *    element type is declared here instead.
  */
 @OptIn(KoinExperimentalAPI::class)
-class ClientSyncRenovationModuleVerifyTest :
+class ClientSyncModuleVerifyTest :
     FunSpec({
 
-        test("clientSyncRenovationModule wires up against its declared external dependencies") {
-            clientSyncRenovationModule.verify(
+        test("clientSyncModule wires up against its declared external dependencies") {
+            clientSyncModule.verify(
                 extraTypes =
                     listOf(
                         ListenUpDatabase::class,

@@ -28,7 +28,7 @@ import org.koin.test.verify.verify
  *  - [SeriesApiContract] — owned by `networkModule`.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
- *  - [SyncDomainHandler] (series) — owned by `clientSyncRenovationModule`.
+ *  - [SyncDomainHandler] (series) — owned by `clientSyncModule`.
  *  - [ImageRepository] — owned by `mediaModule`.
  *  - [ImageStagingRepository] — owned by `mediaModule`.
  */

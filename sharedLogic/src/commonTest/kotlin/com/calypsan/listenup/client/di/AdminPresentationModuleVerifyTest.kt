@@ -59,7 +59,7 @@ import org.koin.test.verify.verify
  *  - [UserRepository] — owned by `socialModule`.
  *  - [SearchRepository] — owned by `searchModule`.
  *  - [BackupRepository] — owned by `adminModule`.
- *  - [SyncRepository] — owned by `clientSyncRenovationModule`.
+ *  - [SyncRepository] — owned by `clientSyncModule`.
  *  - [ImportRepository] — owned by `adminModule`.
  */
 @OptIn(KoinExperimentalAPI::class)

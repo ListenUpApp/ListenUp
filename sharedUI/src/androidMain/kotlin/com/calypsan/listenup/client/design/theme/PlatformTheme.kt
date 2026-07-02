@@ -3,7 +3,6 @@ package com.calypsan.listenup.client.design.theme
 import android.app.UiModeManager
 import android.content.Context
 import android.content.res.Configuration
-import android.os.Build
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -21,8 +20,8 @@ actual fun platformColorScheme(
     val context = LocalContext.current
 
     return when {
-        // Dynamic color on Android 12+ - respects wallpaper and system theme
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !isTelevision(context) -> {
+        // Dynamic color (always available at minSdk 33) - respects wallpaper and system theme
+        dynamicColor && !isTelevision(context) -> {
             if (darkTheme) {
                 dynamicDarkColorScheme(context)
             } else {
@@ -30,7 +29,7 @@ actual fun platformColorScheme(
             }
         }
 
-        // Fallback for older devices or when dynamic color is disabled
+        // Fallback when dynamic color is disabled
         darkTheme -> {
             DarkColorScheme
         }
