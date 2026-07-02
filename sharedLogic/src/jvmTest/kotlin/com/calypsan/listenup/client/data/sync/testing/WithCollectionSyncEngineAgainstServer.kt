@@ -21,7 +21,8 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
@@ -277,13 +278,11 @@ private fun buildMemberSyncEngine(
     val registry = ClientSyncDomainRegistry()
     val txn = RoomTransactionRunner(clientDb)
 
-    BookSyncDomainHandler(
+    booksDomain(
         database = clientDb,
         mapper = BookEntityMapper(),
-        transactionRunner = txn,
         imageStorage = stubImageStorage(),
-        registry = registry,
-    )
+    ).toHandler(transactionRunner = txn, registry = registry)
     CollectionSyncDomainHandler(clientDb, txn, registry)
     CollectionBookSyncDomainHandler(clientDb, txn, registry)
     CollectionShareSyncDomainHandler(clientDb, txn, registry)

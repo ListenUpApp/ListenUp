@@ -2,12 +2,12 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookMoodSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.db.sqldelight.Book_moods
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * Composite key for `book_moods` junction rows.
@@ -56,11 +56,9 @@ class BookMoodRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "book_moods",
+        key = SyncDomains.BOOK_MOODS,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<BookMoodSyncPayload> = BookMoodSyncPayload.serializer()
-
     override val BookMoodSyncPayload.id: BookMoodId get() = BookMoodId(bookId, moodId)
 
     override fun BookMoodSyncPayload.revisionOf(): Long = revision

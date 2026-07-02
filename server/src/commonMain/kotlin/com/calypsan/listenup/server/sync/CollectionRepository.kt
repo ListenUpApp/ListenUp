@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
 import com.calypsan.listenup.server.db.sqldelight.Collections
@@ -10,7 +11,6 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for user-owned (and system-managed) collections — a
@@ -21,7 +21,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `collectionsQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id (tombstone-inclusive)
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - [elementSerializer] / `CollectionSyncPayload.id` / `CollectionSyncPayload.revisionOf`
+ *  - `CollectionSyncPayload.id` / `CollectionSyncPayload.revisionOf`
  *
  * **System collections are sync-invisible to members.** The server-only `collections.type`
  * column (`'NORMAL'` | `'ALL_BOOKS'` | `'INBOX'`) never crosses the wire — [CollectionSyncPayload.isInbox]
@@ -57,11 +57,9 @@ class CollectionRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "collections",
+        key = SyncDomains.COLLECTIONS,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<CollectionSyncPayload> = CollectionSyncPayload.serializer()
-
     override val CollectionSyncPayload.id: String get() = this.id
 
     override fun CollectionSyncPayload.revisionOf(): Long = revision

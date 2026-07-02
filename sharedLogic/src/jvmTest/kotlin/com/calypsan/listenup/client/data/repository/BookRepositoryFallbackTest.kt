@@ -11,7 +11,8 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -144,7 +145,7 @@ class BookRepositoryFallbackTest :
     })
 
 /**
- * Builds an in-memory database, a real [BookSyncDomainHandler] for write-through,
+ * Builds an in-memory database, a real books sync handler for write-through,
  * a [BookRepositoryImpl] wired with mocked RPC + network, runs [block], and closes
  * the database afterwards. [online] controls the mocked [NetworkMonitor].
  */
@@ -175,7 +176,11 @@ private fun withTestRepo(
 
         val transactionRunner = RoomTransactionRunner(db)
         val syncHandler =
-            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry())
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
+            ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
 
         val repo =
             BookRepositoryImpl(
@@ -207,7 +212,11 @@ private suspend fun seedRoom(
     title: String,
 ) {
     val handler =
-        BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry())
+        booksDomain(
+            database = db,
+            mapper = BookEntityMapper(),
+            imageStorage = stubImageStorage(),
+        ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
     handler.onCatchUpItem(payload(id = id, title = title), isTombstone = false)
 }
 

@@ -24,7 +24,7 @@ private val logger = KotlinLogging.logger {}
  * the client has no local mood-row write path that would generate echoes.
  *
  * Self-registers in [ClientSyncDomainRegistry] at construction. Mirrors
- * [com.calypsan.listenup.client.data.sync.TagSyncDomainHandler].
+ * [com.calypsan.listenup.client.data.sync.domains.tagsDomain].
  */
 internal class MoodSyncDomainHandler(
     private val database: ListenUpDatabase,

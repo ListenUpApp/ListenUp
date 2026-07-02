@@ -4,6 +4,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.Tombstoned
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
@@ -219,10 +220,8 @@ private class ThrowingRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "throwing",
+        key = SyncDomainKey("throwing", ThrowingPayloadSerializer),
     ) {
-    override val elementSerializer: KSerializer<ThrowingPayload> = ThrowingPayloadSerializer
-
     override val ThrowingPayload.id: String get() = id
 
     override fun ThrowingPayload.revisionOf(): Long = revision

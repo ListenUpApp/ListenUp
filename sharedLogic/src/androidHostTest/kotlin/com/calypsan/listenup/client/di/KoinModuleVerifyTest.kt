@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.data.local.db.DownloadDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.SyncApiContract
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -107,7 +107,7 @@ class KoinModuleVerifyTest :
                         DownloadService::class,
                         PlaybackRpcFactory::class,
                         SyncApiContract::class,
-                        BookSyncDomainHandler::class,
+                        SyncDomainHandler::class,
                     ),
             )
         }

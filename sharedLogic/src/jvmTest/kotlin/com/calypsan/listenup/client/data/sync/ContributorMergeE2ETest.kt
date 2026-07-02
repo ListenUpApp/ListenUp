@@ -39,7 +39,7 @@ private const val EXPLICIT_CREDITED_AS = "R. Bachman"
  * for the source tombstone.
  *
  * All of these must land in client Room: every affected book's `book_contributors`
- * junction points at the target id (the [BookSyncDomainHandler.applyContributors]
+ * junction points at the target id (the [BookMirrorApply.applyContributors]
  * path replaces the junction set on every book upsert), the target's
  * `contributor_aliases` rows include the source's display name, and the source
  * row carries `deletedAt != null`. The poll witness combines all three so the

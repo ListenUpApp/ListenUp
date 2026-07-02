@@ -47,14 +47,15 @@ import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.PlaybackPositionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -191,7 +192,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation as ServerCon
  *   [LibraryFolderRepository.upsert] to add folders and [LibraryFolderRepository.softDelete] to
  *   remove them. Folder SSE events arrive via [LibraryFolderSyncDomainHandler] into Room.
  * @property clientDatabase the client-side in-memory Room DB the real
- *   [BookSyncDomainHandler] applies Books events into; tests read it back
+ *   books sync handler applies Books events into; tests read it back
  * @property bookEditRepository client-side [BookEditRepository] backed by a real
  *   kotlinx.rpc [BookService] proxy connected to the harness's RPC route. Tests
  *   use this to exercise the client → RPC → server → SSE → Room round trip for
@@ -471,7 +472,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
 
             // Offline-first book edits write to client Room and enqueue a "books" op;
             // the engine drains it through the RpcUpdateOpSender above to the in-process
-            // server, whose SSE echo reconciles client Room via BookSyncDomainHandler.
+            // server, whose SSE echo reconciles client Room via the books sync handler.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
                     bookRpcFactory = testBookRpcFactory,
@@ -614,8 +615,9 @@ private data class ServerRepositories(
 )
 
 /**
- * Constructs and registers the real [BookSyncDomainHandler],
- * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler], [PlaybackPositionSyncDomainHandler],
+ * Constructs and registers the real books sync handler ([booksDomain]),
+ * [ContributorSyncDomainHandler], [SeriesSyncDomainHandler],
+ * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler], [LibrarySyncDomainHandler],
  * [LibraryFolderSyncDomainHandler], and [PublicProfileSyncDomainHandler] into [registry]. Each handler self-registers under its
  * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
@@ -635,13 +637,11 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    BookSyncDomainHandler(
+    booksDomain(
         database = clientDb,
         mapper = BookEntityMapper(),
-        transactionRunner = RoomTransactionRunner(clientDb),
         imageStorage = stubImageStorage(),
-        registry = registry,
-    )
+    ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
     ContributorSyncDomainHandler(
         database = clientDb,
         transactionRunner = RoomTransactionRunner(clientDb),
@@ -658,8 +658,7 @@ private fun registerClientSyncHandlers(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )
-    PlaybackPositionSyncDomainHandler(
-        database = clientDb,
+    playbackPositionsDomain(database = clientDb).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
         registry = registry,
     )

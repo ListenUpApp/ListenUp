@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.tagsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -13,7 +15,8 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Covers [TagSyncDomainHandler]: Room write-through for SSE tag events (Room v22).
+ * Covers [com.calypsan.listenup.client.data.sync.domains.tagsDomain]: Room write-through
+ * for SSE tag events (Room v22).
  */
 class TagSyncDomainHandlerTest :
     FunSpec({
@@ -91,7 +94,7 @@ class TagSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = TagSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = tagsDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "tags"
                 registry.lookup("tags") shouldBe handler
             } finally {
@@ -102,11 +105,11 @@ class TagSyncDomainHandlerTest :
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-private fun withHandler(block: suspend (TagSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<Tag>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(TagSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(tagsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

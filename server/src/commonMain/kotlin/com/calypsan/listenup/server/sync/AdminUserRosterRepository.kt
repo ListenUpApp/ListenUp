@@ -3,12 +3,12 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.sync.AdminUserRosterSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.Admin_user_roster
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import app.cash.sqldelight.db.SqlDriver
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for the admin-only `admin_user_roster` projection.
@@ -42,12 +42,9 @@ class AdminUserRosterRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "admin_user_roster",
+        key = SyncDomains.ADMIN_USER_ROSTER,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<AdminUserRosterSyncPayload> =
-        AdminUserRosterSyncPayload.serializer()
-
     override val AdminUserRosterSyncPayload.id: String get() = this.id
 
     override fun AdminUserRosterSyncPayload.revisionOf(): Long = revision

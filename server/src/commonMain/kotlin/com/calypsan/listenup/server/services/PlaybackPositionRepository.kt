@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -16,7 +17,6 @@ import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for per-user playback positions (Playback P1).
@@ -57,13 +57,10 @@ class PlaybackPositionRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "playback_positions",
+        key = SyncDomains.PLAYBACK_POSITIONS,
         clock = clock,
     ) {
     override val userScoped: Boolean = true
-
-    override val elementSerializer: KSerializer<PlaybackPositionSyncPayload> =
-        PlaybackPositionSyncPayload.serializer()
 
     override fun idAsString(id: PlaybackPositionId): String = id.value
 

@@ -9,7 +9,8 @@ import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
@@ -38,7 +39,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.CollectionRpcFactory] — `collectionModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
- *  - [com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler] — `clientSyncRenovationModule`
+ *  - the books [com.calypsan.listenup.client.data.sync.SyncDomainHandler] — `clientSyncRenovationModule`
  */
 internal val bookModule: Module =
     module {
@@ -84,7 +85,7 @@ internal val bookModule: Module =
                     ),
                 networkMonitor = get(),
                 bookRpcFactory = get(),
-                bookSyncDomainHandler = get<BookSyncDomainHandler>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
             )
         } binds arrayOf(BookIngestPort::class)
 

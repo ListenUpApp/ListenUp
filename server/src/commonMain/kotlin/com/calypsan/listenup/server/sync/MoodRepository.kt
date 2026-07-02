@@ -2,11 +2,11 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.Mood
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Moods
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for moods — the affective twin of [TagRepository].
@@ -22,7 +22,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `moodsQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - [elementSerializer] / `Mood.id` / `Mood.revisionOf`
+ *  - `Mood.id` / `Mood.revisionOf`
  *
  * Service-layer helpers beyond the base substrate:
  *  - [findById] — fetch one non-deleted mood by id
@@ -36,9 +36,7 @@ class MoodRepository(
     bus: ChangeBus,
     registry: SyncRegistry,
     clock: Clock = Clock.System,
-) : SqlSyncableRepository<Mood, String>(db, bus, registry, "moods", clock) {
-    override val elementSerializer: KSerializer<Mood> = Mood.serializer()
-
+) : SqlSyncableRepository<Mood, String>(db, bus, registry, SyncDomains.MOODS, clock) {
     override val Mood.id: String get() = this.id
 
     override fun Mood.revisionOf(): Long = revision

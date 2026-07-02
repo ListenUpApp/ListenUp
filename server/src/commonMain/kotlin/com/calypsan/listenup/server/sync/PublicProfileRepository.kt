@@ -1,11 +1,11 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.PublicProfileSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Public_profiles
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Clock
-import kotlinx.serialization.KSerializer
 
 /**
  * SQLDelight syncable repository for the global `public_profiles` projection.
@@ -20,7 +20,7 @@ import kotlinx.serialization.KSerializer
  *  - [substrate] — the [SyncableSubstrateQueries] adapter over `publicProfilesQueries`
  *  - [readPayload] / [readPayloads] — root-row reads by id
  *  - [writePayload] — insert-or-update inside the open transaction
- *  - [elementSerializer] / `PublicProfileSyncPayload.id` / `revisionOf`
+ *  - `PublicProfileSyncPayload.id` / `revisionOf`
  *
  * Service-layer helper beyond the base substrate:
  *  - [identities] — batched (id, displayName, avatarType) read for the social presence surfaces.
@@ -36,12 +36,9 @@ class PublicProfileRepository(
         db = db,
         bus = bus,
         registry = registry,
-        domainName = "public_profiles",
+        key = SyncDomains.PUBLIC_PROFILES,
         clock = clock,
     ) {
-    override val elementSerializer: KSerializer<PublicProfileSyncPayload> =
-        PublicProfileSyncPayload.serializer()
-
     override val PublicProfileSyncPayload.id: String get() = this.id
 
     override fun PublicProfileSyncPayload.revisionOf(): Long = revision

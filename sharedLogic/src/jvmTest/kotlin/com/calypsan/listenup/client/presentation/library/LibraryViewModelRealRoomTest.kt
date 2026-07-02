@@ -27,7 +27,8 @@ import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.BookSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.GenreRepository
@@ -169,7 +170,12 @@ private suspend fun seedBook(
     db: ListenUpDatabase,
     id: String,
 ) {
-    val handler = BookSyncDomainHandler(db, BookEntityMapper(), RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry())
+    val handler =
+        booksDomain(
+            database = db,
+            mapper = BookEntityMapper(),
+            imageStorage = stubImageStorage(),
+        ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
     handler.onCatchUpItem(
         BookSyncPayload(
             id = id,
@@ -229,7 +235,11 @@ private fun bookRepositoryWith(
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
-            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry()),
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
+            ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry()),
     )
 }
 
@@ -262,7 +272,11 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         bookRpcFactory = mock<BookRpcFactory>(),
         bookSyncDomainHandler =
-            BookSyncDomainHandler(db, BookEntityMapper(), transactionRunner, stubImageStorage(), ClientSyncDomainRegistry()),
+            booksDomain(
+                database = db,
+                mapper = BookEntityMapper(),
+                imageStorage = stubImageStorage(),
+            ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry()),
     )
 }
 
