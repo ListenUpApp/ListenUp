@@ -99,8 +99,11 @@ jobs:
       # compileCommonMainKotlinMetadata type-checks :sharedLogic commonMain against the COMMON
       # (all-targets-intersection) stdlib, so JVM-only stdlib in shared code (e.g. toSortedSet(),
       # java.*) fails here on Linux instead of late on the macOS iOS lane.
+      # :build-logic:convention:test runs the build-logic convention tests, including
+      # ReturnValueGuardCanaryTest — the compiler-flag canary that fails if a Kotlin bump
+      # silently disarms the AppResult must-use guard.
       - name: Run JVM tests
-        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest --no-daemon
+        run: ./gradlew :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :build-logic:convention:test --no-daemon
 
       - name: Upload test results
         uses: actions/upload-artifact@v7
