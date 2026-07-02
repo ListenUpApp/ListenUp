@@ -9,14 +9,14 @@ import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.genresDomain
+import com.calypsan.listenup.client.data.sync.domains.librariesDomain
+import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -54,14 +54,10 @@ class DigestOptOutSetTest :
                         mapper = BookEntityMapper(),
                         imageStorage = stubImageStorage(),
                     ).toHandler(transactionRunner = txRunner, registry = registry)
-                    ContributorSyncDomainHandler(
-                        database = clientDb,
-                        transactionRunner = txRunner,
-                        imageStorage = stubImageStorage(),
-                        registry = registry,
-                    )
-                    SeriesSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    GenreSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    contributorsDomain(database = clientDb, imageStorage = stubImageStorage())
+                        .toHandler(transactionRunner = txRunner, registry = registry)
+                    seriesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     ListeningEventSyncDomainHandler(
                         database = clientDb,
@@ -70,8 +66,8 @@ class DigestOptOutSetTest :
                         authSession = FakeAuthSession(),
                     )
                     UserStatsSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    LibrarySyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
-                    LibraryFolderSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     CollectionSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     CollectionBookSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
                     CollectionShareSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)

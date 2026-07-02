@@ -9,7 +9,7 @@ import com.calypsan.listenup.core.SeriesId
 /**
  * Client-side write surface for series editing.
  *
- * RPC-backed. SSE delivers authoritative state back via the SeriesSyncDomainHandler.
+ * RPC-backed. SSE delivers authoritative state back via the `series` sync domain.
  */
 interface SeriesEditRepository {
     /**

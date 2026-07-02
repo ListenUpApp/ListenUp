@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -42,24 +43,14 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
-import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
-import com.calypsan.listenup.client.data.sync.domains.booksDomain
-import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
-import com.calypsan.listenup.client.data.sync.domains.tagsDomain
+import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.sync.handlers.BookMoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.MoodSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ShelfBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ShelfSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
@@ -76,6 +67,7 @@ import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
+import org.koin.core.module.Module
 import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -250,18 +242,11 @@ internal val clientSyncRenovationModule =
         single { BookEntityMapper() }
 
         single {
-            SyncDomainCatalog(
-                mirrored =
-                    listOf(
-                        tagsDomain(database = get()),
-                        playbackPositionsDomain(database = get()),
-                        booksDomain(
-                            database = get(),
-                            mapper = get(),
-                            imageStorage = get(),
-                            documentStorage = get(),
-                        ),
-                    ),
+            syncDomainCatalog(
+                database = get(),
+                mapper = get(),
+                imageStorage = get(),
+                documentStorage = get(),
             )
         }
         single(createdAtStart = true) {
@@ -273,28 +258,17 @@ internal val clientSyncRenovationModule =
         }
 
         // Books' composed handler doubles as the on-demand aggregate write-through seam
-        // (BookRepositoryImpl's cache-miss fallback fetch, PlaybackPreparer's ingest).
-        // The registrar above creates and registers it from the catalog; resolve that
-        // same instance by domain lookup so DI consumers and the SSE dispatcher share
-        // one handler. The cast is safe: SyncDomains.BOOKS binds the "books" name to
-        // BookSyncPayload in the contract.
-        //
-        // ⚠️ PHASE 2 LANDMINE: this binding is UNQUALIFIED, which only works while books
-        // is the sole consumer-injected SyncDomainHandler<*> single. Koin keys on the
-        // ERASED class (SyncDomainHandler::class), so a second such single — contributors
-        // and series are both consumer-injected today (ContributorModule, SeriesModule) and
-        // migrate in Phase 2 — collides on the same key and fails at graph construction.
-        // When migrating them, qualify ALL these bindings with named(SyncDomains.X.name)
-        // and add the matching qualifier to every consumer get(); do it uniformly in one
-        // pass (incl. the ios/macos PlaybackModules, CI-only compile).
-        single<SyncDomainHandler<BookSyncPayload>> {
-            val _ = get<ComposedHandlerRegistrar>()
-            @Suppress("UNCHECKED_CAST")
-            checkNotNull(
-                get<ClientSyncDomainRegistry>().lookup(SyncDomains.BOOKS.name)
-                    as SyncDomainHandler<BookSyncPayload>?,
-            ) { "books domain missing from the sync catalog" }
-        }
+        // (BookRepositoryImpl's cache-miss fallback fetch, PlaybackPreparer's ingest);
+        // consumers inject it by qualified name.
+        consumerSyncHandlerSingle(SyncDomains.BOOKS)
+
+        // Series' composed handler doubles as the on-demand cache-miss write-through seam
+        // (SeriesRepositoryImpl); consumers inject it by qualified name.
+        consumerSyncHandlerSingle(SyncDomains.SERIES)
+
+        // Contributors' composed handler doubles as the on-demand cache-miss write-through
+        // seam (ContributorRepositoryImpl); consumers inject it by qualified name.
+        consumerSyncHandlerSingle(SyncDomains.CONTRIBUTORS)
 
         single(createdAtStart = true) {
             BookTagSyncDomainHandler(
@@ -304,36 +278,7 @@ internal val clientSyncRenovationModule =
             )
         }
         single(createdAtStart = true) {
-            MoodSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
             BookMoodSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            ContributorSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                imageStorage = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            SeriesSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            GenreSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
@@ -355,20 +300,6 @@ internal val clientSyncRenovationModule =
             )
         }
         single(createdAtStart = true) {
-            LibrarySyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            LibraryFolderSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
             CollectionSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
@@ -384,13 +315,6 @@ internal val clientSyncRenovationModule =
         }
         single(createdAtStart = true) {
             CollectionShareSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            ShelfSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
                 registry = get(),
@@ -462,3 +386,22 @@ internal val clientSyncRenovationModule =
             ).apply { start() }
         }
     }
+
+/**
+ * Consumer-facing binding for a catalog-composed handler: resolves the handler the
+ * [ComposedHandlerRegistrar] registered, under a [named] qualifier. Koin keys generic
+ * singles on the ERASED [SyncDomainHandler] class, so every consumer-injected handler
+ * single MUST carry its domain-name qualifier — two unqualified bindings collide at
+ * graph construction. The cast is safe: [SyncDomainKey] ties the wire name to the
+ * payload type in the contract.
+ */
+private inline fun <reified T : Any> Module.consumerSyncHandlerSingle(key: SyncDomainKey<T>) {
+    single<SyncDomainHandler<T>>(named(key.name)) {
+        // Force the registrar to run registerAll() before we look the handler up.
+        val _ = get<ComposedHandlerRegistrar>()
+        @Suppress("UNCHECKED_CAST")
+        checkNotNull(
+            get<ClientSyncDomainRegistry>().lookup(key.name) as SyncDomainHandler<T>?,
+        ) { "${key.name} domain missing from the sync catalog" }
+    }
+}

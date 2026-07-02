@@ -20,14 +20,14 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
+import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.LibrarySyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -178,13 +178,11 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
 
             // Register remaining handlers so SSE events on other domains don't
             // get logged as "unhandled" warnings during the test.
-            LibrarySyncDomainHandler(
-                database = clientDb,
+            librariesDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
-            LibraryFolderSyncDomainHandler(
-                database = clientDb,
+            libraryFoldersDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )
@@ -193,14 +191,11 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
                 mapper = BookEntityMapper(),
                 imageStorage = stubImageStorage(),
             ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
-            ContributorSyncDomainHandler(
-                database = clientDb,
+            contributorsDomain(database = clientDb, imageStorage = stubImageStorage()).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
-                imageStorage = stubImageStorage(),
                 registry = registry,
             )
-            SeriesSyncDomainHandler(
-                database = clientDb,
+            seriesDomain(database = clientDb).toHandler(
                 transactionRunner = RoomTransactionRunner(clientDb),
                 registry = registry,
             )

@@ -1,37 +1,37 @@
 package com.calypsan.listenup.client.data.sync.domains
 
+import com.calypsan.listenup.api.sync.Mood
 import com.calypsan.listenup.api.sync.SyncDomains
-import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.local.db.TagEntity
+import com.calypsan.listenup.client.data.local.db.MoodEntity
 
 /**
- * The `tags` domain: server-authored rows (curators), server-wins apply,
+ * The `moods` domain: server-authored rows (curators), server-wins apply,
  * soft-delete tombstones, full digest participation, online-only writes.
- * `isOwnEcho` needs no shield: the client has no local tag-row write path
- * that would generate echoes.
+ * Structurally identical to [tagsDomain]; `isOwnEcho` needs no shield — the
+ * client has no local mood-row write path.
  */
-internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> =
+internal fun moodsDomain(database: ListenUpDatabase): MirroredDomain<Mood> =
     MirroredDomain(
-        key = SyncDomains.TAGS,
+        key = SyncDomains.MOODS,
         syncIdOf = { it.id },
-        apply = TagMirrorApply(database),
+        apply = MoodMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
         digest =
             DigestParticipation.Full { maxRevision ->
-                database.tagDao().digestRows(maxRevision).map { it.id to it.revision }
+                database.moodDao().digestRows(maxRevision).map { it.id to it.revision }
             },
         writes = WriteTier.OnlineOnly,
     )
 
-/** Room mapping for [Tag] payloads. */
-internal class TagMirrorApply(
+/** Room mapping for [Mood] payloads. */
+internal class MoodMirrorApply(
     private val database: ListenUpDatabase,
-) : MirrorApply<Tag> {
-    override suspend fun upsert(payload: Tag) {
-        database.tagDao().upsert(
-            TagEntity(
+) : MirrorApply<Mood> {
+    override suspend fun upsert(payload: Mood) {
+        database.moodDao().upsert(
+            MoodEntity(
                 id = payload.id,
                 name = payload.name,
                 slug = payload.slug,
@@ -47,10 +47,10 @@ internal class TagMirrorApply(
         deletedAt: Long,
         revision: Long,
     ) {
-        database.tagDao().softDelete(id = id, deletedAt = deletedAt, revision = revision)
+        database.moodDao().softDelete(id = id, deletedAt = deletedAt, revision = revision)
     }
 
-    override suspend fun tombstoneFromItem(item: Tag) {
+    override suspend fun tombstoneFromItem(item: Mood) {
         tombstoneById(
             id = item.id,
             deletedAt = item.deletedAt ?: item.updatedAt,

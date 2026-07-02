@@ -8,7 +8,8 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
-import com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -16,7 +17,11 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class SeriesSyncDomainHandlerTest :
+/**
+ * Covers [com.calypsan.listenup.client.data.sync.domains.seriesDomain]: Room
+ * write-through for SSE series events with enrichment copy-forward.
+ */
+class SeriesDomainTest :
     FunSpec({
 
         test("a Created event inserts the series row") {
@@ -77,7 +82,7 @@ class SeriesSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = SeriesSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = seriesDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "series"
                 registry.lookup("series") shouldBe handler
             } finally {
@@ -86,11 +91,11 @@ class SeriesSyncDomainHandlerTest :
         }
     })
 
-private fun withHandler(block: suspend (SeriesSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<SeriesSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(SeriesSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(seriesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

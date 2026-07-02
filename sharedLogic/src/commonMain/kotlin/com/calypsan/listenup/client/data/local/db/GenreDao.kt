@@ -118,7 +118,7 @@ internal interface GenreDao {
     /**
      * Soft-delete a genre — set the substrate tombstone columns. The row stays
      * (so revision bookkeeping survives); reads filter on `deletedAt IS NULL`.
-     * Used by [com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler]
+     * Used by [com.calypsan.listenup.client.data.sync.domains.genresDomain]
      * to apply server `SyncEvent.Deleted`.
      */
     @Query("UPDATE genres SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")

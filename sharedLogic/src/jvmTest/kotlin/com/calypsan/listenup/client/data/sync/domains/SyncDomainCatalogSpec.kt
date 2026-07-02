@@ -20,17 +20,10 @@ class SyncDomainCatalogSpec :
         test("catalog keys are unique and drawn from SyncDomains") {
             val db = createInMemoryTestDatabase()
             val catalog =
-                SyncDomainCatalog(
-                    mirrored =
-                        listOf(
-                            tagsDomain(database = db),
-                            playbackPositionsDomain(database = db),
-                            booksDomain(
-                                database = db,
-                                mapper = BookEntityMapper(),
-                                imageStorage = stubImageStorage(),
-                            ),
-                        ),
+                syncDomainCatalog(
+                    database = db,
+                    mapper = BookEntityMapper(),
+                    imageStorage = stubImageStorage(),
                 )
             val names = catalog.mirrored.map { it.key.name }
             val known = SyncDomains.all.map { it.name }

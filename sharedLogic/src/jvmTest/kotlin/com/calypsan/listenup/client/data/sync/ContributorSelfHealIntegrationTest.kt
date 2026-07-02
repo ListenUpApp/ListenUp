@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
@@ -29,8 +29,8 @@ import kotlinx.coroutines.test.runTest
  * handlers share a single Room database and the two compositions are tested end-to-end:
  *
  * - **Book-first:** [BookMirrorApply] inserts a bootstrap stub (`revision == 0`); a later
- *   [ContributorSyncDomainHandler] event supersedes it with the real entity.
- * - **Contributor-first:** [ContributorSyncDomainHandler] inserts the real row first; a later
+ *   [contributorsDomain] event supersedes it with the real entity.
+ * - **Contributor-first:** [contributorsDomain] inserts the real row first; a later
  *   stale book event does NOT clobber it.
  */
 class ContributorSelfHealIntegrationTest :
@@ -48,7 +48,7 @@ class ContributorSelfHealIntegrationTest :
                             imageStorage = stubImageStorage(),
                         ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = registry)
                     val contributorHandler =
-                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
+                        contributorsDomain(db, stubImageStorage()).toHandler(RoomTransactionRunner(db), registry)
 
                     // 1. Book event arrives first — contributor "c1" is not yet in Room.
                     bookHandler.onEvent(
@@ -96,7 +96,7 @@ class ContributorSelfHealIntegrationTest :
                             imageStorage = stubImageStorage(),
                         ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = registry)
                     val contributorHandler =
-                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
+                        contributorsDomain(db, stubImageStorage()).toHandler(RoomTransactionRunner(db), registry)
 
                     // 1. Real contributor event arrives first.
                     contributorHandler.onEvent(

@@ -10,7 +10,7 @@ import androidx.sqlite.execSQL
  * `contributors` and `series` become first-class syncable domains. Each table
  * gains `revision` (monotonic server revision) and `deletedAt` (epoch-ms
  * tombstone). Existing rows are rebuilt with `revision = 0` and `deletedAt`
- * null — the client's `ContributorSyncDomainHandler` / `SeriesSyncDomainHandler`
+ * null — the client's `contributors` / `series` sync domain
  * overwrite them with real values on the first catch-up from the server.
  *
  * Tables are rebuilt (create-new → copy → drop → rename) rather than

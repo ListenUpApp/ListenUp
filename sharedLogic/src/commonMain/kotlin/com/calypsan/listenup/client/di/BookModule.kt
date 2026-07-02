@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.BookRepository
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.usecase.book.LoadBookForEditUseCase
 import com.calypsan.listenup.client.domain.usecase.book.UpdateBookUseCase
 import org.koin.core.module.Module
+import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
@@ -85,7 +87,7 @@ internal val bookModule: Module =
                     ),
                 networkMonitor = get(),
                 bookRpcFactory = get(),
-                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(),
+                bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )
         } binds arrayOf(BookIngestPort::class)
 

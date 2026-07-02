@@ -119,7 +119,7 @@ internal class BookMirrorApply(
 
     /**
      * Insert a minimal genre stub if the row is missing. Substrate's
-     * `GenreSyncDomainHandler` overwrites the stub on the next catch-up; until
+     * `genresDomain` overwrites the stub on the next catch-up; until
      * then the bootstrap row keeps the FK satisfied and the book renderable.
      */
     private suspend fun genreEnsureExists(payload: BookGenrePayload) {
@@ -260,7 +260,7 @@ internal class BookMirrorApply(
     /**
      * Ensure a contributor row exists for [contributor]. When the row is already
      * present, leave it untouched — the `contributors` sync domain owns it
-     * ([com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler]).
+     * ([com.calypsan.listenup.client.data.sync.domains.contributorsDomain]).
      * When absent, insert a minimal bootstrap stub from the book payload's
      * embedded fields so the book renders immediately; the real row, with
      * enrichment and a real revision, supersedes the stub when the contributors
@@ -288,7 +288,7 @@ internal class BookMirrorApply(
     /**
      * Ensure a series row exists for [series]. When already present, leave it
      * untouched — the `series` sync domain owns it
-     * ([com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler]).
+     * ([com.calypsan.listenup.client.data.sync.domains.seriesDomain]).
      * When absent, insert a minimal bootstrap stub so the book renders
      * immediately; the real row supersedes it when the series domain syncs.
      */

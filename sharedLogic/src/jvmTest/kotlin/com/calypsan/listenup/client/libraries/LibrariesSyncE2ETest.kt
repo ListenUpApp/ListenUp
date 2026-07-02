@@ -20,9 +20,10 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  *
  * A write on the server's [com.calypsan.listenup.server.services.LibraryRepository] or
  * [com.calypsan.listenup.server.services.LibraryFolderRepository] crosses the live SSE
- * firehose, the client engine routes it through the real [LibrarySyncDomainHandler] and
- * [LibraryFolderSyncDomainHandler], and the rows land in the client's Room database —
- * exactly the round-trip production performs.
+ * firehose, the client engine routes it through the real
+ * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler and
+ * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain], and the rows land in the
+ * client's Room database — exactly the round-trip production performs.
  *
  * The test also exercises the full cascade: `softDelete` on a library tombstones
  * the library row, its folder rows, and any book rows belonging to that library.

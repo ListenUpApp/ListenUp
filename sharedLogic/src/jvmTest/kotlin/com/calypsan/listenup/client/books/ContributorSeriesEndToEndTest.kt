@@ -18,8 +18,8 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  * operation a scan performs — which publishes a [com.calypsan.listenup.server.sync.SyncEvent]
  * on the server. The event crosses the live SSE firehose, the client
  * [com.calypsan.listenup.client.data.sync.SyncEngine] routes it through the real
- * [com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler] /
- * [com.calypsan.listenup.client.data.sync.handlers.SeriesSyncDomainHandler], and the
+ * [com.calypsan.listenup.client.data.sync.domains.contributorsDomain] /
+ * [com.calypsan.listenup.client.data.sync.domains.seriesDomain], and the
  * row lands in the client's Room database — exactly the round-trip production performs.
  *
  * A non-zero `revision` on the landed row is the key invariant: it proves the row

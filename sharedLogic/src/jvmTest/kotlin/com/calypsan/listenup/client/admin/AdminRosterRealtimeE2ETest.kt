@@ -27,7 +27,8 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.handlers.AdminUserRosterSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.GenreSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.genresDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -272,7 +273,7 @@ private fun buildRosterSyncEngine(
     val txn = RoomTransactionRunner(clientDb)
 
     AdminUserRosterSyncDomainHandler(database = clientDb, transactionRunner = txn, registry = registry)
-    GenreSyncDomainHandler(database = clientDb, transactionRunner = txn, registry = registry)
+    genresDomain(database = clientDb).toHandler(transactionRunner = txn, registry = registry)
 
     val state = SyncEngineState()
     val store = SyncCursorStore(clientDb.syncCursorDao())

@@ -6,7 +6,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
-import com.calypsan.listenup.client.data.sync.handlers.LibraryFolderSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -14,7 +15,7 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class LibraryFolderSyncDomainHandlerTest :
+class LibraryFoldersDomainTest :
     FunSpec({
 
         test("a Created event inserts the folder row") {
@@ -98,7 +99,7 @@ class LibraryFolderSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = LibraryFolderSyncDomainHandler(db, RoomTransactionRunner(db), registry)
+                val handler = libraryFoldersDomain(db).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "library_folders"
                 registry.lookup("library_folders") shouldBe handler
             } finally {
@@ -126,11 +127,11 @@ private suspend fun seedLibrary(
     )
 }
 
-private fun withHandler(block: suspend (LibraryFolderSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<LibraryFolderSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
-            block(LibraryFolderSyncDomainHandler(db, RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
+            block(libraryFoldersDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()), db)
         } finally {
             db.close()
         }

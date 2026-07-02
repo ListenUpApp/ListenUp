@@ -20,7 +20,7 @@ private const val ROUND_TRIP_TIMEOUT_SECONDS = 30
  *  1. **Server-side substrate write → SSE → client Room.** A direct
  *     `serverGenreRepository.upsert(GenreSyncPayload)` publishes a
  *     `genre.Created` SSE event. The client engine catches up and
- *     `GenreSyncDomainHandler` applies the payload into Room.
+ *     `genresDomain` applies the payload into Room.
  *
  *  2. **Client-side RPC mutation → server → SSE → client Room.** A call to
  *     [com.calypsan.listenup.client.domain.repository.GenreRepository.createGenre]
