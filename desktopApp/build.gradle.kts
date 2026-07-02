@@ -8,7 +8,7 @@ plugins {
 
 kotlin {
     compilerOptions {
-        // :sharedLogic/:sharedUI compile against pre-release Kotlin 2.3.20 metadata.
+        // :sharedLogic/:sharedUI carry pre-release-marked metadata via the kotlinx-rpc dev-channel pin (see gradle/libs.versions.toml); drop this flag when migrating to rpc stable.
         freeCompilerArgs.add("-Xskip-prerelease-check")
     }
 }

@@ -18,8 +18,6 @@ captures
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 # Generated localization files
-composeApp/src/commonMain/composeResources/values/strings.xml
-composeApp/src/commonMain/composeResources/values-*/strings.xml
 iosApp/ListenUp/Resources/*.lproj/Localizable.strings
 iosApp/iosApp/Resources/*.lproj/Localizable.strings
 
