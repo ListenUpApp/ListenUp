@@ -375,6 +375,131 @@ internal interface SearchDao {
     """,
     )
     suspend fun getAllGenreNamesGrouped(): List<BookIdNameRow>
+
+    // ==================== INCREMENTAL REINDEX QUERIES ====================
+
+    /** Highest `revision` currently in the `books` table — the pre-reconcile watermark. */
+    @Query("SELECT COALESCE(MAX(revision), 0) FROM books")
+    suspend fun maxBookRevision(): Long
+
+    /** Highest `revision` currently in the `contributors` table — the pre-reconcile watermark. */
+    @Query("SELECT COALESCE(MAX(revision), 0) FROM contributors")
+    suspend fun maxContributorRevision(): Long
+
+    /** Highest `revision` currently in the `series` table — the pre-reconcile watermark. */
+    @Query("SELECT COALESCE(MAX(revision), 0) FROM series")
+    suspend fun maxSeriesRevision(): Long
+
+    /** Highest `revision` currently in the `genres` table — the pre-reconcile watermark. */
+    @Query("SELECT COALESCE(MAX(revision), 0) FROM genres")
+    suspend fun maxGenreRevision(): Long
+
+    /** Ids of books whose own row changed since [revision] (includes tombstones — soft-delete bumps revision). */
+    @Query("SELECT id FROM books WHERE revision > :revision")
+    suspend fun bookIdsChangedSince(revision: Long): List<String>
+
+    /** Ids of books whose linked contributor changed since [revision] (e.g. an author rename). */
+    @Query(
+        """
+        SELECT DISTINCT bc.bookId FROM book_contributors bc
+        INNER JOIN contributors c ON c.id = bc.contributorId
+        WHERE c.revision > :revision
+    """,
+    )
+    suspend fun bookIdsWithContributorsChangedSince(revision: Long): List<String>
+
+    /** Ids of books whose linked series changed since [revision] (e.g. a series rename). */
+    @Query(
+        """
+        SELECT DISTINCT bs.bookId FROM book_series bs
+        INNER JOIN series s ON s.id = bs.seriesId
+        WHERE s.revision > :revision
+    """,
+    )
+    suspend fun bookIdsWithSeriesChangedSince(revision: Long): List<String>
+
+    /** Ids of books whose linked genre changed since [revision] (e.g. a genre rename). */
+    @Query(
+        """
+        SELECT DISTINCT bg.bookId FROM book_genres bg
+        INNER JOIN genres g ON g.id = bg.genreId
+        WHERE g.revision > :revision
+    """,
+    )
+    suspend fun bookIdsWithGenresChangedSince(revision: Long): List<String>
+
+    /** Count of contributors changed since [revision] — drives the contributors_fts rebuild decision. */
+    @Query("SELECT COUNT(*) FROM contributors WHERE revision > :revision")
+    suspend fun countContributorsChangedSince(revision: Long): Int
+
+    /** Count of series changed since [revision] — drives the series_fts rebuild decision. */
+    @Query("SELECT COUNT(*) FROM series WHERE revision > :revision")
+    suspend fun countSeriesChangedSince(revision: Long): Int
+
+    /** Delete the books_fts rows for exactly [bookIds] — the targeted counterpart to [clearBooksFts]. */
+    @SkipQueryVerification
+    @Query("DELETE FROM books_fts WHERE bookId IN (:bookIds)")
+    suspend fun deleteBookFtsEntries(bookIds: List<String>)
+
+    /** Live (non-tombstoned) books among [ids] — the source rows for a targeted FTS reindex. */
+    @Query("SELECT * FROM books WHERE id IN (:ids) AND deletedAt IS NULL")
+    suspend fun getLiveBooksByIds(ids: List<String>): List<BookEntity>
+
+    /** [getAllPrimaryAuthorNames] scoped to [bookIds] — for a targeted reindex of just the changed books. */
+    @Query(
+        """
+        SELECT bc.bookId AS bookId, MIN(c.name) AS authorName
+        FROM contributors c
+        INNER JOIN book_contributors bc ON bc.contributorId = c.id
+        WHERE LOWER(bc.role) = 'author' AND bc.bookId IN (:bookIds)
+        GROUP BY bc.bookId
+    """,
+    )
+    suspend fun getPrimaryAuthorNamesFor(bookIds: List<String>): List<BookIdNameRow>
+
+    /** [getAllPrimaryNarratorNames] scoped to [bookIds] — for a targeted reindex of just the changed books. */
+    @Query(
+        """
+        SELECT bc.bookId AS bookId, MIN(c.name) AS authorName
+        FROM contributors c
+        INNER JOIN book_contributors bc ON bc.contributorId = c.id
+        WHERE LOWER(bc.role) = 'narrator' AND bc.bookId IN (:bookIds)
+        GROUP BY bc.bookId
+    """,
+    )
+    suspend fun getPrimaryNarratorNamesFor(bookIds: List<String>): List<BookIdNameRow>
+
+    /** [getAllSeriesNamesGrouped] scoped to [bookIds] — for a targeted reindex of just the changed books. */
+    @Query(
+        """
+        SELECT bookId, GROUP_CONCAT(name, ', ') AS authorName
+        FROM (
+            SELECT bs.bookId AS bookId, s.name AS name
+            FROM series s
+            INNER JOIN book_series bs ON s.id = bs.seriesId
+            WHERE bs.bookId IN (:bookIds)
+            ORDER BY bs.bookId, s.name COLLATE NOCASE ASC
+        )
+        GROUP BY bookId
+    """,
+    )
+    suspend fun getSeriesNamesGroupedFor(bookIds: List<String>): List<BookIdNameRow>
+
+    /** [getAllGenreNamesGrouped] scoped to [bookIds] — for a targeted reindex of just the changed books. */
+    @Query(
+        """
+        SELECT bookId, GROUP_CONCAT(name, ', ') AS authorName
+        FROM (
+            SELECT bg.bookId AS bookId, g.name AS name
+            FROM genres g
+            INNER JOIN book_genres bg ON g.id = bg.genreId
+            WHERE bg.bookId IN (:bookIds)
+            ORDER BY bg.bookId, g.name COLLATE NOCASE ASC
+        )
+        GROUP BY bookId
+    """,
+    )
+    suspend fun getGenreNamesGroupedFor(bookIds: List<String>): List<BookIdNameRow>
 }
 
 /**
