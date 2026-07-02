@@ -5,7 +5,7 @@ import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -27,7 +27,7 @@ import org.koin.test.verify.verify
  *  - [ContributorApiContract] — owned by `networkModule`.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
- *  - [ContributorSyncDomainHandler] — owned by `clientSyncRenovationModule`.
+ *  - [SyncDomainHandler] (named `contributors`) — owned by `clientSyncRenovationModule`.
  *  - [MetadataRepository] — owned by `bookModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -44,7 +44,7 @@ class ContributorModuleVerifyTest :
                         ContributorApiContract::class,
                         NetworkMonitor::class,
                         ImageStorage::class,
-                        ContributorSyncDomainHandler::class,
+                        SyncDomainHandler::class,
                         MetadataRepository::class,
                         ApiClientFactory::class,
                         ServerConfig::class,

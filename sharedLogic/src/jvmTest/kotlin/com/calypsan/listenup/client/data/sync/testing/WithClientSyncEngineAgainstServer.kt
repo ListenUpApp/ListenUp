@@ -49,7 +49,7 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
@@ -496,7 +496,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // Offline-first contributor edits write to client Room and enqueue a
             // "contributors" op; the engine drains it through the RpcUpdateOpSender above
             // to the in-process server, whose SSE echo reconciles client Room via
-            // ContributorSyncDomainHandler.
+            // the contributors sync domain.
             val contributorEditRepository: ContributorEditRepository =
                 ContributorEditRepositoryImpl(
                     contributorRpcFactory = testContributorRpcFactory,
@@ -618,7 +618,7 @@ private data class ServerRepositories(
 
 /**
  * Constructs and registers the real books sync handler ([booksDomain]),
- * [ContributorSyncDomainHandler], the series composed handler,
+ * [contributorsDomain], the series composed handler,
  * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
  * [ListeningEventSyncDomainHandler], [UserStatsSyncDomainHandler],
  * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
@@ -644,10 +644,8 @@ private fun registerClientSyncHandlers(
         mapper = BookEntityMapper(),
         imageStorage = stubImageStorage(),
     ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
-    ContributorSyncDomainHandler(
-        database = clientDb,
+    contributorsDomain(database = clientDb, imageStorage = stubImageStorage()).toHandler(
         transactionRunner = RoomTransactionRunner(clientDb),
-        imageStorage = stubImageStorage(),
         registry = registry,
     )
     seriesDomain(database = clientDb).toHandler(

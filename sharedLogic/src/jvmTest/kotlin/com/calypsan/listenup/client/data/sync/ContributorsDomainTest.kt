@@ -8,7 +8,8 @@ import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -25,7 +26,12 @@ import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
-class ContributorSyncDomainHandlerTest :
+/**
+ * Covers [com.calypsan.listenup.client.data.sync.domains.contributorsDomain]: Room
+ * write-through for SSE contributor events with enrichment copy-forward, alias
+ * junction mirroring, and content-addressed image cleanup.
+ */
+class ContributorsDomainTest :
     FunSpec({
 
         test("a Created event inserts the contributor row") {
@@ -194,7 +200,7 @@ class ContributorSyncDomainHandlerTest :
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
             try {
-                val handler = ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), registry)
+                val handler = contributorsDomain(db, stubImageStorage()).toHandler(RoomTransactionRunner(db), registry)
                 handler.domainName shouldBe "contributors"
                 registry.lookup("contributors") shouldBe handler
             } finally {
@@ -211,7 +217,7 @@ class ContributorSyncDomainHandlerTest :
                     val imageStorage =
                         mock<ImageStorage> { everySuspend { deleteContributorImage(any()) } returns AppResult.Success(Unit) }
                     val handler =
-                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+                        contributorsDomain(db, imageStorage).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
 
                     handler.onEvent(created(photo("c1", "h1")), isOwnEcho = false)
                     handler.onEvent(updated(photo("c1", "h2", revision = 2)), isOwnEcho = false)
@@ -230,7 +236,7 @@ class ContributorSyncDomainHandlerTest :
                     val imageStorage =
                         mock<ImageStorage> { everySuspend { deleteContributorImage(any()) } returns AppResult.Success(Unit) }
                     val handler =
-                        ContributorSyncDomainHandler(db, RoomTransactionRunner(db), imageStorage, ClientSyncDomainRegistry())
+                        contributorsDomain(db, imageStorage).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
 
                     handler.onEvent(created(photo("c1", "h1")), isOwnEcho = false)
                     handler.onEvent(updated(photo("c1", "h1", name = "Renamed", revision = 2)), isOwnEcho = false)
@@ -252,12 +258,12 @@ private fun updated(p: ContributorSyncPayload) =
         payload = p,
     )
 
-private fun withHandler(block: suspend (ContributorSyncDomainHandler, ListenUpDatabase) -> Unit) =
+private fun withHandler(block: suspend (SyncDomainHandler<ContributorSyncPayload>, ListenUpDatabase) -> Unit) =
     runTest {
         val db = createInMemoryTestDatabase()
         try {
             block(
-                ContributorSyncDomainHandler(db, RoomTransactionRunner(db), stubImageStorage(), ClientSyncDomainRegistry()),
+                contributorsDomain(db, stubImageStorage()).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry()),
                 db,
             )
         } finally {

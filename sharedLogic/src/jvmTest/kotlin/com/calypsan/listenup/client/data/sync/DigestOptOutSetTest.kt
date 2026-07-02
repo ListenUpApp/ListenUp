@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.handlers.BookTagSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
@@ -54,12 +54,8 @@ class DigestOptOutSetTest :
                         mapper = BookEntityMapper(),
                         imageStorage = stubImageStorage(),
                     ).toHandler(transactionRunner = txRunner, registry = registry)
-                    ContributorSyncDomainHandler(
-                        database = clientDb,
-                        transactionRunner = txRunner,
-                        imageStorage = stubImageStorage(),
-                        registry = registry,
-                    )
+                    contributorsDomain(database = clientDb, imageStorage = stubImageStorage())
+                        .toHandler(transactionRunner = txRunner, registry = registry)
                     seriesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)

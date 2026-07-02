@@ -260,7 +260,7 @@ internal class BookMirrorApply(
     /**
      * Ensure a contributor row exists for [contributor]. When the row is already
      * present, leave it untouched — the `contributors` sync domain owns it
-     * ([com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler]).
+     * ([com.calypsan.listenup.client.data.sync.domains.contributorsDomain]).
      * When absent, insert a minimal bootstrap stub from the book payload's
      * embedded fields so the book renders immediately; the real row, with
      * enrichment and a real revision, supersedes the stub when the contributors

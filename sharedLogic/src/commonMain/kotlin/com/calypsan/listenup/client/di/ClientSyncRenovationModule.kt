@@ -50,7 +50,6 @@ import com.calypsan.listenup.client.data.sync.handlers.CollectionBookSyncDomainH
 import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.CollectionSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ShelfBookSyncDomainHandler
-import com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.ListeningEventSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.PublicProfileSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.handlers.UserStatsSyncDomainHandler
@@ -267,6 +266,10 @@ internal val clientSyncRenovationModule =
         // (SeriesRepositoryImpl); consumers inject it by qualified name.
         consumerSyncHandlerSingle(SyncDomains.SERIES)
 
+        // Contributors' composed handler doubles as the on-demand cache-miss write-through
+        // seam (ContributorRepositoryImpl); consumers inject it by qualified name.
+        consumerSyncHandlerSingle(SyncDomains.CONTRIBUTORS)
+
         single(createdAtStart = true) {
             BookTagSyncDomainHandler(
                 database = get(),
@@ -278,14 +281,6 @@ internal val clientSyncRenovationModule =
             BookMoodSyncDomainHandler(
                 database = get(),
                 transactionRunner = get(),
-                registry = get(),
-            )
-        }
-        single(createdAtStart = true) {
-            ContributorSyncDomainHandler(
-                database = get(),
-                transactionRunner = get(),
-                imageStorage = get(),
                 registry = get(),
             )
         }

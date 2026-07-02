@@ -49,7 +49,8 @@ private val logger = KotlinLogging.logger {}
  * observable: when Room yields `null` (the contributor is not cached yet) and
  * the device is online, a single on-demand [ContributorService.getContributor]
  * call is fired and the result is written through Room via
- * [ContributorSyncDomainHandler.onCatchUpItem]. The Room Flow then re-emits
+ * [com.calypsan.listenup.client.data.sync.domains.contributorsDomain]'s
+ * `onCatchUpItem`. The Room Flow then re-emits
  * with the now-present contributor. Offline cache misses skip the RPC entirely
  * and stay `null`.
  *
@@ -87,7 +88,7 @@ internal class ContributorRepositoryImpl(
      * When Room yields `null` (the contributor is not yet cached) and the device
      * is online, fires a single on-demand [ContributorService.getContributor]
      * fetch and writes the result through Room via
-     * [ContributorSyncDomainHandler]. The Room Flow then re-emits with the
+     * [com.calypsan.listenup.client.data.sync.domains.contributorsDomain]. The Room Flow then re-emits with the
      * now-present contributor. The fetch is fired at most once per collection —
      * [attemptedFetch] guards against a persistently-null emission re-firing the
      * RPC on a loop. Offline cache misses and RPC failures degrade silently to

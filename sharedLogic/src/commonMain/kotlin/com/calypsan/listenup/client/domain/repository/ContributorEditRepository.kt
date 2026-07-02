@@ -12,7 +12,7 @@ import com.calypsan.listenup.core.ContributorId
  * [updateContributor] is offline-first; [deleteContributor], [mergeContributor],
  * and [unmergeContributor] are RPC-backed and server-canonical. SSE delivers
  * authoritative state back via
- * [com.calypsan.listenup.client.data.sync.handlers.ContributorSyncDomainHandler].
+ * [com.calypsan.listenup.client.data.sync.domains.contributorsDomain].
  */
 interface ContributorEditRepository {
     /**
