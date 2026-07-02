@@ -1,6 +1,6 @@
 import com.calypsan.listenup.gradle.LISTENUP_FREE_COMPILER_ARGS
 
-/**
+/*
  * Convention for the native-server KMP module (:server): JDK-21 toolchain + the
  * project-wide compiler args, single-sourced from ListenUpCompilerArgs.kt.
  *
