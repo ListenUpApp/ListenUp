@@ -11,9 +11,9 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.api.result.AppResult
@@ -192,7 +192,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
             ).toHandler(transactionRunner = txn, registry = registry)
             collectionsDomain(db).toHandler(txn, registry)
             collectionBooksDomain(db).toHandler(txn, registry)
-            CollectionShareSyncDomainHandler(db, txn, registry)
+            collectionSharesDomain(db).toHandler(txn, registry)
 
             val store = SyncCursorStore(db.syncCursorDao())
             val state = SyncEngineState()

@@ -44,6 +44,7 @@ internal fun syncDomainCatalog(
                 seriesDomain(database = database),
                 collectionsDomain(database = database),
                 collectionBooksDomain(database = database),
+                collectionSharesDomain(database = database),
                 contributorsDomain(database = database, imageStorage = imageStorage),
                 booksDomain(
                     database = database,

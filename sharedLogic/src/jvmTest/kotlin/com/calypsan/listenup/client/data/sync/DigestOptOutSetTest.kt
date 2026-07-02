@@ -7,8 +7,8 @@ import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
+import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
-import com.calypsan.listenup.client.data.sync.handlers.CollectionShareSyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
 import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.librariesDomain
@@ -70,7 +70,7 @@ class DigestOptOutSetTest :
                     libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     collectionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
                     collectionBooksDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    CollectionShareSyncDomainHandler(database = clientDb, transactionRunner = txRunner, registry = registry)
+                    collectionSharesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
 
                     // Collect the domains whose handler returns null from localDigestRows against
                     // an empty DB. An empty DB ensures reconcilable domains return emptyList() (non-null)
