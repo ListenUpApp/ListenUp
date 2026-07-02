@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -12,7 +13,9 @@ private val logger = KotlinLogging.logger {}
  * Routes parsed SSE frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
  *  - `clientOpId` echoes are matched against the pending queue (and acked),
- *  - control events (`CursorStale`, `StreamError`, `AccessChanged`, `PreferencesChanged`, `LibraryDataChanged`) are recognised and acted on,
+ *  - control events are recognised: nudge controls run their catalog-declared refresh
+ *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
+ *    `StreamError`, `AccessChanged`, `UserDeleted`, `LibraryDataChanged`) fire their callbacks,
  *  - unknown domains are logged and dropped (graceful for forward-compat).
  */
 internal class SyncEventDispatcher(
@@ -20,13 +23,10 @@ internal class SyncEventDispatcher(
     private val queue: PendingOperationQueue,
     private val state: SyncEngineState,
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
+    private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
     private val onCursorStale: suspend () -> Unit = {},
     private val onAccessChanged: suspend () -> Unit = {},
     private val onUserDeleted: suspend (reason: String?) -> Unit = {},
-    private val onActiveSessionsChanged: () -> Unit = {},
-    private val onActivityChanged: () -> Unit = {},
-    private val onServerInfoChanged: suspend () -> Unit = {},
-    private val onPreferencesChanged: suspend () -> Unit = {},
     private val onLibraryDataChanged: suspend () -> Unit = {},
 ) {
     /** Route a parsed SSE frame: control events, data events, or no-op for missing event lines. */
@@ -48,6 +48,8 @@ internal class SyncEventDispatcher(
                 logger.warn(e) { "Failed to decode SyncControl frame" }
                 return
             }
+        // Nudge tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
+        if (refreshedRouter.dispatch(control)) return
         when (control) {
             is SyncControl.CursorStale -> {
                 logger.info {
@@ -71,30 +73,19 @@ internal class SyncEventDispatcher(
                 onUserDeleted(control.reason)
             }
 
-            SyncControl.ActiveSessionsChanged -> {
-                logger.debug { "presence nudge" }
-                onActiveSessionsChanged()
-            }
-
-            SyncControl.ActivityChanged -> {
-                logger.debug { "activity nudge" }
-                onActivityChanged()
-            }
-
-            SyncControl.ServerInfoChanged -> {
-                logger.debug { "server-info nudge; re-fetching getServerInfo" }
-                onServerInfoChanged()
-            }
-
-            SyncControl.PreferencesChanged -> {
-                logger.debug { "preferences nudge; re-fetching getMyPreferences into Room" }
-                onPreferencesChanged()
-            }
-
             SyncControl.LibraryDataChanged -> {
                 logger.info { "LibraryDataChanged received; reconciling all domains via digest" }
                 onLibraryDataChanged()
             }
+
+            // The nudge tier is handled by refreshedRouter above. Reaching here means a
+            // catalog RefreshedDomain entry is missing — log loudly rather than drop silently.
+            SyncControl.ActiveSessionsChanged,
+            SyncControl.ActivityChanged,
+            SyncControl.ServerInfoChanged,
+            SyncControl.PreferencesChanged,
+            ->
+                logger.warn { "Nudge control $control unclaimed by any RefreshedDomain; dropped" }
         }
     }
 

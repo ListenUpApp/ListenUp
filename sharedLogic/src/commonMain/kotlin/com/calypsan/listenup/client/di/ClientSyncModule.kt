@@ -43,6 +43,8 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
+import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
@@ -190,6 +192,9 @@ internal val clientSyncModule =
                 queue = get(),
                 state = get(),
                 cursorAdvance = { domain, rev -> get<SyncCursorStore>().setCursor(domain, rev) },
+                // The four content-free re-fetch nudges (presence, activity, server-info,
+                // preferences) are catalog-declared RefreshedDomains, routed here.
+                refreshedRouter = get(),
                 // Route stale-cursor recovery through the engine so the full
                 // disconnect → catchUp → reseed → reconnect lifecycle stays in
                 // one place. Resolving SyncEngine lazily breaks the Koin
@@ -205,21 +210,6 @@ internal val clientSyncModule =
                 // AuthSession into the dispatcher's construction graph. The reason is logged
                 // by the dispatcher; there's no existing one-shot channel here to surface it.
                 onUserDeleted = { _ -> get<AuthSession>().clearAuthTokens() },
-                // The server's content-free presence nudge pings the shared signal so the social
-                // repos (currently-listening, book-readers) re-fetch their ACL-filtered RPCs.
-                onActiveSessionsChanged = { get<PresenceRefreshSignal>().ping() },
-                // The server's content-free activity nudge pings the shared signal so the activity
-                // feed re-fetches its ACL-filtered RPC page.
-                onActivityChanged = { get<ActivityRefreshSignal>().ping() },
-                // The server's content-free server-info nudge (admin changed name / remote URL):
-                // re-fetch getServerInfo, whose persistRemoteUrl side-effect updates the stored
-                // remote-URL fallback so an admin's new domain reaches us without a cold start.
-                onServerInfoChanged = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
-                // The server's content-free per-user preferences nudge (a change made on another of
-                // this user's devices): re-fetch getMyPreferences, whose write-through updates the Room
-                // cache the Settings/player UI observes — so the change lands live. Idempotent: an echo
-                // of this device's own change re-applies identical values and does not re-emit.
-                onPreferencesChanged = { val _ = get<UserPreferencesRepository>().getPreferences() },
                 // The server's content-free bulk-write nudge (e.g. an ABS import's firehose-suppressed
                 // burst): re-derive every domain via digest reconciliation so the imported positions/
                 // sessions land live instead of only on the next reconnect. Same lazy-SyncEngine
@@ -237,10 +227,10 @@ internal val clientSyncModule =
                 imageStorage = get(),
                 authSession = get(),
                 avatarDownloadRepository = get(),
-                // The nudge tier's refresh strategies — the same closures that used to be
-                // the dispatcher's four nudge lambdas. Presence/activity ping their hot
+                // The nudge tier's refresh strategies. Presence/activity ping their hot
                 // signals (social repos + activity feed collect them); server-info/preferences
-                // re-fetch through their repositories' write-through side effects.
+                // re-fetch through their repositories' write-through side effects. These are the
+                // sole home of this wiring now — the dispatcher routes nudges via RefreshedDomainRouter.
                 pingPresence = { get<PresenceRefreshSignal>().ping() },
                 pingActivity = { get<ActivityRefreshSignal>().ping() },
                 refetchServerInfo = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
@@ -248,6 +238,9 @@ internal val clientSyncModule =
                 documentStorage = get(),
             )
         }
+        // Derived from the catalog's refreshed entries: one table maps each nudge control
+        // to its refresh strategy, replacing the four ad-hoc nudge lambdas.
+        single { RefreshedDomainRouter(get<SyncDomainCatalog>().refreshed) }
         single(createdAtStart = true) {
             ComposedHandlerRegistrar(
                 catalog = get(),
