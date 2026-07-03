@@ -27,7 +27,7 @@ internal fun seriesDomain(database: ListenUpDatabase): MirroredDomain<SeriesSync
             DigestParticipation.Full { maxRevision ->
                 database.seriesDao().digestRows(maxRevision).map { it.id to it.revision }
             },
-        writes = WriteTier.Outbox(ops = setOf(OpKind.Update)),
+        writes = WriteTier.Outbox(OutboxChannels.Series),
     )
 
 /** Room mapping for [SeriesSyncPayload] payloads (enrichment copy-forward). */

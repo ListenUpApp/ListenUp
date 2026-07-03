@@ -25,19 +25,14 @@ import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
-import com.calypsan.listenup.client.data.sync.BookEdit
-import com.calypsan.listenup.client.data.sync.ContributorEdit
-import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.OutboxOpSender
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
-import com.calypsan.listenup.client.data.sync.PreferencesEdit
-import com.calypsan.listenup.client.data.sync.ProfileEdit
-import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
@@ -56,6 +51,7 @@ import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
 import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain
@@ -427,18 +423,18 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     sender =
                         DomainPendingOperationSender(
                             mapOf(
-                                "playback_positions" to playbackSender,
-                                "listening_events" to listeningEventSender,
-                                BookEdit.name to
-                                    RpcUpdateOpSender(BookEdit) { id, patch ->
+                                OutboxChannels.Positions.name to playbackSender,
+                                OutboxChannels.ListeningEvents.name to listeningEventSender,
+                                OutboxChannels.Books.name to
+                                    OutboxOpSender(OutboxChannels.Books) { id, patch ->
                                         testBookRpcFactory.bookService().updateBook(BookId(id), patch)
                                     },
-                                SeriesEdit.name to
-                                    RpcUpdateOpSender(SeriesEdit) { id, patch ->
+                                OutboxChannels.Series.name to
+                                    OutboxOpSender(OutboxChannels.Series) { id, patch ->
                                         testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
                                     },
-                                ContributorEdit.name to
-                                    RpcUpdateOpSender(ContributorEdit) { id, patch ->
+                                OutboxChannels.Contributors.name to
+                                    OutboxOpSender(OutboxChannels.Contributors) { id, patch ->
                                         testContributorRpcFactory.contributorService().updateContributor(
                                             ContributorId(id),
                                             patch,
@@ -448,8 +444,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 // RPC route isn't mounted server-side above); the entry exists so a
                                 // future e2e test's queued op has a sender to resolve against,
                                 // mirroring the Books/Series/Contributor registrations.
-                                PreferencesEdit.name to
-                                    RpcUpdateOpSender(PreferencesEdit) { _, patch ->
+                                OutboxChannels.Preferences.name to
+                                    OutboxOpSender(OutboxChannels.Preferences) { _, patch ->
                                         TestUserPreferencesRpcFactory(testClient).get().updateMyPreferences(patch)
                                     },
                                 // No harness test yet drains a "profile" op end-to-end (the RPC
@@ -457,8 +453,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 // is wired in this harness); the entry exists so a future e2e test's
                                 // queued op has a sender to resolve against, mirroring the
                                 // Preferences registration above.
-                                ProfileEdit.name to
-                                    RpcUpdateOpSender(ProfileEdit) { _, patch ->
+                                OutboxChannels.Profile.name to
+                                    OutboxOpSender(OutboxChannels.Profile) { _, patch ->
                                         TestProfileRpcFactory(testClient).get().updateMyProfile(patch)
                                     },
                             ),
@@ -473,7 +469,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 )
 
             // Offline-first book edits write to client Room and enqueue a "books" op;
-            // the engine drains it through the RpcUpdateOpSender above to the in-process
+            // the engine drains it through the OutboxOpSender above to the in-process
             // server, whose SSE echo reconciles client Room via the books sync handler.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
@@ -484,7 +480,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 )
 
             // Offline-first series edits write to client Room and enqueue a "series" op;
-            // the engine drains it through the RpcUpdateOpSender above to the in-process
+            // the engine drains it through the OutboxOpSender above to the in-process
             // server, whose SSE echo reconciles client Room via the series composed handler.
             val seriesEditRepository: SeriesEditRepository =
                 SeriesEditRepositoryImpl(
@@ -494,7 +490,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 )
 
             // Offline-first contributor edits write to client Room and enqueue a
-            // "contributors" op; the engine drains it through the RpcUpdateOpSender above
+            // "contributors" op; the engine drains it through the OutboxOpSender above
             // to the in-process server, whose SSE echo reconciles client Room via
             // the contributors sync domain.
             val contributorEditRepository: ContributorEditRepository =
@@ -968,8 +964,9 @@ internal class TestSeriesRpcFactory(
  *
  * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly, substituting
  * [UserPreferencesService]. No harness test mounts the service server-side yet (see the
- * `PreferencesEdit` `byDomain` registration above) — this factory exists so a future e2e test for
- * the preferences offline-edit push can resolve a sender the same way every other domain does.
+ * `OutboxChannels.Preferences` `byDomain` registration above) — this factory exists so a future
+ * e2e test for the preferences offline-edit push can resolve a sender the same way every other
+ * domain does.
  */
 internal class TestUserPreferencesRpcFactory(
     private val httpClient: HttpClient,
@@ -998,9 +995,9 @@ internal class TestUserPreferencesRpcFactory(
  * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
  *
  * Mirrors [TestUserPreferencesRpcFactory] exactly, substituting [ProfileService]. No harness
- * test mounts the service server-side yet (see the `ProfileEdit` `byDomain` registration
- * above) — this factory exists so a future e2e test for the profile offline-edit push can
- * resolve a sender the same way every other domain does.
+ * test mounts the service server-side yet (see the `OutboxChannels.Profile` `byDomain`
+ * registration above) — this factory exists so a future e2e test for the profile offline-edit
+ * push can resolve a sender the same way every other domain does.
  */
 internal class TestProfileRpcFactory(
     private val httpClient: HttpClient,

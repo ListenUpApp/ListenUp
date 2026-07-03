@@ -10,8 +10,8 @@ import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.sync.BookEdit
 import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -47,7 +47,7 @@ internal class BookEditRepositoryImpl(
         id: BookId,
         patch: BookUpdate,
     ): AppResult<Unit> =
-        offlineEditor.edit(BookEdit, id.value, patch) {
+        offlineEditor.edit(OutboxChannels.Books, id.value, patch) {
             bookDao.getById(id)?.let { existing ->
                 bookDao.upsert(
                     existing.copy(

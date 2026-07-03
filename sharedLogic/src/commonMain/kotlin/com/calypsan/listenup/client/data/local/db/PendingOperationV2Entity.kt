@@ -24,7 +24,7 @@ internal data class PendingOperationV2Entity(
     @PrimaryKey val clientOpId: String,
     val domainName: String,
     val entityId: String,
-    /** Domain-specific operation discriminator (e.g. `"upsert"`, `"delete"`). */
+    /** [com.calypsan.listenup.client.data.sync.domains.OpKind.wire] value ("update", "upsert"; "create"/"delete" reserved). */
     val opType: String,
     /** JSON-serialized payload, shape per (domainName, opType). */
     val payload: String,

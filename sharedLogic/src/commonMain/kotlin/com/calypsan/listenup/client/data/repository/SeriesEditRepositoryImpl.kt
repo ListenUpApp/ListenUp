@@ -5,7 +5,7 @@ import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
-import com.calypsan.listenup.client.data.sync.SeriesEdit
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
@@ -40,7 +40,7 @@ internal class SeriesEditRepositoryImpl(
         id: SeriesId,
         patch: SeriesUpdate,
     ): AppResult<Unit> =
-        offlineEditor.edit(SeriesEdit, id.value, patch) {
+        offlineEditor.edit(OutboxChannels.Series, id.value, patch) {
             seriesDao.getById(id.value)?.let { existing ->
                 seriesDao.upsert(
                     existing.copy(

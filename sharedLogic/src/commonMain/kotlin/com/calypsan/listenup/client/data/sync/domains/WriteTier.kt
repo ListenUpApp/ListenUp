@@ -1,13 +1,25 @@
 package com.calypsan.listenup.client.data.sync.domains
 
-/** The kind of a queued outbox operation. */
-internal enum class OpKind { Create, Update, Delete, Upsert }
+/**
+ * The kind of a queued outbox operation. [wire] is the string persisted in the
+ * queue's `opType` column and is FROZEN — rows already on devices carry
+ * `"update"`/`"upsert"` and must keep draining across app updates.
+ */
+internal enum class OpKind(
+    val wire: String,
+) {
+    Create("create"),
+    Update("update"),
+    Delete("delete"),
+    Upsert("upsert"),
+}
 
 /**
- * The domain's client-write posture. In Plan 1 this is DECLARATIVE ONLY — the
- * outbox `byDomain` sender map and [com.calypsan.listenup.client.data.sync.OfflineEditor]
- * are unchanged until Phase 4 derives them from [Outbox] entries. The declaration
- * still pays rent now: the catalog reads as the complete rulebook.
+ * The domain's client-write posture. [Outbox] points at the [OutboxChannel] the
+ * sender map, [com.calypsan.listenup.client.data.sync.OfflineEditor], and the
+ * queue's op validation all derive from — the completeness spec pins each
+ * declared tier to its channel, so a declared tier and the runtime path cannot
+ * drift.
  */
 internal sealed interface WriteTier {
     /** No client-originated writes exist (server-materialized read models). */
@@ -19,8 +31,10 @@ internal sealed interface WriteTier {
      */
     data object OnlineOnly : WriteTier
 
-    /** Mutations write Room optimistically and queue durable ops of the declared [ops]. */
+    /** Mutations write Room optimistically and queue durable ops on [channel]. */
     data class Outbox(
-        val ops: Set<OpKind>,
-    ) : WriteTier
+        val channel: OutboxChannel<*>,
+    ) : WriteTier {
+        val ops: Set<OpKind> get() = channel.ops
+    }
 }

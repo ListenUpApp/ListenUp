@@ -149,7 +149,7 @@ class ForceReconcileWhileActiveTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = db.tentativeSpanDao(),
-                            enqueue = { _, _, _, _, _ -> },
+                            enqueue = { _, _, _ -> },
                             currentUserId = { "user-a" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
                         )

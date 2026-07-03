@@ -5,8 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 
 /**
  * Routes a [PendingOperation] to the concrete [PendingOperationSender] registered
- * for its [PendingOperation.domainName]. The substrate's first real client-write path —
- * until now the bound sender was a no-op stub.
+ * for its [PendingOperation.domainName].
  *
  * A domain with no registered sender is a programmer error: an op was enqueued for a
  * domain that has no push implementation. The failure is surfaced as a

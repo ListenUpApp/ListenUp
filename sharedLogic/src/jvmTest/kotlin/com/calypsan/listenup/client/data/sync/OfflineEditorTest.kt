@@ -2,9 +2,12 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.assertions.throwables.shouldThrow
@@ -38,7 +41,7 @@ class OfflineEditorTest :
                     )
 
                 val patch = BookUpdate(title = "New Title")
-                val result = editor.edit(BookEdit, entityId = "book1", patch = patch) { applied = true }
+                val result = editor.edit(OutboxChannels.Books, entityId = "book1", patch = patch) { applied = true }
 
                 result shouldBe AppResult.Success(Unit)
                 applied shouldBe true
@@ -71,7 +74,7 @@ class OfflineEditorTest :
                     )
 
                 var applied = false
-                val result = editor.edit(BookEdit, entityId = "book1", patch = BookUpdate(title = "x")) { applied = true }
+                val result = editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "x")) { applied = true }
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
                 applied shouldBe false
@@ -98,7 +101,7 @@ class OfflineEditorTest :
                     )
 
                 val result =
-                    editor.edit(BookEdit, entityId = "book1", patch = BookUpdate(title = "x")) {
+                    editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "x")) {
                         error("local write blew up")
                     }
 
@@ -128,11 +131,46 @@ class OfflineEditorTest :
                     )
 
                 shouldThrow<CancellationException> {
-                    editor.edit(BookEdit, entityId = "book1", patch = BookUpdate(title = "x")) {
+                    editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "x")) {
                         throw CancellationException("cancelled")
                     }
                 }
 
+                db.close()
+            }
+        }
+
+        test("an op kind the channel does not declare folds to InternalError, not ValidationError") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                // The REAL Room transaction runner: enqueue's check-failure must roll back
+                // applyLocally's write in the same transaction, exactly like a throw would.
+                val editor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner = RoomTransactionRunner(db),
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
+
+                // OutboxChannels.Books declares only OpKind.Update — Upsert is a programmer error,
+                // not bad user input, so the failure must be an InternalError (detail in debugInfo),
+                // never a ValidationError (whose message is user-facing).
+                val result =
+                    editor.edit(
+                        OutboxChannels.Books,
+                        entityId = "book1",
+                        patch = BookUpdate(title = "x"),
+                        op = OpKind.Upsert,
+                    ) { }
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                result.error.shouldBeInstanceOf<InternalError>()
+                db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).firstOrNull() shouldBe null
                 db.close()
             }
         }

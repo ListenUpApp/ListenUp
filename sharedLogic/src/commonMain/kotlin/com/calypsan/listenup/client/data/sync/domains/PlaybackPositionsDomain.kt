@@ -43,7 +43,7 @@ internal fun playbackPositionsDomain(database: ListenUpDatabase): MirroredDomain
             DigestParticipation.OptOut(
                 "server digests by a position UUID the client never stores",
             ),
-        writes = WriteTier.Outbox(ops = setOf(OpKind.Upsert)),
+        writes = WriteTier.Outbox(OutboxChannels.Positions),
     )
 
 /**

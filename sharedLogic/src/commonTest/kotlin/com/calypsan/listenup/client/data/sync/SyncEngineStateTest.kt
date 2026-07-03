@@ -14,7 +14,7 @@ class SyncEngineStateTest :
             snapshot.connection shouldBe ConnectionState.Disconnected(reason = null)
             snapshot.recentErrorCount shouldBe 0
             snapshot.pendingQueueDepth shouldBe 0
-            snapshot.pendingFailureCount shouldBe 0
+            snapshot.deadLetterCount shouldBe 0
             snapshot.meaningfulErrorActive shouldBe false
             snapshot.lastSuccessAtMillis shouldBe null
         }
@@ -57,11 +57,11 @@ class SyncEngineStateTest :
             state.value.meaningfulErrorActive shouldBe true
         }
 
-        test("setQueueDepth and setFailureCount update independently") {
+        test("setQueueDepth and setDeadLetterCount update independently") {
             val state = SyncEngineState()
             state.setQueueDepth(7)
-            state.setFailureCount(2)
+            state.setDeadLetterCount(2)
             state.value.pendingQueueDepth shouldBe 7
-            state.value.pendingFailureCount shouldBe 2
+            state.value.deadLetterCount shouldBe 2
         }
     })

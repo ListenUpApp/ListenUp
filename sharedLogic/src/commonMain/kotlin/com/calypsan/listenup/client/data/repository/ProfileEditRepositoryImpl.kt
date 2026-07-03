@@ -12,7 +12,7 @@ import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
-import com.calypsan.listenup.client.data.sync.ProfileEdit
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -143,7 +143,7 @@ internal class ProfileEditRepositoryImpl(
         val displayName = mergedDisplayName(firstName, lastName, user)
         val now = currentEpochMilliseconds()
         return offlineEditor.edit(
-            ProfileEdit,
+            OutboxChannels.Profile,
             entityId = user.id.value,
             patch = UpdateProfileRequest(displayName = displayName, tagline = tagline),
         ) {

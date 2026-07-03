@@ -4,6 +4,8 @@ import com.calypsan.listenup.client.data.repository.ListeningEventRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PlaybackPositionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.StatsRepositoryImpl
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ListeningEventRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
@@ -62,8 +64,9 @@ internal val listeningModule: Module =
             ListeningEventRecorder(
                 listeningEventDao = get(),
                 tentativeSpanDao = get(),
-                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
-                    get<PendingOperationQueue>().enqueue(domainName, entityId, opType, payload, ownerUserId)
+                enqueue = { entityId, payload, ownerUserId ->
+                    get<PendingOperationQueue>()
+                        .enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)
                 },
                 currentUserId = { get<AuthSession>().getUserId() },
                 deviceInfo = get(),

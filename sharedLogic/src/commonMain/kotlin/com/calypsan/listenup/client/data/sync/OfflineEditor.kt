@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.domain.repository.AuthSession
 
 /**
@@ -25,10 +27,17 @@ internal class OfflineEditor(
     private val transactionRunner: TransactionRunner,
     private val authSession: AuthSession,
 ) {
+    /**
+     * Applies [applyLocally] and enqueues the encoded [patch] for [channel] in ONE
+     * transaction: a crash between the two leaves no half-synced state. [op] must be
+     * declared by the channel (`check`ed at the queue — a programming error, not a
+     * runtime mystery).
+     */
     suspend fun <T : Any> edit(
-        domain: EditableDomain<T>,
+        channel: OutboxChannel<T>,
         entityId: String,
         patch: T,
+        op: OpKind = OpKind.Update,
         applyLocally: suspend () -> Unit,
     ): AppResult<Unit> {
         val ownerUserId =
@@ -38,10 +47,10 @@ internal class OfflineEditor(
             transactionRunner.atomically {
                 applyLocally()
                 pendingQueue.enqueue(
-                    domainName = domain.name,
+                    channel = channel,
                     entityId = entityId,
-                    opType = "update",
-                    payload = contractJson.encodeToString(domain.serializer, patch),
+                    op = op,
+                    payload = contractJson.encodeToString(channel.serializer, patch),
                     ownerUserId = ownerUserId,
                 )
             }

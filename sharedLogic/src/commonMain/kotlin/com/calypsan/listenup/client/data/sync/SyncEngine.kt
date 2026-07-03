@@ -62,7 +62,7 @@ internal class SyncEngine(
     private var connectionUpDrainJob: Job? = null
     private var enqueueDrainJob: Job? = null
     private var queueDepthJob: Job? = null
-    private var failureCountJob: Job? = null
+    private var deadLetterCountJob: Job? = null
     private var reconnectRefreshJob: Job? = null
 
     // Serializes drain waves so concurrent triggers (connection-up + enqueue +
@@ -127,7 +127,7 @@ internal class SyncEngine(
      *    [runStart] is in flight (catch-up, suspended `ready.await()` inside
      *    `ensure*` setup, `sseClient.connect()`). It does NOT tear down the
      *    long-running collectors — `frameCollectorJob`, `connectionUpDrainJob`,
-     *    `enqueueDrainJob`, `queueDepthJob`, `failureCountJob`,
+     *    `enqueueDrainJob`, `queueDepthJob`, `deadLetterCountJob`,
      *    `reconnectRefreshJob` are launched into [scope], not as children of
      *    `engineJob`, so they survive the
      *    cancellation. That's intentional: they're user-agnostic (the queue
@@ -210,9 +210,9 @@ internal class SyncEngine(
         // Step 5b: refresh the Discover surfaces on every reconnect. Subscribed before connect so
         // the initial start-connect is the dropped first edge (start already primed + reconciled).
         ensureReconnectRefresh()
-        // Step 6: forward queue-depth and failure-count observers into
+        // Step 6: forward queue-depth and dead-letter-count observers into
         // SyncEngineState so the diagnostics surface reflects reality. Without
-        // this wire-up `pendingQueueDepth` / `pendingFailureCount` stay stuck
+        // this wire-up `pendingQueueDepth` / `deadLetterCount` stay stuck
         // at 0 forever even though the queue is doing work.
         ensureStateObservers()
         // Step 7: connect SSE.
@@ -273,8 +273,8 @@ internal class SyncEngine(
         enqueueDrainJob = null
         queueDepthJob?.cancel()
         queueDepthJob = null
-        failureCountJob?.cancel()
-        failureCountJob = null
+        deadLetterCountJob?.cancel()
+        deadLetterCountJob = null
         reconnectRefreshJob?.cancel()
         reconnectRefreshJob = null
         sseClient.disconnect()
@@ -463,7 +463,7 @@ internal class SyncEngine(
             val connectionUp = connectionUpDrainJob
             val enqueue = enqueueDrainJob
             val depth = queueDepthJob
-            val failure = failureCountJob
+            val deadLetters = deadLetterCountJob
             val reconnectRefresh = reconnectRefreshJob
             engineJob = null
             currentUser = null
@@ -472,14 +472,14 @@ internal class SyncEngine(
             connectionUpDrainJob = null
             enqueueDrainJob = null
             queueDepthJob = null
-            failureCountJob = null
+            deadLetterCountJob = null
             reconnectRefreshJob = null
             engine?.cancelAndJoin()
             collector?.cancelAndJoin()
             connectionUp?.cancelAndJoin()
             enqueue?.cancelAndJoin()
             depth?.cancelAndJoin()
-            failure?.cancelAndJoin()
+            deadLetters?.cancelAndJoin()
             reconnectRefresh?.cancelAndJoin()
             sseClient.disconnect()
         }
@@ -617,10 +617,10 @@ internal class SyncEngine(
     }
 
     /**
-     * Forward the queue's depth and failure-count flows into [SyncEngineState]
+     * Forward the queue's depth and dead-letter-count flows into [SyncEngineState]
      * so the diagnostics surface (Renovation §2.10) reflects reality. Without
      * this wire-up, [SyncEngineState.setQueueDepth] and
-     * [SyncEngineState.setFailureCount] are dead writers — nothing invokes
+     * [SyncEngineState.setDeadLetterCount] are dead writers — nothing invokes
      * them, and the snapshot fields stay at 0 forever.
      *
      * Suspends until both collectors have begun collecting via [onStart] so
@@ -649,20 +649,20 @@ internal class SyncEngine(
                 }
             ready.await()
         }
-        if (failureCountJob?.isActive != true) {
+        if (deadLetterCountJob?.isActive != true) {
             val ready = CompletableDeferred<Unit>()
-            failureCountJob =
+            deadLetterCountJob =
                 scope.launch {
                     queue
-                        .observeFailureCount()
+                        .observeDeadLetterCount()
                         .onStart { ready.complete(Unit) }
                         .collect { count ->
                             try {
-                                state.setFailureCount(count)
+                                state.setDeadLetterCount(count)
                             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                                 throw e
                             } catch (e: Exception) {
-                                logger.warn(e) { "Failure-count observer failed; engine continues" }
+                                logger.warn(e) { "Dead-letter-count observer failed; engine continues" }
                             }
                         }
                 }

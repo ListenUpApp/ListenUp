@@ -4,13 +4,22 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.serializer
+
+// Queue is payload-agnostic (payload arrives pre-encoded); any serializer works.
+private val upsertOnlyChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
 
 class PendingOperationQueueTest :
     FunSpec({
@@ -26,14 +35,47 @@ class PendingOperationQueueTest :
                     )
                 val opId =
                     queue.enqueue(
-                        domainName = "tags",
+                        channel = upsertOnlyChannel,
                         entityId = "t1",
-                        opType = "upsert",
+                        op = OpKind.Upsert,
                         payload = "{}",
                         ownerUserId = "u1",
                     )
                 opId.isNotBlank() shouldBe true
                 db.pendingOperationV2Dao().get(opId) shouldNotBe null
+                db.close()
+            }
+        }
+
+        test("enqueue rejects an op kind the channel does not declare") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                shouldThrow<IllegalStateException> {
+                    queue.enqueue(upsertOnlyChannel, "t1", OpKind.Create, "{}", "u1")
+                }.message shouldContain "tags"
+                db.close()
+            }
+        }
+
+        test("enqueue stores the channel name and the op's wire string") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val row = db.pendingOperationV2Dao().get(opId)!!
+                row.domainName shouldBe "tags"
+                row.opType shouldBe "upsert"
                 db.close()
             }
         }
@@ -47,7 +89,7 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { 1_000L },
                     )
-                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 db.pendingOperationV2Dao().get(opId) shouldNotBe null
                 queue.containsAndAck(opId) shouldBe true
                 db.pendingOperationV2Dao().get(opId) shouldBe null
@@ -85,9 +127,9 @@ class PendingOperationQueueTest :
                         sender = sender,
                         nowMillis = { clock++ },
                     )
-                val a = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                val b = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                val c = queue.enqueue("tags", "t2", "upsert", "{}", "u1")
+                val a = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val b = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val c = queue.enqueue(upsertOnlyChannel, "t2", OpKind.Upsert, "{}", "u1")
                 queue.drain()
                 // First wave: t1's earliest + t2's earliest.
                 sent shouldContainExactly listOf(a, c)
@@ -113,7 +155,7 @@ class PendingOperationQueueTest :
                         sender = sender,
                         nowMillis = { 1_000L },
                     )
-                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 queue.drain()
                 val expectedAttempts = 1
                 attempts shouldBe expectedAttempts
@@ -138,7 +180,7 @@ class PendingOperationQueueTest :
                         sender = sender,
                         nowMillis = { 1_000L },
                     )
-                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 queue.drain()
                 val stored = db.pendingOperationV2Dao().get(opId)
                 stored shouldNotBe null
@@ -157,8 +199,8 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { 1_000L },
                     )
-                val mine = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                val theirs = queue.enqueue("tags", "t2", "upsert", "{}", "u2")
+                val mine = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val theirs = queue.enqueue(upsertOnlyChannel, "t2", OpKind.Upsert, "{}", "u2")
                 queue.clearForUserChange(currentUserId = "u1")
                 db.pendingOperationV2Dao().get(mine) shouldNotBe null
                 db.pendingOperationV2Dao().get(theirs) shouldBe null
@@ -178,8 +220,8 @@ class PendingOperationQueueTest :
                     }
                 var clock = 0L
                 val queue = PendingOperationQueue(dao = db.pendingOperationV2Dao(), sender = sender, nowMillis = { clock++ })
-                val poison = queue.enqueue("tags", "poison", "upsert", "{}", "u1")
-                val healthy = queue.enqueue("tags", "healthy", "upsert", "{}", "u1")
+                val poison = queue.enqueue(upsertOnlyChannel, "poison", OpKind.Upsert, "{}", "u1")
+                val healthy = queue.enqueue(upsertOnlyChannel, "healthy", OpKind.Upsert, "{}", "u1")
                 val outcome = queue.drain()
                 sent shouldContainExactly listOf(healthy)
                 outcome.sent shouldBe 1
@@ -201,9 +243,9 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { clock++ },
                     )
-                queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                queue.enqueue("tags", "t2", "upsert", "{}", "u1")
+                queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                queue.enqueue(upsertOnlyChannel, "t2", OpKind.Upsert, "{}", "u1")
                 val first = queue.drain()
                 first.sent shouldBe 2
                 first.remainingDispatchable shouldBe 1
@@ -224,9 +266,12 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { clock++ },
                     )
-                val stale = queue.enqueue("playback_positions", "b1", "upsert", """{"v":1}""", "u1", coalesce = true)
-                val other = queue.enqueue("playback_positions", "b2", "upsert", """{"v":9}""", "u1", coalesce = true)
-                val latest = queue.enqueue("playback_positions", "b1", "upsert", """{"v":2}""", "u1", coalesce = true)
+                val stale =
+                    queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, """{"v":1}""", "u1", coalesce = true)
+                val other =
+                    queue.enqueue(OutboxChannels.Positions, "b2", OpKind.Upsert, """{"v":9}""", "u1", coalesce = true)
+                val latest =
+                    queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, """{"v":2}""", "u1", coalesce = true)
                 db.pendingOperationV2Dao().get(stale) shouldBe null
                 db.pendingOperationV2Dao().get(other) shouldNotBe null
                 db.pendingOperationV2Dao().get(latest)?.payload shouldBe """{"v":2}"""
@@ -252,9 +297,9 @@ class PendingOperationQueueTest :
                         sender = sender,
                         nowMillis = { 1_000L },
                     )
-                queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 queue.drain()
-                val healthy = queue.enqueue("tags", "t2", "upsert", "{}", "u1")
+                val healthy = queue.enqueue(upsertOnlyChannel, "t2", OpKind.Upsert, "{}", "u1")
                 val failed = queue.observeFailedOperations().first()
                 failed.map { it.entityId } shouldContainExactly listOf("t1")
                 failed.single().lastError shouldBe SyncError.NotFound(domain = "tags", entityId = "t1").code
@@ -282,7 +327,7 @@ class PendingOperationQueueTest :
                         sender = sender,
                         nowMillis = { 1_000L },
                     )
-                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 queue.drain()
                 db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldBe emptyList()
                 val signalBefore = queue.observeEnqueueSignal().value
@@ -305,7 +350,7 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { 1_000L },
                     )
-                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
                 queue.dismissOp(opId)
                 db.pendingOperationV2Dao().get(opId) shouldBe null
                 val expectedDepth = 0
@@ -337,9 +382,61 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { 1_000L },
                     )
-                queue.enqueue("playback_positions", "b1", "upsert", "{}", "u1", coalesce = true)
+                queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1", coalesce = true)
                 db.pendingOperationV2Dao().get("terminal-1") shouldNotBe null
                 db.close()
             }
         }
+
+        test("drain GCs dead letters older than the retention window") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val now = 100L * 24 * 60 * 60 * 1000 // day 100
+                val queue =
+                    PendingOperationQueue(
+                        dao = dao,
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { now },
+                    )
+                dao.insert(
+                    deadLetterFixture(
+                        "dead-ancient",
+                        failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                        lastAttemptAt = now - 31L * 24 * 60 * 60 * 1000,
+                    ),
+                )
+                dao.insert(
+                    deadLetterFixture(
+                        "dead-recent",
+                        failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                        lastAttemptAt = now - 1L * 24 * 60 * 60 * 1000,
+                    ),
+                )
+
+                queue.drain()
+
+                dao.get("dead-ancient") shouldBe null
+                dao.get("dead-recent") shouldNotBe null
+                db.close()
+            }
+        }
     })
+
+private fun deadLetterFixture(
+    clientOpId: String,
+    failureCount: Int = 0,
+    enqueuedAt: Long = 1_000L,
+    lastAttemptAt: Long? = null,
+) = PendingOperationV2Entity(
+    clientOpId = clientOpId,
+    domainName = "books",
+    entityId = "e-$clientOpId",
+    opType = "update",
+    payload = "{}",
+    enqueuedAt = enqueuedAt,
+    lastAttemptAt = lastAttemptAt,
+    failureCount = failureCount,
+    lastError = null,
+    ownerUserId = "u1",
+)

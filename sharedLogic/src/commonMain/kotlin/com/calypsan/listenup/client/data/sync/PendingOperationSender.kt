@@ -3,10 +3,9 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.result.AppResult
 
 /**
- * Boundary the queue calls to actually push an op to the server. Books-C
- * onwards register concrete senders per (domain, opType); during the
- * Renovation phase no domain has a write API yet so the registered sender
- * is a no-op stub. Tests inject a fake.
+ * Dispatches one queued outbox operation to the server. The production instance is
+ * the [DomainPendingOperationSender] router built by [outboxSender], holding one
+ * [OutboxOpSender] per declared [com.calypsan.listenup.client.data.sync.domains.OutboxChannel].
  */
 internal fun interface PendingOperationSender {
     suspend fun send(op: PendingOperation): AppResult<Unit>

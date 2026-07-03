@@ -43,7 +43,7 @@ internal fun listeningEventsDomain(
             DigestParticipation.Full { maxRevision ->
                 database.listeningEventDao().digestRows(maxRevision).map { it.id to it.revision }
             },
-        writes = WriteTier.Outbox(ops = setOf(OpKind.Upsert)),
+        writes = WriteTier.Outbox(OutboxChannels.ListeningEvents),
     )
 
 /**

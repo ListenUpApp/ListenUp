@@ -4,6 +4,9 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.PendingOperationStatus
 import com.calypsan.listenup.client.domain.model.PendingOperationType
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -13,6 +16,11 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.serializer
+
+// "tags" is not a real outbox channel — a minimal local fixture stands in for a
+// hypothetical un-mirrored domain so operationTypeFor's OTHER fallback stays testable.
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Update))
 
 /**
  * Tests for [PendingOperationRepositoryImpl] — the read-model over the live
@@ -31,10 +39,10 @@ class PendingOperationRepositoryImplTest :
                         nowMillis = { 1_000L },
                     )
                 val repo = PendingOperationRepositoryImpl(queue = queue)
-                queue.enqueue("books", "b1", "update", "{}", "u1")
-                queue.enqueue("playback_positions", "b1", "upsert", "{}", "u1")
-                queue.enqueue("listening_events", "e1", "upsert", "{}", "u1")
-                queue.enqueue("preferences", "u1", "update", "{}", "u1")
+                queue.enqueue(OutboxChannels.Books, "b1", OpKind.Update, "{}", "u1")
+                queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
+                queue.enqueue(OutboxChannels.ListeningEvents, "e1", OpKind.Upsert, "{}", "u1")
+                queue.enqueue(OutboxChannels.Preferences, "u1", OpKind.Update, "{}", "u1")
 
                 val visible = repo.observeVisibleOperations().first()
 
@@ -57,8 +65,8 @@ class PendingOperationRepositoryImplTest :
                         nowMillis = { 1_000L },
                     )
                 val repo = PendingOperationRepositoryImpl(queue = queue)
-                queue.enqueue("books", "b1", "update", "{}", "u1")
-                queue.enqueue("tags", "t1", "update", "{}", "u1")
+                queue.enqueue(OutboxChannels.Books, "b1", OpKind.Update, "{}", "u1")
+                queue.enqueue(tagsChannel, "t1", OpKind.Update, "{}", "u1")
                 queue.drain()
 
                 val failed = repo.observeFailedOperations().first()
@@ -84,7 +92,7 @@ class PendingOperationRepositoryImplTest :
                         nowMillis = { 1_000L },
                     )
                 val repo = PendingOperationRepositoryImpl(queue = queue)
-                val opId = queue.enqueue("books", "b1", "update", "{}", "u1")
+                val opId = queue.enqueue(OutboxChannels.Books, "b1", OpKind.Update, "{}", "u1")
                 queue.drain()
                 db.pendingOperationV2Dao().nextDispatchable() shouldHaveSize 0
 

@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
@@ -23,6 +25,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.builtins.serializer
+
+// "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
+// un-mirrored domain, matching the queue's payload-agnostic contract.
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
 
 private const val TIMEOUT_SECONDS = 5L
 private const val RETRY_TIMEOUT_SECONDS = 10L
@@ -69,7 +76,7 @@ class PendingQueueDrainSchedulingTest :
 
                     // Op already enqueued before engine.start — so the only thing
                     // that can drain it is the connection-up trigger.
-                    val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                    val opId = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
 
                     engine.start(currentUserId = "u1")
 
@@ -121,7 +128,7 @@ class PendingQueueDrainSchedulingTest :
                         state.observe().first { it.connection is ConnectionState.Connected }
                     }
 
-                    val opId = queue.enqueue("tags", "t-late", "upsert", "{}", "u1")
+                    val opId = queue.enqueue(tagsChannel, "t-late", OpKind.Upsert, "{}", "u1")
 
                     withTimeout(TIMEOUT_SECONDS.seconds) {
                         sent.first { it == opId }
@@ -234,7 +241,7 @@ class PendingQueueDrainSchedulingTest :
                     val engine =
                         buildEngine(db, queue, state, sse, scope, retryBackoffMillis = 50L)
 
-                    val opId = queue.enqueue("tags", "t-retry", "upsert", "{}", "u1")
+                    val opId = queue.enqueue(tagsChannel, "t-retry", OpKind.Upsert, "{}", "u1")
 
                     engine.start(currentUserId = "u1")
 
@@ -281,9 +288,9 @@ class PendingQueueDrainSchedulingTest :
                     val state = SyncEngineState()
                     val sse = FakeSseClient(state)
                     val engine = buildEngine(db, queue, state, sse, scope)
-                    val a = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                    val b = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                    val c = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                    val a = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
+                    val b = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
+                    val c = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
                     engine.start(currentUserId = "u1")
                     withTimeout(TIMEOUT_SECONDS.seconds) { sent.first { it == c } }
                     db.pendingOperationV2Dao().get(a) shouldBe null
@@ -401,13 +408,18 @@ private class CountingDao(
 
     override suspend fun resetFailureCount(clientOpId: String) = delegate.resetFailureCount(clientOpId)
 
-    override fun observeQueueDepth() = delegate.observeQueueDepth()
+    override fun observeQueueDepth(maxAttempts: Int) = delegate.observeQueueDepth(maxAttempts)
 
-    override fun observeFailureCount(maxAttempts: Int) = delegate.observeFailureCount(maxAttempts)
+    override fun observeDeadLetterCount(maxAttempts: Int) = delegate.observeDeadLetterCount(maxAttempts)
 
     override suspend fun deleteAllExcept(keepUserId: String) = delegate.deleteAllExcept(keepUserId)
 
     override suspend fun deleteAll() = delegate.deleteAll()
+
+    override suspend fun gcDeadLetters(
+        cutoffMillis: Long,
+        maxAttempts: Int,
+    ) = delegate.gcDeadLetters(cutoffMillis, maxAttempts)
 }
 
 /**

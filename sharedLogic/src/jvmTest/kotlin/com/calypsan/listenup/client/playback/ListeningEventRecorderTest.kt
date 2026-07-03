@@ -9,6 +9,8 @@ import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.api.result.AppResult
 import io.kotest.core.spec.style.FunSpec
@@ -108,12 +110,10 @@ class ListeningEventRecorderTest :
                     event.tz shouldBe TimeZone.currentSystemDefault().id
                     event.deviceLabel shouldBe DEVICE_LABEL
 
-                    // Pending op enqueued with correct domain + op fields
+                    // Pending op enqueued with correct fields
                     enqueuedOps.size shouldBe 1
                     val op = enqueuedOps[0]
-                    op.domainName shouldBe "listening_events"
                     op.entityId shouldBe event.id
-                    op.opType shouldBe "upsert"
                     op.ownerUserId shouldBe USER_ID
 
                     // Payload round-trips correctly
@@ -284,9 +284,7 @@ class ListeningEventRecorderTest :
                     // Pending op enqueued
                     enqueuedOps.size shouldBe 1
                     val op = enqueuedOps[0]
-                    op.domainName shouldBe "listening_events"
                     op.entityId shouldBe orphanId
-                    op.opType shouldBe "upsert"
                 }
             }
         }
@@ -352,9 +350,7 @@ class ListeningEventRecorderTest :
 
 /** Captured fields from a single [enqueue] call. */
 private data class CapturedEnqueue(
-    val domainName: String,
     val entityId: String,
-    val opType: String,
     val payload: String,
     val ownerUserId: String,
 )
@@ -394,9 +390,9 @@ private suspend fun withFixture(
             ListeningEventRecorder(
                 listeningEventDao = db.listeningEventDao(),
                 tentativeSpanDao = db.tentativeSpanDao(),
-                enqueue = { domainName, entityId, opType, payload, ownerUserId ->
-                    captured.add(CapturedEnqueue(domainName, entityId, opType, payload, ownerUserId))
-                    realQueue.enqueue(domainName, entityId, opType, payload, ownerUserId)
+                enqueue = { entityId, payload, ownerUserId ->
+                    captured.add(CapturedEnqueue(entityId, payload, ownerUserId))
+                    realQueue.enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)
                 },
                 currentUserId = { USER_ID },
                 deviceInfo = DeviceInfoProvider { DeviceInfo(deviceName = DEVICE_LABEL) },

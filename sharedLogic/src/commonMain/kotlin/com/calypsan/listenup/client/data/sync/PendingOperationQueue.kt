@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -17,6 +19,9 @@ import kotlinx.coroutines.flow.update
 private val logger = KotlinLogging.logger {}
 
 internal const val MAX_RETRYABLE_ATTEMPTS = 5
+
+/** Dead letters older than this are GC'd at the start of each drain wave. */
+internal const val DEAD_LETTER_RETENTION_MILLIS: Long = 30L * 24 * 60 * 60 * 1000
 
 /**
  * What a single [PendingOperationQueue.drain] wave produced. The engine reads
@@ -57,7 +62,15 @@ internal data class DrainOutcome(
  * - [containsAndAck] is the dispatcher's echo-matching primitive: present →
  *   true and remove the op (ack); absent → false (event is a remote write).
  * - On retryable failure, `failureCount` increments; on non-retryable failure
- *   it leaps past [MAX_RETRYABLE_ATTEMPTS] so it never retries.
+ *   it leaps past [MAX_RETRYABLE_ATTEMPTS] so it never retries — becoming a
+ *   **dead letter**.
+ *
+ * Terminal ops are dead letters: excluded from [observeQueueDepth] (the live,
+ * dispatchable count), surfaced separately via [observeDeadLetterCount] and
+ * [observeFailedOperations], manually re-armed via [retryOp] or dismissed via
+ * [dismissOp], garbage-collected after [DEAD_LETTER_RETENTION_MILLIS] of
+ * inactivity, and wiped along with the rest of the queue on user change via
+ * [clearForUserChange].
  *
  * Drain is invoked by the engine on a coroutine — *not* a self-running loop.
  * The engine schedules drain on three signals: [observeEnqueueSignal] (a new
@@ -89,10 +102,12 @@ internal class PendingOperationQueue(
     fun observeEnqueueSignal(): StateFlow<Long> = enqueueCounter.asStateFlow()
 
     /**
-     * Enqueue a new op. Returns its generated `clientOpId`.
+     * Enqueue a new op on [channel]. Returns its generated `clientOpId`. `check`s [op] is one of
+     * [OutboxChannel.ops] — the single validation choke point ensuring a queued op can never drift
+     * from what the channel declared.
      *
      * @param coalesce When true, deletes any still-queued (within retry budget) op for the same
-     *   (domainName, entityId, opType) slot before inserting — so rapid successive writes for one
+     *   (channel, entityId, op) slot before inserting — so rapid successive writes for one
      *   entity collapse to the latest snapshot instead of piling up. Valid only for domains where
      *   the payload is a last-write-wins snapshot of current state (e.g. playback positions);
      *   event/entity-PATCH domains keep the default `false` so every op is replayed. Terminally
@@ -102,23 +117,26 @@ internal class PendingOperationQueue(
      *   already-removed row is a silent no-op).
      */
     suspend fun enqueue(
-        domainName: String,
+        channel: OutboxChannel<*>,
         entityId: String,
-        opType: String,
+        op: OpKind,
         payload: String,
         ownerUserId: String,
         coalesce: Boolean = false,
     ): String {
+        check(op in channel.ops) {
+            "op $op is not declared by outbox channel '${channel.name}' (declared: ${channel.ops})"
+        }
         if (coalesce) {
-            dao.deleteQueuedOps(domainName, entityId, opType)
+            dao.deleteQueuedOps(channel.name, entityId, op.wire)
         }
         val opId = Uuid.random().toString()
         dao.insert(
             PendingOperationV2Entity(
                 clientOpId = opId,
-                domainName = domainName,
+                domainName = channel.name,
                 entityId = entityId,
-                opType = opType,
+                opType = op.wire,
                 payload = payload,
                 enqueuedAt = nowMillis(),
                 lastAttemptAt = null,
@@ -161,12 +179,17 @@ internal class PendingOperationQueue(
      * loop. Returns a [DrainOutcome] so the engine can decide whether a retry
      * backoff is warranted.
      *
+     * Each wave first GCs dead letters older than [DEAD_LETTER_RETENTION_MILLIS]
+     * (age-based cleanup of terminally-failed ops), then dispatches — the two sets
+     * are disjoint (`failureCount > maxAttempts` vs `<=`), so GC never races dispatch.
+     *
      * A [PendingOperationSender] that throws instead of returning
      * [AppResult.Failure] is a bug in that sender, not a reason to abort the
      * wave — the op is flagged terminally failed (past [MAX_RETRYABLE_ATTEMPTS])
      * and the loop continues to the next op.
      */
     suspend fun drain(): DrainOutcome {
+        dao.gcDeadLetters(cutoffMillis = nowMillis() - DEAD_LETTER_RETENTION_MILLIS)
         val ops = dao.nextDispatchable()
         var sent = 0
         var retryableFailures = 0
@@ -228,11 +251,11 @@ internal class PendingOperationQueue(
         )
     }
 
-    /** Live count of all queued ops. Engine forwards this to `SyncEngineState`. */
+    /** Live count of ops still within retry budget. Engine forwards this to `SyncEngineState`. */
     fun observeQueueDepth(): Flow<Int> = dao.observeQueueDepth()
 
-    /** Live count of ops past [MAX_RETRYABLE_ATTEMPTS]. Engine forwards to `SyncEngineState`. */
-    fun observeFailureCount(): Flow<Int> = dao.observeFailureCount()
+    /** Live count of dead letters (ops past [MAX_RETRYABLE_ATTEMPTS]). Engine forwards to `SyncEngineState`. */
+    fun observeDeadLetterCount(): Flow<Int> = dao.observeDeadLetterCount()
 
     /** Live snapshots of ops still within retry budget, oldest first. */
     fun observePendingOperations(): Flow<List<PendingOperation>> =

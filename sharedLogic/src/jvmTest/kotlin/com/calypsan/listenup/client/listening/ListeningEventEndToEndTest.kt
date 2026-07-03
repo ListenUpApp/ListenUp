@@ -5,6 +5,8 @@ package com.calypsan.listenup.client.listening
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.testing.withClientSyncEngineAgainstServer
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.playback.ListeningEventRecorder
@@ -117,11 +119,11 @@ class ListeningEventEndToEndTest :
                     ListeningEventRecorder(
                         listeningEventDao = clientDatabase.listeningEventDao(),
                         tentativeSpanDao = clientDatabase.tentativeSpanDao(),
-                        enqueue = { domainName, entityId, opType, payloadJson, ownerUserId ->
+                        enqueue = { entityId, payloadJson, ownerUserId ->
                             queue.enqueue(
-                                domainName = domainName,
+                                channel = OutboxChannels.ListeningEvents,
                                 entityId = entityId,
-                                opType = opType,
+                                op = OpKind.Upsert,
                                 payload = payloadJson,
                                 ownerUserId = ownerUserId,
                             )

@@ -1,11 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.client.data.sync.BookEdit
-import com.calypsan.listenup.client.data.sync.ContributorEdit
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
-import com.calypsan.listenup.client.data.sync.PreferencesEdit
-import com.calypsan.listenup.client.data.sync.ProfileEdit
-import com.calypsan.listenup.client.data.sync.SeriesEdit
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.PendingOperation as QueuedOperation
 import com.calypsan.listenup.client.domain.model.PendingOperation
 import com.calypsan.listenup.client.domain.model.PendingOperationStatus
@@ -45,7 +41,8 @@ internal class PendingOperationRepositoryImpl(
 
     private companion object {
         /** Background domains users don't manage by hand; hidden from the pending count. */
-        val SILENT_DOMAINS = setOf("listening_events", "playback_positions", PreferencesEdit.name)
+        val SILENT_DOMAINS =
+            setOf(OutboxChannels.ListeningEvents.name, OutboxChannels.Positions.name, OutboxChannels.Preferences.name)
     }
 }
 
@@ -60,12 +57,12 @@ private fun QueuedOperation.toDomainModel(status: PendingOperationStatus): Pendi
 
 private fun operationTypeFor(domainName: String): PendingOperationType =
     when (domainName) {
-        BookEdit.name -> PendingOperationType.BOOK_UPDATE
-        SeriesEdit.name -> PendingOperationType.SERIES_UPDATE
-        ContributorEdit.name -> PendingOperationType.CONTRIBUTOR_UPDATE
-        ProfileEdit.name -> PendingOperationType.PROFILE_UPDATE
-        PreferencesEdit.name -> PendingOperationType.USER_PREFERENCES
-        "playback_positions" -> PendingOperationType.PLAYBACK_POSITION
-        "listening_events" -> PendingOperationType.LISTENING_EVENT
+        OutboxChannels.Books.name -> PendingOperationType.BOOK_UPDATE
+        OutboxChannels.Series.name -> PendingOperationType.SERIES_UPDATE
+        OutboxChannels.Contributors.name -> PendingOperationType.CONTRIBUTOR_UPDATE
+        OutboxChannels.Profile.name -> PendingOperationType.PROFILE_UPDATE
+        OutboxChannels.Preferences.name -> PendingOperationType.USER_PREFERENCES
+        OutboxChannels.Positions.name -> PendingOperationType.PLAYBACK_POSITION
+        OutboxChannels.ListeningEvents.name -> PendingOperationType.LISTENING_EVENT
         else -> PendingOperationType.OTHER
     }

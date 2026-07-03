@@ -4,6 +4,8 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -19,10 +21,15 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.builtins.serializer
 import kotlin.time.Duration.Companion.seconds
 
 private const val FIRST_REVISION = 1L
 private const val SECOND_REVISION = 2L
+
+// "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
+// un-mirrored domain, matching the queue's payload-agnostic contract.
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
 private const val FIRST_UPDATED_AT = 100L
 private const val SECOND_UPDATED_AT = 200L
 
@@ -119,7 +126,7 @@ class SyncEngineLifecycleTest :
                         dao = db.pendingOperationV2Dao(),
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                     )
-                val u1opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val u1opId = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
                 val state = SyncEngineState()
                 val fakeCatchUp2 = FakeCatchUp(emptyList(), store)
                 val engine =

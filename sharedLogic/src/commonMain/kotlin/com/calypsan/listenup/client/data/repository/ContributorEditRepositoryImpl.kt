@@ -4,8 +4,8 @@ import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
-import com.calypsan.listenup.client.data.sync.ContributorEdit
 import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
@@ -49,7 +49,7 @@ internal class ContributorEditRepositoryImpl(
         id: ContributorId,
         patch: ContributorUpdate,
     ): AppResult<Unit> =
-        offlineEditor.edit(ContributorEdit, id.value, patch) {
+        offlineEditor.edit(OutboxChannels.Contributors, id.value, patch) {
             contributorDao.getById(id.value)?.let { existing ->
                 contributorDao.upsert(
                     existing.copy(
