@@ -43,6 +43,17 @@ interface SyncRepository {
     val scanProgress: StateFlow<ScanProgressState?>
 
     /**
+     * Whether the shell should show the initial-population ("Building your library") screen.
+     *
+     * Server-authoritative and derived, not a per-process latch: true while a scan is actively
+     * building, or while a still-empty library has no server-recorded initial-scan completion. It
+     * clears the moment the server stamps `initial_scan_completed_at` (synced into Room) or any book
+     * lands — so a rescan of an already-populated library, or a fresh device joining an existing
+     * library via a sync pull, never re-shows it. This is the signal the startup readiness gate reads.
+     */
+    val isBuildingInitialLibrary: StateFlow<Boolean>
+
+    /**
      * Trigger a full library sync with the server.
      *
      * Performs:
