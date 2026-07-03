@@ -61,13 +61,12 @@ import listenup.composeapp.generated.resources.player_now_playing_wide
 
 /**
  * Data for an avatar overlay on a book cover.
+ *
+ * Only the user id is needed: the canonical [UserAvatar] resolves the image, initials, and colour
+ * reactively by id from `public_profiles`, so no avatar fields are threaded through here.
  */
 data class AvatarOverlayData(
     val userId: String,
-    val displayName: String,
-    val avatarType: String,
-    val avatarValue: String?,
-    val avatarColor: String,
 )
 
 /**
