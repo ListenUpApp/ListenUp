@@ -12,7 +12,7 @@ The SOUL's principles are not separate from the technical rules. They ARE the te
 - **"Honest over silent"** → the Error Model rule: re-throw `CancellationException`, never swallow exceptions, surface errors with `AppResult<T>` — because software that lies by omission is the deepest failure.
 - **"Never stranded"** → the Single Source of Truth rule: Room is the only read path, writes always flow through Room — because the user must never be left with stale state and no path forward.
 - **"Seamless over clever"** → the `stateIn(WhileSubscribed)` + sealed UiState rules: no illegal state combinations, no subscription-lifetime races, no cross-book contamination — because the moment the user notices a glitch, the story is broken.
-- **"Adaptive, not ported"** → the shared presentation layer: ViewModels in `shared/presentation/`, one set of UI state types, window-size-class-driven layouts — because desktop work IS Android work.
+- **"Adaptive, not ported"** → the shared presentation layer: ViewModels in `sharedLogic/.../presentation/`, one set of UI state types, window-size-class-driven layouts — because desktop work IS Android work.
 
 ---
 
@@ -182,7 +182,7 @@ Strict Kotlin everywhere. Types are not a formality — they are the first layer
 These are the rules most likely to affect day-to-day work.
 
 - **`AppResult<T>`** is the single result type for every fallible suspend function. See *Error Architecture* below.
-- **Always re-throw `CancellationException`** in catch blocks. `SyncManager` and `SearchRepositoryImpl` are the compliance references.
+- **Always re-throw `CancellationException`** in catch blocks. `SyncEngine` and `SearchRepositoryImpl` are the compliance references.
 - **ViewModels produce state via `.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initialValue)`**, not via `init { viewModelScope.launch { collect { state.update { } } } }`.
 - **UI state is a per-screen sealed hierarchy**, not a flat `data class` with `error: String?`.
 - **One-shot events use `Channel<Event>(Channel.BUFFERED).receiveAsFlow()`** — never `StateFlow<Event?>`.
@@ -194,7 +194,7 @@ These are the rules most likely to affect day-to-day work.
 
 Day-to-day rules:
 
-- **Fallible suspend functions return `AppResult<T>`** (`shared/.../client/core/AppResult.kt`). Not `Result<T>`, not `throw`. A small set of un-migrated APIs still throws; those files are tracked in `NoThrowsInDataLayerRule`'s `RESIDUAL_THROWS_ALLOWLIST` and migrate opportunistically as the in-place rewrite re-touches each domain.
+- **Fallible suspend functions return `AppResult<T>`** (`contract/.../api/result/AppResult.kt`). Not `Result<T>`, not `throw`. A small set of un-migrated APIs still throws; those files are tracked in `NoThrowsInDataLayerRule`'s `RESIDUAL_THROWS_ALLOWLIST` and migrate opportunistically as the in-place rewrite re-touches each domain.
 - **Data-layer APIs use `apiCall { ... }` / `apiCallUnit { ... }`** (in `data/remote/ApiCallHelper.kt`) at the request boundary. The Ktor plugin (`installListenUpErrorHandling`, `expectSuccess = true`) raises `ResponseException` on non-2xx; `apiCall` catches it via `suspendRunCatching` and routes through `ErrorMapper` to a typed `AppResult.Failure`. API method bodies are just request shape + a `.map { it.toDomain() }` transform on success.
 - **Errors are typed `AppError` subtypes** in `commonMain api.error.*` — `@Serializable`. Hierarchy: `AppError`, `AuthError`, `TransportError`, `SyncError`, `ScanError`, `DownloadError`, `ImportError`, `ServerConnectError`. Every subtype carries `correlationId`, `message`, `code`, `isRetryable`, `debugInfo`.
 - **`message` is a body-level constant per subtype** — user-facing-quality, period-terminated, no jargon. Per-instance technical detail goes in `debugInfo`. UI consumes `message` directly; logs consume `debugInfo`.
@@ -227,7 +227,7 @@ JS export is opt-in (`@JsExport`) — never blanket-export. The macOS CI `Test (
 ## Commits
 
 - **Gitmoji prefix, always.** Every commit starts with a gitmoji (e.g., `✨`, `🐛`, `♻️`, `📦`, `🚨`, `👷`, `🎨`, `📝`, `✅`). See [gitmoji.dev](https://gitmoji.dev) for the full list.
-- **Conventional `type(scope):` for domain clarity.** When the change is in a clear domain, follow the gitmoji with a Conventional Commits prefix: `<gitmoji> <type>(<scope>): <subject>`. The repo has multiple domains — `server`, `shared`, `composeApp`, `androidApp`, `desktopApp`, `ci`, `quality`, `docs` — and the scope makes it obvious at a glance which one a commit touches.
+- **Conventional `type(scope):` for domain clarity.** When the change is in a clear domain, follow the gitmoji with a Conventional Commits prefix: `<gitmoji> <type>(<scope>): <subject>`. The repo has multiple domains — `server`, `shared`, `sharedUI`, `contract`, `androidApp`, `iosApp`, `desktopApp`, `ci`, `quality`, `docs` — and the scope makes it obvious at a glance which one a commit touches.
   - Examples: `📦 chore(server): include :server module in settings.gradle.kts` · `✨ feat(server): GET /healthz endpoint with Kotest contract test` · `🐛 fix(shared): re-enqueue position events on WAITING_FOR_SERVER` · `🚨 chore(quality): extend Detekt source.setFrom to :server` · `👷 ci(server): build and test :server module on every PR`.
   - Common types: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`, `ci`, `perf`, `style`. Pick the one that matches the dominant intent.
 - **Bare gitmoji is fine for cross-cutting trivia** that doesn't belong to a single domain — formatting sweeps, dependency bumps, gitignore tweaks. Example: `🎨 spotless apply across repo`.
@@ -287,7 +287,7 @@ client/
 ├── sharedLogic/                # KMP shared core (no UI)
 │   └── src/
 │       ├── commonMain/.../
-│       │   ├── core/           # AppResult, value types, utilities
+│       │   ├── core/           # Utilities — ResultCatching, Flow extensions, error plumbing (AppResult lives in :contract)
 │       │   ├── data/           # Repositories, sync, Room DAOs
 │       │   ├── di/             # Koin module definitions
 │       │   ├── domain/         # Domain models, repository interfaces

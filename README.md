@@ -62,7 +62,7 @@ Beta ships on the two platforms below; more are on the way.
 | Android  | ✅ Beta | Media3 / ExoPlayer |
 | iOS      | ✅ Beta | AVFoundation |
 
-**Coming soon:** Desktop (JVM and native macOS) and" Android TV — both already build from this codebase and will graduate to supported releases after the mobile beta settles. Other platforms to be integrated soon.
+**In development (not currently shipping):** Desktop (JVM and native macOS) and Android TV both build from this codebase, but the shipping focus is iOS and Android — desktop will be shored up and rebuilt later. Other platforms to follow.
 
 ## Getting the Beta
 
@@ -87,7 +87,15 @@ The ListenUp server lives in this repository as the `:server` module — there's
 ./gradlew :server:runJvm
 ```
 
-It serves on port `8080` by default. Point the app at `http://<your-host>:8080` (or rely on mDNS on the same network) and sign in. See [`server/`](server/) for configuration and deployment details.
+It serves on port `8080` by default. Point the app at `http://<your-host>:8080` (or rely on mDNS on the same network) and sign in. See the docs site for [installation (Docker)](https://listenup.audio/getting-started/installation/), [configuration](https://listenup.audio/server/configuration/), [backups](https://listenup.audio/server/backups/), and [reverse proxy / HTTPS](https://listenup.audio/server/reverse-proxy/).
+
+### Demo server
+
+Want to try ListenUp without pointing it at a real collection? The build can generate a small synthetic audiobook library and boot a seeded demo server against it (requires `ffmpeg`):
+
+```bash
+./gradlew :server:runDemo
+```
 
 ## Building From Source
 
@@ -95,7 +103,7 @@ For contributors who want to build the apps and server locally.
 
 ### Prerequisites
 
-- **JDK 17+** (the build enforces Java 17 compatibility)
+- **JDK 21** (the build pins `jvmToolchain(21)`; Gradle auto-provisions a matching JDK via the Foojay toolchain resolver if you don't have one)
 - **Android SDK** with API 33+ (for Android builds) — Android Studio Otter or later recommended
 - **Xcode 26** (for iOS builds, macOS only)
 
