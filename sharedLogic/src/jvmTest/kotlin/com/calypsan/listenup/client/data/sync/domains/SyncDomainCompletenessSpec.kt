@@ -17,6 +17,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -68,6 +69,51 @@ class SyncDomainCompletenessSpec :
 
                 catalogNames.toSet() shouldHaveSize catalogNames.size
                 catalogNames.toSet() shouldBe SyncDomains.all.map { it.name }.toSet()
+            } finally {
+                db.close()
+            }
+        }
+
+        test("outbox channels are the complete client-write rulebook, consistent with the mirrored write tiers") {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        pingActivity = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+                val channels = OutboxChannels.all
+
+                // Distinct names — the sender map and queue key on them.
+                channels.map { it.name }.toSet() shouldHaveSize channels.size
+
+                // Every Outbox-declaring mirrored domain references the channel named for its own key.
+                val outboxDomains = catalog.mirrored.filter { it.writes is WriteTier.Outbox }
+                outboxDomains.forEach { domain ->
+                    (domain.writes as WriteTier.Outbox).channel.name shouldBe domain.key.name
+                }
+
+                // A channel that shadows a mirrored domain must be that domain's declared tier.
+                val mirroredByName = catalog.mirrored.associateBy { it.key.name }
+                channels.forEach { channel ->
+                    val domain = mirroredByName[channel.name] ?: return@forEach
+                    domain.writes.shouldBeInstanceOf<WriteTier.Outbox>().channel.name shouldBe channel.name
+                }
+
+                // The only channels without a mirrored descriptor are the two RPC-edit surfaces.
+                channels.map { it.name }.filter { it !in mirroredByName }.toSet() shouldBe
+                    setOf("profile", "preferences")
+
+                // Frozen posture: exactly these five mirrored domains write through the outbox.
+                outboxDomains.map { it.key.name }.toSet() shouldBe
+                    setOf("books", "series", "contributors", "playback_positions", "listening_events")
             } finally {
                 db.close()
             }

@@ -72,7 +72,7 @@ internal fun booksDomain(
             DigestParticipation.Full { maxRevision ->
                 database.bookDao().digestRows(maxRevision).map { it.id to it.revision }
             },
-        writes = WriteTier.Outbox(ops = setOf(OpKind.Update)),
+        writes = WriteTier.Outbox(OutboxChannels.Books),
         accessGate =
             AccessGate(
                 localLiveIds = { database.bookDao().liveIds().toSet() },

@@ -4,10 +4,11 @@ package com.calypsan.listenup.client.data.sync.domains
 internal enum class OpKind { Create, Update, Delete, Upsert }
 
 /**
- * The domain's client-write posture. In Plan 1 this is DECLARATIVE ONLY — the
- * outbox `byDomain` sender map and [com.calypsan.listenup.client.data.sync.OfflineEditor]
- * are unchanged until Phase 4 derives them from [Outbox] entries. The declaration
- * still pays rent now: the catalog reads as the complete rulebook.
+ * The domain's client-write posture. [Outbox] points at the [OutboxChannel] the
+ * sender map and queue validation will derive from once wired — the completeness
+ * spec already pins each declared tier to its channel, so the declaration cannot
+ * drift from the catalog. This is still declarative vocabulary; the runtime
+ * derivation lands in a follow-up task.
  */
 internal sealed interface WriteTier {
     /** No client-originated writes exist (server-materialized read models). */
@@ -19,8 +20,10 @@ internal sealed interface WriteTier {
      */
     data object OnlineOnly : WriteTier
 
-    /** Mutations write Room optimistically and queue durable ops of the declared [ops]. */
+    /** Mutations write Room optimistically and queue durable ops on [channel]. */
     data class Outbox(
-        val ops: Set<OpKind>,
-    ) : WriteTier
+        val channel: OutboxChannel<*>,
+    ) : WriteTier {
+        val ops: Set<OpKind> get() = channel.ops
+    }
 }

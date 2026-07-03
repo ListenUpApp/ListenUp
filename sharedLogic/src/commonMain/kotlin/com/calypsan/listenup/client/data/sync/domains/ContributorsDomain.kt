@@ -37,7 +37,7 @@ internal fun contributorsDomain(
             DigestParticipation.Full { maxRevision ->
                 database.contributorDao().digestRows(maxRevision).map { it.id to it.revision }
             },
-        writes = WriteTier.Outbox(ops = setOf(OpKind.Update)),
+        writes = WriteTier.Outbox(OutboxChannels.Contributors),
     )
 
 /**
