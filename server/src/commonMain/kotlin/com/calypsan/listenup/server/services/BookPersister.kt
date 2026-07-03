@@ -179,10 +179,6 @@ class BookPersister internal constructor(
         result: ScanResult,
         libraryId: LibraryId,
     ): PersistCounts {
-        // Build the seen-paths set cheaply from the scan result — no DB, no per-book work.
-        // This represents every rootRelPath present on disk at scan time.
-        val seenPaths = result.books.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
-
         // The books carried by `result.changes` are artwork-FREE: the Scanner strips Embedded/Spooled
         // covers off the diff copies (AnalyzedBook.withoutArtwork) so the volatile artwork bytes and
         // the per-scan spool path never pollute change detection. The cover-bearing copies live in
@@ -198,6 +194,20 @@ class BookPersister internal constructor(
         // multi-folder library attributes every book to its own folder. Resolving one folder for the
         // whole scan misplaced every non-primary-folder book, whose audio/cover then 404'd.
         fun folderRootOf(book: AnalyzedBook): String = book.folderRootPath ?: result.rootPath
+
+        // Resolve every owning-folder root present on disk to its FolderId ONCE (fallback sentinel per
+        // root handled by resolveFolderId). Built from result.books (every book on disk) so it covers
+        // both the changed-book persist grouping and the whole-library folder-qualified sweep.
+        val folderIdByRoot: Map<String, FolderId> =
+            result.books.mapTo(mutableSetOf(), ::folderRootOf).associateWith { resolveFolderId(it) }
+
+        // The seen set for the full-scan tombstone sweep: every book present on disk, keyed by its
+        // (folderId, rootRelPath) locator — no DB, no per-book work. Folder-qualifying it stops a
+        // book in one folder from masking a same-named book in another.
+        val seenPaths: Set<FolderScopedPath> =
+            result.books.mapTo(mutableSetOf()) {
+                FolderScopedPath(folderIdByRoot.getValue(folderRootOf(it)), it.candidate.rootRelPath)
+            }
         // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
         // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —
         // a held book must never join ALL_BOOKS or it becomes visible to all members. A resolution
@@ -264,11 +274,6 @@ class BookPersister internal constructor(
         // Initial tick at 0 so the UI leaves the 100%-analyze state the moment persistence begins.
         if (toPersist > 0) emitPersistProgress(0)
 
-        // Resolve every distinct owning-folder root to its FolderId ONCE (fallback sentinel per root
-        // handled by resolveFolderId).
-        val folderIdByRoot: Map<String, FolderId> =
-            changedBooks.mapTo(mutableSetOf(), ::folderRootOf).associateWith { resolveFolderId(it) }
-
         // Batched persist, folder group by folder group so each book lands under the folder it was
         // walked from. Within a group it is the same chunked O(chunks) write. Progress and counts
         // accumulate across groups so the PERSISTING bar and the Completed summary stay whole-scan.
@@ -301,11 +306,15 @@ class BookPersister internal constructor(
         // Incremental Removed changes tombstone the book at their path immediately so deletions reflow
         // without waiting for the next Full scan. Idempotent: a no-op when the book is already deleted
         // or never existed. For Full scans the softDeleteAbsentByPaths sweep below would catch it too,
-        // so the overlap is harmless.
+        // so the overlap is harmless. A Removed carries no folder — an incremental scan re-walked one
+        // subtree under result.rootPath, so that root identifies the owning folder; on a Full scan a
+        // wrong-folder resolution is harmless (the folder-scoped lookup no-ops and the sweep catches it).
+        val removedFolderId: FolderId? =
+            if (result.changes.any { it is ChangeEventDto.Removed }) resolveFolderId(result.rootPath) else null
         for (change in result.changes) {
             if (change is ChangeEventDto.Removed) {
                 try {
-                    ingest.softDeleteByPath(libraryId, change.rootRelPath)
+                    ingest.softDeleteByPath(removedFolderId!!, change.rootRelPath)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Throwable) {

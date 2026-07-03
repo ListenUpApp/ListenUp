@@ -59,8 +59,8 @@ CREATE TABLE books (
     client_op_id     TEXT
 );
 
-CREATE UNIQUE INDEX idx_book_natural_key ON books(library_id, root_rel_path);
-CREATE INDEX idx_book_inode ON books(library_id, inode);
+CREATE UNIQUE INDEX idx_book_natural_key ON books(folder_id, root_rel_path);
+CREATE INDEX idx_book_inode ON books(folder_id, inode);
 CREATE INDEX idx_book_sort_title ON books(library_id, sort_title);
 CREATE INDEX idx_book_revision ON books(revision);
 CREATE INDEX idx_book_updated_at ON books(updated_at);
@@ -78,28 +78,36 @@ SELECT * FROM books WHERE id = :id;
 selectByIds:
 SELECT * FROM books WHERE id IN :ids;
 
--- Natural-key resolve (library_id + root_rel_path) → id. Drives findByPath and
--- the scanner's three-key identity model (spec §5.1).
+-- Natural-key resolve (folder_id + root_rel_path) → id. Drives findByPath and
+-- the scanner's three-key identity model (spec §5.1). Folder-scoped so identity
+-- is anchored to the STABLE per-folder id, not the library — a folder remove+re-add
+-- that reuses the folder_id revives the same books instead of re-minting UUIDs.
 selectIdByNaturalKey:
-SELECT id FROM books WHERE library_id = :library_id AND root_rel_path = :root_rel_path;
+SELECT id FROM books WHERE folder_id = :folder_id AND root_rel_path = :root_rel_path;
 
--- Move-detection resolve (library_id + inode) → ids. findByInode picks the first
+-- Move-detection resolve (folder_id + inode) → ids. findByInode picks the first
 -- match deterministically when hardlinks share an inode.
 selectIdsByInode:
-SELECT id FROM books WHERE library_id = :library_id AND inode = :inode;
+SELECT id FROM books WHERE folder_id = :folder_id AND inode = :inode;
 
--- Bulk natural-key resolve (library_id + a batch of root_rel_paths) → (id, root_rel_path).
+-- Bulk natural-key resolve (folder_id + a batch of root_rel_paths) → (id, root_rel_path).
 -- The batched counterpart to selectIdByNaturalKey: BookFinder.findExistingByPaths runs this
 -- ONCE per scan so the per-book existence lookup is in-memory, not a read txn per book.
 selectIdsByPaths:
-SELECT id, root_rel_path FROM books WHERE library_id = :library_id AND root_rel_path IN :paths;
+SELECT id, root_rel_path FROM books WHERE folder_id = :folder_id AND root_rel_path IN :paths;
 
--- Bulk move-detection resolve (library_id + a batch of inodes) → (id, inode). The batched
+-- Bulk move-detection resolve (folder_id + a batch of inodes) → (id, inode). The batched
 -- counterpart to selectIdsByInode: BookFinder.findExistingByInodes runs this ONCE per scan to
 -- pre-resolve the move-detection map. A hardlink-shared inode yields multiple rows; the caller
 -- keeps the first deterministically, matching findByInode's single-row behaviour.
 selectIdsByInodes:
-SELECT id, inode FROM books WHERE library_id = :library_id AND inode IN :inodes;
+SELECT id, inode FROM books WHERE folder_id = :folder_id AND inode IN :inodes;
+
+-- All book ids under a folder (tombstone-inclusive) — drives folder-id REUSE revival: when a
+-- soft-deleted folder is re-added at the same path, its books are revived under their original
+-- ids before the rescan (LibraryAdminServiceImpl.addFolderTo).
+selectIdsByFolder:
+SELECT id FROM books WHERE folder_id = :folder_id;
 
 -- cover_source only — the sticky-UPLOADED check in writePayload reads just this
 -- column before deciding whether to preserve the cover columns on re-scan.
@@ -111,17 +119,19 @@ SELECT cover_source FROM books WHERE id = :id;
 selectChapterSourceById:
 SELECT chapter_source FROM books WHERE id = :id;
 
--- Live (non-tombstoned) (id, root_rel_path) for a library — feeds the full-scan
--- tombstone sweep (softDeleteAbsent / softDeleteAbsentByPaths), which filters
--- against the seen set in memory.
+-- Live (non-tombstoned) (id, folder_id, root_rel_path) for a library — feeds the full-scan
+-- tombstone sweep (softDeleteAbsent / softDeleteAbsentByPaths), which filters against the seen
+-- set in memory. folder_id is projected so the path sweep compares (folder_id, root_rel_path)
+-- pairs, never aliasing a book across two folders that share a relative path.
 selectLiveIdsAndPathsForLibrary:
-SELECT id, root_rel_path FROM books WHERE library_id = :library_id AND deleted_at IS NULL;
+SELECT id, folder_id, root_rel_path FROM books WHERE library_id = :library_id AND deleted_at IS NULL;
 
--- Live book id at an exact (library_id, root_rel_path) — softDeleteByPath's
--- idempotent single-row lookup for incremental-scan Removed events.
+-- Live book id at an exact (folder_id, root_rel_path) — softDeleteByPath's idempotent
+-- single-row lookup for incremental-scan Removed events. Folder-scoped so a Removed in one
+-- folder never tombstones a same-named book in another.
 selectLiveIdByPath:
 SELECT id FROM books
-WHERE library_id = :library_id AND root_rel_path = :root_rel_path AND deleted_at IS NULL;
+WHERE folder_id = :folder_id AND root_rel_path = :root_rel_path AND deleted_at IS NULL;
 
 -- ── ABS-import matching (BookMatcher / MappingValidator) ─────────────────────
 
@@ -217,6 +227,11 @@ WHERE id = :id;
 -- (collection membership) re-enter every member's incremental pull.
 touchRevision:
 UPDATE books SET revision = :revision, updated_at = :updated_at WHERE id = :id;
+
+-- Revives a tombstoned book (reviveById): clears deleted_at and bumps the revision so clients
+-- reflow it as live. Drives folder-id-reuse revival on folder remove+re-add.
+reviveById:
+UPDATE books SET revision = :revision, updated_at = :updated_at, deleted_at = NULL WHERE id = :id;
 
 -- Sets total_duration only (test fixture: seedTestBook inserts 0L; some social/stats
 -- tests need a non-zero duration without re-running a full upsert).

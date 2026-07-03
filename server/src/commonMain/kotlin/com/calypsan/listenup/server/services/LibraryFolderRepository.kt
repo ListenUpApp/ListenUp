@@ -187,6 +187,32 @@ class LibraryFolderRepository(
         }
 
     /**
+     * Returns the most-recently-updated tombstoned folder whose `root_path` equals [rootPath], or
+     * null when no soft-deleted row registers that path. Drives folder-id REUSE on remove+re-add:
+     * re-adding a removed folder at the exact same path keeps its stable id (and revives its books)
+     * instead of minting a fresh id that strands every client's saved references. Exact-path match
+     * only — no prefix/fuzzy matching, so libraries are never falsely merged.
+     */
+    suspend fun findDeletedByRootPath(rootPath: String): LibraryFolderSyncPayload? =
+        suspendTransaction(db) {
+            // The `deleted_at IS NOT NULL` predicate narrows the result's deleted_at to non-null, so
+            // SQLDelight emits a bespoke row type here (not `Library_folders`); map with the column
+            // mapper directly rather than through [toSyncPayload].
+            db.libraryFoldersQueries
+                .selectDeletedByRootPath(rootPath) { id, libraryId, rootPath0, createdAt, revision, updatedAt, deletedAt, _ ->
+                    LibraryFolderSyncPayload(
+                        id = id,
+                        libraryId = libraryId,
+                        rootPath = rootPath0,
+                        revision = revision,
+                        updatedAt = updatedAt,
+                        createdAt = createdAt,
+                        deletedAt = deletedAt,
+                    )
+                }.executeAsOneOrNull()
+        }
+
+    /**
      * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins, who
      * see every folder) delegates to the base; the filtered path (a non-admin's
      * `WHERE 1 = 0` hidden subquery) reads the `(id, revision)` page engine-neutrally over the

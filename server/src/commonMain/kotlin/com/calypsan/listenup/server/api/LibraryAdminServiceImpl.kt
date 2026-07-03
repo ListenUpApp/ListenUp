@@ -144,18 +144,22 @@ internal class LibraryAdminServiceImpl(
         if (duplicateCheck != null) return AppResult.Failure((duplicateCheck as AppResult.Failure).error)
 
         val now = clock.now().toEpochMilliseconds()
-        val folderId =
-            FolderId(
-                Uuid.random().toString(),
-            )
+        // Remove+re-add of the SAME path: REUSE the soft-deleted folder's stable id (exact-path
+        // match only) so the re-added folder keeps its folder_id and its tombstoned books revive
+        // under their original UUIDs — instead of minting a fresh id that re-adds every book as a
+        // NEW UUID and strands every client's saved references (playback position, shelves, 404s).
+        val reusedFolder = libraryFolderRepository.findDeletedByRootPath(path)
+        val folderId = reusedFolder?.let { FolderId(it.id) } ?: FolderId(Uuid.random().toString())
         val folderPayload =
             LibraryFolderSyncPayload(
                 id = folderId.value,
                 libraryId = libraryId.value,
                 rootPath = path,
-                revision = 0L,
+                // On reuse the substrate's UPDATE branch (row already exists) clears deleted_at and
+                // bumps the revision; created_at is preserved. On a fresh add this is a plain insert.
+                revision = reusedFolder?.revision ?: 0L,
                 updatedAt = now,
-                createdAt = now,
+                createdAt = reusedFolder?.createdAt ?: now,
                 deletedAt = null,
             )
         return when (val result = libraryFolderRepository.upsert(folderPayload)) {
@@ -164,6 +168,14 @@ internal class LibraryAdminServiceImpl(
             }
 
             is AppResult.Success -> {
+                // Revive the reused folder's tombstoned books under their original ids BEFORE the
+                // rescan, so clients' saved references resolve immediately; the rescan then refreshes
+                // content in place (the revival guardrail forces a write over a tombstone).
+                if (reusedFolder != null) {
+                    for (bookId in bookRepository.idsByFolder(folderId)) {
+                        bookRepository.reviveById(bookId)
+                    }
+                }
                 val folder = LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = now)
                 val folderRef = LibraryFolderRef(id = folderId, rootPath = path)
                 scanOrchestrator.onFolderAdded(libraryId, folderRef)

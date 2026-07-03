@@ -713,14 +713,17 @@ private class FakeBookIngest(
 
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
-        seenPaths: Set<String>,
+        seen: Set<FolderScopedPath>,
     ) {
         softDeleteAbsentByPathsSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
-        softDeleteAbsentByPathsCalls += seenPaths
+        // Record just the paths — these orchestration tests assert WHICH paths are swept, not folder
+        // attribution (the folder-qualified sweep is covered at the repository level in
+        // BookIdentityStabilityTest).
+        softDeleteAbsentByPathsCalls += seen.mapTo(mutableSetOf()) { it.rootRelPath }
     }
 
     override suspend fun softDeleteByPath(
-        libraryId: LibraryId,
+        folderId: FolderId,
         rootRelPath: String,
     ) {
         softDeleteByPathCalls += rootRelPath

@@ -489,8 +489,8 @@ class BookRepository(
      * Resolves an [AnalyzedBook] from the scanner to a stable [BookId] and writes
      * its aggregate, using the three-key identity model (spec §5.1):
      *
-     *  1. **Natural key** `(library_id, root_rel_path)` — a hit means a plain rescan.
-     *  2. **Move-detection hint** `(library_id, inode)` — checked only when the natural-key
+     *  1. **Natural key** `(folder_id, root_rel_path)` — a hit means a plain rescan.
+     *  2. **Move-detection hint** `(folder_id, inode)` — checked only when the natural-key
      *     lookup misses; a hit preserves the UUID and updates `root_rel_path`.
      *  3. **No match** — a fresh UUID.
      *
@@ -539,7 +539,7 @@ class BookRepository(
                 seriesIds,
             )
 
-        bookFinder.findByPath(libraryId, rootRelPath)?.let { existing ->
+        bookFinder.findByPath(folderId, rootRelPath)?.let { existing ->
             return write(existing).map { IngestOutcome(existing, wasNew = false) }
         }
 
@@ -547,7 +547,7 @@ class BookRepository(
             .firstOrNull()
             ?.inode
             ?.let { inode ->
-                bookFinder.findByInode(libraryId, inode)?.let { existing ->
+                bookFinder.findByInode(folderId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
                     return write(existing).map { IngestOutcome(existing, wasNew = false) }
@@ -769,14 +769,14 @@ class BookRepository(
 
         // Bulk existence: one IN-read for natural keys, one for inodes — replacing the per-book
         // findByPath/findByInode read transactions with two reads for the whole scan.
-        val byPath = bookFinder.findExistingByPaths(libraryId, valid.map { it.candidate.rootRelPath })
+        val byPath = bookFinder.findExistingByPaths(folderId, valid.map { it.candidate.rootRelPath })
         val inodes =
             valid.mapNotNull {
                 it.candidate.files
                     .firstOrNull()
                     ?.inode
             }
-        val byInode = bookFinder.findExistingByInodes(libraryId, inodes)
+        val byInode = bookFinder.findExistingByInodes(folderId, inodes)
 
         // Resolve each book's stable BookId in memory from the bulk maps (natural key, then inode,
         // then a fresh UUID) — the same three-key model resolveOrInsert applies per book.
@@ -827,8 +827,13 @@ class BookRepository(
                 val coverUnchanged =
                     existing?.cover?.source == CoverSource.UPLOADED ||
                         pendingCoverHash == existing?.cover?.hash
+                // Revival guardrail: a byte-identical re-add over a TOMBSTONED book must never skip —
+                // matchesStoredContent normalizes deletedAt away, so an idempotent-content match would
+                // otherwise leave deleted_at set and the book dead. Forcing a write revives it
+                // (updateContent sets deleted_at = NULL + bumps revision).
                 val skip =
-                    existing != null && coverUnchanged && effectivePayload.matchesStoredContent(existing)
+                    existing != null && existing.deletedAt == null &&
+                        coverUnchanged && effectivePayload.matchesStoredContent(existing)
 
                 val storedCover =
                     when {
@@ -943,21 +948,24 @@ class BookRepository(
     }
 
     /**
-     * Tombstones every non-deleted book in [libraryId] whose `rootRelPath` is not
-     * in [seenPaths] — the path-keyed counterpart to [softDeleteAbsent].
+     * Tombstones every non-deleted book in [libraryId] whose `(folderId, rootRelPath)` locator is
+     * not in [seen] — the folder-qualified, path-keyed counterpart to [softDeleteAbsent].
+     *
+     * Comparing folder-qualified pairs (not bare paths) closes a latent cross-folder aliasing bug:
+     * two folders holding a book at the same relative path no longer mask each other in the sweep.
      *
      * **Full-scan only.** Same authoritativity contract as [softDeleteAbsent].
      */
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
-        seenPaths: Set<String>,
+        seen: Set<FolderScopedPath>,
     ) {
         val toDelete =
             suspendTransaction(db) {
                 db.booksQueries
                     .selectLiveIdsAndPathsForLibrary(libraryId.value)
                     .executeAsList()
-                    .filterNot { it.root_rel_path in seenPaths }
+                    .filterNot { FolderScopedPath(FolderId(it.folder_id), it.root_rel_path) in seen }
                     .map { it.id }
             }
         for (id in toDelete) {
@@ -966,22 +974,56 @@ class BookRepository(
     }
 
     /**
-     * Soft-deletes the live book at [rootRelPath] inside [libraryId], if one exists.
+     * Soft-deletes the live book at `(folderId, rootRelPath)`, if one exists.
      *
-     * Idempotent: a no-op when no live (non-deleted) book exists at that path.
+     * Idempotent: a no-op when no live (non-deleted) book exists at that folder-scoped path.
      */
     override suspend fun softDeleteByPath(
-        libraryId: LibraryId,
+        folderId: FolderId,
         rootRelPath: String,
     ) {
         val id =
             suspendTransaction<BookId?>(db) {
                 db.booksQueries
-                    .selectLiveIdByPath(libraryId.value, rootRelPath)
+                    .selectLiveIdByPath(folderId.value, rootRelPath)
                     .executeAsOneOrNull()
                     ?.let { BookId(it) }
             } ?: return // already gone — idempotent no-op
         softDelete(id, clientOpId = null)
+    }
+
+    /**
+     * All book ids under [folderId] (tombstone-inclusive) — drives folder-id-reuse revival when a
+     * soft-deleted folder is re-added at the same path.
+     */
+    suspend fun idsByFolder(folderId: FolderId): List<BookId> =
+        suspendTransaction(db) {
+            db.booksQueries
+                .selectIdsByFolder(folderId.value)
+                .executeAsList()
+                .map { BookId(it) }
+        }
+
+    /**
+     * Revives a tombstoned book: clears `deleted_at` and bumps the revision so clients reflow it
+     * as live, emitting a [SyncEvent.Updated] after commit. Used when a removed folder is re-added
+     * under its reused id so the folder's books return under their original UUIDs, keeping every
+     * client's saved references (playback position, shelves, collections) valid. Opens its own
+     * transaction. A no-op-on-a-missing-row returns [SyncError.NotFound].
+     */
+    suspend fun reviveById(id: BookId): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.booksQueries.reviveById(revision = rev, updated_at = now, id = idStr)
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                publishUpdatedAfterCommit(idStr, rev, now)
+                AppResult.Success(Unit)
+            }
+        }
     }
 
     /**
@@ -1027,9 +1069,12 @@ class BookRepository(
             existing?.cover?.source == CoverSource.UPLOADED ||
                 pendingCoverHash == existing?.cover?.hash
         val result: AppResult<BookSyncPayload> =
-            if (existing != null && coverUnchanged && effectivePayload.matchesStoredContent(existing)) {
+            if (existing != null && existing.deletedAt == null &&
+                coverUnchanged && effectivePayload.matchesStoredContent(existing)
+            ) {
                 // Idempotent re-scan: content identical to what's stored — skip the
-                // revision-bumping upsert AND the cover file-write.
+                // revision-bumping upsert AND the cover file-write. A tombstoned existing row
+                // (deletedAt != null) never skips: the write must revive it (deleted_at = NULL).
                 log.debug { "upsertFromAnalyzed: idempotent re-scan for ${bookId.value}, skipping revision bump" }
                 AppResult.Success(existing)
             } else {
