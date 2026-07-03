@@ -109,6 +109,12 @@ SELECT id, inode FROM books WHERE folder_id = :folder_id AND inode IN :inodes;
 selectIdsByFolder:
 SELECT id FROM books WHERE folder_id = :folder_id;
 
+-- Ids of books under a folder tombstoned at or after :deleted_at — the folder-remove cascade floor
+-- (the folder's own deleted_at). Drives folder-id-reuse revival: only books tombstoned BY the folder
+-- removal are revived on re-add, never zombies tombstoned by an earlier scan (files long gone).
+selectIdsByFolderDeletedSince:
+SELECT id FROM books WHERE folder_id = :folder_id AND deleted_at IS NOT NULL AND deleted_at >= :deleted_at;
+
 -- cover_source only — the sticky-UPLOADED check in writePayload reads just this
 -- column before deciding whether to preserve the cover columns on re-scan.
 selectCoverSourceById:

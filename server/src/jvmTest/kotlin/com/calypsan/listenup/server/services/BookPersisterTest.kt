@@ -582,6 +582,96 @@ class BookPersisterTest :
             }
         }
 
+        test("incremental Removed resolves the owning folder from the change, not the scan's primary root") {
+            withSqlDatabase {
+                runTest {
+                    // One library, two folders. The scan's primary root is folder A; the removal happened
+                    // in folder B. Resolving the removal from the primary root (the bug) would tombstone
+                    // the wrong folder — or a same-relpath book in folder A. The Removed carries folder B's
+                    // root, so the persister must resolve folder-b for the deletion.
+                    val now = 0L
+                    sql.librariesQueries.insert(
+                        id = "lib",
+                        name = "L",
+                        metadata_precedence = "embedded",
+                        access_mode = "shared",
+                        created_by_user_id = null,
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
+                    sql.libraryFoldersQueries.insert(
+                        id = "folder-a",
+                        library_id = "lib",
+                        root_path = "/mnt/A",
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
+                    sql.libraryFoldersQueries.insert(
+                        id = "folder-b",
+                        library_id = "lib",
+                        root_path = "/mnt/B",
+                        created_at = now,
+                        revision = 0L,
+                        updated_at = now,
+                        deleted_at = null,
+                        client_op_id = null,
+                    )
+
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    persister.persist(
+                        scanResult(
+                            books = emptyList(), // the subtree under the vanished book is empty now
+                            changes =
+                                listOf(
+                                    ChangeEventDto.Removed(rootRelPath = "Shared/Book", folderRootPath = "/mnt/B"),
+                                ),
+                            scope = ScanScope.Subtree("Shared/Book"),
+                            rootPath = "/mnt/A", // primary root is folder A — the OLD buggy resolution target
+                        ),
+                    )
+
+                    fake.softDeleteByPathCalls shouldContainExactly listOf("Shared/Book")
+                    // Resolved to folder B (the vanished book's owning folder), NOT folder A (primary root),
+                    // so a same-relpath book in folder A is never tombstoned.
+                    fake.softDeleteByPathFolderIds["Shared/Book"] shouldBe FolderId("folder-b")
+                }
+            }
+        }
+
+        test("full scan skips the tombstone sweep when a walked root resolves to the unknown-folder sentinel") {
+            withSqlDatabase {
+                runTest {
+                    val fake = FakeBookIngest()
+                    val persister = persister(fake, scope = this)
+
+                    // A book whose owning-folder root has NO library_folders row resolves to the "unknown"
+                    // sentinel. Sweeping would compare the whole library's live books against a
+                    // sentinel-keyed seen set and tombstone them all (the original corruption via the
+                    // fallback). The sweep must be skipped entirely; the book is still persisted.
+                    val ghost = analyzedBook("Book").copy(folderRootPath = "/mnt/ghost")
+                    persister.persist(
+                        scanResult(
+                            books = listOf(ghost),
+                            changes = listOf(ChangeEventDto.Added(ghost)),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+
+                    fake.resolved shouldContainExactly listOf("Book")
+                    // No sweep ran — the sentinel guard tripped.
+                    fake.softDeleteAbsentByPathsCalls.shouldBeEmpty()
+                }
+            }
+        }
+
         test("an escaped exception is contained; the rest still process") {
             withSqlDatabase {
                 runTest {
@@ -671,6 +761,9 @@ private class FakeBookIngest(
     /** rootRelPaths passed to each [softDeleteByPath] call, in call order. */
     val softDeleteByPathCalls = mutableListOf<String>()
 
+    /** The [FolderId] each [softDeleteByPath] resolved to, keyed by rootRelPath. */
+    val softDeleteByPathFolderIds = mutableMapOf<String, FolderId>()
+
     /** Whether [FirehoseSuppressed] was in the coroutine context for each [resolveOrInsert], in call order. */
     val suppressionObserved = mutableListOf<Boolean>()
 
@@ -727,17 +820,35 @@ private class FakeBookIngest(
         rootRelPath: String,
     ) {
         softDeleteByPathCalls += rootRelPath
+        softDeleteByPathFolderIds[rootRelPath] = folderId
     }
 }
 
 // --- Fixtures ---------------------------------------------------------------
 
-private fun SqlTestDatabases.persister(
+private suspend fun SqlTestDatabases.persister(
     ingest: BookIngestPort,
     scope: CoroutineScope,
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
-): BookPersister =
-    BookPersister(
+): BookPersister {
+    // Seed a library_folders row at the default scanResult rootPath ("/lib") so folder resolution
+    // finds a REAL folder rather than the "unknown" sentinel — which now (finding 5) skips the
+    // full-scan sweep. Tests that deliberately exercise an unresolvable root do not walk "/lib".
+    // Idempotent-guarded so the multi-folder test (which seeds its own rows) never double-inserts.
+    val libId = LibraryRegistry(sql).currentLibrary()
+    if (sql.libraryFoldersQueries.selectLiveByRootPath("/lib").executeAsOneOrNull() == null) {
+        sql.libraryFoldersQueries.insert(
+            id = "folder-lib-default",
+            library_id = libId.value,
+            root_path = "/lib",
+            created_at = 0L,
+            revision = 0L,
+            updated_at = 0L,
+            deleted_at = null,
+            client_op_id = null,
+        )
+    }
+    return BookPersister(
         ingest = ingest,
         libraryRegistry = LibraryRegistry(sql),
         libraryRepository = LibraryRepository(sql, ChangeBus(), SyncRegistry()),
@@ -747,6 +858,7 @@ private fun SqlTestDatabases.persister(
         eventBus = eventBus,
         scope = scope,
     )
+}
 
 /**
  * A real [CollectionServiceImpl] over [sql]. These orchestration tests never enable a
@@ -774,10 +886,11 @@ private fun scanResult(
     books: List<AnalyzedBook>,
     changes: List<ChangeEventDto>,
     scope: ScanScope,
+    rootPath: String = "/lib",
 ): ScanResult =
     ScanResult(
         correlationId = "c",
-        rootPath = "/lib",
+        rootPath = rootPath,
         books = books,
         changes = changes,
         errors = emptyList(),

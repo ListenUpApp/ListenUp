@@ -29,11 +29,21 @@ sealed interface ChangeEventDto {
         val previousRootRelPath: String,
     ) : ChangeEventDto
 
-    /** A book that was in the prior index but is no longer present at [rootRelPath]. */
+    /**
+     * A book that was in the prior index but is no longer present at [rootRelPath].
+     *
+     * [folderRootPath] is the absolute root of the library folder the vanished book belonged to,
+     * carried over from the prior snapshot. The persister resolves the removal's `folder_id` from
+     * THIS root — not the scan's primary root — so a removal in a non-primary folder tombstones the
+     * right book and never a same-relpath book in another folder. `null` for a book recorded before
+     * folder attribution existed; the persister then falls back to the scan's primary root.
+     */
     @Serializable
     @SerialName("removed")
     data class Removed(
         val rootRelPath: String,
+        @SerialName("folderRootPath")
+        val folderRootPath: String? = null,
     ) : ChangeEventDto
 
     /**

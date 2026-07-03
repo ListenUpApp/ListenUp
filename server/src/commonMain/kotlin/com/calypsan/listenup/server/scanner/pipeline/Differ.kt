@@ -57,7 +57,9 @@ internal class Differ {
             previous.forEach { previousBook ->
                 if (previousBook.candidate.rootRelPath !in matchedRoots) {
                     logger.debug { "book removed: path=${previousBook.candidate.rootRelPath}" }
-                    emit(ChangeEventDto.Removed(previousBook.candidate.rootRelPath))
+                    // Carry the vanished book's owning-folder root so the persister tombstones it in
+                    // the correct folder — a same-relpath book in another folder must stay untouched.
+                    emit(ChangeEventDto.Removed(previousBook.candidate.rootRelPath, previousBook.folderRootPath))
                 }
             }
         }

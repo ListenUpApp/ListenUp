@@ -547,6 +547,11 @@ class BookRepository(
             .firstOrNull()
             ?.inode
             ?.let { inode ->
+                // The move hint is folder-scoped `(folder_id, inode)` — identity is anchored to the
+                // owning folder. Tradeoff: moving a book directory BETWEEN two folders of the same
+                // library re-mints its id (the new folder's inode lookup misses); an intra-folder move
+                // preserves it. Accepted — cross-folder moves are rare, and folder-scoping is what keeps
+                // two folders sharing a relative path (or an inode) from aliasing each other.
                 bookFinder.findByInode(folderId, inode)?.let { existing ->
                     val previousPath = findById(existing)?.rootRelPath
                     log.info { "Book moved: $previousPath → $rootRelPath" }
@@ -1005,6 +1010,23 @@ class BookRepository(
         }
 
     /**
+     * Ids of books under [folderId] tombstoned at or after [deletedAtFloor] — the folder-remove
+     * cascade floor (the folder's own `deleted_at`). Drives folder-id-reuse revival scoped to the
+     * removal: only books tombstoned BY the folder removal are returned, never zombies tombstoned by
+     * an earlier scan (their files long gone), which must stay dead on re-add.
+     */
+    suspend fun idsByFolderDeletedSince(
+        folderId: FolderId,
+        deletedAtFloor: Long,
+    ): List<BookId> =
+        suspendTransaction(db) {
+            db.booksQueries
+                .selectIdsByFolderDeletedSince(folder_id = folderId.value, deleted_at = deletedAtFloor)
+                .executeAsList()
+                .map { BookId(it) }
+        }
+
+    /**
      * Revives a tombstoned book: clears `deleted_at` and bumps the revision so clients reflow it
      * as live, emitting a [SyncEvent.Updated] after commit. Used when a removed folder is re-added
      * under its reused id so the folder's books return under their original UUIDs, keeping every
@@ -1024,6 +1046,31 @@ class BookRepository(
                 AppResult.Success(Unit)
             }
         }
+    }
+
+    /**
+     * Batch-revives every book in [ids] (clears `deleted_at`, bumps a per-book revision, emits a
+     * per-book [SyncEvent.Updated]) in ONE transaction — the batched counterpart to [reviveById] for
+     * folder-id-reuse revival, where a re-added folder can carry thousands of books. Cascades to the
+     * books' user tags via [bookTagRepository] (a second transaction), symmetric with [softDelete]'s
+     * tag tombstone cascade, so a remove+re-add never loses a book's tags. Missing ids are skipped.
+     */
+    suspend fun reviveByIds(ids: List<BookId>) {
+        if (ids.isEmpty()) return
+        suspendTransaction<Unit>(db) {
+            for (id in ids) {
+                val idStr = idAsString(id)
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                db.booksQueries.reviveById(revision = rev, updated_at = now, id = idStr)
+                if (db.booksQueries.changes().executeAsOne() != 0L) {
+                    publishUpdatedAfterCommit(idStr, rev, now)
+                }
+            }
+        }
+        // Symmetric with softDelete's tag tombstone cascade: restore each book's user tags (its own
+        // transaction, exactly as the tombstone cascade is a separate call after the book write).
+        bookTagRepository?.reviveAllForBooks(ids.map { it.value })
     }
 
     /**

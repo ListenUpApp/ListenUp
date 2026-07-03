@@ -76,13 +76,14 @@ SELECT * FROM library_folders WHERE library_id = :library_id AND deleted_at IS N
 selectLiveByRootPath:
 SELECT * FROM library_folders WHERE root_path = :root_path AND deleted_at IS NULL;
 
--- Most-recently-updated tombstoned folder at an exact root_path — drives folder-id REUSE on
--- remove+re-add (LibraryAdminServiceImpl.addFolderTo): the re-added folder keeps its stable id so
--- its tombstoned books revive under their original UUIDs instead of re-minting fresh ones and
--- stranding every client's saved book references. Exact-path match only — no prefix/fuzzy reuse.
+-- Most-recently-updated tombstoned folder at an exact root_path WITHIN a library — drives folder-id
+-- REUSE on remove+re-add (LibraryAdminServiceImpl.addFolderTo): the re-added folder keeps its stable
+-- id so its tombstoned books revive under their original UUIDs instead of re-minting fresh ones and
+-- stranding every client's saved book references. Scoped to :library_id so a tombstoned folder at the
+-- same path under a DIFFERENT library is never reused (no cross-library merge). Exact-path match only.
 selectDeletedByRootPath:
 SELECT * FROM library_folders
-WHERE root_path = :root_path AND deleted_at IS NOT NULL
+WHERE root_path = :root_path AND library_id = :library_id AND deleted_at IS NOT NULL
 ORDER BY updated_at DESC LIMIT 1;
 
 -- Hard-delete every folder row at an exact root_path. Used by the test seed helper

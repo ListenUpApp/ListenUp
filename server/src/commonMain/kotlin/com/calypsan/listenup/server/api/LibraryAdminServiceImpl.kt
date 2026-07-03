@@ -148,7 +148,7 @@ internal class LibraryAdminServiceImpl(
         // match only) so the re-added folder keeps its folder_id and its tombstoned books revive
         // under their original UUIDs — instead of minting a fresh id that re-adds every book as a
         // NEW UUID and strands every client's saved references (playback position, shelves, 404s).
-        val reusedFolder = libraryFolderRepository.findDeletedByRootPath(path)
+        val reusedFolder = libraryFolderRepository.findDeletedByRootPath(path, libraryId)
         val folderId = reusedFolder?.let { FolderId(it.id) } ?: FolderId(Uuid.random().toString())
         val folderPayload =
             LibraryFolderSyncPayload(
@@ -168,17 +168,22 @@ internal class LibraryAdminServiceImpl(
             }
 
             is AppResult.Success -> {
-                // Revive the reused folder's tombstoned books under their original ids BEFORE the
-                // rescan, so clients' saved references resolve immediately; the rescan then refreshes
-                // content in place (the revival guardrail forces a write over a tombstone).
-                if (reusedFolder != null) {
-                    for (bookId in bookRepository.idsByFolder(folderId)) {
-                        bookRepository.reviveById(bookId)
-                    }
-                }
                 val folder = LibraryFolder(id = folderId, libraryId = libraryId, rootPath = path, createdAt = now)
                 val folderRef = LibraryFolderRef(id = folderId, rootPath = path)
                 scanOrchestrator.onFolderAdded(libraryId, folderRef)
+                if (reusedFolder != null) {
+                    // Revive ONLY the books this folder's removal tombstoned (deleted_at ≥ the folder's
+                    // own deleted_at — the cascade floor), under their original ids, so clients' saved
+                    // references resolve immediately. Books tombstoned by an EARLIER scan (files long
+                    // gone) stay dead — reviving them would resurrect zombies pointing at deleted files.
+                    // Batched: one transaction + one tag-cascade transaction for the whole folder.
+                    val cascadeFloor = reusedFolder.deletedAt ?: 0L
+                    bookRepository.reviveByIds(bookRepository.idsByFolderDeletedSince(folderId, cascadeFloor))
+                    // Trigger an actual rescan of the re-added folder (onFolderAdded only rebuilds the
+                    // bundle + mounts the watcher — it schedules no scan) so revived content is refreshed
+                    // in place and any on-disk changes since removal are picked up.
+                    scanOrchestrator.scanFolder(folderId)
+                }
                 AppResult.Success(folder)
             }
         }
@@ -192,7 +197,12 @@ internal class LibraryAdminServiceImpl(
                 ?: return AppResult.Failure(LibraryError.FolderNotFound())
         if (existing.deletedAt != null) return AppResult.Success(Unit) // idempotent
 
-        // Soft-delete books in this folder
+        // Soft-delete the FOLDER first, then its books. Order is load-bearing: on a later re-add the
+        // folder's deleted_at is the cascade floor idsByFolderDeletedSince filters on, so it must be a
+        // lower bound on the books' deleted_at — deleting the folder first guarantees folder ≤ books.
+        libraryFolderRepository.softDelete(folderId)
+
+        // Soft-delete books in this folder.
         val bookPage = bookRepository.pullSince(userId = null, cursor = 0L, limit = Int.MAX_VALUE)
         val folderBooks = bookPage.items.filter { it.folderId == folderId && it.deletedAt == null }
         for (book in folderBooks) {
@@ -201,8 +211,6 @@ internal class LibraryAdminServiceImpl(
                     .BookId(book.id),
             )
         }
-        // Soft-delete folder
-        libraryFolderRepository.softDelete(folderId)
 
         // Tear down watcher AFTER DB mutations
         scanOrchestrator.onFolderRemoved(folderId)

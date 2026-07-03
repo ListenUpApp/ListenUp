@@ -13,10 +13,13 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.sync.TagRepository
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
@@ -69,7 +72,7 @@ class BookIdentityStabilityTest :
                     repo.findById(originalId)?.deletedAt shouldNotBe null
 
                     // addFolder over the SAME path: the soft-deleted folder is found and its id reused.
-                    val reused = folderRepo.findDeletedByRootPath(rootPath)
+                    val reused = folderRepo.findDeletedByRootPath(rootPath, libId)
                     reused shouldNotBe null
                     reused!!.id shouldBe folderId.value
 
@@ -102,6 +105,51 @@ class BookIdentityStabilityTest :
                     val moved = repo.resolveOrInsert(libId, folder, analyzedFor("New/Path", inode = 42L)).resolved()
 
                     moved shouldBe original
+                }
+            }
+        }
+
+        test("a cross-folder move re-mints the id (the inode hint is folder-scoped)") {
+            withSqlDatabase {
+                val (repo, _, registry) = fixture(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val folderA = FolderId("folder-a")
+                    val folderB = FolderId("folder-b")
+
+                    val inA = repo.resolveOrInsert(libId, folderA, analyzedFor("Book", inode = 7L)).resolved()
+                    // Same inode, DIFFERENT folder → the folder-scoped `(folder_id, inode)` hint misses,
+                    // so a directory moved between two folders re-mints a fresh id (accepted tradeoff).
+                    val inB = repo.resolveOrInsert(libId, folderB, analyzedFor("Book", inode = 7L)).resolved()
+
+                    inB shouldNotBe inA
+                }
+            }
+        }
+
+        test("a book's user tags survive a remove+re-add (revive cascades to book_tags)") {
+            withSqlDatabase {
+                val (repo, bookTagRepo, registry) = taggedFixture(sql, driver)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val folder = FolderId("folder-a")
+
+                    // Ingest a book carrying a scanned tag → a live book_tags junction.
+                    val id =
+                        repo
+                            .resolveOrInsert(libId, folder, analyzedFor("Book A", inode = 1L, tags = listOf("favorite")))
+                            .resolved()
+                    bookTagRepo.findAllForBook(id.value) shouldHaveSize 1
+
+                    // removeFolder cascade tombstones the book AND its tag junctions.
+                    repo.softDelete(id)
+                    bookTagRepo.findAllForBook(id.value) shouldHaveSize 0
+
+                    // Folder re-add revives the book — and must revive its tags too, or the user's tag is
+                    // permanently lost (the asymmetric-cascade bug).
+                    repo.reviveByIds(listOf(id))
+                    repo.findById(id)?.deletedAt shouldBe null
+                    bookTagRepo.findAllForBook(id.value) shouldHaveSize 1
                 }
             }
         }
@@ -209,6 +257,36 @@ private fun fixture(
     return IdentityFixture(repo, folderRepo, registry)
 }
 
+private data class TaggedFixture(
+    val repo: BookRepository,
+    val bookTagRepo: BookTagRepository,
+    val registry: LibraryRegistry,
+)
+
+/** Like [fixture] but with the tags catalogue + `book_tags` junction wired, so scanned tags persist
+ * and the revive cascade can be exercised. */
+private fun taggedFixture(
+    sql: ListenUpDatabase,
+    driver: app.cash.sqldelight.db.SqlDriver,
+): TaggedFixture {
+    val bus = ChangeBus()
+    val syncRegistry = SyncRegistry()
+    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = syncRegistry)
+    val repo =
+        BookRepository(
+            db = sql,
+            driver = driver,
+            bus = bus,
+            registry = syncRegistry,
+            contributorRepository = ContributorRepository(sql, bus, syncRegistry),
+            seriesRepository = SeriesRepository(sql, bus, syncRegistry),
+            genreRepository = GenreRepository(sql, bus, syncRegistry),
+            tagRepository = TagRepository(db = sql, bus = bus, registry = syncRegistry),
+            bookTagRepository = bookTagRepo,
+        )
+    return TaggedFixture(repo, bookTagRepo, LibraryRegistry(sql))
+}
+
 private fun folderPayload(
     id: FolderId,
     libraryId: LibraryId,
@@ -231,6 +309,7 @@ private fun folderPayload(
 private fun analyzedFor(
     rootRelPath: String,
     inode: Long?,
+    tags: List<String> = emptyList(),
 ): AnalyzedBook {
     val file =
         FileEntry(
@@ -252,5 +331,6 @@ private fun analyzedFor(
         candidate = candidate,
         title = rootRelPath.substringAfterLast('/'),
         tracks = listOf(TrackEntry(file = file)),
+        tags = tags,
     )
 }
