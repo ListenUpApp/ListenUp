@@ -1,5 +1,6 @@
 plugins {
     id("listenup.jvm")
+    alias(libs.plugins.kover)
 }
 
 dependencies {

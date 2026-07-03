@@ -6,6 +6,7 @@ plugins {
     id("listenup.kmp.server")
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.sqldelight)
+    alias(libs.plugins.kover)
 }
 
 sqldelight {

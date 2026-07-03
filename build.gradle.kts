@@ -15,9 +15,11 @@ plugins {
     // Quality Tools
     alias(libs.plugins.detekt)
     alias(libs.plugins.spotless)
-    // Note: Kover code coverage is temporarily disabled due to incompatibility
-    // with the new androidKmpLibrary plugin. Can be re-enabled when Kover
-    // supports the new KMP configuration.
+    // Note: Kover coverage is applied per-module on the JVM-pure modules only
+    // (:server, :rpc-guard-ksp — see their build files). The androidKmpLibrary
+    // modules (:contract, :sharedLogic, :sharedUI) remain uncovered: Kover is
+    // incompatible with the com.android.kotlin.multiplatform.library plugin.
+    // Extend coverage to them when upstream Kover supports that plugin.
 }
 
 // =============================================================================
