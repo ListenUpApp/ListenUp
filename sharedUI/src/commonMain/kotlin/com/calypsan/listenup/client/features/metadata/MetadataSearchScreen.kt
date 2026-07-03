@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.features.metadata
 
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -206,7 +207,8 @@ private fun Overline(text: String) {
 @Composable
 private fun MatchingContextPill(title: String) {
     Surface(
-        shape = MaterialTheme.shapes.extraLarge,
+        // A pill; keep it fully rounded now that the extraLarge token is a bounded 28.dp radius.
+        shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         modifier = Modifier.fillMaxWidth(),
     ) {

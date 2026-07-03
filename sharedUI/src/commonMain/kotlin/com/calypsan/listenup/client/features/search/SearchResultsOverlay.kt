@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -850,7 +851,8 @@ private fun PersonResultRow(
             modifier =
                 Modifier
                     .size(52.dp)
-                    .clip(MaterialTheme.shapes.extraLarge)
+                    // A circular icon badge; keep it round now that extraLarge is a bounded radius.
+                    .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primaryContainer),
             contentAlignment = Alignment.Center,
         ) {
