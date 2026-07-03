@@ -158,11 +158,8 @@ internal class PlaybackPositionRepositoryImpl(
     /**
      * Enqueues a [RecordPositionRequest] for the position-moving [PlaybackUpdate] variants.
      *
-     * [CrossDeviceSync], [DiscardProgress], and [Restart] are excluded:
-     * - [CrossDeviceSync] is incoming server state; pushing it back would create an echo loop.
-     * - [DiscardProgress] and [Restart] are user-command ops with their own pending-op domain
-     *   operations, not a position write (they reset position to 0 which the server's
-     *   `lastPlayedAt`-wins policy handles correctly via the next playback-start enqueue).
+     * [CrossDeviceSync] is excluded: it is incoming server state, so pushing it back would
+     * create an echo loop.
      *
      * No sign-in user means no server to push to — silently skipped.
      */
@@ -264,12 +261,28 @@ internal class PlaybackPositionRepositoryImpl(
                     )
                 }
 
-                // Not enqueued — see KDoc above.
-                is PlaybackUpdate.CrossDeviceSync,
+                // Inbound reconciliation only — pushing it back would create an echo loop.
+                is PlaybackUpdate.CrossDeviceSync -> {
+                    return
+                }
+
+                // User-command resets: enqueue the post-reset row so the discard/restart
+                // reaches the server immediately (NewerWins on lastPlayedAt lets it beat
+                // stale positions from other devices). coalesce=true supersedes any queued
+                // periodic write for this book. The startedAt reset stays local-only:
+                // RecordPositionRequest carries no startedAt and this arc makes no wire changes.
                 PlaybackUpdate.DiscardProgress,
                 PlaybackUpdate.Restart,
                 -> {
-                    return
+                    val entity = dao.get(bookId) ?: return
+                    RecordPositionRequest(
+                        bookId = bookId.value,
+                        positionMs = entity.positionMs,
+                        lastPlayedAt = entity.lastPlayedAt ?: now,
+                        finished = false,
+                        playbackSpeed = entity.playbackSpeed,
+                        currentChapterId = null,
+                    )
                 }
             }
 
@@ -491,8 +504,6 @@ internal class PlaybackPositionRepositoryImpl(
     }
 
     private suspend fun handleDiscardProgress(bookId: BookId) {
-        // Local-only reset. A DISCARD_PROGRESS pending-op enqueue is not yet implemented;
-        // until then DiscardProgress flows through the REST path.
         val existing = dao.get(bookId) ?: return // no-op if no row
         val now = currentEpochMilliseconds()
         dao.save(
@@ -508,8 +519,6 @@ internal class PlaybackPositionRepositoryImpl(
     }
 
     private suspend fun handleRestart(bookId: BookId) {
-        // Local-only reset. A RESTART_BOOK pending-op enqueue is not yet implemented;
-        // until then Restart flows through the REST path.
         val existing = dao.get(bookId) ?: return // no-op if no row
         val now = currentEpochMilliseconds()
         dao.save(
