@@ -107,7 +107,8 @@ spotless {
 
 // VERIFY LOCAL — one-shot local equivalent of the Linux-lane CI gates (mirrors ci.yml Lint + Test (JVM)).
 // Native server lane excluded (needs system libs + long native compiles) — run per CLAUDE.md "Pushing".
-// If ci.yml's task lists change, this list must change with them.
+// Parity with ci.yml's task lists is pinned by VerifyLocalParityTest (build-logic/convention) — it
+// fails this very task when the lists diverge.
 tasks.register("verifyLocal") {
     group = "verification"
     description = "Runs the local equivalent of every Linux-lane CI gate (Lint + Test (JVM))."
@@ -122,4 +123,8 @@ tasks.register("verifyLocal") {
         ":server:jvmTest",
         ":sharedUI:testAndroidHostTest",
     )
+    // build-logic is an included build (settings.gradle.kts: includeBuild("build-logic")) — a plain
+    // ":build-logic:convention:test" string would be resolved against this build's project tree and
+    // fail, so address the task through the composite-build API.
+    dependsOn(gradle.includedBuild("build-logic").task(":convention:test"))
 }

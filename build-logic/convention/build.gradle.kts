@@ -36,6 +36,20 @@ val expectedKotlinVersion =
         .findVersion("kotlin")
         .get()
         .requiredVersion
+// In this build script rootDir is build-logic/ (it's an included build), so the
+// repository root is one level up. VerifyLocalParityTest parses these repo-root
+// files; hand the root over via a system property (the test JVM's working dir is
+// not guaranteed) and register the parsed files as inputs so the parity test
+// re-runs whenever CI, the root build script, or the Pushing docs change.
+val repoRoot = rootDir.parentFile
 tasks.withType<Test>().configureEach {
     systemProperty("listenup.expected.kotlin.version", expectedKotlinVersion)
+    systemProperty("listenup.repo.root", repoRoot.absolutePath)
+    inputs
+        .files(
+            repoRoot.resolve(".github/workflows/ci.yml"),
+            repoRoot.resolve("build.gradle.kts"),
+            repoRoot.resolve("CLAUDE.md"),
+        ).withPropertyName("verifyLocalParityInputs")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
