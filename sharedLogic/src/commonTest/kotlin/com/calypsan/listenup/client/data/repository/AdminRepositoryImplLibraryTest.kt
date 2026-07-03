@@ -44,6 +44,8 @@ private class FakeLibraryAdminService : LibraryAdminService {
     val libraries = mutableMapOf<String, Library>()
     var addFolderCalls = mutableListOf<String>()
     var removedFolderIds = mutableListOf<String>()
+    var scannedFolderIds = mutableListOf<String>()
+    var scanFolderResult: AppResult<Unit> = AppResult.Success(Unit)
     var scanLibraryCount = 0
     var browsePaths = mutableListOf<String>()
     var browseResult: List<DirectoryEntry> = emptyList()
@@ -85,7 +87,10 @@ private class FakeLibraryAdminService : LibraryAdminService {
         return AppResult.Success(Unit)
     }
 
-    override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> = AppResult.Success(Unit)
+    override suspend fun scanFolder(folderId: FolderId): AppResult<Unit> {
+        scannedFolderIds += folderId.value
+        return scanFolderResult
+    }
 }
 
 private class FakeLibraryAdminRpcFactory(
@@ -142,6 +147,39 @@ class AdminRepositoryImplLibraryTest :
             val result = repo.addScanPath("/new/path")
 
             service.addFolderCalls shouldBe listOf("/new/path")
+            (result is AppResult.Success) shouldBe true
+            val lib = (result as AppResult.Success).data
+            lib.folders.map { it.rootPath } shouldBe listOf("/new/path")
+        }
+
+        test("addScanPath scans ONLY the added folder, never a full library rescan") {
+            val service = FakeLibraryAdminService()
+            service.seed(contractLibrary(id = "lib1"))
+            val repo = buildRepo(service)
+
+            val result = repo.addScanPath("/new/path")
+
+            (result is AppResult.Success) shouldBe true
+            // The fake mints "f0" for the first added folder; the per-folder scan must target it.
+            service.scannedFolderIds shouldBe listOf("f0")
+            // A full rescan (minutes on a large library) must NOT be triggered.
+            service.scanLibraryCount shouldBe 0
+        }
+
+        test("addScanPath still succeeds when the per-folder scan trigger fails") {
+            val service = FakeLibraryAdminService()
+            service.scanFolderResult =
+                AppResult.Failure(
+                    com.calypsan.listenup.api.error
+                        .InternalError(),
+                )
+            service.seed(contractLibrary(id = "lib1"))
+            val repo = buildRepo(service)
+
+            val result = repo.addScanPath("/new/path")
+
+            // The folder is already registered server-side, so a scan-trigger hiccup must not
+            // fail the add — the admin is never stranded with a folder that looks like it failed.
             (result is AppResult.Success) shouldBe true
             val lib = (result as AppResult.Success).data
             lib.folders.map { it.rootPath } shouldBe listOf("/new/path")

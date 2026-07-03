@@ -91,16 +91,6 @@
         }
       }
     },
-    "admin.add_this_folder": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add This Folder"
-          }
-        }
-      }
-    },
     "admin.administrator": {
       "localizations": {
         "en": {
@@ -627,6 +617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Expires in"
+          }
+        }
+      }
+    },
+    "admin.folder_saved_scanning": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder saved. Scanning it now…"
           }
         }
       }
@@ -1407,6 +1407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Revoke Invite"
+          }
+        }
+      }
+    },
+    "admin.save_and_scan_folder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save & Scan Folder"
           }
         }
       }

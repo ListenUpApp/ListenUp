@@ -259,7 +259,18 @@ internal class AdminRepositoryImpl(
 
     override suspend fun addScanPath(path: String): AppResult<Library> =
         catching("addScanPath") {
-            libraryAdminRpc.get().addFolder(path).flatMap { getLibrary() }
+            libraryAdminRpc.get().addFolder(path).flatMap { folder ->
+                // Scan JUST the folder we added — a full library rescan takes minutes on a large
+                // library. Best-effort: the folder is already registered server-side, so a
+                // scan-trigger hiccup must not fail the add (that would strand the admin with a
+                // folder that looks like it failed). Log and continue; the library screen still
+                // offers a manual full rescan as the fallback.
+                val scan = libraryAdminRpc.get().scanFolder(folder.id)
+                if (scan is AppResult.Failure) {
+                    logger.warn { "Folder ${folder.id.value} added but its scan trigger failed: ${scan.error.code}" }
+                }
+                getLibrary()
+            }
         }
 
     override suspend fun removeFolder(folderId: String): AppResult<Library> =
