@@ -51,6 +51,27 @@ class SyncEventDispatcherTest :
             override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
         }
 
+        class ScriptedHandler(
+            private val results: ArrayDeque<AppResult<Unit>>,
+        ) : SyncDomainHandler<Tag> {
+            override val domainName = "tags"
+            override val payloadSerializer = Tag.serializer()
+
+            override fun syncId(item: Tag): String = item.id
+
+            override suspend fun onEvent(
+                event: SyncEvent<Tag>,
+                isOwnEcho: Boolean,
+            ): AppResult<Unit> = results.removeFirst()
+
+            override suspend fun onCatchUpItem(
+                item: Tag,
+                isTombstone: Boolean,
+            ) = AppResult.Success(Unit)
+
+            override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = emptyList()
+        }
+
         test("data event for known domain dispatches with isOwnEcho = false when no matching pending op") {
             runTest {
                 val db = createInMemoryTestDatabase()
@@ -408,6 +429,158 @@ class SyncEventDispatcherTest :
                     )
                 dispatcher.handle(frame)
                 state.value.recentErrorCount shouldBe 1
+                db.close()
+            }
+        }
+
+        test("data event whose apply fails does not advance the cursor") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val registry = ClientSyncDomainRegistry()
+                val handler = ScriptedHandler(ArrayDeque(listOf(AppResult.Failure(SyncError.SyncFailed()))))
+                registry.register(handler)
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        queue = queue,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                val revision = 5L
+                val occurredAt = 100L
+                val event =
+                    SyncEvent.Created(
+                        id = "t1",
+                        revision = revision,
+                        occurredAt = occurredAt,
+                        clientOpId = null,
+                        payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = revision,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                dispatcher.handle(frame)
+
+                cursorAdvanced shouldBe null
+                db.close()
+            }
+        }
+
+        test("data event whose apply fails records the error in SyncEngineState") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val registry = ClientSyncDomainRegistry()
+                val handler = ScriptedHandler(ArrayDeque(listOf(AppResult.Failure(SyncError.SyncFailed()))))
+                registry.register(handler)
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val state = SyncEngineState()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        queue = queue,
+                        state = state,
+                        cursorAdvance = { _, _ -> },
+                    )
+
+                val revision = 5L
+                val occurredAt = 100L
+                val event =
+                    SyncEvent.Created(
+                        id = "t1",
+                        revision = revision,
+                        occurredAt = occurredAt,
+                        clientOpId = null,
+                        payload = Tag("t1", "alpha", "alpha", revision, occurredAt),
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = revision,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), event),
+                    )
+                dispatcher.handle(frame)
+
+                state.value.recentErrorCount shouldBe 1
+                db.close()
+            }
+        }
+
+        test("a failed apply does not stall the stream — a later successful event still advances the cursor") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val registry = ClientSyncDomainRegistry()
+                val handler =
+                    ScriptedHandler(
+                        ArrayDeque(
+                            listOf(
+                                AppResult.Failure(SyncError.SyncFailed()),
+                                AppResult.Success(Unit),
+                            ),
+                        ),
+                    )
+                registry.register(handler)
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                var cursorAdvanced: Pair<String, Long>? = null
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        queue = queue,
+                        state = SyncEngineState(),
+                        cursorAdvance = { d, r -> cursorAdvanced = d to r },
+                    )
+
+                val occurredAt = 100L
+                val failedEvent =
+                    SyncEvent.Created(
+                        id = "t1",
+                        revision = 5L,
+                        occurredAt = occurredAt,
+                        clientOpId = null,
+                        payload = Tag("t1", "alpha", "alpha", 5L, occurredAt),
+                    )
+                val failedFrame =
+                    ParsedSseFrame(
+                        id = 5L,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), failedEvent),
+                    )
+                dispatcher.handle(failedFrame)
+
+                val succeededEvent =
+                    SyncEvent.Updated(
+                        id = "t1",
+                        revision = 6L,
+                        occurredAt = occurredAt,
+                        clientOpId = null,
+                        payload = Tag("t1", "alpha", "alpha", 6L, occurredAt),
+                    )
+                val succeededFrame =
+                    ParsedSseFrame(
+                        id = 6L,
+                        event = "tags",
+                        data = contractJson.encodeToString(SyncEvent.serializer(Tag.serializer()), succeededEvent),
+                    )
+                dispatcher.handle(succeededFrame)
+
+                cursorAdvanced shouldBe ("tags" to 6L)
                 db.close()
             }
         }

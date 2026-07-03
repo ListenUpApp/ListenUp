@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
@@ -16,7 +17,8 @@ private val logger = KotlinLogging.logger {}
  *  - control events are recognised: nudge controls run their catalog-declared refresh
  *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
  *    `StreamError`, `AccessChanged`, `UserDeleted`, `LibraryDataChanged`) fire their callbacks,
- *  - unknown domains are logged and dropped (graceful for forward-compat).
+ *  - unknown domains are logged and dropped (graceful for forward-compat),
+ *  - the per-domain cursor advances only after a successful apply — a Failure leaves it for catch-up redelivery.
  */
 internal class SyncEventDispatcher(
     private val registry: ClientSyncDomainRegistry,
@@ -113,7 +115,23 @@ internal class SyncEventDispatcher(
                 return
             }
         val isOwnEcho = event.clientOpId?.let { queue.containsAndAck(it) } ?: false
-        typed.onEvent(event, isOwnEcho)
-        frame.id?.let { rev -> cursorAdvance(domainName, rev) }
+        when (val result = typed.onEvent(event, isOwnEcho)) {
+            is AppResult.Success -> {
+                frame.id?.let { rev -> cursorAdvance(domainName, rev) }
+            }
+
+            is AppResult.Failure -> {
+                // Leave the cursor where it is: the next REST catch-up (engine start or
+                // CursorStale recovery) starts at-or-below this revision and re-delivers the
+                // entity's canonical state. Applies are idempotent upserts, so redelivery is
+                // safe. The ack above is deliberately NOT rolled back — the server confirmed
+                // the op; catch-up re-applies the canonical state without echo shielding.
+                logger.warn {
+                    "Apply failed for domain '$domainName' (revision=${frame.id}): " +
+                        "${result.error.code}; cursor not advanced"
+                }
+                state.recordError(result.error)
+            }
+        }
     }
 }
