@@ -1,7 +1,9 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Domain model representing full shelf details for the shelf detail screen.
@@ -39,16 +41,7 @@ data class ShelfDetail(
      * Returns the total duration formatted as hours and minutes.
      */
     val formattedDuration: String
-        get() {
-            val hours = totalDurationSeconds / 3600
-            val minutes = totalDurationSeconds % 3600 / 60
-            return when {
-                hours > 0 && minutes > 0 -> "${hours}h ${minutes}m"
-                hours > 0 -> "${hours}h"
-                minutes > 0 -> "${minutes}m"
-                else -> "0m"
-            }
-        }
+        get() = DurationFormatter.hoursMinutesCompact(totalDurationSeconds.seconds)
 }
 
 /**

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Contributor
@@ -259,11 +260,7 @@ sealed interface ContributorDetailUiState {
         val deleteError: String?,
     ) : ContributorDetailUiState {
         /** Formats the total duration as "${hours}h ${minutes}m" or "${minutes}m". */
-        fun formatTotalDuration(): String {
-            val totalHours = totalDuration.inWholeHours
-            val minutes = totalDuration.inWholeMinutes % 60
-            return if (totalHours > 0) "${totalHours}h ${minutes}m" else "${minutes}m"
-        }
+        fun formatTotalDuration(): String = DurationFormatter.hoursMinutes(totalDuration)
     }
 
     /** Load failed. */

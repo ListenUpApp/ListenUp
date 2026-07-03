@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.seriesdetail
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.BookContributor
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
@@ -190,11 +191,7 @@ sealed interface SeriesDetailUiState {
         /** Number of finished books, for the hero "X finished" stat. */
         val finishedCount: Int get() = finishedBookIds.size
 
-        fun formatTotalDuration(): String {
-            val totalHours = totalDuration.inWholeHours
-            val minutes = totalDuration.inWholeMinutes % 60
-            return if (totalHours > 0) "${totalHours}h ${minutes}m" else "${minutes}m"
-        }
+        fun formatTotalDuration(): String = DurationFormatter.hoursMinutes(totalDuration)
     }
 
     /** Load failed. */

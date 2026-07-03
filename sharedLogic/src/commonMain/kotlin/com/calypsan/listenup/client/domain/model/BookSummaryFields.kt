@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
+
 /**
  * Computed surface shared by [BookListItem] and [BookDetail].
  *
@@ -37,10 +40,5 @@ interface BookSummaryFields {
     val authorNames: String get() = authors.joinToString(", ") { it.name }
     val narratorNames: String get() = narrators.joinToString(", ") { it.name }
 
-    fun formatDuration(): String {
-        val totalMinutes = duration / 60_000
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-        return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-    }
+    fun formatDuration(): String = DurationFormatter.hoursMinutes(duration.milliseconds)
 }
