@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.math.roundToInt
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Domain model for a book in the "Continue Listening" section.
@@ -45,18 +47,6 @@ data class ContinueListeningBook(
         /**
          * Format milliseconds into human-readable duration.
          */
-        fun formatDuration(ms: Long): String {
-            val totalMinutes = ms / 60_000
-            val hours = totalMinutes / 60
-            val minutes = totalMinutes % 60
-
-            @Suppress("MagicNumber")
-            return when {
-                ms < 5 * 60_000 -> "Almost done"
-                ms < 60 * 60_000 -> "$totalMinutes min left"
-                hours < 2 -> "1 hr $minutes min left"
-                else -> "${hours}h ${minutes}m left"
-            }
-        }
+        fun formatDuration(ms: Long): String = DurationFormatter.timeLeft(ms.milliseconds)
     }
 }

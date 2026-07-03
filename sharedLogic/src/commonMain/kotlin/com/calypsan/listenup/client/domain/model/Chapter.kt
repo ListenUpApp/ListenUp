@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
+
 /**
  * Domain model for a book chapter.
  */
@@ -11,10 +14,5 @@ data class Chapter(
     // Milliseconds
     val startTime: Long,
 ) {
-    fun formatDuration(): String {
-        val totalSeconds = duration / 1000
-        val minutes = totalSeconds / 60
-        val seconds = totalSeconds % 60
-        return "${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}"
-    }
+    fun formatDuration(): String = DurationFormatter.minutesSecondsClock(duration.milliseconds)
 }

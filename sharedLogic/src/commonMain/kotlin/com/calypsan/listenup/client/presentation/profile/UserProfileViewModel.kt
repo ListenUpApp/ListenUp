@@ -329,18 +329,3 @@ private val AVATAR_PALETTE =
         "#FB8C00",
         "#6D4C41",
     )
-
-/** Formats milliseconds to a short human-readable duration (e.g. "42h 30m"). */
-fun formatListenTime(totalMs: Long): String {
-    val hours = totalMs / MS_PER_HOUR
-    val minutes = totalMs / MS_PER_MINUTE % MINUTES_PER_HOUR
-    return when {
-        hours > 0 -> "${hours}h ${minutes}m"
-        minutes > 0 -> "${minutes}m"
-        else -> "0m"
-    }
-}
-
-private const val MS_PER_MINUTE = 60_000L
-private const val MS_PER_HOUR = 3_600_000L
-private const val MINUTES_PER_HOUR = 60L

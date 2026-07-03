@@ -26,7 +26,9 @@ import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.ListenUpScaffold
+import kotlin.time.Duration.Companion.minutes
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -392,7 +394,7 @@ private fun MetadataSearchResultItem(
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(
-                            text = formatDuration(runtime),
+                            text = DurationFormatter.hoursMinutes(runtime.minutes),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -408,13 +410,4 @@ private fun MetadataSearchResultItem(
             )
         }
     }
-}
-
-/**
- * Format duration in minutes to human-readable string.
- */
-private fun formatDuration(minutes: Int): String {
-    val hours = minutes / 60
-    val mins = minutes % 60
-    return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
 }

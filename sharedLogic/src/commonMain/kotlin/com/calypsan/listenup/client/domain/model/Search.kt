@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
+
 /**
  * Type of search result.
  */
@@ -36,14 +39,7 @@ data class SearchHit(
     /**
      * Format duration as human-readable string.
      */
-    fun formatDuration(): String? {
-        val durationMs = duration ?: return null
-        val totalMinutes = durationMs / 60_000
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-
-        return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-    }
+    fun formatDuration(): String? = duration?.let { DurationFormatter.hoursMinutes(it.milliseconds) }
 }
 
 /**

@@ -65,7 +65,9 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.features.library.BookCard
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.domain.model.ShelfDetail
+import kotlin.time.Duration.Companion.seconds
 import com.calypsan.listenup.client.presentation.shelf.ShelfBookSort
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailUiState
 import com.calypsan.listenup.client.presentation.shelf.ShelfDetailViewModel
@@ -180,7 +182,6 @@ fun ShelfDetailScreen(
                         detail = current.detail,
                         isOwner = current.isOwner,
                         onBookClick = onBookClick,
-                        formatDuration = viewModel::formatDuration,
                     )
                 }
             }
@@ -201,7 +202,6 @@ private fun ShelfDetailContent(
     detail: ShelfDetail,
     isOwner: Boolean,
     onBookClick: (String) -> Unit,
-    formatDuration: (Long) -> String,
 ) {
     var isDescriptionExpanded by rememberSaveable { mutableStateOf(false) }
     var sort by rememberSaveable { mutableStateOf(ShelfBookSort.ADDED_NEWEST) }
@@ -235,7 +235,7 @@ private fun ShelfDetailContent(
             ShelfHero(
                 detail = detail,
                 isWide = isWide,
-                totalDuration = formatDuration(detail.totalDurationSeconds),
+                totalDuration = DurationFormatter.hoursMinutes(detail.totalDurationSeconds.seconds),
             )
         }
 

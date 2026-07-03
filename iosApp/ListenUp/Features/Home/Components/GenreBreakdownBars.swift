@@ -45,15 +45,7 @@ struct GenreBreakdownBars: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(genre.name)
-        .accessibilityValue(durationLabel(for: genre.seconds))
-    }
-
-    /// A human, VoiceOver-friendly duration like "2 hr, 5 min".
-    private func durationLabel(for seconds: Int) -> String {
-        guard seconds > 0 else { return String(localized: "home.no_listening") }
-        return Duration.seconds(seconds).formatted(
-            .units(allowed: [.hours, .minutes], width: .wide)
-        )
+        .accessibilityValue(DurationFormatting.accessibleHoursMinutes(seconds: genre.seconds))
     }
 }
 

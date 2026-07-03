@@ -62,9 +62,10 @@ import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileViewModel
-import com.calypsan.listenup.client.presentation.profile.formatListenTime
+import kotlin.time.Duration.Companion.milliseconds
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
@@ -173,7 +174,7 @@ private fun ProfileContent(
         item {
             Spacer(modifier = Modifier.height(20.dp))
             StatsRow(
-                totalListenTime = formatListenTime(state.totalListenTimeMs),
+                totalListenTime = DurationFormatter.hoursMinutes(state.totalListenTimeMs.milliseconds),
                 booksFinished = state.booksFinished,
                 currentStreak = state.currentStreak,
                 longestStreak = state.longestStreak,
