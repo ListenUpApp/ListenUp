@@ -16,6 +16,15 @@ struct ActivityRow: View {
         Self.relativeFormatter.localizedString(for: item.occurredAt, relativeTo: Date())
     }
 
+    /// Timestamp, with the listened duration appended as a middot-separated detail when present
+    /// ("2h ago · 1h 5m").
+    private var detailLabel: String {
+        if let duration = item.duration {
+            return "\(timeLabel) · \(duration)"
+        }
+        return timeLabel
+    }
+
     var body: some View {
         if let bookId = item.bookId {
             NavigationLink(value: BookDestination(id: bookId)) {
@@ -36,7 +45,7 @@ struct ActivityRow: View {
                     .font(.subheadline)
                     .lineLimit(2)
 
-                Text(timeLabel)
+                Text(detailLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -62,8 +71,8 @@ struct ActivityRow: View {
 
     private var accessibilityText: String {
         if let book = item.book, !book.isEmpty {
-            return "\(item.who) \(item.action) \(book), \(timeLabel)"
+            return "\(item.who) \(item.action) \(book), \(detailLabel)"
         }
-        return "\(item.who) \(item.action), \(timeLabel)"
+        return "\(item.who) \(item.action), \(detailLabel)"
     }
 }
