@@ -17,22 +17,13 @@ import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
 import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
-import com.calypsan.listenup.client.data.sync.BookEdit
 import com.calypsan.listenup.client.data.sync.CatchUp
-import com.calypsan.listenup.client.data.sync.ContributorEdit
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
-import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
-import com.calypsan.listenup.client.data.sync.ListeningEventOpSender
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
-import com.calypsan.listenup.client.data.sync.PlaybackPositionOpSender
-import com.calypsan.listenup.client.data.sync.PreferencesEdit
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
-import com.calypsan.listenup.client.data.sync.ProfileEdit
-import com.calypsan.listenup.client.data.sync.RpcUpdateOpSender
-import com.calypsan.listenup.client.data.sync.SeriesEdit
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
@@ -43,6 +34,9 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.outboxBinding
+import com.calypsan.listenup.client.data.sync.outboxSender
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.SyncDomainCatalog
 import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
@@ -106,36 +100,34 @@ internal val clientSyncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
+        // The outbox sender map derives from OutboxChannels.all and is completeness-
+        // checked at construction: a declared channel with no binding (or vice versa)
+        // is an immediate require() failure, not a silent op drop.
         single<PendingOperationSender> {
-            DomainPendingOperationSender(
-                byDomain =
-                    mapOf(
-                        "playback_positions" to PlaybackPositionOpSender(rpcFactory = get()),
-                        "listening_events" to ListeningEventOpSender(rpcFactory = get()),
-                        BookEdit.name to
-                            RpcUpdateOpSender(BookEdit) { id, patch ->
-                                get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
-                            },
-                        SeriesEdit.name to
-                            RpcUpdateOpSender(SeriesEdit) { id, patch ->
-                                get<SeriesRpcFactory>().seriesService().updateSeries(SeriesId(id), patch)
-                            },
-                        ContributorEdit.name to
-                            RpcUpdateOpSender(ContributorEdit) { id, patch ->
-                                get<ContributorRpcFactory>().contributorService().updateContributor(
-                                    ContributorId(id),
-                                    patch,
-                                )
-                            },
-                        PreferencesEdit.name to
-                            RpcUpdateOpSender(PreferencesEdit) { _, patch ->
-                                get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
-                            },
-                        ProfileEdit.name to
-                            RpcUpdateOpSender(ProfileEdit) { _, patch ->
-                                get<ProfileRpcFactory>().get().updateMyProfile(patch)
-                            },
-                    ),
+            outboxSender(
+                mapOf(
+                    outboxBinding(OutboxChannels.Positions) { _, request ->
+                        get<PlaybackRpcFactory>().playbackService().recordPosition(request)
+                    },
+                    outboxBinding(OutboxChannels.ListeningEvents) { _, request ->
+                        get<PlaybackRpcFactory>().playbackService().recordListeningEvent(request)
+                    },
+                    outboxBinding(OutboxChannels.Books) { id, patch ->
+                        get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
+                    },
+                    outboxBinding(OutboxChannels.Series) { id, patch ->
+                        get<SeriesRpcFactory>().seriesService().updateSeries(SeriesId(id), patch)
+                    },
+                    outboxBinding(OutboxChannels.Contributors) { id, patch ->
+                        get<ContributorRpcFactory>().contributorService().updateContributor(ContributorId(id), patch)
+                    },
+                    outboxBinding(OutboxChannels.Preferences) { _, patch ->
+                        get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
+                    },
+                    outboxBinding(OutboxChannels.Profile) { _, patch ->
+                        get<ProfileRpcFactory>().get().updateMyProfile(patch)
+                    },
+                ),
             )
         }
         single {

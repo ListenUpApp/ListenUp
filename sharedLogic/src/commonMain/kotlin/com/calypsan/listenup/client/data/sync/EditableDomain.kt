@@ -6,12 +6,10 @@ import kotlinx.serialization.KSerializer
  * The one definition of a domain's offline editability: its outbox routing [name] and the
  * [serializer] for its patch DTO.
  *
- * Both halves of the offline-edit pattern read this single value instead of re-encoding the
- * facts independently: the write half ([OfflineEditor]) uses it to stamp the queued op and
- * encode the payload; the push half ([RpcUpdateOpSender]) uses it to decode the payload on
- * drain. Because [name] and [serializer] live in exactly one place, the enqueue side and the
- * drain side cannot disagree — a mismatch used to route an edit to "no sender registered" and
- * silently drop it past the retry ceiling.
+ * The write half ([OfflineEditor]) uses it to stamp the queued op and encode the payload. The
+ * push half now reads the paired [com.calypsan.listenup.client.data.sync.domains.OutboxChannel]
+ * of the same [name] instead — the two declarations are kept name/serializer-aligned by
+ * convention pending their unification onto one source.
  */
 internal data class EditableDomain<T : Any>(
     val name: String,
