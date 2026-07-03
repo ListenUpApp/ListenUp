@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
+import kotlin.time.Clock
 
 private val log = loggerFor<BookPersister>()
 
@@ -149,6 +150,12 @@ class BookPersister internal constructor(
                 eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
                 throw e
             }
+
+            // Stamp the library's first-ever scan completion (first-only via the IS NULL guard) BEFORE
+            // the clean Completed emit — never on the OOM/aborted path above. This is the
+            // server-authoritative signal the client's initial-population gate reads: once set, a rescan
+            // of the populated library never re-shows the "Building your library" screen.
+            libraryRepository.markInitialScanCompleted(libraryId, Clock.System.now().toEpochMilliseconds())
 
             // Completed is emitted HERE — after every book is committed and (for a full scan) the
             // tombstone sweep has run — not by the Scanner before this persist runs. `Completed` must

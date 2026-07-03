@@ -71,6 +71,16 @@ internal interface BookDao {
     suspend fun count(): Int
 
     /**
+     * Reactively true while no live (non-tombstoned) book exists. One half of the
+     * initial-population ("Building your library") gate: only an empty library that the server
+     * hasn't marked scan-complete is still "building".
+     *
+     * @return Flow emitting true when the live book set is empty, false once any book lands.
+     */
+    @Query("SELECT COUNT(*) = 0 FROM books WHERE deletedAt IS NULL")
+    fun observeIsEmpty(): Flow<Boolean>
+
+    /**
      * Observe all books with their contributors as a reactive Flow.
      *
      * Uses Room Relations to efficiently load books and their contributors
