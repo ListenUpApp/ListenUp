@@ -36,16 +36,18 @@ private val logger = KotlinLogging.logger {}
  * double-taps is avoided without surfacing noise to the user.
  *
  * **Enqueue indirection.** Rather than taking a [com.calypsan.listenup.client.data.sync.PendingOperationQueue]
- * directly, the recorder accepts a suspend lambda `enqueue` that matches the queue's
- * [com.calypsan.listenup.client.data.sync.PendingOperationQueue.enqueue] signature. This
- * keeps commonMain free of a concrete class dependency and makes the class trivially
- * testable: tests pass a capturing lambda; production Koin wiring passes
- * `pendingQueue::enqueue`.
+ * directly, the recorder accepts a suspend lambda `enqueue` of just the facts it decides —
+ * entity id, encoded payload, owning user. Which outbox channel and
+ * [com.calypsan.listenup.client.data.sync.domains.OpKind] the write lands on is a DI wiring
+ * concern, not a recorder concern: production Koin wiring closes over
+ * [com.calypsan.listenup.client.data.sync.domains.OutboxChannels.ListeningEvents] and
+ * [com.calypsan.listenup.client.data.sync.domains.OpKind.Upsert]. This keeps commonMain free
+ * of a concrete class dependency and makes the class trivially testable: tests pass a
+ * capturing lambda.
  *
  * @property listeningEventDao DAO for the `listening_events` table.
  * @property tentativeSpanDao DAO for the single-row `tentative_span` table.
- * @property enqueue Suspend function that persists a pending op; signature matches
- *   [com.calypsan.listenup.client.data.sync.PendingOperationQueue.enqueue].
+ * @property enqueue Suspend function that persists a pending op for the finalized span.
  * @property currentUserId Returns the signed-in user's ID, or null if unauthenticated.
  *   A null result causes all write operations to no-op silently — no pending write without
  *   an owner.
@@ -59,13 +61,7 @@ private val logger = KotlinLogging.logger {}
 class ListeningEventRecorder internal constructor(
     private val listeningEventDao: ListeningEventDao,
     private val tentativeSpanDao: TentativeSpanDao,
-    private val enqueue: suspend (
-        domainName: String,
-        entityId: String,
-        opType: String,
-        payload: String,
-        ownerUserId: String,
-    ) -> Unit,
+    private val enqueue: suspend (entityId: String, payload: String, ownerUserId: String) -> Unit,
     private val currentUserId: suspend () -> String?,
     private val deviceInfo: DeviceInfoProvider,
     private val clock: Clock = Clock.System,
@@ -263,9 +259,7 @@ class ListeningEventRecorder internal constructor(
 
         try {
             enqueue(
-                "listening_events",
                 entity.id,
-                "upsert",
                 contractJson.encodeToString(RecordListeningEventRequest.serializer(), request),
                 tentative.userId,
             )

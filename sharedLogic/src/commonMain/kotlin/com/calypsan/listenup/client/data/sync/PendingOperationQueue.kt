@@ -3,6 +3,8 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -100,10 +102,12 @@ internal class PendingOperationQueue(
     fun observeEnqueueSignal(): StateFlow<Long> = enqueueCounter.asStateFlow()
 
     /**
-     * Enqueue a new op. Returns its generated `clientOpId`.
+     * Enqueue a new op on [channel]. Returns its generated `clientOpId`. `check`s [op] is one of
+     * [OutboxChannel.ops] — the single validation choke point ensuring a queued op can never drift
+     * from what the channel declared.
      *
      * @param coalesce When true, deletes any still-queued (within retry budget) op for the same
-     *   (domainName, entityId, opType) slot before inserting — so rapid successive writes for one
+     *   (channel, entityId, op) slot before inserting — so rapid successive writes for one
      *   entity collapse to the latest snapshot instead of piling up. Valid only for domains where
      *   the payload is a last-write-wins snapshot of current state (e.g. playback positions);
      *   event/entity-PATCH domains keep the default `false` so every op is replayed. Terminally
@@ -113,23 +117,26 @@ internal class PendingOperationQueue(
      *   already-removed row is a silent no-op).
      */
     suspend fun enqueue(
-        domainName: String,
+        channel: OutboxChannel<*>,
         entityId: String,
-        opType: String,
+        op: OpKind,
         payload: String,
         ownerUserId: String,
         coalesce: Boolean = false,
     ): String {
+        check(op in channel.ops) {
+            "op $op is not declared by outbox channel '${channel.name}' (declared: ${channel.ops})"
+        }
         if (coalesce) {
-            dao.deleteQueuedOps(domainName, entityId, opType)
+            dao.deleteQueuedOps(channel.name, entityId, op.wire)
         }
         val opId = Uuid.random().toString()
         dao.insert(
             PendingOperationV2Entity(
                 clientOpId = opId,
-                domainName = domainName,
+                domainName = channel.name,
                 entityId = entityId,
-                opType = opType,
+                opType = op.wire,
                 payload = payload,
                 enqueuedAt = nowMillis(),
                 lastAttemptAt = null,

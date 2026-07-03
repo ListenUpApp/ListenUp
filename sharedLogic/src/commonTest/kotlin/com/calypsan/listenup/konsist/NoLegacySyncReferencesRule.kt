@@ -48,6 +48,12 @@ class NoLegacySyncReferencesRule :
                     "com.calypsan.listenup.client.data.sync.sse.BookRelationshipDaos",
                     "com.calypsan.listenup.client.data.sync.sse.SSEEventProcessor",
                     "com.calypsan.listenup.client.data.sync.sse.SSEExternalServices",
+                    "com.calypsan.listenup.client.data.sync.EditableDomain",
+                    "com.calypsan.listenup.client.data.sync.BookEdit",
+                    "com.calypsan.listenup.client.data.sync.SeriesEdit",
+                    "com.calypsan.listenup.client.data.sync.ContributorEdit",
+                    "com.calypsan.listenup.client.data.sync.ProfileEdit",
+                    "com.calypsan.listenup.client.data.sync.PreferencesEdit",
                 )
 
             val offenders =

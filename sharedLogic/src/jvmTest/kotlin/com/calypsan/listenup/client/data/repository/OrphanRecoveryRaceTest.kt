@@ -90,7 +90,7 @@ class OrphanRecoveryRaceTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = countingSpanDao,
-                            enqueue = { _, _, _, _, _ -> },
+                            enqueue = { _, _, _ -> },
                             currentUserId = { "user-test" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
                         )
@@ -158,7 +158,7 @@ class OrphanRecoveryRaceTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = countingSpanDao,
-                            enqueue = { _, _, _, _, _ -> },
+                            enqueue = { _, _, _ -> },
                             currentUserId = { "user-test" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
                         )

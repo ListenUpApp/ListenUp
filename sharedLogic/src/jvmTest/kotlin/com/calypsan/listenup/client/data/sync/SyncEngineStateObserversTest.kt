@@ -2,6 +2,8 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -17,8 +19,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.builtins.serializer
 
 private const val TIMEOUT_SECONDS = 5L
+
+// "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
+// un-mirrored domain, matching the queue's payload-agnostic contract.
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
 
 /**
  * Verifies `SyncEngine` forwards `PendingOperationQueue.observeQueueDepth()` and
@@ -59,8 +66,8 @@ class SyncEngineStateObserversTest :
 
                     state.value.pendingQueueDepth shouldBe 0
 
-                    queue.enqueue("tags", "t1", "upsert", "{}", "u1")
-                    queue.enqueue("tags", "t2", "upsert", "{}", "u1")
+                    queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
+                    queue.enqueue(tagsChannel, "t2", OpKind.Upsert, "{}", "u1")
 
                     val expectedDepth = 2
                     withTimeout(TIMEOUT_SECONDS.seconds) {

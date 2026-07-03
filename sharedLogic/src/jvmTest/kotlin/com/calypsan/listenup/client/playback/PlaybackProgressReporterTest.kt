@@ -8,6 +8,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -64,7 +66,6 @@ class PlaybackProgressReporterTest :
                     db.tentativeSpanDao().get().shouldBeNull()
 
                     enqueued.size shouldBe 1
-                    enqueued[0].domainName shouldBe "listening_events"
                     enqueued[0].ownerUserId shouldBe USER_ID
                 }
             }
@@ -173,9 +174,9 @@ private suspend fun withReporterFixture(
                 ListeningEventRecorder(
                     listeningEventDao = db.listeningEventDao(),
                     tentativeSpanDao = db.tentativeSpanDao(),
-                    enqueue = { domainName, entityId, opType, payload, ownerUserId ->
-                        captured.add(ReporterCapturedEnqueue(domainName, entityId, opType, payload, ownerUserId))
-                        realQueue.enqueue(domainName, entityId, opType, payload, ownerUserId)
+                    enqueue = { entityId, payload, ownerUserId ->
+                        captured.add(ReporterCapturedEnqueue(entityId, payload, ownerUserId))
+                        realQueue.enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)
                     },
                     currentUserId = { USER_ID },
                     deviceInfo = DeviceInfoProvider { DeviceInfo(deviceName = "Test Device") },
@@ -205,9 +206,7 @@ private suspend fun withReporterFixture(
 
 /** Captured fields from a single recorder `enqueue` call. */
 private data class ReporterCapturedEnqueue(
-    val domainName: String,
     val entityId: String,
-    val opType: String,
     val payload: String,
     val ownerUserId: String,
 )

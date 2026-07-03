@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.data.local.db.UserPreferencesEntity
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.sync.OfflineEditor
-import com.calypsan.listenup.client.data.sync.PreferencesEdit
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.UserPreferences
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
@@ -111,7 +111,7 @@ internal class UserPreferencesRepositoryImpl(
         val userId =
             authSession.getUserId()
                 ?: return AppResult.Failure(ErrorMapper.map(IllegalStateException("No signed-in user")))
-        return offlineEditor.edit(PreferencesEdit, userId, patch) {
+        return offlineEditor.edit(OutboxChannels.Preferences, userId, patch) {
             cache(mutate(cachedOrDefaults()))
         }
     }

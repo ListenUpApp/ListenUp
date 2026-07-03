@@ -24,9 +24,8 @@ import com.calypsan.listenup.core.Timestamp
  * per-field `userEditedFields` provenance, so the server folds the user's fields
  * before the resulting event ever echoes back — an inbound snapshot never reverts a
  * user edit that reached the server, and one that hasn't yet is replayed by the
- * outbox after this apply. `WriteTier.Outbox(Update)` declares that posture (books
- * edits queue as `BookEdit` ops); the declaration is descriptive until Phase 4
- * derives the sender map from it.
+ * outbox after this apply. `WriteTier.Outbox(OutboxChannels.Books)` declares that
+ * posture (books edits queue as [OpKind.Update] ops on the `books` channel).
  *
  * **Access gate:** the server's `pullSince` for books is filtered to the caller's
  * accessible set, so an `AccessChanged` reconcile must prune local rows the user can

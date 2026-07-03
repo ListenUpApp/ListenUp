@@ -10,6 +10,8 @@ import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.model.PlaybackPosition
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.LastPlayedInfo
@@ -273,9 +275,9 @@ internal class PlaybackPositionRepositoryImpl(
 
         try {
             pendingQueue.enqueue(
-                domainName = "playback_positions",
+                channel = OutboxChannels.Positions,
                 entityId = bookId.value,
-                opType = "upsert",
+                op = OpKind.Upsert,
                 payload = contractJson.encodeToString(RecordPositionRequest.serializer(), request),
                 ownerUserId = userId,
                 coalesce = true,

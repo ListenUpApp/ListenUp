@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.sync.domains.OpKind
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.activityDomain
 import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
@@ -16,6 +18,11 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.builtins.serializer
+
+// "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
+// un-mirrored domain, matching the queue's payload-agnostic contract.
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
 
 class SyncEventDispatcherTest :
     FunSpec({
@@ -101,7 +108,7 @@ class SyncEventDispatcherTest :
                         dao = db.pendingOperationV2Dao(),
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                     )
-                val opId = queue.enqueue("tags", "t1", "upsert", "{}", "u1")
+                val opId = queue.enqueue(tagsChannel, "t1", OpKind.Upsert, "{}", "u1")
                 val dispatcher =
                     SyncEventDispatcher(
                         registry = registry,

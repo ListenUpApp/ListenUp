@@ -1,14 +1,25 @@
 package com.calypsan.listenup.client.data.sync.domains
 
-/** The kind of a queued outbox operation. */
-internal enum class OpKind { Create, Update, Delete, Upsert }
+/**
+ * The kind of a queued outbox operation. [wire] is the string persisted in the
+ * queue's `opType` column and is FROZEN — rows already on devices carry
+ * `"update"`/`"upsert"` and must keep draining across app updates.
+ */
+internal enum class OpKind(
+    val wire: String,
+) {
+    Create("create"),
+    Update("update"),
+    Delete("delete"),
+    Upsert("upsert"),
+}
 
 /**
  * The domain's client-write posture. [Outbox] points at the [OutboxChannel] the
- * sender map and queue validation will derive from once wired — the completeness
- * spec already pins each declared tier to its channel, so the declaration cannot
- * drift from the catalog. This is still declarative vocabulary; the runtime
- * derivation lands in a follow-up task.
+ * sender map, [com.calypsan.listenup.client.data.sync.OfflineEditor], and the
+ * queue's op validation all derive from — the completeness spec pins each
+ * declared tier to its channel, so a declared tier and the runtime path cannot
+ * drift.
  */
 internal sealed interface WriteTier {
     /** No client-originated writes exist (server-materialized read models). */
