@@ -14,6 +14,11 @@ actor FakePlaybackEngine: PlaybackEngine {
     private(set) var lastVolume: Float?
     private(set) var didRelease = false
     private(set) var didDeactivateSession = false
+    private(set) var didActivateSession = false
+    private(set) var playCount = 0
+    /// Every engine command in arrival order, so a test can assert relative
+    /// ordering (e.g. `activate` immediately before the resuming `play`).
+    private(set) var commandLog: [String] = []
     /// Records teardown calls in the order they arrive, so a test can assert the
     /// session is deactivated before the engine is released.
     private(set) var teardownOrder: [String] = []
@@ -32,18 +37,28 @@ actor FakePlaybackEngine: PlaybackEngine {
     nonisolated func emit(_ event: AudioEngineEvent) { continuation.yield(event) }
 
     func load(segments: [AudioSegment], startPositionMs: Int64) async {}
-    func play() async { didPlay = true; gate.fire("play") }
-    func pause() async { didPause = true; gate.fire("pause") }
+    func play() async {
+        didPlay = true; playCount += 1; commandLog.append("play")
+        gate.fire("play"); gate.fire("play-\(playCount)")
+    }
+    func pause() async { didPause = true; commandLog.append("pause"); gate.fire("pause") }
     func seek(toMs positionMs: Int64) async { lastSeekMs = positionMs; gate.fire("seek") }
     func setRate(_ newRate: Float) async { lastRate = newRate; gate.fire("setRate") }
     func setVolume(_ volume: Float) async { lastVolume = volume; gate.fire("setVolume") }
     func deactivateSession() async {
         didDeactivateSession = true; teardownOrder.append("deactivate"); gate.fire("deactivate")
     }
+    func activateSession() async {
+        didActivateSession = true; commandLog.append("activate"); gate.fire("activate")
+    }
     func release() async { didRelease = true; teardownOrder.append("release"); gate.fire("release") }
 
     /// Suspend until `pause()` has executed. Returns immediately if it already has.
     func waitUntilPaused() async { await gate.wait(forKey: "pause") }
+
+    /// Suspend until `play()` has executed for the `count`-th time. Keyed, because a
+    /// predicate closure can't read this actor's state (see AsyncGate lines 46–59).
+    func waitForPlayCount(_ count: Int) async { await gate.wait(forKey: "play-\(count)") }
 }
 
 // MARK: - Task 2 seam fakes

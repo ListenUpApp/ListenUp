@@ -15,6 +15,10 @@ protocol PlaybackEngine: Sendable {
     func setVolume(_ volume: Float) async
     /// Deactivate the shared audio session so other apps' audio can resume.
     func deactivateSession() async
+    /// Re-assert the shared audio session as active. Called before resuming
+    /// after an interruption — some interruptions deactivate the session, and
+    /// resuming into a dead session plays silence.
+    func activateSession() async
     func release() async
 }
 

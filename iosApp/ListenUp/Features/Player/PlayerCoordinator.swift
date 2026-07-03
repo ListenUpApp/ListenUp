@@ -199,6 +199,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var lastReportedPositionMs: Int64 = 0
     private var lastSyncedChapterIndex: Int = -1
     private var isFading = false
+    /// True only while playback is paused *because of* an audio-session
+    /// interruption. Gates `.ended + .shouldResume`: resume is honored only
+    /// when the interruption did the pausing — a user's deliberate pause is
+    /// never overridden (Apple's "was playing when interrupted" contract).
+    private var pausedByInterruption = false
     private static let positionReportIntervalMs: Int64 = 5000
 
     // MARK: - Init
@@ -300,14 +305,19 @@ final class PlayerCoordinator: RemoteCommandHandler {
         guard let loaded = phase.playingState else { return }
         switch action {
         case .pause:
-            if phase.isPlaying {
+            // .playing OR .buffering: both mean audio intent is "advancing".
+            if phase.isPlaying || isBuffering {
+                pausedByInterruption = true
                 await engine.pause()
                 phase = .paused(loaded)
                 progress.onPlaybackPaused(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
                 updateNowPlaying()
             }
         case .resume:
+            guard pausedByInterruption else { return }
+            pausedByInterruption = false
             if !phase.isPlaying {
+                await engine.activateSession()
                 await engine.play()
                 phase = .playing(loaded)
                 progress.onPlaybackStarted(bookId: loaded.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
@@ -343,6 +353,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     /// Prepare and start playback of a book.
     func play(bookId: String) {
+        pausedByInterruption = false
         phase = .preparing(PreparingState(bookId: bookId))
         currentBookId = bookId
         Task { await prepareAndStart(bookId: bookId) }
@@ -350,6 +361,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     /// Toggle between play and pause.
     func togglePlayback() {
+        pausedByInterruption = false
         guard let loaded = phase.playingState else { return }
         // KMP value-class `BookId` is erased at the Swift boundary — its APIs take
         // the underlying id value directly.
@@ -434,6 +446,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// deterministic: the audio session is deactivated and the engine released
     /// *before* the call returns.
     func stop() async {
+        pausedByInterruption = false
         bridge.cancelAll()
         positionTracker.reset()
         await engine.deactivateSession()
