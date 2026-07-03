@@ -43,12 +43,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.toCoverModel
 import com.calypsan.listenup.client.design.theme.DisplayFontFamily
 import com.calypsan.listenup.client.design.theme.Spacing
-import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.FacetKind
 import com.calypsan.listenup.client.features.library.BookCard
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState
@@ -63,6 +63,7 @@ import listenup.composeapp.generated.resources.browse_facet_total_label
 import listenup.composeapp.generated.resources.browse_facet_unavailable_mood
 import listenup.composeapp.generated.resources.browse_facet_unavailable_tag
 import listenup.composeapp.generated.resources.common_back
+import kotlin.time.Duration.Companion.milliseconds
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -267,7 +268,7 @@ private fun FacetHero(
                         )
                         FacetStatChip(
                             icon = Icons.Outlined.Schedule,
-                            value = formatTotalDuration(totalDurationMs),
+                            value = DurationFormatter.hoursMinutes(totalDurationMs.milliseconds),
                             label = stringResource(Res.string.browse_facet_total_label),
                             contentColor = palette.onContainer,
                         )
@@ -424,11 +425,3 @@ private fun unavailableLabel(kind: FacetKind): String =
         FacetKind.Tag -> stringResource(Res.string.browse_facet_unavailable_tag)
         FacetKind.Mood -> stringResource(Res.string.browse_facet_unavailable_mood)
     }
-
-/** Format a combined runtime (ms) as "Hh Mm" / "Mm", mirroring [BookListItem.formatDuration]. */
-private fun formatTotalDuration(totalMs: Long): String {
-    val totalMinutes = totalMs / 60_000
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
-}
