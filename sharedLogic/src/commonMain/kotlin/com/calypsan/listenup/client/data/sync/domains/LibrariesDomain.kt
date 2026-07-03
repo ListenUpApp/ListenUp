@@ -8,8 +8,6 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
 /**
  * The `libraries` domain: cross-user rows written only via the LibraryAdminService
  * RPC — server-wins apply, soft-delete tombstones, full digest, online-only writes.
- * Inbound snapshots always write `clientOpId = null`: the column belongs to the
- * offline-edit echo path and a server snapshot is never a client echo.
  */
 internal fun librariesDomain(database: ListenUpDatabase): MirroredDomain<LibrarySyncPayload> =
     MirroredDomain(
@@ -37,7 +35,6 @@ internal class LibraryMirrorApply(
                 createdAt = payload.createdAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
-                clientOpId = null,
             ),
         )
     }

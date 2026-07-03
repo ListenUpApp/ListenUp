@@ -39,7 +39,6 @@ class LibraryRepositoryImplTest :
                 createdAt = 1_000L,
                 revision = 3L,
                 deletedAt = null,
-                clientOpId = null,
             )
 
         val expectedLibrary =
@@ -61,7 +60,6 @@ class LibraryRepositoryImplTest :
                 createdAt = 2_000L,
                 revision = 1L,
                 deletedAt = null,
-                clientOpId = null,
             )
 
         val expectedFolder =

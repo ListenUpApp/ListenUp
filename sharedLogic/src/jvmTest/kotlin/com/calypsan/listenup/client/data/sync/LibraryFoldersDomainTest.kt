@@ -138,7 +138,6 @@ private suspend fun seedLibrary(
             createdAt = 1L,
             revision = 1L,
             deletedAt = null,
-            clientOpId = null,
         ),
     )
 }

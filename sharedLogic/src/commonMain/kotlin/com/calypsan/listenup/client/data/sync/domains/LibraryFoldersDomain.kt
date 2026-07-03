@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * RPC — server-wins apply, soft-delete tombstones, full digest, online-only writes.
  * Folder rows FK to `libraries`; the server guarantees the parent library's event
  * precedes folder events during catch-up, so the constraint holds without client
- * ordering logic. Inbound snapshots write `clientOpId = null` (never a client echo).
+ * ordering logic.
  */
 internal fun libraryFoldersDomain(database: ListenUpDatabase): MirroredDomain<LibraryFolderSyncPayload> =
     MirroredDomain(
@@ -36,7 +36,6 @@ internal class LibraryFolderMirrorApply(
                 createdAt = payload.createdAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
-                clientOpId = null,
             ),
         )
     }
