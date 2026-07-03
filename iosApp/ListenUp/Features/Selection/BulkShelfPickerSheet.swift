@@ -50,7 +50,7 @@ struct BulkShelfPickerSheet: View {
     private var shelvesSection: some View {
         Section {
             ForEach(observer.myShelves) { shelf in
-                Button { observer.addToShelf(shelfId: shelf.idString) } label: {
+                Button { observer.addToShelf(shelfId: shelf.id) } label: {
                     Text(shelf.name)
                         .foregroundStyle(.primary)
                 }

@@ -119,7 +119,7 @@ struct MyShelvesRow: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
                     ForEach(shelves) { shelf in
-                        NavigationLink(value: ShelfDestination(id: shelf.idString)) {
+                        NavigationLink(value: ShelfDestination(id: shelf.id)) {
                             ShelfCard(shelf: shelf)
                         }
                         .buttonStyle(.plain)

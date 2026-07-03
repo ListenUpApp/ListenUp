@@ -54,7 +54,7 @@ final class BookSelectionObserver {
             self?.isAdmin = value
         }
         bridge.bind(viewModel.myShelves) { [weak self] shelves in
-            self?.myShelves = shelves.map { SelectionShelfRow(id: $0.id, name: $0.name) }
+            self?.myShelves = shelves.map { SelectionShelfRow(id: $0.idString, name: $0.name) }
         }
         bridge.bind(viewModel.collections) { [weak self] collections in
             self?.allCollections = collections.map { SelectionCollectionRow(id: $0.id, name: $0.name) }
