@@ -6,7 +6,6 @@ import com.calypsan.listenup.api.dto.auth.PASSWORD_MIN
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.core.resolveNameFields
@@ -62,7 +61,6 @@ sealed interface EditProfileUiState {
      */
     data class Ready(
         val user: User,
-        val localAvatarPath: String?,
         val firstName: String,
         val lastName: String,
         val tagline: String,
@@ -120,7 +118,6 @@ private data class FormState(
 class EditProfileViewModel(
     private val profileEditRepository: ProfileEditRepository,
     private val userRepository: UserRepository,
-    private val imageRepository: ImageRepository,
 ) : ViewModel() {
     private val savingFlow = MutableStateFlow(false)
     private val formFlow = MutableStateFlow(FormState())
@@ -170,7 +167,6 @@ class EditProfileViewModel(
 
                 EditProfileUiState.Ready(
                     user = user,
-                    localAvatarPath = resolveLocalAvatarPath(user),
                     firstName = effectiveForm.firstName,
                     lastName = effectiveForm.lastName,
                     tagline = effectiveForm.tagline,
@@ -339,15 +335,6 @@ class EditProfileViewModel(
             }
         }
     }
-
-    // ── Internal helpers ──────────────────────────────────────────────────────
-
-    private fun resolveLocalAvatarPath(user: User): String? =
-        if (user.avatarType == "image" && imageRepository.userAvatarExists(user.id.value)) {
-            imageRepository.getUserAvatarPath(user.id.value)
-        } else {
-            null
-        }
 
     companion object {
         /** Maximum characters allowed in the tagline field. */

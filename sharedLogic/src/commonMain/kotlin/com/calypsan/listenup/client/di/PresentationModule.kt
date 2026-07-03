@@ -503,7 +503,6 @@ internal val profilePresentationModule =
             com.calypsan.listenup.client.presentation.profile.EditProfileViewModel(
                 profileEditRepository = get(),
                 userRepository = get(),
-                imageRepository = get(),
             )
         }
     }

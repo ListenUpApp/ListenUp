@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
@@ -38,25 +37,17 @@ class EditProfileViewModelTest :
         class TestFixture {
             val profileEditRepository: ProfileEditRepository = mock()
             val userRepository: UserRepository = mock()
-            val imageRepository: ImageRepository = mock()
             val currentUserFlow = MutableStateFlow<User?>(null)
 
-            fun configure(
-                currentUser: User?,
-                isAvatarCached: Boolean = false,
-                avatarPath: String = "/cache/avatars/avatar.jpg",
-            ) {
+            fun configure(currentUser: User?) {
                 currentUserFlow.value = currentUser
                 every { userRepository.observeCurrentUser() } returns currentUserFlow
-                every { imageRepository.userAvatarExists(any()) } returns isAvatarCached
-                every { imageRepository.getUserAvatarPath(any()) } returns avatarPath
             }
 
             fun build(): EditProfileViewModel =
                 EditProfileViewModel(
                     profileEditRepository = profileEditRepository,
                     userRepository = userRepository,
-                    imageRepository = imageRepository,
                 )
         }
 
@@ -190,20 +181,6 @@ class EditProfileViewModelTest :
                 verifySuspend(dev.mokkery.verify.VerifyMode.not) {
                     fixture.profileEditRepository.updateProfile(any(), any(), any(), any())
                 }
-            }
-        }
-
-        test("Ready reflects cached avatar path when avatar is an image") {
-            runTest {
-                val user = createUser(avatarType = "image", avatarValue = "avatar.jpg")
-                val fixture =
-                    createFixture().apply { configure(currentUser = user, isAvatarCached = true) }
-                val viewModel = fixture.build()
-                keepStateHot(viewModel)
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<EditProfileUiState.Ready>()
-                ready.localAvatarPath shouldBe "/cache/avatars/avatar.jpg"
             }
         }
 
