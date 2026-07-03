@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.design.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -20,7 +19,11 @@ import androidx.compose.ui.unit.dp
  * - extraSmall/small: Input fields, chips
  * - medium (20.dp): Buttons, text fields - primary touch targets
  * - large (28.dp): Cards, elevated surfaces
- * - extraLarge: Fully rounded elements (FABs, avatars)
+ * - extraLarge (28.dp): Dialogs and large expressive surfaces (the M3 extra-large corner token)
+ *
+ * Fully-circular elements (FABs, avatars, pills, badges) apply CircleShape locally. The
+ * extraLarge token must stay a bounded radius: components that resolve their default shape to
+ * it — notably AlertDialog — render as clipped ellipses if it is CircleShape on a wide surface.
  */
 private val ExpressiveShapes =
     Shapes(
@@ -28,7 +31,7 @@ private val ExpressiveShapes =
         small = RoundedCornerShape(12.dp),
         medium = RoundedCornerShape(20.dp),
         large = RoundedCornerShape(28.dp),
-        extraLarge = CircleShape,
+        extraLarge = RoundedCornerShape(28.dp),
     )
 
 /**

@@ -145,15 +145,25 @@ fun EditProfileScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
+        // Dock Save in the bottomBar slot so ListenUpScaffold's mini-player clearance spacer sits
+        // directly beneath it — the floatingActionButton slot does not clear the mini-player overlay.
+        bottomBar = {
             if (ready != null) {
-                ListenUpExtendedFab(
-                    onClick = viewModel::save,
-                    icon = Icons.Default.Check,
-                    text = stringResource(Res.string.common_save_changes),
-                    enabled = ready.isDirty && !ready.isSaving,
-                    isLoading = ready.isSaving,
-                )
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 18.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    ListenUpExtendedFab(
+                        onClick = viewModel::save,
+                        icon = Icons.Default.Check,
+                        text = stringResource(Res.string.common_save_changes),
+                        enabled = ready.isDirty && !ready.isSaving,
+                        isLoading = ready.isSaving,
+                    )
+                }
             }
         },
     ) { paddingValues ->
@@ -220,9 +230,6 @@ private fun EditProfileContent(
             } else {
                 CompactLayout(ready = ready, onPickImage = onPickImage, viewModel = viewModel)
             }
-
-            // Bottom padding so the FAB doesn't overlap the last card
-            Spacer(modifier = Modifier.height(80.dp))
         }
     }
 }

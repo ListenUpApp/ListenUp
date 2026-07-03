@@ -176,12 +176,12 @@ private fun ActiveDockedContent(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            // Show the chapter's own title; no "Ch. N · " prefix — the title is often itself
+            // "Chapter N", and chapterIndex counts front-matter tracks (Introduction, Epigraph),
+            // so the prefix produced confusing, offset labels like "Ch. 3 · Chapter 1".
             val chapterLine =
-                if (state.chapterTitle != null) {
-                    "Ch. ${state.chapterIndex + 1} · ${state.chapterTitle}"
-                } else {
-                    "Ch. ${state.chapterIndex + 1}"
-                }
+                state.chapterTitle?.takeIf { it.isNotBlank() }
+                    ?: "Chapter ${state.chapterIndex + 1}"
             Text(
                 text = chapterLine,
                 style = MaterialTheme.typography.bodySmall,
