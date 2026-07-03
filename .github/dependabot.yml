@@ -7,3 +7,24 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      gradle-dependencies:
+        patterns: ["*"]
+    ignore:
+      # Kotlin-coupled toolchain unit — bumps in lockstep with the Kotlin version,
+      # maintainer-managed (see the "upgrade UNIT" comment in gradle/libs.versions.toml).
+      - dependency-name: "org.jetbrains.kotlin:*"        # kotlin-gradle-plugin
+      - dependency-name: "org.jetbrains.kotlin.*"        # KGP plugin ids (android/multiplatform/jvm/plugin.compose/plugin.serialization)
+      - dependency-name: "com.google.devtools.ksp*"      # KSP plugin + symbol-processing-api
+      - dependency-name: "dev.mokkery*"                  # Mokkery plugin + runtime (compiler-plugin-locked)
+      - dependency-name: "dev.zacsweers.kctfork:*"       # kotlin-compile-testing fork (compiler-locked)
+      - dependency-name: "org.jetbrains.kotlinx:kotlinx-rpc*"   # kotlinx-rpc artifacts (dev-channel redirector)
+      - dependency-name: "org.jetbrains.kotlinx.rpc.plugin"     # kotlinx-rpc Gradle plugin
+      # Deliberate pins.
+      - dependency-name: "dev.detekt*"                   # detekt 2.0.0-alpha.5 — maintainer-decided alpha pin
+      - dependency-name: "org.jetbrains.compose.material3:material3"  # 1.11.0-alpha07 — upstream-blocked

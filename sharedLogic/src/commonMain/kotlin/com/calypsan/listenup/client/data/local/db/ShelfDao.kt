@@ -165,4 +165,8 @@ internal interface ShelfDao {
     /** All rows (including tombstones) with [revision][ShelfEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM shelves WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM shelves WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }

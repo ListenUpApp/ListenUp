@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.util.KeyedMutex
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
 
@@ -38,13 +39,23 @@ class StatsRecorder(
     private val statsBackfill: UserStatsBackfillService,
     private val clock: Clock = Clock.System,
 ) {
+    /**
+     * Serializes [record] per user id: without this, two concurrent cascades for the same user
+     * (two devices closing sessions, or a retried outbox op racing a live one) could both read the
+     * same base `user_stats` row and both emit the same milestone crossing. See the class KDoc for
+     * the read-base → re-derive → upsert → emit sequence this protects.
+     */
+    private val userLock = KeyedMutex()
+
     /** Routes [event] through its fixed ordering. See the class KDoc for the contract. */
     suspend fun record(event: StatsEvent) {
-        when (event) {
-            is StatsEvent.BookCompleted -> recordBookCompleted(event)
-            is StatsEvent.BookRestarted -> recordBookRestarted(event)
-            is StatsEvent.ListeningSessionClosed -> recordListeningSessionClosed(event)
-            is StatsEvent.BulkRecompute -> recordBulkRecompute(event)
+        userLock.withLock(event.userId) {
+            when (event) {
+                is StatsEvent.BookCompleted -> recordBookCompleted(event)
+                is StatsEvent.BookRestarted -> recordBookRestarted(event)
+                is StatsEvent.ListeningSessionClosed -> recordListeningSessionClosed(event)
+                is StatsEvent.BulkRecompute -> recordBulkRecompute(event)
+            }
         }
     }
 
@@ -61,9 +72,12 @@ class StatsRecorder(
         // count. booksFinished is a pure function of `book_reads`, so a merge leaves it unchanged.
         bookReadsRepository.recordCompletion(event.userId, event.bookId, finishedAtMs)
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
-            val derived = deriveUserStats(sql, event.userId, clock.now().toEpochMilliseconds())
+            val tz = sql.homeTimeZone(event.userId)
+            val base = userStatsRepo.getForUser(event.userId) ?: emptyStatsFor(event.userId)
+            val derived = deriveUserStats(sql, event.userId, clock.now().toEpochMilliseconds(), tz)
             userStatsRepo.upsert(derived, clientOpId = null, userId = event.userId)
-            publicProfileMaintainer.refresh(event.userId)
+            publicProfileMaintainer.refresh(event.userId, tz)
+            emitMilestoneCrossings(event.userId, base, derived)
         }
         activityRecorder.record(
             event.userId,
@@ -110,30 +124,14 @@ class StatsRecorder(
         val userId = event.userId
         val span = event.span
         if (currentCoroutineContext()[StatsCascadeDeferred.Key] == null) {
+            val tz = sql.homeTimeZone(userId)
             val base = userStatsRepo.getForUser(userId) ?: emptyStatsFor(userId)
-            val derived = deriveUserStats(sql, userId, clock.now().toEpochMilliseconds())
+            val derived = deriveUserStats(sql, userId, clock.now().toEpochMilliseconds(), tz)
             userStatsRepo.upsert(derived, clientOpId = null, userId = userId)
-            publicProfileMaintainer.refresh(userId)
-
-            // Milestones fire on a forward crossing between the stored row and the re-derived one.
-            if (derived.currentStreakDays != base.currentStreakDays && derived.currentStreakDays in STREAK_MILESTONES) {
-                activityRecorder.record(
-                    userId,
-                    ActivityType.STREAK_MILESTONE,
-                    milestoneValue = derived.currentStreakDays,
-                    milestoneUnit = "days",
-                )
-            }
-            val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
-            val newHours = (derived.totalSecondsAllTime / 3600L).toInt()
-            LISTENING_MILESTONES.firstOrNull { prevHours < it && newHours >= it }?.let { milestone ->
-                activityRecorder.record(
-                    userId,
-                    ActivityType.LISTENING_MILESTONE,
-                    milestoneValue = milestone,
-                    milestoneUnit = "hours",
-                )
-            }
+            publicProfileMaintainer.refresh(userId, tz)
+            // Milestones fire once per forward crossing; the per-user lock in [record] makes
+            // base→derived windows non-overlapping.
+            emitMilestoneCrossings(userId, base, derived)
         }
         activityRecorder.record(
             userId,
@@ -142,6 +140,41 @@ class StatsRecorder(
             durationMs = span.endedAt - span.startedAt,
             occurredAt = span.endedAt,
         )
+    }
+
+    /**
+     * Emits STREAK_MILESTONE / LISTENING_MILESTONE activities for every milestone value crossed
+     * forward between [base] and [derived]. Enumerates the whole (base, derived] range so a jump
+     * over several thresholds emits each one; a decrease (a delete/heal re-derive lowering a value)
+     * emits nothing. Both milestone lists are small constants, so the filter is bounded.
+     */
+    private suspend fun emitMilestoneCrossings(
+        userId: String,
+        base: UserStatsSyncPayload,
+        derived: UserStatsSyncPayload,
+    ) {
+        STREAK_MILESTONES
+            .filter { it > base.currentStreakDays && it <= derived.currentStreakDays }
+            .forEach { milestone ->
+                activityRecorder.record(
+                    userId,
+                    ActivityType.STREAK_MILESTONE,
+                    milestoneValue = milestone,
+                    milestoneUnit = "days",
+                )
+            }
+        val prevHours = (base.totalSecondsAllTime / 3600L).toInt()
+        val newHours = (derived.totalSecondsAllTime / 3600L).toInt()
+        LISTENING_MILESTONES
+            .filter { prevHours < it && newHours >= it }
+            .forEach { milestone ->
+                activityRecorder.record(
+                    userId,
+                    ActivityType.LISTENING_MILESTONE,
+                    milestoneValue = milestone,
+                    milestoneUnit = "hours",
+                )
+            }
     }
 
     private companion object {

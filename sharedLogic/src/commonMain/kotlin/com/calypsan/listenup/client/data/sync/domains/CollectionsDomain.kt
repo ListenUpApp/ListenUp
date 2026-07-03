@@ -34,6 +34,11 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
                     database.collectionDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.collectionDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [CollectionSyncPayload] payloads. */

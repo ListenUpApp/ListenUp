@@ -39,6 +39,10 @@ internal open class ComposedSyncDomainHandler<T : Any>(
         isOwnEcho: Boolean,
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
+            if (isStale(event.id, event.revision)) {
+                logger.debug { "[$domainName] skipping stale inbound rev=${event.revision} for ${event.id}" }
+                return@applyEventAtomically
+            }
             when (event) {
                 is SyncEvent.Created -> {
                     applyGuarded(event.id, event.payload, isOwnEcho)
@@ -69,6 +73,11 @@ internal open class ComposedSyncDomainHandler<T : Any>(
         isTombstone: Boolean,
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, syncId(item), logger) {
+            val guard = domain.revisionGuard
+            if (guard != null && isStale(syncId(item), guard.incomingRevision(item))) {
+                logger.debug { "[$domainName] skipping stale catch-up item ${syncId(item)}" }
+                return@applyEventAtomically
+            }
             if (isTombstone) {
                 domain.apply.tombstoneFromItem(item)
             } else {
@@ -108,6 +117,16 @@ internal open class ComposedSyncDomainHandler<T : Any>(
                 domain.apply.upsert(payload)
             }
         }
+    }
+
+    /** True when the local row's revision is strictly ahead of [incoming] — see [RevisionGuard]. */
+    private suspend fun isStale(
+        syncId: String,
+        incoming: Long,
+    ): Boolean {
+        val guard = domain.revisionGuard ?: return false
+        val local = guard.localRevision(syncId) ?: return false
+        return local > incoming
     }
 }
 

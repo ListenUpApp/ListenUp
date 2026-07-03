@@ -91,6 +91,10 @@ internal interface MoodDao {
     /** All rows (including tombstones) with [revision][MoodEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM moods WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM moods WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }
 
 /**
@@ -156,4 +160,14 @@ internal interface BookMoodDao {
      */
     @Query("SELECT bookId || ':' || moodId AS id, revision FROM book_moods WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /**
+     * The stored revision of the junction row for [bookId]/[moodId], tombstones included; null
+     * when the row has never been seen.
+     */
+    @Query("SELECT revision FROM book_moods WHERE bookId = :bookId AND moodId = :moodId LIMIT 1")
+    suspend fun revisionOf(
+        bookId: String,
+        moodId: String,
+    ): Long?
 }

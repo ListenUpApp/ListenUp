@@ -20,6 +20,11 @@ internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> =
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.tagDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.tagDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [Tag] payloads. */

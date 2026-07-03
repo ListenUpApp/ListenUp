@@ -18,6 +18,7 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -35,10 +36,13 @@ import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -277,6 +281,54 @@ class BooksDomainTest :
             }
         }
 
+        test("book tombstone deletes the book's cached readership rows") {
+            withTestHandler { handler, db ->
+                handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                handler.onEvent(created(bookPayload(id = "b2")), isOwnEcho = false)
+                db.bookReadershipDao().upsertAll(
+                    listOf(readershipRow("b1", "u1"), readershipRow("b2", "u1")),
+                )
+
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "b1", revision = 2L, occurredAt = 200L, clientOpId = null),
+                    isOwnEcho = false,
+                )
+
+                db
+                    .bookReadershipDao()
+                    .observeForBook("b1")
+                    .first()
+                    .shouldBeEmpty()
+                db.bookReadershipDao().observeForBook("b2").first() shouldHaveSize 1
+            }
+        }
+
+        test("tombstone sweep also removes orphaned readership rows") {
+            withTestHandler { handler, db ->
+                handler.onEvent(created(bookPayload(id = "b1")), isOwnEcho = false)
+                // 'ghost' has no books row at all — a pre-existing orphan the sweep self-heals.
+                db.bookReadershipDao().upsertAll(
+                    listOf(readershipRow("b1", "u1"), readershipRow("ghost", "u1")),
+                )
+
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "b1", revision = 2L, occurredAt = 200L, clientOpId = null),
+                    isOwnEcho = false,
+                )
+
+                db
+                    .bookReadershipDao()
+                    .observeForBook("b1")
+                    .first()
+                    .shouldBeEmpty()
+                db
+                    .bookReadershipDao()
+                    .observeForBook("ghost")
+                    .first()
+                    .shouldBeEmpty()
+            }
+        }
+
         test("handler self-registers under domainName 'books'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
@@ -483,6 +535,20 @@ private fun updatedEvent(payload: BookSyncPayload): SyncEvent.Updated<BookSyncPa
         occurredAt = payload.updatedAt,
         clientOpId = null,
         payload = payload,
+    )
+
+private fun readershipRow(
+    bookId: String,
+    userId: String,
+): BookReadershipEntity =
+    BookReadershipEntity(
+        bookId = bookId,
+        userId = userId,
+        displayName = "Reader $userId",
+        avatarType = "auto",
+        currentProgressPct = null,
+        finishesJson = "",
+        observedAt = 1L,
     )
 
 private fun chapter(index: Int): BookChapterPayload =

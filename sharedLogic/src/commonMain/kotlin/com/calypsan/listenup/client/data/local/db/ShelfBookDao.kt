@@ -53,4 +53,8 @@ internal interface ShelfBookDao {
      */
     @Query("SELECT id AS id, revision FROM shelf_books WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with synthetic [id], tombstones included; null when never seen. */
+    @Query("SELECT revision FROM shelf_books WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }

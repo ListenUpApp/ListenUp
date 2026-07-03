@@ -148,6 +148,10 @@ internal interface GenreDao {
     @Query("SELECT id AS id, revision FROM genres WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM genres WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
+
     // ========== Book-Genre Relationship Operations ==========
 
     /**

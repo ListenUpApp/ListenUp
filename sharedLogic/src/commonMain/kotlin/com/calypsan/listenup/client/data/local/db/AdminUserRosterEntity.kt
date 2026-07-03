@@ -83,4 +83,8 @@ internal interface AdminUserRosterDao {
     /** All rows (including tombstones) with [revision][AdminUserRosterEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM admin_user_roster WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM admin_user_roster WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }

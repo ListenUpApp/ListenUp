@@ -159,6 +159,8 @@ jobs:
     runs-on: macos-26
     needs: set-version
     if: ${{ inputs.ios }}
+    permissions:
+      contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@v7

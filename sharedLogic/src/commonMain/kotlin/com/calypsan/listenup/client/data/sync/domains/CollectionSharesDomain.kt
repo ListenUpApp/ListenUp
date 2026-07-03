@@ -38,6 +38,11 @@ internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<
                     database.collectionShareDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.collectionShareDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [CollectionShareSyncPayload] payloads. */

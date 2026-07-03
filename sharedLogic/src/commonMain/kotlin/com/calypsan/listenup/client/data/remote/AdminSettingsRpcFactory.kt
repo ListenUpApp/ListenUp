@@ -1,14 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.AdminSettingsService
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import io.ktor.client.HttpClient
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
-import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
 
 /**
@@ -28,55 +22,21 @@ internal interface AdminSettingsRpcFactory {
 }
 
 /**
- * Production [AdminSettingsRpcFactory] over the bearer-gated `/api/rpc/authed` WebSocket.
- *
- * Caches the [AdminSettingsService] proxy and the RPC-flavored [HttpClient] per mount.
- * [invalidate] drops both caches; the next [get] call reconnects fresh — used by
- * [RpcCacheInvalidator] on logout or server-URL change.
- *
- * Declared `open` so tests can subclass and override [connect] with a fake WebSocket.
- *
- * Mirrors [KtorAdminUserRpcFactory] — the established RPC-factory shape.
+ * Production [AdminSettingsRpcFactory]: delegates the connection lifecycle to
+ * [RpcProxyCache], supplying the `/api/rpc/authed` mount and the reified
+ * [AdminSettingsService] binding.
  */
-internal open class KtorAdminSettingsRpcFactory(
-    private val apiClientFactory: ApiClientFactory,
-    private val serverConfig: ServerConfig,
+internal class KtorAdminSettingsRpcFactory(
+    apiClientFactory: ApiClientFactory,
+    serverConfig: ServerConfig,
 ) : AdminSettingsRpcFactory,
     RemoteCache {
-    private val mutex = Mutex()
-    private var cachedRpcClient: HttpClient? = null
-    private var cachedService: AdminSettingsService? = null
-
-    override suspend fun get(): AdminSettingsService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
+    private val cache =
+        RpcProxyCache(apiClientFactory, serverConfig) { client, baseUrl ->
+            client.rpc("$baseUrl/api/rpc/authed").withService<AdminSettingsService>()
         }
 
-    override suspend fun invalidate() {
-        mutex.withLock {
-            cachedService = null
-            cachedRpcClient = null
-        }
-    }
+    override suspend fun get(): AdminSettingsService = cache.get()
 
-    internal open suspend fun connect(): AdminSettingsService {
-        val baseUrl = rpcBaseUrl()
-        return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<AdminSettingsService>()
-    }
-
-    private suspend fun rpcClient(): HttpClient =
-        cachedRpcClient ?: apiClientFactory
-            .getClient()
-            .config {
-                installKrpc {
-                    serialization { json(contractJson) }
-                }
-            }.also { cachedRpcClient = it }
-
-    private suspend fun rpcBaseUrl(): String {
-        val httpUrl =
-            serverConfig.getActiveUrl()?.value
-                ?: throw ServerUrlNotConfiguredException()
-        return toWebSocketScheme(httpUrl)
-    }
+    override suspend fun invalidate() = cache.invalidate()
 }

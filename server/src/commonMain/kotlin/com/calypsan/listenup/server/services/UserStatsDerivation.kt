@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
 /**
@@ -57,11 +58,17 @@ suspend fun reconcileBookReadsFromPositions(
  * All day-boundary math uses the user's home timezone (one consistent frame per user); the per-event
  * `tz` column is deliberately ignored because it can be "UTC" for ABS imports and mixed-frame for
  * travelers, which would produce wrong streaks.
+ *
+ * @param tz a caller-provided memo of `sql.homeTimeZone(userId)` — never a different zone. Pass
+ * `null` (default) to have this function read it itself; callers that already read the home
+ * timezone for another step of the same cascade (e.g. [StatsRecorder]) should pass it through to
+ * avoid a second read of the same row.
  */
 suspend fun deriveUserStats(
     sql: ListenUpDatabase,
     userId: String,
     nowMs: Long,
+    tz: TimeZone? = null,
 ): UserStatsSyncPayload {
     // 1. Read all non-deleted listening_events for this user, ordered by endedAt ascending.
     val events =
@@ -72,7 +79,7 @@ suspend fun deriveUserStats(
         }
 
     // 2. Walk events for the all-time total, distinct started books, and the per-day listening set.
-    val userTz = sql.homeTimeZone(userId)
+    val userTz = tz ?: sql.homeTimeZone(userId)
     var totalAllTime = 0L
     val distinctBooks = mutableSetOf<String>()
     val listeningDays = ArrayList<LocalDate>(events.size)

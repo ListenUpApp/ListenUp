@@ -286,6 +286,70 @@ class BookSearchReindexerBulkTest :
             }
         }
 
+        test("reindexBooks resolves each book's genres independently") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                runTest {
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    seedFtsRow(this@withSqlDatabase, "book2", 2)
+                    sql.seedGenre("g1", "Fantasy", "fantasy", "/fantasy")
+                    sql.seedGenre("g2", "Mystery", "mystery", "/mystery")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book2", genre_id = "g2")
+
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
+
+                    reindexer.reindexBooks(listOf("book1", "book2"))
+
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Mystery") shouldBe false
+                    ftsGenresMatch(this@withSqlDatabase, 2, "Mystery") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 2, "Fantasy") shouldBe false
+                }
+            }
+        }
+
+        test("bulk reindex excludes tombstoned genres across books") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    seedFtsRow(this@withSqlDatabase, "book1", 1)
+                    sql.seedGenre("g1", "Fantasy", "fantasy", "/fantasy")
+                    sql.seedGenre("g2", "Horror", "horror", "/horror")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g1")
+                    sql.bookGenresQueries.insertIfAbsent(book_id = "book1", genre_id = "g2")
+
+                    // Tombstone one of the two genres — the JOIN's deleted_at IS NULL clause excludes it.
+                    val now = System.currentTimeMillis()
+                    sql.genresQueries.softDeleteById(
+                        id = "g2",
+                        revision = 2L,
+                        updated_at = now,
+                        deleted_at = now,
+                        client_op_id = null,
+                    )
+
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                    val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
+                    val reindexer = makeReindexer(this@withSqlDatabase, bookTagRepo, tagRepo)
+
+                    reindexer.reindexBooks(listOf("book1"))
+
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Fantasy") shouldBe true
+                    ftsGenresMatch(this@withSqlDatabase, 1, "Horror") shouldBe false
+                }
+            }
+        }
+
         test("reindexBooks with an empty list is a no-op") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

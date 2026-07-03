@@ -122,6 +122,10 @@ internal interface SeriesDao {
     /** All rows (including tombstones) with [revision][SeriesEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM series WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM series WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }
 
 @Dao
@@ -224,6 +228,10 @@ internal interface ContributorDao {
     /** All rows (including tombstones) with [revision][ContributorEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM contributors WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM contributors WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 
     // =========================================================================
     // Book-Contributor Relationship Queries

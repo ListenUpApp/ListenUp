@@ -43,8 +43,10 @@ sealed interface BookReadersUiState {
  * Observes [BookReadersRepository.observeReadersFor] for the given [bookId] and maps each
  * emission to a sealed [BookReadersUiState]. The repository observes the server's `bookReadership`
  * RPC, which returns every reader of this book — including the current user — each with their
- * current progress and dated finish history. On RPC failure the list is empty, so the Readers
- * section shows nothing when the server is unreachable.
+ * current progress and dated finish history. The repository is offline-first: Room's
+ * `book_readership` mirror is the read source, refreshed on presence pings, and is left intact on
+ * RPC failure — so the Readers section keeps rendering the last-known (possibly stale) readership
+ * when the server is unreachable.
  *
  * @param repo The readers repository, backed by the server's bookReadership RPC.
  * @param bookId The book whose readers this ViewModel tracks.

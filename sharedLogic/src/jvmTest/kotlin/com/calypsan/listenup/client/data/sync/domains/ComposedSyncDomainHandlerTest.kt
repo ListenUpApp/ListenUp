@@ -53,6 +53,7 @@ private fun domain(
     deletes: DeleteSemantics = DeleteSemantics.SoftDelete,
     digest: DigestParticipation = DigestParticipation.OptOut("test"),
     accessGate: AccessGate? = null,
+    revisionGuard: RevisionGuard<Tag>? = null,
 ) = MirroredDomain(
     key = key(),
     syncIdOf = { it.id },
@@ -62,6 +63,7 @@ private fun domain(
     digest = digest,
     writes = WriteTier.OnlineOnly,
     accessGate = accessGate,
+    revisionGuard = revisionGuard,
 )
 
 private fun updated(payload: Tag) =
@@ -70,6 +72,13 @@ private fun updated(payload: Tag) =
         revision = payload.revision,
         occurredAt = 1L,
         payload = payload,
+    )
+
+/** A [RevisionGuard] whose local lookup always returns the fixed [local] value. */
+private fun guard(local: Long?) =
+    RevisionGuard<Tag>(
+        incomingRevision = { it.revision },
+        localRevision = { local },
     )
 
 class ComposedSyncDomainHandlerTest :
@@ -257,5 +266,102 @@ class ComposedSyncDomainHandlerTest :
 
             val plain = domain(RecordingApply()).toHandler(runner, ClientSyncDomainRegistry())
             (plain is AccessFilteredSyncHandler) shouldBe false
+        }
+
+        test("revisionGuard skips a stale catch-up item (incoming < local)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = 10L))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
+            apply.upserts.shouldBeEmpty()
+        }
+
+        test("revisionGuard applies a catch-up item at an equal revision (digest-repair semantics)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = 5L))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
+            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+        }
+
+        test("revisionGuard applies a fresher catch-up item (incoming > local)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = 4L))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
+            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+        }
+
+        test("revisionGuard applies a catch-up item when the row has never been seen (null local revision)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = null))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
+            apply.upserts.map { it.id } shouldContainExactly listOf("t1")
+        }
+
+        test("revisionGuard skips a stale catch-up tombstone (incoming < local)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = 10L))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onCatchUpItem(tag(revision = 5L), isTombstone = true)
+            apply.tombstonesFromItem.shouldBeEmpty()
+        }
+
+        test("revisionGuard applies a catch-up tombstone when the row has never been seen (null local revision)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = null))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onCatchUpItem(tag(revision = 5L), isTombstone = true)
+            apply.tombstonesFromItem.map { it.id } shouldContainExactly listOf("t1")
+        }
+
+        test("revisionGuard skips a stale live Updated event (replayed-frame race)") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = 10L))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = false)
+            apply.upserts.shouldBeEmpty()
+        }
+
+        test("revisionGuard skips a stale live Deleted event") {
+            val apply = RecordingApply()
+            val handler =
+                domain(apply, revisionGuard = guard(local = 10L))
+                    .toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 5L, occurredAt = 99L), isOwnEcho = false)
+            apply.tombstonesById.shouldBeEmpty()
+        }
+
+        test("revisionGuard runs before the EchoShielded shield — a stale own echo does not invoke it") {
+            val apply = RecordingApply()
+            val shielded = mutableListOf<String>()
+            val handler =
+                domain(
+                    apply,
+                    conflict =
+                        ConflictPolicy.EchoShielded { id, _ ->
+                            shielded += id
+                            true
+                        },
+                    revisionGuard = guard(local = 10L),
+                ).toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = true)
+            shielded.shouldBeEmpty()
+            apply.upserts.shouldBeEmpty()
+        }
+
+        test("a domain with no revisionGuard applies a would-be-stale event unconditionally (guard opt-out)") {
+            val apply = RecordingApply()
+            val handler = domain(apply).toHandler(runner, ClientSyncDomainRegistry())
+            handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = false)
+            apply.upserts.map { it.revision } shouldContainExactly listOf(5L)
         }
     })

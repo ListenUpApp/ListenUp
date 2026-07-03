@@ -28,6 +28,11 @@ internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfB
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.shelfBookDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.shelfBookDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [ShelfBookSyncPayload] junction payloads. */

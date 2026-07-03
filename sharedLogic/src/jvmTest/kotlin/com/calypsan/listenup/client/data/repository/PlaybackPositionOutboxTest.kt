@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
+import com.calypsan.listenup.client.domain.repository.PlaybackUpdate
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
@@ -37,6 +38,12 @@ class PlaybackPositionOutboxTest :
                 isFinished = false,
                 finishedAt = null,
                 startedAt = 500L,
+            )
+
+        fun finishedEntity(bookId: BookId) =
+            playedEntity(bookId).copy(
+                isFinished = true,
+                finishedAt = 900L,
             )
 
         fun repoAgainst(db: ListenUpDatabase): PlaybackPositionRepositoryImpl =
@@ -104,6 +111,100 @@ class PlaybackPositionOutboxTest :
                     val repo = repoAgainst(db)
                     repo.discardProgress(BookId("missing")).shouldBeInstanceOf<AppResult.Success<*>>()
                     db.pendingOperationV2Dao().observePending().first() shouldHaveSize 0
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("PeriodicUpdate on a finished book keeps finished=true in the enqueued request") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(finishedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.PeriodicUpdate(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).finished shouldBe true
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("Position on a finished book keeps finished=true in the enqueued request") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(finishedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).finished shouldBe true
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("PlaybackStarted on a finished book keeps finished=true in the enqueued request") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(finishedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.PlaybackStarted(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).finished shouldBe true
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("Position on an unfinished book enqueues finished=false") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).finished shouldBe false
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("Position with no local row enqueues finished=false") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("missing")
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 5_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).finished shouldBe false
                 } finally {
                     db.close()
                 }

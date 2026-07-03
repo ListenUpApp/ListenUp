@@ -489,6 +489,10 @@ internal interface BookDao {
     @Query("SELECT id AS id, revision FROM books WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM books WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: BookId): Long?
+
     /**
      * One-shot lightweight summary for a single book — title, cover blur hash, and primary
      * author — used to enrich social presence sessions from the viewer's local library.

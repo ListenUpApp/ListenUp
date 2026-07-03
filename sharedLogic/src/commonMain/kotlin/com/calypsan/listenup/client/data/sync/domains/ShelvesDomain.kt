@@ -21,6 +21,11 @@ internal fun shelvesDomain(database: ListenUpDatabase): MirroredDomain<ShelfSync
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.shelfDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.shelfDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [ShelfSyncPayload] payloads. */

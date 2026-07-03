@@ -90,6 +90,10 @@ internal interface CollectionDao {
     /** All rows (including tombstones) with [revision][CollectionEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM collections WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM collections WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }
 
 /**
@@ -170,6 +174,16 @@ internal interface CollectionBookDao {
      */
     @Query("SELECT collectionId || ':' || bookId AS id, revision FROM collection_books WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /**
+     * The stored revision of the junction row for [collectionId]/[bookId], tombstones included;
+     * null when the row has never been seen.
+     */
+    @Query("SELECT revision FROM collection_books WHERE collectionId = :collectionId AND bookId = :bookId LIMIT 1")
+    suspend fun revisionOf(
+        collectionId: String,
+        bookId: String,
+    ): Long?
 }
 
 /**
@@ -230,4 +244,8 @@ internal interface CollectionShareDao {
     /** All rows (including tombstones) with [revision][CollectionShareEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM collection_shares WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM collection_shares WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }

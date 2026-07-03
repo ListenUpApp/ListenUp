@@ -52,6 +52,7 @@ import com.calypsan.listenup.server.api.TagServiceImpl
 import com.calypsan.listenup.server.api.UserPreferencesServiceImpl
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.rpcguard.guard
+import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.Route
 import kotlinx.rpc.krpc.ktor.server.rpc
@@ -78,9 +79,9 @@ private fun Route.publicRpc(services: RpcServices) {
 private fun Route.authedRpc(services: RpcServices) {
     rpc("/api/rpc/authed") {
         rpcConfig { serialization { json(contractJson) } }
-        // ScannerService is a principal-free singleton (no copyWith); registered here so the
-        // JWT gate on the authed mount applies, but as a plain service rather than registerScoped.
-        registerService<ScannerService> { guard(services.scannerService) }
+        // scanFull() is ROOT/ADMIN-gated inside ScannerServiceImpl, so the registration binds
+        // the caller's principal like every other authed service.
+        registerScoped<ScannerService> { guard((services.scannerService as ScannerServiceImpl).copyWith(it)) }
         registerScoped<AuthServiceAuthed> { guard(services.authService.copyWith(it) as AuthServiceAuthed) }
         registerScoped<BookService> { guard((services.bookService as BookServiceImpl).copyWith(it)) }
         registerScoped<ContributorService> {

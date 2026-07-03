@@ -18,6 +18,11 @@ internal fun librariesDomain(database: ListenUpDatabase): MirroredDomain<Library
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.libraryDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.libraryDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [LibrarySyncPayload] payloads. */

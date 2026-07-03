@@ -50,11 +50,14 @@ private val PROACTIVE_CHECK_CADENCE = 5.minutes
  * refreshes interleave, last-write-wins on the stored tokens — both will
  * observe the most recent rotation on their next read. A unified refresh
  * authority is not yet implemented.
+ *
+ * The [clock] defaults to [Clock.System]; tests inject a virtual clock.
  */
 class CachedAudioTokenProvider(
     private val authSession: AuthSession,
     private val authRepository: AuthRepository,
     private val scope: CoroutineScope,
+    private val clock: Clock = Clock.System,
 ) : AudioTokenProvider {
     @Volatile
     private var cachedToken: AccessToken? = null
@@ -150,7 +153,7 @@ class CachedAudioTokenProvider(
         }
     }
 
-    private fun now(): Long = Clock.System.now().toEpochMilliseconds()
+    private fun now(): Long = clock.now().toEpochMilliseconds()
 
     companion object {
         private val STORED_TOKEN_GRACE = 50.minutes
