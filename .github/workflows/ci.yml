@@ -131,6 +131,25 @@ jobs:
             echo 'No E2E auto-retries recorded (probe retries excluded).'
           fi
 
+      # Coverage signal (non-gating): Kover is applied on the JVM-pure modules only
+      # (:server, :rpc-guard-ksp) — the androidKmpLibrary modules are unsupported
+      # upstream. The XML artifact enables future diff-coverage tooling; there is
+      # deliberately NO threshold/verify gate here.
+      - name: Generate coverage reports (Kover, non-gating)
+        continue-on-error: true
+        run: ./gradlew :server:koverXmlReport :rpc-guard-ksp:koverXmlReport --no-daemon
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: kover-coverage
+          path: |
+            server/build/reports/kover/report.xml
+            rpc-guard-ksp/build/reports/kover/report.xml
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Upload test results
         uses: actions/upload-artifact@v7
         if: always()
