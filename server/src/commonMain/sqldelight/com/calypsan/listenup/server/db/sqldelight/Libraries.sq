@@ -18,7 +18,8 @@ CREATE TABLE libraries (
     updated_at          INTEGER NOT NULL DEFAULT 0,
     deleted_at          INTEGER,
     client_op_id        TEXT,
-    inbox_enabled       INTEGER NOT NULL DEFAULT 0
+    inbox_enabled       INTEGER NOT NULL DEFAULT 0,
+    initial_scan_completed_at INTEGER
 );
 
 CREATE INDEX idx_libraries_revision ON libraries(revision);
@@ -80,6 +81,18 @@ UPDATE libraries
 SET inbox_enabled = :inbox_enabled, revision = :revision, updated_at = :updated_at,
     client_op_id = :client_op_id
 WHERE id = :id AND deleted_at IS NULL;
+
+-- ── initial_scan_completed_at gate (off-payload write, first-only) ────────────
+
+-- Stamps the first-ever scan-completion time, bumping revision/updated_at so clients reconcile the
+-- flag reactively. The `initial_scan_completed_at IS NULL` guard makes it first-only — a rescan of an
+-- already-populated library never re-stamps. Returns the affected row count (0 = already stamped or no
+-- live row). Like inbox_enabled, this off-payload column is written directly here, never through the
+-- syncable `update`.
+markInitialScanCompleted:
+UPDATE libraries
+SET initial_scan_completed_at = :completed_at, revision = :revision, updated_at = :updated_at
+WHERE id = :id AND deleted_at IS NULL AND initial_scan_completed_at IS NULL;
 
 -- The id of the first live (non-deleted) library — drives CollectionDomainSeeder's demo-library lookup.
 selectFirstLiveId:

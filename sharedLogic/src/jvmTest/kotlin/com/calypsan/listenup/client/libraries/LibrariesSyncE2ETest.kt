@@ -221,6 +221,7 @@ private fun libraryPayload(
         updatedAt = now,
         createdAt = now,
         deletedAt = null,
+        initialScanCompletedAt = null,
     )
 }
 

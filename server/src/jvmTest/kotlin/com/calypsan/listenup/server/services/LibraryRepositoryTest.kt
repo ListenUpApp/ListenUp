@@ -222,7 +222,78 @@ class LibraryRepositoryTest :
                 }
             }
         }
+
+        // ── initial_scan_completed_at: the server-authoritative first-scan gate ────
+
+        test("markInitialScanCompleted stamps the first time, bumps revision, and publishes Updated") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = LibraryRepository(db = sql, bus = bus, registry = SyncRegistry())
+                runTest {
+                    val deferred = async { bus.subscribe().drop(1).first() }
+                    advanceUntilIdle()
+
+                    val created = repo.upsert(libraryPayload(id = "lib1", name = "Lib")) as AppResult.Success
+                    // Default: never scanned.
+                    repo.stampOf("lib1") shouldBe null
+
+                    repo.markInitialScanCompleted(LibraryId("lib1"), completedAt = 5_000L) shouldBe true
+                    repo.stampOf("lib1") shouldBe 5_000L
+
+                    val busEvent = deferred.await()
+                    busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<LibrarySyncPayload>>()
+                    busEvent.event.id shouldBe "lib1"
+                    (busEvent.event.revision > created.data.revision) shouldBe true
+                }
+            }
+        }
+
+        test("markInitialScanCompleted is first-only: a second call does not overwrite and publishes nothing") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = LibraryRepository(db = sql, bus = bus, registry = SyncRegistry())
+                runTest {
+                    repo.upsert(libraryPayload(id = "lib1", name = "Lib"))
+                    repo.markInitialScanCompleted(LibraryId("lib1"), completedAt = 5_000L) shouldBe true
+
+                    // A rescan of the already-stamped library writes nothing and returns false.
+                    repo.markInitialScanCompleted(LibraryId("lib1"), completedAt = 9_999L) shouldBe false
+                    // The original stamp is untouched — the IS NULL guard held.
+                    repo.stampOf("lib1") shouldBe 5_000L
+                }
+            }
+        }
+
+        test("markInitialScanCompleted on a missing library returns false") {
+            withSqlDatabase {
+                val repo = LibraryRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.markInitialScanCompleted(LibraryId("does-not-exist"), completedAt = 1L) shouldBe false
+                }
+            }
+        }
+
+        test("a syncable upsert preserves an already-stamped initial-scan completion") {
+            withSqlDatabase {
+                val repo = LibraryRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    repo.upsert(libraryPayload(id = "lib1", name = "Lib"))
+                    repo.markInitialScanCompleted(LibraryId("lib1"), completedAt = 5_000L)
+
+                    // A plain rename must NOT reset the off-payload stamp (the update query omits it).
+                    repo.upsert(libraryPayload(id = "lib1", name = "Renamed"))
+                    repo.stampOf("lib1") shouldBe 5_000L
+                }
+            }
+        }
     })
+
+/** Reads the `initial_scan_completed_at` for [id] via the syncable read path (`readPayload` is protected). */
+private suspend fun LibraryRepository.stampOf(id: String): Long? =
+    pullSince(userId = null, cursor = 0L, limit = 100)
+        .items
+        .firstOrNull { it.id == id }
+        ?.initialScanCompletedAt
 
 private fun libraryPayload(
     id: String,
@@ -241,4 +312,5 @@ private fun libraryPayload(
         updatedAt = 0L,
         createdAt = 0L,
         deletedAt = null,
+        initialScanCompletedAt = null,
     )

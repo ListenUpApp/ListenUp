@@ -97,7 +97,7 @@ class LibraryReadinessTest :
             progress: MutableStateFlow<ScanProgressState?> = MutableStateFlow(null),
         ): SyncRepository {
             val sync = mock<SyncRepository>()
-            every { sync.isServerScanning } returns scanning
+            every { sync.isBuildingInitialLibrary } returns scanning
             every { sync.scanProgress } returns progress
             return sync
         }

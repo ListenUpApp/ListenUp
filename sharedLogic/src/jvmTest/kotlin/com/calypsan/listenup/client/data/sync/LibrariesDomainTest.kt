@@ -150,4 +150,5 @@ private fun payload(
     updatedAt = 100L,
     createdAt = 1L,
     deletedAt = deletedAt,
+    initialScanCompletedAt = null,
 )
