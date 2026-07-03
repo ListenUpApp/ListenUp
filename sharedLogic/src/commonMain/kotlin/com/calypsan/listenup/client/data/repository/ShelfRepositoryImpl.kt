@@ -54,23 +54,23 @@ internal class ShelfRepositoryImpl(
     override fun observeMyShelves(userId: String): Flow<List<Shelf>> =
         dao.observeMyShelvesWithBookCount().map { rows -> rows.map { it.toDomain() } }
 
-    override fun observeShelvesContainingBook(bookId: String): Flow<List<Shelf>> =
-        dao.observeShelvesContainingBookWithBookCount(bookId).map { rows -> rows.map { it.toDomain() } }
+    override fun observeShelvesContainingBook(bookId: BookId): Flow<List<Shelf>> =
+        dao.observeShelvesContainingBookWithBookCount(bookId.value).map { rows -> rows.map { it.toDomain() } }
 
-    override fun observeById(id: String): Flow<Shelf?> =
-        dao.observeById(id).map { entity ->
+    override fun observeById(id: ShelfId): Flow<Shelf?> =
+        dao.observeById(id.value).map { entity ->
             entity?.toDomainWithDerived(
-                coverPaths = dao.coverHashesFor(id),
-                totalDurationMs = dao.totalDurationMsFor(id),
-                bookCountOverride = dao.bookCountFor(id),
+                coverPaths = dao.coverHashesFor(id.value),
+                totalDurationMs = dao.totalDurationMsFor(id.value),
+                bookCountOverride = dao.bookCountFor(id.value),
             )
         }
 
-    override suspend fun getById(id: String): Shelf? =
-        dao.getById(id)?.toDomainWithDerived(
-            coverPaths = dao.coverHashesFor(id),
-            totalDurationMs = dao.totalDurationMsFor(id),
-            bookCountOverride = dao.bookCountFor(id),
+    override suspend fun getById(id: ShelfId): Shelf? =
+        dao.getById(id.value)?.toDomainWithDerived(
+            coverPaths = dao.coverHashesFor(id.value),
+            totalDurationMs = dao.totalDurationMsFor(id.value),
+            bookCountOverride = dao.bookCountFor(id.value),
         )
 
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
@@ -85,10 +85,10 @@ internal class ShelfRepositoryImpl(
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
-    override suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail> =
-        rpcCall { rpcFactory.get().getShelf(ShelfId(shelfId)) }
+    override suspend fun getShelfDetail(shelfId: ShelfId): AppResult<ShelfDetail> =
+        rpcCall { rpcFactory.get().getShelf(shelfId) }
             .map { detail ->
-                val coverHashByBook = dao.coverHashesByBookFor(shelfId).associate { it.bookId to it.coverHash }
+                val coverHashByBook = dao.coverHashesByBookFor(shelfId.value).associate { it.bookId to it.coverHash }
                 detail.toDomain(coverHashByBook)
             }
 
@@ -108,47 +108,47 @@ internal class ShelfRepositoryImpl(
         }.map { it.toDomain() }
 
     override suspend fun updateShelf(
-        shelfId: String,
+        shelfId: ShelfId,
         name: String,
         description: String?,
         isPrivate: Boolean,
     ): AppResult<Shelf> =
         rpcCall {
             rpcFactory.get().updateShelf(
-                shelfId = ShelfId(shelfId),
+                shelfId = shelfId,
                 name = name,
                 description = description ?: "",
                 isPrivate = isPrivate,
             )
         }.map { it.toDomain() }
 
-    override suspend fun deleteShelf(shelfId: String): AppResult<Unit> =
-        rpcCall { rpcFactory.get().deleteShelf(ShelfId(shelfId)) }
+    override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> =
+        rpcCall { rpcFactory.get().deleteShelf(shelfId) }
 
     override suspend fun addBooksToShelf(
-        shelfId: String,
-        bookIds: List<String>,
+        shelfId: ShelfId,
+        bookIds: List<BookId>,
     ): AppResult<Unit> {
         // The RPC surface adds one book at a time (idempotent); dispatch each and
         // fail fast on the first error. SSE echoes update Room — no optimistic write.
         bookIds.forEach { bookId ->
-            val result = rpcCall { rpcFactory.get().addBookToShelf(ShelfId(shelfId), BookId(bookId)) }
+            val result = rpcCall { rpcFactory.get().addBookToShelf(shelfId, bookId) }
             if (result is AppResult.Failure) return result
         }
         return AppResult.Success(Unit)
     }
 
     override suspend fun removeBookFromShelf(
-        shelfId: String,
-        bookId: String,
-    ): AppResult<Unit> = rpcCall { rpcFactory.get().removeBookFromShelf(ShelfId(shelfId), BookId(bookId)) }
+        shelfId: ShelfId,
+        bookId: BookId,
+    ): AppResult<Unit> = rpcCall { rpcFactory.get().removeBookFromShelf(shelfId, bookId) }
 
     override suspend fun reorderBooks(
-        shelfId: String,
-        orderedBookIds: List<String>,
+        shelfId: ShelfId,
+        orderedBookIds: List<BookId>,
     ): AppResult<Unit> =
         rpcCall {
-            rpcFactory.get().reorderShelfBooks(ShelfId(shelfId), orderedBookIds.map { BookId(it) })
+            rpcFactory.get().reorderShelfBooks(shelfId, orderedBookIds)
         }
 
     // ── Mapping ───────────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ internal class ShelfRepositoryImpl(
     ): Shelf {
         val currentUser = userDao.getCurrentUser()
         return Shelf(
-            id = id,
+            id = ShelfId(id),
             name = name,
             description = description.ifEmpty { null },
             isPrivate = isPrivate,
@@ -204,7 +204,7 @@ internal class ShelfRepositoryImpl(
 
 private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
     Shelf(
-        id = id.value,
+        id = id,
         name = name,
         description = description.ifEmpty { null },
         isPrivate = isPrivate,
@@ -218,7 +218,7 @@ private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =
 
 private fun DiscoveredShelf.toDomain(): Shelf =
     Shelf(
-        id = shelf.id.value,
+        id = shelf.id,
         name = shelf.name,
         description = shelf.description.ifEmpty { null },
         isPrivate = shelf.isPrivate,
@@ -232,7 +232,7 @@ private fun DiscoveredShelf.toDomain(): Shelf =
 
 private fun ShelfDetailDto.toDomain(coverHashByBook: Map<String, String?>): ShelfDetail =
     ShelfDetail(
-        id = id.value,
+        id = id,
         name = name,
         description = description.ifEmpty { null },
         isPrivate = isPrivate,
@@ -242,7 +242,7 @@ private fun ShelfDetailDto.toDomain(coverHashByBook: Map<String, String?>): Shel
         books =
             books.map { book ->
                 ShelfBook(
-                    id = book.bookId,
+                    id = BookId(book.bookId),
                     title = book.title,
                     authorNames = book.authors,
                     coverPath = null,

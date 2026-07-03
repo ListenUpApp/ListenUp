@@ -63,7 +63,7 @@ fun MyShelvesRow(
                         shelf = shelf,
                         containerColor = container,
                         contentColor = content,
-                        onClick = { onShelfClick(shelf.id) },
+                        onClick = { onShelfClick(shelf.id.value) },
                         fillWidth = true,
                     )
                 }
@@ -75,14 +75,14 @@ fun MyShelvesRow(
                 itemWidth = 180.dp,
                 itemSpacing = Spacing.itemGap,
                 contentPadding = PaddingValues(horizontal = Spacing.screenMargin),
-                key = { it.id },
+                key = { it.id.value },
             ) { shelf ->
                 val (container, content) = shelfColors(shelves.indexOf(shelf))
                 ShelfCard(
                     shelf = shelf,
                     containerColor = container,
                     contentColor = content,
-                    onClick = { onShelfClick(shelf.id) },
+                    onClick = { onShelfClick(shelf.id.value) },
                 )
             }
         }

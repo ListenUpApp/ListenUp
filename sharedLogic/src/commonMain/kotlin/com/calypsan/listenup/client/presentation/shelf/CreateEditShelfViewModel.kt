@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
+import com.calypsan.listenup.core.ShelfId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -44,7 +45,7 @@ class CreateEditShelfViewModel(
     private val _navActions = Channel<CreateEditShelfNavAction>(Channel.BUFFERED)
     val navActions: Flow<CreateEditShelfNavAction> = _navActions.receiveAsFlow()
 
-    private var editingShelfId: String? = null
+    private var editingShelfId: ShelfId? = null
 
     /** Prepare for creating a new shelf. */
     fun initCreate() {
@@ -54,13 +55,14 @@ class CreateEditShelfViewModel(
 
     /** Prepare for editing an existing shelf by id. Fetches the current data. */
     fun initEdit(shelfId: String) {
-        editingShelfId = shelfId
+        val id = ShelfId(shelfId)
+        editingShelfId = id
         viewModelScope.launch {
             state.value = CreateEditShelfUiState.LoadingExisting
 
             state.value =
                 try {
-                    val shelf = shelfRepository.getById(shelfId)
+                    val shelf = shelfRepository.getById(id)
                     if (shelf != null) {
                         CreateEditShelfUiState.Loaded(
                             name = shelf.name,

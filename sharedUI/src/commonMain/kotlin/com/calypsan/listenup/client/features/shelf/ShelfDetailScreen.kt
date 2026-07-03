@@ -262,8 +262,8 @@ private fun ShelfDetailContent(
                 ShelfEmptyState(isOwner = isOwner)
             }
         } else {
-            items(items = sortedBooks, key = { it.id }) { book ->
-                ShelfBookGridItem(book = book, onClick = { onBookClick(book.id) })
+            items(items = sortedBooks, key = { it.id.value }) { book ->
+                ShelfBookGridItem(book = book, onClick = { onBookClick(book.id.value) })
             }
         }
     }

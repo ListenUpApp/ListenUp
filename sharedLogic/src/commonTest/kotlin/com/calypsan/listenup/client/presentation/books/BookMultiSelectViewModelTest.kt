@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollecti
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -100,7 +101,7 @@ class BookMultiSelectViewModelTest :
             name: String = "My Shelf",
         ): Shelf =
             Shelf(
-                id = id,
+                id = ShelfId(id),
                 name = name,
                 description = "",
                 isPrivate = false,
@@ -233,7 +234,7 @@ class BookMultiSelectViewModelTest :
                 }
 
                 viewModel.selectionMode.value shouldBe SelectionMode.None
-                verifySuspend { fixture.addBooksToShelfUseCase("shelf-1", any()) }
+                verifySuspend { fixture.addBooksToShelfUseCase(ShelfId("shelf-1"), any()) }
             }
         }
 
@@ -367,7 +368,7 @@ class BookMultiSelectViewModelTest :
                 }
 
                 verifySuspend { fixture.createShelfUseCase("My New Shelf", null) }
-                verifySuspend { fixture.addBooksToShelfUseCase("new-shelf", any()) }
+                verifySuspend { fixture.addBooksToShelfUseCase(ShelfId("new-shelf"), any()) }
                 viewModel.selectionMode.value shouldBe SelectionMode.None
             }
         }

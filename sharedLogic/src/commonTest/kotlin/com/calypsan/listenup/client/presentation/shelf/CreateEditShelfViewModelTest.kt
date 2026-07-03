@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.DeleteShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.UpdateShelfUseCase
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -39,7 +40,7 @@ class CreateEditShelfViewModelTest :
 
         fun shelf(isPrivate: Boolean) =
             Shelf(
-                id = "s1",
+                id = ShelfId("s1"),
                 name = "Reads",
                 description = "desc",
                 isPrivate = isPrivate,
@@ -81,7 +82,7 @@ class CreateEditShelfViewModelTest :
         test("save in edit mode forwards the privacy flag to update") {
             runTest {
                 val repo: ShelfRepository =
-                    mock { everySuspend { getById("s1") } returns shelf(isPrivate = false) }
+                    mock { everySuspend { getById(ShelfId("s1")) } returns shelf(isPrivate = false) }
                 val update: UpdateShelfUseCase =
                     mock {
                         everySuspend {
@@ -95,14 +96,14 @@ class CreateEditShelfViewModelTest :
                 vm.save(name = "Reads", description = "desc", isPrivate = true)
                 advanceUntilIdle()
 
-                verifySuspend { update.invoke("s1", "Reads", "desc", true) }
+                verifySuspend { update.invoke(ShelfId("s1"), "Reads", "desc", true) }
             }
         }
 
         test("initEdit seeds the private flag from the loaded shelf") {
             runTest {
                 val repo: ShelfRepository =
-                    mock { everySuspend { getById("s1") } returns shelf(isPrivate = true) }
+                    mock { everySuspend { getById(ShelfId("s1")) } returns shelf(isPrivate = true) }
                 val vm = viewModel(repo = repo)
 
                 vm.initEdit("s1")

@@ -57,7 +57,7 @@ struct HomeWrapperTests {
 
     @Test func shelfItemMapsFields() {
         let shelf = Shelf(
-            id: "shelf-1",
+            id: ShelfId(value: "shelf-1"),
             name: "To Read",
             description: nil,
             isPrivate: false,

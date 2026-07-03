@@ -201,7 +201,7 @@ class DiscoverViewModel(
      */
     private fun Shelf.toUiModel(): DiscoverShelfUi =
         DiscoverShelfUi(
-            id = id,
+            id = id.value,
             name = name,
             description = description,
             bookCount = bookCount,

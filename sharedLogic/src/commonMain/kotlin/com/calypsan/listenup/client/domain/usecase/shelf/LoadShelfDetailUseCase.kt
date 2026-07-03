@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.domain.usecase.shelf
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.domain.repository.ImageRepository
@@ -31,14 +31,14 @@ open class LoadShelfDetailUseCase(
      * @param shelfId The shelf ID to load
      * @return Result containing the shelf detail or a failure
      */
-    open suspend operator fun invoke(shelfId: String): AppResult<ShelfDetail> {
+    open suspend operator fun invoke(shelfId: ShelfId): AppResult<ShelfDetail> {
         logger.debug { "Loading shelf detail: $shelfId" }
 
         return shelfRepository.getShelfDetail(shelfId).map { shelfDetail ->
             // Resolve local cover paths for books
             val booksWithLocalCovers =
                 shelfDetail.books.map { book ->
-                    val bookId = BookId(book.id)
+                    val bookId = book.id
                     val localCoverPath =
                         if (imageRepository.bookCoverExists(bookId)) {
                             imageRepository.getBookCoverPath(bookId)

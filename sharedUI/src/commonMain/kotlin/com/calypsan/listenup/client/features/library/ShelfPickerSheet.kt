@@ -158,11 +158,11 @@ fun ShelfPickerSheet(
                     } else {
                         items(
                             items = shelves,
-                            key = { it.id },
+                            key = { it.id.value },
                         ) { shelf ->
                             ShelfRow(
                                 shelf = shelf,
-                                onClick = { onShelfSelected(shelf.id) },
+                                onClick = { onShelfSelected(shelf.id.value) },
                                 enabled = !isLoading,
                             )
                         }

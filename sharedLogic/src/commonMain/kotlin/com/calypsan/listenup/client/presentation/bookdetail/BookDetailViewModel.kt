@@ -26,6 +26,7 @@ import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.client.core.Failure
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -154,7 +155,7 @@ class BookDetailViewModel(
     val shelvesContainingBook: StateFlow<List<Shelf>> =
         bookIdFlow
             .filterNotNull()
-            .flatMapLatest { id -> shelfRepository.observeShelvesContainingBook(id) }
+            .flatMapLatest { id -> shelfRepository.observeShelvesContainingBook(BookId(id)) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**
@@ -516,7 +517,7 @@ class BookDetailViewModel(
         val bookId = (state.value as? BookDetailUiState.Ready)?.book?.id?.value ?: return
         viewModelScope.launch {
             updateReady { it.copy(isAddingToShelf = true) }
-            when (val result = addBooksToShelfUseCase(shelfId, listOf(bookId))) {
+            when (val result = addBooksToShelfUseCase(ShelfId(shelfId), listOf(BookId(bookId)))) {
                 is AppResult.Success -> {
                     updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                     logger.info { "Added book $bookId to shelf $shelfId" }
@@ -540,7 +541,7 @@ class BookDetailViewModel(
             when (val result = createShelfUseCase(name, null)) {
                 is AppResult.Success -> {
                     val shelf = result.data
-                    when (val addResult = addBooksToShelfUseCase(shelf.id, listOf(bookId))) {
+                    when (val addResult = addBooksToShelfUseCase(shelf.id, listOf(BookId(bookId)))) {
                         is AppResult.Success -> {
                             updateReady { it.copy(isAddingToShelf = false, showShelfPicker = false) }
                             logger.info { "Created shelf '${shelf.name}' and added book $bookId" }

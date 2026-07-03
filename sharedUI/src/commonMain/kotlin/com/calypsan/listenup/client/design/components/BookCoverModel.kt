@@ -69,7 +69,7 @@ fun SearchHit.toCoverModel(): BookCoverModel =
 /** Bundle a shelf book's cover identity. */
 fun ShelfBook.toCoverModel(): BookCoverModel =
     BookCoverModel(
-        bookId = id,
+        bookId = id.value,
         title = title,
         author = authorNames.joinToString(", "),
         coverPath = coverPath,

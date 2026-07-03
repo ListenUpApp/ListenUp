@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.validationError
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.core.ShelfId
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -37,7 +38,7 @@ open class UpdateShelfUseCase(
      * @return Result containing the updated shelf or a failure
      */
     open suspend operator fun invoke(
-        shelfId: String,
+        shelfId: ShelfId,
         name: String,
         description: String?,
         isPrivate: Boolean = false,

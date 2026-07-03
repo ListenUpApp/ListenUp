@@ -6,6 +6,8 @@ import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -37,7 +39,7 @@ class ShelfDetailViewModelTest :
 
         fun detail(isOwner: Boolean) =
             ShelfDetail(
-                id = "s1",
+                id = ShelfId("s1"),
                 name = "Reads",
                 description = null,
                 isPrivate = false,
@@ -59,7 +61,7 @@ class ShelfDetailViewModelTest :
         test("loadShelf surfaces isOwner from the detail (owner)") {
             runTest {
                 val load: LoadShelfDetailUseCase =
-                    mock { everySuspend { invoke("s1") } returns AppResult.Success(detail(isOwner = true)) }
+                    mock { everySuspend { invoke(ShelfId("s1")) } returns AppResult.Success(detail(isOwner = true)) }
                 val vm = viewModel(load = load)
 
                 vm.loadShelf("s1")
@@ -73,7 +75,7 @@ class ShelfDetailViewModelTest :
         test("loadShelf surfaces isOwner from the detail (non-owner)") {
             runTest {
                 val load: LoadShelfDetailUseCase =
-                    mock { everySuspend { invoke("s1") } returns AppResult.Success(detail(isOwner = false)) }
+                    mock { everySuspend { invoke(ShelfId("s1")) } returns AppResult.Success(detail(isOwner = false)) }
                 val vm = viewModel(load = load)
 
                 vm.loadShelf("s1")
@@ -87,7 +89,7 @@ class ShelfDetailViewModelTest :
         test("loadShelf failure maps to the Error state") {
             runTest {
                 val load: LoadShelfDetailUseCase =
-                    mock { everySuspend { invoke("s1") } returns AppResult.Failure(ShelfError.NotFound()) }
+                    mock { everySuspend { invoke(ShelfId("s1")) } returns AppResult.Failure(ShelfError.NotFound()) }
                 val vm = viewModel(load = load)
 
                 vm.loadShelf("s1")
@@ -100,7 +102,7 @@ class ShelfDetailViewModelTest :
         test("reorderBooks dispatches the new order and reloads") {
             runTest {
                 val load: LoadShelfDetailUseCase =
-                    mock { everySuspend { invoke("s1") } returns AppResult.Success(detail(isOwner = true)) }
+                    mock { everySuspend { invoke(ShelfId("s1")) } returns AppResult.Success(detail(isOwner = true)) }
                 val reorder: ReorderShelfBooksUseCase =
                     mock { everySuspend { invoke(any(), any()) } returns AppResult.Success(Unit) }
                 val vm = viewModel(load = load, reorder = reorder)
@@ -110,7 +112,7 @@ class ShelfDetailViewModelTest :
                 vm.reorderBooks(listOf("b2", "b1"))
                 advanceUntilIdle()
 
-                verifySuspend { reorder.invoke("s1", listOf("b2", "b1")) }
+                verifySuspend { reorder.invoke(ShelfId("s1"), listOf(BookId("b2"), BookId("b1"))) }
             }
         }
 

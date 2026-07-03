@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -94,7 +95,7 @@ class UserProfileViewModelTest :
             bookCount: Int = 3,
         ): Shelf =
             Shelf(
-                id = id,
+                id = ShelfId(id),
                 name = name,
                 description = null,
                 isPrivate = false,

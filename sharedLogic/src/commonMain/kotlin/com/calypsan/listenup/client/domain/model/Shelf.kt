@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.core.ShelfId
+
 /**
  * Domain model for a personal curation shelf.
  *
@@ -13,7 +15,7 @@ package com.calypsan.listenup.client.domain.model
  * books in the local Room mirror — discovered (other-user) shelves carry empty
  * covers and zero duration because their member books never enter the mirror.
  *
- * @property id Unique identifier
+ * @property id Unique identifier (typed [ShelfId])
  * @property name Display name (e.g., "To Read", "Favorites")
  * @property description Optional description
  * @property isPrivate `true` if only the owner can see this shelf
@@ -26,7 +28,7 @@ package com.calypsan.listenup.client.domain.model
  * @property coverPaths Cover hashes for the shelf's first few member books, in sort order
  */
 data class Shelf(
-    val id: String,
+    val id: ShelfId,
     val name: String,
     val description: String?,
     val isPrivate: Boolean,
@@ -38,6 +40,9 @@ data class Shelf(
     val updatedAtMs: Long,
     val coverPaths: List<String> = emptyList(),
 ) {
+    /** The shelf id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+
     /**
      * Returns the display name formatted for the current user context.
      * - Owner sees: "To Read"

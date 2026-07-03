@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.presentation.shelf
 
 import com.calypsan.listenup.client.domain.model.ShelfBook
+import com.calypsan.listenup.core.BookId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
@@ -14,7 +15,7 @@ class ShelfBookSortTest :
             id: String,
             title: String,
             author: String,
-        ) = ShelfBook(id = id, title = title, authorNames = listOf(author), coverPath = null)
+        ) = ShelfBook(id = BookId(id), title = title, authorNames = listOf(author), coverPath = null)
 
         // Natural order = added oldest → newest.
         val first = book("1", "Mistborn", "Brandon Sanderson")
@@ -23,11 +24,11 @@ class ShelfBookSortTest :
         val natural = listOf(first, second, third)
 
         test("ADDED_OLDEST keeps the natural added order") {
-            sortShelfBooks(natural, ShelfBookSort.ADDED_OLDEST).map { it.id } shouldBe listOf("1", "2", "3")
+            sortShelfBooks(natural, ShelfBookSort.ADDED_OLDEST).map { it.id.value } shouldBe listOf("1", "2", "3")
         }
 
         test("ADDED_NEWEST reverses to newest-first") {
-            sortShelfBooks(natural, ShelfBookSort.ADDED_NEWEST).map { it.id } shouldBe listOf("3", "2", "1")
+            sortShelfBooks(natural, ShelfBookSort.ADDED_NEWEST).map { it.id.value } shouldBe listOf("3", "2", "1")
         }
 
         test("TITLE sorts case-insensitively A–Z") {
@@ -41,7 +42,7 @@ class ShelfBookSortTest :
         }
 
         test("a book with no authors sorts last under AUTHOR without crashing") {
-            val orphan = ShelfBook(id = "x", title = "Orphan", authorNames = emptyList(), coverPath = null)
-            sortShelfBooks(listOf(orphan, third), ShelfBookSort.AUTHOR).map { it.id } shouldBe listOf("3", "x")
+            val orphan = ShelfBook(id = BookId("x"), title = "Orphan", authorNames = emptyList(), coverPath = null)
+            sortShelfBooks(listOf(orphan, third), ShelfBookSort.AUTHOR).map { it.id.value } shouldBe listOf("3", "x")
         }
     })

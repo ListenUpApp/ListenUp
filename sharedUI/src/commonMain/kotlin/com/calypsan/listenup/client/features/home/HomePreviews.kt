@@ -23,6 +23,7 @@ import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.model.ContinueListeningBook
 import com.calypsan.listenup.client.domain.model.ContinueListeningItem
 import com.calypsan.listenup.client.domain.model.Shelf
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.client.features.home.components.ContinueListeningRow
 import com.calypsan.listenup.client.features.home.components.HomeHeader
 import com.calypsan.listenup.client.features.home.components.HomeStatsContent
@@ -63,7 +64,7 @@ private fun mockShelf(
     name: String,
     count: Int,
 ) = Shelf(
-    id = id,
+    id = ShelfId(id),
     name = name,
     description = null,
     isPrivate = false,

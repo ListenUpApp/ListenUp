@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.error.ErrorBus
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 
@@ -109,7 +110,7 @@ class DiscoverViewModelTest :
             ownerDisplayName: String = "Alice",
         ): Shelf =
             Shelf(
-                id = id,
+                id = ShelfId(id),
                 name = "A Shelf",
                 description = null,
                 isPrivate = false,

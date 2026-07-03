@@ -11,6 +11,8 @@ import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -245,7 +247,7 @@ class BookMultiSelectViewModel(
             isAddingToShelf.value = true
             val bookIds = selectedIds.toList()
 
-            when (val result = addBooksToShelfUseCase(shelfId, bookIds)) {
+            when (val result = addBooksToShelfUseCase(ShelfId(shelfId), bookIds.map { BookId(it) })) {
                 is AppResult.Success -> {
                     logger.info { "Added ${bookIds.size} books to shelf $shelfId" }
                     eventsChannel.send(BookMultiSelectEvent.BooksAddedToShelf(bookIds.size))
@@ -282,7 +284,7 @@ class BookMultiSelectViewModel(
                     val newShelf = createResult.data
                     logger.info { "Created shelf '${newShelf.name}' with id ${newShelf.id}" }
 
-                    when (val addResult = addBooksToShelfUseCase(newShelf.id, bookIds)) {
+                    when (val addResult = addBooksToShelfUseCase(newShelf.id, bookIds.map { BookId(it) })) {
                         is AppResult.Success -> {
                             logger.info { "Added ${bookIds.size} books to new shelf ${newShelf.id}" }
                             eventsChannel.send(

@@ -107,7 +107,7 @@ class ShelfRepositoryImplTest :
                         everySuspend { totalDurationMsFor("s1") } returns 7_200_000L
                     }
                 val result = repo(shelfDao = dao).observeMyShelves("owner1").first()
-                result.map { it.id } shouldContainExactly listOf("s1")
+                result.map { it.id.value } shouldContainExactly listOf("s1")
                 val shelf = result.first()
                 shelf.bookCount shouldBe 5
                 shelf.isPrivate shouldBe true
@@ -127,7 +127,7 @@ class ShelfRepositoryImplTest :
                     }
                 val result = repo(service = service).createShelf("New", null, isPrivate = true)
                 val shelf = (result as AppResult.Success).data
-                shelf.id shouldBe "s-new"
+                shelf.id.value shouldBe "s-new"
                 shelf.name shouldBe "New"
                 shelf.isPrivate shouldBe true
             }
@@ -153,7 +153,7 @@ class ShelfRepositoryImplTest :
                             updateShelf(ShelfId("s1"), "Renamed", "", true)
                         } returns AppResult.Success(summary("s1", "Renamed", isPrivate = true))
                     }
-                repo(service = service).updateShelf("s1", "Renamed", null, isPrivate = true)
+                repo(service = service).updateShelf(ShelfId("s1"), "Renamed", null, isPrivate = true)
                 verifySuspend { service.updateShelf(ShelfId("s1"), "Renamed", "", true) }
             }
         }
@@ -164,7 +164,7 @@ class ShelfRepositoryImplTest :
                     mock<ShelfService> {
                         everySuspend { deleteShelf(ShelfId("s1")) } returns AppResult.Success(Unit)
                     }
-                val result = repo(service = service).deleteShelf("s1")
+                val result = repo(service = service).deleteShelf(ShelfId("s1"))
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
@@ -177,7 +177,7 @@ class ShelfRepositoryImplTest :
                         everySuspend { addBookToShelf(ShelfId("s1"), BookId("b2")) } returns
                             AppResult.Failure(ValidationError(message = "nope"))
                     }
-                val result = repo(service = service).addBooksToShelf("s1", listOf("b1", "b2"))
+                val result = repo(service = service).addBooksToShelf(ShelfId("s1"), listOf(BookId("b1"), BookId("b2")))
                 result.shouldBeInstanceOf<AppResult.Failure>()
             }
         }
@@ -188,7 +188,7 @@ class ShelfRepositoryImplTest :
                     mock<ShelfService> {
                         everySuspend { removeBookFromShelf(ShelfId("s1"), BookId("b1")) } returns AppResult.Success(Unit)
                     }
-                val result = repo(service = service).removeBookFromShelf("s1", "b1")
+                val result = repo(service = service).removeBookFromShelf(ShelfId("s1"), BookId("b1"))
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
@@ -201,7 +201,7 @@ class ShelfRepositoryImplTest :
                             reorderShelfBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
                         } returns AppResult.Success(Unit)
                     }
-                repo(service = service).reorderBooks("s1", listOf("b2", "b1"))
+                repo(service = service).reorderBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1")))
                 verifySuspend { service.reorderShelfBooks(ShelfId("s1"), listOf(BookId("b2"), BookId("b1"))) }
             }
         }
@@ -225,7 +225,7 @@ class ShelfRepositoryImplTest :
                 val shelves = (result as AppResult.Success).data
                 shelves shouldContainExactly shelves // size assertion below
                 val shelf = shelves.first()
-                shelf.id shouldBe "s9"
+                shelf.id.value shouldBe "s9"
                 shelf.ownerId shouldBe "u2"
                 shelf.ownerDisplayName shouldBe "Sam"
                 shelf.bookCount shouldBe 3
@@ -242,7 +242,7 @@ class ShelfRepositoryImplTest :
                         everySuspend { bookCountFor("s1") } returns 7
                         everySuspend { totalDurationMsFor("s1") } returns 0L
                     }
-                val shelf = repo(shelfDao = dao).observeById("s1").first()
+                val shelf = repo(shelfDao = dao).observeById(ShelfId("s1")).first()
                 shelf!!.bookCount shouldBe 7
             }
         }
@@ -269,7 +269,7 @@ class ShelfRepositoryImplTest :
                 val shelves = (result as AppResult.Success).data
                 shelves.size shouldBe 1
                 val shelf = shelves.first()
-                shelf.id shouldBe "s9"
+                shelf.id.value shouldBe "s9"
                 shelf.name shouldBe "Alice's picks"
                 shelf.bookCount shouldBe 4
             }
@@ -298,8 +298,8 @@ class ShelfRepositoryImplTest :
                         everySuspend { coverHashesFor("s1") } returns listOf("hash1")
                         everySuspend { totalDurationMsFor("s1") } returns 3_600_000L
                     }
-                val result = repo(shelfDao = dao).observeShelvesContainingBook("b1").first()
-                result.map { it.id } shouldContainExactly listOf("s1")
+                val result = repo(shelfDao = dao).observeShelvesContainingBook(BookId("b1")).first()
+                result.map { it.id.value } shouldContainExactly listOf("s1")
                 result.first().bookCount shouldBe 3
                 result.first().ownerId shouldBe "owner1"
             }
@@ -335,10 +335,10 @@ class ShelfRepositoryImplTest :
                                 ShelfBookCoverHash(bookId = "b2", coverHash = null),
                             )
                     }
-                val result = repo(shelfDao = dao, service = service).getShelfDetail("s1")
+                val result = repo(shelfDao = dao, service = service).getShelfDetail(ShelfId("s1"))
                 val detail = (result as AppResult.Success).data
-                detail.books.first { it.id == "b1" }.coverHash shouldBe "hash-b1"
-                detail.books.first { it.id == "b2" }.coverHash shouldBe null
+                detail.books.first { it.id.value == "b1" }.coverHash shouldBe "hash-b1"
+                detail.books.first { it.id.value == "b2" }.coverHash shouldBe null
             }
         }
 
@@ -348,7 +348,7 @@ class ShelfRepositoryImplTest :
                     mock<ShelfService> {
                         everySuspend { deleteShelf(ShelfId("s1")) } throws CancellationException("cancelled")
                     }
-                shouldThrow<CancellationException> { repo(service = service).deleteShelf("s1") }
+                shouldThrow<CancellationException> { repo(service = service).deleteShelf(ShelfId("s1")) }
             }
         }
     })

@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -31,7 +33,7 @@ class ShelfUseCasesTest :
             description: String? = null,
             isPrivate: Boolean = false,
         ) = Shelf(
-            id = id,
+            id = ShelfId(id),
             name = name,
             description = description,
             isPrivate = isPrivate,
@@ -125,7 +127,7 @@ class ShelfUseCasesTest :
                 } returns AppResult.Success(expectedShelf)
                 val useCase = UpdateShelfUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-123", name = "Updated Name", description = null)
+                val result = useCase(shelfId = ShelfId("shelf-123"), name = "Updated Name", description = null)
 
                 val success = result.shouldBeInstanceOf<AppResult.Success<Shelf>>()
                 success.data.name shouldBe "Updated Name"
@@ -140,9 +142,9 @@ class ShelfUseCasesTest :
                 } returns AppResult.Success(createShelf())
                 val useCase = UpdateShelfUseCase(shelfRepository)
 
-                useCase(shelfId = "shelf-456", name = "New Name", description = "New description", isPrivate = true)
+                useCase(shelfId = ShelfId("shelf-456"), name = "New Name", description = "New description", isPrivate = true)
 
-                verifySuspend { shelfRepository.updateShelf("shelf-456", "New Name", "New description", true) }
+                verifySuspend { shelfRepository.updateShelf(ShelfId("shelf-456"), "New Name", "New description", true) }
             }
         }
 
@@ -151,7 +153,7 @@ class ShelfUseCasesTest :
                 val shelfRepository: ShelfRepository = mock()
                 val useCase = UpdateShelfUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-123", name = "   ", description = null)
+                val result = useCase(shelfId = ShelfId("shelf-123"), name = "   ", description = null)
 
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<ValidationError>()
@@ -167,7 +169,7 @@ class ShelfUseCasesTest :
                 everySuspend { shelfRepository.deleteShelf(any()) } returns AppResult.Success(Unit)
                 val useCase = DeleteShelfUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-123")
+                val result = useCase(shelfId = ShelfId("shelf-123"))
 
                 checkIs<AppResult.Success<Unit>>(result)
             }
@@ -179,9 +181,9 @@ class ShelfUseCasesTest :
                 everySuspend { shelfRepository.deleteShelf(any()) } returns AppResult.Success(Unit)
                 val useCase = DeleteShelfUseCase(shelfRepository)
 
-                useCase(shelfId = "shelf-456")
+                useCase(shelfId = ShelfId("shelf-456"))
 
-                verifySuspend { shelfRepository.deleteShelf("shelf-456") }
+                verifySuspend { shelfRepository.deleteShelf(ShelfId("shelf-456")) }
             }
         }
 
@@ -193,7 +195,7 @@ class ShelfUseCasesTest :
                 } returns AppResult.Failure(ValidationError(message = "boom"))
                 val useCase = DeleteShelfUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-123")
+                val result = useCase(shelfId = ShelfId("shelf-123"))
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
             }
@@ -207,10 +209,10 @@ class ShelfUseCasesTest :
                 everySuspend { shelfRepository.reorderBooks(any(), any()) } returns AppResult.Success(Unit)
                 val useCase = ReorderShelfBooksUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-1", orderedBookIds = listOf("b2", "b1", "b3"))
+                val result = useCase(shelfId = ShelfId("shelf-1"), orderedBookIds = listOf(BookId("b2"), BookId("b1"), BookId("b3")))
 
                 checkIs<AppResult.Success<Unit>>(result)
-                verifySuspend { shelfRepository.reorderBooks("shelf-1", listOf("b2", "b1", "b3")) }
+                verifySuspend { shelfRepository.reorderBooks(ShelfId("shelf-1"), listOf(BookId("b2"), BookId("b1"), BookId("b3"))) }
             }
         }
 
@@ -219,7 +221,7 @@ class ShelfUseCasesTest :
                 val shelfRepository: ShelfRepository = mock()
                 val useCase = ReorderShelfBooksUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-1", orderedBookIds = emptyList())
+                val result = useCase(shelfId = ShelfId("shelf-1"), orderedBookIds = emptyList())
 
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<ValidationError>()
@@ -233,7 +235,7 @@ class ShelfUseCasesTest :
                 val shelfRepository: ShelfRepository = mock()
                 val useCase = AddBooksToShelfUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-1", bookIds = emptyList())
+                val result = useCase(shelfId = ShelfId("shelf-1"), bookIds = emptyList())
 
                 val failure = result.shouldBeInstanceOf<AppResult.Failure>()
                 failure.error.shouldBeInstanceOf<ValidationError>()
@@ -246,10 +248,10 @@ class ShelfUseCasesTest :
                 everySuspend { shelfRepository.addBooksToShelf(any(), any()) } returns AppResult.Success(Unit)
                 val useCase = AddBooksToShelfUseCase(shelfRepository)
 
-                val result = useCase(shelfId = "shelf-1", bookIds = listOf("b1", "b2"))
+                val result = useCase(shelfId = ShelfId("shelf-1"), bookIds = listOf(BookId("b1"), BookId("b2")))
 
                 checkIs<AppResult.Success<Unit>>(result)
-                verifySuspend { shelfRepository.addBooksToShelf("shelf-1", listOf("b1", "b2")) }
+                verifySuspend { shelfRepository.addBooksToShelf(ShelfId("shelf-1"), listOf(BookId("b1"), BookId("b2"))) }
             }
         }
     })
