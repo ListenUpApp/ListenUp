@@ -32,7 +32,7 @@ struct DailyListeningChart: View {
             .foregroundStyle(Color.listenUpOrange)
             .cornerRadius(6)
             .accessibilityLabel(label(for: day.dayOffset))
-            .accessibilityValue(durationLabel(for: day.seconds))
+            .accessibilityValue(DurationFormatting.accessibleHoursMinutes(seconds: day.seconds))
         }
         .chartYScale(domain: 0 ... yMax)
         .chartYAxis(.hidden)
@@ -60,14 +60,6 @@ struct DailyListeningChart: View {
         }
         let date = Calendar.current.date(byAdding: .day, value: -dayOffset, to: Date()) ?? Date()
         return date.formatted(.dateTime.weekday(.narrow))
-    }
-
-    /// A human, VoiceOver-friendly duration like "1 hr, 12 min" or "No listening".
-    private func durationLabel(for seconds: Int) -> String {
-        guard seconds > 0 else { return String(localized: "home.no_listening") }
-        return Duration.seconds(seconds).formatted(
-            .units(allowed: [.hours, .minutes], width: .wide)
-        )
     }
 }
 

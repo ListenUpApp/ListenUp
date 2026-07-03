@@ -23,4 +23,14 @@ enum DurationFormatting {
             ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
             : String(format: "%d:%02d", minutes, seconds)
     }
+
+    /// A human, VoiceOver-friendly duration like "2 hr, 5 min", or the localized
+    /// "no listening" placeholder for zero. Foundation-localized — unlike the
+    /// deterministic formatters above.
+    static func accessibleHoursMinutes(seconds: Int) -> String {
+        guard seconds > 0 else { return String(localized: "home.no_listening") }
+        return Duration.seconds(seconds).formatted(
+            .units(allowed: [.hours, .minutes], width: .wide)
+        )
+    }
 }
