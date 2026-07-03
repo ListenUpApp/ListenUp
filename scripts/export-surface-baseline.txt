@@ -290,6 +290,7 @@ LibraryPreferences
 LibraryReadiness
 LibraryRepository
 LibraryResetHelper
+LibrarySettingsEvent
 LibrarySettingsUiState
 LibrarySettingsViewModel
 LibrarySetupNavAction
