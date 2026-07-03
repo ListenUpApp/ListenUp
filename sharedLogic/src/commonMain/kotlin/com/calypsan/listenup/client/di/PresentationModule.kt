@@ -496,8 +496,6 @@ internal val profilePresentationModule =
                 publicProfileDao = get(),
                 shelfRepository = get(),
                 userRepository = get(),
-                imageRepository = get(),
-                errorBus = get(),
             )
         }
         // EditProfileViewModel for editing own profile
