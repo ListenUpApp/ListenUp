@@ -104,22 +104,3 @@ internal class KtorAuthRpcFactory(
         return toWebSocketScheme(httpUrl)
     }
 }
-
-/**
- * Translate an HTTP-scheme URL into its WebSocket equivalent. kotlinx.rpc
- * 0.10.x's `client.rpc(url)` opens a WebSocket session and does NOT
- * auto-upgrade `http://` → `ws://`; passing the raw HTTP URL produces a
- * plain GET that the server rejects with 400. The translation lives in the
- * RPC layer (not on `ServerConfig`) because the WS scheme is an RPC-transport
- * concern — REST callers want the unmodified URL.
- *
- * Visibility is `internal` so unit tests can pin every branch (this is the
- * regression net for the F12-discovered production bug).
- */
-internal fun toWebSocketScheme(httpUrl: String): String =
-    when {
-        httpUrl.startsWith("https://") -> "wss://" + httpUrl.removePrefix("https://")
-        httpUrl.startsWith("http://") -> "ws://" + httpUrl.removePrefix("http://")
-        httpUrl.startsWith("ws://") || httpUrl.startsWith("wss://") -> httpUrl
-        else -> error("Server URL has unsupported scheme: $httpUrl")
-    }
