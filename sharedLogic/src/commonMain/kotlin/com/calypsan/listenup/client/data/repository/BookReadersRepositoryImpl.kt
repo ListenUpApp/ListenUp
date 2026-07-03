@@ -75,15 +75,22 @@ internal class BookReadersRepositoryImpl(
 
     /** Re-fetch the readership and replace the book's cached rows; leave the cache intact on failure. */
     private suspend fun refresh(bookId: String) {
-        when (val result = bookReadership(bookId)) {
-            is AppResult.Success -> {
-                val observedAt = clock.now().toEpochMilliseconds()
-                readershipDao.replaceForBook(bookId, result.data.readers.map { it.toEntity(bookId, observedAt) })
-            }
+        try {
+            when (val result = bookReadership(bookId)) {
+                is AppResult.Success -> {
+                    val observedAt = clock.now().toEpochMilliseconds()
+                    readershipDao.replaceForBook(bookId, result.data.readers.map { it.toEntity(bookId, observedAt) })
+                }
 
-            is AppResult.Failure -> {
-                logger.warn { "bookReadership refresh failed (${result.error.code}); keeping cached readership" }
+                is AppResult.Failure -> {
+                    logger.warn { "bookReadership refresh failed (${result.error.code}); keeping cached readership" }
+                }
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Throwable) {
+            // Never-Stranded: a storage fault during refresh must not clear the cache or kill the flow.
+            logger.warn(e) { "bookReadership refresh failed; keeping cached readership" }
         }
     }
 

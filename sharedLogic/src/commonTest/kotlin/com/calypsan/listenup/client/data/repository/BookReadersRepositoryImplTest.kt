@@ -200,6 +200,30 @@ class BookReadersRepositoryImplTest :
             }
         }
 
+        test("a DAO failure during refresh does not kill the readers flow") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } sequentiallyReturns
+                            listOf(
+                                AppResult.Success(BookReadership(listOf(entry("u2", "Bob")))),
+                                AppResult.Success(BookReadership(listOf(entry("u2", "Bob"), entry("u3", "Carol")))),
+                            )
+                    }
+                val presence = PresenceRefreshSignal()
+
+                repo(fakeRpc(service), ThrowOnceBookReadershipDao(), presence = presence, currentUser = null)
+                    .observeReadersFor("b1")
+                    .test {
+                        // First refresh's DAO write throws — the guard swallows it, cache stays empty.
+                        awaitItem().readers.shouldBeEmpty()
+                        presence.ping() // the retry refresh's DAO write succeeds
+                        awaitNonEmpty() shouldHaveSize 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
         test("an empty cache with a failing RPC emits empty gracefully") {
             runTest {
                 val service =
@@ -238,12 +262,34 @@ private class FakeBookReadershipDao : BookReadershipDao {
         flowFor(bookId).value = emptyList()
     }
 
+    // No books table in this fake — the book-tombstone sweep is exercised at the sync-domain seam,
+    // not here. This repository test never triggers it, so a no-op keeps the interface satisfied.
+    override suspend fun deleteWhereBookNotLive() = Unit
+
     // Match the real DAO's @Transaction: one atomic replacement, not a delete-then-insert flicker.
     override suspend fun replaceForBook(
         bookId: String,
         rows: List<BookReadershipEntity>,
     ) {
         flowFor(bookId).value = rows
+    }
+}
+
+/** [FakeBookReadershipDao] whose first [replaceForBook] throws — a transient storage fault. */
+private class ThrowOnceBookReadershipDao(
+    private val delegate: FakeBookReadershipDao = FakeBookReadershipDao(),
+) : BookReadershipDao by delegate {
+    var thrown = false
+
+    override suspend fun replaceForBook(
+        bookId: String,
+        rows: List<BookReadershipEntity>,
+    ) {
+        if (!thrown) {
+            thrown = true
+            throw RuntimeException("simulated storage failure")
+        }
+        delegate.replaceForBook(bookId, rows)
     }
 }
 
