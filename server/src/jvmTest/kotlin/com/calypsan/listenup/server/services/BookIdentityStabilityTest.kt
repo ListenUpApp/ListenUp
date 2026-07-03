@@ -23,6 +23,8 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Regression coverage for the library-wide book-identity corruption: a rescan (or a folder
@@ -93,6 +95,48 @@ class BookIdentityStabilityTest :
             }
         }
 
+        test("re-adding a folder revives ONLY books tombstoned by the removal, not earlier zombies") {
+            withSqlDatabase {
+                // Deterministic time so the two tombstones land at distinct, ordered instants.
+                val clock = SettableClock(Instant.fromEpochMilliseconds(1_000L))
+                val (repo, folderRepo, registry) = fixture(sql, driver, clock)
+                runTest {
+                    val libId = registry.currentLibrary()
+                    val folderId = FolderId("folder-a")
+                    val rootPath = "/srv/audio/A"
+                    folderRepo.upsert(folderPayload(folderId, libId, rootPath))
+
+                    // Two books under the folder.
+                    val zombie = repo.resolveOrInsert(libId, folderId, analyzedFor("Zombie", inode = 1L)).resolved()
+                    val live = repo.resolveOrInsert(libId, folderId, analyzedFor("Live", inode = 2L)).resolved()
+
+                    // The zombie's files vanished long ago: tombstoned by an EARLIER scan (deleted_at well
+                    // below the folder's own deleted_at).
+                    clock.set(Instant.fromEpochMilliseconds(5_000L))
+                    repo.softDelete(zombie)
+
+                    // Folder removal: production order is FOLDER first, then its still-present books, so the
+                    // folder's deleted_at is a lower bound on the removal-cascade book tombstones.
+                    clock.set(Instant.fromEpochMilliseconds(10_000L))
+                    folderRepo.softDelete(folderId)
+                    repo.softDelete(live)
+
+                    // Re-add computes the cascade floor from the reused folder's deleted_at.
+                    val reused = folderRepo.findDeletedByRootPath(rootPath, libId)
+                    reused shouldNotBe null
+                    val cascadeFloor = reused!!.deletedAt!!
+
+                    val toRevive = repo.idsByFolderDeletedSince(folderId, cascadeFloor)
+                    toRevive shouldBe listOf(live)
+                    repo.reviveByIds(toRevive, cascadeFloor)
+
+                    // Only the folder-removal book is back; the earlier zombie stays dead.
+                    repo.findById(live)?.deletedAt shouldBe null
+                    repo.findById(zombie)?.deletedAt shouldNotBe null
+                }
+            }
+        }
+
         test("a genuine file move within a folder keeps the same id") {
             withSqlDatabase {
                 val (repo, _, registry) = fixture(sql, driver)
@@ -146,8 +190,9 @@ class BookIdentityStabilityTest :
                     bookTagRepo.findAllForBook(id.value) shouldHaveSize 0
 
                     // Folder re-add revives the book — and must revive its tags too, or the user's tag is
-                    // permanently lost (the asymmetric-cascade bug).
-                    repo.reviveByIds(listOf(id))
+                    // permanently lost (the asymmetric-cascade bug). Floor 0 revives all tombstones (no
+                    // earlier manual removal to exclude in this scenario).
+                    repo.reviveByIds(listOf(id), cascadeFloor = 0L)
                     repo.findById(id)?.deletedAt shouldBe null
                     bookTagRepo.findAllForBook(id.value) shouldHaveSize 1
                 }
@@ -220,6 +265,17 @@ class BookIdentityStabilityTest :
         }
     })
 
+/** A mutable [Clock] for tests that need to advance time deterministically. */
+private class SettableClock(
+    private var time: Instant,
+) : Clock {
+    override fun now(): Instant = time
+
+    fun set(newTime: Instant) {
+        time = newTime
+    }
+}
+
 // --- Result unwrapping -------------------------------------------------------
 
 private fun AppResult<IngestOutcome>.resolved(): BookId =
@@ -239,6 +295,7 @@ private data class IdentityFixture(
 private fun fixture(
     sql: ListenUpDatabase,
     driver: app.cash.sqldelight.db.SqlDriver,
+    clock: Clock = Clock.System,
 ): IdentityFixture {
     val bus = ChangeBus()
     val registry = LibraryRegistry(sql)
@@ -252,8 +309,10 @@ private fun fixture(
             contributorRepository = ContributorRepository(sql, bus, syncRegistry),
             seriesRepository = SeriesRepository(sql, bus, syncRegistry),
             genreRepository = GenreRepository(sql, bus, syncRegistry),
+            clock = clock,
         )
-    val folderRepo = LibraryFolderRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
+    val folderRepo =
+        LibraryFolderRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver, clock = clock)
     return IdentityFixture(repo, folderRepo, registry)
 }
 

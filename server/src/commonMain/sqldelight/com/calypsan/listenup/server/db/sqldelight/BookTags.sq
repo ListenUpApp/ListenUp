@@ -71,10 +71,13 @@ WHERE book_id = :book_id AND tag_id = :tag_id;
 selectLiveIdsForBook:
 SELECT id FROM book_tags WHERE book_id = :book_id AND deleted_at IS NULL;
 
--- Tombstoned junction rows for a batch of books — the revive counterpart to selectLiveIdsForBook.
--- Drives book-tag REVIVE when a removed folder is re-added: a book's user tags return with the book.
-selectDeletedForBooks:
-SELECT * FROM book_tags WHERE book_id IN :book_ids AND deleted_at IS NOT NULL;
+-- Tombstoned junction rows for a batch of books at or after :floor — the revive counterpart to
+-- selectLiveIdsForBook, floored on the folder-removal cascade instant. Drives book-tag REVIVE when a
+-- removed folder is re-added: only junctions tombstoned BY the folder removal (deleted_at ≥ the
+-- folder's own deleted_at) return with the book; a tag the user removed manually BEFORE the folder was
+-- removed (an older tombstone) stays dead, symmetric with the book zombie-exclusion floor.
+selectDeletedForBooksSince:
+SELECT * FROM book_tags WHERE book_id IN :book_ids AND deleted_at IS NOT NULL AND deleted_at >= :floor;
 
 -- Revives a tombstoned junction (clears deleted_at, bumps revision) so clients reflow the tag as live.
 reviveById:

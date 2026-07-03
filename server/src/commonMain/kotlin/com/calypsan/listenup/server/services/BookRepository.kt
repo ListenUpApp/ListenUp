@@ -1054,8 +1054,16 @@ class BookRepository(
      * folder-id-reuse revival, where a re-added folder can carry thousands of books. Cascades to the
      * books' user tags via [bookTagRepository] (a second transaction), symmetric with [softDelete]'s
      * tag tombstone cascade, so a remove+re-add never loses a book's tags. Missing ids are skipped.
+     *
+     * [cascadeFloor] is the removed folder's own `deleted_at`, threaded down to the tag cascade so it
+     * floors the tag revival exactly as it floors this book set (see [idsByFolderDeletedSince]): only
+     * junctions tombstoned BY the folder removal return with the book, never a tag the user removed
+     * manually before the folder was removed.
      */
-    suspend fun reviveByIds(ids: List<BookId>) {
+    suspend fun reviveByIds(
+        ids: List<BookId>,
+        cascadeFloor: Long,
+    ) {
         if (ids.isEmpty()) return
         suspendTransaction<Unit>(db) {
             for (id in ids) {
@@ -1070,7 +1078,7 @@ class BookRepository(
         }
         // Symmetric with softDelete's tag tombstone cascade: restore each book's user tags (its own
         // transaction, exactly as the tombstone cascade is a separate call after the book write).
-        bookTagRepository?.reviveAllForBooks(ids.map { it.value })
+        bookTagRepository?.reviveAllForBooks(ids.map { it.value }, cascadeFloor)
     }
 
     /**

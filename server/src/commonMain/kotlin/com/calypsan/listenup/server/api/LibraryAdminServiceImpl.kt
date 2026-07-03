@@ -178,7 +178,10 @@ internal class LibraryAdminServiceImpl(
                     // gone) stay dead — reviving them would resurrect zombies pointing at deleted files.
                     // Batched: one transaction + one tag-cascade transaction for the whole folder.
                     val cascadeFloor = reusedFolder.deletedAt ?: 0L
-                    bookRepository.reviveByIds(bookRepository.idsByFolderDeletedSince(folderId, cascadeFloor))
+                    bookRepository.reviveByIds(
+                        bookRepository.idsByFolderDeletedSince(folderId, cascadeFloor),
+                        cascadeFloor,
+                    )
                     // Trigger an actual rescan of the re-added folder (onFolderAdded only rebuilds the
                     // bundle + mounts the watcher — it schedules no scan) so revived content is refreshed
                     // in place and any on-disk changes since removal are picked up.
