@@ -289,7 +289,11 @@ class LibraryRepositoryTest :
     })
 
 /** Reads the `initial_scan_completed_at` for [id] via the syncable read path (`readPayload` is protected). */
-private suspend fun LibraryRepository.stampOf(id: String): Long? = pullSince(userId = null, cursor = 0L, limit = 100).items.firstOrNull { it.id == id }?.initialScanCompletedAt
+private suspend fun LibraryRepository.stampOf(id: String): Long? =
+    pullSince(userId = null, cursor = 0L, limit = 100)
+        .items
+        .firstOrNull { it.id == id }
+        ?.initialScanCompletedAt
 
 private fun libraryPayload(
     id: String,

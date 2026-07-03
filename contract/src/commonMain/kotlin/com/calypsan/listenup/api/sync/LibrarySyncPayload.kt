@@ -35,5 +35,5 @@ data class LibrarySyncPayload(
      * Epoch-ms when this library's first-ever scan completed; null until then. Server-authoritative
      * signal driving the client initial-population gate.
      */
-    val initialScanCompletedAt: Long?,
+    val initialScanCompletedAt: Long? = null,
 ) : Tombstoned
