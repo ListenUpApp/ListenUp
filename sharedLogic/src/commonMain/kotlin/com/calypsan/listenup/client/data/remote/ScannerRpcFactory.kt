@@ -1,14 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.ScannerService
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import io.ktor.client.HttpClient
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
-import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
 
 /**
@@ -31,49 +25,21 @@ internal interface ScannerRpcFactory {
 }
 
 /**
- * Production [ScannerRpcFactory]: mounts [ScannerService] over `/api/rpc/authed` — the
- * bearer-gated RPC surface. Mirrors [KtorLibraryAdminRpcFactory]; the shared
- * [ApiClientFactory]'s `Auth`/`bearer` plugin carries the token onto the WebSocket upgrade.
+ * Production [ScannerRpcFactory]: delegates the connection lifecycle to
+ * [RpcProxyCache], supplying the `/api/rpc/authed` mount and the reified
+ * [ScannerService] binding.
  */
-internal open class KtorScannerRpcFactory(
-    private val apiClientFactory: ApiClientFactory,
-    private val serverConfig: ServerConfig,
+internal class KtorScannerRpcFactory(
+    apiClientFactory: ApiClientFactory,
+    serverConfig: ServerConfig,
 ) : ScannerRpcFactory,
     RemoteCache {
-    private val mutex = Mutex()
-    private var cachedRpcClient: HttpClient? = null
-    private var cachedService: ScannerService? = null
-
-    override suspend fun get(): ScannerService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
+    private val cache =
+        RpcProxyCache(apiClientFactory, serverConfig) { client, baseUrl ->
+            client.rpc("$baseUrl/api/rpc/authed").withService<ScannerService>()
         }
 
-    override suspend fun invalidate() {
-        mutex.withLock {
-            cachedService = null
-            cachedRpcClient = null
-        }
-    }
+    override suspend fun get(): ScannerService = cache.get()
 
-    internal open suspend fun connect(): ScannerService {
-        val baseUrl = rpcBaseUrl()
-        return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<ScannerService>()
-    }
-
-    private suspend fun rpcClient(): HttpClient =
-        cachedRpcClient ?: apiClientFactory
-            .getClient()
-            .config {
-                installKrpc {
-                    serialization { json(contractJson) }
-                }
-            }.also { cachedRpcClient = it }
-
-    private suspend fun rpcBaseUrl(): String {
-        val httpUrl =
-            serverConfig.getActiveUrl()?.value
-                ?: throw ServerUrlNotConfiguredException()
-        return toWebSocketScheme(httpUrl)
-    }
+    override suspend fun invalidate() = cache.invalidate()
 }

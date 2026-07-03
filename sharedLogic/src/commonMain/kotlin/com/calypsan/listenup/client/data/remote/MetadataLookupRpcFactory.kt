@@ -1,14 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.MetadataLookupService
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import io.ktor.client.HttpClient
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
-import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
 
 /**
@@ -30,60 +24,21 @@ internal interface MetadataLookupRpcFactory {
 }
 
 /**
- * Mounts the [MetadataLookupService] proxy over `/api/rpc/authed` — the
- * bearer-gated RPC surface.
- *
- * Mirrors [KtorBookRpcFactory]: `rpc(url)` returns a cold
- * [kotlinx.rpc.krpc.ktor.client.KtorRpcClient] that opens its WebSocket on the
- * first message, so the proxy is cached per mount and reused. [invalidate] drops
- * the cached proxy and the RPC-flavored [HttpClient] whenever the underlying
- * client is recycled (server URL changed, manual reset).
- *
- * Wire serialization is the contract-layer [contractJson] — one wire format, two
- * transports.
- *
- * Token rotation is not yet implemented — the same gap exists in every RPC factory
- * in the codebase. Not solved here.
+ * Production [MetadataLookupRpcFactory]: delegates the connection lifecycle to
+ * [RpcProxyCache], supplying the `/api/rpc/authed` mount and the reified
+ * [MetadataLookupService] binding.
  */
-internal open class KtorMetadataLookupRpcFactory(
-    private val apiClientFactory: ApiClientFactory,
-    private val serverConfig: ServerConfig,
+internal class KtorMetadataLookupRpcFactory(
+    apiClientFactory: ApiClientFactory,
+    serverConfig: ServerConfig,
 ) : MetadataLookupRpcFactory,
     RemoteCache {
-    private val mutex = Mutex()
-    private var cachedRpcClient: HttpClient? = null
-    private var cachedService: MetadataLookupService? = null
-
-    override suspend fun metadataLookupService(): MetadataLookupService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
+    private val cache =
+        RpcProxyCache(apiClientFactory, serverConfig) { client, baseUrl ->
+            client.rpc("$baseUrl/api/rpc/authed").withService<MetadataLookupService>()
         }
 
-    override suspend fun invalidate() {
-        mutex.withLock {
-            cachedService = null
-            cachedRpcClient = null
-        }
-    }
+    override suspend fun metadataLookupService(): MetadataLookupService = cache.get()
 
-    internal open suspend fun connect(): MetadataLookupService {
-        val baseUrl = rpcBaseUrl()
-        return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<MetadataLookupService>()
-    }
-
-    private suspend fun rpcClient(): HttpClient =
-        cachedRpcClient ?: apiClientFactory
-            .getClient()
-            .config {
-                installKrpc {
-                    serialization { json(contractJson) }
-                }
-            }.also { cachedRpcClient = it }
-
-    private suspend fun rpcBaseUrl(): String {
-        val httpUrl =
-            serverConfig.getActiveUrl()?.value
-                ?: throw ServerUrlNotConfiguredException()
-        return toWebSocketScheme(httpUrl)
-    }
+    override suspend fun invalidate() = cache.invalidate()
 }

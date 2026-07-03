@@ -1,14 +1,8 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.GenreService
-import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.client.domain.repository.ServerConfig
-import io.ktor.client.HttpClient
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.client.rpc
-import kotlinx.rpc.krpc.serialization.json.json
 import kotlinx.rpc.withService
 
 /**
@@ -31,53 +25,21 @@ internal interface GenreRpcFactory {
 }
 
 /**
- * Mounts the [GenreService] proxy over `/api/rpc/authed` — the bearer-gated
- * RPC surface. Mirrors [KtorContributorRpcFactory] / [KtorBookRpcFactory] in
- * structure; the first call opens the WebSocket lazily and subsequent calls
- * reuse the proxy.
- *
- * Wire serialization is the contract-layer [contractJson] — one wire format,
- * two transports.
+ * Production [GenreRpcFactory]: delegates the connection lifecycle to
+ * [RpcProxyCache], supplying the `/api/rpc/authed` mount and the reified
+ * [GenreService] binding.
  */
 internal class KtorGenreRpcFactory(
-    private val apiClientFactory: ApiClientFactory,
-    private val serverConfig: ServerConfig,
+    apiClientFactory: ApiClientFactory,
+    serverConfig: ServerConfig,
 ) : GenreRpcFactory,
     RemoteCache {
-    private val mutex = Mutex()
-    private var cachedRpcClient: HttpClient? = null
-    private var cachedService: GenreService? = null
-
-    override suspend fun genreService(): GenreService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
+    private val cache =
+        RpcProxyCache(apiClientFactory, serverConfig) { client, baseUrl ->
+            client.rpc("$baseUrl/api/rpc/authed").withService<GenreService>()
         }
 
-    override suspend fun invalidate() {
-        mutex.withLock {
-            cachedService = null
-            cachedRpcClient = null
-        }
-    }
+    override suspend fun genreService(): GenreService = cache.get()
 
-    private suspend fun connect(): GenreService {
-        val baseUrl = rpcBaseUrl()
-        return rpcClient().rpc("$baseUrl/api/rpc/authed").withService<GenreService>()
-    }
-
-    private suspend fun rpcClient(): HttpClient =
-        cachedRpcClient ?: apiClientFactory
-            .getClient()
-            .config {
-                installKrpc {
-                    serialization { json(contractJson) }
-                }
-            }.also { cachedRpcClient = it }
-
-    private suspend fun rpcBaseUrl(): String {
-        val httpUrl =
-            serverConfig.getActiveUrl()?.value
-                ?: throw ServerUrlNotConfiguredException()
-        return toWebSocketScheme(httpUrl)
-    }
+    override suspend fun invalidate() = cache.invalidate()
 }
