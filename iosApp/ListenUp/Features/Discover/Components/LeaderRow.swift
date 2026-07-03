@@ -7,31 +7,34 @@ struct LeaderRow: View {
     let row: LeaderboardRow
 
     var body: some View {
-        HStack(spacing: 13) {
-            Text("\(row.rank)")
-                .font(.callout.weight(.bold).monospacedDigit())
-                .foregroundStyle(rankColor)
-                .frame(width: 22)
+        NavigationLink(value: ProfileDestination(userId: row.id)) {
+            HStack(spacing: 13) {
+                Text("\(row.rank)")
+                    .font(.callout.weight(.bold).monospacedDigit())
+                    .foregroundStyle(rankColor)
+                    .frame(width: 22)
 
-            UserAvatarView(userId: row.id, fallbackName: row.displayName, size: 38)
+                UserAvatarView(userId: row.id, fallbackName: row.displayName, size: 38)
 
-            Text(name)
-                .font(.callout.weight(row.isCurrentUser ? .semibold : .regular))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+                Text(name)
+                    .font(.callout.weight(row.isCurrentUser ? .semibold : .regular))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
 
-            Spacer(minLength: 8)
+                Spacer(minLength: 8)
 
-            Text(row.value)
-                .font(.system(.subheadline, design: .default).monospacedDigit())
-                .fontWeight(row.isCurrentUser ? .bold : .medium)
-                .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.luLabel2)
+                Text(row.value)
+                    .font(.system(.subheadline, design: .default).monospacedDigit())
+                    .fontWeight(row.isCurrentUser ? .bold : .medium)
+                    .foregroundStyle(row.isCurrentUser ? Color.luTint : Color.luLabel2)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, row.isCurrentUser ? 10 : 0)
+            .background(rowBackground)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(row.rank). \(name), \(row.value)")
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, row.isCurrentUser ? 10 : 0)
-        .background(rowBackground)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(row.rank). \(name), \(row.value)")
+        .buttonStyle(.pressScaleRow)
     }
 
     private var name: String {

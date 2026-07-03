@@ -89,6 +89,12 @@ enum SearchSeeAllType: Hashable {
 /// The current user's profile.
 struct UserProfileDestination: Hashable {}
 
+/// Another user's profile, reached by tapping their avatar in the book Readers section,
+/// the Leaderboard, or the Activity feed. Keyed by `userId`; the screen renders read-only.
+struct ProfileDestination: Hashable {
+    let userId: String
+}
+
 /// Settings.
 struct SettingsDestination: Hashable {}
 
