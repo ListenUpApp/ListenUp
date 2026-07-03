@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import com.calypsan.listenup.server.util.KeyedMutex
 import kotlin.time.Clock
 
 /**
@@ -42,6 +43,10 @@ import kotlin.time.Clock
  * is preserved by design: the stats hook fires only on first insert (`!alreadyExisted`), and stats
  * accrual self-heals via `UserStatsBackfillService` — so a crash between the event commit and the
  * stats write is recoverable, exactly as the at-least-once pending-op queue already assumes.
+ *
+ * The existence sample and the write are made atomic per user by [firstInsertLock] (a [KeyedMutex]
+ * distinct from [StatsRecorder]'s own per-user lock — see [upsert]), so two concurrent replays of the
+ * same event id can never both observe "not yet inserted" and both fire the stats hook.
  */
 class ListeningEventRepository(
     db: ListenUpDatabase,
@@ -59,25 +64,40 @@ class ListeningEventRepository(
     override val userScoped: Boolean = true
 
     /**
+     * Serializes the existence-sample + write pair per user, so two concurrent upserts of the same
+     * event id (an at-least-once pending-op replay racing itself) cannot both sample "not yet
+     * inserted" and both fire the stats hook. A separate instance from [StatsRecorder]'s own
+     * per-user lock — the two are never held at once (this lock is released before [StatsRecorder]'s
+     * is acquired), so a lock-ordering deadlock between them is structurally impossible.
+     */
+    private val firstInsertLock = KeyedMutex()
+
+    /**
      * Overrides the base upsert to fire `statsRecorder.record(StatsEvent.ListeningSessionClosed(...))`
      * after the event row commits. See the class KDoc for why this is de-nested (sequential,
      * post-commit) rather than nested in one transaction.
      *
      * The stats hook fires only when the event row did not already exist: the pending-op queue
      * delivers at-least-once, and incremental stats accrual must stay idempotent under a re-fire of
-     * an already-committed event id. Existence is sampled in its own transaction before the write;
-     * on the single serialized SQLite connection this is the same row-state the base then observes.
+     * an already-committed event id. [firstInsertLock] makes the existence sample and the write
+     * atomic per user, so two concurrent replays of the same event id cannot both observe "not yet
+     * inserted". The lock is released BEFORE the stats cascade runs — [StatsRecorder] serializes
+     * itself with its own per-user lock, and [KeyedMutex] is not reentrant.
      */
     override suspend fun upsert(
         value: ListeningEventSyncPayload,
         clientOpId: String?,
         userId: String?,
     ): AppResult<ListeningEventSyncPayload> {
-        // Sample existence before the write: incremental stats accrual must run exactly once per
-        // event id, so the hook fires only when the row did not already exist (idempotent replay).
-        val alreadyExisted = suspendTransaction(db) { readPayload(value.id) != null }
-        val result = super.upsert(value, clientOpId, userId)
-        if (result is AppResult.Success && userId != null && !alreadyExisted) {
+        // Without a user, no stats hook can fire — keep the plain path.
+        if (userId == null) return super.upsert(value, clientOpId, userId)
+
+        val (alreadyExisted, result) =
+            firstInsertLock.withLock(userId) {
+                val existed = suspendTransaction(db) { readPayload(value.id) != null }
+                existed to super.upsert(value, clientOpId, userId)
+            }
+        if (result is AppResult.Success && !alreadyExisted) {
             statsRecorder?.record(StatsEvent.ListeningSessionClosed(userId = userId, span = value))
         }
         return result

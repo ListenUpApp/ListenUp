@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlin.time.Clock
+import kotlinx.datetime.TimeZone
 
 private val logger = loggerFor<PublicProfileMaintainer>()
 
@@ -34,8 +35,16 @@ class PublicProfileMaintainer(
      * Rebuild and upsert the projection row for [userId] from `users` + `user_stats`.
      * No-op if the user row is absent (e.g. mid-deletion). Stat fields default to 0
      * when the user has no `user_stats` row yet.
+     *
+     * @param tz a caller-provided memo of `sql.homeTimeZone(userId)` — never a different zone.
+     * Pass `null` (default) to have this function read it itself; callers that already read the
+     * home timezone for another step of the same cascade (e.g. [StatsRecorder]) should pass it
+     * through to avoid a second read of the same row.
      */
-    suspend fun refresh(userId: String) {
+    suspend fun refresh(
+        userId: String,
+        tz: TimeZone? = null,
+    ) {
         // Identity from the `users` table (pure read; live rows only — a tombstoned/absent user
         // yields no row and the projection refresh no-ops, matching the prior Exposed read).
         val identity =
@@ -53,7 +62,7 @@ class PublicProfileMaintainer(
         val nowMs = clock.now().toEpochMilliseconds()
         // Home timezone for the windowed-streak day math (same frame the stats walk uses). Read
         // outside the payload transaction, mirroring UserStatsBackfillService.
-        val tz = sql.homeTimeZone(userId)
+        val tzResolved = tz ?: sql.homeTimeZone(userId)
         val cutoff7 = nowMs - 7 * 86_400_000L
         val cutoff30 = nowMs - 30 * 86_400_000L
         val yearCutoff = nowMs - YEAR_WINDOW_DAYS * 86_400_000L
@@ -79,7 +88,10 @@ class PublicProfileMaintainer(
                 val events = sql.listeningEventsQueries
 
                 fun longestStreakSince(cutoffMs: Long): Int =
-                    longestStreakInWindow(events.selectEndedAtForUserSince(userId, cutoffMs).executeAsList(), tz)
+                    longestStreakInWindow(
+                        events.selectEndedAtForUserSince(userId, cutoffMs).executeAsList(),
+                        tzResolved,
+                    )
 
                 PublicProfileSyncPayload(
                     id = userId,
