@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.Flow
  *
  * Backed by the `SocialService.bookReadership` RPC, which is ACL-filtered and *includes* the caller
  * server-side. The repository fetches on first subscribe and re-fetches on every presence ping (the
- * server's `ActiveSessionsChanged` nudge or a firehose reconnect). On RPC failure it emits empty
- * readers — Never-Stranded: the section renders empty rather than hanging, and the next ping recovers.
+ * server's `ActiveSessionsChanged` nudge or a firehose reconnect). On RPC failure the cached
+ * readership is left intact and continues to render (Never-Stranded — possibly stale, never blank);
+ * the next ping recovers.
  */
 interface BookReadersRepository {
     /**
