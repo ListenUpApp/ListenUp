@@ -1,25 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
-import com.calypsan.listenup.client.data.local.db.BookEntityMapper
-import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.sync.domains.booksDomain
-import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.domains.tagsDomain
-import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
-import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
-import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
-import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
-import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
-import com.calypsan.listenup.client.data.sync.domains.genresDomain
-import com.calypsan.listenup.client.data.sync.domains.librariesDomain
-import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
-import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
-import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
-import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.domains.seriesDomain
+import com.calypsan.listenup.client.data.sync.testing.registerTestSyncDomains
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
-import com.calypsan.listenup.client.test.stubImageStorage
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -43,30 +25,10 @@ class DigestOptOutSetTest :
                 val clientDb = createInMemoryTestDatabase()
                 try {
                     val registry = ClientSyncDomainRegistry()
-                    val txRunner = RoomTransactionRunner(clientDb)
 
-                    // Register all production handlers — mirrors the clientSyncModule
-                    // Koin wiring so this test tracks production exactly.
-                    tagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    bookTagsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    booksDomain(
-                        database = clientDb,
-                        mapper = BookEntityMapper(),
-                        imageStorage = stubImageStorage(),
-                    ).toHandler(transactionRunner = txRunner, registry = registry)
-                    contributorsDomain(database = clientDb, imageStorage = stubImageStorage())
-                        .toHandler(transactionRunner = txRunner, registry = registry)
-                    seriesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    genresDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    playbackPositionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    listeningEventsDomain(clientDb, FakeAuthSession())
-                        .toHandler(transactionRunner = txRunner, registry = registry)
-                    userStatsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    librariesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    libraryFoldersDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    collectionsDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    collectionBooksDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
-                    collectionSharesDomain(database = clientDb).toHandler(transactionRunner = txRunner, registry = registry)
+                    // Register every production handler via the real catalog, so this test
+                    // tracks production exactly (no hand-listed subset to drift).
+                    registerTestSyncDomains(db = clientDb, registry = registry)
 
                     // Collect the domains whose handler returns null from localDigestRows against
                     // an empty DB. An empty DB ensures reconcilable domains return emptyList() (non-null)

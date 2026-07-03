@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
-import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
+import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -168,6 +168,38 @@ class SyncDomainCompletenessSpec :
             }
         }
 
+        test("declared delete and digest postures match the frozen rulebook") {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        pingActivity = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+
+                // Changing any of these is a product decision, not a side effect:
+                // update this spec consciously alongside the descriptor.
+                catalog.mirrored
+                    .filter { it.deletes is DeleteSemantics.CatchUpOnly }
+                    .map { it.key.name }
+                    .toSet() shouldBe setOf("playback_positions", "listening_events", "user_stats")
+
+                catalog.mirrored
+                    .filter { it.digest is DigestParticipation.OptOut }
+                    .map { it.key.name }
+                    .toSet() shouldBe setOf("playback_positions")
+            } finally {
+                db.close()
+            }
+        }
+
         test("server registrations mirror SyncDomains.all exactly (1:1, both directions)") {
             val homeDir = Files.createTempDirectory("listenup-completeness-home-")
             val tmpDb =
@@ -232,11 +264,3 @@ private suspend fun HttpClient.setupRoot(): String {
 
 private const val JWT_SECRET_LENGTH = 32
 private const val REFRESH_PEPPER_LENGTH = 32
-
-private class StubAvatarDownloadRepository : AvatarDownloadRepository {
-    override fun queueAvatarDownload(userId: String) = Unit
-
-    override fun queueAvatarForceRefresh(userId: String) = Unit
-
-    override suspend fun deleteAvatar(userId: String) = Unit
-}

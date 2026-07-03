@@ -26,9 +26,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.domains.adminUserRosterDomain
-import com.calypsan.listenup.client.data.sync.domains.genresDomain
-import com.calypsan.listenup.client.data.sync.domains.toHandler
+import com.calypsan.listenup.client.data.sync.testing.registerTestSyncDomains
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -261,8 +259,10 @@ private fun rosterRowFixture(id: String): AdminUserRosterSyncPayload =
     )
 
 /**
- * Assembles a client [SyncEngine] wired ONLY for the `admin_user_roster` + `genres` domains —
- * this harness needs no RPC/WebSocket surface and no books/collections access-gating machinery.
+ * Assembles a client [SyncEngine] wired against the full production catalog (the test only
+ * drives the `admin_user_roster` and `genres` domains, but every handler is registered so
+ * SSE events on other domains don't get logged as "unhandled" warnings) — this harness needs
+ * no RPC/WebSocket surface and no books/collections access-gating machinery.
  */
 private fun buildRosterSyncEngine(
     clientDb: ListenUpDatabase,
@@ -270,10 +270,8 @@ private fun buildRosterSyncEngine(
     scope: CoroutineScope,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
-    val txn = RoomTransactionRunner(clientDb)
 
-    adminUserRosterDomain(database = clientDb).toHandler(transactionRunner = txn, registry = registry)
-    genresDomain(database = clientDb).toHandler(transactionRunner = txn, registry = registry)
+    registerTestSyncDomains(db = clientDb, registry = registry)
 
     val state = SyncEngineState()
     val store = SyncCursorStore(clientDb.syncCursorDao())

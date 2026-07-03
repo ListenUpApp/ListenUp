@@ -200,38 +200,6 @@ interface SyncApiContract {
         startedAt: String? = null,
         finishedAt: String? = null,
     ): AppResult<PlaybackProgressResponse>
-
-    /**
-     * Discard all progress for a book.
-     *
-     * Removes the progress record entirely, optionally preserving
-     * listening history (events and stats).
-     *
-     * Endpoint: DELETE /api/v1/books/{bookId}/progress/discard
-     * Auth: Required
-     *
-     * @param bookId Book to discard progress for
-     * @param keepHistory Whether to preserve listening history (default true)
-     * @return Result containing Unit on success or error
-     */
-    suspend fun discardProgress(
-        bookId: String,
-        keepHistory: Boolean = true,
-    ): AppResult<Unit>
-
-    /**
-     * Restart a book from the beginning.
-     *
-     * Resets progress to position 0, increments reread count,
-     * creates a new reading session, and generates a "started_book" activity.
-     *
-     * Endpoint: POST /api/v1/books/{bookId}/progress/restart
-     * Auth: Required
-     *
-     * @param bookId Book to restart
-     * @return Result containing updated PlaybackProgressResponse or error
-     */
-    suspend fun restartBook(bookId: String): AppResult<PlaybackProgressResponse>
 }
 
 /**

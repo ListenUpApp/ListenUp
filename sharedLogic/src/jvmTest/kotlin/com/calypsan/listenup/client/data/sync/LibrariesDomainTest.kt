@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -62,6 +63,18 @@ class LibrariesDomainTest :
                 val tombstone = db.libraryDao().findAll().first { it.id == "lib1" }
                 tombstone.deletedAt shouldBe 999L
                 tombstone.revision shouldBe 5L
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("lib1", "My Library")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "lib1", revision = 5L, occurredAt = 999L, clientOpId = null),
+                    isOwnEcho = false,
+                )
+                db.libraryDao().findById("lib1") shouldBe null
+                db.libraryDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "lib1"
             }
         }
 

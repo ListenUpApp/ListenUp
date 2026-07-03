@@ -39,10 +39,7 @@ internal fun listeningEventsDomain(
             DeleteSemantics.CatchUpOnly(
                 "server never emits listening-event tombstones over SSE; catch-up converges them",
             ),
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.listeningEventDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.listeningEventDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.ListeningEvents),
     )
 

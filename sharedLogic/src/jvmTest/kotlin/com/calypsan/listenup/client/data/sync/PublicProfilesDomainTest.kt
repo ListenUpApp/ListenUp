@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -101,6 +102,20 @@ class PublicProfilesDomainTest :
                 // (collect one emission — we're inside runTest so the Room Flow is synchronous)
                 val liveRows = db.publicProfileDao().observeAll().first()
                 liveRows.none { it.id == "user-deleted" } shouldBe true
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("user-tomb-digest", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "user-tomb-digest", revision = 2L, occurredAt = 999_000L),
+                    isOwnEcho = false,
+                )
+                // observeById filters tombstones — invisible to reads
+                db.publicProfileDao().observeById("user-tomb-digest").first() shouldBe null
+                // but still fingerprinted for digest-drift reconciliation
+                db.publicProfileDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "user-tomb-digest"
             }
         }
 

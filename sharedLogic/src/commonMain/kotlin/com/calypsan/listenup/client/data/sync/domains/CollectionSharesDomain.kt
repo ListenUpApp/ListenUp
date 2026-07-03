@@ -29,10 +29,7 @@ internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<
         apply = CollectionShareMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.collectionShareDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.collectionShareDao()::digestRows),
         writes = WriteTier.OnlineOnly,
         accessGate =
             AccessGate(

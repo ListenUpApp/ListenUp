@@ -30,10 +30,7 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
         apply = CollectionBookMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.collectionBookDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.collectionBookDao()::digestRows),
         writes = WriteTier.OnlineOnly,
         accessGate =
             AccessGate(

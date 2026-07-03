@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.moodsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -67,6 +68,18 @@ class MoodsDomainTest :
                         isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.moodDao().getById("m1") shouldBe null
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(moodPayload("m1", "Feel-Good", "feel-good")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "m1", revision = 2L, occurredAt = 500L),
+                    isOwnEcho = false,
+                )
+                db.moodDao().getById("m1") shouldBe null
+                db.moodDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "m1"
             }
         }
 

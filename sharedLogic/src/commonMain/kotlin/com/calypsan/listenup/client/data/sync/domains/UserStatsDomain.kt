@@ -31,10 +31,7 @@ internal fun userStatsDomain(database: ListenUpDatabase): MirroredDomain<UserSta
             DeleteSemantics.CatchUpOnly(
                 "server never tombstones user_stats; the row lives for the user's lifetime",
             ),
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.userStatsDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.userStatsDao()::digestRows),
         writes = WriteTier.ServerOwned,
     )
 

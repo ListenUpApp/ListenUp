@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -21,13 +20,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.domains.booksDomain
-import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
-import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
-import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
-import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
-import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.collectionServiceScopedTo
 import com.calypsan.listenup.server.api.createCollectionService
@@ -264,11 +257,11 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
 }
 
 /**
- * Assembles the MEMBER's client [SyncEngine]: registers the four access-gated handlers (books +
- * the three collection domains) into a fresh registry, wires the catch-up / SSE clients against
- * [testClient], and — load-bearing — binds the dispatcher's `onAccessChanged` to
- * [SyncEngine.handleAccessChanged] so a firehose `AccessChanged` frame triggers the transient
- * catch-up + `pruneTo` reconcile under test.
+ * Assembles the MEMBER's client [SyncEngine]: registers the real production catalog's handlers
+ * (including the four access-gated domains under test — books + the three collection domains)
+ * into a fresh registry, wires the catch-up / SSE clients against [testClient], and — load-bearing
+ * — binds the dispatcher's `onAccessChanged` to [SyncEngine.handleAccessChanged] so a firehose
+ * `AccessChanged` frame triggers the transient catch-up + `pruneTo` reconcile under test.
  */
 private fun buildMemberSyncEngine(
     clientDb: ListenUpDatabase,
@@ -276,16 +269,8 @@ private fun buildMemberSyncEngine(
     clientScope: CoroutineScope,
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
-    val txn = RoomTransactionRunner(clientDb)
 
-    booksDomain(
-        database = clientDb,
-        mapper = BookEntityMapper(),
-        imageStorage = stubImageStorage(),
-    ).toHandler(transactionRunner = txn, registry = registry)
-    collectionsDomain(clientDb).toHandler(txn, registry)
-    collectionBooksDomain(clientDb).toHandler(txn, registry)
-    collectionSharesDomain(clientDb).toHandler(txn, registry)
+    registerTestSyncDomains(db = clientDb, registry = registry)
 
     val state = SyncEngineState()
     val store = SyncCursorStore(clientDb.syncCursorDao())

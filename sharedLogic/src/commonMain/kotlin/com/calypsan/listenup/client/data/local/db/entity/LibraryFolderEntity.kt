@@ -40,6 +40,4 @@ internal data class LibraryFolderEntity(
     val revision: Long,
     /** Epoch ms tombstone; null when the folder is live. */
     val deletedAt: Long?,
-    /** Client operation ID for echo detection. Null for server-originated events. */
-    val clientOpId: String?,
 )

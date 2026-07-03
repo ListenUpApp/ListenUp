@@ -21,10 +21,7 @@ internal fun adminUserRosterDomain(database: ListenUpDatabase): MirroredDomain<A
         apply = AdminUserRosterMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.adminUserRosterDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.adminUserRosterDao()::digestRows),
         writes = WriteTier.ServerOwned,
     )
 

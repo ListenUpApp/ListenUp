@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -64,6 +65,18 @@ class TagsDomainTest :
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 // getById filters tombstones — should return null after soft-delete
                 db.tagDao().getById("t1") shouldBe null
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "t1", revision = 2L, occurredAt = 500L),
+                    isOwnEcho = false,
+                )
+                db.tagDao().getById("t1") shouldBe null
+                db.tagDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "t1"
             }
         }
 

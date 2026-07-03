@@ -27,10 +27,7 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
         apply = BookMoodMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.bookMoodDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.bookMoodDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

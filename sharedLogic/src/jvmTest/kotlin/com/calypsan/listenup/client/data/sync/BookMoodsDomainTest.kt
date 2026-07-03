@@ -9,9 +9,11 @@ import com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -63,6 +65,24 @@ class BookMoodsDomainTest :
                         isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.bookMoodDao().findByKey("b1", "m1")!!.deletedAt shouldBe 900L
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(junctionPayload("b1", "m1")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "b1:m1", revision = 2L, occurredAt = 900L),
+                    isOwnEcho = false,
+                )
+                // observeForBook filters tombstones — invisible to reads
+                db
+                    .bookMoodDao()
+                    .observeForBook("b1")
+                    .first()
+                    .none { it.moodId == "m1" } shouldBe true
+                // but still fingerprinted for digest-drift reconciliation (synthetic "$bookId:$moodId" id)
+                db.bookMoodDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "b1:m1"
             }
         }
 

@@ -26,10 +26,7 @@ internal fun publicProfilesDomain(
         apply = PublicProfileMirrorApply(database, avatarDownloadRepository),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.publicProfileDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.publicProfileDao()::digestRows),
         writes = WriteTier.ServerOwned,
     )
 

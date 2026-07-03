@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -54,6 +55,15 @@ class CollectionSharesDomainTest :
                     .onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.collectionShareDao().getById("s1") shouldBe null
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(createdShare(sharePayload("s1", "c1")), isOwnEcho = false)
+                handler.onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                db.collectionShareDao().getById("s1") shouldBe null
+                db.collectionShareDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "s1"
             }
         }
 

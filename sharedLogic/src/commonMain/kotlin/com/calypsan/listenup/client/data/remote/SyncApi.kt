@@ -18,7 +18,6 @@ import com.calypsan.listenup.client.data.remote.model.SyncListeningEventsRespons
 import com.calypsan.listenup.client.data.remote.model.SyncManifestResponse
 import com.calypsan.listenup.client.data.remote.model.SyncSeriesResponse
 import io.ktor.client.call.body
-import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
@@ -438,33 +437,6 @@ internal class SyncApi(
                         setBody(MarkCompleteRequest(startedAt = startedAt, finishedAt = finishedAt))
                     }
                 }.body()
-        }
-
-    /**
-     * Discard all progress for a book.
-     *
-     * Endpoint: DELETE /api/v1/books/{bookId}/progress/discard
-     * Auth: Required
-     */
-    override suspend fun discardProgress(
-        bookId: String,
-        keepHistory: Boolean,
-    ): AppResult<Unit> =
-        suspendRunCatching {
-            clientFactory.getClient().delete("/api/v1/books/$bookId/progress/discard") {
-                parameter("keep_history", keepHistory)
-            }
-        }
-
-    /**
-     * Restart a book from the beginning.
-     *
-     * Endpoint: POST /api/v1/books/{bookId}/progress/restart
-     * Auth: Required
-     */
-    override suspend fun restartBook(bookId: String): AppResult<PlaybackProgressResponse> =
-        apiCall(errorMessage = "Failed to restart book $bookId") {
-            clientFactory.getClient().post("/api/v1/books/$bookId/progress/restart").body()
         }
 }
 
