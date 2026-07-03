@@ -14,6 +14,7 @@ import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContainExactly
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -199,4 +200,80 @@ class SyncReconcilerTest :
                 verifySuspend(VerifyMode.not) { catchUp.catchUpFromZero(any<SyncDomainHandler<Any>>()) }
             }
         }
+
+        // ---------------------------------------------------------------------------------
+        // (d) an access-gated handler that drifted is re-derived + pruned, NOT upsert-only re-pulled
+        // ---------------------------------------------------------------------------------
+
+        test("(d) drifted AccessFilteredSyncHandler prunes to the accessible set instead of catchUpFromZero") {
+            runTest {
+                val max = 100L
+
+                // "collections" is access-gated. Local digest diverges from the server's, so the
+                // reconciler must re-derive the accessible set and prune — an upsert-only re-pull
+                // could never remove a revoked row, so the digest would never converge.
+                val localRows = listOf("c1" to 5L, "c2" to 5L)
+                // Server digest counts only c1 — c2's share was revoked. Divergence → drift.
+                val serverDigest = DigestComputer.compute(max, listOf("c1" to 5L))
+
+                val prunedTo = mutableListOf<Set<String>>()
+                val accessibleFromServer = setOf("c1")
+                val handler = accessGatedHandler("collections", localRows, prunedTo)
+
+                val registry = ClientSyncDomainRegistry()
+                registry.register(handler)
+
+                val store = inMemoryStore(max)
+                val digestClient = fakeDigestClient(mapOf("collections" to serverDigest))
+                val catchUp = mock<CatchUp>()
+                everySuspend { catchUp.catchUpTransient(any<SyncDomainHandler<Any>>()) } returns
+                    AppResult.Success(accessibleFromServer)
+
+                SyncReconciler(registry, store, digestClient, catchUp).reconcileAll()
+
+                // The upsert-only path must NOT be taken for an access-gated domain.
+                verifySuspend(VerifyMode.not) { catchUp.catchUpFromZero(any<SyncDomainHandler<Any>>()) }
+                // The transient re-derive drove a prune to exactly the accessible set.
+                verifySuspend { catchUp.catchUpTransient(handler) }
+                prunedTo shouldContainExactly listOf(accessibleFromServer)
+            }
+        }
     })
+
+/**
+ * Fake handler that is BOTH a [SyncDomainHandler] and an [AccessFilteredSyncHandler] — the shape of
+ * the four access-gated domains (books + the three collection domains). Records every [pruneTo]
+ * call's accessible set so the test can assert the reconciler routed drift through the prune path.
+ */
+private fun accessGatedHandler(
+    name: String,
+    rows: List<Pair<String, Long>>,
+    prunedTo: MutableList<Set<String>>,
+): SyncDomainHandler<Tag> =
+    object : SyncDomainHandler<Tag>, AccessFilteredSyncHandler {
+        override val domainName = name
+        override val payloadSerializer: KSerializer<Tag> = Tag.serializer()
+
+        override fun syncId(item: Tag): String = item.id
+
+        override suspend fun onEvent(
+            event: SyncEvent<Tag>,
+            isOwnEcho: Boolean,
+        ): AppResult<Unit> = AppResult.Success(Unit)
+
+        override suspend fun onCatchUpItem(
+            item: Tag,
+            isTombstone: Boolean,
+        ): AppResult<Unit> = AppResult.Success(Unit)
+
+        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>> = rows
+
+        override suspend fun localLiveIds(): Set<String> = rows.map { it.first }.toSet()
+
+        override suspend fun pruneTo(
+            accessibleIds: Set<String>,
+            now: Long,
+        ) {
+            prunedTo += accessibleIds
+        }
+    }

@@ -111,6 +111,10 @@ class ArchitectureTest :
                 // manufacture a sub-floor gap row, then proves reconcileAll repairs it. Same exemption
                 // class as DigestParityE2ETest — confined to jvmTest, not production.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/data/sync/DigestReconcileGapE2ETest" !in it.path }
+                // Lifecycle-reconcile invariant E2E: boots real server in-process under FirehoseSuppressed
+                // to manufacture an above-cursor gap row, then proves lifecycleReconcile's forward catch-up
+                // lands it where forceReconcile cannot. Same exemption class — confined to jvmTest.
+                .filter { "data/sync/LifecycleReconcileInvariantTest" !in it.path }
                 // Backup RPC E2E: drives the client BackupRepository through the real BackupService
                 // in-process to prove the admin backup routes return domain-typed results (not a
                 // transport 404). Same exemption class as the Profile E2E — confined to jvmTest.

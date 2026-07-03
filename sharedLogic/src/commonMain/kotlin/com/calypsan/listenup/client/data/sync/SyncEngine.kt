@@ -57,6 +57,7 @@ internal class SyncEngine(
     private val scope: CoroutineScope,
     private val primeActivityFeed: suspend () -> Unit = {},
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
+    private val lifecycleReconcileMinIntervalMs: Long = LIFECYCLE_RECONCILE_MIN_INTERVAL_MS,
 ) {
     private var frameCollectorJob: Job? = null
     private var connectionUpDrainJob: Job? = null
@@ -105,6 +106,19 @@ internal class SyncEngine(
     // satisfied by a pass that began after it registered (and the pending flag guarantees that pass
     // runs), the caller suspends exactly until a catch-up pass covering its request has drained.
     private val cursorStaleWaiters = mutableListOf<CompletableDeferred<Unit>>()
+
+    // Serializes + debounces the standing lifecycle reconcile — the one recovery pass every
+    // lifecycle edge (app-foreground via connectRealtime, firehose reconnect) funnels into.
+    // Distinct from [handleCursorStale]: the live SSE tail stays UP; only forward catch-up +
+    // digest re-run. A pass within [LIFECYCLE_RECONCILE_MIN_INTERVAL_MS] of the last completed
+    // pass is skipped unless force = true, so onResume storms and the cold-start double-run
+    // (runStart already reconciled) collapse to nothing. A forced trigger arriving mid-pass
+    // schedules exactly one covering follow-up so its effect (e.g. LibraryDataChanged) is never
+    // lost to the coalescing.
+    private val lifecycleReconcileMutex = Mutex()
+    private var lifecycleReconcileRunning = false
+    private var lifecycleReconcilePending = false
+    private var lastLifecycleReconcileAtMs = 0L
 
     // Flips to true on the last line of [runStart] for the active user. If
     // [runStart] throws before that line, the flag stays false even though
@@ -225,6 +239,10 @@ internal class SyncEngine(
         // start() for the same user is a no-op. If any step above threw, this
         // line is never reached, the flag stays false, and start() retries.
         currentUserStarted = true
+        // Stamp the lifecycle-reconcile debounce clock: runStart just did the equivalent work
+        // (forward catch-up + digest reconcile), so the connectRealtime() foreground reconcile
+        // that immediately follows a cold start is debounced instead of redundantly re-draining.
+        lifecycleReconcileMutex.withLock { lastLifecycleReconcileAtMs = currentEpochMilliseconds() }
     }
 
     /** Invoke [primeActivityFeed], swallowing non-cancellation failures so priming never aborts a caller. */
@@ -303,6 +321,109 @@ internal class SyncEngine(
      */
     suspend fun forceReconcile() {
         reconciler.reconcileAll()
+    }
+
+    /**
+     * The standing recovery pass every lifecycle edge funnels into — app-foreground (via
+     * [com.calypsan.listenup.client.data.repository.SyncRepository.connectRealtime]) and firehose
+     * reconnect ([runReconnectRefresh]). Removes the "restart required" failure class structurally:
+     * anything a live event or control nudge dropped while the app was backgrounded or the firehose
+     * was down self-heals on the next edge.
+     *
+     * Ordering is load-bearing:
+     *  1. **Forward catch-up FIRST** ([CatchUp.catchUpAll]) — drains rows written server-side ABOVE
+     *     the client's cursor (exactly what a `FirehoseSuppressed` bulk write produces). The digest
+     *     reconcile is blind to these: it fingerprints AT the cursor, so above-cursor rows are
+     *     excluded from both sides' digests.
+     *  2. **Digest reconcile SECOND** ([SyncReconciler.reconcileAll]) — repairs in-place divergence
+     *     at/below the cursor.
+     *  3. **Nudge refreshes** — re-fetch the ephemeral refreshed tier (presence, activity) so a
+     *     dropped control frame heals on this edge too.
+     *
+     * Coalesced + debounced: a pass within [LIFECYCLE_RECONCILE_MIN_INTERVAL_MS] of the last is
+     * skipped unless [force] is true, so rapid foreground/reconnect edges collapse to one pass.
+     * A [force] = true trigger arriving while a pass runs schedules exactly one covering follow-up.
+     * Unlike [handleCursorStale] this never tears down the SSE connection — the live tail is healthy.
+     */
+    suspend fun lifecycleReconcile(force: Boolean = false) {
+        val shouldLead =
+            lifecycleReconcileMutex.withLock {
+                when {
+                    lifecycleReconcileRunning -> {
+                        // A pass is already in flight. A forced trigger needs a covering follow-up so
+                        // its effect isn't lost to coalescing; a debounced trigger folds into it.
+                        if (force) lifecycleReconcilePending = true
+                        false
+                    }
+
+                    force || debounceElapsedLocked() -> {
+                        lifecycleReconcileRunning = true
+                        true
+                    }
+
+                    else -> {
+                        false
+                    } // within the debounce window and not forced → drop
+                }
+            }
+        if (!shouldLead) return
+        try {
+            var more = true
+            while (more) {
+                runLifecycleReconcilePass()
+                more =
+                    lifecycleReconcileMutex.withLock {
+                        lastLifecycleReconcileAtMs = currentEpochMilliseconds()
+                        if (lifecycleReconcilePending) {
+                            lifecycleReconcilePending = false
+                            true
+                        } else {
+                            lifecycleReconcileRunning = false
+                            false
+                        }
+                    }
+            }
+        } finally {
+            // Normal exit already cleared the running flag in the loop; this only fires when a pass
+            // threw or was cancelled, so a future edge can still lead a recovery.
+            if (lifecycleReconcileRunning) {
+                lifecycleReconcileMutex.withLock {
+                    lifecycleReconcileRunning = false
+                    lifecycleReconcilePending = false
+                }
+            }
+        }
+    }
+
+    /** Whether the debounce window has elapsed since the last completed pass. MUST hold [lifecycleReconcileMutex]. */
+    private fun debounceElapsedLocked(): Boolean =
+        currentEpochMilliseconds() - lastLifecycleReconcileAtMs >= lifecycleReconcileMinIntervalMs
+
+    /** One lifecycle reconcile pass: forward catch-up → digest reconcile → nudge refreshes. */
+    private suspend fun runLifecycleReconcilePass() {
+        when (val result = catchUp.catchUpAll(registry)) {
+            is AppResult.Success -> {}
+
+            is AppResult.Failure -> {
+                logger.warn {
+                    "Lifecycle catch-up failed: ${result.error.code}; continuing to digest reconcile"
+                }
+            }
+        }
+        // reconcileAll is non-throwing; nudge refreshes are individually guarded.
+        reconciler.reconcileAll()
+        runLifecycleRefreshHooks()
+    }
+
+    /**
+     * Re-fetch the ephemeral refreshed tier so a dropped nudge frame heals on this edge. Presence is
+     * a non-throwing tryEmit; the activity prime is guarded so an offline/failed fetch never aborts
+     * the pass. (Server-info + preferences keep their own control triggers until Phase 3 folds them
+     * in here via declared recovery.)
+     */
+    private suspend fun runLifecycleRefreshHooks() {
+        presenceRefreshSignal.ping()
+        primeActivityFeedSafely()
     }
 
     /**
@@ -571,9 +692,10 @@ internal class SyncEngine(
      *
      * The offline→online path ([ReconnectionSupervisor] → [SseClient.reconnectNow]) only resumes the
      * SSE stream; without this the activity feed and leaderboard stay stale until the server happens
-     * to emit a `CursorStale`. On each reconnect edge we deterministically prime the activity feed
-     * into Room (UI-independent), ping presence so currently-listening re-fetches, and run the
-     * digest-gated [SyncReconciler.reconcileAll] (refreshing `public_profiles` → the leaderboard).
+     * to emit a `CursorStale`. On each reconnect edge we run [lifecycleReconcile] — forward catch-up
+     * (draining rows written above the cursor during the outage), digest reconcile (refreshing
+     * `public_profiles` → the leaderboard), and the nudge refreshes (priming the activity feed into
+     * Room, pinging presence so currently-listening re-fetches).
      *
      * Subscribed before [SseClient.connect] and [drop]ping the first Connected, so the initial
      * start-connect (already covered by [runStart]'s prime + reconcile) does not double-fire.
@@ -596,24 +718,12 @@ internal class SyncEngine(
     }
 
     private suspend fun runReconnectRefresh() {
-        // Presence ping is a non-throwing tryEmit. The two suspend actions are guarded independently
-        // so one failure neither tears down the collector nor starves the other. Cancellation always
-        // propagates.
-        presenceRefreshSignal.ping()
-        try {
-            primeActivityFeed()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Reconnect activity-feed prime failed; continuing" }
-        }
-        try {
-            reconciler.reconcileAll()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Reconnect reconcile failed; continuing" }
-        }
+        // A reconnect may have missed live events AND control nudges while the firehose was down.
+        // Funnel into the one lifecycle reconcile: forward catch-up drains rows written above the
+        // cursor during the outage (the digest can't see them), digest repairs below-cursor
+        // divergence, and the nudge refreshes re-fetch presence/activity. force = true bypasses the
+        // debounce so a reconnect edge always heals.
+        lifecycleReconcile(force = true)
     }
 
     /**
@@ -719,5 +829,10 @@ internal class SyncEngine(
         // MAX_RETRYABLE_ATTEMPTS = 5 to bound total retry time to ~5s on
         // transient failures without hammering the server.
         const val DEFAULT_RETRY_BACKOFF_MILLIS = 1_000L
+
+        // Debounce floor for [lifecycleReconcile]. Guards against onResume storms: a full pass is
+        // ~20 cheap catch-up GETs (empty pages when idle) + ~20 digest GETs — fine on a genuine
+        // edge, wasteful at 1 Hz. force = true (reconnect, LibraryDataChanged) bypasses it.
+        const val LIFECYCLE_RECONCILE_MIN_INTERVAL_MS = 30_000L
     }
 }
