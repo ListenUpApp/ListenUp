@@ -26,6 +26,14 @@ internal interface MirrorApply<T : Any> {
         revision: Long,
     )
 
-    /** Apply a catch-up tombstone from the full payload. */
+    /**
+     * Apply a catch-up tombstone from the full payload.
+     *
+     * The `deletedAt ?: <fallback>` expression is deliberately per-domain: most payloads
+     * fall back to `updatedAt`, the junction payloads only carry `createdAt`. A generic
+     * default can't see payload fields without new contract-side interfaces, so the
+     * invariant is pinned by tests instead — every Full-digest domain asserts a
+     * tombstoned row survives in `digestRows`.
+     */
     suspend fun tombstoneFromItem(item: T)
 }

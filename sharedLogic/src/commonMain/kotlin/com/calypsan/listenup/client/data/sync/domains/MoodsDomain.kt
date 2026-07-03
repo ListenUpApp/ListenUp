@@ -18,10 +18,7 @@ internal fun moodsDomain(database: ListenUpDatabase): MirroredDomain<Mood> =
         apply = MoodMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.moodDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.moodDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

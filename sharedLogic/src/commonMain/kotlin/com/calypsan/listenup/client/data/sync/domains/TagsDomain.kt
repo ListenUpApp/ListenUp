@@ -18,10 +18,7 @@ internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> =
         apply = TagMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.tagDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.tagDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

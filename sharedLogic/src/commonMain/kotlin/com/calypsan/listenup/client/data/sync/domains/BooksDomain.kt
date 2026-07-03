@@ -67,10 +67,7 @@ internal fun booksDomain(
                 }
             },
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.bookDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.bookDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Books),
         accessGate =
             AccessGate(

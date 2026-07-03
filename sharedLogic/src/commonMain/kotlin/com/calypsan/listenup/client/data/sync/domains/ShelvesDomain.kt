@@ -19,10 +19,7 @@ internal fun shelvesDomain(database: ListenUpDatabase): MirroredDomain<ShelfSync
         apply = ShelfMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.shelfDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.shelfDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

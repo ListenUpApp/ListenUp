@@ -26,10 +26,7 @@ internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfB
         apply = ShelfBookMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.shelfBookDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.shelfBookDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

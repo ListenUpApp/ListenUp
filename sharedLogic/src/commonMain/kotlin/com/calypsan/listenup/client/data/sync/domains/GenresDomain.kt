@@ -18,10 +18,7 @@ internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncP
         apply = GenreMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.genreDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.genreDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

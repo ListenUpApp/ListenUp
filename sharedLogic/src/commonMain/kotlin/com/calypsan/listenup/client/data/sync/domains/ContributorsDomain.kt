@@ -33,10 +33,7 @@ internal fun contributorsDomain(
         apply = ContributorMirrorApply(database, imageStorage),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.contributorDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.contributorDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Contributors),
     )
 

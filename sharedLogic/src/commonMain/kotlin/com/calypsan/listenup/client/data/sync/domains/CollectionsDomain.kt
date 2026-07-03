@@ -25,10 +25,7 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
         apply = CollectionMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.collectionDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.collectionDao()::digestRows),
         writes = WriteTier.OnlineOnly,
         accessGate =
             AccessGate(

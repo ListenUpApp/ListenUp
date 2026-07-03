@@ -18,10 +18,7 @@ internal fun librariesDomain(database: ListenUpDatabase): MirroredDomain<Library
         apply = LibraryMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.libraryDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.libraryDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 

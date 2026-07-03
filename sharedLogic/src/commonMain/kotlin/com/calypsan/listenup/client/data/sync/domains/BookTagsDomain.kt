@@ -30,10 +30,7 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
         apply = BookTagMirrorApply(database),
         conflict = ConflictPolicy.ServerWins(),
         deletes = DeleteSemantics.SoftDelete,
-        digest =
-            DigestParticipation.Full { maxRevision ->
-                database.bookTagDao().digestRows(maxRevision).map { it.id to it.revision }
-            },
+        digest = fullDigest(database.bookTagDao()::digestRows),
         writes = WriteTier.OnlineOnly,
     )
 
