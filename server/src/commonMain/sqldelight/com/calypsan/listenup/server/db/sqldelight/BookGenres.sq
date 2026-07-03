@@ -36,14 +36,16 @@ JOIN genres g ON g.id = bg.genre_id
 WHERE bg.book_id = :book_id AND g.deleted_at IS NULL
 ORDER BY g.path;
 
--- Live genre NAMES linked to a book, name-ordered — BookSearchReindexer joins these
--- into the FTS `genres` column for deterministic content.
-genreNamesForBook:
-SELECT g.name
+-- Live genre NAMES for every book in the id-chunk, name-ordered within each book —
+-- the batched read behind BookSearchReindexer.reindexBooks. Tombstone-filtered and
+-- name-ordered per book, so the space-joined FTS token string matches the old
+-- per-book query byte-for-byte.
+genreNamesByBookIds:
+SELECT bg.book_id, g.name
 FROM book_genres bg
 JOIN genres g ON g.id = bg.genre_id
-WHERE bg.book_id = :book_id AND g.deleted_at IS NULL
-ORDER BY g.name;
+WHERE bg.book_id IN :book_ids AND g.deleted_at IS NULL
+ORDER BY bg.book_id, g.name;
 
 -- Up to :limit book ids linked to a genre — curator screen + post-rename reindex.
 booksForGenre:
