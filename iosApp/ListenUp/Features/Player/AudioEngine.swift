@@ -130,6 +130,17 @@ actor AudioEngine: PlaybackEngine {
         }
     }
 
+    /// Re-assert the shared session active — used when resuming after an
+    /// interruption. Best-effort: on failure the subsequent `play()` surfaces
+    /// the real symptom, and the error is logged for diagnosis.
+    func activateSession() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            Log.error("Failed to reactivate audio session", error: error)
+        }
+    }
+
     /// Tear down: stop playback, remove every observer, finish the event stream.
     func release() {
         if let timeObserver {

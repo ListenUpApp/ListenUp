@@ -218,6 +218,142 @@ struct RouteChangeTests {
 
 }
 
+// `.serialized`: every test here posts `AVAudioSession.interruptionNotification`
+// to `NotificationCenter.default`, which every live `PlayerCoordinator` observes.
+// Run in parallel, one test's `began`/`ended` post reaches a sibling test's
+// coordinator and flips its phase — so the suite must run its tests one at a time.
+@Suite("Audio-session interruption handling", .serialized)
+@MainActor
+struct AudioSessionInterruptionTests {
+    private func makeCoordinator() -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
+        let engine = FakePlaybackEngine()
+        let progress = FakeProgressReporting()
+        let preparer = FakePlaybackPreparing()
+        preparer.result = PreparedPlayback(
+            bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: nil, resumeSpeed: 1.0,
+            resumePositionMs: 0, chapters: [],
+            timeline: PreparedTimeline(totalDurationMs: 60000, files: [
+                PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
+        )
+        let coordinator = PlayerCoordinator(
+            preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
+            engine: engine, coverProvider: FakeBookCoverProviding())
+        return (coordinator, engine, progress)
+    }
+
+    private func postInterruptionBegan() {
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification, object: nil,
+            userInfo: [AVAudioSessionInterruptionTypeKey:
+                NSNumber(value: AVAudioSession.InterruptionType.began.rawValue)])
+    }
+
+    private func postInterruptionEnded(shouldResume: Bool) {
+        var userInfo: [AnyHashable: Any] = [
+            AVAudioSessionInterruptionTypeKey:
+                NSNumber(value: AVAudioSession.InterruptionType.ended.rawValue)
+        ]
+        if shouldResume {
+            userInfo[AVAudioSessionInterruptionOptionKey] =
+                NSNumber(value: AVAudioSession.InterruptionOptions.shouldResume.rawValue)
+        }
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification, object: nil, userInfo: userInfo)
+    }
+
+    @Test func interruptionBeganPausesPlayback() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        postInterruptionBegan()
+        await engine.waitUntilPaused()
+
+        #expect(await engine.didPause)
+        #expect(coordinator.isPlaying == false)
+        // `>= 1`, not `== 1`: every live coordinator observes `NotificationCenter.default`,
+        // so a sibling suite's route-change/interruption post can add a pause here. Our own
+        // code can't double-report one interruption — the `.pause` phase guard blocks the
+        // second — so `>= 1` verifies the interruption was reported to KMP without over-
+        // specifying a count the shared global center makes non-deterministic across suites.
+        #expect(progress.pausedCalls.count >= 1)
+    }
+
+    @Test func interruptionEndedWithShouldResumeResumesAfterInterruptionPause() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        postInterruptionBegan()
+        await engine.waitUntilPaused()
+        postInterruptionEnded(shouldResume: true)
+        await engine.waitForPlayCount(2)
+
+        #expect(coordinator.isPlaying)
+        let log = await engine.commandLog
+        #expect(Array(log.suffix(2)) == ["activate", "play"])
+        #expect(await engine.didActivateSession)
+    }
+
+    @Test func interruptionEndedWithoutShouldResumeStaysPaused() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        postInterruptionBegan()
+        await engine.waitUntilPaused()
+        postInterruptionEnded(shouldResume: false)
+
+        await awaitUntil(timeout: .milliseconds(300)) { coordinator.isPlaying }
+        #expect(coordinator.isPlaying == false)
+        #expect(await engine.playCount == 1)
+    }
+
+    @Test func interruptionEndedDoesNotResumeUserInitiatedPause() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        coordinator.togglePlayback()   // user pauses deliberately
+        await engine.waitUntilPaused()
+        postInterruptionEnded(shouldResume: true)
+
+        await awaitUntil(timeout: .milliseconds(300)) { coordinator.isPlaying }
+        #expect(coordinator.isPlaying == false)
+        #expect(await engine.playCount == 1)
+    }
+
+    @Test func interruptionBeganWhileBufferingPauses() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        engine.emit(.statusChanged(.buffering))
+        await awaitUntil { coordinator.isBuffering }
+
+        postInterruptionBegan()
+        await engine.waitUntilPaused()
+
+        #expect(coordinator.isPlaying == false)
+        #expect(coordinator.isBuffering == false)
+    }
+
+    @Test func stopSeversInterruptionObservation() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        coordinator.play(bookId: "book1")
+        await progress.waitForStarted(bookId: "book1")
+
+        await coordinator.stop()
+        let pausesBefore = await engine.commandLog.filter { $0 == "pause" }.count
+
+        postInterruptionBegan()
+        await awaitUntil(timeout: .milliseconds(300)) {
+            await engine.commandLog.filter { $0 == "pause" }.count > pausesBefore
+        }
+        #expect(await engine.commandLog.filter { $0 == "pause" }.count == pausesBefore)
+    }
+}
+
 @Suite("Route change policy")
 struct RouteChangePolicyTests {
     @Test func oldDeviceUnavailablePauses() {
