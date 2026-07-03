@@ -104,7 +104,9 @@ class SyncDomainCompletenessSpec :
                 val mirroredByName = catalog.mirrored.associateBy { it.key.name }
                 channels.forEach { channel ->
                     val domain = mirroredByName[channel.name] ?: return@forEach
-                    domain.writes.shouldBeInstanceOf<WriteTier.Outbox>().channel.name shouldBe channel.name
+                    domain.writes
+                        .shouldBeInstanceOf<WriteTier.Outbox>()
+                        .channel.name shouldBe channel.name
                 }
 
                 // The only channels without a mirrored descriptor are the two RPC-edit surfaces.
