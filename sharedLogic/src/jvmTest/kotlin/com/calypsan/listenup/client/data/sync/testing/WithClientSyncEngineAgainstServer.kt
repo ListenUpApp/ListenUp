@@ -9,7 +9,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
@@ -42,26 +42,13 @@ import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.domains.booksDomain
-import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
-import com.calypsan.listenup.client.data.sync.domains.genresDomain
-import com.calypsan.listenup.client.data.sync.domains.librariesDomain
-import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
-import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
-import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.domains.seriesDomain
-import com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain
-import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
-import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
@@ -613,69 +600,23 @@ private data class ServerRepositories(
 )
 
 /**
- * Constructs and registers the real books sync handler ([booksDomain]),
- * [contributorsDomain], the series composed handler,
- * [com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain] handler,
- * [com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain] handler,
- * [com.calypsan.listenup.client.data.sync.domains.userStatsDomain] handler,
- * [com.calypsan.listenup.client.data.sync.domains.librariesDomain] handler,
- * [com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain] handler,
- * and [com.calypsan.listenup.client.data.sync.domains.publicProfilesDomain] handler into [registry]. Each handler self-registers under its
- * `domainName` on construction, so the client dispatcher routes domain SSE frames here,
- * applying them into [clientDb] exactly as production does.
+ * Registers the real production catalog's handlers into [registry] — the client dispatcher
+ * routes domain SSE frames here, applying them into [clientDb] exactly as production does.
+ * The `tags` domain is excluded: this harness registers [RecordingTagSyncDomainHandler] for it
+ * separately below (the registry throws on a second instance per domain name). [FakeAuthSession]
+ * with the default "u1" user id matches the harness's `defaultUserId = "u1"` test auth provider,
+ * so `listening_events` records against the same user the SSE firehose is scoped to.
  */
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
 ) {
-    librariesDomain(database = clientDb).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
+    registerTestSyncDomains(
+        db = clientDb,
         registry = registry,
+        authSession = FakeAuthSession(),
+        exclude = setOf(SyncDomains.TAGS.name),
     )
-    libraryFoldersDomain(database = clientDb).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    booksDomain(
-        database = clientDb,
-        mapper = BookEntityMapper(),
-        imageStorage = stubImageStorage(),
-    ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
-    contributorsDomain(database = clientDb, imageStorage = stubImageStorage()).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    seriesDomain(database = clientDb).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    genresDomain(database = clientDb).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    playbackPositionsDomain(database = clientDb).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    listeningEventsDomain(clientDb, FakeAuthSession()).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    userStatsDomain(clientDb).toHandler(
-        transactionRunner = RoomTransactionRunner(clientDb),
-        registry = registry,
-    )
-    publicProfilesDomain(
-        database = clientDb,
-        avatarDownloadRepository =
-            object : AvatarDownloadRepository {
-                override fun queueAvatarDownload(userId: String) = Unit
-
-                override fun queueAvatarForceRefresh(userId: String) = Unit
-
-                override suspend fun deleteAvatar(userId: String) = Unit
-            },
-    ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
 }
 
 /**

@@ -8,7 +8,7 @@ import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
-import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
+import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -232,11 +232,3 @@ private suspend fun HttpClient.setupRoot(): String {
 
 private const val JWT_SECRET_LENGTH = 32
 private const val REFRESH_PEPPER_LENGTH = 32
-
-private class StubAvatarDownloadRepository : AvatarDownloadRepository {
-    override fun queueAvatarDownload(userId: String) = Unit
-
-    override fun queueAvatarForceRefresh(userId: String) = Unit
-
-    override suspend fun deleteAvatar(userId: String) = Unit
-}

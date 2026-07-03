@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.sync.testing
 
 import com.calypsan.listenup.api.contractJson
-import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -17,20 +16,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncReconciler
 import com.calypsan.listenup.client.data.sync.SyncSseClient
-import com.calypsan.listenup.client.data.sync.domains.tagsDomain
-import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.sync.domains.booksDomain
-import com.calypsan.listenup.client.data.sync.domains.librariesDomain
-import com.calypsan.listenup.client.data.sync.domains.bookTagsDomain
-import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
-import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
-import com.calypsan.listenup.client.data.sync.domains.listeningEventsDomain
-import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
-import com.calypsan.listenup.client.data.sync.domains.playbackPositionsDomain
-import com.calypsan.listenup.client.test.fake.FakeAuthSession
-import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
-import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.DriverFactory
@@ -166,51 +152,10 @@ internal fun withTagSyncEngineAgainstServer(block: suspend TagSyncEngineScope.()
         try {
             val registry = ClientSyncDomainRegistry()
 
-            // Register the REAL tag handlers — not the recording fixture.
-            tagsDomain(database = clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            bookTagsDomain(database = clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-
-            // Register remaining handlers so SSE events on other domains don't
-            // get logged as "unhandled" warnings during the test.
-            librariesDomain(database = clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            libraryFoldersDomain(database = clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            booksDomain(
-                database = clientDb,
-                mapper = BookEntityMapper(),
-                imageStorage = stubImageStorage(),
-            ).toHandler(transactionRunner = RoomTransactionRunner(clientDb), registry = registry)
-            contributorsDomain(database = clientDb, imageStorage = stubImageStorage()).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            seriesDomain(database = clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            playbackPositionsDomain(database = clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            listeningEventsDomain(clientDb, FakeAuthSession()).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
-            userStatsDomain(clientDb).toHandler(
-                transactionRunner = RoomTransactionRunner(clientDb),
-                registry = registry,
-            )
+            // Register the real production catalog's handlers — including the real tag
+            // handlers (no recording fixture here), so SSE events on every domain land in
+            // Room and none get logged as "unhandled" warnings during the test.
+            registerTestSyncDomains(db = clientDb, registry = registry)
 
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
