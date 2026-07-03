@@ -162,6 +162,10 @@ internal class PlaybackPositionRepositoryImpl(
      * create an echo loop.
      *
      * No sign-in user means no server to push to — silently skipped.
+     *
+     * Non-terminal variants carry the row's current `isFinished` onto the wire — a
+     * periodic/seek write must never un-finish a finished book on the server. Unfinishing
+     * is explicit: only [PlaybackUpdate.DiscardProgress]/[PlaybackUpdate.Restart] unfinish.
      */
     private suspend fun enqueueIfPositionMoving(
         bookId: BookId,
@@ -169,6 +173,11 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val userId = authSession.getUserId() ?: return
         val now = currentEpochMilliseconds()
+        // Post-transaction snapshot of the row handle() just wrote. Non-terminal variants
+        // carry its isFinished onto the wire — a periodic/seek write must never un-finish a
+        // finished book on the server. Unfinishing is explicit: only DiscardProgress/Restart
+        // send finished=false by design.
+        val entity = dao.get(bookId)
         val request: RecordPositionRequest =
             when (update) {
                 is PlaybackUpdate.Position -> {
@@ -176,7 +185,7 @@ internal class PlaybackPositionRepositoryImpl(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
                         lastPlayedAt = now,
-                        finished = false,
+                        finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
@@ -187,7 +196,7 @@ internal class PlaybackPositionRepositoryImpl(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
                         lastPlayedAt = now,
-                        finished = false,
+                        finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
@@ -198,7 +207,7 @@ internal class PlaybackPositionRepositoryImpl(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
                         lastPlayedAt = now,
-                        finished = false,
+                        finished = entity?.isFinished ?: false,
                         playbackSpeed = update.defaultSpeed,
                         currentChapterId = null,
                     )
@@ -209,7 +218,7 @@ internal class PlaybackPositionRepositoryImpl(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
                         lastPlayedAt = now,
-                        finished = false,
+                        finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
@@ -220,7 +229,7 @@ internal class PlaybackPositionRepositoryImpl(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
                         lastPlayedAt = now,
-                        finished = false,
+                        finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
@@ -231,14 +240,13 @@ internal class PlaybackPositionRepositoryImpl(
                         bookId = bookId.value,
                         positionMs = update.positionMs,
                         lastPlayedAt = now,
-                        finished = false,
+                        finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
                     )
                 }
 
                 is PlaybackUpdate.BookFinished -> {
-                    val entity = dao.get(bookId)
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = update.finalPositionMs,
@@ -250,7 +258,6 @@ internal class PlaybackPositionRepositoryImpl(
                 }
 
                 is PlaybackUpdate.MarkComplete -> {
-                    val entity = dao.get(bookId)
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = entity?.positionMs ?: 0L,
@@ -274,7 +281,7 @@ internal class PlaybackPositionRepositoryImpl(
                 PlaybackUpdate.DiscardProgress,
                 PlaybackUpdate.Restart,
                 -> {
-                    val entity = dao.get(bookId) ?: return
+                    if (entity == null) return
                     RecordPositionRequest(
                         bookId = bookId.value,
                         positionMs = entity.positionMs,
