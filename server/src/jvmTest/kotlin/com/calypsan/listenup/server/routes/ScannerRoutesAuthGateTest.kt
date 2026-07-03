@@ -85,7 +85,8 @@ class ScannerRoutesAuthGateTest :
                 setBody(RegisterRequest("member@scanner-gate.test", "y".repeat(MIN_PASSWORD_LENGTH), "Member"))
             }.body<AppResult<RegisterResult>>()
                 .shouldBeInstanceOf<AppResult.Success<RegisterResult>>()
-                .data.shouldBeInstanceOf<RegisterResult.Authenticated>()
+                .data
+                .shouldBeInstanceOf<RegisterResult.Authenticated>()
             return post("/api/v1/auth/login") {
                 contentType(ContentType.Application.Json)
                 setBody(LoginRequest("member@scanner-gate.test", "y".repeat(MIN_PASSWORD_LENGTH)))
@@ -245,7 +246,8 @@ class ScannerRoutesAuthGateTest :
                 val result = memberScannerService.scanFull()
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()
-                    .error.shouldBeInstanceOf<AuthError.PermissionDenied>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.PermissionDenied>()
             }
         }
 
@@ -267,7 +269,9 @@ class ScannerRoutesAuthGateTest :
                 // The isolated config has no library path, so the pipeline outcome is environment-shaped;
                 // pin only the gate (deterministic ADMIN-success coverage lives in ScannerServiceImplTest).
                 when (val result = rootScannerService.scanFull()) {
-                    is AppResult.Success -> Unit // gate passed and scan ran
+                    is AppResult.Success -> Unit
+
+                    // gate passed and scan ran
                     is AppResult.Failure -> result.error.shouldNotBeInstanceOf<AuthError.PermissionDenied>()
                 }
             }

@@ -159,8 +159,7 @@ class ScannerServiceImplTest :
 
 private val TEST_LIBRARY_ID = LibraryId("test-lib")
 
-private fun principalOf(role: UserRole) =
-    PrincipalProvider { UserPrincipal(UserId("u-test"), SessionId("s-test"), role) }
+private fun principalOf(role: UserRole) = PrincipalProvider { UserPrincipal(UserId("u-test"), SessionId("s-test"), role) }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 private suspend fun newService(
