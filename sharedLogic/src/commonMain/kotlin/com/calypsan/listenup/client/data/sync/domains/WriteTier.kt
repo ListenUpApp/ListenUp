@@ -34,7 +34,5 @@ internal sealed interface WriteTier {
     /** Mutations write Room optimistically and queue durable ops on [channel]. */
     data class Outbox(
         val channel: OutboxChannel<*>,
-    ) : WriteTier {
-        val ops: Set<OpKind> get() = channel.ops
-    }
+    ) : WriteTier
 }
