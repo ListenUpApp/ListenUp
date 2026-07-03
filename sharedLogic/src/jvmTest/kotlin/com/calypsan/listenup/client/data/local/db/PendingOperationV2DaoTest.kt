@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.local.db
 
+import com.calypsan.listenup.client.data.sync.MAX_RETRYABLE_ATTEMPTS
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
@@ -11,6 +12,24 @@ import kotlinx.coroutines.test.runTest
 
 class PendingOperationV2DaoTest :
     FunSpec({
+
+        fun deadLetterFixture(
+            clientOpId: String,
+            failureCount: Int = 0,
+            enqueuedAt: Long = 1_000L,
+            lastAttemptAt: Long? = null,
+        ) = PendingOperationV2Entity(
+            clientOpId = clientOpId,
+            domainName = "books",
+            entityId = "e-$clientOpId",
+            opType = "update",
+            payload = "{}",
+            enqueuedAt = enqueuedAt,
+            lastAttemptAt = lastAttemptAt,
+            failureCount = failureCount,
+            lastError = null,
+            ownerUserId = "u1",
+        )
 
         fun row(
             id: String,
@@ -151,6 +170,44 @@ class PendingOperationV2DaoTest :
                 val updated = dao.get("terminal")
                 updated?.failureCount shouldBe 0
                 updated?.lastError shouldBe null
+                db.close()
+            }
+        }
+
+        test("observeQueueDepth counts only dispatchable ops, excluding dead letters") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                dao.insert(deadLetterFixture("live"))
+                dao.insert(deadLetterFixture("dead", failureCount = MAX_RETRYABLE_ATTEMPTS + 1))
+
+                val expectedDepth = 1
+                dao.observeQueueDepth().first() shouldBe expectedDepth
+                db.close()
+            }
+        }
+
+        test("gcDeadLetters deletes terminal ops past the cutoff and keeps young dead letters and old live ops") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                dao.insert(
+                    deadLetterFixture("dead-old", failureCount = MAX_RETRYABLE_ATTEMPTS + 1, lastAttemptAt = 1_000L),
+                )
+                dao.insert(
+                    deadLetterFixture("dead-young", failureCount = MAX_RETRYABLE_ATTEMPTS + 1, lastAttemptAt = 9_000L),
+                )
+                dao.insert(deadLetterFixture("live-old", failureCount = 0, enqueuedAt = 500L))
+                dao.insert(
+                    deadLetterFixture("dead-never-attempted", failureCount = MAX_RETRYABLE_ATTEMPTS + 1, enqueuedAt = 900L),
+                )
+
+                dao.gcDeadLetters(cutoffMillis = 5_000L)
+
+                dao.get("dead-old") shouldBe null
+                dao.get("dead-never-attempted") shouldBe null
+                dao.get("dead-young") shouldNotBe null
+                dao.get("live-old") shouldNotBe null
                 db.close()
             }
         }

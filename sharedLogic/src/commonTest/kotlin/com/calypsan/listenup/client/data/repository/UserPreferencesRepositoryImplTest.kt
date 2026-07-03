@@ -95,9 +95,9 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
         inserted.replaceAll { if (it.clientOpId == clientOpId) it.copy(failureCount = 0, lastError = null) else it }
     }
 
-    override fun observeQueueDepth(): Flow<Int> = flowOf(inserted.size)
+    override fun observeQueueDepth(maxAttempts: Int): Flow<Int> = flowOf(inserted.count { it.failureCount <= maxAttempts })
 
-    override fun observeFailureCount(maxAttempts: Int): Flow<Int> = flowOf(0)
+    override fun observeDeadLetterCount(maxAttempts: Int): Flow<Int> = flowOf(0)
 
     override suspend fun deleteAllExcept(keepUserId: String) {
         inserted.removeAll { it.ownerUserId != keepUserId }
@@ -105,6 +105,15 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
 
     override suspend fun deleteAll() {
         inserted.clear()
+    }
+
+    override suspend fun gcDeadLetters(
+        cutoffMillis: Long,
+        maxAttempts: Int,
+    ) {
+        inserted.removeAll {
+            it.failureCount > maxAttempts && (it.lastAttemptAt ?: it.enqueuedAt) < cutoffMillis
+        }
     }
 }
 

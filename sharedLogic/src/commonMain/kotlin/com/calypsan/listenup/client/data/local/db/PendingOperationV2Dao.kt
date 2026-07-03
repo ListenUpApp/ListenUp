@@ -5,9 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.calypsan.listenup.client.data.sync.MAX_RETRYABLE_ATTEMPTS
 import kotlinx.coroutines.flow.Flow
-
-private const val MAX_RETRYABLE_ATTEMPTS = 5
 
 /**
  * DAO for the v2 pending-operation queue used by the client sync engine. See
@@ -47,11 +46,13 @@ internal interface PendingOperationV2Dao {
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
     suspend fun countDispatchable(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Int
 
-    @Query("SELECT COUNT(*) FROM pending_operation")
-    fun observeQueueDepth(): Flow<Int>
+    /** Live queue depth: ops still eligible for dispatch. Dead letters are counted separately. */
+    @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount <= :maxAttempts")
+    fun observeQueueDepth(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
 
+    /** Terminal ops that exhausted their retry budget — the dead-letter count. */
     @Query("SELECT COUNT(*) FROM pending_operation WHERE failureCount > :maxAttempts")
-    fun observeFailureCount(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
+    fun observeDeadLetterCount(maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS): Flow<Int>
 
     /**
      * Live snapshots of ops still within retry budget, oldest first. Backs the
@@ -109,4 +110,18 @@ internal interface PendingOperationV2Dao {
 
     @Query("DELETE FROM pending_operation")
     suspend fun deleteAll()
+
+    /**
+     * Deletes dead letters whose last activity predates [cutoffMillis]. `lastAttemptAt`
+     * is the terminal op's final attempt; ops that never dispatched fall back to
+     * [PendingOperationV2Entity.enqueuedAt].
+     */
+    @Query(
+        "DELETE FROM pending_operation " +
+            "WHERE failureCount > :maxAttempts AND COALESCE(lastAttemptAt, enqueuedAt) < :cutoffMillis",
+    )
+    suspend fun gcDeadLetters(
+        cutoffMillis: Long,
+        maxAttempts: Int = MAX_RETRYABLE_ATTEMPTS,
+    )
 }

@@ -37,7 +37,8 @@ internal data class EngineSnapshot(
     val recentErrorCount: Int = 0,
     val lastSuccessAtMillis: Long? = null,
     val pendingQueueDepth: Int = 0,
-    val pendingFailureCount: Int = 0,
+    /** Terminal ops that exhausted their retry budget — dead letters awaiting user retry/dismiss or age-GC. */
+    val deadLetterCount: Int = 0,
     val meaningfulErrorActive: Boolean = false,
 )
 
@@ -67,9 +68,9 @@ internal class SyncEngineState {
         flow.update { it.copy(pendingQueueDepth = depth) }
     }
 
-    /** Update the pending-operation failure count. */
-    fun setFailureCount(count: Int) {
-        flow.update { it.copy(pendingFailureCount = count) }
+    /** Update the dead-letter count. */
+    fun setDeadLetterCount(count: Int) {
+        flow.update { it.copy(deadLetterCount = count) }
     }
 
     /** Record a typed engine error; bumps [EngineSnapshot.recentErrorCount] and re-evaluates the threshold. */

@@ -342,4 +342,56 @@ class PendingOperationQueueTest :
                 db.close()
             }
         }
+
+        test("drain GCs dead letters older than the retention window") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val dao = db.pendingOperationV2Dao()
+                val now = 100L * 24 * 60 * 60 * 1000 // day 100
+                val queue =
+                    PendingOperationQueue(
+                        dao = dao,
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        nowMillis = { now },
+                    )
+                dao.insert(
+                    deadLetterFixture(
+                        "dead-ancient",
+                        failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                        lastAttemptAt = now - 31L * 24 * 60 * 60 * 1000,
+                    ),
+                )
+                dao.insert(
+                    deadLetterFixture(
+                        "dead-recent",
+                        failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                        lastAttemptAt = now - 1L * 24 * 60 * 60 * 1000,
+                    ),
+                )
+
+                queue.drain()
+
+                dao.get("dead-ancient") shouldBe null
+                dao.get("dead-recent") shouldNotBe null
+                db.close()
+            }
+        }
     })
+
+private fun deadLetterFixture(
+    clientOpId: String,
+    failureCount: Int = 0,
+    enqueuedAt: Long = 1_000L,
+    lastAttemptAt: Long? = null,
+) = PendingOperationV2Entity(
+    clientOpId = clientOpId,
+    domainName = "books",
+    entityId = "e-$clientOpId",
+    opType = "update",
+    payload = "{}",
+    enqueuedAt = enqueuedAt,
+    lastAttemptAt = lastAttemptAt,
+    failureCount = failureCount,
+    lastError = null,
+    ownerUserId = "u1",
+)

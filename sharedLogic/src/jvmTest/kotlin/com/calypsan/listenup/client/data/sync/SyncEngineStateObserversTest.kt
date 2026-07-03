@@ -22,9 +22,9 @@ private const val TIMEOUT_SECONDS = 5L
 
 /**
  * Verifies `SyncEngine` forwards `PendingOperationQueue.observeQueueDepth()` and
- * `observeFailureCount()` into [SyncEngineState] so the diagnostics surface
- * reflects reality. Pre-fix: `setQueueDepth`/`setFailureCount` were dead writers
- * — nothing ever invoked them, so `pendingQueueDepth` / `pendingFailureCount`
+ * `observeDeadLetterCount()` into [SyncEngineState] so the diagnostics surface
+ * reflects reality. Pre-fix: `setQueueDepth`/`setDeadLetterCount` were dead writers
+ * — nothing ever invoked them, so `pendingQueueDepth` / `deadLetterCount`
  * were stuck at 0 forever.
  */
 class SyncEngineStateObserversTest :
@@ -35,22 +35,19 @@ class SyncEngineStateObserversTest :
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val db = createInMemoryTestDatabase()
                 try {
-                    // Non-retryable failure keeps ops in the queue (flagged past MAX,
-                    // never re-drained). Using a Success sender would drain-and-delete
-                    // the op the moment the engine sees the enqueue signal, racing the
-                    // assertion. observeQueueDepth counts ALL rows regardless of
-                    // failure status, so non-retryable failure is the right tool to
-                    // pin the row in place while the depth observer fires.
+                    // Retryable failure keeps ops in the queue (failureCount increments but
+                    // stays within budget, so the op remains dispatchable). Using a Success
+                    // sender would drain-and-delete the op the moment the engine sees the
+                    // enqueue signal, racing the assertion; a non-retryable failure would
+                    // flip the op to a dead letter, which observeQueueDepth now excludes.
                     val queue =
                         PendingOperationQueue(
                             dao = db.pendingOperationV2Dao(),
                             sender =
                                 PendingOperationSender {
                                     AppResult.Failure(
-                                        com.calypsan.listenup.api.error.SyncError.NotFound(
-                                            domain = "tags",
-                                            entityId = "t1",
-                                        ),
+                                        com.calypsan.listenup.api.error.TransportError
+                                            .NetworkUnavailable(),
                                     )
                                 },
                         )
@@ -78,7 +75,7 @@ class SyncEngineStateObserversTest :
             }
         }
 
-        test("SyncEngineState.pendingFailureCount reflects PendingOperationQueue.observeFailureCount") {
+        test("SyncEngineState.deadLetterCount reflects PendingOperationQueue.observeDeadLetterCount") {
             runBlocking {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val db = createInMemoryTestDatabase()
@@ -119,7 +116,7 @@ class SyncEngineStateObserversTest :
                         )
 
                     withTimeout(TIMEOUT_SECONDS.seconds) {
-                        state.observe().first { it.pendingFailureCount == 1 }
+                        state.observe().first { it.deadLetterCount == 1 }
                     }
                 } finally {
                     scope.cancel()

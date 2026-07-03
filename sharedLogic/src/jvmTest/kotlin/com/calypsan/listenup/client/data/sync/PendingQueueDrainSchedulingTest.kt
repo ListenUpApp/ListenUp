@@ -401,13 +401,18 @@ private class CountingDao(
 
     override suspend fun resetFailureCount(clientOpId: String) = delegate.resetFailureCount(clientOpId)
 
-    override fun observeQueueDepth() = delegate.observeQueueDepth()
+    override fun observeQueueDepth(maxAttempts: Int) = delegate.observeQueueDepth(maxAttempts)
 
-    override fun observeFailureCount(maxAttempts: Int) = delegate.observeFailureCount(maxAttempts)
+    override fun observeDeadLetterCount(maxAttempts: Int) = delegate.observeDeadLetterCount(maxAttempts)
 
     override suspend fun deleteAllExcept(keepUserId: String) = delegate.deleteAllExcept(keepUserId)
 
     override suspend fun deleteAll() = delegate.deleteAll()
+
+    override suspend fun gcDeadLetters(
+        cutoffMillis: Long,
+        maxAttempts: Int,
+    ) = delegate.gcDeadLetters(cutoffMillis, maxAttempts)
 }
 
 /**
