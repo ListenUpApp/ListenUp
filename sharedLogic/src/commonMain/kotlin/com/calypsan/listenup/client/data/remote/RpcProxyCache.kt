@@ -40,7 +40,8 @@ internal class RpcProxyCache<T : Any>(
         mutex.withLock {
             cachedProxy ?: run {
                 // Resolve the URL BEFORE deriving the client: a missing server URL
-                // must throw ServerUrlNotConfiguredException without caching anything.
+                // must fail fast (rpcBaseUrl's ServerUrlNotConfiguredException guard)
+                // without caching anything.
                 val wsBaseUrl = rpcBaseUrl()
                 connect(rpcClient(), wsBaseUrl).also { cachedProxy = it }
             }
