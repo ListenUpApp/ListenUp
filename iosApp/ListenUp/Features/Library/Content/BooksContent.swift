@@ -28,13 +28,11 @@ struct BooksContent: View {
     let selection: BookSelectionObserver
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isScrolling = false
     @State private var scrollTarget: String?
     @State private var sections: [(letter: Character, books: [BookRow])] = []
-    /// The grid's available width, read via `.onGeometryChange`, used to derive the column count +
-    /// cell width. A phone-ish default avoids a collapsed first paint before the first layout.
-    @State private var contentWidth: CGFloat = 390
 
     private var layout: BooksLayout {
         BooksLayout.forRegularWidth(horizontalSizeClass == .regular)
@@ -42,6 +40,18 @@ struct BooksContent: View {
 
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: 150), spacing: layout.gridSpacing)]
+    }
+
+    /// A letter group wrapped as `Identifiable` — the grid's outer `ForEach` needs stable per-section
+    /// identity, and the underlying `sections` labeled-tuple can't provide a key path.
+    private struct LetterSection: Identifiable {
+        let letter: Character
+        let books: [BookRow]
+        var id: Character { letter }
+    }
+
+    private var letterSections: [LetterSection] {
+        sections.map { LetterSection(letter: $0.letter, books: $0.books) }
     }
 
     /// Available sort categories for books
@@ -66,47 +76,34 @@ struct BooksContent: View {
     private var booksGrid: some View {
         let letters = sections.map { String($0.letter) }
 
-        // The grid is a FLAT `LazyVStack` of a letter header + manually-chunked book rows — NOT a
-        // `LazyVGrid` nested inside the `LazyVStack`. That nesting made the scrubber's `scrollTo`
-        // spin the main thread forever on a large library: resolving the target offset across ~26
-        // nested lazy grids is a layout pass that never converges. One lazy container converges,
-        // exactly like the Series/Contributor tabs. The column count is width-driven (replacing the
-        // old `GridItem(.adaptive(minimum: 150))` flow); width is read via `.onGeometryChange` rather
-        // than a `GeometryReader` wrapper — the wrapper mispositioned the sort-button overlay behind
-        // the tab chips. See #alphabet-scrubber-hang.
-        let columnCount = gridColumnCount(forWidth: contentWidth)
-        let cellWidth = gridCellWidth(forWidth: contentWidth, columns: columnCount)
-        let rows = bookRows(columns: columnCount)
-
+        // ONE `LazyVGrid` (a single lazy container) with a `Section` per letter — NOT the ~26 nested
+        // per-section grids that made the scrubber's `scrollTo` hang the main thread on a large
+        // library (#alphabet-scrubber-hang). A single lazy container converges. Keying the `ForEach`
+        // on individual books (native `BookRow` value types, never bridged Kotlin objects) is what
+        // lets SwiftUI diff and animate books in/out as sync adds or removes them; each section header
+        // carries its `.id` anchor so the scrubber's `scrollTo` still lands on the letter.
         return ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: layout.gridSpacing) {
-                    if layout.usesInlineSort, sortState != nil {
-                        sortRow
-                    } else if let sortState {
-                        // Compact: the sort pill is the FIRST content row (it used to be a top-leading
-                        // overlay, which the `.page` TabView style hid behind the tab chips). As content
-                        // it insets below the chips like everything else, so it's actually visible.
-                        FloatingSortButton(
-                            sortState: sortState,
-                            categories: sortCategories,
-                            onCategorySelected: onCategorySelected,
-                            onDirectionToggle: onDirectionToggle,
-                            ignoreTitleArticles: ignoreTitleArticles,
-                            onToggleIgnoreArticles: onToggleIgnoreArticles
-                        )
-                        .padding(.top, 4)
-                    }
+                VStack(alignment: .leading, spacing: layout.gridSpacing) {
+                    sortHeader
 
-                    ForEach(rows) { row in
-                        rowView(row, cellWidth: cellWidth)
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: layout.gridSpacing) {
+                        ForEach(letterSections) { section in
+                            Section {
+                                ForEach(section.books) { book in
+                                    bookCell(book)
+                                        .transition(bookTransition)
+                                }
+                            } header: {
+                                sectionHeader(section.letter)
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, layout.sideMargin)
                 // Extra padding at bottom so content scrolls above tab bar
                 .padding(.bottom, 100)
             }
-            .onGeometryChange(for: CGFloat.self, of: { $0.size.width }, action: { contentWidth = $0 })
             .scrollContentBackground(.hidden)
             .refreshable {
                 onRefresh()
@@ -139,82 +136,57 @@ struct BooksContent: View {
                     .padding(.vertical, 60)
                 }
             }
-            .onChange(of: books, initial: true) { _, _ in
-                sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
-            }
-            .onChange(of: ignoreTitleArticles) { _, _ in
-                sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
-            }
-        }
-    }
-
-    /// One element of the flattened Books grid: a letter header, or a row of up-to-`columns` cells.
-    /// Flattening to a single lazy container (instead of `LazyVGrid` nested in `LazyVStack`) is what
-    /// stops the alphabet scrubber's `scrollTo` from hanging the main thread on a large library.
-    private enum BooksGridRow: Identifiable {
-        case header(Character)
-        case cells(letter: Character, index: Int, books: [BookRow])
-
-        var id: String {
-            switch self {
-            case .header(let letter): return "section-\(letter)"
-            case .cells(let letter, let index, _): return "row-\(letter)-\(index)"
-            }
-        }
-    }
-
-    /// Width-driven column count, mirroring the previous `GridItem(.adaptive(minimum: 150))` flow.
-    private func gridColumnCount(forWidth width: CGFloat) -> Int {
-        let usable = width - layout.sideMargin * 2
-        guard usable > 0 else { return 1 }
-        let minCell: CGFloat = 150
-        return max(1, Int((usable + layout.gridSpacing) / (minCell + layout.gridSpacing)))
-    }
-
-    /// Exact cell width so a short final row's cards keep their column width (left-aligned) instead
-    /// of stretching — the manual-grid equivalent of `LazyVGrid`'s fixed tracks.
-    private func gridCellWidth(forWidth width: CGFloat, columns: Int) -> CGFloat {
-        guard columns > 0 else { return max(0, width) }
-        let usable = width - layout.sideMargin * 2 - CGFloat(columns - 1) * layout.gridSpacing
-        return max(0, usable / CGFloat(columns))
-    }
-
-    /// Flatten `sections` into header + chunked-row items so the grid renders in ONE lazy container.
-    private func bookRows(columns: Int) -> [BooksGridRow] {
-        guard columns > 0 else { return [] }
-        var rows: [BooksGridRow] = []
-        for section in sections {
-            rows.append(.header(section.letter))
-            var index = 0
-            var start = 0
-            while start < section.books.count {
-                let end = min(start + columns, section.books.count)
-                rows.append(.cells(letter: section.letter, index: index, books: Array(section.books[start ..< end])))
-                start = end
-                index += 1
-            }
-        }
-        return rows
-    }
-
-    @ViewBuilder
-    private func rowView(_ row: BooksGridRow, cellWidth: CGFloat) -> some View {
-        switch row {
-        case .header(let letter):
-            Text(String(letter))
-                .font(.title2.bold())
-                .foregroundStyle(.primary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.top, 8)
-        case .cells(_, _, let books):
-            HStack(alignment: .top, spacing: layout.gridSpacing) {
-                ForEach(books) { book in
-                    bookCell(book)
-                        .frame(width: cellWidth)
+            .onChange(of: books, initial: true) { _, newBooks in
+                // Animate only a genuine add/remove on an already-populated grid — never the first
+                // load (all books arriving at once) or when Reduce Motion is on.
+                let animate = !reduceMotion && !sections.isEmpty && !newBooks.isEmpty
+                withAnimation(animate ? .snappy : nil) {
+                    sections = bookSections(from: newBooks, ignoreArticles: ignoreTitleArticles)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .onChange(of: ignoreTitleArticles) { _, _ in
+                // A re-sort (article handling), not an add/remove — apply instantly, no animation.
+                sections = bookSections(from: books, ignoreArticles: ignoreTitleArticles)
+            }
         }
+    }
+
+    /// The sort control above the grid: an inline row at regular width, a floating pill when compact.
+    /// (It used to be a top-leading overlay, which the `.page` TabView style hid behind the tab chips;
+    /// as scrolling content it insets below the chips like everything else.)
+    @ViewBuilder
+    private var sortHeader: some View {
+        if layout.usesInlineSort, sortState != nil {
+            sortRow
+        } else if let sortState {
+            FloatingSortButton(
+                sortState: sortState,
+                categories: sortCategories,
+                onCategorySelected: onCategorySelected,
+                onDirectionToggle: onDirectionToggle,
+                ignoreTitleArticles: ignoreTitleArticles,
+                onToggleIgnoreArticles: onToggleIgnoreArticles
+            )
+            .padding(.top, 4)
+        }
+    }
+
+    /// Full-width letter header for a grid `Section`, carrying the `section-<letter>` anchor the
+    /// alphabet scrubber's `scrollTo` targets.
+    private func sectionHeader(_ letter: Character) -> some View {
+        Text(String(letter))
+            .font(.title2.bold())
+            .foregroundStyle(.primary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+            .id("section-\(letter)")
+    }
+
+    /// Per-book insert/remove transition. Honors Reduce Motion (a plain cross-fade, no scale) per HIG.
+    private var bookTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .scale(scale: 0.85).combined(with: .opacity)
     }
 
     /// A single grid cell. While selecting, the cover toggles selection on tap; otherwise it
