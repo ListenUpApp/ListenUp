@@ -10,9 +10,11 @@ import kotlinx.rpc.annotations.Rpc
 
 /**
  * Scanner contract. Mounted at `/api/rpc/authed` behind the JWT gate — every RPC call
- * requires a valid access token. The REST trigger (`POST /api/v1/scan`) is additionally
- * ROOT/ADMIN-gated; `scanFull()` over RPC is reachable by any authenticated user but is
- * unused by first-party clients — scan triggering flows through `LibraryAdminService`.
+ * requires a valid access token. `scanFull()` is additionally ROOT/ADMIN-gated inside the
+ * server implementation on both transports (RPC and `POST /api/v1/scan`); a member receives
+ * `AppResult.Failure(AuthError.PermissionDenied)`. `lastScanResult()` and `observeProgress()`
+ * stay available to any authenticated user. First-party clients trigger scans through
+ * `LibraryAdminService`.
  *
  * `observeProgress()` is a server-pushed [Flow] of [RpcEvent]-wrapped [ScanEvent]s —
  * kotlinx.rpc opens a dedicated WebSocket frame stream for it. Multiple
