@@ -62,7 +62,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import org.koin.android.ext.android.inject
+import com.calypsan.listenup.client.core.DurationFormatter
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
@@ -397,7 +399,7 @@ class PlaybackService : MediaLibraryService() {
                 chapterInfo.title
             }
 
-        val timeRemaining = formatDuration(chapterInfo.remainingMs)
+        val timeRemaining = DurationFormatter.hoursMinutesOrUnderMinute(chapterInfo.remainingMs.milliseconds)
         val displaySubtitle = "$chapterText • $timeRemaining left"
 
         // Get current book info from the existing metadata
@@ -442,17 +444,6 @@ class PlaybackService : MediaLibraryService() {
 
         logger.debug {
             "Updated chapter metadata: $chapterText (${chapterInfo.index + 1}/${chapterInfo.totalChapters})"
-        }
-    }
-
-    private fun formatDuration(ms: Long): String {
-        val totalMinutes = ms / 60_000
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-        return when {
-            hours > 0 -> "${hours}h ${minutes}m"
-            minutes > 0 -> "${minutes}m"
-            else -> "< 1m"
         }
     }
 

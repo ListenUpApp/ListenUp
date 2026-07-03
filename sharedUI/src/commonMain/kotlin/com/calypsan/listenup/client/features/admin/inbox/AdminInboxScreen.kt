@@ -64,7 +64,8 @@ import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpDestructiveDialog
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSmall
 import com.calypsan.listenup.client.design.components.ScallopBadge
-import com.calypsan.listenup.client.design.util.formatDuration
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
 import com.calypsan.listenup.client.domain.model.InboxBookItem
 import com.calypsan.listenup.client.presentation.admin.AdminInboxUiState
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
@@ -791,7 +792,7 @@ private fun InboxRowText(
                 tint = if (isSelected) titleColor else MaterialTheme.colorScheme.tertiary,
             )
             Text(
-                text = formatDuration(book.durationMs),
+                text = DurationFormatter.hoursMinutes(book.durationMs.milliseconds),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = subColor,

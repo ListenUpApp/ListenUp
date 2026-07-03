@@ -12,7 +12,9 @@ import androidx.media3.session.MediaNotification
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaStyleNotificationHelper
 import androidx.media3.session.SessionCommand
+import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.notifications.NotificationChannels
+import kotlin.time.Duration.Companion.milliseconds
 import com.google.common.collect.ImmutableList
 import io.github.oshai.kotlinlogging.KotlinLogging
 
@@ -269,14 +271,5 @@ class AudiobookNotificationProvider(
      *
      * Visible for testing.
      */
-    internal fun formatDuration(ms: Long): String {
-        val totalMinutes = ms / 60_000
-        val hours = totalMinutes / 60
-        val minutes = totalMinutes % 60
-        return when {
-            hours > 0 -> "${hours}h ${minutes}m"
-            minutes > 0 -> "${minutes}m"
-            else -> "< 1m"
-        }
-    }
+    internal fun formatDuration(ms: Long): String = DurationFormatter.hoursMinutesOrUnderMinute(ms.milliseconds)
 }

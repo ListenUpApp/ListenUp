@@ -22,6 +22,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.calypsan.listenup.client.core.DurationFormatter
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -71,7 +73,7 @@ fun StatsRow(
 
         StatChip(
             icon = { Icon(Icons.Default.AccessTime, null, Modifier.size(16.dp)) },
-            text = formatDuration(duration),
+            text = DurationFormatter.hoursMinutesAlways(duration.milliseconds),
             onHeroBand = onHeroBand,
         )
 
@@ -165,16 +167,6 @@ fun StatChip(
             )
         }
     }
-}
-
-/**
- * Formats duration in milliseconds to human-readable string.
- */
-fun formatDuration(durationMs: Long): String {
-    val totalSeconds = durationMs / 1000
-    val hours = totalSeconds / 3600
-    val minutes = totalSeconds % 3600 / 60
-    return "${hours}h ${minutes}m"
 }
 
 /**
