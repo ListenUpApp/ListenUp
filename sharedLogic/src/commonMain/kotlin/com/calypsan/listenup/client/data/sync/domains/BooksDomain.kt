@@ -74,6 +74,7 @@ internal fun booksDomain(
                 localLiveIds = { database.bookDao().liveIds().toSet() },
                 pruneTo = { accessibleIds, now ->
                     database.bookDao().tombstoneNotIn(accessibleIds, now)
+                    database.bookReadershipDao().deleteWhereBookNotLive()
                 },
             ),
         revisionGuard =

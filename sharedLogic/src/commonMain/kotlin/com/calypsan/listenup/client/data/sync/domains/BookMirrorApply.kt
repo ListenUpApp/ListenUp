@@ -62,6 +62,10 @@ internal class BookMirrorApply(
         revision: Long,
     ) {
         database.bookDao().softDelete(id = BookId(id), deletedAt = deletedAt, revision = revision)
+        // The readership mirror is a cache keyed by book — sweep rows whose book
+        // is no longer live (this one included; the stamp above precedes the sweep
+        // inside the same write transaction).
+        database.bookReadershipDao().deleteWhereBookNotLive()
     }
 
     override suspend fun tombstoneFromItem(item: BookSyncPayload) {

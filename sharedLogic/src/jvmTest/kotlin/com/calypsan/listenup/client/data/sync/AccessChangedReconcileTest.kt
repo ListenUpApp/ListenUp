@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
+import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
@@ -22,10 +23,12 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -66,6 +69,33 @@ class AccessChangedReconcileTest :
 
                 db.bookDao().getById(BookId("b1"))!!.deletedAt shouldBe null
                 db.bookDao().getById(BookId("b2"))!!.deletedAt shouldNotBe null
+            }
+        }
+
+        test("books: access prune deletes readership rows for revoked books") {
+            withReconcileEngine { harness, db, _ ->
+                val handler =
+                    booksDomain(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+                handler.onCatchUpItem(bookPayload("b1"), isTombstone = false)
+                handler.onCatchUpItem(bookPayload("b2"), isTombstone = false)
+                db.bookReadershipDao().upsertAll(
+                    listOf(readershipRow("b1", "u1"), readershipRow("b2", "u1")),
+                )
+
+                // Server now reports only b1 accessible — b2's share was revoked.
+                harness.fakeCatchUp.accessibleByDomain["books"] = setOf("b1")
+                harness.engine.handleAccessChanged()
+
+                db.bookReadershipDao().observeForBook("b1").first() shouldHaveSize 1
+                db
+                    .bookReadershipDao()
+                    .observeForBook("b2")
+                    .first()
+                    .shouldBeEmpty()
             }
         }
 
@@ -229,6 +259,20 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
             db.close()
         }
     }
+
+private fun readershipRow(
+    bookId: String,
+    userId: String,
+): BookReadershipEntity =
+    BookReadershipEntity(
+        bookId = bookId,
+        userId = userId,
+        displayName = "Reader $userId",
+        avatarType = "auto",
+        currentProgressPct = null,
+        finishesJson = "",
+        observedAt = 1L,
+    )
 
 private fun bookPayload(id: String): BookSyncPayload =
     BookSyncPayload(

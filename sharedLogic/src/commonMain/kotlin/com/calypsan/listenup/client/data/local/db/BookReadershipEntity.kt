@@ -44,6 +44,15 @@ internal interface BookReadershipDao {
     @Query("DELETE FROM book_readership WHERE bookId = :bookId")
     suspend fun deleteForBook(bookId: String)
 
+    /**
+     * Sweep cached readership whose book is gone or tombstoned. The mirror is a
+     * server-fetched cache (refilled on the next presence ping), so rows for
+     * dead or revoked books carry reader identities the user should no longer
+     * hold — and nothing else references them.
+     */
+    @Query("DELETE FROM book_readership WHERE bookId NOT IN (SELECT id FROM books WHERE deletedAt IS NULL)")
+    suspend fun deleteWhereBookNotLive()
+
     /** Atomically replace [bookId]'s cached readership with [rows] (the latest server snapshot). */
     @Transaction
     suspend fun replaceForBook(
