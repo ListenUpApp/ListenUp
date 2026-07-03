@@ -5,6 +5,8 @@ package com.calypsan.listenup.client.domain.repository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfDetail
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -41,7 +43,7 @@ interface ShelfRepository {
      * Reactive and offline — reads the local Room mirror, re-emitting when membership changes.
      * Empty when the book is on none of the caller's shelves.
      */
-    fun observeShelvesContainingBook(bookId: String): Flow<List<Shelf>>
+    fun observeShelvesContainingBook(bookId: BookId): Flow<List<Shelf>>
 
     /**
      * Observe a single shelf by ID.
@@ -49,7 +51,7 @@ interface ShelfRepository {
      * @param id The shelf ID
      * @return Flow emitting the shelf or null
      */
-    fun observeById(id: String): Flow<Shelf?>
+    fun observeById(id: ShelfId): Flow<Shelf?>
 
     /**
      * Get a shelf by ID synchronously from the local mirror.
@@ -57,7 +59,7 @@ interface ShelfRepository {
      * @param id The shelf ID
      * @return Shelf if found, null otherwise
      */
-    suspend fun getById(id: String): Shelf?
+    suspend fun getById(id: ShelfId): Shelf?
 
     /**
      * Get a specific user's public shelves (view-other-profile surface).
@@ -87,7 +89,7 @@ interface ShelfRepository {
      * @param shelfId The shelf ID to fetch
      * @return [AppResult.Success] with the shelf detail, or [AppResult.Failure] on RPC error
      */
-    suspend fun getShelfDetail(shelfId: String): AppResult<ShelfDetail>
+    suspend fun getShelfDetail(shelfId: ShelfId): AppResult<ShelfDetail>
 
     /**
      * Remove a book from a shelf.
@@ -96,8 +98,8 @@ interface ShelfRepository {
      * @param bookId The book to remove
      */
     suspend fun removeBookFromShelf(
-        shelfId: String,
-        bookId: String,
+        shelfId: ShelfId,
+        bookId: BookId,
     ): AppResult<Unit>
 
     /**
@@ -107,8 +109,8 @@ interface ShelfRepository {
      * @param bookIds The books to add
      */
     suspend fun addBooksToShelf(
-        shelfId: String,
-        bookIds: List<String>,
+        shelfId: ShelfId,
+        bookIds: List<BookId>,
     ): AppResult<Unit>
 
     /**
@@ -120,8 +122,8 @@ interface ShelfRepository {
      * @param orderedBookIds The books in their new order
      */
     suspend fun reorderBooks(
-        shelfId: String,
-        orderedBookIds: List<String>,
+        shelfId: ShelfId,
+        orderedBookIds: List<BookId>,
     ): AppResult<Unit>
 
     /**
@@ -148,7 +150,7 @@ interface ShelfRepository {
      * @return [AppResult.Success] with the updated shelf, or [AppResult.Failure] on RPC error
      */
     suspend fun updateShelf(
-        shelfId: String,
+        shelfId: ShelfId,
         name: String,
         description: String?,
         isPrivate: Boolean,
@@ -159,5 +161,5 @@ interface ShelfRepository {
      *
      * @param shelfId The shelf ID to delete
      */
-    suspend fun deleteShelf(shelfId: String): AppResult<Unit>
+    suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit>
 }

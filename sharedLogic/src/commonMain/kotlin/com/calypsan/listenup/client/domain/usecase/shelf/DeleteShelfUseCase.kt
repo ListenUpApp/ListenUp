@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.domain.usecase.shelf
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
+import com.calypsan.listenup.core.ShelfId
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -26,7 +27,7 @@ open class DeleteShelfUseCase(
      * @param shelfId The ID of the shelf to delete
      * @return Result indicating success or failure
      */
-    open suspend operator fun invoke(shelfId: String): AppResult<Unit> {
+    open suspend operator fun invoke(shelfId: ShelfId): AppResult<Unit> {
         logger.info { "Deleting shelf $shelfId" }
         return shelfRepository.deleteShelf(shelfId)
     }

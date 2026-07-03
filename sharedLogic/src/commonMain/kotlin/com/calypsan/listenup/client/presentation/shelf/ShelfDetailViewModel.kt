@@ -7,6 +7,8 @@ import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.domain.usecase.shelf.LoadShelfDetailUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.RemoveBookFromShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.ReorderShelfBooksUseCase
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -35,17 +37,18 @@ class ShelfDetailViewModel(
     private val _snackbarMessages = Channel<String>(Channel.BUFFERED)
     val snackbarMessages: Flow<String> = _snackbarMessages.receiveAsFlow()
 
-    private var currentShelfId: String? = null
+    private var currentShelfId: ShelfId? = null
 
     /** Load shelf detail from the server. Always re-fetches to ensure fresh data. */
     fun loadShelf(shelfId: String) {
-        currentShelfId = shelfId
+        val id = ShelfId(shelfId)
+        currentShelfId = id
 
         viewModelScope.launch {
             state.value = ShelfDetailUiState.Loading
 
             state.value =
-                when (val result = loadShelfDetailUseCase(shelfId)) {
+                when (val result = loadShelfDetailUseCase(id)) {
                     is AppResult.Success -> {
                         val shelfDetail = result.data
                         logger.debug { "Loaded shelf detail: ${shelfDetail.name}" }
@@ -71,11 +74,11 @@ class ShelfDetailViewModel(
         val shelfId = currentShelfId ?: return
 
         viewModelScope.launch {
-            when (val result = reorderShelfBooksUseCase(shelfId, orderedBookIds)) {
+            when (val result = reorderShelfBooksUseCase(shelfId, orderedBookIds.map { BookId(it) })) {
                 is AppResult.Success -> {
                     logger.info { "Reordered books in shelf $shelfId" }
                     currentShelfId = null // Force reload
-                    loadShelf(shelfId)
+                    loadShelf(shelfId.value)
                 }
 
                 is AppResult.Failure -> {
@@ -91,11 +94,11 @@ class ShelfDetailViewModel(
         val shelfId = currentShelfId ?: return
 
         viewModelScope.launch {
-            when (val result = removeBookFromShelfUseCase(shelfId, bookId)) {
+            when (val result = removeBookFromShelfUseCase(shelfId, BookId(bookId))) {
                 is AppResult.Success -> {
                     logger.info { "Removed book $bookId from shelf $shelfId" }
                     currentShelfId = null // Force reload
-                    loadShelf(shelfId)
+                    loadShelf(shelfId.value)
                 }
 
                 is AppResult.Failure -> {

@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.domain.model
 
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
+
 /**
  * Domain model representing full shelf details for the shelf detail screen.
  *
@@ -10,7 +13,7 @@ package com.calypsan.listenup.client.domain.model
  * viewer cannot access are silently excluded, so [bookCount] reflects only the
  * visible set.
  *
- * @property id Unique shelf identifier
+ * @property id Unique shelf identifier (typed [ShelfId])
  * @property name Shelf display name
  * @property description Optional shelf description
  * @property isPrivate `true` if only the owner can see this shelf
@@ -20,7 +23,7 @@ package com.calypsan.listenup.client.domain.model
  * @property books Ordered list of books in the shelf
  */
 data class ShelfDetail(
-    val id: String,
+    val id: ShelfId,
     val name: String,
     val description: String?,
     val isPrivate: Boolean,
@@ -29,6 +32,9 @@ data class ShelfDetail(
     val totalDurationSeconds: Long,
     val books: List<ShelfBook>,
 ) {
+    /** The shelf id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+
     /**
      * Returns the total duration formatted as hours and minutes.
      */
@@ -52,7 +58,7 @@ data class ShelfDetail(
  * duration is not part of the contract, so it is omitted here. [coverPath] is
  * resolved client-side from the local image cache when available.
  *
- * @property id Book's unique identifier
+ * @property id Book's unique identifier (typed [BookId])
  * @property title Book title
  * @property authorNames List of author names for this book
  * @property coverPath Local path to cover image (optional)
@@ -60,9 +66,12 @@ data class ShelfDetail(
  *   cover changes (optional; resolved from the local `books` mirror)
  */
 data class ShelfBook(
-    val id: String,
+    val id: BookId,
     val title: String,
     val authorNames: List<String>,
     val coverPath: String?,
     val coverHash: String? = null,
-)
+) {
+    /** The book id as a plain String, for the Swift/SKIE boundary (the value class is unboxed there). */
+    val idString: String get() = id.value
+}

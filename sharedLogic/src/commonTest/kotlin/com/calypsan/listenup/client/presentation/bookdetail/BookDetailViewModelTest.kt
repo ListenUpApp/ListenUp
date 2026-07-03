@@ -4,6 +4,7 @@ import app.cash.turbine.turbineScope
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.Genre
@@ -943,11 +944,11 @@ class BookDetailViewModelTest :
                 val book = TestData.bookDetail(title = "My Book")
                 every { fixture.bookRepository.observeBookDetail("book-1") } returns flowOf(book)
                 everySuspend { fixture.bookRepository.getChapters("book-1") } returns emptyList()
-                every { fixture.shelfRepository.observeShelvesContainingBook("book-1") } returns
+                every { fixture.shelfRepository.observeShelvesContainingBook(BookId("book-1")) } returns
                     flowOf(
                         listOf(
                             Shelf(
-                                id = "s1",
+                                id = ShelfId("s1"),
                                 name = "To Read",
                                 description = null,
                                 isPrivate = false,
@@ -967,7 +968,7 @@ class BookDetailViewModelTest :
                     membership.awaitItem() // initial emptyList seed
                     viewModel.loadBook("book-1")
                     advanceUntilIdle()
-                    membership.expectMostRecentItem().map { it.id } shouldContainExactly listOf("s1")
+                    membership.expectMostRecentItem().map { it.id.value } shouldContainExactly listOf("s1")
                     membership.cancel()
                 }
             }

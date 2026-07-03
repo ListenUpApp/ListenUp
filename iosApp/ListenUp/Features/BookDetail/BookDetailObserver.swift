@@ -135,11 +135,11 @@ final class BookDetailObserver {
         self.downloadService = downloadService
         bridge.bind(viewModel.state) { [weak self] in self?.apply($0) }
         bridge.bind(viewModel.myShelves) { [weak self] shelves in
-            self?.allShelves = shelves.map { ShelfRow(id: $0.id, name: $0.name, containsBook: false) }
+            self?.allShelves = shelves.map { ShelfRow(id: $0.idString, name: $0.name, containsBook: false) }
             self?.recomputeShelfRows()
         }
         bridge.bind(viewModel.shelvesContainingBook) { [weak self] shelves in
-            self?.shelfIdsContainingBook = Set(shelves.map { $0.id })
+            self?.shelfIdsContainingBook = Set(shelves.map { $0.idString })
             self?.recomputeShelfRows()
         }
         bridge.bind(viewModel.collections) { [weak self] collections in

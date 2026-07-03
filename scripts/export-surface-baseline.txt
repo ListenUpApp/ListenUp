@@ -472,6 +472,7 @@ ShelfDetail
 ShelfDetailUiState
 ShelfDetailViewModel
 ShelfGridWidth
+ShelfId
 ShelfRepository
 ShortcutAction
 ShortcutActionManager

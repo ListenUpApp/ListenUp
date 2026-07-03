@@ -261,7 +261,7 @@ class UserProfileViewModel internal constructor(
         withAvatarSelfHeal(userId) { it }
 
     private fun List<Shelf>.toSummaries(): List<ProfileShelfSummary> =
-        map { ProfileShelfSummary(id = it.id, name = it.name, bookCount = it.bookCount) }
+        map { ProfileShelfSummary(id = it.id.value, name = it.name, bookCount = it.bookCount) }
 
     private fun resolveLocalAvatarPath(
         userId: String,
