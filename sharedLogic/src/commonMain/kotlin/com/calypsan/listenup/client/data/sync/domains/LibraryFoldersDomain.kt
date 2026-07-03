@@ -21,6 +21,11 @@ internal fun libraryFoldersDomain(database: ListenUpDatabase): MirroredDomain<Li
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.libraryFolderDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.libraryFolderDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [LibraryFolderSyncPayload] payloads. */

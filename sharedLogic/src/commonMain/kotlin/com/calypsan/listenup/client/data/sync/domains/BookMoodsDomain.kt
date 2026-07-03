@@ -29,6 +29,18 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.bookMoodDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id ->
+                    val parts = id.split(":")
+                    if (parts.size != 2) {
+                        null
+                    } else {
+                        database.bookMoodDao().revisionOf(bookId = parts[0], moodId = parts[1])
+                    }
+                },
+            ),
     )
 
 /** Room mapping for [BookMoodSyncPayload] junction payloads. */

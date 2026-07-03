@@ -76,4 +76,9 @@ internal fun booksDomain(
                     database.bookDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.bookDao().revisionOf(BookId(id)) },
+            ),
     )

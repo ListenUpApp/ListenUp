@@ -25,6 +25,11 @@ internal fun seriesDomain(database: ListenUpDatabase): MirroredDomain<SeriesSync
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.seriesDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Series),
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.seriesDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [SeriesSyncPayload] payloads (enrichment copy-forward). */

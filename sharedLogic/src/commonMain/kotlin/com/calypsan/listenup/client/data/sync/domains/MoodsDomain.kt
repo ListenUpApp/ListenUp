@@ -20,6 +20,11 @@ internal fun moodsDomain(database: ListenUpDatabase): MirroredDomain<Mood> =
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.moodDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.moodDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [Mood] payloads. */

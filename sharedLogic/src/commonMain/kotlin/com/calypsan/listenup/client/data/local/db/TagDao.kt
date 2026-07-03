@@ -89,6 +89,10 @@ internal interface TagDao {
     /** All rows (including tombstones) with [revision][TagEntity.revision] <= [max], for digest computation. */
     @Query("SELECT id AS id, revision FROM tags WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
+    @Query("SELECT revision FROM tags WHERE id = :id LIMIT 1")
+    suspend fun revisionOf(id: String): Long?
 }
 
 /**
@@ -152,4 +156,14 @@ internal interface BookTagDao {
      */
     @Query("SELECT bookId || ':' || tagId AS id, revision FROM book_tags WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
+
+    /**
+     * The stored revision of the junction row for [bookId]/[tagId], tombstones included; null
+     * when the row has never been seen.
+     */
+    @Query("SELECT revision FROM book_tags WHERE bookId = :bookId AND tagId = :tagId LIMIT 1")
+    suspend fun revisionOf(
+        bookId: String,
+        tagId: String,
+    ): Long?
 }

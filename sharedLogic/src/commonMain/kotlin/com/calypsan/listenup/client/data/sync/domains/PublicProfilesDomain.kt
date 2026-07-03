@@ -28,6 +28,11 @@ internal fun publicProfilesDomain(
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.publicProfileDao()::digestRows),
         writes = WriteTier.ServerOwned,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.publicProfileDao().revisionOf(id) },
+            ),
     )
 
 /**

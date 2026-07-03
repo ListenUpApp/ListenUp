@@ -27,6 +27,8 @@ internal class MirroredDomain<T : Any>(
     val digest: DigestParticipation,
     val writes: WriteTier,
     val accessGate: AccessGate? = null,
+    /** Staleness guard for inbound applies; null = domain opts out (AppendOnly/NewerWins). */
+    val revisionGuard: RevisionGuard<T>? = null,
 ) : ClientSyncDomain
 
 /**

@@ -20,6 +20,11 @@ internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncP
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.genreDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.genreDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [GenreSyncPayload] payloads. */

@@ -23,6 +23,11 @@ internal fun adminUserRosterDomain(database: ListenUpDatabase): MirroredDomain<A
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.adminUserRosterDao()::digestRows),
         writes = WriteTier.ServerOwned,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.adminUserRosterDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [AdminUserRosterSyncPayload]: unconditional replace. */

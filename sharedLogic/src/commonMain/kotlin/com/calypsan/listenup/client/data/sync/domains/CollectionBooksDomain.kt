@@ -39,6 +39,18 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
                     database.collectionBookDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id ->
+                    val parts = id.split(":")
+                    if (parts.size != 2) {
+                        null
+                    } else {
+                        database.collectionBookDao().revisionOf(collectionId = parts[0], bookId = parts[1])
+                    }
+                },
+            ),
     )
 
 /** Room mapping for [CollectionBookSyncPayload] junction payloads. */

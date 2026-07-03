@@ -32,6 +32,18 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.bookTagDao()::digestRows),
         writes = WriteTier.OnlineOnly,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id ->
+                    val parts = id.split(":")
+                    if (parts.size != 2) {
+                        null
+                    } else {
+                        database.bookTagDao().revisionOf(bookId = parts[0], tagId = parts[1])
+                    }
+                },
+            ),
     )
 
 /** Room mapping for [BookTagSyncPayload] junction payloads. */

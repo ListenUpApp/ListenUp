@@ -35,6 +35,11 @@ internal fun contributorsDomain(
         deletes = DeleteSemantics.SoftDelete,
         digest = fullDigest(database.contributorDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Contributors),
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.contributorDao().revisionOf(id) },
+            ),
     )
 
 /**

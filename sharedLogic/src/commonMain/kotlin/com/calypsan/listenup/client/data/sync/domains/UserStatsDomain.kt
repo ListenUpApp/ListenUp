@@ -33,6 +33,11 @@ internal fun userStatsDomain(database: ListenUpDatabase): MirroredDomain<UserSta
             ),
         digest = fullDigest(database.userStatsDao()::digestRows),
         writes = WriteTier.ServerOwned,
+        revisionGuard =
+            RevisionGuard(
+                incomingRevision = { it.revision },
+                localRevision = { id -> database.userStatsDao().revisionOf(id) },
+            ),
     )
 
 /** Room mapping for [UserStatsSyncPayload]: unconditional replace, no merge logic. */
