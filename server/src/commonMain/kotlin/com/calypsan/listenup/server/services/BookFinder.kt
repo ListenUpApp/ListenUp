@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
-import com.calypsan.listenup.core.LibraryId
+import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -96,47 +96,47 @@ internal class BookFinder(
             }
         }
 
-    /** Resolves the natural key `(library_id, root_rel_path)` to a [BookId], or null. */
+    /** Resolves the natural key `(folder_id, root_rel_path)` to a [BookId], or null. */
     suspend fun findByPath(
-        libraryId: LibraryId,
+        folderId: FolderId,
         rootRelPath: String,
     ): BookId? =
         suspendTransaction(db) {
             db.booksQueries
-                .selectIdByNaturalKey(libraryId.value, rootRelPath)
+                .selectIdByNaturalKey(folderId.value, rootRelPath)
                 .executeAsOneOrNull()
                 ?.let { BookId(it) }
         }
 
     /**
-     * Resolves the move-detection key `(library_id, inode)` to a [BookId], or null.
+     * Resolves the move-detection key `(folder_id, inode)` to a [BookId], or null.
      *
      * When two books share an inode (hardlinks), the first match by insertion
      * order is returned deterministically and a warning is logged — spec §5.3.
      */
     suspend fun findByInode(
-        libraryId: LibraryId,
+        folderId: FolderId,
         inode: Long,
     ): BookId? =
         suspendTransaction(db) {
             val matches =
                 db.booksQueries
-                    .selectIdsByInode(libraryId.value, inode)
+                    .selectIdsByInode(folderId.value, inode)
                     .executeAsList()
             if (matches.size > 1) {
-                log.warn { "Multiple books share inode $inode in library ${libraryId.value}; picking first" }
+                log.warn { "Multiple books share inode $inode in folder ${folderId.value}; picking first" }
             }
             matches.firstOrNull()?.let { BookId(it) }
         }
 
     /**
      * Bulk natural-key resolve: returns a `root_rel_path → BookId` map for every existing book in
-     * [libraryId] whose `root_rel_path` is in [paths]. The batched counterpart to [findByPath] —
+     * [folderId] whose `root_rel_path` is in [paths]. The batched counterpart to [findByPath] —
      * one [suspendTransaction] with an `IN (…)` query instead of a read txn per book. [paths] is
      * chunked under SQLite's bound-parameter ceiling so a large scan never overflows it.
      */
     suspend fun findExistingByPaths(
-        libraryId: LibraryId,
+        folderId: FolderId,
         paths: Collection<String>,
     ): Map<String, BookId> {
         if (paths.isEmpty()) return emptyMap()
@@ -145,20 +145,20 @@ internal class BookFinder(
                 .distinct()
                 .chunked(SQLITE_IN_CHUNK)
                 .flatMap { chunk ->
-                    db.booksQueries.selectIdsByPaths(libraryId.value, chunk).executeAsList()
+                    db.booksQueries.selectIdsByPaths(folderId.value, chunk).executeAsList()
                 }.associate { it.root_rel_path to BookId(it.id) }
         }
     }
 
     /**
      * Bulk move-detection resolve: returns an `inode → BookId` map for every existing book in
-     * [libraryId] whose `inode` is in [inodes]. The batched counterpart to [findByInode] — one
+     * [folderId] whose `inode` is in [inodes]. The batched counterpart to [findByInode] — one
      * [suspendTransaction] with an `IN (…)` query. When hardlinks share an inode the first row wins
      * deterministically (matching [findByInode]'s single-row pick); a warning per collision would
      * flood the log on a large scan, so the bulk path stays silent and relies on the rarity of the case.
      */
     suspend fun findExistingByInodes(
-        libraryId: LibraryId,
+        folderId: FolderId,
         inodes: Collection<Long>,
     ): Map<Long, BookId> {
         if (inodes.isEmpty()) return emptyMap()
@@ -167,7 +167,7 @@ internal class BookFinder(
                 .distinct()
                 .chunked(SQLITE_IN_CHUNK)
                 .flatMap { chunk ->
-                    db.booksQueries.selectIdsByInodes(libraryId.value, chunk).executeAsList()
+                    db.booksQueries.selectIdsByInodes(folderId.value, chunk).executeAsList()
                 }.associate { it.inode!! to BookId(it.id) }
         }
     }

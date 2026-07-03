@@ -52,6 +52,24 @@ class DifferTest :
             }
         }
 
+        test("a Removed event carries the vanished book's owning folderRootPath") {
+            runTest {
+                // Previous book belongs to a specific library folder; current scan no longer sees it.
+                val vanished =
+                    analyzedBook(
+                        "Author/Gone",
+                        files = listOf(image("Author/Gone/cover.jpg", inode = 9)),
+                    ).copy(folderRootPath = "/srv/audio/folder-b")
+                val events = differ.diff(emptyList<AnalyzedBook>().asFlow(), previous = listOf(vanished)).toList()
+
+                val removed = events.single().shouldBeInstanceOf<ChangeEventDto.Removed>()
+                removed.rootRelPath shouldBe "Author/Gone"
+                // The persister keys the tombstone on THIS folder root — a same-relpath book in another
+                // folder must stay untouched, so the owning-folder root must survive onto the event.
+                removed.folderRootPath shouldBe "/srv/audio/folder-b"
+            }
+        }
+
         test("a content change at the same path emits Modified") {
             runTest {
                 val before = book("Author/Title", inode = 1, trackCount = 3)

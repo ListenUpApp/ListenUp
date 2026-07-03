@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.LibraryFolderSyncPayload
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.Library_folders
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -184,6 +185,45 @@ class LibraryFolderRepository(
                 .selectLiveByRootPath(rootPath)
                 .executeAsOneOrNull()
                 ?.toSyncPayload()
+        }
+
+    /**
+     * Returns the most-recently-updated tombstoned folder whose `root_path` equals [rootPath] WITHIN
+     * [libraryId], or null when no soft-deleted row registers that path under this library. Drives
+     * folder-id REUSE on remove+re-add: re-adding a removed folder at the exact same path keeps its
+     * stable id (and revives its books) instead of minting a fresh id that strands every client's saved
+     * references. Scoped to [libraryId] so a tombstoned folder at the same path under a DIFFERENT
+     * library is never reused. Exact-path match only — no prefix/fuzzy matching.
+     */
+    suspend fun findDeletedByRootPath(
+        rootPath: String,
+        libraryId: LibraryId,
+    ): LibraryFolderSyncPayload? =
+        suspendTransaction(db) {
+            // The `deleted_at IS NOT NULL` predicate narrows the result's deleted_at to non-null, so
+            // SQLDelight emits a bespoke row type here (not `Library_folders`); map with the column
+            // mapper directly rather than through [toSyncPayload].
+            db.libraryFoldersQueries
+                .selectDeletedByRootPath(root_path = rootPath, library_id = libraryId.value) {
+                    id,
+                    libraryId0,
+                    rootPath0,
+                    createdAt,
+                    revision,
+                    updatedAt,
+                    deletedAt,
+                    _,
+                    ->
+                    LibraryFolderSyncPayload(
+                        id = id,
+                        libraryId = libraryId0,
+                        rootPath = rootPath0,
+                        revision = revision,
+                        updatedAt = updatedAt,
+                        createdAt = createdAt,
+                        deletedAt = deletedAt,
+                    )
+                }.executeAsOneOrNull()
         }
 
     /**

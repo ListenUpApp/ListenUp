@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.dto.Library
@@ -7,11 +9,17 @@ import com.calypsan.listenup.api.dto.SetupStatus
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
+import com.calypsan.listenup.api.dto.scanner.AnalyzedBook
+import com.calypsan.listenup.api.dto.scanner.CandidateBook
+import com.calypsan.listenup.api.dto.scanner.FileEntry
+import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.ScanResult
 import com.calypsan.listenup.api.dto.scanner.ScanScope
+import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.LibraryError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -22,6 +30,7 @@ import com.calypsan.listenup.server.scanner.ScannerBundle
 import com.calypsan.listenup.server.scanner.ScannerResultPort
 import com.calypsan.listenup.server.scanner.WatcherSupervisorPort
 import com.calypsan.listenup.server.services.BookRepository
+import com.calypsan.listenup.server.services.IngestOutcome
 import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
@@ -31,6 +40,7 @@ import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -285,6 +295,60 @@ class LibraryAdminServiceImplTest :
             }
         }
 
+        test("re-adding a removed populated folder reuses the folder id, revives its books, and triggers a rescan") {
+            withSqlDatabase {
+                runTest {
+                    val reanalyzed = mutableListOf<Path>()
+                    val orchestrator = recordingOrchestrator(backgroundScope) { reanalyzed += it }
+                    val fixture = makeService(db = this@withSqlDatabase, orchestrator = orchestrator)
+                    val service = fixture.service
+                    val bookRepo = fixture.bookRepo
+
+                    val dir = createTempDir()
+                    val added = (service.addFolder(dir.absolutePath) as AppResult.Success).data
+                    val library = (service.getLibrary() as AppResult.Success).data
+                    val libId = library.id
+                    // Seed the orchestrator's bundle as bootstrap does on startup, so scanFolder has a
+                    // registered library to reanalyze against (addFolder alone no-ops on a null bundle).
+                    orchestrator.onLibraryAdded(library)
+
+                    // Ingest a book under the folder so removal has something to tombstone + revive.
+                    val bookId =
+                        bookRepo
+                            .resolveOrInsert(libId, added.id, analyzedFor("Author/Title", inode = 1L))
+                            .resolved()
+                    bookRepo
+                        .findById(bookId)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+
+                    // Remove, then re-add at the SAME path.
+                    service.removeFolder(added.id)
+                    bookRepo
+                        .findById(bookId)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldNotBeNull()
+
+                    val readded = (service.addFolder(dir.absolutePath) as AppResult.Success).data
+
+                    // Same stable folder id is reused — clients' saved references stay valid.
+                    readded.id shouldBe added.id
+                    // Its books are revived under their original ids (bounded to this folder's removal).
+                    bookRepo
+                        .findById(bookId)
+                        .shouldNotBeNull()
+                        .deletedAt
+                        .shouldBeNull()
+
+                    // A rescan of the re-added folder is triggered (drain the incremental channel first).
+                    testScheduler.runCurrent()
+                    reanalyzed.map { it.toString() } shouldContain dir.absolutePath
+                }
+            }
+        }
+
         test("removeFolder returns Failure(FolderNotFound) for unknown folder") {
             withSqlDatabase {
                 val (service) = makeService(db = this)
@@ -406,6 +470,7 @@ private data class ServiceFixture(
     val service: LibraryAdminServiceImpl,
     val libraryRepo: LibraryRepository,
     val folderRepo: LibraryFolderRepository,
+    val bookRepo: BookRepository,
 )
 
 private fun makeService(
@@ -465,7 +530,7 @@ private fun makeService(
         ).copyWith(
             PrincipalProvider { UserPrincipal(UserId("caller"), SessionId("s-caller"), role) },
         )
-    return ServiceFixture(service, libraryRepo, folderRepo)
+    return ServiceFixture(service, libraryRepo, folderRepo, bookRepo)
 }
 
 private fun fakeWatcher(): WatcherSupervisorPort =
@@ -521,3 +586,78 @@ private fun noOpOrchestrator(): ScanOrchestrator =
     )
 
 private fun createTempDir(): java.io.File = Files.createTempDirectory("listenup-test-").toFile().apply { deleteOnExit() }
+
+/**
+ * A [ScanOrchestrator] whose per-folder incremental re-analysis records the reanalyzed [Path] into
+ * [record] — lets a test assert that `scanFolder` fired on a folder re-add. Coordinators run on
+ * [scope] (pass a `runTest` `backgroundScope`); drain with `testScheduler.runCurrent()` before asserting.
+ */
+private fun recordingOrchestrator(
+    scope: CoroutineScope,
+    record: (Path) -> Unit,
+): ScanOrchestrator =
+    ScanOrchestrator(
+        scannerFactory = { library -> recordingBundle(library, scope, record) },
+        watcherSupervisor = fakeWatcher(),
+        watchEnabled = false,
+    )
+
+private fun recordingBundle(
+    library: Library,
+    scope: CoroutineScope,
+    record: (Path) -> Unit,
+): ScannerBundle {
+    val scanner =
+        object : ScannerResultPort {
+            override fun lastResult(): ScanResult? = null
+        }
+    val coordinator =
+        ScanCoordinator(
+            libraryId = library.id,
+            runFullScan = {
+                ScanResult(
+                    correlationId = "test",
+                    rootPath = library.folders.firstOrNull()?.rootPath ?: "/tmp",
+                    books = emptyList(),
+                    changes = emptyList(),
+                    errors = emptyList(),
+                    durationMs = 0,
+                    filesWalked = 0,
+                    filesSkipped = 0,
+                    scope = ScanScope.Full,
+                )
+            },
+            runIncremental = { path -> record(path) },
+            scope = scope,
+        )
+    return ScannerBundle(library = library, scanner = scanner, coordinator = coordinator)
+}
+
+/** Unwraps a successful ingest to its [BookId], failing the test on [AppResult.Failure]. */
+private fun AppResult<IngestOutcome>.resolved(): BookId =
+    when (this) {
+        is AppResult.Success -> data.bookId
+        is AppResult.Failure -> error("resolveOrInsert failed: ${error.message}")
+    }
+
+/** Minimal library-relative [AnalyzedBook] with a single audio file carrying [inode]. */
+private fun analyzedFor(
+    rootRelPath: String,
+    inode: Long?,
+): AnalyzedBook {
+    val file =
+        FileEntry(
+            relPath = "$rootRelPath/01.m4b",
+            name = "01.m4b",
+            ext = "m4b",
+            size = 1024L,
+            mtimeMs = 0L,
+            inode = inode,
+            fileType = FileType.AUDIO,
+        )
+    return AnalyzedBook(
+        candidate = CandidateBook(rootRelPath = rootRelPath, isFile = false, files = listOf(file)),
+        title = rootRelPath.substringAfterLast('/'),
+        tracks = listOf(TrackEntry(file = file)),
+    )
+}

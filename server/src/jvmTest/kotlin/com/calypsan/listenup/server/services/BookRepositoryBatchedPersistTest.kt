@@ -211,9 +211,9 @@ private suspend fun BookRepository.persistAllBooks(books: List<AnalyzedBook>): P
     )
 }
 
-/** Resolves the persisted book id for [rootRelPath] via the natural-key lookup. */
+/** Resolves the persisted book id for [rootRelPath] via the folder-scoped natural-key lookup. */
 private fun ListenUpDatabase.idOf(rootRelPath: String): String {
-    val query = booksQueries.selectIdByNaturalKey(TEST_LIBRARY_ID.value, rootRelPath)
+    val query = booksQueries.selectIdByNaturalKey(TEST_FOLDER_ID.value, rootRelPath)
     return query.executeAsOne()
 }
 
@@ -313,7 +313,7 @@ private fun persistThenSnapshot(batched: Boolean): Map<String, BookSnapshot> {
                     val path = b.candidate.rootRelPath
                     val id =
                         sql.booksQueries
-                            .selectIdByNaturalKey(TEST_LIBRARY_ID.value, path)
+                            .selectIdByNaturalKey(TEST_FOLDER_ID.value, path)
                             .executeAsOne()
                     val payload = repo.findById(BookId(id))!!
                     val genreNames =

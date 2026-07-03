@@ -108,7 +108,10 @@ class BookRepositorySoftDeleteAbsentTest :
                     val c = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("c", inode = 3L)).resolved()
 
                     // Seen paths: "a" and "c" — "b" is absent from disk.
-                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a", "c"))
+                    repo.softDeleteAbsentByPaths(
+                        libId,
+                        seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "a"), FolderScopedPath(TEST_FOLDER_ID, "c")),
+                    )
 
                     repo.findById(a)?.deletedAt shouldBe null
                     repo.findById(b)?.deletedAt shouldNotBe null
@@ -132,7 +135,7 @@ class BookRepositorySoftDeleteAbsentTest :
                     received.clear()
 
                     // Only "a" is seen; "b" should be swept.
-                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a"))
+                    repo.softDeleteAbsentByPaths(libId, seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "a")))
                     advanceUntilIdle()
                     collector.cancel()
 
@@ -151,7 +154,7 @@ class BookRepositorySoftDeleteAbsentTest :
                     val a = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("a", inode = 1L)).resolved()
                     val b = repo.resolveOrInsert(libId, TEST_FOLDER_ID, analyzedFor("b", inode = 2L)).resolved()
 
-                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a"))
+                    repo.softDeleteAbsentByPaths(libId, seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "a")))
                     val firstRevision = repo.findById(b)?.revision
 
                     val received = mutableListOf<BusEvent<*>>()
@@ -160,7 +163,7 @@ class BookRepositorySoftDeleteAbsentTest :
                     received.clear()
 
                     // Second sweep: b is already tombstoned — must not be swept again.
-                    repo.softDeleteAbsentByPaths(libId, seenPaths = setOf("a"))
+                    repo.softDeleteAbsentByPaths(libId, seen = setOf(FolderScopedPath(TEST_FOLDER_ID, "a")))
                     advanceUntilIdle()
                     collector.cancel()
 

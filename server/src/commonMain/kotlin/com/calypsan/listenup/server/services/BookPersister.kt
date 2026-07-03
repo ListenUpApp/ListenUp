@@ -51,6 +51,13 @@ private const val PERSIST_PROGRESS_TICKS = 100
 private const val INCREMENTAL_FIREHOSE_SUPPRESS_THRESHOLD = 50
 
 /**
+ * Sentinel [FolderId] a walked root resolves to when no live `library_folders` row registers it
+ * (folder soft-deleted mid-scan, or a stale bundle path). It must never drive identity or the
+ * tombstone sweep — [BookPersister] skips the Full-scan sweep when any root resolves to it.
+ */
+private val UNKNOWN_FOLDER_ID = FolderId("unknown")
+
+/**
  * Consumes the Scanner's [ScanResult] stream and persists every
  * [com.calypsan.listenup.api.dto.scanner.AnalyzedBook] through [BookIngestPort].
  *
@@ -179,10 +186,6 @@ class BookPersister internal constructor(
         result: ScanResult,
         libraryId: LibraryId,
     ): PersistCounts {
-        // Build the seen-paths set cheaply from the scan result — no DB, no per-book work.
-        // This represents every rootRelPath present on disk at scan time.
-        val seenPaths = result.books.mapTo(mutableSetOf()) { it.candidate.rootRelPath }
-
         // The books carried by `result.changes` are artwork-FREE: the Scanner strips Embedded/Spooled
         // covers off the diff copies (AnalyzedBook.withoutArtwork) so the volatile artwork bytes and
         // the per-scan spool path never pollute change detection. The cover-bearing copies live in
@@ -198,6 +201,20 @@ class BookPersister internal constructor(
         // multi-folder library attributes every book to its own folder. Resolving one folder for the
         // whole scan misplaced every non-primary-folder book, whose audio/cover then 404'd.
         fun folderRootOf(book: AnalyzedBook): String = book.folderRootPath ?: result.rootPath
+
+        // Resolve every owning-folder root present on disk to its FolderId ONCE (fallback sentinel per
+        // root handled by resolveFolderId). Built from result.books (every book on disk) so it covers
+        // both the changed-book persist grouping and the whole-library folder-qualified sweep.
+        val folderIdByRoot: Map<String, FolderId> =
+            result.books.mapTo(mutableSetOf(), ::folderRootOf).associateWith { resolveFolderId(it) }
+
+        // The seen set for the full-scan tombstone sweep: every book present on disk, keyed by its
+        // (folderId, rootRelPath) locator — no DB, no per-book work. Folder-qualifying it stops a
+        // book in one folder from masking a same-named book in another.
+        val seenPaths: Set<FolderScopedPath> =
+            result.books.mapTo(mutableSetOf()) {
+                FolderScopedPath(folderIdByRoot.getValue(folderRootOf(it)), it.candidate.rootRelPath)
+            }
         // Resolve the library's system collection ONCE per scan: ALL_BOOKS when the inbox gate
         // is off (non-held), INBOX when it is on (held). The two cases are mutually exclusive —
         // a held book must never join ALL_BOOKS or it becomes visible to all members. A resolution
@@ -264,11 +281,6 @@ class BookPersister internal constructor(
         // Initial tick at 0 so the UI leaves the 100%-analyze state the moment persistence begins.
         if (toPersist > 0) emitPersistProgress(0)
 
-        // Resolve every distinct owning-folder root to its FolderId ONCE (fallback sentinel per root
-        // handled by resolveFolderId).
-        val folderIdByRoot: Map<String, FolderId> =
-            changedBooks.mapTo(mutableSetOf(), ::folderRootOf).associateWith { resolveFolderId(it) }
-
         // Batched persist, folder group by folder group so each book lands under the folder it was
         // walked from. Within a group it is the same chunked O(chunks) write. Progress and counts
         // accumulate across groups so the PERSISTING bar and the Completed summary stay whole-scan.
@@ -299,31 +311,64 @@ class BookPersister internal constructor(
         failed = failedBase
 
         // Incremental Removed changes tombstone the book at their path immediately so deletions reflow
-        // without waiting for the next Full scan. Idempotent: a no-op when the book is already deleted
-        // or never existed. For Full scans the softDeleteAbsentByPaths sweep below would catch it too,
-        // so the overlap is harmless.
-        for (change in result.changes) {
-            if (change is ChangeEventDto.Removed) {
-                try {
-                    ingest.softDeleteByPath(libraryId, change.rootRelPath)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Throwable) {
-                    log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
-                }
-            }
-        }
+        // without waiting for the next Full scan. For Full scans the softDeleteAbsentByPaths sweep below
+        // would catch it too, so the overlap is harmless.
+        applyIncrementalRemovals(result, folderIdByRoot)
 
         // Final tick at the total so the bar lands on 100% before the terminal Completed, even if the
         // last chunk boundary didn't fall exactly on the final book.
         if (toPersist > 0 && lastTickAt != toPersist) emitPersistProgress(toPersist)
 
         if (result.scope is ScanScope.Full) {
-            // Path-based sweep is safe: every book present on disk (including any that failed
-            // to persist) is in seenPaths, so the sweep never tombstones a present book.
-            ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
+            // Sentinel guard: if ANY walked root failed to resolve to a live folder (folder soft-deleted
+            // mid-scan, or a stale bundle path), its books carry the "unknown" sentinel folder_id and are
+            // absent from every real folder's seen set — the sweep would then tombstone that folder's live
+            // books (the original library-wide corruption). Skip the sweep entirely and log loudly; the
+            // next clean Full scan reconciles genuine removals once every root resolves.
+            if (folderIdByRoot.values.any { it == UNKNOWN_FOLDER_ID }) {
+                log.error {
+                    "Skipping full-scan tombstone sweep for library ${libraryId.value}: a walked root did " +
+                        "not resolve to a live folder (sentinel folder_id present) — sweeping would wrongly " +
+                        "tombstone live books."
+                }
+            } else {
+                // Path-based sweep is safe: every book present on disk (including any that failed
+                // to persist) is in seenPaths, so the sweep never tombstones a present book.
+                ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
+            }
         }
         return PersistCounts(persisted, failed)
+    }
+
+    /**
+     * Tombstones the book at each incremental [ChangeEventDto.Removed]'s path immediately, so deletions
+     * reflow without waiting for the next Full scan. Idempotent — a no-op when the book is already
+     * deleted or never existed. Each Removed carries its own owning-folder root (from the prior snapshot);
+     * we resolve THAT folder — not the scan's primary root — so a removal in a non-primary folder
+     * tombstones the right book and never a same-relpath book in another folder. A root that resolves to
+     * the sentinel yields a no-op (the sentinel id matches no live book), so a stale root is harmless.
+     * Falls back to the primary root for a pre-attribution Removed (null folder).
+     */
+    private suspend fun applyIncrementalRemovals(
+        result: ScanResult,
+        folderIdByRoot: Map<String, FolderId>,
+    ) {
+        val removedChanges = result.changes.filterIsInstance<ChangeEventDto.Removed>()
+        if (removedChanges.isEmpty()) return
+        val folderIdForRemoved: Map<String, FolderId> =
+            removedChanges
+                .mapTo(mutableSetOf()) { it.folderRootPath ?: result.rootPath }
+                .associateWith { folderIdByRoot[it] ?: resolveFolderId(it) }
+        for (change in removedChanges) {
+            val root = change.folderRootPath ?: result.rootPath
+            try {
+                ingest.softDeleteByPath(folderIdForRemoved.getValue(root), change.rootRelPath)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
+            }
+        }
     }
 
     /**
@@ -441,7 +486,7 @@ class BookPersister internal constructor(
                 ?.let { FolderId(it.id) }
         } ?: run {
             log.warn { "No library_folder row found for rootPath='$rootPath' — book folderId will be unknown" }
-            FolderId("unknown")
+            UNKNOWN_FOLDER_ID
         }
 }
 

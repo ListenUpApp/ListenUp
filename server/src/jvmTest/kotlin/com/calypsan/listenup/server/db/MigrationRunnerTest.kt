@@ -93,6 +93,21 @@ class MigrationRunnerTest :
             MigrationRunner(path, emptyList()).currentSchemaVersion() shouldBe null
         }
 
+        test("V50 anchors the book natural-key index to (folder_id, root_rel_path)") {
+            val (path, ds) = freshDb()
+            MigrationRunner(path).migrate()
+            val indexSql =
+                ds.connection.use { c ->
+                    c.createStatement().use { s ->
+                        s
+                            .executeQuery(
+                                "SELECT sql FROM sqlite_master WHERE type='index' AND name='idx_book_natural_key'",
+                            ).use { if (it.next()) it.getString(1) else null }
+                    }
+                }
+            indexSql shouldBe "CREATE UNIQUE INDEX idx_book_natural_key ON books(folder_id, root_rel_path)"
+        }
+
         test("the runner reproduces the Flyway golden schema exactly (all migrations)") {
             val (path, ds) = freshDb()
             MigrationRunner(path).migrate() shouldBe MigrationCatalog.all.maxOf { it.version }.toString()

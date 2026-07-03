@@ -250,6 +250,54 @@ class BookTagRepository(
         }
 
     /**
+     * Revives the tombstoned junction rows for the books in [bookIds] that were tombstoned at or after
+     * [cascadeFloor] — the cascade counterpart to [softDeleteAllForBook], run when a removed folder is
+     * re-added so a book's user tags return with the book instead of being lost. [cascadeFloor] is the
+     * removed folder's own `deleted_at`: the remove cascade tombstones the folder, then its books, then
+     * their tag junctions at the same instant, so a genuine folder-removal tombstone has
+     * `deleted_at >= cascadeFloor`, while a tag the user removed MANUALLY before the folder was removed
+     * is an older tombstone and stays dead. Symmetric with the book zombie-exclusion floor. All revives
+     * run in ONE transaction; each row gets its own revision bump and an after-commit
+     * [SyncEvent.Updated] (deleted_at cleared) so clients reflow the tag as live. Returns the number of
+     * rows revived. A no-op (returns 0) when [bookIds] is empty or no qualifying tombstones exist.
+     */
+    suspend fun reviveAllForBooks(
+        bookIds: List<String>,
+        cascadeFloor: Long,
+    ): Int {
+        if (bookIds.isEmpty()) return 0
+        return suspendTransaction(db) {
+            var count = 0
+            for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
+                for (row in db.bookTagsQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()) {
+                    val rev = nextRevision()
+                    val now = clock.now().toEpochMilliseconds()
+                    db.bookTagsQueries.reviveById(revision = rev, updated_at = now, id = row.id)
+                    emitAfterCommit(
+                        event =
+                            SyncEvent.Updated(
+                                id = row.id,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = null,
+                                payload =
+                                    BookTagSyncPayload(
+                                        bookId = row.book_id,
+                                        tagId = row.tag_id,
+                                        createdAt = row.created_at,
+                                        revision = rev,
+                                        deletedAt = null,
+                                    ),
+                            ),
+                    )
+                    count++
+                }
+            }
+            count
+        }
+    }
+
+    /**
      * Tombstones each synthetic id in [syntheticIds] with its own revision bump, inside
      * the caller's open transaction, and registers a per-row after-commit
      * [SyncEvent.Deleted]. The shared body of [softDeleteAllForBook] / [softDeleteAllForTag].

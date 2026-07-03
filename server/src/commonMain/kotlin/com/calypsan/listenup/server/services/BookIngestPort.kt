@@ -157,22 +157,24 @@ interface BookIngestPort {
     }
 
     /**
-     * Soft-delete library books absent from [seenPaths]; see [BookRepository.softDeleteAbsentByPaths].
+     * Soft-delete library books absent from [seen]; see [BookRepository.softDeleteAbsentByPaths].
      *
-     * Accepts the set of `rootRelPath` strings seen on disk during a full scan — no BookId
-     * resolution required for books that did not change.
+     * Accepts the set of folder-qualified [FolderScopedPath] locators seen on disk during a full
+     * scan — no BookId resolution required for books that did not change. Folder-qualifying the
+     * seen set closes a cross-folder path-aliasing bug (two folders sharing a relative path).
      */
     suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
-        seenPaths: Set<String>,
+        seen: Set<FolderScopedPath>,
     )
 
     /**
-     * Soft-delete the live book at [rootRelPath] inside [libraryId], if one exists.
+     * Soft-delete the live book at `(folderId, rootRelPath)`, if one exists.
      *
-     * Idempotent: a no-op when no live (non-deleted) book exists at that path (already
-     * tombstoned or never ingested). Emits [com.calypsan.listenup.api.sync.SyncEvent.Deleted]
-     * to the change bus so connected clients reflow immediately.
+     * Idempotent: a no-op when no live (non-deleted) book exists at that folder-scoped path
+     * (already tombstoned or never ingested). Emits
+     * [com.calypsan.listenup.api.sync.SyncEvent.Deleted] to the change bus so connected clients
+     * reflow immediately.
      *
      * Called from [com.calypsan.listenup.server.services.BookPersister] when a
      * [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed] arrives on an
@@ -180,10 +182,20 @@ interface BookIngestPort {
      * walking the entire library.
      */
     suspend fun softDeleteByPath(
-        libraryId: LibraryId,
+        folderId: FolderId,
         rootRelPath: String,
     )
 }
+
+/**
+ * A book's identity locator within a scan: the owning [folderId] plus its folder-relative
+ * [rootRelPath]. The unit of the folder-scoped tombstone sweep — comparing these pairs (rather than
+ * bare paths) keeps two folders that share a relative path from aliasing each other.
+ */
+data class FolderScopedPath(
+    val folderId: FolderId,
+    val rootRelPath: String,
+)
 
 /**
  * The scan-wide pre-resolved identity maps [BookPersister] threads through every per-book

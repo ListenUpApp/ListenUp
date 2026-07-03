@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Tests for [BookTagRepository]: composite-key upsert/softDelete, bulk cascade
@@ -326,6 +328,45 @@ class BookTagRepositoryTest :
             }
         }
 
+        // ── reviveAllForBooks (folder re-add cascade) ─────────────────────────────
+
+        test("reviveAllForBooks revives only junctions tombstoned at or after the cascade floor") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                val registry = SyncRegistry()
+                val bus = ChangeBus()
+                // Deterministic time so the manual removal and the folder-removal cascade land at
+                // distinct, ordered instants.
+                val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
+                val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
+                val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry, clock = clock)
+
+                runTest {
+                    tagRepo.upsert(Tag("manual", "Manual", "manual", 0, 0))
+                    tagRepo.upsert(Tag("folder", "Folder", "folder", 0, 0))
+                    bookTagRepo.upsert(BookTagSyncPayload("book1", "manual", 1000L, 0L))
+                    bookTagRepo.upsert(BookTagSyncPayload("book1", "folder", 1000L, 0L))
+
+                    // The user removes the "manual" tag BEFORE the folder is removed — an older tombstone.
+                    clock.set(Instant.fromEpochMilliseconds(5_000L))
+                    bookTagRepo.softDelete("book1", "manual")
+
+                    // The folder-removal cascade tombstones the "folder" tag at the removal instant.
+                    val folderRemovedAt = 10_000L
+                    clock.set(Instant.fromEpochMilliseconds(folderRemovedAt))
+                    bookTagRepo.softDelete("book1", "folder")
+
+                    // Re-add revives only junctions tombstoned at/after the folder-removal floor.
+                    val revived = bookTagRepo.reviveAllForBooks(listOf("book1"), cascadeFloor = folderRemovedAt)
+                    revived shouldBe 1
+
+                    // The folder-removal tag is live again; the manually-removed tag stays dead.
+                    bookTagRepo.findAllForBook("book1").map { it.tagId } shouldBe listOf("folder")
+                }
+            }
+        }
+
         // ── pullSince / revision ordering ─────────────────────────────────────────
 
         test("pullSince returns junction rows ordered by revision") {
@@ -374,3 +415,14 @@ class BookTagRepositoryTest :
             }
         }
     })
+
+/** A mutable [Clock] for tests that need to advance time deterministically. */
+private class MutableClock(
+    private var time: Instant,
+) : Clock {
+    override fun now(): Instant = time
+
+    fun set(newTime: Instant) {
+        time = newTime
+    }
+}
