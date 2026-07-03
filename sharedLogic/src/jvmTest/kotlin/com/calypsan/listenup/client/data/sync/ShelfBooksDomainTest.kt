@@ -9,9 +9,11 @@ import com.calypsan.listenup.client.data.sync.domains.shelfBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -68,6 +70,21 @@ class ShelfBooksDomainTest :
                 val row = db.shelfBookDao().findById("s1:b1")!!
                 row.deletedAt shouldBe 800L
                 row.revision shouldBe 2L
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(createdJunction(junctionPayload("s1", "b1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(SyncEvent.Deleted(id = "s1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                // observeShelfBooks filters tombstones — invisible to reads
+                db
+                    .shelfBookDao()
+                    .observeShelfBooks("s1")
+                    .first()
+                    .none { it == "b1" } shouldBe true
+                // but still fingerprinted for digest-drift reconciliation
+                db.shelfBookDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "s1:b1"
             }
         }
 

@@ -11,11 +11,13 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class ListeningEventsDomainTest :
@@ -132,6 +134,24 @@ class ListeningEventsDomainTest :
                 val row = db.listeningEventDao().getById("ev-5").shouldNotBeNull()
                 row.deletedAt shouldBe 555L
                 row.revision shouldBe 9L
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("ev-6", "book-1")), isOwnEcho = false)
+                handler.onCatchUpItem(
+                    payload("ev-6", "book-1", deletedAt = 555L, revision = 9L),
+                    isTombstone = true,
+                )
+                // observeEventsForBook filters tombstones — invisible to reads
+                db
+                    .listeningEventDao()
+                    .observeEventsForBook("book-1")
+                    .first()
+                    .none { it.id == "ev-6" } shouldBe true
+                // but still fingerprinted for digest-drift reconciliation
+                db.listeningEventDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "ev-6"
             }
         }
 

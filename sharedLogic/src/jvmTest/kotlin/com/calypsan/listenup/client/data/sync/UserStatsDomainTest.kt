@@ -9,10 +9,12 @@ import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.data.sync.domains.userStatsDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 class UserStatsDomainTest :
@@ -88,6 +90,24 @@ class UserStatsDomainTest :
                 val row = db.userStatsDao().getForUser("user-3").shouldNotBeNull()
                 row.totalSecondsAllTime shouldBe 7777L
                 row.revision shouldBe 3L
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("user-tomb")), isOwnEcho = false)
+                handler.onCatchUpItem(
+                    payload("user-tomb", revision = 2L, deletedAt = 999_000L),
+                    isTombstone = true,
+                )
+                // observeAll filters tombstones — invisible to reads
+                db
+                    .userStatsDao()
+                    .observeAll()
+                    .first()
+                    .none { it.id == "user-tomb" } shouldBe true
+                // but still fingerprinted for digest-drift reconciliation
+                db.userStatsDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "user-tomb"
             }
         }
 

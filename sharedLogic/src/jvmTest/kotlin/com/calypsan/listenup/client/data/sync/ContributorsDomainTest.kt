@@ -21,9 +21,11 @@ import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -177,6 +179,20 @@ class ContributorsDomainTest :
 
                 db.contributorDao().getById("c1")!!.deletedAt shouldBe 200L
                 db.contributorAliasDao().getForContributor("c1").shouldBeEmpty()
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("c1", "Brandon Sanderson")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "c1", revision = 2, occurredAt = 200L, clientOpId = null),
+                    isOwnEcho = false,
+                )
+                // observeById filters tombstones — invisible to reads
+                db.contributorDao().observeById("c1").first() shouldBe null
+                // but still fingerprinted for digest-drift reconciliation
+                db.contributorDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "c1"
             }
         }
 

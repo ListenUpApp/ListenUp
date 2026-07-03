@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.genresDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -65,6 +66,18 @@ class GenresDomainTest :
                         isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.genreDao().getById("g1") shouldBe null
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(genrePayload("g1", "Fantasy", "fantasy")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "g1", revision = 2L, occurredAt = 500L),
+                    isOwnEcho = false,
+                )
+                db.genreDao().getById("g1") shouldBe null
+                db.genreDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "g1"
             }
         }
 

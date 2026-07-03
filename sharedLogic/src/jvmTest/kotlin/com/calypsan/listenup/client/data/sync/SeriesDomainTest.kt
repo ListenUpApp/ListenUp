@@ -12,9 +12,11 @@ import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -65,6 +67,20 @@ class SeriesDomainTest :
                 row.description shouldBe "An epic."
                 row.asin shouldBe "B00ASIN"
                 row.coverPath shouldBe "/covers/s1.jpg"
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                handler.onEvent(created(payload("s1", "The Stormlight Archive")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L),
+                    isOwnEcho = false,
+                )
+                // observeById filters tombstones — invisible to reads
+                db.seriesDao().observeById("s1").first() shouldBe null
+                // but still fingerprinted for digest-drift reconciliation
+                db.seriesDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "s1"
             }
         }
 

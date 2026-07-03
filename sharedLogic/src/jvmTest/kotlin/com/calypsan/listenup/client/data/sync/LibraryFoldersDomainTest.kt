@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -66,6 +67,21 @@ class LibraryFoldersDomainTest :
                 val tombstone = db.libraryFolderDao().findById("f1")!!
                 tombstone.deletedAt shouldBe 999L
                 tombstone.revision shouldBe 5L
+            }
+        }
+
+        test("tombstoned row survives in digestRows — the digest covers deletes") {
+            withHandler { handler, db ->
+                seedLibrary(db, "lib1")
+                handler.onEvent(created(payload("f1", "lib1", "/audiobooks")), isOwnEcho = false)
+                handler.onEvent(
+                    SyncEvent.Deleted(id = "f1", revision = 5L, occurredAt = 999L, clientOpId = null),
+                    isOwnEcho = false,
+                )
+                // findAllForLibrary filters tombstones — invisible to reads
+                db.libraryFolderDao().findAllForLibrary("lib1").none { it.id == "f1" } shouldBe true
+                // but still fingerprinted for digest-drift reconciliation
+                db.libraryFolderDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "f1"
             }
         }
 
