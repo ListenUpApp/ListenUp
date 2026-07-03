@@ -12,7 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,6 +32,7 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -128,14 +131,24 @@ internal fun rememberUserAvatarState(
     val imageRepository: ImageRepository = koinInject()
     val profile by repo.observeProfile(userId).collectAsStateWithLifecycle(initialValue = null)
 
-    val hasLocalAvatar = remember(userId, profile) { imageStorage.userAvatarExists(userId) }
+    // Re-check disk presence whenever the profile's avatar version changes or a download lands, so
+    // the avatar flips from initials to the real photo the moment the file appears — no revisit,
+    // no manual refresh. Keying on avatarUpdatedAt (profile.updatedAt) also re-checks after a
+    // synced avatar change.
+    var downloadTick by remember(userId) { mutableIntStateOf(0) }
+    val hasLocalAvatar =
+        remember(userId, profile?.updatedAt, downloadTick) { imageStorage.userAvatarExists(userId) }
 
-    // Lazily persist an image avatar we don't have on disk yet, so it renders the real photo
-    // (not initials) everywhere it appears — feeds, leaderboards — and survives offline, without
-    // first visiting the user's profile. No-op once the file exists.
-    LaunchedEffect(userId, profile?.avatarType, hasLocalAvatar) {
-        if (profile?.avatarType == "image" && !hasLocalAvatar) {
-            imageRepository.ensureUserAvatarCached(userId)
+    // Persist an image avatar we don't have on disk yet — and re-run when the synced avatarUpdatedAt
+    // changes — so it renders the real photo (not initials) everywhere it appears (feeds,
+    // leaderboards) and survives offline, without first visiting the user's profile. A real download
+    // bumps the tick, re-checking presence so the Image state renders.
+    LaunchedEffect(userId, profile?.avatarType, profile?.updatedAt) {
+        if (profile?.avatarType == "image") {
+            when (val result = imageRepository.downloadUserAvatar(userId, forceRefresh = false)) {
+                is AppResult.Success -> if (result.data) downloadTick++
+                is AppResult.Failure -> Unit
+            }
         }
     }
 

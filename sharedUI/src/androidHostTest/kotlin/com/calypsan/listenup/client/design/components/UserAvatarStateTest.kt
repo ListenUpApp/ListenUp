@@ -1,8 +1,10 @@
 package com.calypsan.listenup.client.design.components
 
+import androidx.compose.ui.graphics.Color
 import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 
 private fun profile(
@@ -84,6 +86,45 @@ class UserAvatarStateTest :
                 localPath = "/p",
                 userId = "u1",
             ).shouldBeInstanceOf<UserAvatarUiState.Initials>()
+        }
+
+        // --- public_profiles-derived profiles (blank server hex; updatedAt = avatarUpdatedAt) ---
+
+        test("a non-null public-profile-derived profile never maps to Loading") {
+            userAvatarUiState(
+                profile = profile(avatarType = "auto", avatarColor = ""),
+                hasLocalAvatar = false,
+                localPath = "/p",
+                userId = "u1",
+            ) shouldNotBe UserAvatarUiState.Loading
+        }
+
+        test("blank avatarColor yields Initials with a stable, non-transparent per-user color") {
+            fun colorFor(userId: String) =
+                (
+                    userAvatarUiState(
+                        profile = profile(avatarType = "auto", avatarColor = ""),
+                        hasLocalAvatar = false,
+                        localPath = "/p",
+                        userId = userId,
+                    ) as UserAvatarUiState.Initials
+                ).color
+            // Same user → same color (stable across recompositions), and fully opaque (not grey/unset).
+            colorFor("u1") shouldBe colorFor("u1")
+            colorFor("u1") shouldNotBe Color.Unspecified
+            colorFor("u1").alpha shouldBe 1f
+        }
+
+        test("cache key folds updatedAt (= avatarUpdatedAt) for a public-profile-derived image avatar") {
+            val state =
+                userAvatarUiState(
+                    profile = profile(avatarType = "image", avatarColor = "", updatedAt = 777L),
+                    hasLocalAvatar = true,
+                    localPath = "/avatars/u1.webp",
+                    userId = "u1",
+                )
+            state.shouldBeInstanceOf<UserAvatarUiState.Image>()
+            state.cacheKey shouldBe "u1-avatar-777"
         }
 
         test("avatarInitials takes the first letters of the first two words, uppercased") {

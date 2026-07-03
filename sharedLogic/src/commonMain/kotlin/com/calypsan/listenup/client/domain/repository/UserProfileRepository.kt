@@ -6,8 +6,9 @@ import kotlinx.coroutines.flow.Flow
 /**
  * Repository for accessing cached user profile data.
  *
- * Provides offline-first access to user profiles (other users, not current user).
- * Used primarily for displaying avatars and profile info in social features.
+ * Provides offline-first access to user profiles for ANY user — the signed-in user and everyone
+ * else — backed by the server-synced `public_profiles` roster. Used primarily for displaying
+ * avatars and profile info in social features.
  */
 interface UserProfileRepository {
     /**

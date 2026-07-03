@@ -95,9 +95,10 @@ internal val socialModule: Module =
             UserRepositoryImpl(userDao = get(), authRpcFactory = get())
         }
 
-        // UserProfileRepository for other users' profile data (avatars in activity feed, etc.)
+        // UserProfileRepository resolves EVERY user's avatar profile (self + others) from the
+        // synced public_profiles roster, so avatars render everywhere instead of only for self.
         single<UserProfileRepository> {
-            UserProfileRepositoryImpl(userProfileDao = get())
+            UserProfileRepositoryImpl(publicProfileDao = get())
         }
 
         // LeaderboardRepository — Room-observed, offline-first; reads the synced
