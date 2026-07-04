@@ -95,24 +95,34 @@ private fun accessFilterFor(
 ): SqlFragment? =
     when (domainName) {
         BOOKS_DOMAIN -> policy().accessibleBookIdsSql(userId, role)
-        ACTIVITIES_DOMAIN ->
-            // Wrap the book-access subquery to select visible ACTIVITY ids: a row is visible iff its
-            // book_id is null (public) or accessible. ROOT/ADMIN → null (unconstrained). The wrapped
-            // subquery is code-controlled text; the caller's ids ride in `args`, order preserved.
-            policy().accessibleBookIdsSql(userId, role)?.let { bookAccess ->
-                SqlFragment(
-                    sql =
-                        "SELECT a2.id FROM activities a2 " +
-                            "WHERE a2.book_id IS NULL OR a2.book_id IN (${bookAccess.sql})",
-                    args = bookAccess.args,
-                )
-            }
+        ACTIVITIES_DOMAIN -> activitiesAccessFilter(policy(), userId, role)
         COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
         COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionGrantIdsSql(userId, role)
         COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
         LIBRARY_FOLDERS_DOMAIN -> if (isAdmin(role)) null else LIBRARY_FOLDERS_HIDDEN
         ADMIN_USER_ROSTER_DOMAIN -> if (isAdmin(role)) null else ADMIN_USER_ROSTER_HIDDEN
         else -> null
+    }
+
+/**
+ * The `activities` access fragment: selects the visible ACTIVITY ids — a row is visible iff its
+ * `book_id` is null (public) or accessible. Returns null for ROOT/ADMIN (unconstrained). Extracted
+ * so the catch-up/digest override, the firehose gate's sibling logic, and their tests all share one
+ * visibility definition. The wrapped subquery is code-controlled text; the caller's ids ride in
+ * [SqlFragment.args], order preserved.
+ */
+internal fun activitiesAccessFilter(
+    policy: BookAccessPolicy,
+    userId: String,
+    role: UserRole,
+): SqlFragment? =
+    policy.accessibleBookIdsSql(userId, role)?.let { bookAccess ->
+        SqlFragment(
+            sql =
+                "SELECT a2.id FROM activities a2 " +
+                    "WHERE a2.book_id IS NULL OR a2.book_id IN (${bookAccess.sql})",
+            args = bookAccess.args,
+        )
     }
 
 /**
