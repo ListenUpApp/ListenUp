@@ -1,8 +1,6 @@
 package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
-import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_ALL_BOOKS
 import com.calypsan.listenup.server.api.SYSTEM_TYPE_INBOX
@@ -30,13 +28,10 @@ import kotlin.time.Clock
  *
  * **Access-filtered sync.** A member's collection catch-up/digest must exclude the system
  * collections and any collection they cannot reach, so the firehose arrives with a non-null
- * [SqlFragment] `extraWhere` (the `accessibleCollectionIdsSql` rule) that the base
- * [SqlSyncableRepository] cannot splice. This class [overrides][pullSince] the filtered path
- * the same way [com.calypsan.listenup.server.services.BookRepository] /
- * [com.calypsan.listenup.server.services.LibraryFolderRepository] do — splicing
- * `id IN (<extraWhere.sql>)` engine-neutrally over the shared SQLDelight [SqlDriver]
- * ([selectIdRevAccessFiltered]) and hydrating via the SQLDelight [readPayloads]. The unfiltered
- * (admin / null) path delegates to the base.
+ * [SqlFragment] `extraWhere` (the `accessibleCollectionIdsSql` rule). The base
+ * [SqlSyncableRepository] splices it as `id IN (<extraWhere.sql>)` engine-neutrally over the
+ * injected [SqlDriver]; this class only wires that driver. The unfiltered (admin / null) path
+ * takes the base's substrate read unchanged.
  *
  * Service-layer helpers beyond the base substrate (each runs in its own transaction):
  *  - [findById] — one live collection by id, or null
@@ -51,7 +46,7 @@ class CollectionRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<CollectionSyncPayload, String>(
         db = db,
@@ -254,64 +249,6 @@ class CollectionRepository(
                 .executeAsList()
                 .toSet()
         }
-
-    /**
-     * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins, who see
-     * every collection) delegates to the base; the filtered path (a member's
-     * `accessibleCollectionIdsSql` subquery, which also excludes the system collections) reads
-     * the `(id, revision)` page engine-neutrally over the SQLDelight driver and hydrates via the
-     * SQLDelight [readPayloads]. Mirrors [com.calypsan.listenup.server.services.BookRepository.pullSince].
-     */
-    override suspend fun pullSince(
-        userId: String?,
-        cursor: Long,
-        limit: Int,
-        extraWhere: SqlFragment?,
-    ): Page<CollectionSyncPayload> {
-        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        return suspendTransaction(db) {
-            val idsWithRev =
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision > ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = true,
-                    limit = limit,
-                )
-            Page(
-                items = readPayloads(idsWithRev.map { it.id }),
-                nextCursor = idsWithRev.lastOrNull()?.revision,
-                hasMore = idsWithRev.size == limit,
-            )
-        }
-    }
-
-    /**
-     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
-     * path reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and
-     * computes the permanent-wire-contract SHA-256 digest identically to the base. Mirrors
-     * [com.calypsan.listenup.server.services.BookRepository.digest].
-     */
-    override suspend fun digest(
-        userId: String?,
-        cursor: Long,
-        extraWhere: SqlFragment?,
-    ): DomainDigest {
-        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
-        val rows =
-            suspendTransaction(db) {
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision <= ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = false,
-                    limit = null,
-                )
-            }.sortedBy { it.id }
-        return accessFilteredDigest(cursor, rows)
-    }
 
     /** Maps a generated [Collections] row to the wire [CollectionSyncPayload] (`isInbox`/`isSystem` from `type`). */
     private fun Collections.toSyncPayload(): CollectionSyncPayload =

@@ -8,8 +8,6 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.sync.CoverSource
-import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.UserEditedField
@@ -34,8 +32,6 @@ import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
-import com.calypsan.listenup.server.sync.accessFilteredDigest
-import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.io.files.Path
@@ -136,7 +132,7 @@ class BookRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     private val contributorRepository: ContributorRepository,
     private val seriesRepository: SeriesRepository,
     private val genreRepository: GenreRepository,
@@ -1390,62 +1386,6 @@ class BookRepository(
      * Used by [com.calypsan.listenup.server.api.SeriesServiceImpl.listBooksBySeries].
      */
     suspend fun findBySeries(seriesId: SeriesId): List<BookSyncPayload> = bookFinder.findBySeries(seriesId)
-
-    /**
-     * Access-filtered catch-up pull (spec §collections-propagation). The unfiltered path
-     * ([extraWhere] null) delegates to the base; the filtered path reads the `(id, revision)`
-     * page engine-neutrally over the SQLDelight driver (the runtime-built access subquery now
-     * carries plain raw args) and hydrates via the SQLDelight [readPayloads].
-     */
-    override suspend fun pullSince(
-        userId: String?,
-        cursor: Long,
-        limit: Int,
-        extraWhere: SqlFragment?,
-    ): Page<BookSyncPayload> {
-        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        return suspendTransaction(db) {
-            val idsWithRev =
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision > ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = true,
-                    limit = limit,
-                )
-            Page(
-                items = readPayloads(idsWithRev.map { it.id }),
-                nextCursor = idsWithRev.lastOrNull()?.revision,
-                hasMore = idsWithRev.size == limit,
-            )
-        }
-    }
-
-    /**
-     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered
-     * path reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and
-     * computes the permanent-wire-contract SHA-256 digest identically to the base.
-     */
-    override suspend fun digest(
-        userId: String?,
-        cursor: Long,
-        extraWhere: SqlFragment?,
-    ): DomainDigest {
-        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
-        val rows =
-            suspendTransaction(db) {
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision <= ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = false,
-                    limit = null,
-                )
-            }.sortedBy { it.id }
-        return accessFilteredDigest(cursor, rows)
-    }
 
     /**
      * Writes the `(systemCollectionId, bookId)` membership into `collection_books` inside the

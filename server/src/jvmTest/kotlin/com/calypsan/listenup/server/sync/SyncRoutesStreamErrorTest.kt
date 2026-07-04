@@ -213,7 +213,7 @@ private object ThrowingPayloadSerializer : KSerializer<ThrowingPayload> {
  */
 private class ThrowingRepository(
     db: ListenUpDatabase,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
 ) : SqlSyncableRepository<ThrowingPayload, String>(

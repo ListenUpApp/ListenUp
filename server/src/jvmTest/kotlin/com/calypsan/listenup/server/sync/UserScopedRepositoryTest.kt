@@ -123,7 +123,7 @@ internal data class UserScopedPayload(
  */
 internal class UserScopedFixtureRepository(
     db: ListenUpDatabase,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
 ) : SqlSyncableRepository<UserScopedPayload, String>(

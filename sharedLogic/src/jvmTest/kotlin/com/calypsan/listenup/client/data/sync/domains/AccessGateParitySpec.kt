@@ -5,62 +5,39 @@ import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadReposito
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
-import com.calypsan.listenup.konsist.productionScope
+import com.calypsan.listenup.server.sync.perRowAccessGatedSyncDomains
+import com.calypsan.listenup.server.sync.roleGatedSyncDomains
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 
 /**
  * Guard 1 (Plan §6, the highest-value structural guard): **every domain the server
- * access-filters *per row* must have a client [AccessGate].**
+ * access-filters *per row* must have a client [AccessGate], and vice versa.**
  *
- * The server side is *parsed* from `SyncRoutes.kt`'s `accessFilterFor` — the single `when`
- * that decides a domain's per-row visibility — so a new server branch is picked up with no
- * edit here. The client side is *runtime-accurate*: the real production [syncDomainCatalog]
- * is built and each [MirroredDomain]'s [MirroredDomain.accessGate] is read directly, so the
- * client half is impossible to get wrong by drift.
+ * Both halves are read at runtime — no source parsing. The server half is its declared
+ * access-filter catalog ([perRowAccessGatedSyncDomains], derived from `SyncRoutes.ACCESS_FILTERS`);
+ * the client half is the real production [syncDomainCatalog], with each [MirroredDomain]'s
+ * [MirroredDomain.accessGate] read directly. Asserting the two sets are equal catches both failure
+ * directions:
+ *  - a server per-row gate with no client `AccessGate` → a revoke/deletion leaves the pruned rows
+ *    permanently in Room (digest drift + a stale-visible privacy row);
+ *  - a client `AccessGate` with no server per-row gate → a gate that never fires.
  *
- * If a domain is per-row access-filtered server-side but its client descriptor omits an
- * `accessGate`, a revoke/deletion leaves the pruned rows permanently in Room — digest drift
- * plus a stale-visible privacy row. That divergence fails this spec before it can ship.
- *
- * The parse/compare logic lives in [AccessGateParityGuard] and is exercised on synthetic
- * violations by `AccessGateParityGuardFixtureTest` — the guard's proof that it fires.
+ * The whole-domain role gates (`library_folders` / `admin_user_roster`) hide every row from
+ * non-admins, so a member holds no rows and needs no client gate; they are the conscious-edit
+ * [AccessGateParityGuard.ROLE_GATED_EXEMPT] set, asserted separately against the server's
+ * [roleGatedSyncDomains].
  */
 class AccessGateParitySpec :
     FunSpec({
 
-        fun syncRoutesSource(): String =
-            productionScope()
-                .files
-                .firstOrNull { it.path.endsWith("/SyncRoutes.kt") && it.path.contains("/server/") }
-                .shouldNotBeNull()
-                .text
+        test("the server's per-row access-gated domains exactly match the client AccessGate domains") {
+            val serverPerRowGated = perRowAccessGatedSyncDomains
 
-        test("every server per-row access-gated domain has a client AccessGate") {
-            val source = syncRoutesSource()
-            val classification = AccessGateParityGuard.classifyAccessFilter(source)
-            val serverPerRowGated = classification.perRowGated
-
-            // Loud-fail on drift: EVERY arm of `when (domainName)` must be classified — per-row,
-            // role-gated, or the `else` default. An arm written in a shape the parser doesn't
-            // understand (`"activities" ->`, `SyncDomains.ACTIVITIES.name ->`, `A, B ->`,
-            // `in setOf(...) ->`) would otherwise vanish from BOTH the per-row set and the exempt
-            // set, slipping a per-row-filtered domain past this guard with no client AccessGate.
-            withClue(
-                "accessFilterFor has an arm the parity guard can't classify: " +
-                    "${classification.unparsedArms}. Extend AccessGateParityGuard's parser (or the " +
-                    "guard) so the new branch shape is placed — an unclassified arm must break the " +
-                    "build, never silently bypass the AccessGate obligation.",
-            ) {
-                classification.classifiedArms shouldBe classification.totalArms
-            }
-
-            // Sanity: the parser actually found the known per-row gates. A parser that silently
-            // returns nothing would make the guard vacuously green — refuse that.
-            withClue("parser found no per-row gated domains — SyncRoutes.kt shape changed?") {
+            // Sanity: the declared catalog still holds the known per-row gates. Guards against a
+            // catalog gutted to empty (which would make the parity check vacuously green).
+            withClue("server ACCESS_FILTERS no longer declares the expected per-row gates") {
                 serverPerRowGated shouldBe
                     setOf("books", "activities", "collections", "collection_shares", "collection_books")
             }
@@ -75,11 +52,12 @@ class AccessGateParitySpec :
                         .toSet()
 
                 withClue(
-                    "server access-filters these domains per row but their client MirroredDomain has no " +
-                        "accessGate — a revoke would strand a stale-visible privacy row (see docs/" +
+                    "server per-row access-filtered domains and client MirroredDomain accessGate domains " +
+                        "diverge — a server-gated domain with no client gate strands a stale-visible privacy " +
+                        "row on revoke; a client gate with no server gate never fires (see docs/" +
                         "sync-core-centralization-plan.md §6 Guard 1)",
                 ) {
-                    AccessGateParityGuard.offenders(serverPerRowGated, clientAccessGated).shouldBeEmpty()
+                    clientAccessGated shouldBe serverPerRowGated
                 }
             } finally {
                 db.close()
@@ -88,10 +66,10 @@ class AccessGateParitySpec :
 
         test("the whole-domain role gates are intentionally listed as AccessGate-exempt") {
             // library_folders / admin_user_roster hide every row from non-admins, so a member holds
-            // no rows and needs no client gate. Adding a new role-gate must be a conscious edit to
-            // ROLE_GATED_EXEMPT — not a silent path around the per-row obligation.
-            val roleGated = AccessGateParityGuard.parseRoleGatedDomains(syncRoutesSource())
-            roleGated shouldBe AccessGateParityGuard.ROLE_GATED_EXEMPT
+            // no rows and needs no client gate. Adding a new role gate to the server's ACCESS_FILTERS
+            // must be a conscious edit to ROLE_GATED_EXEMPT — not a silent path around the per-row
+            // obligation.
+            roleGatedSyncDomains shouldBe AccessGateParityGuard.ROLE_GATED_EXEMPT
         }
     })
 

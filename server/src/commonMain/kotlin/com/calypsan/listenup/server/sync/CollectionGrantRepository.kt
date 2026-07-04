@@ -4,8 +4,6 @@ import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
-import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.Collection_grants
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -31,10 +29,11 @@ private const val PRINCIPAL_TYPE_USER = "USER"
  *
  * **Access-filtered sync.** A member's grant catch-up/digest must exclude grants they cannot
  * see (notably their own default ALL_BOOKS grant), so the firehose arrives with a non-null
- * [SqlFragment] `extraWhere` (the `visibleCollectionGrantIdsSql` rule). This class overrides the
- * filtered [pullSince] / [digest] path engine-neutrally over the SQLDelight driver
- * ([selectIdRevAccessFiltered]); the unfiltered (admin / null) path delegates to the base —
- * identical to [com.calypsan.listenup.server.services.BookRepository] / [CollectionRepository].
+ * [SqlFragment] `extraWhere` (the `visibleCollectionGrantIdsSql` rule). The base
+ * [SqlSyncableRepository] splices it engine-neutrally over the injected [SqlDriver]; this class
+ * only wires that driver and overrides [rootTableName] to `collection_grants` (the stored table,
+ * distinct from the `collection_shares` wire domain). The unfiltered (admin / null) path takes
+ * the base's substrate read unchanged.
  *
  * Service-layer helpers beyond the base substrate (all USER-principal scoped):
  *  - [findActiveGrant] — the live grant for a `(collectionId, userId)` pair
@@ -46,7 +45,7 @@ class CollectionGrantRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<CollectionShareSyncPayload, String>(
         db = db,
@@ -212,64 +211,11 @@ class CollectionGrantRepository(
     }
 
     /**
-     * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins) delegates
-     * to the base; the filtered path (a member's `visibleCollectionGrantIdsSql` subquery) reads
-     * the `(id, revision)` page engine-neutrally over the SQLDelight driver and hydrates via the
-     * SQLDelight [readPayloads].
-     *
-     * Note the access fragment selects `g.id` from `collection_grants` and the splice runs against
-     * the same `collection_grants` table — the wire `domainName` is `collection_shares`, but the
-     * stored table is `collection_grants`.
+     * The stored table is `collection_grants` even though the wire [domainName] is
+     * `collection_shares` — a USER grant maps to a share on the wire. The base's access-filtered
+     * read must splice against the real table, so this overrides [rootTableName].
      */
-    override suspend fun pullSince(
-        userId: String?,
-        cursor: Long,
-        limit: Int,
-        extraWhere: SqlFragment?,
-    ): Page<CollectionShareSyncPayload> {
-        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        return suspendTransaction(db) {
-            val idsWithRev =
-                driver.selectIdRevAccessFiltered(
-                    table = "collection_grants",
-                    revisionPredicate = "revision > ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = true,
-                    limit = limit,
-                )
-            Page(
-                items = readPayloads(idsWithRev.map { it.id }),
-                nextCursor = idsWithRev.lastOrNull()?.revision,
-                hasMore = idsWithRev.size == limit,
-            )
-        }
-    }
-
-    /**
-     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered path
-     * reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and computes
-     * the permanent-wire-contract SHA-256 digest identically to the base.
-     */
-    override suspend fun digest(
-        userId: String?,
-        cursor: Long,
-        extraWhere: SqlFragment?,
-    ): DomainDigest {
-        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
-        val rows =
-            suspendTransaction(db) {
-                driver.selectIdRevAccessFiltered(
-                    table = "collection_grants",
-                    revisionPredicate = "revision <= ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = false,
-                    limit = null,
-                )
-            }.sortedBy { it.id }
-        return accessFilteredDigest(cursor, rows)
-    }
+    override val rootTableName: String get() = "collection_grants"
 
     /**
      * Adapts a generated [Collection_grants] row to the unchanged wire [CollectionShareSyncPayload]:
