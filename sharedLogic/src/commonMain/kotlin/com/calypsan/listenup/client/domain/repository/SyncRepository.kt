@@ -125,7 +125,7 @@ interface SyncRepository {
     suspend fun forceFullResync(): AppResult<Unit>
 
     /**
-     * Force a standing lifecycle reconcile now (forward catch-up → digest → nudge refreshes),
+     * Force a standing lifecycle reconcile now (forward catch-up → digest → refresh strategies),
      * bypassing the debounce. The manual-recovery hook behind pull-to-refresh: a user who suspects
      * a Room-mirrored surface (activity feed, library, leaderboard) is stale can force every domain
      * to re-catch-up and self-heal without a restart — the Never-Stranded fallback for the live tail.

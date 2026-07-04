@@ -160,7 +160,10 @@ class ActivitySyncRepository(
         )
 
     private companion object {
-        /** Chunk size for `IN (…)` batch reads. Under SQLite's 999-variable cap with headroom. */
+        /**
+         * Chunk size for `IN (…)` batch reads. Stays under SQLite's conservative 999-variable default
+         * cap (raised to 32,766 in 3.32+), so it is safe on any build.
+         */
         const val SQLITE_IN_CHUNK = 900
     }
 }

@@ -5,7 +5,6 @@ import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
 import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -161,49 +160,6 @@ class ActivityRepositoryImplTest :
                 val result = repository.observeRecent(10).first()
                 result.size shouldBe 1
                 result[0].id shouldBe "new-activity"
-            }
-        }
-
-        // ========== getOlderThan / getNewestTimestamp / count (Room) ==========
-
-        test("getOlderThan enriches older rows from the dao") {
-            runTest {
-                // Given
-                val dao = createMockDao()
-                everySuspend { dao.getOlderThan(1704067200000L, 10) } returns listOf(activityRow(id = "old-1"))
-                val repository = createRepository(dao = dao)
-
-                // When
-                val result = repository.getOlderThan(beforeMs = 1704067200000L, limit = 10)
-
-                // Then
-                result.size shouldBe 1
-                result[0].id shouldBe "old-1"
-                result[0].book?.title shouldBe "The Way of Kings"
-            }
-        }
-
-        test("getNewestTimestamp passes through the dao value") {
-            runTest {
-                // Given
-                val dao = createMockDao()
-                everySuspend { dao.getNewestTimestamp() } returns 1704067200000L
-                val repository = createRepository(dao = dao)
-
-                // When / Then
-                repository.getNewestTimestamp() shouldBe 1704067200000L
-            }
-        }
-
-        test("count passes through the dao value") {
-            runTest {
-                // Given
-                val dao = createMockDao()
-                everySuspend { dao.count() } returns 7
-                val repository = createRepository(dao = dao)
-
-                // When / Then
-                repository.count() shouldBe 7
             }
         }
     })

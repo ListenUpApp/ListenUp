@@ -42,42 +42,6 @@ internal interface ActivityDao {
     )
     fun observeRecent(limit: Int): Flow<List<ActivityWithProfile>>
 
-    /**
-     * Page of live activities older than [beforeMs] (keyset pagination), enriched with the author's
-     * `public_profiles` identity and the book card exactly as [observeRecent]. Tombstones excluded.
-     */
-    @Query(
-        """
-        SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
-               a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
-               pp.displayName AS displayName, pp.avatarType AS avatarType,
-               b.title AS bookTitle, b.coverBlurHash AS bookCoverPath,
-               (
-                   SELECT c.name FROM book_contributors bc
-                   INNER JOIN contributors c ON bc.contributorId = c.id
-                   WHERE bc.bookId = b.id AND bc.role = 'author' LIMIT 1
-               ) AS bookAuthorName
-        FROM activities a
-        LEFT JOIN public_profiles pp ON pp.id = a.userId
-        LEFT JOIN books b ON b.id = a.bookId AND b.deletedAt IS NULL
-        WHERE a.occurredAt < :beforeMs AND a.deletedAt IS NULL
-        ORDER BY a.occurredAt DESC
-        LIMIT :limit
-    """,
-    )
-    suspend fun getOlderThan(
-        beforeMs: Long,
-        limit: Int,
-    ): List<ActivityWithProfile>
-
-    /**
-     * Get the most recent live activity's timestamp for sync cursor.
-     *
-     * @return Epoch milliseconds of newest live activity, or null if none
-     */
-    @Query("SELECT MAX(occurredAt) FROM activities WHERE deletedAt IS NULL")
-    suspend fun getNewestTimestamp(): Long?
-
     /** Read a single activity row (tombstone-inclusive) — the mirror's insert-if-absent probe. */
     @Query("SELECT * FROM activities WHERE id = :id")
     suspend fun getById(id: String): ActivityEntity?

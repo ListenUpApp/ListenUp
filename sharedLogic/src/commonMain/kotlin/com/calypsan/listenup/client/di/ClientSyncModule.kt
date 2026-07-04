@@ -180,7 +180,7 @@ internal val clientSyncModule =
                 queue = get(),
                 state = get(),
                 cursorAdvance = { domain, rev -> get<SyncCursorStore>().setCursor(domain, rev) },
-                // The four content-free re-fetch nudges (presence, activity, server-info,
+                // The three content-free re-fetch triggers (presence, server-info,
                 // preferences) are catalog-declared RefreshedDomains, routed here.
                 refreshedRouter = get(),
                 // Route stale-cursor recovery through the engine so the full
@@ -217,18 +217,18 @@ internal val clientSyncModule =
                 imageStorage = get(),
                 authSession = get(),
                 avatarDownloadRepository = get(),
-                // The nudge tier's refresh strategies. Presence pings its hot signal (the social
+                // The refreshed tier's refresh strategies. Presence pings its hot signal (the social
                 // repos collect it); server-info/preferences re-fetch through their repositories'
                 // write-through side effects. These are the sole home of this wiring now — the
-                // dispatcher routes nudges via RefreshedDomainRouter.
+                // dispatcher routes refresh controls via RefreshedDomainRouter.
                 pingPresence = { get<PresenceRefreshSignal>().ping() },
                 refetchServerInfo = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
                 refetchPreferences = { val _ = get<UserPreferencesRepository>().getPreferences() },
                 documentStorage = get(),
             )
         }
-        // Derived from the catalog's refreshed entries: one table maps each nudge control
-        // to its refresh strategy, replacing the four ad-hoc nudge lambdas.
+        // Derived from the catalog's refreshed entries: one table maps each refresh control
+        // to its refresh strategy, replacing the four ad-hoc refresh lambdas.
         single { RefreshedDomainRouter(get<SyncDomainCatalog>().refreshed) }
         single(createdAtStart = true) {
             ComposedHandlerRegistrar(
@@ -274,7 +274,7 @@ internal val clientSyncModule =
                 presenceRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
                 // The refreshed tier's router — the lifecycle-reconcile pass re-runs every refreshed
-                // domain's refresh through it so a dropped nudge self-heals on the next
+                // domain's refresh through it so a dropped refresh trigger self-heals on the next
                 // foreground/reconnect edge (Plan §6a).
                 refreshedRouter = get(),
             )

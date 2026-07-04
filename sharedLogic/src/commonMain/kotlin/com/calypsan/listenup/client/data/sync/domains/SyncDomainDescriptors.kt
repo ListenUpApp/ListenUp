@@ -5,12 +5,14 @@ import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncPayload
 import kotlin.reflect.KClass
 
-/**
- * A declared sync domain — one entry in the catalog. Two kinds: [MirroredDomain]
- * (Room-mirrored via SSE fat events + catch-up + digest) and [RefreshedDomain]
- * (nudge-driven; no cursor, a declared refresh strategy fired on a named control).
+/*
+ * A declared sync domain is one of two standalone descriptor kinds. The catalog keeps them
+ * in separate typed lists ([SyncDomainCatalog.mirrored] / [SyncDomainCatalog.refreshed]) and
+ * nothing consumes them polymorphically, so they share no supertype:
+ *  - [MirroredDomain]  — Room-mirrored via SSE fat events + catch-up + digest.
+ *  - [RefreshedDomain] — refresh-driven; no cursor, a declared refresh strategy fired on a
+ *    named control.
  */
-internal sealed interface ClientSyncDomain
 
 /**
  * A Room-mirrored domain: SSE fat events + REST catch-up + (usually) digest
@@ -33,14 +35,14 @@ internal class MirroredDomain<T : SyncPayload>(
      * overrides it.
      */
     val syncIdOf: (T) -> String = { it.id },
-) : ClientSyncDomain
+)
 
 /**
- * A nudge-driven domain: no Room cursor and no digest. When the server pushes its
+ * A refresh-driven domain: no Room cursor and no digest. When the server pushes its
  * [trigger] control frame, the dispatcher runs [refresh]. Server-side emission of the
  * trigger is unchanged (it stays where it is, semantically owned by each feature).
  *
- * A nudge frame is lossy (replay=0): a subscriber not attached at emit time never sees it.
+ * A refresh trigger is lossy (replay=0): a subscriber not attached at emit time never sees it.
  * The self-heal is derived, not declared: the lifecycle-reconcile edge re-runs every
  * refreshed domain's [refresh] through [RefreshedDomainRouter.refreshAll], so a dropped
  * trigger heals on the next foreground/reconnect with no per-domain recovery wiring.
@@ -48,4 +50,4 @@ internal class MirroredDomain<T : SyncPayload>(
 internal class RefreshedDomain(
     val trigger: KClass<out SyncControl>,
     val refresh: RefreshStrategy,
-) : ClientSyncDomain
+)

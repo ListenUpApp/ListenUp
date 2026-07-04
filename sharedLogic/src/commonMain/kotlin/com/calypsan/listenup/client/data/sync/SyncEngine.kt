@@ -57,7 +57,7 @@ internal class SyncEngine(
     private val presenceRefreshSignal: PresenceRefreshSignal,
     private val scope: CoroutineScope,
     // The refreshed tier's router. The lifecycle-reconcile pass re-runs every refreshed domain's
-    // declared refresh through it, so a dropped nudge self-heals on the next foreground/reconnect
+    // declared refresh through it, so a dropped refresh trigger self-heals on the next foreground/reconnect
     // edge — derived from the catalog, no per-domain recovery wiring (Plan §6a).
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
@@ -321,7 +321,7 @@ internal class SyncEngine(
      * The standing recovery pass every lifecycle edge funnels into — app-foreground (via
      * [com.calypsan.listenup.client.data.repository.SyncRepository.connectRealtime]) and firehose
      * reconnect ([runReconnectRefresh]). Removes the "restart required" failure class structurally:
-     * anything a live event or control nudge dropped while the app was backgrounded or the firehose
+     * anything a live event or control frame dropped while the app was backgrounded or the firehose
      * was down self-heals on the next edge.
      *
      * Ordering is load-bearing:
@@ -423,7 +423,7 @@ internal class SyncEngine(
         }
         // reconcileAll is non-throwing; the router guards each refresh individually.
         reconciler.reconcileAll()
-        // Re-run every refreshed domain's declared refresh so a dropped nudge (presence, server-info,
+        // Re-run every refreshed domain's declared refresh so a dropped refresh trigger (presence, server-info,
         // preferences) self-heals on this lifecycle edge — derived from the catalog, not hand-dispatched.
         refreshedRouter.refreshAll()
     }
@@ -545,7 +545,7 @@ internal class SyncEngine(
      * changed without a book row mutating (a collection was shared/unshared with them, a share's
      * permission changed, or a book was released into a collection they can see).
      *
-     * For each access-gated domain (books plus the three collection domains) this **re-derives
+     * For each access-gated domain (`books`, `activities`, and the three collection domains) this **re-derives
      * and prunes** (approach B — always re-derive, no digest gate):
      *  1. Run a TRANSIENT access-filtered catch-up from cursor 0 via [CatchUp.catchUpTransient].
      *     The server's `pullSince` for these domains is access-filtered, so the pass upserts

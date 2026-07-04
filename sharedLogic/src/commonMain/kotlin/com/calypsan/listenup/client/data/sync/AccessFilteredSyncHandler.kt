@@ -10,8 +10,8 @@ package com.calypsan.listenup.client.data.sync
  * calls [pruneTo] to evict every locally-live row that is no longer accessible — closing
  * the gap where a revoked share would otherwise leave inaccessible rows in Room.
  *
- * Implemented only by the four access-gated handlers (`books` plus the three collection
- * domains). The engine discovers them via
+ * Implemented only by the five access-gated handlers (`books`, `activities`, and the three
+ * collection domains). The engine discovers them via
  * [com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry.accessFilteredHandlers].
  */
 internal interface AccessFilteredSyncHandler {

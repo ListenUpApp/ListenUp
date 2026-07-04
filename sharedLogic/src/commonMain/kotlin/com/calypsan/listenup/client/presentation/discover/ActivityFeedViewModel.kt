@@ -129,10 +129,6 @@ sealed interface ActivityFeedUiState {
     data class Ready(
         val activities: List<ActivityUiModel>,
     ) : ActivityFeedUiState {
-        /** Whether there is data to display. */
-        val hasData: Boolean
-            get() = activities.isNotEmpty()
-
         /** Whether the feed is empty. */
         val isEmpty: Boolean
             get() = activities.isEmpty()

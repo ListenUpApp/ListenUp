@@ -143,9 +143,9 @@ class SyncDomainCompletenessSpec :
                 // router's KClass map would silently drop one).
                 triggers.toSet() shouldHaveSize triggers.size
 
-                // Exactly the three fold-candidate nudges. ActivityChanged was retired when
+                // Exactly the three fold-candidate refresh triggers. ActivityChanged was retired when
                 // `activities` was promoted to a Room-mirrored data domain (catch-up + live tail),
-                // so it is no longer a refreshed nudge.
+                // so it is no longer a refreshed trigger.
                 triggers.toSet() shouldBe
                     setOf(
                         SyncControl.ActiveSessionsChanged::class,
@@ -198,7 +198,7 @@ class SyncDomainCompletenessSpec :
                     )
                 val refreshedTriggers = catalog.refreshed.map { it.trigger }
 
-                // Distinct owners — no control claimed twice, no engine/nudge overlap.
+                // Distinct owners — no control claimed twice, no engine/refreshed overlap.
                 refreshedTriggers.toSet() shouldHaveSize refreshedTriggers.size
                 (engineControls intersect refreshedTriggers.toSet()).shouldBeEmpty()
 
@@ -206,7 +206,7 @@ class SyncDomainCompletenessSpec :
                 // control frame with no engine handler and no RefreshedDomain trigger fails HERE — the
                 // regression that today only warn-logs at runtime (SyncEventDispatcher).
                 //
-                // Recovery of a dropped nudge is now derived, not declared: the lifecycle-reconcile
+                // Recovery of a dropped refresh trigger is now derived, not declared: the lifecycle-reconcile
                 // edge re-runs every refreshed domain's refresh through RefreshedDomainRouter.refreshAll,
                 // so a new refreshed domain self-heals by construction — no per-trigger engine arm to
                 // parse for, no guard that can rot.

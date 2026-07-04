@@ -75,7 +75,13 @@ sealed interface SyncControl {
     @SerialName("SyncControl.ActiveSessionsChanged")
     data object ActiveSessionsChanged : SyncControl
 
-    /** Content-free broadcast nudge: a new activity was recorded; re-fetch via ActivityService. */
+    // TODO(pre-v1.0 migration squash): remove — activities is a cursored mirror, nothing broadcasts this.
+
+    /**
+     * Legacy no-op. `activities` was promoted to a cursored Room mirror (#1028) — catch-up + the live
+     * tail keep it current, so nothing broadcasts this and the dispatcher drops it. Kept only as a
+     * sealed subtype so an older server's frame decodes cleanly (wire compatibility).
+     */
     @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.ActivityChanged")

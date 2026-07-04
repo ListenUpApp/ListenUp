@@ -24,15 +24,6 @@ internal class ActivityRepositoryImpl(
 ) : ActivityRepository {
     override fun observeRecent(limit: Int): Flow<List<Activity>> =
         dao.observeRecent(limit).map { rows -> rows.map { it.toDomain() } }
-
-    override suspend fun getOlderThan(
-        beforeMs: Long,
-        limit: Int,
-    ): List<Activity> = dao.getOlderThan(beforeMs, limit).map { it.toDomain() }
-
-    override suspend fun getNewestTimestamp(): Long? = dao.getNewestTimestamp()
-
-    override suspend fun count(): Int = dao.count()
 }
 
 /**

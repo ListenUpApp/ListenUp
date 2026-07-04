@@ -8,8 +8,8 @@ import kotlin.reflect.KClass
 private val logger = KotlinLogging.logger {}
 
 /**
- * Routes a nudge [SyncControl] to its declared [RefreshStrategy], derived from the
- * catalog's [RefreshedDomain] entries. Replaces the four ad-hoc nudge lambdas that
+ * Routes a refresh [SyncControl] to its declared [RefreshStrategy], derived from the
+ * catalog's [RefreshedDomain] entries. Replaces the four ad-hoc refresh lambdas that
  * used to live in the DI module: one table, one runner, all driven by the catalog.
  */
 internal class RefreshedDomainRouter(
@@ -27,14 +27,14 @@ internal class RefreshedDomainRouter(
      */
     suspend fun dispatch(control: SyncControl): Boolean {
         val strategy = byTrigger[control::class] ?: return false
-        logger.debug { "Nudge $control claimed by a refreshed domain; running ${strategy::class.simpleName} refresh" }
+        logger.debug { "Control $control claimed by a refreshed domain; running ${strategy::class.simpleName} refresh" }
         runStrategy(strategy)
         return true
     }
 
     /**
      * Re-run every declared refresh — the lifecycle-edge recovery for the whole refreshed tier.
-     * A nudge frame is lossy, so the engine funnels every foreground/reconnect edge here to
+     * A refresh trigger is lossy, so the engine funnels every foreground/reconnect edge here to
      * self-heal any trigger dropped while the app was backgrounded or the firehose was down.
      * Derived, not declared: a new refreshed domain heals the moment it joins the catalog.
      */
@@ -55,7 +55,7 @@ internal class RefreshedDomainRouter(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "Nudge refetch failed; continuing" }
+            logger.warn(e) { "Refresh refetch failed; continuing" }
         }
     }
 }

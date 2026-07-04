@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.data.sync.domains
 
 /**
- * How a [RefreshedDomain] responds to its nudge. Extracted from what the two nudge
+ * How a [RefreshedDomain] responds to its trigger. Extracted from what the two refresh
  * mechanisms do today: fire a hot refresh signal (collectors re-fetch), or run a
  * best-effort suspend re-fetch directly.
  */
@@ -17,7 +17,7 @@ internal sealed interface RefreshStrategy {
 
     /**
      * Run a suspend re-fetch inline. Declared best-effort: the router swallows
-     * non-cancellation failures so a nudge re-fetch can never take the SSE dispatch
+     * non-cancellation failures so a refresh re-fetch can never take the SSE dispatch
      * loop down.
      */
     class Refetch(

@@ -138,7 +138,6 @@ class ActivityFeedViewModelTest :
                 val ready = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>()
                 ready.activities.size shouldBe 1
                 ready.activities.first().id shouldBe "activity-1"
-                ready.hasData shouldBe true
                 ready.isEmpty shouldBe false
             }
         }
@@ -155,7 +154,6 @@ class ActivityFeedViewModelTest :
                 // Then
                 val ready = viewModel.state.value.shouldBeInstanceOf<ActivityFeedUiState.Ready>()
                 ready.isEmpty shouldBe true
-                ready.hasData shouldBe false
                 ready.activities.isEmpty() shouldBe true
             }
         }
