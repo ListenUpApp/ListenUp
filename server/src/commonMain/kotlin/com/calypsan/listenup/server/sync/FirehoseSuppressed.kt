@@ -22,6 +22,15 @@ import kotlin.coroutines.CoroutineContext
  *
  * Defaults to *publishing*: absence of the marker is the universal case, so all
  * existing write paths are unchanged.
+ *
+ * **Pairing rule — every `FirehoseSuppressed` bulk write path MUST broadcast exactly one
+ * [SyncControl.LibraryDataChanged] after commit.** The suppressed rows land above the client
+ * cursor with no live signal; the broadcast is the accelerator that makes connected clients
+ * reconcile them now (via the client's lifecycle reconcile) instead of only after a restart.
+ * A dropped frame still self-heals on the next lifecycle edge for any cursored domain, so the
+ * broadcast is an accelerator, never the sole carrier. Current call sites:
+ * [com.calypsan.listenup.server.services.BookPersister] (post-scan) and
+ * [com.calypsan.listenup.server.absimport.ImportApplier] (post-import).
  */
 object FirehoseSuppressed : AbstractCoroutineContextElement(Key) {
     object Key : CoroutineContext.Key<FirehoseSuppressed>
