@@ -219,7 +219,7 @@ struct AdminCollectionDetailView: View {
         isRemoving: Bool
     ) -> some View {
         ZStack(alignment: .topTrailing) {
-            BookCoverImage(bookId: book.id, coverPath: book.coverPath, blurHash: book.coverHash)
+            BookCoverImage(bookId: book.id, coverPath: book.coverPath, coverHash: book.coverHash)
                 .frame(width: 80, height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .opacity(isRemoving ? 0.5 : 1)

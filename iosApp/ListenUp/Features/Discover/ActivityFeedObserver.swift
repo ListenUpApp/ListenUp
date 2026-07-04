@@ -77,9 +77,6 @@ struct ActivityRowItem: Identifiable, Equatable {
     /// The book id, for navigation; nil for book-less activities.
     let bookId: String?
     let occurredAt: Date
-    /// Formatted listened duration ("54m" / "1h 5m") for `listening_session` activities;
-    /// nil for every other type and for zero-duration sessions.
-    let duration: String?
 
     init(from model: ActivityUiModel) {
         self.id = model.id
@@ -91,7 +88,6 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.book = model.bookTitle
         self.bookId = model.bookId
         self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
-        self.duration = ActivityRowItem.duration(for: model)
     }
 
     init(
@@ -103,8 +99,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         action: String,
         book: String?,
         bookId: String?,
-        occurredAt: Date,
-        duration: String? = nil
+        occurredAt: Date
     ) {
         self.id = id
         self.userId = userId
@@ -115,7 +110,6 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.book = book
         self.bookId = bookId
         self.occurredAt = occurredAt
-        self.duration = duration
     }
 
     /// Pure: map an activity's `type` (+ `isReread`) to its localized action phrase.
@@ -128,7 +122,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         case "finished_book":
             String(localized: "discover.activity_finished")
         case "listening_session":
-            String(localized: "discover.activity_listened_to")
+            "\(String(localized: "discover.activity_listened_to")) \(durationWords(ms: model.durationMs)) of"
         case "streak_milestone":
             String(localized: "discover.activity_streak")
         case "listening_milestone":
@@ -142,11 +136,24 @@ struct ActivityRowItem: Identifiable, Equatable {
         }
     }
 
-    /// Pure: the formatted listened duration for a `listening_session` with real time on the
-    /// clock ("54m" / "1h 5m"), else nil. Other activity types and zero-duration sessions
-    /// carry no duration detail. Mirrors Android surfacing the session length on the row.
-    static func duration(for model: ActivityUiModel) -> String? {
-        guard model.type == "listening_session", model.durationMs > 0 else { return nil }
-        return DurationFormatting.hoursMinutes(ms: model.durationMs)
+    /// Pure: long-form session length woven into the listening-session phrase
+    /// ("30 seconds", "5 minutes", "1 hour", "1 hour 30 minutes"). Mirrors Android's
+    /// `formatDurationMinutes` verbatim — whole-minute rounding once past a minute, seconds
+    /// below that, singular/plural units — so the two platforms read identically.
+    private static func durationWords(ms: Int64) -> String {
+        let totalSeconds = Int(max(0, ms) / 1_000)
+        let totalMinutes = totalSeconds / 60
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+
+        if totalMinutes == 0 {
+            return "\(totalSeconds) second\(totalSeconds == 1 ? "" : "s")"
+        } else if hours == 0 {
+            return "\(minutes) minute\(minutes == 1 ? "" : "s")"
+        } else if minutes == 0 {
+            return "\(hours) hour\(hours == 1 ? "" : "s")"
+        } else {
+            return "\(hours) hour\(hours == 1 ? "" : "s") \(minutes) minute\(minutes == 1 ? "" : "s")"
+        }
     }
 }

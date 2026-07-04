@@ -60,7 +60,7 @@ struct BookEditView: View {
                 onPicked: { observer.onCoverPicked($0) },
                 onRemove: {}
             ) {
-                BookCoverImage(coverPath: observer.displayCoverPath, blurHash: observer.coverHash)
+                BookCoverImage(coverPath: observer.displayCoverPath, coverHash: observer.coverHash)
             }
             .padding(.top, 8)
 

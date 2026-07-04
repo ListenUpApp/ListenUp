@@ -371,7 +371,7 @@ private struct InboxBookRow: View {
                 BookCoverImage(
                     bookId: book.id,
                     coverPath: book.coverPath,
-                    blurHash: book.coverHash,
+                    coverHash: book.coverHash,
                     accessibilityLabel: nil
                 )
                 .frame(width: 52, height: 52)
