@@ -171,6 +171,7 @@ class StatsRecorderStreakOrderingTest :
                 val testClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms + 6 * dayMs))
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val activities = ActivityRepository(db = sql)
                 val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
