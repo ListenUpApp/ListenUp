@@ -166,7 +166,6 @@ private fun buildCoalesceEngine(
             ),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
-        activityRefreshSignal = ActivityRefreshSignal(),
         scope = scope,
     )
 }

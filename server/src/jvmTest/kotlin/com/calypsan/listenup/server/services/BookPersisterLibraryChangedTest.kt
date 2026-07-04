@@ -81,6 +81,62 @@ class BookPersisterLibraryChangedTest :
             }
         }
 
+        test("a firehose-suppressed full scan whose only change is a delete-sweep tombstone broadcasts exactly one LibraryDataChanged") {
+            withSqlDatabase {
+                runTest(UnconfinedTestDispatcher()) {
+                    val bus = ChangeBus()
+                    // A full rescan after a restart carries no Differ `previous`, so a vanished book emits no
+                    // Removed change — the full-scan sweep is the ONLY path that tombstones it. Nothing is
+                    // added/modified, so persisted == 0; the delete still wrote a tombstone above every client
+                    // cursor and must be reconciled. `sweepTombstoneCount = 1` models one book swept.
+                    val persister = persister(FakeBookIngest(sweepTombstoneCount = 1), scope = this, changeBus = bus)
+
+                    val frames = mutableListOf<ControlFrame>()
+                    bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    repeat(8) { yield() }
+
+                    persister.persist(
+                        scanResult(
+                            books = listOf(analyzedBook("survivor")),
+                            changes = emptyList(),
+                            scope = ScanScope.Full,
+                        ),
+                    )
+                    repeat(8) { yield() }
+
+                    frames.map { it.control }.filter { it == SyncControl.LibraryDataChanged } shouldHaveSize 1
+                }
+            }
+        }
+
+        test("a firehose-suppressed large incremental of only Removed changes broadcasts exactly one LibraryDataChanged") {
+            withSqlDatabase {
+                runTest(UnconfinedTestDispatcher()) {
+                    val bus = ChangeBus()
+                    val persister = persister(FakeBookIngest(), scope = this, changeBus = bus)
+
+                    val frames = mutableListOf<ControlFrame>()
+                    bus.subscribeControl().onEach { frames += it }.launchIn(backgroundScope)
+                    repeat(8) { yield() }
+
+                    // Above the suppress threshold and ALL removals — nothing persisted, only tombstones
+                    // written above the cursor. Without counting removals this would suppress with no
+                    // nudge (the bug), stranding deleted books in every connected client's library.
+                    val gone = (1..LARGE_INCREMENTAL_COUNT).map { "gone-$it" }
+                    persister.persist(
+                        scanResult(
+                            books = emptyList(),
+                            changes = gone.map { ChangeEventDto.Removed(rootRelPath = it) },
+                            scope = ScanScope.Subtree("big/folder"),
+                        ),
+                    )
+                    repeat(8) { yield() }
+
+                    frames.map { it.control }.filter { it == SyncControl.LibraryDataChanged } shouldHaveSize 1
+                }
+            }
+        }
+
         test("a live (non-suppressed) incremental scan broadcasts no LibraryDataChanged") {
             withSqlDatabase {
                 runTest(UnconfinedTestDispatcher()) {

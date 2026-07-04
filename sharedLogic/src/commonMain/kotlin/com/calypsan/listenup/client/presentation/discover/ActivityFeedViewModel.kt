@@ -2,17 +2,14 @@ package com.calypsan.listenup.client.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.core.fallbackTo
-import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -21,43 +18,26 @@ private val logger = KotlinLogging.logger {}
 
 private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
 
-/** Number of activities to fetch on initial load */
-private const val INITIAL_FETCH_SIZE = 50
-
 /** Maximum activities to observe from Room (avoids loading entire history) */
 private const val MAX_ACTIVITIES = 100
 
 /**
  * ViewModel for the Activity Feed section on the Discover screen.
  *
- * Offline-first architecture:
- * - The sync engine primes the feed head into Room on every online sync-start and reconnect, so
- *   the feed is available offline without ever opening this screen.
- * - UI observes the Room Flow and automatically updates.
- * - On each [ActivityRefreshSignal] ping (live ActivityChanged nudge or CursorStale recovery),
- *   re-fetches the feed head into Room — the Room observation then repaints the UI.
+ * Offline-first architecture: activities are a Room-mirrored sync domain, so the feed is kept
+ * current by catch-up + the live SSE tail with no per-screen fetching. This ViewModel is a pure
+ * Room observer — it reads [ActivityRepository.observeRecent] and repaints whenever the mirror
+ * changes.
  *
- * @property activityRepository Repository for activity feed operations
- * @property fetchActivitiesUseCase Use case for fetching activities from the feed RPC
- * @property refreshSignal Pings when the feed may have changed (nudge or reconnect)
+ * @property activityRepository Repository for activity feed reads (the local mirror).
  */
 class ActivityFeedViewModel internal constructor(
     private val activityRepository: ActivityRepository,
-    private val fetchActivitiesUseCase: FetchActivitiesUseCase,
-    private val refreshSignal: ActivityRefreshSignal,
+    private val syncRepository: SyncRepository,
 ) : ViewModel() {
-    init {
-        // The feed is primed into Room by the sync engine on every online sync-start and reconnect
-        // (so it is available offline without opening this screen). Here we only react to live
-        // ActivityChanged nudges: re-fetch the feed head; the Room observation repaints.
-        refreshSignal.signal
-            .onEach { fetchActivitiesUseCase(limit = INITIAL_FETCH_SIZE) }
-            .launchIn(viewModelScope)
-    }
-
     /**
      * Observe recent activities from Room — the single read source.
-     * Room repaints whenever the feed RPC refreshes the cache (ActivityChanged nudge or reconnect).
+     * Room repaints whenever the mirror advances (catch-up or live SSE tail).
      */
     val state: StateFlow<ActivityFeedUiState> =
         activityRepository
@@ -75,13 +55,12 @@ class ActivityFeedViewModel internal constructor(
             )
 
     /**
-     * Refresh the feed from the RPC.
-     * Re-fetches the feed head into the Room cache; the Room observation then repaints.
+     * Manual pull-to-refresh (Never-Stranded fallback). The feed is a Room mirror that stays current
+     * on its own, but an explicit refresh forces a lifecycle reconcile so a missed live event
+     * self-heals on demand. Fire-and-forget: Room repaints the feed when the reconcile lands rows.
      */
     fun refresh() {
-        viewModelScope.launch {
-            fetchActivitiesUseCase(limit = INITIAL_FETCH_SIZE)
-        }
+        viewModelScope.launch { syncRepository.refresh() }
     }
 }
 

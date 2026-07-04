@@ -42,7 +42,6 @@ internal fun registerTestSyncDomains(
             authSession = authSession,
             avatarDownloadRepository = StubAvatarDownloadRepository(),
             pingPresence = {},
-            pingActivity = {},
             refetchServerInfo = {},
             refetchPreferences = {},
         )

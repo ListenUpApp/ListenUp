@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
-import com.calypsan.listenup.client.data.sync.domains.activityDomain
 import com.calypsan.listenup.client.data.sync.domains.preferencesDomain
 import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.data.sync.domains.serverInfoDomain
@@ -316,13 +315,15 @@ class SyncEventDispatcherTest :
             }
         }
 
-        test("control: ActivityChanged runs the refreshed-domain ping strategy") {
+        test("control: ActivityChanged is unclaimed and handled generically (activities now sync as a data domain)") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                var pinged = false
+                // A router with a DIFFERENT nudge entry: activities are no longer a nudge, so an
+                // ActivityChanged frame must NOT trigger any refresh strategy and must not crash.
+                var otherPinged = false
                 val router =
                     RefreshedDomainRouter(
-                        listOf(activityDomain(ping = { pinged = true })),
+                        listOf(presenceDomain(ping = { otherPinged = true })),
                     )
                 val dispatcher =
                     SyncEventDispatcher(
@@ -342,8 +343,9 @@ class SyncEventDispatcherTest :
                         event = "control",
                         data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ActivityChanged),
                     )
+                // Completes without throwing; no unrelated nudge fires.
                 dispatcher.handle(frame)
-                pinged shouldBe true
+                otherPinged shouldBe false
                 db.close()
             }
         }

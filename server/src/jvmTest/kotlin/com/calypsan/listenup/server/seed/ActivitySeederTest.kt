@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -16,7 +16,7 @@ class ActivitySeederTest :
         test("no-book first run seeds nothing and re-runs next restart") {
             withSqlDatabase {
                 seedDemoUser(sql)
-                val seeder = ActivitySeeder(sql, ActivityRepository(db = sql))
+                val seeder = ActivitySeeder(sql, activityRecorder())
 
                 runTest {
                     seeder.isAlreadySeeded() shouldBe false
@@ -34,7 +34,7 @@ class ActivitySeederTest :
                 seedDemoUser(sql)
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestBook("book-1")
-                val seeder = ActivitySeeder(sql, ActivityRepository(db = sql))
+                val seeder = ActivitySeeder(sql, activityRecorder())
 
                 runTest {
                     seeder.seed()
@@ -49,7 +49,7 @@ class ActivitySeederTest :
         test("a no-book run followed by a book run seeds both rows") {
             withSqlDatabase {
                 seedDemoUser(sql)
-                val seeder = ActivitySeeder(sql, ActivityRepository(db = sql))
+                val seeder = ActivitySeeder(sql, activityRecorder())
 
                 runTest {
                     // First run: no books yet — nothing seeded, still re-runnable.

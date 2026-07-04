@@ -32,6 +32,7 @@ import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
@@ -467,7 +468,7 @@ class AdminUserServiceImplTest :
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc =
-                        makeAdminUserService(db, activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()))
+                        makeAdminUserService(db, activityRecorder = db.activityRecorder())
                             .actAs("root1", UserRole.ROOT)
                     svc.decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = true)).shouldSucceed()
 
@@ -486,7 +487,7 @@ class AdminUserServiceImplTest :
                 seedUserWithStatus("p1", userStatus = UserStatusColumn.PENDING_APPROVAL)
                 runTest {
                     val svc =
-                        makeAdminUserService(db, activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()))
+                        makeAdminUserService(db, activityRecorder = db.activityRecorder())
                             .actAs("root1", UserRole.ROOT)
                     svc.decidePendingRegistration(PendingRegistrationDecision(UserId("p1"), approved = false)).shouldSucceed()
 

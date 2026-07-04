@@ -32,7 +32,6 @@ internal fun syncDomainCatalog(
     authSession: AuthSession,
     avatarDownloadRepository: AvatarDownloadRepository,
     pingPresence: () -> Unit,
-    pingActivity: () -> Unit,
     refetchServerInfo: suspend () -> Unit,
     refetchPreferences: suspend () -> Unit,
     documentStorage: DocumentStorage? = null,
@@ -51,6 +50,7 @@ internal fun syncDomainCatalog(
                 shelfBooksDomain(database = database),
                 playbackPositionsDomain(database = database),
                 listeningEventsDomain(database = database, authSession = authSession),
+                activitiesDomain(database = database),
                 userStatsDomain(database = database),
                 publicProfilesDomain(
                     database = database,
@@ -72,7 +72,6 @@ internal fun syncDomainCatalog(
         refreshed =
             listOf(
                 presenceDomain(ping = pingPresence),
-                activityDomain(ping = pingActivity),
                 serverInfoDomain(refetch = refetchServerInfo),
                 preferencesDomain(refetch = refetchPreferences),
             ),

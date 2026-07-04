@@ -37,7 +37,7 @@ import java.nio.file.Files
 /**
  * The Phase-2 closing invariant: the contract ([SyncDomains.all]), the client
  * descriptor catalog ([syncDomainCatalog]), and the server's registered
- * repositories list exactly the same 20 mirrored domains — 1:1:1. A domain
+ * repositories list exactly the same 21 mirrored domains — 1:1:1. A domain
  * declared on one side and not the others fails this spec before any runtime
  * symptom (a missing SSE stream, an un-bootstrapped table) can appear.
  *
@@ -63,7 +63,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -87,7 +86,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -124,7 +122,7 @@ class SyncDomainCompletenessSpec :
         }
 
         test(
-            "refreshed tier claims exactly the four fold-candidate controls, distinct and disjoint from engine controls",
+            "refreshed tier claims exactly the three fold-candidate controls, distinct and disjoint from engine controls",
         ) {
             val db = createInMemoryTestDatabase()
             try {
@@ -136,7 +134,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -147,11 +144,12 @@ class SyncDomainCompletenessSpec :
                 // router's KClass map would silently drop one).
                 triggers.toSet() shouldHaveSize triggers.size
 
-                // Exactly the four fold-candidate nudges.
+                // Exactly the three fold-candidate nudges. ActivityChanged was retired when
+                // `activities` was promoted to a Room-mirrored data domain (catch-up + live tail),
+                // so it is no longer a refreshed nudge.
                 triggers.toSet() shouldBe
                     setOf(
                         SyncControl.ActiveSessionsChanged::class,
-                        SyncControl.ActivityChanged::class,
                         SyncControl.ServerInfoChanged::class,
                         SyncControl.PreferencesChanged::class,
                     )
@@ -181,7 +179,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -191,7 +188,7 @@ class SyncDomainCompletenessSpec :
                 catalog.mirrored
                     .filter { it.deletes is DeleteSemantics.CatchUpOnly }
                     .map { it.key.name }
-                    .toSet() shouldBe setOf("playback_positions", "listening_events", "user_stats")
+                    .toSet() shouldBe setOf("playback_positions", "listening_events", "activities", "user_stats")
 
                 catalog.mirrored
                     .filter { it.digest is DigestParticipation.OptOut }
@@ -213,7 +210,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )

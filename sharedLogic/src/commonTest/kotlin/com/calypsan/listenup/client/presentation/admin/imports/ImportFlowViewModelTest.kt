@@ -1005,6 +1005,8 @@ private class FakeSyncRepository(
 
     override suspend fun forceFullResync(): AppResult<Unit> = AppResult.Success(Unit)
 
+    override suspend fun refresh(): AppResult<Unit> = AppResult.Success(Unit)
+
     override suspend fun hasLocalLibrary(): Boolean = true
 }
 

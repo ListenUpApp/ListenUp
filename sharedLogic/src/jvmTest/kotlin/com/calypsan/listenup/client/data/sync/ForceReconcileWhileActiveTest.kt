@@ -240,7 +240,6 @@ private fun buildEngine(
         reconciler = reconciler,
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
-        activityRefreshSignal = ActivityRefreshSignal(),
         scope = scope,
     )
 }

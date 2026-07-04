@@ -25,7 +25,6 @@ import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.binds
@@ -109,7 +108,7 @@ internal val socialModule: Module =
 
         // ActivityRepository for activity feed (SOLID: interface in domain, impl in data)
         single<ActivityRepository> {
-            ActivityRepositoryImpl(dao = get(), activityRpc = get(), bookDao = get())
+            ActivityRepositoryImpl(dao = get())
         }
 
         // ActiveSessionRepository for live sessions — SocialService RPC + local-Room book enrich,
@@ -143,13 +142,6 @@ internal val socialModule: Module =
                 presence = get(),
                 userRepository = get(),
                 readershipDao = get(),
-            )
-        }
-
-        // Activity use cases
-        factory {
-            FetchActivitiesUseCase(
-                activityRepository = get(),
             )
         }
     }

@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -57,7 +58,6 @@ class StatsRecorderMilestoneEmissionTest :
 
         fun SqlTestDatabases.recorderWith(
             userStatsRepo: UserStatsRepository,
-            activities: ActivityRepository,
             testClock: FixedClock,
         ): StatsRecorder {
             val bus = ChangeBus()
@@ -72,7 +72,7 @@ class StatsRecorderMilestoneEmissionTest :
                         publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                         clock = testClock,
                     ),
-                activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                activityRecorder = activityRecorder(bus = bus),
                 statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo),
                 clock = testClock,
             )
@@ -105,7 +105,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     val e1 = eventAt("e1", "b1", endedAtMs = day0Ms, wallSeconds = 55L * 3600L)
@@ -131,7 +131,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     userStatsRepo.upsert(emptyUserStats("u1", currentStreakDays = 6), clientOpId = null, userId = "u1")
@@ -162,7 +162,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     userStatsRepo.upsert(emptyUserStats("u1", currentStreakDays = 14), clientOpId = null, userId = "u1")
@@ -191,7 +191,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     userStatsRepo.upsert(emptyUserStats("u1", currentStreakDays = 6), clientOpId = null, userId = "u1")
@@ -221,7 +221,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     // Establish a base below 10h (9h): no milestone crossed yet.
@@ -261,7 +261,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     val e0 = eventAt("e0", "b1", endedAtMs = day0Ms, wallSeconds = 9L * 3600L)
@@ -303,7 +303,7 @@ class StatsRecorderMilestoneEmissionTest :
                 val testClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms))
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
                 val eventRepo =
                     ListeningEventRepository(
                         db = sql,

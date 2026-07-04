@@ -19,7 +19,6 @@ import io.ktor.serialization.kotlinx.json.json
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -29,60 +28,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class SyncEngineDiscoverRefreshTest :
     FunSpec({
 
-        test("start primes the activity feed once, after catch-up") {
-            runTest {
-                val primeCount = AtomicInteger(0)
-                val db = createInMemoryTestDatabase(StandardTestDispatcher(testScheduler))
-                val registry = ClientSyncDomainRegistry()
-                val store = SyncCursorStore(db.syncCursorDao())
-                val queue =
-                    PendingOperationQueue(
-                        dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
-                    )
-                val state = SyncEngineState()
-                val catchUp = NoopRefreshCatchUp
-                val dispatcher =
-                    SyncEventDispatcher(
-                        registry = registry,
-                        queue = queue,
-                        state = state,
-                        cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
-                    )
-                val engine =
-                    SyncEngine(
-                        registry = registry,
-                        queue = queue,
-                        state = state,
-                        store = store,
-                        catchUp = catchUp,
-                        sseClient = FlippingFakeSse(state),
-                        reconciler = noopSyncReconciler(registry, store, catchUp),
-                        dispatcher = dispatcher,
-                        presenceRefreshSignal = PresenceRefreshSignal(),
-                        activityRefreshSignal = ActivityRefreshSignal(),
-                        scope = backgroundScope,
-                        primeActivityFeed = { primeCount.incrementAndGet() },
-                    )
-
-                engine.start(currentUserId = "u1")
-
-                primeCount.get() shouldBe 1
-
-                engine.stopAndJoin()
-                db.close()
-            }
-        }
-
-        test("a reconnect (not the initial connect) primes the feed, pings presence, and reconciles") {
+        test("a reconnect (not the initial connect) pings presence and reconciles") {
             runBlocking {
                 val scope =
                     CoroutineScope(
@@ -90,7 +41,6 @@ class SyncEngineDiscoverRefreshTest :
                     )
                 val db = createInMemoryTestDatabase()
                 try {
-                    val primeCount = AtomicInteger(0)
                     val presencePings = AtomicInteger(0)
                     val catchUp = CountingReconcileCatchUp()
                     val state = SyncEngineState()
@@ -139,16 +89,13 @@ class SyncEngineDiscoverRefreshTest :
                             reconciler = reconciler,
                             dispatcher = dispatcher,
                             presenceRefreshSignal = presence,
-                            activityRefreshSignal = ActivityRefreshSignal(),
                             scope = scope,
-                            primeActivityFeed = { primeCount.incrementAndGet() },
                         )
 
                     engine.start(currentUserId = "u1")
 
-                    // After start: prime ran once (Step 2b); start's own reconcile re-pulled once
-                    // (drifted); the initial connect was DROPPED so presence was not pinged.
-                    primeCount.get() shouldBe 1
+                    // After start: start's own reconcile re-pulled once (drifted); the initial connect
+                    // was DROPPED so presence was not pinged.
                     catchUp.fromZeroInvocations.get() shouldBe 1
                     // Let the reconnect observer settle on (and drop) the initial Connected.
                     delay(150)
@@ -159,16 +106,14 @@ class SyncEngineDiscoverRefreshTest :
                     delay(150)
                     sse.connect()
 
-                    // The reconnect fires all three actions exactly once more.
+                    // The reconnect fires both actions exactly once more.
                     withTimeout(5_000L) {
-                        while (primeCount.get() < 2 ||
-                            presencePings.get() < 1 ||
+                        while (presencePings.get() < 1 ||
                             catchUp.fromZeroInvocations.get() < 2
                         ) {
                             delay(10)
                         }
                     }
-                    primeCount.get() shouldBe 2
                     presencePings.get() shouldBe 1
                     catchUp.fromZeroInvocations.get() shouldBe 2
                 } finally {
@@ -180,19 +125,6 @@ class SyncEngineDiscoverRefreshTest :
             }
         }
     })
-
-/** No-op catch-up that flips no state — start completes without doing per-domain work. */
-private object NoopRefreshCatchUp : CatchUp {
-    override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Success(Unit)
-
-    override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
-
-    override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
-}
 
 /** Fake SSE that flips [SyncEngineState] on connect/disconnect, mirroring production semantics. */
 private class FlippingFakeSse(

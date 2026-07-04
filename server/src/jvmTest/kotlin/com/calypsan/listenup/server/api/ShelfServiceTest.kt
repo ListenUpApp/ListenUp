@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -77,7 +78,6 @@ class ShelfServiceTest :
         fun makeServiceWithRecorder(
             sql: ListenUpDatabase,
             driver: SqlDriver,
-            activities: ActivityRepository,
         ): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
@@ -88,7 +88,8 @@ class ShelfServiceTest :
                 readAssembler = ShelfReadAssembler(sql),
                 clock = fixedClock,
                 principal = principalFor("u1"),
-                activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                activityRecorder =
+                    ActivityRecorder(syncRepo = ActivitySyncRepository(db = sql, bus = bus, registry = registry, driver = driver)),
             )
         }
 
@@ -129,7 +130,7 @@ class ShelfServiceTest :
                 runTest {
                     val activities = ActivityRepository(db = sql)
                     val created =
-                        makeServiceWithRecorder(sql, driver, activities)
+                        makeServiceWithRecorder(sql, driver)
                             .actAs("u1")
                             .createShelf(name = "Winter Reads", isPrivate = false)
                             .value()
@@ -150,7 +151,7 @@ class ShelfServiceTest :
                 sql.seedTestUser("u1")
                 runTest {
                     val activities = ActivityRepository(db = sql)
-                    makeServiceWithRecorder(sql, driver, activities)
+                    makeServiceWithRecorder(sql, driver)
                         .actAs("u1")
                         .createShelf(name = "Secret", isPrivate = true)
                         .value()

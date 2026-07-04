@@ -37,7 +37,6 @@ import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
 import com.calypsan.listenup.client.data.sync.SyncCursorStore
 import com.calypsan.listenup.client.data.sync.SyncEngine
 import com.calypsan.listenup.client.data.sync.SyncReconciler
-import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
@@ -52,6 +51,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -83,7 +83,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
@@ -209,6 +209,7 @@ internal data class ClientEngineScope(
     val serverUserStatsRepository: UserStatsRepository,
     val serverLibraryRepository: LibraryRepository,
     val serverLibraryFolderRepository: LibraryFolderRepository,
+    val serverActivityRecorder: ActivityRecorder,
     val clientDatabase: ListenUpDatabase,
     val bookEditRepository: BookEditRepository,
     val contributorEditRepository: ContributorEditRepository,
@@ -313,6 +314,11 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     module {
                         single { bus }
                         single { syncRegistry }
+                        // The catch-up / digest / firehose routes inject BookAccessPolicy to
+                        // access-filter the gated domains (books, activities, collections). Without
+                        // it, any access-gated FORWARD catch-up in-harness fails to resolve. Cheap to
+                        // wire here over the same already-migrated server DB.
+                        single { BookAccessPolicy(serverSqlDb, serverDriver) }
                         single(createdAtStart = true) { serverRepos.tagRepo }
                         single(createdAtStart = true) { serverRepos.bookRepo }
                         single(createdAtStart = true) { serverRepos.activeSessionRepo }
@@ -535,7 +541,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     reconciler = reconciler,
                     dispatcher = dispatcher,
                     presenceRefreshSignal = PresenceRefreshSignal(),
-                    activityRefreshSignal = ActivityRefreshSignal(),
                     scope = clientScope,
                 )
             engineRef = engine
@@ -556,6 +561,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     serverUserStatsRepository = serverRepos.userStatsRepo,
                     serverLibraryRepository = serverRepos.libraryRepo,
                     serverLibraryFolderRepository = serverRepos.libraryFolderRepo,
+                    serverActivityRecorder = serverRepos.activityRecorder,
                     clientDatabase = clientDb,
                     bookEditRepository = bookEditRepository,
                     contributorEditRepository = contributorEditRepository,
@@ -597,6 +603,7 @@ private data class ServerRepositories(
     val userStatsRepo: UserStatsRepository,
     val libraryRepo: LibraryRepository,
     val libraryFolderRepo: LibraryFolderRepository,
+    val activityRecorder: ActivityRecorder,
 )
 
 /**
@@ -696,7 +703,15 @@ private fun buildServerRepositories(
     val publicProfileMaintainer =
         PublicProfileMaintainer(serverSqlDb, PublicProfileRepository(serverSqlDb, bus, registry))
     statsUpdater = UserStatsUpdater(sql = serverSqlDb, userStatsRepo = userStatsRepo)
-    val statsRecorder = buildStatsRecorder(serverSqlDb, bus, userStatsRepo, publicProfileMaintainer)
+    // The activities syncable repo registers in the shared registry (+ driver) so the domain
+    // participates in the harness's in-process sync (catch-up/digest/firehose). Built here (not
+    // buried inside buildStatsRecorder) so the recorder can be exposed on the scope for e2e tests.
+    val activityRecorder =
+        ActivityRecorder(
+            syncRepo = ActivitySyncRepository(db = serverSqlDb, bus = bus, registry = registry, driver = serverDriver),
+        )
+    val statsRecorder =
+        buildStatsRecorder(serverSqlDb, userStatsRepo, publicProfileMaintainer, activityRecorder)
     val listeningEventRepo =
         ListeningEventRepository(
             db = serverSqlDb,
@@ -717,21 +732,22 @@ private fun buildServerRepositories(
         userStatsRepo,
         libraryRepo,
         libraryFolderRepo,
+        activityRecorder,
     )
 }
 
 private fun buildStatsRecorder(
     sqlDb: ServerSqlDatabase,
-    bus: ChangeBus,
     statsRepo: UserStatsRepository,
     publicProfileMaintainer: PublicProfileMaintainer,
+    activityRecorder: ActivityRecorder,
 ): StatsRecorder =
     StatsRecorder(
         sql = sqlDb,
         userStatsRepo = statsRepo,
         bookReadsRepository = BookReadsRepository(db = sqlDb),
         publicProfileMaintainer = publicProfileMaintainer,
-        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sqlDb), bus = bus),
+        activityRecorder = activityRecorder,
         statsBackfill = UserStatsBackfillService(sql = sqlDb, userStatsRepo = statsRepo),
     )
 

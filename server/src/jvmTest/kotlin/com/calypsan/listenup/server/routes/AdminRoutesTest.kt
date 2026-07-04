@@ -7,8 +7,6 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
-import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.SearchReindexService
@@ -21,6 +19,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.TagRepository
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -67,7 +66,7 @@ class AdminRoutesTest :
                                 sql = sql,
                                 publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                             ),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val reindexService = makeReindexService(sql, driver, bus, registry)
@@ -109,7 +108,7 @@ class AdminRoutesTest :
                                 sql = sql,
                                 publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                             ),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val reindexService = makeReindexService(sql, driver, bus, registry)
@@ -151,7 +150,7 @@ class AdminRoutesTest :
                                 sql = sql,
                                 publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                             ),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val reindexService = makeReindexService(sql, driver, bus, registry)
@@ -193,7 +192,7 @@ class AdminRoutesTest :
                                 sql = sql,
                                 publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                             ),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val reindexService = makeReindexService(sql, driver, bus, registry)
