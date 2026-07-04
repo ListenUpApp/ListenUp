@@ -14,9 +14,6 @@ internal fun presenceDomain(ping: () -> Unit): RefreshedDomain =
     RefreshedDomain(
         trigger = SyncControl.ActiveSessionsChanged::class,
         refresh = RefreshStrategy.Ping(ping),
-        // Presence pings on every lifecycle edge, and its collectors (currently-listening,
-        // book-readers) refetch on subscribe — a dropped ping heals either way.
-        recovery = NudgeRecovery.OnSubscribeAndReconcile(),
     )
 
 /** Server info changed (admin edited name / remote URL): re-fetch getServerInfo (persists the remote-URL fallback). */
@@ -24,9 +21,6 @@ internal fun serverInfoDomain(refetch: suspend () -> Unit): RefreshedDomain =
     RefreshedDomain(
         trigger = SyncControl.ServerInfoChanged::class,
         refresh = RefreshStrategy.Refetch(refetch),
-        // TODO(Phase 3): fold this refetch into the lifecycle-reconcile pass. For now it heals only
-        // on its control frame; the declared recovery pins the intended shape.
-        recovery = NudgeRecovery.OnLifecycleReconcile,
     )
 
 /** Preferences changed on another device: re-fetch getMyPreferences (write-through into Room). */
@@ -34,7 +28,4 @@ internal fun preferencesDomain(refetch: suspend () -> Unit): RefreshedDomain =
     RefreshedDomain(
         trigger = SyncControl.PreferencesChanged::class,
         refresh = RefreshStrategy.Refetch(refetch),
-        // TODO(Phase 3): fold this refetch into the lifecycle-reconcile pass. For now it heals only
-        // on its control frame; the declared recovery pins the intended shape.
-        recovery = NudgeRecovery.OnLifecycleReconcile,
     )

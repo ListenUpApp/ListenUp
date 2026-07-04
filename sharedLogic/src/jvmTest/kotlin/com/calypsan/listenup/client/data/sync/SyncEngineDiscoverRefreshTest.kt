@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
+import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -90,13 +92,13 @@ class SyncEngineDiscoverRefreshTest :
                             dispatcher = dispatcher,
                             presenceRefreshSignal = presence,
                             scope = scope,
-                            // The lifecycle-reconcile refresh runs each nudge domain's declared
-                            // recovery: presence pings on the reconnect edge. Supplying the presence
-                            // domain is what makes the reconnect edge re-fire the ping.
-                            refreshedDomains =
-                                listOf(
-                                    com.calypsan.listenup.client.data.sync.domains
-                                        .presenceDomain(ping = {}),
+                            // The lifecycle-reconcile pass re-runs every refreshed domain's refresh via
+                            // the router: presence's refresh pings on the reconnect edge. Supplying the
+                            // presence domain (whose ping targets this signal) is what makes the reconnect
+                            // edge re-fire the ping.
+                            refreshedRouter =
+                                RefreshedDomainRouter(
+                                    listOf(presenceDomain(ping = { presence.ping() })),
                                 ),
                         )
 

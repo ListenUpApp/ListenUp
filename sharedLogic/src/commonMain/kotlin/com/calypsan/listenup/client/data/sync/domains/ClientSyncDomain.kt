@@ -37,30 +37,11 @@ internal class MirroredDomain<T : Any>(
  * trigger is unchanged (it stays where it is, semantically owned by each feature).
  *
  * A nudge frame is lossy (replay=0): a subscriber not attached at emit time never sees it.
- * [recovery] is the declared, compile-time-required answer to "how does a DROPPED trigger
- * self-heal without a restart" — the lifecycle-reconcile pass executes it, so it is the
- * wiring, not a comment. A future nudge domain cannot exist without stating how it heals.
+ * The self-heal is derived, not declared: the lifecycle-reconcile edge re-runs every
+ * refreshed domain's [refresh] through [RefreshedDomainRouter.refreshAll], so a dropped
+ * trigger heals on the next foreground/reconnect with no per-domain recovery wiring.
  */
 internal class RefreshedDomain(
     val trigger: KClass<out SyncControl>,
     val refresh: RefreshStrategy,
-    val recovery: NudgeRecovery,
 ) : ClientSyncDomain
-
-/**
- * How a [RefreshedDomain]'s dropped nudge self-heals without an app restart. Required on every
- * nudge domain (Plan §6a) — the lifecycle-reconcile edge runs the declared recovery.
- */
-internal sealed interface NudgeRecovery {
-    /** Re-runs the domain's refresh on every lifecycle-reconcile edge (reconnect + foreground). */
-    data object OnLifecycleReconcile : NudgeRecovery
-
-    /**
-     * [OnLifecycleReconcile] plus the consumer refetches on collector subscribe, with an optional
-     * slow poll while a collector stays subscribed ([pollWhileSubscribedMs], null = no poll).
-     */
-    data class OnSubscribeAndReconcile(
-        /** Slow-poll interval while a collector stays subscribed; null = no poll. Wired in Phase 3 — read by nothing yet. */
-        val pollWhileSubscribedMs: Long? = null,
-    ) : NudgeRecovery
-}
