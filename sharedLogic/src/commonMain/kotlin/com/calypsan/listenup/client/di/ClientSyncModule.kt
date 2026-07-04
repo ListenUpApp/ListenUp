@@ -273,6 +273,9 @@ internal val clientSyncModule =
                 dispatcher = get(),
                 presenceRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
+                // Outbox liveness rides device reachability, not the SSE firehose — so local-first writes
+                // push over RPC even while the firehose is down.
+                networkMonitor = get(),
                 // The refreshed tier's router — the lifecycle-reconcile pass re-runs every refreshed
                 // domain's refresh through it so a dropped refresh trigger self-heals on the next
                 // foreground/reconnect edge (Plan §6a).

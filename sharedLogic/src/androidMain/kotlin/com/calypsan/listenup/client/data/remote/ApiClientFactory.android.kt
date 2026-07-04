@@ -18,6 +18,9 @@ import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
 
+/** Finite connect timeout for streaming clients — a dead-server connect fails fast instead of hanging ~2min. */
+private const val STREAMING_CONNECT_TIMEOUT_SECONDS = 10
+
 /**
  * Android implementation of streaming HTTP client factory.
  *
@@ -39,8 +42,10 @@ internal actual suspend fun createStreamingHttpClient(
         // Configure OkHttp engine with infinite timeouts for streaming
         engine {
             config {
-                // 0 = infinite timeout in OkHttp
-                connectTimeout(0.seconds)
+                // Finite CONNECT timeout so a failed connect fails fast (~10s) instead of hanging on
+                // OkHttp's default while a dead server is retried; read/write stay infinite (0 =
+                // infinite) because an SSE stream holds the connection open indefinitely.
+                connectTimeout(STREAMING_CONNECT_TIMEOUT_SECONDS.seconds)
                 readTimeout(0.seconds)
                 writeTimeout(0.seconds)
             }
@@ -96,8 +101,10 @@ internal actual fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUr
         // Configure OkHttp engine with infinite timeouts for streaming
         engine {
             config {
-                // 0 = infinite timeout in OkHttp
-                connectTimeout(0.seconds)
+                // Finite CONNECT timeout so a failed connect fails fast (~10s) instead of hanging on
+                // OkHttp's default while a dead server is retried; read/write stay infinite (0 =
+                // infinite) because an SSE stream holds the connection open indefinitely.
+                connectTimeout(STREAMING_CONNECT_TIMEOUT_SECONDS.seconds)
                 readTimeout(0.seconds)
                 writeTimeout(0.seconds)
             }

@@ -15,9 +15,25 @@ private val logger = KotlinLogging.logger {}
  * source of truth for a server-URL change, replacing the hand-maintained two-cache
  * list that silently missed every other authed proxy.
  */
-fun interface RpcCacheInvalidator {
-    /** Invalidate every registered [RemoteCache]. */
+interface RpcCacheInvalidator {
+    /**
+     * Invalidate every registered [RemoteCache] — including the SSE streaming client.
+     *
+     * The full sweep: use it when the connection's *identity* changed (logout, user switch, or a
+     * genuine server-URL/host change), so every transport — request client, RPC proxies, AND the
+     * streaming client — rebuilds against the new identity on its next use.
+     */
     suspend fun invalidateAll()
+
+    /**
+     * Invalidate the RPC proxy caches + the regular request client, but NOT the SSE streaming client.
+     *
+     * The scoped sweep for a firehose *reconnect to the same server*: refresh the stale kotlinx.rpc
+     * proxies (and the request client they derive from) so the next RPC call rebinds to the live
+     * connection, while sparing the streaming client — closing it would abort the very SSE read whose
+     * reconnect triggered the sweep, spinning a self-teardown loop.
+     */
+    suspend fun invalidateRequestCaches()
 }
 
 /**
@@ -30,7 +46,16 @@ internal class DefaultRpcCacheInvalidator(
     internal val caches: List<RemoteCache>,
 ) : RpcCacheInvalidator {
     override suspend fun invalidateAll() {
-        logger.debug { "Invalidating ${caches.size} remote connection cache(s)" }
+        logger.debug { "Invalidating ${caches.size} remote connection cache(s) (incl. streaming)" }
         caches.forEach { it.invalidate() }
+    }
+
+    override suspend fun invalidateRequestCaches() {
+        logger.debug { "Invalidating ${caches.size} remote connection cache(s) (sparing streaming client)" }
+        // The ApiClientFactory is the only cache holding a streaming client; every other RemoteCache
+        // (RPC proxy caches) has no streaming concern, so a full invalidate() is correct for them.
+        caches.forEach { cache ->
+            if (cache is ApiClientFactory) cache.invalidateRequestClientOnly() else cache.invalidate()
+        }
     }
 }

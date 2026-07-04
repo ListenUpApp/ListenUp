@@ -61,7 +61,12 @@ internal class AdminRepositoryImpl(
     private val libraryAdminRpc: LibraryAdminRpcFactory,
     private val serverConfig: ServerConfig,
     private val adminUserRosterDao: AdminUserRosterDao,
-    private val rpcCacheInvalidator: RpcCacheInvalidator = RpcCacheInvalidator {},
+    private val rpcCacheInvalidator: RpcCacheInvalidator =
+        object : RpcCacheInvalidator {
+            override suspend fun invalidateAll() = Unit
+
+            override suspend fun invalidateRequestCaches() = Unit
+        },
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
     // USER MANAGEMENT

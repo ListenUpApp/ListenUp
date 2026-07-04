@@ -30,10 +30,18 @@ import kotlinx.coroutines.test.advanceUntilIdle
 class ConnectionCoordinatorTest :
     FunSpec({
         class FakeInvalidator : RpcCacheInvalidator {
-            var count = 0
+            /** Full sweeps (incl. streaming client) — the URL/identity-change path. */
+            var allCount = 0
+
+            /** Scoped sweeps (sparing streaming client) — the firehose-reconnect path. */
+            var requestOnlyCount = 0
 
             override suspend fun invalidateAll() {
-                count++
+                allCount++
+            }
+
+            override suspend fun invalidateRequestCaches() {
+                requestOnlyCount++
             }
         }
 
@@ -254,7 +262,7 @@ class ConnectionCoordinatorTest :
             verifySuspend { instance.findReachableUrl(any()) }
         }
 
-        test("a firehose reconnect invalidates stale RPC proxy caches, but the initial connect does not") {
+        test("a firehose reconnect sweeps stale RPC proxies WITHOUT closing the streaming client, but the initial connect does not") {
             val scope = TestScope(StandardTestDispatcher())
             val online = MutableStateFlow(true)
             val invalidator = FakeInvalidator()
@@ -291,17 +299,23 @@ class ConnectionCoordinatorTest :
             // Initial connect: no stale proxies yet → no sweep.
             engineState.setConnection(ConnectionState.Connected(lastEventId = null))
             scope.testScheduler.advanceUntilIdle()
-            invalidator.count shouldBe 0
+            invalidator.requestOnlyCount shouldBe 0
+            invalidator.allCount shouldBe 0
 
             // Drop, then reconnect to the same server: the cached proxies are now bound to a dead
             // RpcClient and must be swept so the next RPC call rebinds.
             engineState.setConnection(ConnectionState.Disconnected(reason = "network blip"))
             scope.testScheduler.advanceUntilIdle()
-            invalidator.count shouldBe 0
+            invalidator.requestOnlyCount shouldBe 0
+            invalidator.allCount shouldBe 0
 
             engineState.setConnection(ConnectionState.Connected(lastEventId = 7L))
             scope.testScheduler.advanceUntilIdle()
-            invalidator.count shouldBe 1
+            // Reconnect must use the SCOPED sweep — closing the streaming client here would abort the
+            // very SSE read whose reconnect triggered this, spinning a self-teardown loop. So the
+            // request-only path fires and the full (streaming-closing) path must NOT.
+            invalidator.requestOnlyCount shouldBe 1
+            invalidator.allCount shouldBe 0
         }
 
         test("invalidates when the active URL host changes") {
@@ -328,10 +342,13 @@ class ConnectionCoordinatorTest :
                 }
             ConnectionCoordinator(serverConfig, instance, idleDiscovery(), networkMonitor, invalidator, scope).start()
             scope.testScheduler.advanceUntilIdle()
-            invalidator.count shouldBe 0
+            invalidator.allCount shouldBe 0
 
             active.value = ServerUrl(remote)
             scope.testScheduler.advanceUntilIdle()
-            invalidator.count shouldBe 1
+            // A genuine host change SHOULD rebuild the streaming client (it must point at the new URL),
+            // so the FULL sweep fires here — not the scoped one.
+            invalidator.allCount shouldBe 1
+            invalidator.requestOnlyCount shouldBe 0
         }
     })

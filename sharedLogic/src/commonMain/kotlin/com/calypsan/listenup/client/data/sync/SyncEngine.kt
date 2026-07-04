@@ -2,8 +2,11 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
@@ -56,6 +59,14 @@ internal class SyncEngine(
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
     private val scope: CoroutineScope,
+    // Gates the outbox drain on device reachability rather than the SSE firehose. The outbox pushes
+    // over the RPC/request transport, which is independent of the inbound SSE stream — so a new op
+    // (playback position, listening event, offline edit) must drain whenever the device is online,
+    // even while the firehose is down. Gating on `isOnline()` (not "SSE Connected") is the fix; it
+    // also spares the retry budget when the device is genuinely offline (no drain, no burned
+    // attempts). Defaults to an always-online monitor so existing call sites that don't drive
+    // connectivity (tests) need no change; production wires the live monitor.
+    private val networkMonitor: NetworkMonitor = AlwaysOnlineNetworkMonitor,
     // The refreshed tier's router. The lifecycle-reconcile pass re-runs every refreshed domain's
     // declared refresh through it, so a dropped refresh trigger self-heals on the next foreground/reconnect
     // edge — derived from the catalog, no per-domain recovery wiring (Plan §6a).
@@ -684,7 +695,14 @@ internal class SyncEngine(
                         .observeEnqueueSignal()
                         .onSubscription { ready.complete(Unit) }
                         .drop(1) // ignore the StateFlow's replayed current value
-                        .filter { state.value.connection is ConnectionState.Connected }
+                        // Gate on device reachability, NOT the SSE firehose. The outbox pushes over the
+                        // RPC/request transport, which is independent of the inbound SSE stream — so a new
+                        // op must drain whenever the device is online, even while the firehose is down (its
+                        // reconnect loop, an outage, etc.). Gating on SSE-Connected silently stranded
+                        // playback progress + edits whenever the firehose wasn't up. When offline we skip
+                        // the drain so the op's retry budget isn't burned against an unreachable server;
+                        // the connection-up trigger + reconnection supervisor recover it on the next edge.
+                        .filter { networkMonitor.isOnline() }
                         .collect { runDrain() }
                 }
             ready.await()
@@ -840,4 +858,17 @@ internal class SyncEngine(
         // edge, wasteful at 1 Hz. force = true (reconnect, LibraryDataChanged) bypasses it.
         const val LIFECYCLE_RECONCILE_MIN_INTERVAL_MS = 30_000L
     }
+}
+
+/**
+ * Fallback [NetworkMonitor] that always reports online. Defaults [SyncEngine]'s monitor so unit tests
+ * that don't exercise offline gating need no change; production always wires the live platform
+ * monitor via Koin.
+ */
+private object AlwaysOnlineNetworkMonitor : NetworkMonitor {
+    override fun isOnline(): Boolean = true
+
+    override val isOnlineFlow: StateFlow<Boolean> = MutableStateFlow(true)
+
+    override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }

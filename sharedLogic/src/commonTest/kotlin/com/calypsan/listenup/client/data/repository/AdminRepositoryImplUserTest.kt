@@ -268,7 +268,16 @@ class AdminRepositoryImplUserTest :
                     libraryAdminRpc = mock(),
                     serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                     adminUserRosterDao = mock(),
-                    rpcCacheInvalidator = { invalidations++ },
+                    rpcCacheInvalidator =
+                        object : com.calypsan.listenup.client.data.remote.RpcCacheInvalidator {
+                            override suspend fun invalidateAll() {
+                                invalidations++
+                            }
+
+                            override suspend fun invalidateRequestCaches() {
+                                invalidations++
+                            }
+                        },
                 )
 
             (repo.getUsers() is AppResult.Failure) shouldBe true
