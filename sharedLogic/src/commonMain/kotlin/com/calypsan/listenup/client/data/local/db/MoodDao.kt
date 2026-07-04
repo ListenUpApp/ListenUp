@@ -89,7 +89,7 @@ internal interface MoodDao {
     suspend fun deleteAll()
 
     /** All rows (including tombstones) with [revision][MoodEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM moods WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM moods WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
@@ -158,7 +158,9 @@ internal interface BookMoodDao {
      *
      * The synthetic id is `"$bookId:$moodId"` — the same form the server uses on the wire.
      */
-    @Query("SELECT bookId || ':' || moodId AS id, revision FROM book_moods WHERE revision <= :max")
+    @Query(
+        "SELECT bookId || ':' || moodId AS id, revision FROM book_moods WHERE deletedAt IS NULL AND revision <= :max",
+    )
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /**

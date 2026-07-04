@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.adminUserRosterDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -110,7 +110,7 @@ class AdminUserRosterDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("user-deleted", revision = 1L)), isOwnEcho = false)
                 handler.onEvent(
@@ -123,8 +123,10 @@ class AdminUserRosterDomainTest :
                     .observeAll()
                     .first()
                     .none { it.id == "user-deleted" } shouldBe true
-                // but still fingerprinted for digest-drift reconciliation
-                db.adminUserRosterDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "user-deleted"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation
+                db.adminUserRosterDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "user-deleted"
             }
         }
 

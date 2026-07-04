@@ -120,7 +120,7 @@ internal interface SeriesDao {
     )
 
     /** All rows (including tombstones) with [revision][SeriesEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM series WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM series WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
@@ -226,7 +226,7 @@ internal interface ContributorDao {
     )
 
     /** All rows (including tombstones) with [revision][ContributorEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM contributors WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM contributors WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */

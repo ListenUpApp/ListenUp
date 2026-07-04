@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -67,12 +67,12 @@ class CollectionsDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(createdCollection(collectionPayload("c1")), isOwnEcho = false)
                 handler.onEvent(SyncEvent.Deleted(id = "c1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
                 db.collectionDao().getById("c1") shouldBe null
-                db.collectionDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "c1"
+                db.collectionDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "c1"
             }
         }
 

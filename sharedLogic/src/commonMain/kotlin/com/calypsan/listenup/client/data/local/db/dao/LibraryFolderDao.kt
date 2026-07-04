@@ -72,7 +72,7 @@ internal interface LibraryFolderDao {
     )
 
     /** All rows (including tombstones) with [revision][LibraryFolderEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM library_folders WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM library_folders WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */

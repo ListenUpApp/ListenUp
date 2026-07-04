@@ -50,7 +50,7 @@ selectIdsAboveRevision:
 SELECT id, revision FROM public_profiles WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM public_profiles WHERE revision <= :cursor;
+SELECT id, revision FROM public_profiles WHERE deleted_at IS NULL AND revision <= :cursor;
 
 -- Domain queries.
 

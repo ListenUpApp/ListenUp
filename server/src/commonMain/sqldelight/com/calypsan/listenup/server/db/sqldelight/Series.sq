@@ -56,7 +56,7 @@ SELECT id FROM book_series WHERE deleted_at IS NULL;
 -- (id, revision) for ALL rows, soft-deleted included, no filter — feeds the
 -- cross-stack digest parity test (allIdRevisionsForTest).
 selectAllIdRevisions:
-SELECT id, revision FROM book_series;
+SELECT id, revision FROM book_series WHERE deleted_at IS NULL;
 
 insert:
 INSERT INTO book_series (
@@ -92,4 +92,4 @@ selectIdsAboveRevision:
 SELECT id, revision FROM book_series WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM book_series WHERE revision <= :cursor;
+SELECT id, revision FROM book_series WHERE deleted_at IS NULL AND revision <= :cursor;

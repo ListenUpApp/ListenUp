@@ -65,12 +65,16 @@ class TagRepositoryDigestTest :
             }
         }
 
-        test("digest includes soft-deleted rows") {
+        test("digest EXCLUDES soft-deleted rows (F1: symmetric with the client's tombstone-excluding digest)") {
             withSqlDatabase {
                 val repo = TagRepository(sql, ChangeBus(), SyncRegistry())
                 runTest {
                     repo.upsert(Tag("a", "alpha", "alpha", 0, 0))
+                    repo.upsert(Tag("b", "beta", "beta", 0, 0))
                     repo.softDelete("a")
+                    // The digest counts LIVE rows only — the tombstoned "a" drops out, leaving "b".
+                    // This is what lets a client that tombstoned "a" locally converge instead of
+                    // drifting forever (the deletion still reaches clients via catch-up / firehose).
                     val d = repo.digest(userId = null, cursor = Long.MAX_VALUE)
                     d.count shouldBe 1
                 }

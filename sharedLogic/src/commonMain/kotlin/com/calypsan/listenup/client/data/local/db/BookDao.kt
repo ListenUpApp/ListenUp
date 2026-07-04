@@ -17,8 +17,9 @@ import kotlinx.coroutines.flow.Flow
  * tombstoned book never appears in a browse list. Point lookups by id (`getById`,
  * `getByIdWithContributors`, `observeByIdWithContributors`, the `*ByIds*` batch reads)
  * deliberately return the row regardless of tombstone state; the detail layer decides
- * how to react to a deleted book. [digestRows] also includes tombstones by design.
- * Use [softDelete] to apply a server tombstone; [deleteById] is a hard removal
+ * how to react to a deleted book. [digestRows] excludes tombstones — the digest counts only
+ * LIVE rows, symmetric with the server's tombstone-excluding digest, so a member who tombstoned
+ * a book locally still converges (F1). Use [softDelete] to apply a server tombstone; [deleteById] is a hard removal
  * for local-only cleanup scenarios.
  */
 @Dao
@@ -495,8 +496,8 @@ internal interface BookDao {
     @Query("SELECT DISTINCT bookId FROM book_documents")
     fun observeBookIdsWithDocuments(): Flow<List<String>>
 
-    /** All rows (including tombstones) with [revision][BookEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM books WHERE revision <= :max")
+    /** LIVE rows (tombstones excluded) with [revision][BookEntity.revision] <= [max], for digest computation. */
+    @Query("SELECT id AS id, revision FROM books WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */

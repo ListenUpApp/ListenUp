@@ -80,7 +80,7 @@ internal interface ActivityDao {
     )
 
     /** All rows (including tombstones) with revision <= max, for digest computation. */
-    @Query("SELECT id AS id, revision FROM activities WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM activities WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** Ids of every live (non-tombstoned) activity — the access-gate's local-live set. */

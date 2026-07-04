@@ -145,7 +145,7 @@ internal interface GenreDao {
     suspend fun deleteAll()
 
     /** All rows (including tombstones) with [revision][GenreEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM genres WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM genres WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */

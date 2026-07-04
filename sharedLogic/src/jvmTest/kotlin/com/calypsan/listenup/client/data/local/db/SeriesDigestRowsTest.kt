@@ -9,18 +9,19 @@ import io.kotest.matchers.collections.shouldHaveSize
 import kotlinx.coroutines.test.runTest
 
 /**
- * Pins [SeriesDao.digestRows]: the query must return ALL rows (including soft-deleted
- * tombstones) whose `revision <= maxRevision`, mapped as `(id, revision)` pairs.
+ * Pins [SeriesDao.digestRows]: the query must return the LIVE rows (soft-deleted tombstones
+ * EXCLUDED) whose `revision <= maxRevision`, mapped as `(id, revision)` pairs.
  *
  * Three scenarios:
  *  1. Live rows within max → included.
- *  2. Tombstoned rows within max → included (digest covers deleted rows).
+ *  2. Tombstoned rows within max → EXCLUDED (the digest counts only live rows, so a client that
+ *     tombstoned a row locally converges with the server's tombstone-excluding digest — F1).
  *  3. Rows whose revision exceeds max → excluded.
  */
 class SeriesDigestRowsTest :
     FunSpec({
 
-        test("digestRows returns live and tombstoned rows bounded by maxRevision") {
+        test("digestRows returns live rows and EXCLUDES tombstones, bounded by maxRevision") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 try {
@@ -28,20 +29,19 @@ class SeriesDigestRowsTest :
 
                     // revision 1 — live
                     dao.upsert(seriesEntityWithRevision("s-live-1", "Live Series One", revision = 1L))
-                    // revision 2 — soft-deleted (tombstone must still appear in digest)
+                    // revision 2 — soft-deleted (tombstone must NOT appear in the digest)
                     dao.upsert(seriesEntityWithRevision("s-dead-2", "Deleted Series", revision = 2L))
                     dao.softDelete(SeriesId("s-dead-2"), deletedAt = 1_000L, revision = 2L)
                     // revision 5 — live but above the max we'll query
                     dao.upsert(seriesEntityWithRevision("s-live-5", "Future Series", revision = 5L))
 
-                    // Query with max = 3 → should see s-live-1 (rev 1) and s-dead-2 (rev 2)
+                    // Query with max = 3 → should see only s-live-1 (rev 1); s-dead-2 is tombstoned.
                     val rows = dao.digestRows(max = 3L)
 
-                    rows shouldHaveSize 2
+                    rows shouldHaveSize 1
                     rows.map { it.id to it.revision } shouldContainExactlyInAnyOrder
                         listOf(
                             "s-live-1" to 1L,
-                            "s-dead-2" to 2L,
                         )
                 } finally {
                     db.close()

@@ -44,6 +44,14 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  *   the digest slice is unordered — it is sorted by id in Kotlin afterwards).
  * @param limit the page cap; when non-null a trailing `LIMIT ?` is appended and the value bound
  *   last (the pull path), null for the unbounded digest slice.
+ * @param includeTombstones when true, a tombstone (`deleted_at IS NOT NULL`) passes the access
+ *   gate regardless of the subquery — the member needs to learn what to remove even for a row it
+ *   can no longer "access" (a deleted row is never accessible: `accessibleBookIdsSql` requires
+ *   `deleted_at IS NULL`). This mirrors the firehose's tombstone-ungated rule (`isBookEventHidden`
+ *   lets every `SyncEvent.Deleted` through) so catch-up and the live tail agree, and it leaks no
+ *   content — a tombstone carries only id/revision/deleted_at. Set true on the pull path (catch-up
+ *   must deliver deletions), false on the digest path (the digest counts only LIVE accessible rows,
+ *   symmetric with the tombstone-excluding client digest).
  */
 internal fun SqlDriver.selectIdRevAccessFiltered(
     table: String,
@@ -52,6 +60,7 @@ internal fun SqlDriver.selectIdRevAccessFiltered(
     extraWhere: SqlFragment,
     ascendingByRevision: Boolean,
     limit: Int?,
+    includeTombstones: Boolean,
 ): List<IdRev> {
     val sql =
         buildString {
@@ -59,8 +68,10 @@ internal fun SqlDriver.selectIdRevAccessFiltered(
             append(table)
             append(" WHERE ")
             append(revisionPredicate)
-            append(" AND id IN (")
+            append(" AND (id IN (")
             append(extraWhere.sql)
+            append(")")
+            if (includeTombstones) append(" OR deleted_at IS NOT NULL")
             append(")")
             if (ascendingByRevision) append(" ORDER BY revision ASC")
             if (limit != null) append(" LIMIT ?")

@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -68,7 +68,7 @@ class BookMoodsDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(junctionPayload("b1", "m1")), isOwnEcho = false)
                 handler.onEvent(
@@ -81,8 +81,10 @@ class BookMoodsDomainTest :
                     .observeForBook("b1")
                     .first()
                     .none { it.moodId == "m1" } shouldBe true
-                // but still fingerprinted for digest-drift reconciliation (synthetic "$bookId:$moodId" id)
-                db.bookMoodDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "b1:m1"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation (synthetic "$bookId:$moodId" id)
+                db.bookMoodDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "b1:m1"
             }
         }
 

@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.tagsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -68,7 +68,7 @@ class TagsDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")), isOwnEcho = false)
                 handler.onEvent(
@@ -76,7 +76,7 @@ class TagsDomainTest :
                     isOwnEcho = false,
                 )
                 db.tagDao().getById("t1") shouldBe null
-                db.tagDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "t1"
+                db.tagDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "t1"
             }
         }
 

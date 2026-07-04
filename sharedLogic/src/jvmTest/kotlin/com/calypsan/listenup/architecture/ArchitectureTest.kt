@@ -111,6 +111,12 @@ class ArchitectureTest :
                 // manufacture a sub-floor gap row, then proves reconcileAll repairs it. Same exemption
                 // class as DigestParityE2ETest — confined to jvmTest, not production.
                 .filter { "/sharedLogic/src/jvmTest/kotlin/com/calypsan/listenup/client/data/sync/DigestReconcileGapE2ETest" !in it.path }
+                // F1 access-gated digest convergence E2E: drives the real server BookRepository +
+                // BookAccessPolicy against the client BookDao/DigestComputer to prove a member's client
+                // digest converges with the server member digest after a deletion/revoke, and that the
+                // access-filtered catch-up delivers tombstones. Same exemption class as DigestParityE2ETest
+                // — confined to jvmTest, not production.
+                .filter { "data/sync/AccessGatedDigestConvergenceE2ETest" !in it.path }
                 // Lifecycle-reconcile invariant E2E: boots real server in-process under FirehoseSuppressed
                 // to manufacture an above-cursor gap row, then proves lifecycleReconcile's forward catch-up
                 // lands it where forceReconcile cannot. Same exemption class — confined to jvmTest.

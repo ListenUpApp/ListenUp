@@ -61,9 +61,10 @@ internal interface SyncDomainHandler<T : Any> {
     ): AppResult<Unit>
 
     /**
-     * The domain's local `(id, revision)` rows with `revision <= maxRevision`, INCLUDING
-     * soft-deleted rows — the exact set the server's digest covers. Used by the reconciler
-     * to fingerprint the domain and detect per-domain drift.
+     * The domain's local `(id, revision)` rows with `revision <= maxRevision`, EXCLUDING
+     * soft-deleted rows — the exact LIVE set the server's (tombstone-excluding) digest covers.
+     * Used by the reconciler to fingerprint the domain and detect per-domain drift; the
+     * tombstone exclusion is what lets a member who tombstoned a row locally converge (F1).
      *
      * Returns `null` for a domain that cannot be fingerprinted client-side (no local
      * `revision` column) — the reconciler skips such domains rather than re-pulling them

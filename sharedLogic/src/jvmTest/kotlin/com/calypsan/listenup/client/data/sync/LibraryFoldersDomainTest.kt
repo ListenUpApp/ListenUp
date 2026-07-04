@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.data.sync.domains.libraryFoldersDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -70,7 +70,7 @@ class LibraryFoldersDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 seedLibrary(db, "lib1")
                 handler.onEvent(created(payload("f1", "lib1", "/audiobooks")), isOwnEcho = false)
@@ -80,8 +80,10 @@ class LibraryFoldersDomainTest :
                 )
                 // findAllForLibrary filters tombstones — invisible to reads
                 db.libraryFolderDao().findAllForLibrary("lib1").none { it.id == "f1" } shouldBe true
-                // but still fingerprinted for digest-drift reconciliation
-                db.libraryFolderDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "f1"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation
+                db.libraryFolderDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "f1"
             }
         }
 

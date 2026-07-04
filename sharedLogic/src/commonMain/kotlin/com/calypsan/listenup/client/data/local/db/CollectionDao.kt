@@ -89,7 +89,7 @@ internal interface CollectionDao {
     suspend fun deleteAll()
 
     /** All rows (including tombstones) with [revision][CollectionEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM collections WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM collections WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
@@ -174,7 +174,9 @@ internal interface CollectionBookDao {
      *
      * The synthetic id is `"$collectionId:$bookId"` — the same form the server uses on the wire.
      */
-    @Query("SELECT collectionId || ':' || bookId AS id, revision FROM collection_books WHERE revision <= :max")
+    @Query(
+        "SELECT collectionId || ':' || bookId AS id, revision FROM collection_books WHERE deletedAt IS NULL AND revision <= :max",
+    )
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /**
@@ -245,7 +247,7 @@ internal interface CollectionShareDao {
     suspend fun deleteAll()
 
     /** All rows (including tombstones) with [revision][CollectionShareEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM collection_shares WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM collection_shares WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */

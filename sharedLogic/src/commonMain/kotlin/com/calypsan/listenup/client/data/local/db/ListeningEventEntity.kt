@@ -329,7 +329,7 @@ internal interface ListeningEventDao {
     ): List<BookDuration>
 
     /** All rows (including tombstones) with [revision][ListeningEventEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM listening_events WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM listening_events WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /**
