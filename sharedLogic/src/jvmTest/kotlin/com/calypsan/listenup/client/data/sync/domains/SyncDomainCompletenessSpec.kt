@@ -12,11 +12,15 @@ import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadReposito
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
+import com.calypsan.listenup.konsist.productionScope
 import com.calypsan.listenup.server.module
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -163,6 +167,88 @@ class SyncDomainCompletenessSpec :
                         SyncControl.UserDeleted::class,
                         SyncControl.LibraryDataChanged::class,
                     )
+            } finally {
+                db.close()
+            }
+        }
+
+        test("every SyncControl subtype is owned: an engine control, or exactly one RefreshedDomain trigger") {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+
+                // The frozen engine/lifecycle controls the dispatcher owns directly (no RefreshedDomain).
+                val engineControls =
+                    setOf(
+                        SyncControl.CursorStale::class,
+                        SyncControl.StreamError::class,
+                        SyncControl.AccessChanged::class,
+                        SyncControl.UserDeleted::class,
+                        SyncControl.LibraryDataChanged::class,
+                        // Legacy: the dispatcher drops ActivityChanged as a no-op (SyncEventDispatcher).
+                        // `activities` is now a cursored Room mirror (#1028) — catch-up + live tail keep
+                        // it current, so no RefreshedDomain claims this control. It stays a sealed
+                        // subtype for wire compatibility; owning it here keeps completeness exhaustive.
+                        SyncControl.ActivityChanged::class,
+                    )
+                val refreshedTriggers = catalog.refreshed.map { it.trigger }
+
+                // Distinct owners — no control claimed twice, no engine/nudge overlap.
+                refreshedTriggers.toSet() shouldHaveSize refreshedTriggers.size
+                (engineControls intersect refreshedTriggers.toSet()).shouldBeEmpty()
+
+                // Completeness: every sealed SyncControl subtype is owned by exactly one side. A new
+                // control frame with no engine handler and no RefreshedDomain trigger fails HERE — the
+                // regression that today only warn-logs at runtime (SyncEventDispatcher).
+                val allControls = SyncControl::class.sealedSubclasses.toSet()
+                allControls shouldBe engineControls + refreshedTriggers.toSet()
+
+                // Declaring a recovery is compile-time-required (the field is non-nullable), so a
+                // `recovery shouldNotBe null` assertion is dead. The real gap: the engine's dispatch,
+                // runNudgeLifecycleRecovery, switches on the trigger with an `else -> logger.warn(...)`
+                // fall-through. A new RefreshedDomain whose trigger the engine forgot to wire routes
+                // through that else and silently never self-heals a dropped nudge — CI stays green
+                // because the warn is a runtime log. Assert instead that EVERY refreshed domain's
+                // trigger is handled by an explicit (non-else) arm, so a forgotten wiring fails HERE.
+                val engineSource =
+                    productionScope()
+                        .files
+                        .firstOrNull { it.path.endsWith("/SyncEngine.kt") }
+                        .shouldNotBeNull()
+                        .text
+                val handledTriggers = NudgeRecoveryDispatchGuard.handledTriggerNames(engineSource)
+
+                // Sanity: the parser found the known explicit arms. A parser that silently returns
+                // nothing would make the coverage assertion vacuously green — refuse that.
+                withClue("parser found no handled triggers — runNudgeLifecycleRecovery shape changed?") {
+                    handledTriggers shouldBe
+                        setOf(
+                            "ActiveSessionsChanged",
+                            "ServerInfoChanged",
+                            "PreferencesChanged",
+                        )
+                }
+
+                catalog.refreshed.forEach { domain ->
+                    val name = domain.trigger.simpleName
+                    withClue(
+                        "RefreshedDomain trigger $name has no explicit arm in runNudgeLifecycleRecovery — " +
+                            "a dropped nudge would fall into the else warn-log and never self-heal. Wire an " +
+                            "explicit arm for it (Plan §6a).",
+                    ) {
+                        handledTriggers shouldContain name
+                    }
+                }
             } finally {
                 db.close()
             }

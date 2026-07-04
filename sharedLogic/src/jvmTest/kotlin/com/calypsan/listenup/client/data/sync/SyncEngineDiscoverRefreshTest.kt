@@ -90,6 +90,14 @@ class SyncEngineDiscoverRefreshTest :
                             dispatcher = dispatcher,
                             presenceRefreshSignal = presence,
                             scope = scope,
+                            // The lifecycle-reconcile refresh runs each nudge domain's declared
+                            // recovery: presence pings on the reconnect edge. Supplying the presence
+                            // domain is what makes the reconnect edge re-fire the ping.
+                            refreshedDomains =
+                                listOf(
+                                    com.calypsan.listenup.client.data.sync.domains
+                                        .presenceDomain(ping = {}),
+                                ),
                         )
 
                     engine.start(currentUserId = "u1")

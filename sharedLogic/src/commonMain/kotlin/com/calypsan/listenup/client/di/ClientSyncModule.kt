@@ -273,6 +273,9 @@ internal val clientSyncModule =
                 dispatcher = get(),
                 presenceRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
+                // The nudge tier — the lifecycle-reconcile pass runs each entry's declared recovery so
+                // a dropped nudge self-heals on the next foreground/reconnect edge (Plan §6a).
+                refreshedDomains = get<SyncDomainCatalog>().refreshed,
             )
         }
 

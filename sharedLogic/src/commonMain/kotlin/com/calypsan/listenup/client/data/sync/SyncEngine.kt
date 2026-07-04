@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.client.data.sync.domains.NudgeRecovery
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomain
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Duration.Companion.milliseconds
@@ -55,6 +58,9 @@ internal class SyncEngine(
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
     private val scope: CoroutineScope,
+    // The nudge tier's catalog entries. Their declared NudgeRecovery is what the lifecycle-reconcile
+    // pass runs so a dropped nudge self-heals — the recovery is the wiring, not a comment (Plan §6a).
+    private val refreshedDomains: List<RefreshedDomain> = emptyList(),
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
     private val lifecycleReconcileMinIntervalMs: Long = LIFECYCLE_RECONCILE_MIN_INTERVAL_MS,
 ) {
@@ -428,7 +434,41 @@ internal class SyncEngine(
      * until Phase 3 folds them in here via declared recovery.)
      */
     private fun runLifecycleRefreshHooks() {
-        presenceRefreshSignal.ping()
+        // Drive the refresh off each nudge domain's declared NudgeRecovery — both variants heal on a
+        // lifecycle edge — so a new nudge domain's recovery runs here automatically once declared.
+        refreshedDomains.forEach { domain ->
+            when (domain.recovery) {
+                NudgeRecovery.OnLifecycleReconcile,
+                is NudgeRecovery.OnSubscribeAndReconcile,
+                -> runNudgeLifecycleRecovery(domain)
+            }
+        }
+    }
+
+    /**
+     * Execute one nudge domain's lifecycle recovery. Presence pings its hot signal — the
+     * Never-Stranded fallback for a dropped `ActiveSessionsChanged`. Server-info / preferences
+     * declare a recovery but are still driven only by their control frame — TODO(Phase 3) folds
+     * their refetch in here. (The activity feed is now a cursored mirror (#1028): forward catch-up
+     * in the reconcile pass already drained it, so it declares no nudge recovery.)
+     */
+    private fun runNudgeLifecycleRecovery(domain: RefreshedDomain) {
+        when (domain.trigger) {
+            SyncControl.ActiveSessionsChanged::class -> {
+                presenceRefreshSignal.ping()
+            }
+
+            SyncControl.ServerInfoChanged::class, SyncControl.PreferencesChanged::class -> {
+                Unit
+            }
+
+            else -> {
+                logger.warn {
+                    "Nudge ${domain.trigger.simpleName} declares a lifecycle recovery but the engine wires " +
+                        "no action for it — a dropped frame will not self-heal. See ClientSyncModule."
+                }
+            }
+        }
     }
 
     /**
