@@ -3,9 +3,13 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -113,7 +117,12 @@ internal class SyncEngine(
     private val lifecycleReconcileMutex = Mutex()
     private var lifecycleReconcileRunning = false
     private var lifecycleReconcilePending = false
-    private var lastLifecycleReconcileAtMs = 0L
+
+    // Debounce anchor for [lifecycleReconcile]. MONOTONIC, not wall-clock: the debounce is a
+    // "duration since the last completed pass" comparison, and an NTP step (back OR forward) on a
+    // wall clock would arbitrarily extend or collapse the suppression window. null means "no pass
+    // has completed yet" → the first trigger is never debounced.
+    private var lastLifecycleReconcileMark: TimeSource.Monotonic.ValueTimeMark? = null
 
     // Flips to true on the last line of [runStart] for the active user. If
     // [runStart] throws before that line, the flag stays false even though
@@ -233,7 +242,7 @@ internal class SyncEngine(
         // Stamp the lifecycle-reconcile debounce clock: runStart just did the equivalent work
         // (forward catch-up + digest reconcile), so the connectRealtime() foreground reconcile
         // that immediately follows a cold start is debounced instead of redundantly re-draining.
-        lifecycleReconcileMutex.withLock { lastLifecycleReconcileAtMs = currentEpochMilliseconds() }
+        lifecycleReconcileMutex.withLock { lastLifecycleReconcileMark = TimeSource.Monotonic.markNow() }
     }
 
     fun stop() {
@@ -347,37 +356,54 @@ internal class SyncEngine(
                 }
             }
         if (!shouldLead) return
+        // Set true ONLY on the loop's normal-exit branch, where this coroutine clears
+        // running/pending under the lock and ends the loop. It gates the finally so cleanup is
+        // ownership-scoped: a normally-completed leader must NOT touch shared state in finally,
+        // because a follow-on leader may already own it (the cross-leader stomp this guards).
+        var ledToCompletion = false
         try {
             var more = true
             while (more) {
                 runLifecycleReconcilePass()
                 more =
                     lifecycleReconcileMutex.withLock {
-                        lastLifecycleReconcileAtMs = currentEpochMilliseconds()
+                        lastLifecycleReconcileMark = TimeSource.Monotonic.markNow()
                         if (lifecycleReconcilePending) {
                             lifecycleReconcilePending = false
                             true
                         } else {
                             lifecycleReconcileRunning = false
+                            ledToCompletion = true
                             false
                         }
                     }
             }
         } finally {
-            // Normal exit already cleared the running flag in the loop; this only fires when a pass
-            // threw or was cancelled, so a future edge can still lead a recovery.
-            if (lifecycleReconcileRunning) {
-                lifecycleReconcileMutex.withLock {
-                    lifecycleReconcileRunning = false
-                    lifecycleReconcilePending = false
+            // Ownership-scoped cleanup. On normal completion the loop already cleared the flags under
+            // the lock, so this does nothing — reaching in would let a returning leader stomp a NEW
+            // leader's in-flight pass (and silently drop its forced follow-up). This reset therefore
+            // fires ONLY when a pass threw or was cancelled before the loop's normal exit, and it does
+            // the read+reset entirely under the lock so no unsynchronized flag read remains.
+            if (!ledToCompletion) {
+                // NonCancellable: this cleanup usually runs BECAUSE the pass was cancelled, and the
+                // mutex may be momentarily contended by another trigger — a bare `withLock` would then
+                // throw CancellationException and leave `running` stuck true forever, permanently
+                // no-op'ing every future reconcile (the "restart required" class this engine kills).
+                withContext(NonCancellable) {
+                    lifecycleReconcileMutex.withLock {
+                        lifecycleReconcileRunning = false
+                        lifecycleReconcilePending = false
+                    }
                 }
             }
         }
     }
 
     /** Whether the debounce window has elapsed since the last completed pass. MUST hold [lifecycleReconcileMutex]. */
-    private fun debounceElapsedLocked(): Boolean =
-        currentEpochMilliseconds() - lastLifecycleReconcileAtMs >= lifecycleReconcileMinIntervalMs
+    private fun debounceElapsedLocked(): Boolean {
+        val lastMark = lastLifecycleReconcileMark ?: return true
+        return lastMark.elapsedNow() >= lifecycleReconcileMinIntervalMs.milliseconds
+    }
 
     /** One lifecycle reconcile pass: forward catch-up → digest reconcile → nudge refreshes. */
     private suspend fun runLifecycleReconcilePass() {
@@ -472,11 +498,16 @@ internal class SyncEngine(
             // still outstanding (their covering pass never completed) must be released so coalesced
             // callers are not stranded — cancelled, not completed, since their request was not served.
             if (cursorStaleRunning) {
+                // NonCancellable for the same reason as lifecycleReconcile's cleanup: a contended
+                // `withLock` on the cancellation path would throw and strand `cursorStaleRunning` true,
+                // wedging all future CursorStale recovery.
                 val stranded =
-                    cursorStaleMutex.withLock {
-                        cursorStaleRunning = false
-                        cursorStalePending = false
-                        drainWaiters()
+                    withContext(NonCancellable) {
+                        cursorStaleMutex.withLock {
+                            cursorStaleRunning = false
+                            cursorStalePending = false
+                            drainWaiters()
+                        }
                     }
                 stranded.forEach { it.cancel() }
             }
