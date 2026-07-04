@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookReadershipDao
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.UserRepository
@@ -19,6 +20,8 @@ import dev.mokkery.answering.sequentiallyReturns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode.Companion.exactly
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
@@ -172,6 +175,51 @@ class BookReadersRepositoryImplTest :
                         awaitItem().readers shouldHaveSize 2
                         cancelAndIgnoreRemainingEvents()
                     }
+            }
+        }
+
+        test("with no ping, advancing past the poll interval re-fetches readership — a dropped nudge self-heals") {
+            runTest {
+                val scheduler = testScheduler
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } sequentiallyReturns
+                            listOf(
+                                AppResult.Success(BookReadership(listOf(entry("u2", "Bob")))),
+                                AppResult.Success(BookReadership(listOf(entry("u2", "Bob"), entry("u3", "Carol")))),
+                            )
+                    }
+
+                repo(fakeRpc(service), FakeBookReadershipDao(), currentUser = null)
+                    .observeReadersFor("b1")
+                    .test {
+                        awaitNonEmpty() shouldHaveSize 1
+                        // No ping fires — only the subscription-scoped backstop poll converges the readership.
+                        scheduler.advanceTimeBy(PRESENCE_POLL_INTERVAL_MS + 1)
+                        awaitItem().readers shouldHaveSize 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("the backstop poll stops when the surface is closed — no refetch after the collector leaves") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { bookReadership(BookId("b1")) } returns
+                            AppResult.Success(BookReadership(listOf(entry("u2", "Bob"))))
+                    }
+
+                repo(fakeRpc(service), FakeBookReadershipDao(), currentUser = null)
+                    .observeReadersFor("b1")
+                    .test {
+                        awaitNonEmpty() shouldHaveSize 1
+                        cancelAndIgnoreRemainingEvents()
+                    }
+
+                // Surface closed: advance past several poll intervals — the ticker died with the collector.
+                testScheduler.advanceTimeBy(PRESENCE_POLL_INTERVAL_MS * 3)
+                verifySuspend(exactly(1)) { service.bookReadership(BookId("b1")) }
             }
         }
 
