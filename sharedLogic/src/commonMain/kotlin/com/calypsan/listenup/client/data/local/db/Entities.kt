@@ -380,12 +380,15 @@ internal data class GenreEntity(
 }
 
 /**
- * Stores activity feed items locally for offline-first display.
+ * Local mirror of the `activities` sync domain — a pure row of the server's activity log.
  *
- * Populated via SSE activity.created events and initial sync.
- * All data is denormalized from server for immediate display without joins.
+ * Carries only the RAW activity fields (no denormalized display projection): user identity and the
+ * book card are enriched at READ time by joining the local `public_profiles` and book mirrors, so a
+ * later rename is reflected everywhere instead of frozen at record time. Populated by the cursored
+ * sync data channel (catch-up + live tail), never written by the client.
  *
- * Activities are retained for 30 days, then pruned automatically.
+ * [revision] is the monotonic server revision (0 until confirmed); [deletedAt] is the soft-delete
+ * tombstone (null while live) — activities is append-only, so tombstones are rare.
  */
 @Entity(
     tableName = "activities",
@@ -403,16 +406,8 @@ internal data class ActivityEntity(
     val type: String,
     /** When the activity occurred (epoch ms) */
     val occurredAt: Long,
-    // Denormalized user info for offline display
-    val userDisplayName: String,
-    val userAvatarColor: String,
-    val userAvatarType: String,
-    val userAvatarValue: String?,
-    // Book info (nullable - not all activities have a book)
+    /** Book this activity is about, or null for non-book activities (e.g. user_joined). */
     val bookId: String?,
-    val bookTitle: String?,
-    val bookAuthorName: String?,
-    val bookCoverPath: String?,
     // Activity-specific fields
     val isReread: Boolean,
     val durationMs: Long,
@@ -420,6 +415,10 @@ internal data class ActivityEntity(
     val milestoneUnit: String?,
     val shelfId: String?,
     val shelfName: String?,
+    /** Monotonic server revision; 0 until the server has confirmed the row. */
+    val revision: Long = 0,
+    /** Epoch-ms tombstone; null while the activity is live. */
+    val deletedAt: Long? = null,
 )
 
 /**
