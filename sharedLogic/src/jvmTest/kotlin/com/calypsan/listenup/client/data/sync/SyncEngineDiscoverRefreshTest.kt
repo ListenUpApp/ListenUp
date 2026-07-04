@@ -142,6 +142,14 @@ class SyncEngineDiscoverRefreshTest :
                             activityRefreshSignal = ActivityRefreshSignal(),
                             scope = scope,
                             primeActivityFeed = { primeCount.incrementAndGet() },
+                            // The lifecycle-reconcile refresh now runs each nudge domain's declared
+                            // recovery: presence pings, activity primes. Supplying the two folded-in
+                            // domains is what makes the reconnect edge re-fire both.
+                            refreshedDomains =
+                                listOf(
+                                    com.calypsan.listenup.client.data.sync.domains.presenceDomain(ping = {}),
+                                    com.calypsan.listenup.client.data.sync.domains.activityDomain(ping = {}),
+                                ),
                         )
 
                     engine.start(currentUserId = "u1")

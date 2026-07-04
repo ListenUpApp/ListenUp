@@ -282,6 +282,9 @@ internal val clientSyncModule =
                 scope = get(qualifier = named(APP_SCOPE)),
                 // Prime / refresh the activity-feed Room cache on sync-start and reconnect, UI-independent.
                 primeActivityFeed = { fetchActivities(ACTIVITY_PRIME_LIMIT) },
+                // The nudge tier — the lifecycle-reconcile pass runs each entry's declared recovery so
+                // a dropped nudge self-heals on the next foreground/reconnect edge (Plan §6a).
+                refreshedDomains = get<SyncDomainCatalog>().refreshed,
             )
         }
 

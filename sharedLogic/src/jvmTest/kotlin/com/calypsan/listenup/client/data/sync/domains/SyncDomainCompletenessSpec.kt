@@ -15,6 +15,7 @@ import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.module
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.shouldBe
@@ -165,6 +166,53 @@ class SyncDomainCompletenessSpec :
                         SyncControl.UserDeleted::class,
                         SyncControl.LibraryDataChanged::class,
                     )
+            } finally {
+                db.close()
+            }
+        }
+
+        test("every SyncControl subtype is owned: an engine control, or exactly one RefreshedDomain trigger") {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        pingActivity = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+
+                // The frozen engine/lifecycle controls the dispatcher owns directly (no RefreshedDomain).
+                val engineControls =
+                    setOf(
+                        SyncControl.CursorStale::class,
+                        SyncControl.StreamError::class,
+                        SyncControl.AccessChanged::class,
+                        SyncControl.UserDeleted::class,
+                        SyncControl.LibraryDataChanged::class,
+                    )
+                val refreshedTriggers = catalog.refreshed.map { it.trigger }
+
+                // Distinct owners — no control claimed twice, no engine/nudge overlap.
+                refreshedTriggers.toSet() shouldHaveSize refreshedTriggers.size
+                (engineControls intersect refreshedTriggers.toSet()).shouldBeEmpty()
+
+                // Completeness: every sealed SyncControl subtype is owned by exactly one side. A new
+                // control frame with no engine handler and no RefreshedDomain trigger fails HERE — the
+                // regression that today only warn-logs at runtime (SyncEventDispatcher).
+                val allControls = SyncControl::class.sealedSubclasses.toSet()
+                allControls shouldBe (engineControls + refreshedTriggers.toSet())
+
+                // Every nudge domain declares its recovery (required at compile time; asserted for the
+                // guarantee that a dropped nudge has a declared self-heal — Plan §6a).
+                catalog.refreshed.forEach { domain ->
+                    withClue(domain.trigger.simpleName ?: "nudge") { domain.recovery shouldNotBe null }
+                }
             } finally {
                 db.close()
             }
