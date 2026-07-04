@@ -41,7 +41,22 @@ class AccessGateParitySpec :
 
         test("every server per-row access-gated domain has a client AccessGate") {
             val source = syncRoutesSource()
-            val serverPerRowGated = AccessGateParityGuard.parsePerRowGatedDomains(source)
+            val classification = AccessGateParityGuard.classifyAccessFilter(source)
+            val serverPerRowGated = classification.perRowGated
+
+            // Loud-fail on drift: EVERY arm of `when (domainName)` must be classified — per-row,
+            // role-gated, or the `else` default. An arm written in a shape the parser doesn't
+            // understand (`"activities" ->`, `SyncDomains.ACTIVITIES.name ->`, `A, B ->`,
+            // `in setOf(...) ->`) would otherwise vanish from BOTH the per-row set and the exempt
+            // set, slipping a per-row-filtered domain past this guard with no client AccessGate.
+            withClue(
+                "accessFilterFor has an arm the parity guard can't classify: " +
+                    "${classification.unparsedArms}. Extend AccessGateParityGuard's parser (or the " +
+                    "guard) so the new branch shape is placed — an unclassified arm must break the " +
+                    "build, never silently bypass the AccessGate obligation.",
+            ) {
+                classification.classifiedArms shouldBe classification.totalArms
+            }
 
             // Sanity: the parser actually found the known per-row gates. A parser that silently
             // returns nothing would make the guard vacuously green — refuse that.
