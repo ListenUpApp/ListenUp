@@ -31,7 +31,8 @@ import com.calypsan.listenup.core.Timestamp
  * accessible set, so an `AccessChanged` reconcile must prune local rows the user can
  * no longer see. The [AccessGate] tombstones (not hard-deletes) every live row outside
  * the accessible set — revoked books disappear from view but restore losslessly if
- * access is re-granted — then its `afterPrune` drops readership rows for the now-dead books.
+ * access is re-granted — then its `afterPrune` drops readership rows AND `playback_positions`
+ * for the now-dead books, so a revoked or removed book leaves Continue Listening too.
  *
  * **Digest:** full participation — books are revision-fingerprintable, and
  * `digestRows` excludes soft-deleted rows, matching the server's (tombstone-excluding) digest
@@ -77,9 +78,14 @@ internal fun booksDomain(
             AccessGate(
                 liveIds = database.bookDao()::liveIds,
                 tombstoneByIds = database.bookDao()::tombstoneByIds,
-                // Readership rows follow their book's liveness: once the prune tombstones the
-                // revoked books, drop the reader rows that now point at a non-live book.
-                afterPrune = database.bookReadershipDao()::deleteWhereBookNotLive,
+                // Readership rows AND Continue-Listening positions follow their book's liveness:
+                // once the prune tombstones the revoked/removed books, drop the reader rows and the
+                // playback_positions that now point at a non-live book (so the book leaves Continue
+                // Listening — #9B). Access-only losses re-sync from the server on re-grant.
+                afterPrune = {
+                    database.bookReadershipDao().deleteWhereBookNotLive()
+                    database.playbackPositionDao().deleteWhereBookNotLive()
+                },
             ),
     )
 }

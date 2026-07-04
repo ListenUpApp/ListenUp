@@ -53,6 +53,7 @@ internal interface SearchDao {
         FROM books_fts fts
         INNER JOIN books b ON fts.bookId = b.id
         WHERE books_fts MATCH :query
+          AND b.deletedAt IS NULL
         ORDER BY bm25(books_fts)
         LIMIT :limit
     """,

@@ -106,6 +106,20 @@ internal interface PlaybackPositionDao {
     )
 
     /**
+     * Drop every position whose book is gone or tombstoned — the Continue-Listening
+     * counterpart to the readership sweep, run from the books access-gate `afterPrune`.
+     *
+     * When a book leaves the local mirror (a real removal tombstone, or an access-loss
+     * prune), its lingering position would otherwise keep the book on the Home
+     * "Continue Listening" shelf and re-surface a book the user can no longer reach.
+     * The server still holds the row for an access-only loss, so a later re-grant
+     * re-syncs the position — this is a local hard-delete of a now-unreachable cache
+     * entry, not a destructive server write.
+     */
+    @Query("DELETE FROM playback_positions WHERE bookId NOT IN (SELECT id FROM books WHERE deletedAt IS NULL)")
+    suspend fun deleteWhereBookNotLive()
+
+    /**
      * Get recently played books for "Continue Listening" section.
      * Returns positions ordered by most recently played, limited to specified count.
      *

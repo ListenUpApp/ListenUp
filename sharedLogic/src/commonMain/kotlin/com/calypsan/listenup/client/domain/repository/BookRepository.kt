@@ -36,6 +36,12 @@ interface BookRepository {
     fun observeChapters(bookId: String): Flow<List<Chapter>>
 
     /**
+     * Observe whether [id] is currently live (present, not tombstoned) in the local mirror.
+     * Emits `false` once the book is removed/revoked. Drives the now-playing teardown.
+     */
+    fun observeIsBookLive(id: String): Flow<Boolean>
+
+    /**
      * Observe random unstarted books for discovery.
      *
      * Used for "Discover Something New" section.

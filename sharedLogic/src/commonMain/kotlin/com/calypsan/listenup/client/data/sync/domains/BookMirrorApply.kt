@@ -66,6 +66,11 @@ internal class BookMirrorApply(
         // is no longer live (this one included; the stamp above precedes the sweep
         // inside the same write transaction).
         database.bookReadershipDao().deleteWhereBookNotLive()
+        // A removed book must leave Continue Listening too: drop the playback_positions for any
+        // now-dead book (this one included). This is the direct-tombstone counterpart to the books
+        // access-gate afterPrune positions sweep — a server removal arrives as a tombstone, not an
+        // AccessChanged. Local cache drop only; the server retains the row for an access re-grant.
+        database.playbackPositionDao().deleteWhereBookNotLive()
     }
 
     override suspend fun tombstoneFromItem(item: BookSyncPayload) {

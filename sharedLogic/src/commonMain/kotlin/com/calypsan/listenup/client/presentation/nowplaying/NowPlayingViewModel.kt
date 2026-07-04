@@ -5,11 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.client.domain.model.BookDownloadStatus
 import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.DocumentRepository
+import com.calypsan.listenup.client.domain.repository.DownloadRepository
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.playback.ContributorPickerType
 import com.calypsan.listenup.client.playback.NowPlayingOverlay
@@ -34,6 +37,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -78,6 +82,8 @@ class NowPlayingViewModel(
     private val playbackPreferences: PlaybackPreferences,
     private val networkMonitor: NetworkMonitor,
     private val documentRepository: DocumentRepository,
+    private val downloadRepository: DownloadRepository,
+    private val playbackPositionRepository: PlaybackPositionRepository,
 ) : ViewModel() {
     private companion object {
         const val FADE_DURATION_MS = 3000L
@@ -221,6 +227,12 @@ class NowPlayingViewModel(
                 }
         }
 
+        // Side effect: tear down the player when the currently-playing book leaves the local mirror
+        // (a removal tombstone or an access revoke), with ONE offline-grace exception — a DOWNLOADED,
+        // IN-PROGRESS copy keeps playing (never-stranded). A streaming (not-downloaded) book stops
+        // (the server already 404s its stream); a downloaded-but-not-in-progress book also drops.
+        watchNowPlayingLiveness()
+
         // Side effect: handle sleep timer fade-out events.
         // The try/catch ensures onFadeCompleted() (which resets state to Inactive) is
         // always called — even when fadeOutAndPause() throws or when viewModelScope is
@@ -239,6 +251,48 @@ class NowPlayingViewModel(
                     sleepTimerManager.onFadeCompleted()
                 }
             }
+        }
+    }
+
+    /**
+     * Observe the now-playing book's liveness in the local mirror and tear the player down when the
+     * book is gone (removed or access-revoked) — honouring the offline-grace exception.
+     *
+     * The decision per book: tear down when the book is NOT live AND it is NOT the protected case of
+     * being both downloaded AND in-progress. A streaming book (not downloaded) stops the moment access
+     * is lost; a downloaded book the user has meaningfully started keeps playing offline; a downloaded
+     * book at position 0 (never really started) drops. [closeBook] resets `currentBookId`, so the
+     * [flatMapLatest] re-subscribes to `null` and the effect quiesces — no teardown loop.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun watchNowPlayingLiveness() {
+        viewModelScope.launch {
+            playbackManager.currentBookId
+                .flatMapLatest { bookId ->
+                    if (bookId == null) {
+                        flowOf(false)
+                    } else {
+                        combine(
+                            bookRepository.observeIsBookLive(bookId.value),
+                            downloadRepository.observeBookStatus(bookId),
+                            playbackPositionRepository.observeAll(),
+                        ) { isLive, downloadStatus, positions ->
+                            val downloaded = downloadStatus is BookDownloadStatus.Completed
+                            val position = positions[bookId]
+                            val inProgress = position != null && position.positionMs > 0 && !position.isFinished
+                            !isLive && !(downloaded && inProgress)
+                        }
+                    }
+                }.distinctUntilChanged()
+                .collect { shouldTearDown ->
+                    if (shouldTearDown) {
+                        logger.info {
+                            "Now-playing book left the local mirror (removed/revoked) and is not a " +
+                                "downloaded in-progress copy — tearing down the player."
+                        }
+                        closeBook()
+                    }
+                }
         }
     }
 

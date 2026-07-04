@@ -66,6 +66,7 @@ class NowPlayingProgressIsolationTest :
             every { playbackPreferences.observeDefaultPlaybackSpeed() } returns flowOf(1.0f)
             everySuspend { playbackPreferences.getDefaultPlaybackSpeed() } returns 1.0f
             everySuspend { bookRepository.getBookListItem(any()) } returns sampleBook()
+            every { bookRepository.observeIsBookLive(any()) } returns flowOf(true)
             every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
             every { playbackController.acquire() } returns Unit
             return NowPlayingViewModel(
@@ -76,6 +77,8 @@ class NowPlayingProgressIsolationTest :
                 playbackPreferences = playbackPreferences,
                 networkMonitor = networkMonitor,
                 documentRepository = documentRepository,
+                downloadRepository = com.calypsan.listenup.client.test.fake.FakeDownloadRepository(),
+                playbackPositionRepository = com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository(),
             )
         }
 

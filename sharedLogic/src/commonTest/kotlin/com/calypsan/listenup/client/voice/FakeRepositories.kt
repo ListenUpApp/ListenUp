@@ -136,6 +136,8 @@ class FakeBookRepository : BookRepository {
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(chapters[bookId].orEmpty())
 
+    override fun observeIsBookLive(id: String): Flow<Boolean> = flowOf(true)
+
     override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
 
     override fun observeRecentlyAddedBooks(limit: Int): Flow<List<DiscoveryBook>> = flowOf(emptyList())
