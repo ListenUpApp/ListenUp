@@ -37,8 +37,7 @@ class ActivityRepositoryImplTest :
 
         fun createMockDao(): ActivityDao = mock<ActivityDao>()
 
-        fun createRepository(dao: ActivityDao = createMockDao()): ActivityRepositoryImpl =
-            ActivityRepositoryImpl(dao = dao)
+        fun createRepository(dao: ActivityDao = createMockDao()): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao)
 
         // ========== Test Data Factories ==========
 
