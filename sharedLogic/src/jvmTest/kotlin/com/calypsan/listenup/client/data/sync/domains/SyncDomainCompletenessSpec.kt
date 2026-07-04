@@ -63,7 +63,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -87,7 +86,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -136,7 +134,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -181,7 +178,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -213,7 +209,6 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
-                        pingActivity = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )

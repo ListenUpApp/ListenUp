@@ -1,17 +1,11 @@
 package com.calypsan.listenup.client.presentation.discover
 
-import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
-import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verify.VerifyMode
-import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -28,15 +22,15 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
 /**
- * Tests for ActivityFeedViewModel.
+ * Tests for [ActivityFeedViewModel].
  *
- * Tests cover:
+ * Activities are a Room-mirrored sync domain, so the ViewModel is a pure Room observer — there is
+ * no per-screen fetch or refresh signal. Tests cover:
  * - Initial `Loading` state before the pipeline subscribes
  * - Reactive `Ready` emissions from the repository flow
  * - `Error` emission when the upstream flow throws
- * - `refresh()` delegating to `FetchActivitiesUseCase`
  *
- * Uses Mokkery for mocking `ActivityRepository` and `FetchActivitiesUseCase`.
+ * Uses Mokkery for mocking [ActivityRepository].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ActivityFeedViewModelTest :
@@ -47,15 +41,11 @@ class ActivityFeedViewModelTest :
 
         class TestFixture {
             val activityRepository: ActivityRepository = mock()
-            val fetchActivitiesUseCase: FetchActivitiesUseCase = mock()
-            val refreshSignal = ActivityRefreshSignal()
             val activitiesFlow = MutableStateFlow<List<Activity>>(emptyList())
 
             fun build(): ActivityFeedViewModel =
                 ActivityFeedViewModel(
                     activityRepository = activityRepository,
-                    fetchActivitiesUseCase = fetchActivitiesUseCase,
-                    refreshSignal = refreshSignal,
                 )
         }
 
@@ -63,7 +53,6 @@ class ActivityFeedViewModelTest :
             val fixture = TestFixture()
 
             every { fixture.activityRepository.observeRecent(any()) } returns fixture.activitiesFlow
-            everySuspend { fixture.fetchActivitiesUseCase(any()) } returns AppResult.Success(0)
 
             return fixture
         }
@@ -173,7 +162,6 @@ class ActivityFeedViewModelTest :
                     flow {
                         throw RuntimeException("boom")
                     }
-                everySuspend { fixture.fetchActivitiesUseCase(any()) } returns AppResult.Success(0)
 
                 // When
                 val viewModel = fixture.build().also { keepStateHot(it) }
@@ -184,43 +172,4 @@ class ActivityFeedViewModelTest :
                 err.message shouldBe "Failed to load activity feed"
             }
         }
-
-        // ========== Refresh Tests ==========
-
-        test("refresh calls fetchActivitiesUseCase with INITIAL_FETCH_SIZE") {
-            runTest {
-                // Given - a built ViewModel
-                val fixture = createFixture()
-                val viewModel = fixture.build()
-                advanceUntilIdle()
-
-                // When
-                viewModel.refresh()
-                advanceUntilIdle()
-
-                // Then - refresh invokes the use case exactly once with the expected limit
-                verifySuspend { fixture.fetchActivitiesUseCase(INITIAL_FETCH_SIZE) }
-            }
-        }
-
-        // ========== Refresh-Signal Tests ==========
-
-        test("refresh signal ping re-fetches the feed head") {
-            runTest {
-                // Given - a built ViewModel subscribed to the refresh signal
-                val fixture = createFixture()
-                fixture.build()
-                advanceUntilIdle()
-
-                // When - the server signals the feed may have changed
-                fixture.refreshSignal.ping()
-                advanceUntilIdle()
-
-                // Then - the feed head is re-fetched into Room (Room observation repaints the UI)
-                verifySuspend(VerifyMode.exactly(1)) { fixture.fetchActivitiesUseCase(INITIAL_FETCH_SIZE) }
-            }
-        }
     })
-
-/** Mirror of the private constant in the VM for verify clarity. */
-private const val INITIAL_FETCH_SIZE = 50
