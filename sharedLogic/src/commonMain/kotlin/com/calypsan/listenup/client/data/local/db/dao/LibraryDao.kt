@@ -71,4 +71,20 @@ internal interface LibraryDao {
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
     @Query("SELECT revision FROM libraries WHERE id = :id LIMIT 1")
     suspend fun revisionOf(id: String): Long?
+
+    /**
+     * Epoch-ms when the live library's first-ever scan completed, or null when it hasn't yet (or no
+     * live library exists). The server-authoritative signal the initial-population gate reads at
+     * scan-arm time — non-null means the shell must never show "Building your library" again.
+     */
+    @Query("SELECT initialScanCompletedAt FROM libraries WHERE deletedAt IS NULL LIMIT 1")
+    suspend fun initialScanCompletedAt(): Long?
+
+    /**
+     * Reactively true while any live library still has no recorded initial-scan completion. Combined
+     * with book-emptiness to derive the initial-population ("Building your library") gate: a populated
+     * library, or one the server has stamped complete, reads false so the shell mounts immediately.
+     */
+    @Query("SELECT EXISTS(SELECT 1 FROM libraries WHERE deletedAt IS NULL AND initialScanCompletedAt IS NULL)")
+    fun observeHasIncompleteInitialScan(): Flow<Boolean>
 }

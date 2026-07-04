@@ -36,6 +36,12 @@ final class UserProfileObserver {
     private(set) var displayName: String = ""
     private(set) var tagline: String?
     private(set) var avatarColorHex: String = "#6B7280"
+    /// Whether this user has a real uploaded avatar image (vs. a generated monogram). Drives whether
+    /// the foreign-profile avatar attempts an image load. `avatarType == "image"` on the shared state.
+    private(set) var hasImageAvatar: Bool = true
+    /// True when the loaded profile is the signed-in user's own — lets a shared observer back both the
+    /// own-profile and foreign-profile screens (the foreign screen renders read-only regardless).
+    private(set) var isOwnProfile: Bool = false
     private(set) var totalListenTimeMs: Int64 = 0
     private(set) var booksFinished: Int = 0
     private(set) var currentStreak: Int = 0
@@ -64,6 +70,8 @@ final class UserProfileObserver {
             displayName = r.displayName
             tagline = r.tagline
             avatarColorHex = r.avatarColor
+            hasImageAvatar = r.avatarType == "image"
+            isOwnProfile = r.isOwnProfile
             totalListenTimeMs = r.totalListenTimeMs
             booksFinished = Int(r.booksFinished)
             currentStreak = Int(r.currentStreak)

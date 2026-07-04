@@ -102,6 +102,7 @@ internal val libraryModule: Module =
                 listeningEventRecorder = get(),
                 scannerRpcFactory = get(),
                 bookDao = get(),
+                libraryDao = get(),
                 listeningEventDao = get(),
                 ftsPopulator = get(),
                 coverPresenceReconciler = get(),

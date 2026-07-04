@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.scanner.ScanScope
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CoverSource as SyncCoverSource
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.api.CollectionServiceImpl
@@ -19,6 +20,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.scanner.CoverSpool
 import com.calypsan.listenup.server.scanner.toSummary
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.logging.loggerFor
@@ -29,6 +31,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
+import kotlin.time.Clock
 
 private val log = loggerFor<BookPersister>()
 
@@ -105,6 +108,7 @@ class BookPersister internal constructor(
     private val sql: ListenUpDatabase,
     private val scanResultBus: SharedFlow<ScanResult>,
     private val eventBus: MutableSharedFlow<ScanEvent>,
+    private val changeBus: ChangeBus,
     private val scope: CoroutineScope,
     private val coverImageStore: CoverImageStore? = null,
     private val coverSpool: CoverSpool? = null,
@@ -148,6 +152,24 @@ class BookPersister internal constructor(
                         ?: PersistCounts(0, 0)
                 eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
                 throw e
+            }
+
+            // Stamp the library's first-ever scan completion (first-only via the IS NULL guard) BEFORE
+            // the clean Completed emit — never on the OOM/aborted path above. This is the
+            // server-authoritative signal the client's initial-population gate reads: once set, a rescan
+            // of the populated library never re-shows the "Building your library" screen.
+            libraryRepository.markInitialScanCompleted(libraryId, Clock.System.now().toEpochMilliseconds())
+
+            // A suppressed bulk persist wrote its rows ABOVE the client cursor without publishing to
+            // the lossy live tail, so connected clients have no live signal for them — the added books
+            // would surface only after an app restart (bug #16). Broadcast the standard post-suppressed-
+            // burst accelerator so every client reconciles now (Phase 0's lifecycleReconcile forward-
+            // catches-up the above-cursor rows); a dropped frame still self-heals on the next lifecycle
+            // edge, since books are a cursored domain. Same rule ImportApplier follows. Gated on
+            // persisted > 0: a suppressed scan that changed nothing has no above-cursor rows to
+            // reconcile, so a nudge would only cost every client a wasted full reconcile pass.
+            if (suppressFirehose && counts.persisted > 0) {
+                changeBus.broadcastControl(SyncControl.LibraryDataChanged)
             }
 
             // Completed is emitted HERE — after every book is committed and (for a full scan) the

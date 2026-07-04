@@ -21,9 +21,13 @@ import kotlinx.coroutines.test.runTest
  * Unit tests for [applyScanEvent], the reducer that drives the scan-progress UI state and the
  * post-scan reconcile in [SyncRepositoryImpl].
  *
- * The key regression: `ScanEvent.Completed` must invoke `reconcile` (the catch-up that pulls
- * books the lossy live tail dropped during the scan burst) — without it, a just-scanned library
- * shows no books until the app is relaunched.
+ * Two invariants under test:
+ *  - `ScanEvent.Completed` invokes `reconcile` (the catch-up that pulls books the lossy live tail
+ *    dropped during the scan burst) — without it, a just-scanned library shows no books until relaunch.
+ *  - The initial-population gate is **server-authoritative**: Started/Progress arm `isServerScanning`
+ *    only while the library has never finished its initial scan ([initialScanComplete], read from
+ *    Room's server-stamped flag), and Completed clears it iff THIS run armed it ([isGateArmed]). A
+ *    rescan of an already-scanned library never re-arms the "Building your library" screen.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class SyncRepositoryScanProgressTest :
@@ -66,48 +70,42 @@ class SyncRepositoryScanProgressTest :
                 var scanning: Boolean? = null
                 var progress: ScanProgressState? = ScanProgressState("ANALYZING", 5, 10, 0, 0, 0)
                 var reconciled = false
-                var initialComplete = false
 
                 applyScanEvent(
                     event = completedEvent(),
-                    isInitialScanComplete = { initialComplete },
+                    initialScanComplete = { false },
+                    isGateArmed = { true }, // this run armed the gate
                     setScanning = { scanning = it },
                     setProgress = { progress = it },
-                    markInitialScanComplete = { initialComplete = true },
                     reconcile = { reconciled = true },
                 )
 
                 reconciled shouldBe true
                 scanning shouldBe false
                 progress shouldBe null
-                initialComplete shouldBe true
             }
         }
 
         // The residual onboarding bug: `ScanEvent.Completed` means the SERVER persisted the books,
         // not that the CLIENT's Room reflects them — the catch-up reconcile still has to run. Clearing
         // `scanning` (the populating gate) on Completed mounted the shell while books were still being
-        // imported. The honest fix keeps the gate up until the awaited reconcile finishes, THEN clears
-        // and latches.
-        test("Completed keeps the populating gate up until the reconcile completes, then clears and latches") {
+        // imported. The honest fix keeps the gate up until the awaited reconcile finishes, THEN clears.
+        test("Completed keeps the populating gate up until the reconcile completes, then clears") {
             runTest {
                 var scanning = true
-                var initialComplete = false
                 val reconcileGate = CompletableDeferred<Unit>()
                 var scanningSeenDuringReconcile: Boolean? = null
-                var initialSeenDuringReconcile: Boolean? = null
 
                 val job =
                     launch {
                         applyScanEvent(
                             event = completedEvent(),
-                            isInitialScanComplete = { initialComplete },
+                            initialScanComplete = { false },
+                            isGateArmed = { true },
                             setScanning = { scanning = it },
                             setProgress = { },
-                            markInitialScanComplete = { initialComplete = true },
                             reconcile = {
                                 scanningSeenDuringReconcile = scanning
-                                initialSeenDuringReconcile = initialComplete
                                 reconcileGate.await()
                             },
                         )
@@ -116,14 +114,12 @@ class SyncRepositoryScanProgressTest :
                 // Let the reducer reach the (suspended) reconcile.
                 runCurrent()
                 scanningSeenDuringReconcile shouldBe true // gate still up while books import
-                initialSeenDuringReconcile shouldBe false // not latched until import finishes
                 scanning shouldBe true
 
-                // Import finishes → gate clears, readiness latches.
+                // Import finishes → gate clears.
                 reconcileGate.complete(Unit)
                 job.join()
                 scanning shouldBe false
-                initialComplete shouldBe true
             }
         }
 
@@ -135,10 +131,10 @@ class SyncRepositoryScanProgressTest :
 
                 applyScanEvent(
                     event = progressEvent(booksAnalyzed = 40, filesWalked = 100),
-                    isInitialScanComplete = { false },
+                    initialScanComplete = { false },
+                    isGateArmed = { false },
                     setScanning = { scanning = it },
                     setProgress = { progress = it },
-                    markInitialScanComplete = { },
                     reconcile = { reconciled = true },
                 )
 
@@ -153,17 +149,19 @@ class SyncRepositoryScanProgressTest :
         // The regression behind the latched full-screen overlay: a watcher-driven incremental scan
         // emits its own Started/Progress AFTER the initial scan completes. Those must NOT re-arm the
         // app-readiness flag, or they slam the "Scanning…" overlay back over an already-usable library.
+        // The server stamps initial_scan_completed_at at the initial Completed; once that syncs into
+        // Room (modelled here by flipping `serverStamped`), later scans read it and never re-arm.
         test("an incremental scan after the initial scan completes does not re-block the shell") {
             runTest {
                 var scanning = false
-                var initialComplete = false
+                var serverStamped = false
                 val apply: suspend (ScanEvent) -> Unit = { event ->
                     applyScanEvent(
                         event = event,
-                        isInitialScanComplete = { initialComplete },
+                        initialScanComplete = { serverStamped },
+                        isGateArmed = { scanning },
                         setScanning = { scanning = it },
                         setProgress = { },
-                        markInitialScanComplete = { initialComplete = true },
                         reconcile = { },
                     )
                 }
@@ -177,7 +175,9 @@ class SyncRepositoryScanProgressTest :
                 scanning shouldBe true
                 apply(completedEvent())
                 scanning shouldBe false
-                initialComplete shouldBe true
+
+                // Server stamped the completion and it synced into Room.
+                serverStamped = true
 
                 // Watcher-driven incremental scan (fresh correlationId) — must stay out of the shell.
                 apply(
@@ -199,10 +199,10 @@ class SyncRepositoryScanProgressTest :
                 val apply: suspend (List<ScanBookRef>) -> Unit = { window ->
                     applyScanEvent(
                         event = progressEvent(booksAnalyzed = 1, filesWalked = 1, recentBooks = window),
-                        isInitialScanComplete = { false },
+                        initialScanComplete = { false },
+                        isGateArmed = { false },
                         setScanning = {},
                         setProgress = { progress = it },
-                        markInitialScanComplete = {},
                         reconcile = {},
                         getProgress = { progress },
                     )
@@ -230,10 +230,10 @@ class SyncRepositoryScanProgressTest :
                 val apply: suspend (ScanBookRef) -> Unit = { book ->
                     applyScanEvent(
                         event = progressEvent(booksAnalyzed = 1, filesWalked = 1, recentBooks = listOf(book)),
-                        isInitialScanComplete = { false },
+                        initialScanComplete = { false },
+                        isGateArmed = { false },
                         setScanning = {},
                         setProgress = { progress = it },
-                        markInitialScanComplete = {},
                         reconcile = {},
                         getProgress = { progress },
                     )
@@ -268,10 +268,10 @@ class SyncRepositoryScanProgressTest :
                             currentFile = "A/B.m4b",
                             recentBooks = listOf(ScanBookRef("Dune", "Frank Herbert")),
                         ),
-                    isInitialScanComplete = { false },
+                    initialScanComplete = { false },
+                    isGateArmed = { false },
                     setScanning = {},
                     setProgress = { progress = it },
-                    markInitialScanComplete = {},
                     reconcile = {},
                     nowMs = { 5_000L },
                     getStartedAt = { 1_000L },
@@ -298,10 +298,10 @@ class SyncRepositoryScanProgressTest :
                 val apply: suspend (ScanEvent.Progress) -> Unit = { event ->
                     applyScanEvent(
                         event = event,
-                        isInitialScanComplete = { false },
+                        initialScanComplete = { false },
+                        isGateArmed = { false },
                         setScanning = {},
                         setProgress = { progress = it },
-                        markInitialScanComplete = {},
                         reconcile = {},
                         getProgress = { progress },
                         nowMs = { 5_000L },
@@ -356,10 +356,10 @@ class SyncRepositoryScanProgressTest :
                 var started = 0L
                 applyScanEvent(
                     event = ScanEvent.Started("c1", LibraryId("l1"), "/root"),
-                    isInitialScanComplete = { false },
+                    initialScanComplete = { false },
+                    isGateArmed = { false },
                     setScanning = {},
                     setProgress = {},
-                    markInitialScanComplete = {},
                     reconcile = {},
                     nowMs = { 1_234L },
                     getStartedAt = { 0L },
@@ -369,63 +369,99 @@ class SyncRepositoryScanProgressTest :
             }
         }
 
+        // Once the server has stamped the library's initial-scan completion (synced into Room →
+        // initialScanComplete true), a fresh scan's Started/Progress must NOT arm the gate — this is
+        // the Rescan-on-populated-library bug that used to flash "Building your library".
+        test("Started and Progress do not arm the gate once the server has recorded initial completion") {
+            runTest {
+                var scanning = false
+                val apply: suspend (ScanEvent) -> Unit = { event ->
+                    applyScanEvent(
+                        event = event,
+                        initialScanComplete = { true }, // server already stamped it
+                        isGateArmed = { scanning },
+                        setScanning = { scanning = it },
+                        setProgress = { },
+                        reconcile = { },
+                    )
+                }
+
+                apply(ScanEvent.Started("rescan", LibraryId("lib-1"), "/library"))
+                scanning shouldBe false
+                apply(progressEvent(booksAnalyzed = 3, filesWalked = 9))
+                scanning shouldBe false
+            }
+        }
+
         // The strand: the terminal `ScanEvent.Completed` travels over a replay=0 bus, so a
-        // progress stream that drops or re-establishes mid-scan can miss it — latching the
-        // populating gate (`isServerScanning`) forever. [recoverFromScanStreamEnd] is the
-        // never-stranded recovery run whenever the stream terminates while the initial gate is
-        // still up: confirm the scan really finished (the server's authoritative lastScanResult),
-        // then reconcile + clear + latch. Confirm-then-clear — never strands, never latches early.
+        // progress stream that drops or re-establishes mid-scan can miss it — holding the
+        // populating gate (`isServerScanning`) up forever. [recoverFromScanStreamEnd] is the
+        // never-stranded recovery run whenever the stream terminates while the gate is still armed:
+        // confirm the scan really finished (the server's authoritative lastScanResult), then
+        // reconcile + clear. Confirm-then-clear — never strands, never clears early.
         test("recovery clears the gate when the missed-Completed scan is confirmed finished") {
             runTest {
                 var scanning = true
                 var progress: ScanProgressState? = ScanProgressState("ANALYZING", 72, 1647, 0, 0, 0)
-                var initialComplete = false
                 var reconciled = false
 
                 recoverFromScanStreamEnd(
-                    isInitialScanComplete = { initialComplete },
                     isScanning = { scanning },
                     confirmScanFinished = { true },
                     reconcile = { reconciled = true },
                     setScanning = { scanning = it },
                     setProgress = { progress = it },
-                    markInitialScanComplete = { initialComplete = true },
                 )
 
                 reconciled shouldBe true // pulled the books the missed Completed would have
                 scanning shouldBe false // gate cleared — user escapes the populating screen
                 progress shouldBe null
-                initialComplete shouldBe true // latched so a later incremental can't re-block
             }
         }
 
         test("recovery keeps the gate up when completion is not confirmed (scan still running / server unreachable)") {
             runTest {
                 var scanning = true
-                var initialComplete = false
                 var reconciled = false
 
                 recoverFromScanStreamEnd(
-                    isInitialScanComplete = { initialComplete },
                     isScanning = { scanning },
                     confirmScanFinished = { false },
                     reconcile = { reconciled = true },
                     setScanning = { scanning = it },
                     setProgress = { },
-                    markInitialScanComplete = { initialComplete = true },
                 )
 
                 scanning shouldBe true // genuinely mid-scan — keep the gate, re-subscribe
-                initialComplete shouldBe false
                 reconciled shouldBe false // confirm-first: no wasted catch-up while still scanning
             }
         }
 
-        // The offline busy-loop: `observeScanProgressResiliently` re-subscribed the scanner RPC stream
-        // every 2s unconditionally. While the server is offline each subscribe throws "RpcClient was
-        // cancelled" immediately and logs a stacktrace — a 2s busy-loop of log spam (and a wasted
-        // lastScanResult probe). The gate suspends the loop until the engine is actually Connected, so
-        // an offline client is idle and silent instead of hammering a dead connection.
+        test("recovery is a no-op when the gate is not armed") {
+            runTest {
+                var reconciled = false
+                var scanningWrites = 0
+
+                recoverFromScanStreamEnd(
+                    isScanning = { false },
+                    confirmScanFinished = { true },
+                    reconcile = { reconciled = true },
+                    setScanning = { scanningWrites++ },
+                    setProgress = { },
+                )
+
+                reconciled shouldBe false
+                scanningWrites shouldBe 0
+            }
+        }
+
+        // ── Offline busy-loop gate ──────────────────────────────────────────────────────────────────
+        //
+        // `observeScanProgressResiliently` re-subscribed the scanner RPC stream every 2s unconditionally.
+        // While the server is offline each subscribe throws "RpcClient was cancelled" immediately and logs
+        // a stacktrace — a 2s busy-loop of log spam. The gate suspends the loop until the engine is
+        // actually Connected, so an offline client is idle and silent instead of hammering a dead stream.
+
         test("awaitServerConnected suspends while disconnected and resumes when connected") {
             runTest {
                 val snapshots = MutableStateFlow(EngineSnapshot(connection = ConnectionState.Disconnected(reason = null)))
@@ -466,26 +502,6 @@ class SyncRepositoryScanProgressTest :
             }
         }
 
-        test("recovery is a no-op once the initial population has already latched") {
-            runTest {
-                var reconciled = false
-                var scanningWrites = 0
-
-                recoverFromScanStreamEnd(
-                    isInitialScanComplete = { true },
-                    isScanning = { false },
-                    confirmScanFinished = { true },
-                    reconcile = { reconciled = true },
-                    setScanning = { scanningWrites++ },
-                    setProgress = { },
-                    markInitialScanComplete = { },
-                )
-
-                reconciled shouldBe false
-                scanningWrites shouldBe 0
-            }
-        }
-
         // ── Idempotent-scan gate ──────────────────────────────────────────────────────────────────
         //
         // When a scan_completed reports zero row changes (added + modified + removed + moved all zero),
@@ -515,10 +531,10 @@ class SyncRepositoryScanProgressTest :
                                     filesWalked = 2300,
                                 ),
                         ),
-                    isInitialScanComplete = { true }, // incremental — gate already latched
+                    initialScanComplete = { true },
+                    isGateArmed = { false }, // incremental — this run never armed the gate
                     setScanning = { },
                     setProgress = { },
-                    markInitialScanComplete = { },
                     reconcile = { reconciled = true },
                 )
 
@@ -548,10 +564,10 @@ class SyncRepositoryScanProgressTest :
                                     filesWalked = 2302,
                                 ),
                         ),
-                    isInitialScanComplete = { true }, // incremental
+                    initialScanComplete = { true },
+                    isGateArmed = { false }, // incremental
                     setScanning = { },
                     setProgress = { },
-                    markInitialScanComplete = { },
                     reconcile = { reconciled = true },
                 )
 
@@ -566,7 +582,6 @@ class SyncRepositoryScanProgressTest :
             runTest {
                 var reconciled = false
                 var scanning = true
-                var initialComplete = false
 
                 applyScanEvent(
                     event =
@@ -586,16 +601,15 @@ class SyncRepositoryScanProgressTest :
                                     filesWalked = 0,
                                 ),
                         ),
-                    isInitialScanComplete = { initialComplete },
+                    initialScanComplete = { false },
+                    isGateArmed = { true }, // this run armed the gate
                     setScanning = { scanning = it },
                     setProgress = { },
-                    markInitialScanComplete = { initialComplete = true },
                     reconcile = { reconciled = true },
                 )
 
                 reconciled shouldBe false // nothing changed — no expensive work
                 scanning shouldBe false // gate cleared so the shell renders
-                initialComplete shouldBe true // latched so no incremental can re-block
             }
         }
 
@@ -663,26 +677,5 @@ class SyncRepositoryScanProgressTest :
                     filesWalked = 2300,
                 ),
             ) shouldBe false
-        }
-
-        // ── Initial-population pre-latch ───────────────────────────────────────────────────────────
-        //
-        // The "Building your library" flash while browsing: `hasCompletedInitialScan` starts false every
-        // session and only latches via a scan that completes THIS session. On a relaunched client whose
-        // library is already populated, the next scan (e.g. a folder add/remove) was mistaken for the
-        // initial scan and re-armed the populating gate — flashing "Building your library" over an
-        // already-usable library. Pre-latching from an already-populated library fixes it: only a genuine
-        // first run (empty library) shows the gate.
-
-        test("pre-latches the initial-scan gate when the library is already populated") {
-            shouldPreLatchInitialScanGate(alreadyLatched = false, libraryBookCount = 1150) shouldBe true
-        }
-
-        test("does not pre-latch on a genuine first run with an empty library") {
-            shouldPreLatchInitialScanGate(alreadyLatched = false, libraryBookCount = 0) shouldBe false
-        }
-
-        test("does not pre-latch again once the gate has already latched this session") {
-            shouldPreLatchInitialScanGate(alreadyLatched = true, libraryBookCount = 1150) shouldBe false
         }
     })

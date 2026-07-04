@@ -728,7 +728,7 @@ class BookPersisterTest :
     })
 
 /** Changed-book count for the large-incremental suppression test — above the production threshold. */
-private const val LARGE_INCREMENTAL_COUNT = 60
+internal const val LARGE_INCREMENTAL_COUNT = 60
 
 // --- Fakes ------------------------------------------------------------------
 
@@ -741,7 +741,7 @@ private const val LARGE_INCREMENTAL_COUNT = 60
  * containment branches of `BookPersister.persist`. One in [oomForRootRelPath]
  * throws [OutOfMemoryError] — covering the must-not-swallow OOM branch.
  */
-private class FakeBookIngest(
+internal class FakeBookIngest(
     private val failForRootRelPath: Set<String> = emptySet(),
     private val throwForRootRelPath: Set<String> = emptySet(),
     private val oomForRootRelPath: Set<String> = emptySet(),
@@ -826,10 +826,11 @@ private class FakeBookIngest(
 
 // --- Fixtures ---------------------------------------------------------------
 
-private suspend fun SqlTestDatabases.persister(
+internal suspend fun SqlTestDatabases.persister(
     ingest: BookIngestPort,
     scope: CoroutineScope,
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
+    changeBus: ChangeBus = ChangeBus(),
 ): BookPersister {
     // Seed a library_folders row at the default scanResult rootPath ("/lib") so folder resolution
     // finds a REAL folder rather than the "unknown" sentinel — which now (finding 5) skips the
@@ -856,6 +857,7 @@ private suspend fun SqlTestDatabases.persister(
         sql = sql,
         scanResultBus = MutableSharedFlow(),
         eventBus = eventBus,
+        changeBus = changeBus,
         scope = scope,
     )
 }
@@ -864,7 +866,7 @@ private suspend fun SqlTestDatabases.persister(
  * A real [CollectionServiceImpl] over [sql]. These orchestration tests never enable a
  * library's inbox, so the persister never calls it — it satisfies the constructor only.
  */
-private fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
+internal fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
     val bus = ChangeBus()
     val registry = SyncRegistry()
     val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = registry, driver = driver)
@@ -882,7 +884,7 @@ private fun SqlTestDatabases.inertCollectionService(): CollectionServiceImpl {
     )
 }
 
-private fun scanResult(
+internal fun scanResult(
     books: List<AnalyzedBook>,
     changes: List<ChangeEventDto>,
     scope: ScanScope,
@@ -901,7 +903,7 @@ private fun scanResult(
     )
 
 /** Builds a minimal [AnalyzedBook] anchored at [rootRelPath] with one audio file. */
-private fun analyzedBook(rootRelPath: String): AnalyzedBook {
+internal fun analyzedBook(rootRelPath: String): AnalyzedBook {
     val file =
         FileEntry(
             relPath = "$rootRelPath/01.m4b",

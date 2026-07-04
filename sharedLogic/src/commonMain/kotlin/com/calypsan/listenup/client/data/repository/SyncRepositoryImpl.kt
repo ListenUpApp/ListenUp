@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
+import com.calypsan.listenup.client.data.local.db.dao.LibraryDao
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.CoverPresenceReconciler
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -60,6 +62,7 @@ internal class SyncRepositoryImpl(
     private val listeningEventRecorder: ListeningEventRecorder,
     private val scannerRpcFactory: ScannerRpcFactory,
     private val bookDao: BookDao,
+    private val libraryDao: LibraryDao,
     private val listeningEventDao: ListeningEventDao,
     private val ftsPopulator: FtsPopulatorContract,
     private val coverPresenceReconciler: CoverPresenceReconciler,
@@ -83,14 +86,6 @@ internal class SyncRepositoryImpl(
      */
     private val scanObserverMutex = Mutex()
     private var scanObserverStarted = false
-
-    /**
-     * Latches once the initial library-population scan completes. After that the shell is "ready"
-     * and later (watcher-driven incremental) scans must never re-block it via [isServerScanning].
-     * Process-lived: a fresh launch starts `false`, but with no scan running nothing re-arms the
-     * overlay, so a relaunched client with books already in Room shows the library immediately.
-     */
-    private var hasCompletedInitialScan = false
 
     /** Wall-clock start of the current scan, stamped on [ScanEvent.Started] and surfaced in progress. */
     private var scanStartedAtMs: Long = 0L
@@ -123,10 +118,37 @@ internal class SyncRepositoryImpl(
     override val scanProgress: StateFlow<ScanProgressState?>
         field = MutableStateFlow<ScanProgressState?>(null)
 
+    /**
+     * Server-authoritative initial-population gate: true only while the shell should show "Building
+     * your library". Derived, not latched — a live scan is building, and so is an empty library the
+     * server hasn't yet stamped scan-complete. Once the server records `initial_scan_completed_at`
+     * (synced into [LibraryDao.observeHasIncompleteInitialScan]) or any book lands, it clears — so a
+     * rescan of a populated library, or a fresh device joining an existing one, never re-shows it.
+     */
+    override val isBuildingInitialLibrary: StateFlow<Boolean> =
+        combine(
+            isServerScanning,
+            libraryDao.observeHasIncompleteInitialScan(),
+            bookDao.observeIsEmpty(),
+        ) { scanning, hasIncompleteInitialScan, isEmpty ->
+            scanning || (hasIncompleteInitialScan && isEmpty)
+        }.stateIn(
+            scope = scope,
+            started = SharingStarted.Eagerly,
+            initialValue = false,
+        )
+
     override suspend fun sync(): AppResult<Unit> = startEngineForCurrentUser()
 
     override suspend fun connectRealtime() {
+        // Every platform's app-foreground path funnels through here (MainActivity.onResume, the
+        // auth-transition collector, shell entry, the offline-banner retry). Starting the engine
+        // no-ops when it's already running for this user — so foregrounding used to do ZERO
+        // reconciliation, and anything a live event dropped while backgrounded sat invisible until a
+        // cold restart. lifecycleReconcile closes that hole: it's debounced (the cold-start
+        // double-run right after start() is skipped) and heals anything missed on every foreground.
         startEngineForCurrentUser()
+        syncEngine.lifecycleReconcile()
     }
 
     override suspend fun disconnect() {
@@ -294,12 +316,6 @@ internal class SyncRepositoryImpl(
      * Completed must not strand the user on the populating screen (see [recoverFromScanStreamEnd]).
      */
     private suspend fun observeScanProgressResiliently() {
-        // A relaunched client whose library is already populated has effectively finished its initial
-        // population. Pre-latch the gate so a later folder-triggered (or watcher) scan this session can't
-        // be mistaken for the initial scan and flash "Building your library" over a usable library.
-        if (shouldPreLatchInitialScanGate(hasCompletedInitialScan, bookDao.count())) {
-            hasCompletedInitialScan = true
-        }
         while (true) {
             // Gate on a live connection. Offline, the scanner RPC stream throws "RpcClient was
             // cancelled" the instant it's subscribed (no network wait), so an unconditional re-subscribe
@@ -309,7 +325,6 @@ internal class SyncRepositoryImpl(
             awaitServerConnected(syncEngineState.observe())
             collectScanProgressUntilStreamEnds()
             recoverFromScanStreamEnd(
-                isInitialScanComplete = { hasCompletedInitialScan },
                 isScanning = { isServerScanning.value },
                 confirmScanFinished = { isInitialScanFinishedOnServer() },
                 reconcile = {
@@ -319,7 +334,6 @@ internal class SyncRepositoryImpl(
                 },
                 setScanning = { isServerScanning.value = it },
                 setProgress = { scanProgress.value = it },
-                markInitialScanComplete = { hasCompletedInitialScan = true },
             )
             delay(SCAN_STREAM_RESUBSCRIBE_DELAY_MS)
         }
@@ -335,10 +349,14 @@ internal class SyncRepositoryImpl(
                     val event = (rpcEvent as? RpcEvent.Data)?.value ?: return@collect
                     applyScanEvent(
                         event = event,
-                        isInitialScanComplete = { hasCompletedInitialScan },
+                        // Read the server-authoritative flag from Room at arm time only (Started/Progress);
+                        // the Completed branch drives off whether THIS run armed the gate (isGateArmed),
+                        // never re-reading the flag, so the independent library-Updated (firehose) and
+                        // scanner-Completed (RPC) streams can't strand each other on ordering.
+                        initialScanComplete = { libraryDao.initialScanCompletedAt() != null },
+                        isGateArmed = { isServerScanning.value },
                         setScanning = { isServerScanning.value = it },
                         setProgress = { scanProgress.value = it },
-                        markInitialScanComplete = { hasCompletedInitialScan = true },
                         // Awaited, not fire-and-forget: the initial populating gate must stay up
                         // until this reconcile actually lands the books in Room (see applyScanEvent).
                         // Parking this collector for the duration is safe — [SyncEngine.handleCursorStale]
@@ -406,29 +424,33 @@ internal suspend fun awaitServerConnected(snapshots: Flow<EngineSnapshot>) {
  * live tail may have dropped during the scan burst. Extracted as a top-level function so it is
  * testable without mocking the final [SyncEngine]: tests drive it with recording lambdas.
  *
- * **Initial-population semantics.** `isServerScanning` is the app-readiness signal: the navigation
- * layer shows a full-screen populating screen while it is `true`, because a brand-new library has
- * nothing to navigate yet. That signal must therefore reflect **only the initial population**. A
- * later watcher-driven incremental scan emits its own `Started`/`Progress` (a fresh `correlationId`)
- * — if those re-armed the flag they would slam the populating screen back over an already-usable
- * library, and a missed terminal event would latch it there forever. So once the first population
- * settles ([markInitialScanComplete]), subsequent scans never drive it: [isInitialScanComplete]
- * short-circuits `setScanning(true)`.
+ * **Initial-population semantics.** `isServerScanning` re-armed by a scan feeds the
+ * server-authoritative [SyncRepository.isBuildingInitialLibrary] gate the navigation layer reads. It
+ * must reflect **only the initial population**. A later watcher-driven incremental scan emits its own
+ * `Started`/`Progress` (a fresh `correlationId`) — if those re-armed the flag they would slam the
+ * populating screen back over an already-usable library. So Started/Progress arm the flag only while
+ * the library has never finished its initial scan: [initialScanComplete] (read from Room's
+ * server-stamped `initial_scan_completed_at` at arm time) short-circuits `setScanning(true)`.
+ *
+ * **Completed drives off [isGateArmed], not the flag.** The library `Updated` that stamps the flag
+ * (firehose) and this scanner `Completed` (RPC) are independent streams with independent ordering, so
+ * reading the flag at Completed time would race. Instead Completed acts iff THIS run armed the gate
+ * ([isGateArmed] — did Started/Progress set `isServerScanning`?). That is immune to when the flag lands.
  *
  * **Completed ≠ ready.** `ScanEvent.Completed` means the *server* persisted the books, not that the
  * *client's* Room reflects them — the catch-up [reconcile] still has to pull them in. So on the
- * initial Completed the gate stays up (`scanning` true) across the awaited [reconcile]; only once it
- * returns (Room now holds the library) does the gate clear and readiness latch. Clearing on Completed
- * would mount the shell mid-import (empty grid, then a thousand covers decoding under the catch-up —
- * the onboarding OOM). [reconcile] runs on every Completed (incrementals also pull dropped deltas),
- * but only the initial one drives the gate.
+ * gate-arming Completed the gate stays up (`scanning` true) across the awaited [reconcile]; only once
+ * it returns (Room now holds the library) does the gate clear. Clearing on Completed would mount the
+ * shell mid-import (empty grid, then a thousand covers decoding under the catch-up — the onboarding
+ * OOM). [reconcile] runs on every Completed (incrementals also pull dropped deltas), but only a
+ * gate-arming one drives the gate.
  */
 internal suspend fun applyScanEvent(
     event: ScanEvent,
-    isInitialScanComplete: () -> Boolean,
+    initialScanComplete: suspend () -> Boolean,
+    isGateArmed: () -> Boolean,
     setScanning: (Boolean) -> Unit,
     setProgress: (ScanProgressState?) -> Unit,
-    markInitialScanComplete: () -> Unit,
     reconcile: suspend () -> Unit,
     nowMs: () -> Long = { 0L },
     getStartedAt: () -> Long = { 0L },
@@ -437,7 +459,7 @@ internal suspend fun applyScanEvent(
 ) {
     when (event) {
         is ScanEvent.Started -> {
-            if (!isInitialScanComplete()) {
+            if (!initialScanComplete()) {
                 setStartedAt(nowMs())
                 setScanning(true)
                 setProgress(null)
@@ -445,7 +467,7 @@ internal suspend fun applyScanEvent(
         }
 
         is ScanEvent.Progress -> {
-            if (!isInitialScanComplete()) {
+            if (!initialScanComplete()) {
                 setScanning(true)
                 val prior = getProgress()
                 // The PERSISTING phase reports only the save counts — the rich stats (authors, hours,
@@ -485,7 +507,10 @@ internal suspend fun applyScanEvent(
         }
 
         is ScanEvent.Completed -> {
-            val drivesGate = !isInitialScanComplete()
+            // Did THIS run arm the gate? Drive off the local flag Started/Progress set — never re-read
+            // the server flag here (the firehose that stamps it and this RPC Completed are independent
+            // streams; reading it now would race their ordering).
+            val drivesGate = isGateArmed()
             if (drivesGate) {
                 // Server done persisting; client now imports. Drop the granular walk progress so the
                 // populating screen shows its indeterminate "finishing up" state while we pull books.
@@ -503,10 +528,9 @@ internal suspend fun applyScanEvent(
                 }
             }
             if (drivesGate) {
-                // Room now holds the library — clear the gate and latch so no later incremental can
-                // re-block the shell.
+                // Room now holds the library — clear the gate. The server-stamped
+                // initial_scan_completed_at (synced in) keeps later incrementals from re-arming it.
                 setScanning(false)
-                markInitialScanComplete()
             }
         }
 
@@ -555,53 +579,36 @@ internal fun scanResultHasChanges(result: ScanResultSummary): Boolean =
     result.added > 0 || result.modified > 0 || result.removed > 0 || result.moved > 0
 
 /**
- * Whether the in-session initial-population latch should be pre-set from an already-populated library.
- *
- * `hasCompletedInitialScan` starts `false` every session and only latches when a scan completes that
- * session. A relaunched client whose Room already holds books has effectively finished its initial
- * population, so a later folder-triggered (or watcher) scan must NOT be mistaken for the initial scan
- * and re-arm the "Building your library" gate over an already-usable library. Pre-latch only when the
- * gate hasn't already fired ([alreadyLatched] false) and the library is non-empty; a genuine first run
- * (empty library) still shows the gate for the real initial scan.
- */
-internal fun shouldPreLatchInitialScanGate(
-    alreadyLatched: Boolean,
-    libraryBookCount: Int,
-): Boolean = !alreadyLatched && libraryBookCount > 0
-
-/**
  * Never-stranded recovery for the initial-population gate when the scan-progress stream terminates
  * (drops with an error OR completes) before delivering [ScanEvent.Completed]. That terminal event
  * rides a `replay = 0` bus (see `ScannerServiceImpl.observeProgress`), so a subscription that drops
- * or silently re-establishes mid-scan can miss it — which would latch `isServerScanning` forever and
+ * or silently re-establishes mid-scan can miss it — which would hold `isServerScanning` up forever and
  * strand the user on the "Building your library" screen.
  *
- * **Confirm-then-clear.** Only acts while the initial gate is still up. It confirms the scan really
- * finished via the server's authoritative last-scan result ([confirmScanFinished]) before doing
- * anything — during the initial population that result is absent until the books are persisted, so
- * it is a precise "is the initial scan done?" signal. Only on a confirmed-finished scan does it run
- * the catch-up [reconcile] (pulling the books the missed Completed would have) and then clear + latch
- * the gate. An unconfirmed result (scan still running, or the server unreachable) leaves the gate up
- * so the caller re-subscribes — never latching the shell mid-import, never stranding it after one.
+ * **Confirm-then-clear.** Only acts while the local gate is still armed ([isScanning]). It confirms the
+ * scan really finished via the server's authoritative last-scan result ([confirmScanFinished]) before
+ * doing anything — during the initial population that result is absent until the books are persisted,
+ * so it is a precise "is the initial scan done?" signal. Only on a confirmed-finished scan does it run
+ * the catch-up [reconcile] (pulling the books the missed Completed would have) and then clear the gate;
+ * the server-stamped `initial_scan_completed_at` (synced in) is what keeps it clear. An unconfirmed
+ * result (scan still running, or the server unreachable) leaves the gate up so the caller re-subscribes
+ * — never clearing the shell mid-import, never stranding it after one.
  *
  * Extracted as a top-level function — like [applyScanEvent] — so it is testable with recording
  * lambdas, no [SyncEngine] or RPC mock required.
  */
 internal suspend fun recoverFromScanStreamEnd(
-    isInitialScanComplete: () -> Boolean,
     isScanning: () -> Boolean,
     confirmScanFinished: suspend () -> Boolean,
     reconcile: suspend () -> Unit,
     setScanning: (Boolean) -> Unit,
     setProgress: (ScanProgressState?) -> Unit,
-    markInitialScanComplete: () -> Unit,
 ) {
-    if (isInitialScanComplete() || !isScanning()) return
+    if (!isScanning()) return
     if (!confirmScanFinished()) return
     reconcile()
     setProgress(null)
     setScanning(false)
-    markInitialScanComplete()
 }
 
 /**

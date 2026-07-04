@@ -218,6 +218,51 @@ class LibraryRepository(
             }
         }
 
+    /**
+     * Stamps the first-ever scan-completion time for [libraryId], bumping the library's revision and
+     * updated_at, and publishing a [SyncEvent.Updated] so connected clients reconcile the flag
+     * reactively (it drives their initial-population gate). The `initial_scan_completed_at IS NULL`
+     * guard makes this **first-only** — a rescan of an already-populated library writes zero rows and
+     * emits nothing, so the "Building your library" screen never re-shows.
+     *
+     * Like the `inbox_enabled` gate this is an OFF-payload column write (never through the syncable
+     * `update`), so it never rewrites the synced library fields. Returns `true` when a row was actually
+     * stamped (first completion), `false` when it was already stamped or no live row exists — the emit
+     * is deferred to after-commit via [emitAfterCommit] only on the `true` path.
+     */
+    suspend fun markInitialScanCompleted(
+        libraryId: LibraryId,
+        completedAt: Long,
+    ): Boolean =
+        suspendTransaction(db) {
+            val idStr = libraryId.value
+            val rev = nextRevision()
+            val rowsAffected =
+                db.librariesQueries
+                    .markInitialScanCompleted(
+                        completed_at = completedAt,
+                        revision = rev,
+                        updated_at = completedAt,
+                        id = idStr,
+                    ).value
+            if (rowsAffected == 0L) {
+                false
+            } else {
+                val saved = readPayload(idStr) ?: error("library $idStr vanished mid-transaction")
+                emitAfterCommit(
+                    event =
+                        SyncEvent.Updated(
+                            id = idStr,
+                            revision = rev,
+                            occurredAt = completedAt,
+                            clientOpId = null,
+                            payload = saved,
+                        ),
+                )
+                true
+            }
+        }
+
     /** Test-only accessor for the protected [idAsString]. */
     internal fun idAsStringForTest(id: LibraryId): String = idAsString(id)
 
@@ -233,6 +278,7 @@ class LibraryRepository(
             updatedAt = updated_at,
             createdAt = created_at,
             deletedAt = deleted_at,
+            initialScanCompletedAt = initial_scan_completed_at,
         )
 
     private companion object {

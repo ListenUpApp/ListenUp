@@ -77,6 +77,9 @@ struct ActivityRowItem: Identifiable, Equatable {
     /// The book id, for navigation; nil for book-less activities.
     let bookId: String?
     let occurredAt: Date
+    /// Formatted listened duration ("54m" / "1h 5m") for `listening_session` activities;
+    /// nil for every other type and for zero-duration sessions.
+    let duration: String?
 
     init(from model: ActivityUiModel) {
         self.id = model.id
@@ -88,6 +91,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.book = model.bookTitle
         self.bookId = model.bookId
         self.occurredAt = Date(timeIntervalSince1970: TimeInterval(model.occurredAt) / 1_000)
+        self.duration = ActivityRowItem.duration(for: model)
     }
 
     init(
@@ -99,7 +103,8 @@ struct ActivityRowItem: Identifiable, Equatable {
         action: String,
         book: String?,
         bookId: String?,
-        occurredAt: Date
+        occurredAt: Date,
+        duration: String? = nil
     ) {
         self.id = id
         self.userId = userId
@@ -110,6 +115,7 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.book = book
         self.bookId = bookId
         self.occurredAt = occurredAt
+        self.duration = duration
     }
 
     /// Pure: map an activity's `type` (+ `isReread`) to its localized action phrase.
@@ -134,5 +140,13 @@ struct ActivityRowItem: Identifiable, Equatable {
         default:
             String(localized: "discover.activity_did_something")
         }
+    }
+
+    /// Pure: the formatted listened duration for a `listening_session` with real time on the
+    /// clock ("54m" / "1h 5m"), else nil. Other activity types and zero-duration sessions
+    /// carry no duration detail. Mirrors Android surfacing the session length on the row.
+    static func duration(for model: ActivityUiModel) -> String? {
+        guard model.type == "listening_session", model.durationMs > 0 else { return nil }
+        return DurationFormatting.hoursMinutes(ms: model.durationMs)
     }
 }

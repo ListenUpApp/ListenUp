@@ -369,6 +369,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.admin.CreateInviteErrorType" to 4,
             "com.calypsan.listenup.client.presentation.admin.CreateInviteStatus" to 4,
             "com.calypsan.listenup.client.presentation.admin.CreateInviteUiState" to 3,
+            "com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent" to 1,
             "com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState" to 4,
             "com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState" to 3,

@@ -209,6 +209,9 @@ private extension View {
             .navigationDestination(for: UserProfileDestination.self) { _ in
                 UserProfileView()
             }
+            .navigationDestination(for: ProfileDestination.self) { destination in
+                ForeignProfileView(userId: destination.userId)
+            }
             .navigationDestination(for: SettingsDestination.self) { _ in
                 SettingsView()
             }

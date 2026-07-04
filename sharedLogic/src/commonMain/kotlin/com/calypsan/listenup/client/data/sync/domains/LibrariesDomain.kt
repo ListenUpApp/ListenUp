@@ -40,6 +40,7 @@ internal class LibraryMirrorApply(
                 createdAt = payload.createdAt,
                 revision = payload.revision,
                 deletedAt = payload.deletedAt,
+                initialScanCompletedAt = payload.initialScanCompletedAt,
             ),
         )
     }

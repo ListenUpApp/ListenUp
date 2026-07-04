@@ -6,8 +6,7 @@ import SwiftUI
 /// A heading with a "{N} listening now" subtitle leads, then flat display-only rows: a
 /// tinted initials avatar (with a coral ring when the reader is listening now), the name,
 /// and either a progress bar + percent (reading) or a "Finished {date}" line. The current
-/// user's row gets a "(You)" suffix. Rows are plain content — never buttons — because iOS
-/// has no general per-user detail screen yet; this section is informational.
+/// user's row gets a "(You)" suffix. Tapping a row opens that reader's profile.
 ///
 /// Pure/presentational: it takes the projected rows. Renders nothing when empty (the
 /// observer's `.empty` phase keeps it out of the layout entirely).
@@ -28,7 +27,10 @@ struct BookReadersSection: View {
                     Divider()
                         .padding(.leading, 57)
                 }
-                readerRow(reader)
+                NavigationLink(value: ProfileDestination(userId: reader.id)) {
+                    readerRow(reader)
+                }
+                .buttonStyle(.pressScaleRow)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

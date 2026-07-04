@@ -103,9 +103,12 @@ class AppStartupViewModel(
      * the consolidation of the previously-scattered overlay/gate booleans into one sealed type.
      *
      * Precedence: an unresolved or failed setup check, or a needs-setup answer, always outranks
-     * population — `isServerScanning` is only meaningful once the library exists. Once the library
-     * is populated and the client has imported it (`isServerScanning` false — see `applyScanEvent`),
-     * the state is [LibraryReadiness.Ready].
+     * population — the population signal is only meaningful once the library exists. Population is
+     * driven by the server-authoritative [SyncRepository.isBuildingInitialLibrary] — true only while a
+     * scan is actively building or the library is still empty and unstamped, false once the server
+     * records `initial_scan_completed_at` (synced into Room) or any book lands. So a rescan of a
+     * populated library, and a fresh device joining an existing library, both resolve straight to
+     * [LibraryReadiness.Ready] — no per-process latch.
      *
      * `Eagerly`, not `WhileSubscribed`, so [LibraryReadiness] is live for the whole ViewModel
      * lifetime — the splash gate and lifecycle hooks read state without an active UI subscription.
@@ -116,7 +119,7 @@ class AppStartupViewModel(
     val readiness: StateFlow<LibraryReadiness> =
         combine(
             state,
-            syncRepository.isServerScanning,
+            syncRepository.isBuildingInitialLibrary,
             syncRepository.scanProgress,
         ) { s, scanning, progress ->
             when {

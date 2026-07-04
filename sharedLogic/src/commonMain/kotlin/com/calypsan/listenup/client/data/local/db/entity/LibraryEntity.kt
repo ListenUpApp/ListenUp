@@ -33,4 +33,9 @@ internal data class LibraryEntity(
     val revision: Long,
     /** Epoch ms tombstone; null when the library is live. */
     val deletedAt: Long?,
+    /**
+     * Epoch-ms when this library's first-ever scan completed; null until then. Server-authoritative
+     * signal driving the client initial-population ("Building your library") gate.
+     */
+    val initialScanCompletedAt: Long?,
 )

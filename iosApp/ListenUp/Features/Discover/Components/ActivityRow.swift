@@ -16,34 +16,56 @@ struct ActivityRow: View {
         Self.relativeFormatter.localizedString(for: item.occurredAt, relativeTo: Date())
     }
 
+    /// Timestamp, with the listened duration appended as a middot-separated detail when present
+    /// ("2h ago · 1h 5m").
+    private var detailLabel: String {
+        if let duration = item.duration {
+            return "\(timeLabel) · \(duration)"
+        }
+        return timeLabel
+    }
+
     var body: some View {
+        HStack(spacing: 13) {
+            // The avatar is its own tap target → the actor's profile. Kept a sibling of (not nested
+            // inside) the book link below, since nested NavigationLinks don't compose.
+            NavigationLink(value: ProfileDestination(userId: item.userId)) {
+                UserAvatarView(userId: item.userId, fallbackName: item.who, avatarColor: item.avatarColor)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.who)
+
+            detail
+        }
+        .padding(.vertical, 8)
+    }
+
+    /// The phrase + timestamp → the book's detail when the activity carries a book; otherwise plain.
+    @ViewBuilder private var detail: some View {
         if let bookId = item.bookId {
             NavigationLink(value: BookDestination(id: bookId)) {
-                content
+                detailContent
             }
             .buttonStyle(.pressScaleRow)
         } else {
-            content
+            detailContent
         }
     }
 
-    private var content: some View {
-        HStack(spacing: 13) {
-            UserAvatarView(userId: item.userId, fallbackName: item.who, avatarColor: item.avatarColor)
-
+    private var detailContent: some View {
+        HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
                 phrase
                     .font(.subheadline)
                     .lineLimit(2)
 
-                Text(timeLabel)
+                Text(detailLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 8)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText)
@@ -62,8 +84,8 @@ struct ActivityRow: View {
 
     private var accessibilityText: String {
         if let book = item.book, !book.isEmpty {
-            return "\(item.who) \(item.action) \(book), \(timeLabel)"
+            return "\(item.who) \(item.action) \(book), \(detailLabel)"
         }
-        return "\(item.who) \(item.action), \(timeLabel)"
+        return "\(item.who) \(item.action), \(detailLabel)"
     }
 }

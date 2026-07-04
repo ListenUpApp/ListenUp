@@ -39,6 +39,7 @@ class LibraryRepositoryImplTest :
                 createdAt = 1_000L,
                 revision = 3L,
                 deletedAt = null,
+                initialScanCompletedAt = null,
             )
 
         val expectedLibrary =

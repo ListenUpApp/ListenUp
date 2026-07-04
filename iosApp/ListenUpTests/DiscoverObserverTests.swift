@@ -117,7 +117,12 @@ struct LeaderboardObserverTests {
 @Suite("Activity phrase mapping")
 struct ActivityFeedObserverTests {
 
-    private func model(type: String, isReread: Bool = false, book: String? = "Dune") -> ActivityUiModel {
+    private func model(
+        type: String,
+        isReread: Bool = false,
+        book: String? = "Dune",
+        durationMs: Int64 = 0
+    ) -> ActivityUiModel {
         ActivityUiModel(
             id: "a1",
             userId: "u1",
@@ -132,7 +137,7 @@ struct ActivityFeedObserverTests {
             bookAuthorName: "Frank Herbert",
             bookCoverPath: nil,
             isReread: isReread,
-            durationMs: 0,
+            durationMs: durationMs,
             milestoneValue: 30,
             milestoneUnit: "days",
             shelfId: nil,
@@ -174,6 +179,30 @@ struct ActivityFeedObserverTests {
         #expect(item.book == nil)
         #expect(item.bookId == nil)
         #expect(item.action == "joined the server")
+    }
+
+    @Test func listeningSessionCarriesFormattedDuration() {
+        // 1h 5m = 65 minutes = 3_900_000 ms
+        let item = ActivityRowItem(from: model(type: "listening_session", durationMs: 3_900_000))
+        #expect(item.duration == "1h 5m")
+    }
+
+    @Test func listeningSessionUnderAnHourShowsMinutesOnly() {
+        // 54m = 3_240_000 ms
+        let item = ActivityRowItem(from: model(type: "listening_session", durationMs: 3_240_000))
+        #expect(item.duration == "54m")
+    }
+
+    @Test func zeroDurationListeningSessionHasNoDuration() {
+        let item = ActivityRowItem(from: model(type: "listening_session", durationMs: 0))
+        #expect(item.duration == nil)
+    }
+
+    @Test func nonListeningActivityHasNoDurationEvenWithMs() {
+        let started = ActivityRowItem(from: model(type: "started_book", durationMs: 3_900_000))
+        let finished = ActivityRowItem(from: model(type: "finished_book", durationMs: 3_900_000))
+        #expect(started.duration == nil)
+        #expect(finished.duration == nil)
     }
 }
 
