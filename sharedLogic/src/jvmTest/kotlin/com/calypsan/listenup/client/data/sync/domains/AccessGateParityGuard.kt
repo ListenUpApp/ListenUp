@@ -37,8 +37,7 @@ internal object AccessGateParityGuard {
         classifyAccessFilter(syncRoutesSource).perRowGated
 
     /** The whole-domain role-gated branches (`if (isAdmin(role)) …`, no `policy()`) — the exempt set. */
-    fun parseRoleGatedDomains(syncRoutesSource: String): Set<String> =
-        classifyAccessFilter(syncRoutesSource).roleGated
+    fun parseRoleGatedDomains(syncRoutesSource: String): Set<String> = classifyAccessFilter(syncRoutesSource).roleGated
 
     /**
      * A **total** classification of every arm of `accessFilterFor`'s `when (domainName)`. Each arm
@@ -101,7 +100,11 @@ internal object AccessGateParityGuard {
     ): Set<String> = serverPerRowGated - clientAccessGated
 
     /** One arm of the `when`, split at its first top-level `->`. [raw] is kept for loud-fail messages. */
-    private data class Arm(val raw: String, val condition: String, val body: String)
+    private data class Arm(
+        val raw: String,
+        val condition: String,
+        val body: String,
+    )
 
     /**
      * Split a `when` body into its arms. One arm per non-blank, non-comment line that carries a
