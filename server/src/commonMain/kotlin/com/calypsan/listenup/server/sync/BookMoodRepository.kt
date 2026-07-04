@@ -231,6 +231,51 @@ class BookMoodRepository(
         }
 
     /**
+     * Revives the tombstoned junction rows for the books in [bookIds] that were tombstoned at or after
+     * [cascadeFloor] — the cascade counterpart to [softDeleteAllForBook], run when a removed folder is
+     * re-added so a book's moods return with the book instead of being lost. [cascadeFloor] is the
+     * removed folder's own `deleted_at`, flooring the revival exactly as the book/tag revivals are
+     * floored. All revives run in ONE transaction; each row gets its own revision bump and an
+     * after-commit [SyncEvent.Updated] (deleted_at cleared) so clients reflow the mood as live.
+     * Returns the number of rows revived. A no-op (returns 0) when [bookIds] is empty.
+     */
+    suspend fun reviveAllForBooks(
+        bookIds: List<String>,
+        cascadeFloor: Long,
+    ): Int {
+        if (bookIds.isEmpty()) return 0
+        return suspendTransaction(db) {
+            var count = 0
+            for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
+                for (row in db.bookMoodsQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()) {
+                    val rev = nextRevision()
+                    val now = clock.now().toEpochMilliseconds()
+                    db.bookMoodsQueries.reviveById(revision = rev, updated_at = now, id = row.id)
+                    emitAfterCommit(
+                        event =
+                            SyncEvent.Updated(
+                                id = row.id,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = null,
+                                payload =
+                                    BookMoodSyncPayload(
+                                        bookId = row.book_id,
+                                        moodId = row.mood_id,
+                                        createdAt = row.created_at,
+                                        revision = rev,
+                                        deletedAt = null,
+                                    ),
+                            ),
+                    )
+                    count++
+                }
+            }
+            count
+        }
+    }
+
+    /**
      * Tombstones each synthetic id in [syntheticIds] with its own revision bump, inside
      * the caller's open transaction, and registers a per-row after-commit
      * [SyncEvent.Deleted]. The shared body of [softDeleteAllForBook] / [softDeleteAllForMood].

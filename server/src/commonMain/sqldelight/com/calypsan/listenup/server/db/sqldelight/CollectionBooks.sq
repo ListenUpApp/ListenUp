@@ -69,25 +69,46 @@ selectLiveByCollectionAndBook:
 SELECT * FROM collection_books
 WHERE collection_id = :collection_id AND book_id = :book_id AND deleted_at IS NULL;
 
--- Live book ids in a collection.
+-- Live book ids in a collection. Book-liveness-aware (belt-and-suspenders): a stale junction
+-- pointing at a tombstoned book must never surface a dead id — even if the book-removal cascade
+-- somehow missed the junction, the JOIN filters it out so counts/lists never inflate.
 liveBookIdsForCollection:
-SELECT book_id FROM collection_books
-WHERE collection_id = :collection_id AND deleted_at IS NULL;
+SELECT cb.book_id FROM collection_books cb
+JOIN books b ON b.id = cb.book_id AND b.deleted_at IS NULL
+WHERE cb.collection_id = :collection_id AND cb.deleted_at IS NULL;
 
 -- Live collection ids that contain a book.
 liveCollectionIdsForBook:
 SELECT collection_id FROM collection_books
 WHERE book_id = :book_id AND deleted_at IS NULL;
 
--- Count of live junction rows for a collection.
+-- Count of live junction rows for a collection, book-liveness-aware (see liveBookIdsForCollection):
+-- a junction whose book is tombstoned is not counted, so CollectionSummary.bookCount matches the list.
 countLiveForCollection:
-SELECT COUNT(*) FROM collection_books
-WHERE collection_id = :collection_id AND deleted_at IS NULL;
+SELECT COUNT(*) FROM collection_books cb
+JOIN books b ON b.id = cb.book_id AND b.deleted_at IS NULL
+WHERE cb.collection_id = :collection_id AND cb.deleted_at IS NULL;
 
 -- Live synthetic ids for a collection — the cascade set for softDeleteAllForCollection.
 liveIdsForCollection:
 SELECT id FROM collection_books
 WHERE collection_id = :collection_id AND deleted_at IS NULL;
+
+-- Live synthetic ids for a book — the cascade set for softDeleteAllForBook (book-removal cascade).
+liveIdsForBook:
+SELECT id FROM collection_books
+WHERE book_id = :book_id AND deleted_at IS NULL;
+
+-- Tombstoned junction rows for a batch of books at or after :floor — the revive counterpart to
+-- liveIdsForBook, floored on the folder-removal cascade instant (mirrors BookTags.selectDeletedForBooksSince):
+-- only memberships tombstoned BY the folder removal return with the book on re-add; a membership the
+-- user removed manually before the removal (an older tombstone) stays dead.
+selectDeletedForBooksSince:
+SELECT * FROM collection_books WHERE book_id IN :book_ids AND deleted_at IS NOT NULL AND deleted_at >= :floor;
+
+-- Revives a tombstoned junction (clears deleted_at, bumps revision) so clients reflow the membership as live.
+reviveById:
+UPDATE collection_books SET revision = :revision, updated_at = :updated_at, deleted_at = NULL WHERE id = :id;
 
 insert:
 INSERT INTO collection_books (id, collection_id, book_id, created_at, updated_at, revision, deleted_at, client_op_id)

@@ -237,6 +237,87 @@ class CollectionBookRepository(
             live.size
         }
 
+    /**
+     * Bulk soft-deletes all junction rows for [bookId] — the book-removal cascade counterpart to
+     * [softDeleteAllForCollection]. Called from [com.calypsan.listenup.server.services.BookRepository.softDelete]
+     * so a removed book leaves every collection it was in and clients receive per-row tombstones
+     * (the membership no longer surfaces the dead book in any collection's list/count). Each row gets
+     * its own revision bump and after-commit [SyncEvent.Deleted]. Returns the number of rows tombstoned.
+     */
+    suspend fun softDeleteAllForBook(bookId: String): Int =
+        suspendTransaction(db) {
+            val live = db.collectionBooksQueries.liveIdsForBook(bookId).executeAsList()
+            for (syntheticId in live) {
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                db.collectionBooksQueries.softDeleteById(
+                    revision = rev,
+                    updated_at = now,
+                    deleted_at = now,
+                    client_op_id = null,
+                    id = syntheticId,
+                )
+                emitAfterCommit(
+                    event =
+                        SyncEvent.Deleted(
+                            id = syntheticId,
+                            revision = rev,
+                            occurredAt = now,
+                            clientOpId = null,
+                        ),
+                    userId = null,
+                )
+            }
+            live.size
+        }
+
+    /**
+     * Revives the tombstoned junction rows for the books in [bookIds] tombstoned at or after
+     * [cascadeFloor] — the cascade counterpart to [softDeleteAllForBook], run when a removed folder is
+     * re-added so a book's collection memberships return with the book instead of being lost.
+     * [cascadeFloor] is the removed folder's own `deleted_at`, flooring the revival exactly as the
+     * book/tag revivals are floored: only memberships tombstoned BY the folder removal return, never a
+     * membership the user removed manually before the removal. All revives run in ONE transaction; each
+     * row gets its own revision bump and an after-commit [SyncEvent.Updated] (deleted_at cleared).
+     * Returns the number of rows revived. A no-op (returns 0) when [bookIds] is empty.
+     */
+    suspend fun reviveAllForBooks(
+        bookIds: List<String>,
+        cascadeFloor: Long,
+    ): Int {
+        if (bookIds.isEmpty()) return 0
+        return suspendTransaction(db) {
+            var count = 0
+            for (chunk in bookIds.chunked(SQLITE_IN_CHUNK)) {
+                for (row in db.collectionBooksQueries.selectDeletedForBooksSince(chunk, cascadeFloor).executeAsList()) {
+                    val rev = nextRevision()
+                    val now = clock.now().toEpochMilliseconds()
+                    db.collectionBooksQueries.reviveById(revision = rev, updated_at = now, id = row.id)
+                    emitAfterCommit(
+                        event =
+                            SyncEvent.Updated(
+                                id = row.id,
+                                revision = rev,
+                                occurredAt = now,
+                                clientOpId = null,
+                                payload =
+                                    CollectionBookSyncPayload(
+                                        collectionId = row.collection_id,
+                                        bookId = row.book_id,
+                                        createdAt = row.created_at,
+                                        revision = rev,
+                                        deletedAt = null,
+                                    ),
+                            ),
+                        userId = null,
+                    )
+                    count++
+                }
+            }
+            count
+        }
+    }
+
     /** Maps a generated [Collection_books] row to the wire [CollectionBookSyncPayload] DTO. */
     private fun Collection_books.toSyncPayload(): CollectionBookSyncPayload =
         CollectionBookSyncPayload(

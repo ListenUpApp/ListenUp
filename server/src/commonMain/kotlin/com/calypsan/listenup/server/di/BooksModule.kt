@@ -136,6 +136,7 @@ fun booksModule(
                 collectionBookRepository = get(),
                 tagRepository = getOrNull<TagRepository>(),
                 bookTagRepository = getOrNull<BookTagRepository>(),
+                bookMoodRepository = getOrNull<BookMoodRepository>(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
             )
