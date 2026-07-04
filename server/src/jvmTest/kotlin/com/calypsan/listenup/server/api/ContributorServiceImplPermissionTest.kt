@@ -118,6 +118,7 @@ private fun makeContributorPermService(db: SqlTestDatabases): ContributorPermDep
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = db.sql,
+            accessPolicy = BookAccessPolicy(db.sql, db.driver),
             permissionPolicy = UserPermissionPolicy(db.sql),
         )
     return ContributorPermDeps(service, contributorRepo)

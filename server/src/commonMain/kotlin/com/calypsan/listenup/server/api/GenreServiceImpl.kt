@@ -54,8 +54,11 @@ private const val MAX_BROWSE_LIMIT = 1000
  * `BookSearchReindexer.reindexAllBooksForGenre` / `reindexAllBooksForSubtree` keeps
  * `book_search.genres` consistent with the live junction state.
  *
- * Genre reads ([listGenres], [getGenre], [getGenreChildren], [browseBooks],
- * [listUnmappedStrings]) are open to any authenticated user. Genre-taxonomy mutations
+ * Genre reads ([listGenres], [getGenre], [getGenreChildren], [listUnmappedStrings]) are
+ * open to any authenticated user; [browseBooks] is access-filtered so a non-admin caller
+ * receives only the ids of books they can reach (via [BookAccessPolicy]) — a browse can't
+ * enumerate a quarantined or private-collection-only book; ROOT/ADMIN see every book.
+ * Genre-taxonomy mutations
  * ([createGenre], [updateGenre], [deleteGenre], [moveGenre], [mergeGenres],
  * [mapUnmappedToGenre]) are gated on the per-user `canEdit` flag via [permissionPolicy]:
  * ROOT/ADMIN pass implicitly, a MEMBER passes iff their flag is set (fresh DB lookup per
@@ -69,12 +72,13 @@ internal class GenreServiceImpl(
     private val bookRepository: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
+    private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : GenreService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): GenreServiceImpl =
-        GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, permissionPolicy, principal)
+        GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -140,6 +144,9 @@ internal class GenreServiceImpl(
         limit: Int,
     ): AppResult<List<BookId>> {
         val safeLimit = limit.coerceIn(MIN_BROWSE_LIMIT, MAX_BROWSE_LIMIT)
+        // Resolve the caller's reachable set BEFORE opening the browse transaction — the access
+        // policy opens its own transaction, so it must not nest inside this one.
+        val accessible = accessibleBookIdFilter()
         return suspendTransaction(sqlDb) {
             val genreRow = sqlDb.genresQueries.selectById(genreId.value).executeAsOneOrNull()
             if (genreRow == null || genreRow.deleted_at != null) {
@@ -151,8 +158,22 @@ internal class GenreServiceImpl(
                 } else {
                     sqlDb.bookGenresQueries.booksForGenre(genreId.value, safeLimit.toLong()).executeAsList()
                 }
-            AppResult.Success(bookIdStrings.map(::BookId))
+            // Drop ids the caller can't reach so a browse can't enumerate the existence of a
+            // quarantined or private-collection-only book. null = ROOT/ADMIN (unfiltered).
+            AppResult.Success(bookIdStrings.filter { accessible == null || it in accessible }.map(::BookId))
         }
+    }
+
+    /**
+     * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered —
+     * every book). Resolved from [principal] (bound per-request via [copyWith]) through the same
+     * [BookAccessPolicy] seam [BookServiceImpl] uses, so [browseBooks] can never enumerate a book
+     * the caller can't reach. An absent principal — a wiring bug, since every RPC/REST caller is
+     * scoped — collapses to the empty set (deny all) rather than leaking.
+     */
+    private suspend fun accessibleBookIdFilter(): Set<String>? {
+        val p = principal.current() ?: return emptySet()
+        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
     }
 
     override suspend fun createGenre(
@@ -578,7 +599,8 @@ fun createGenreService(
     bookRepository: BookRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
-): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb)
+    driver: app.cash.sqldelight.db.SqlDriver,
+): GenreService = GenreServiceImpl(genreRepository, bookRepository, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
 
 /**
  * Scopes a [GenreService] built by [createGenreService] to [principal] for one request.

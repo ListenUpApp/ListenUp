@@ -80,7 +80,8 @@ class ContributorRoutesTest :
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
-                val service = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sql)
+                val service =
+                    ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sql, BookAccessPolicy(sql, driver))
                 val collectionRepo =
                     CollectionRepository(
                         db = sql,
@@ -95,7 +96,6 @@ class ContributorRoutesTest :
                         registry = registry,
                         driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
@@ -104,7 +104,7 @@ class ContributorRoutesTest :
                         install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                contributorRoutes(service, accessPolicy)
+                                contributorRoutes(service)
                             }
                         }
                     }

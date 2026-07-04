@@ -78,7 +78,7 @@ class SeriesRoutesTest :
                 val tagRepo = TagRepository(db = sql, bus = bus, registry = registry)
                 val bookTagRepo = BookTagRepository(db = sql, bus = bus, registry = registry)
                 val reindexer = BookSearchReindexer(bookTagRepo, tagRepo, sql, driver)
-                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sql)
+                val service = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sql, BookAccessPolicy(sql, driver))
                 val collectionRepo =
                     CollectionRepository(
                         db = sql,
@@ -93,7 +93,6 @@ class SeriesRoutesTest :
                         registry = registry,
                         driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
@@ -102,7 +101,7 @@ class SeriesRoutesTest :
                         install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                seriesRoutes(service, accessPolicy)
+                                seriesRoutes(service)
                             }
                         }
                     }

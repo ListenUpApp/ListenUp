@@ -66,7 +66,14 @@ class GenreServiceImplMergeTest :
                     clock = fixedClock,
                     bookTagRepository = bookTagRepo,
                 )
-            return GenreServiceImpl(genreRepo, bookRepo, reindexer, sql, principal = rootPrincipal())
+            return GenreServiceImpl(
+                genreRepo,
+                bookRepo,
+                reindexer,
+                sql,
+                accessPolicy = BookAccessPolicy(sql, driver),
+                principal = rootPrincipal(),
+            )
         }
 
         test("mergeGenres returns MergeSelfTarget when source == target") {

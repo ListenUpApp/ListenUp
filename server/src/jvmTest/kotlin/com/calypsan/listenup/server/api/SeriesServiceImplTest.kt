@@ -319,6 +319,7 @@ private fun makeSeriesServiceAndDeps(dbs: SqlTestDatabases): SeriesServiceDeps {
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = dbs.sql,
+            accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             principal = rootPrincipal(),
         )
     return SeriesServiceDeps(service, seriesRepo, bookRepo, reindexer)

@@ -9,7 +9,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.plugins.toHttpStatus
@@ -35,8 +34,8 @@ import io.ktor.server.routing.Route
  *    Responds the unwrapped value (third-party RESTful convention).
  *  - `GET /api/v1/series/{id}/books` — returns the [BookSyncPayload]s belonging
  *    to the series in series-position order that the caller can reach. HTTP 200
- *    with an empty list when the series has no accessible books. Books the caller
- *    can't access are filtered out through [accessPolicy], so an inaccessible book
+ *    with an empty list when the series has no accessible books. The scoped service
+ *    access-filters the listing (via `BookAccessPolicy`), so an inaccessible book
  *    is simply absent — existence-preserving, identical to a series that has no
  *    accessible books. ROOT/ADMIN bypass the filter.
  *  - `PATCH /api/v1/series/{id}` — applies a [SeriesUpdate] patch to the series.
@@ -52,10 +51,7 @@ import io.ktor.server.routing.Route
 private const val AUTH_WALL_REGRESSION_MSG =
     "series REST mount reached without a principal — auth wall regression"
 
-fun Route.seriesRoutes(
-    seriesService: SeriesService,
-    accessPolicy: BookAccessPolicy,
-) {
+fun Route.seriesRoutes(seriesService: SeriesService) {
     get<SeriesResources.Detail> { res ->
         when (val result = seriesService.getSeries(SeriesId(res.id))) {
             is AppResult.Success -> {
@@ -70,13 +66,11 @@ fun Route.seriesRoutes(
     }
 
     get<SeriesResources.Books> { res ->
-        // Drop books the caller can't reach so an inaccessible book is simply absent —
-        // the same shape as a series with no accessible books. null = ROOT/ADMIN
-        // (unfiltered); they keep every book.
-        val p = call.userPrincipalOrNull() ?: error(AUTH_WALL_REGRESSION_MSG)
-        val accessible = accessPolicy.accessibleBookIds(p.userId.value, p.role)
-        when (val result = seriesService.listBooksBySeries(SeriesId(res.id))) {
-            is AppResult.Success -> call.respond(result.data.filter { accessible == null || it.id in accessible })
+        // The scoped service access-filters the listing: a book the caller can't reach is
+        // simply absent — existence-preserving, identical to a series with no accessible
+        // books. ROOT/ADMIN bypass the filter inside the service.
+        when (val result = call.scoped(seriesService).listBooksBySeries(SeriesId(res.id))) {
+            is AppResult.Success -> call.respond(result.data)
             is AppResult.Failure -> call.respondBareAppError(result.error)
         }
     }

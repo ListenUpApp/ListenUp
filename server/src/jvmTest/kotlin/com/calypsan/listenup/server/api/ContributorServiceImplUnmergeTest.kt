@@ -309,6 +309,7 @@ private fun makeUnmergeServiceAndDeps(db: SqlTestDatabases): UnmergeServiceDeps 
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = db.sql,
+            accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
     return UnmergeServiceDeps(service, contributorRepo, bookRepo, reindexer)

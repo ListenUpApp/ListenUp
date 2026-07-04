@@ -50,7 +50,10 @@ private val logger = loggerFor<SeriesServiceImpl>()
  * lock, so the SQLDelight writes serialize on the lone SQLDelight connection without the
  * cross-engine `SQLITE_BUSY` the prior Exposed-junction-write split exhibited.
  *
- * Series reads ([getSeries], [listBooksBySeries]) are open to any authenticated user.
+ * [getSeries] (series metadata) is open to any authenticated user, but [listBooksBySeries]
+ * is access-filtered: a non-admin caller receives only the sibling books they can reach
+ * (via [BookAccessPolicy]), so a quarantined or private-collection-only book in the series
+ * never leaks its metadata; ROOT/ADMIN see every book.
  * Series-metadata mutations ([updateSeries], [deleteSeries], [mergeSeries]) are gated on
  * the per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
  * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
@@ -63,12 +66,13 @@ internal class SeriesServiceImpl(
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
+    private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : SeriesService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): SeriesServiceImpl =
-        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, permissionPolicy, principal)
+        SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -84,8 +88,24 @@ internal class SeriesServiceImpl(
     override suspend fun getSeries(id: SeriesId): AppResult<SeriesSyncPayload?> =
         AppResult.Success(seriesRepo.findById(id.value))
 
-    override suspend fun listBooksBySeries(id: SeriesId): AppResult<List<BookSyncPayload>> =
-        AppResult.Success(bookRepo.findBySeries(id))
+    override suspend fun listBooksBySeries(id: SeriesId): AppResult<List<BookSyncPayload>> {
+        val accessible = accessibleBookIdFilter()
+        return AppResult.Success(
+            bookRepo.findBySeries(id).filter { accessible == null || it.id in accessible },
+        )
+    }
+
+    /**
+     * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered —
+     * every book). Resolved from [principal] (bound per-request via [copyWith]) through the same
+     * [BookAccessPolicy] seam [BookServiceImpl] uses, so a series listing can never leak a sibling
+     * book the caller can't reach. An absent principal — a wiring bug, since every RPC/REST caller
+     * is scoped — collapses to the empty set (deny all) rather than leaking.
+     */
+    private suspend fun accessibleBookIdFilter(): Set<String>? {
+        val p = principal.current() ?: return emptySet()
+        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
+    }
 
     override suspend fun updateSeries(
         id: SeriesId,
@@ -226,7 +246,8 @@ fun createSeriesService(
     bookRepo: BookRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
-): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb)
+    driver: app.cash.sqldelight.db.SqlDriver,
+): SeriesService = SeriesServiceImpl(seriesRepo, bookRepo, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
 
 /**
  * Scopes a [SeriesService] built by [createSeriesService] to [principal] for one request.

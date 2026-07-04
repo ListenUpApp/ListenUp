@@ -79,8 +79,11 @@ private val logger = loggerFor<ContributorServiceImpl>()
  * aggregate write is atomic, and the dedup-aware unmerge creation removes the only
  * data-corrupting failure mode the prior split exhibited.
  *
- * Contributor reads ([getContributor], [listBooksByContributor]) are open to any
- * authenticated user. Contributor-metadata mutations ([updateContributor],
+ * [getContributor] (contributor metadata) is open to any authenticated user, but
+ * [listBooksByContributor] is access-filtered: a non-admin caller receives only the books
+ * they can reach (via [BookAccessPolicy]), so a quarantined or private-collection-only book
+ * by the contributor never leaks its metadata; ROOT/ADMIN see every book.
+ * Contributor-metadata mutations ([updateContributor],
  * [deleteContributor], [mergeContributors], [unmergeContributor]) are gated on the
  * per-user `canEdit` flag via [permissionPolicy]: ROOT/ADMIN pass implicitly, a MEMBER
  * passes iff their flag is set (fresh DB lookup per call). The authenticated caller is
@@ -93,12 +96,13 @@ internal class ContributorServiceImpl(
     private val bookRepo: BookRepository,
     private val reindexer: BookSearchReindexer,
     private val sqlDb: ListenUpDatabase,
+    private val accessPolicy: BookAccessPolicy,
     private val permissionPolicy: UserPermissionPolicy = UserPermissionPolicy(sqlDb),
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ContributorService {
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): ContributorServiceImpl =
-        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, permissionPolicy, principal)
+        ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, accessPolicy, permissionPolicy, principal)
 
     /**
      * Content-metadata edits are gated on the per-user `canEdit` flag. ROOT/ADMIN pass
@@ -114,8 +118,24 @@ internal class ContributorServiceImpl(
     override suspend fun getContributor(id: ContributorId): AppResult<ContributorSyncPayload?> =
         AppResult.Success(contributorRepo.findById(id.value))
 
-    override suspend fun listBooksByContributor(id: ContributorId): AppResult<List<BookSyncPayload>> =
-        AppResult.Success(bookRepo.findByContributor(id))
+    override suspend fun listBooksByContributor(id: ContributorId): AppResult<List<BookSyncPayload>> {
+        val accessible = accessibleBookIdFilter()
+        return AppResult.Success(
+            bookRepo.findByContributor(id).filter { accessible == null || it.id in accessible },
+        )
+    }
+
+    /**
+     * The caller's reachable book-id set, or null when the caller is ROOT/ADMIN (unfiltered —
+     * every book). Resolved from [principal] (bound per-request via [copyWith]) through the same
+     * [BookAccessPolicy] seam [BookServiceImpl] uses, so a contributor listing can never leak a
+     * book the caller can't reach. An absent principal — a wiring bug, since every RPC/REST caller
+     * is scoped — collapses to the empty set (deny all) rather than leaking.
+     */
+    private suspend fun accessibleBookIdFilter(): Set<String>? {
+        val p = principal.current() ?: return emptySet()
+        return accessPolicy.accessibleBookIds(p.userId.value, p.role)
+    }
 
     override suspend fun updateContributor(
         id: ContributorId,
@@ -381,7 +401,9 @@ fun createContributorService(
     bookRepo: BookRepository,
     reindexer: BookSearchReindexer,
     sqlDb: ListenUpDatabase,
-): ContributorService = ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb)
+    driver: app.cash.sqldelight.db.SqlDriver,
+): ContributorService =
+    ContributorServiceImpl(contributorRepo, bookRepo, reindexer, sqlDb, BookAccessPolicy(sqlDb, driver))
 
 /**
  * Scopes a [ContributorService] built by [createContributorService] to [principal] for one

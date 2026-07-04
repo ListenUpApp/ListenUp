@@ -351,6 +351,7 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): MergeServiceDeps {
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = db.sql,
+            accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
     return MergeServiceDeps(service, contributorRepo, bookRepo, reindexer)

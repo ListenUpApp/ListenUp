@@ -73,7 +73,7 @@ class GenreRoutesTest :
                         seriesRepository = seriesRepo,
                         genreRepository = genreRepo,
                     )
-                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, sql)
+                val service = GenreServiceImpl(genreRepo, bookRepo, reindexer, sql, BookAccessPolicy(sql, driver))
                 val collectionRepo =
                     CollectionRepository(
                         db = sql,
@@ -88,7 +88,6 @@ class GenreRoutesTest :
                         registry = registry,
                         driver = driver,
                     )
-                val accessPolicy = BookAccessPolicy(sql, driver)
 
                 testApplication {
                     application {
@@ -97,7 +96,7 @@ class GenreRoutesTest :
                         install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                genreRoutes(service, accessPolicy)
+                                genreRoutes(service)
                             }
                         }
                     }

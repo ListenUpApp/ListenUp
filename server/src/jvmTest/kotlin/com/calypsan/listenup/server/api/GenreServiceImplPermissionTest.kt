@@ -104,6 +104,7 @@ private fun makeGenrePermService(
         bookRepository = bookRepo,
         reindexer = reindexer,
         sqlDb = sql,
+        accessPolicy = BookAccessPolicy(sql, driver),
         permissionPolicy = UserPermissionPolicy(sql),
     )
 }
