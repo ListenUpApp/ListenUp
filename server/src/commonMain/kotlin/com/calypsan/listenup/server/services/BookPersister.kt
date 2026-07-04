@@ -147,9 +147,11 @@ class BookPersister internal constructor(
                 // OOM means the JVM heap is compromised. We still emit Completed with the partial
                 // counts gathered so far (stored in the thrown PersistAbortedByOom) so clients get
                 // honest numbers, then rethrow so the process can surface the failure.
+                // OOM aborts before any removal path runs, so removed = 0 on the partial counts. A
+                // dropped delete-nudge here self-heals on the next lifecycle edge (books are cursored).
                 val partial =
-                    (e as? PersistAbortedByOom)?.result?.let { PersistCounts(it.persisted, it.failed) }
-                        ?: PersistCounts(0, 0)
+                    (e as? PersistAbortedByOom)?.result?.let { PersistCounts(it.persisted, it.failed, removed = 0) }
+                        ?: PersistCounts(0, 0, 0)
                 eventBus.emit(ScanEvent.Completed(result.correlationId, libraryId, result.toSummary(partial)))
                 throw e
             }
@@ -161,14 +163,17 @@ class BookPersister internal constructor(
             libraryRepository.markInitialScanCompleted(libraryId, Clock.System.now().toEpochMilliseconds())
 
             // A suppressed bulk persist wrote its rows ABOVE the client cursor without publishing to
-            // the lossy live tail, so connected clients have no live signal for them — the added books
+            // the lossy live tail, so connected clients have no live signal for them — the changed books
             // would surface only after an app restart (bug #16). Broadcast the standard post-suppressed-
             // burst accelerator so every client reconciles now (Phase 0's lifecycleReconcile forward-
             // catches-up the above-cursor rows); a dropped frame still self-heals on the next lifecycle
-            // edge, since books are a cursored domain. Same rule ImportApplier follows. Gated on
-            // persisted > 0: a suppressed scan that changed nothing has no above-cursor rows to
-            // reconcile, so a nudge would only cost every client a wasted full reconcile pass.
-            if (suppressFirehose && counts.persisted > 0) {
+            // edge, since books are a cursored domain. Same rule ImportApplier follows. Gated on ANY row
+            // changed — adds (persisted) OR deletions (removed: incremental Removed tombstones and the
+            // full-scan sweep). A delete-only suppressed scan persists nothing yet still writes tombstones
+            // above the cursor, so gating on persisted alone stranded deleted books in every client's
+            // library until the next lifecycle edge. A scan that changed nothing skips the nudge — no
+            // above-cursor rows to reconcile, so it would only cost every client a wasted reconcile pass.
+            if (suppressFirehose && (counts.persisted > 0 || counts.removed > 0)) {
                 changeBus.broadcastControl(SyncControl.LibraryDataChanged)
             }
 
@@ -334,8 +339,9 @@ class BookPersister internal constructor(
 
         // Incremental Removed changes tombstone the book at their path immediately so deletions reflow
         // without waiting for the next Full scan. For Full scans the softDeleteAbsentByPaths sweep below
-        // would catch it too, so the overlap is harmless.
-        applyIncrementalRemovals(result, folderIdByRoot)
+        // would catch it too, so the overlap is harmless. The tombstone count feeds the reconcile-nudge
+        // gate so a delete-only suppressed scan still broadcasts.
+        var removed = applyIncrementalRemovals(result, folderIdByRoot)
 
         // Final tick at the total so the bar lands on 100% before the terminal Completed, even if the
         // last chunk boundary didn't fall exactly on the final book.
@@ -355,11 +361,13 @@ class BookPersister internal constructor(
                 }
             } else {
                 // Path-based sweep is safe: every book present on disk (including any that failed
-                // to persist) is in seenPaths, so the sweep never tombstones a present book.
-                ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
+                // to persist) is in seenPaths, so the sweep never tombstones a present book. Its
+                // tombstone count joins the incremental-removal count so a full rescan whose ONLY
+                // change is a sweep-caught deletion still fires the reconcile nudge.
+                removed += ingest.softDeleteAbsentByPaths(libraryId, seenPaths)
             }
         }
-        return PersistCounts(persisted, failed)
+        return PersistCounts(persisted, failed, removed)
     }
 
     /**
@@ -370,27 +378,32 @@ class BookPersister internal constructor(
      * tombstones the right book and never a same-relpath book in another folder. A root that resolves to
      * the sentinel yields a no-op (the sentinel id matches no live book), so a stale root is harmless.
      * Falls back to the primary root for a pre-attribution Removed (null folder).
+     *
+     * Returns the number of books actually tombstoned (a no-op removal — already gone — counts 0),
+     * so the caller can broadcast the reconcile nudge for a delete-only suppressed scan.
      */
     private suspend fun applyIncrementalRemovals(
         result: ScanResult,
         folderIdByRoot: Map<String, FolderId>,
-    ) {
+    ): Int {
         val removedChanges = result.changes.filterIsInstance<ChangeEventDto.Removed>()
-        if (removedChanges.isEmpty()) return
+        if (removedChanges.isEmpty()) return 0
         val folderIdForRemoved: Map<String, FolderId> =
             removedChanges
                 .mapTo(mutableSetOf()) { it.folderRootPath ?: result.rootPath }
                 .associateWith { folderIdByRoot[it] ?: resolveFolderId(it) }
+        var tombstoned = 0
         for (change in removedChanges) {
             val root = change.folderRootPath ?: result.rootPath
             try {
-                ingest.softDeleteByPath(folderIdForRemoved.getValue(root), change.rootRelPath)
+                tombstoned += ingest.softDeleteByPath(folderIdForRemoved.getValue(root), change.rootRelPath)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 log.warn(e) { "softDeleteByPath failed for ${change.rootRelPath} — continuing" }
             }
         }
+        return tombstoned
     }
 
     /**
@@ -516,10 +529,17 @@ class BookPersister internal constructor(
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-/** Counts of books successfully persisted vs failed during [BookPersister.persistAll]. */
+/**
+ * Counts of books touched during [BookPersister.persistAll]: [persisted] (Added/Modified/Moved
+ * written) vs [failed], plus [removed] — the tombstones written by the incremental Removed path and
+ * the full-scan sweep. [removed] is NOT part of the [persisted] tally; it exists so the caller can
+ * broadcast the reconcile nudge after a delete-only suppressed scan, which persists nothing yet
+ * still writes rows above every client cursor.
+ */
 internal data class PersistCounts(
     val persisted: Int,
     val failed: Int,
+    val removed: Int,
 )
 
 /**
