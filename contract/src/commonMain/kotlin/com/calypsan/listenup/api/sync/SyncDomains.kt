@@ -77,6 +77,13 @@ object SyncDomains {
     /** Server-materialized public profiles (leaderboard/social read model). */
     val PUBLIC_PROFILES = SyncDomainKey("public_profiles", PublicProfileSyncPayload.serializer())
 
+    /**
+     * Social activity feed rows (started/finished/milestone/shelf events). Server-authored,
+     * append-only, book-gated (a row with a non-null bookId is visible only to callers who can
+     * access that book). Mirrored so the feed is live cross-device and self-heals.
+     */
+    val ACTIVITIES = SyncDomainKey("activities", ActivitySyncPayload.serializer())
+
     /** Every key, for completeness tests and registry-driven iteration. */
     val all: List<SyncDomainKey<*>> =
         listOf(
@@ -100,5 +107,6 @@ object SyncDomains {
             SHELVES,
             SHELF_BOOKS,
             PUBLIC_PROFILES,
+            ACTIVITIES,
         )
 }
