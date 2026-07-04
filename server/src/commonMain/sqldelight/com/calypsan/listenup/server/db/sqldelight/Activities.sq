@@ -1,10 +1,11 @@
 -- activities: append-only social-activity log — one row per recordable user action
 -- (started/finished a book, listening milestone, shelf created, …). Read back as a
--- paginated, most-recent-first feed via the `feed` RPC. PLAIN (NON-syncable) — no
--- revision/soft-delete substrate, clients never write it. Type-specific columns are
--- nullable / defaulted per activity type.
--- Column set matches V33__activities.sql + V35__activities_occurred_at.sql
--- (`occurred_at` added by V35) exactly.
+-- paginated, most-recent-first feed via the `feed` RPC. SYNCABLE (Phase 2): book-gated
+-- MirroredDomain — clients never author it, but every row now carries the revision-cursor
+-- substrate so the feed rides the data channel (live + delta-recoverable). Type-specific
+-- columns are nullable / defaulted per activity type.
+-- Column set matches V33__activities.sql + V35__activities_occurred_at.sql +
+-- V52__activities_syncable.sql exactly.
 CREATE TABLE activities (
     id              TEXT    NOT NULL PRIMARY KEY,
     user_id         TEXT    NOT NULL,
@@ -17,11 +18,16 @@ CREATE TABLE activities (
     milestone_unit  TEXT,
     shelf_id        TEXT,
     shelf_name      TEXT,
-    occurred_at     INTEGER NOT NULL DEFAULT 0
+    occurred_at     INTEGER NOT NULL DEFAULT 0,
+    revision        INTEGER,
+    updated_at      INTEGER NOT NULL DEFAULT 0,
+    deleted_at      INTEGER,
+    client_op_id    TEXT
 );
 
 CREATE INDEX idx_activities_created_at  ON activities(created_at);
 CREATE INDEX idx_activities_occurred_at ON activities(occurred_at);
+CREATE INDEX idx_activities_revision    ON activities(revision);
 
 -- Append one activity row. `is_reread` is INTEGER 0/1 (mapped to Boolean at the repo
 -- boundary). occurred_at defaults to created_at at the repo when the caller omits it.
@@ -57,3 +63,50 @@ SELECT EXISTS(SELECT 1 FROM activities WHERE user_id = :user_id);
 -- Total row count — used by ActivitySeederTest to assert the exact number of seeded rows.
 countAll:
 SELECT COUNT(*) FROM activities;
+
+-- ---------------------------------------------------------------------------------------------
+-- Sync substrate (Phase 2). activities is book-gated but GLOBAL (not per-user), so only the
+-- global substrate variants exist — pullSince/digest route through the access-filtered driver
+-- reads (ActivitySyncRepository overrides), never the *ForUser path. Mirrors the Books.sq shape.
+-- ---------------------------------------------------------------------------------------------
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM activities WHERE id = :id);
+
+softDeleteById:
+UPDATE activities
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM activities WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM activities WHERE revision <= :cursor;
+
+-- Tombstone-inclusive reads by id — back the base pullSince/readPayloads.
+selectById:
+SELECT * FROM activities WHERE id = :id;
+
+selectByIds:
+SELECT * FROM activities WHERE id IN :ids;
+
+-- Syncable append: the full-column insert the syncable writePayload uses (revision/substrate set).
+insertSyncable:
+INSERT INTO activities (
+    id, user_id, type, created_at, occurred_at, book_id, is_reread, duration_ms,
+    milestone_value, milestone_unit, shelf_id, shelf_name,
+    revision, updated_at, deleted_at, client_op_id
+)
+VALUES (
+    :id, :user_id, :type, :created_at, :occurred_at, :book_id, :is_reread, :duration_ms,
+    :milestone_value, :milestone_unit, :shelf_id, :shelf_name,
+    :revision, :updated_at, :deleted_at, :client_op_id
+);
+
+-- Append-only re-upsert: advance only the sync-discipline columns, never the domain fields.
+updateSyncColumns:
+UPDATE activities
+SET revision = :revision, updated_at = :updated_at, client_op_id = :client_op_id
+WHERE id = :id;
