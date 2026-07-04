@@ -22,10 +22,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("ContributorSyncPayload")
 data class ContributorSyncPayload(
-    val id: String,
+    override val id: String,
     val name: String,
     val sortName: String?,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
@@ -48,4 +48,4 @@ data class ContributorSyncPayload(
      */
     @SerialName("aliases")
     val aliases: List<String> = emptyList(),
-) : Tombstoned
+) : SyncPayload

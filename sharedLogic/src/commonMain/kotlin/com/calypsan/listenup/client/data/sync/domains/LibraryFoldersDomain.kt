@@ -12,21 +12,17 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * precedes folder events during catch-up, so the constraint holds without client
  * ordering logic.
  */
-internal fun libraryFoldersDomain(database: ListenUpDatabase): MirroredDomain<LibraryFolderSyncPayload> =
-    MirroredDomain(
+internal fun libraryFoldersDomain(database: ListenUpDatabase): MirroredDomain<LibraryFolderSyncPayload> {
+    val apply = LibraryFolderMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.LIBRARY_FOLDERS,
-        syncIdOf = { it.id },
-        apply = LibraryFolderMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.libraryFolderDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.libraryFolderDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.libraryFolderDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [LibraryFolderSyncPayload] payloads. */
 internal class LibraryFolderMirrorApply(
@@ -45,7 +41,7 @@ internal class LibraryFolderMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

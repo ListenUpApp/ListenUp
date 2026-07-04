@@ -18,14 +18,14 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("Mood")
 data class Mood(
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     @SerialName("name") val name: String,
     /**
      * URL-safe slug derived from [name] at creation time (e.g. `"feel-good"` for `"Feel-Good"`).
      * Immutable — renames update [name] only; slug is stable URL identity.
      */
     @SerialName("slug") val slug: String,
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     @SerialName("updatedAt") val updatedAt: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload

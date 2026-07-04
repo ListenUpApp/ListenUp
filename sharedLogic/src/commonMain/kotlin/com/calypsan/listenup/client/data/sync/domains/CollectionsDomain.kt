@@ -18,13 +18,13 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  * fields — drift is impossible by construction. `isOwnEcho` needs no shield:
  * `@Upsert` is idempotent.
  */
-internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<CollectionSyncPayload> =
-    MirroredDomain(
+internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<CollectionSyncPayload> {
+    val apply = CollectionMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.COLLECTIONS,
-        syncIdOf = { it.id },
-        apply = CollectionMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.collectionDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.collectionDao()::digestRows),
         writes = WriteTier.OnlineOnly,
         accessGate =
@@ -34,12 +34,8 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
                     database.collectionDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.collectionDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [CollectionSyncPayload] payloads. */
 internal class CollectionMirrorApply(
@@ -61,7 +57,7 @@ internal class CollectionMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

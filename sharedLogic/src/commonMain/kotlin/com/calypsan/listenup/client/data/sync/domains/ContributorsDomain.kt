@@ -26,21 +26,17 @@ import com.calypsan.listenup.core.Timestamp
 internal fun contributorsDomain(
     database: ListenUpDatabase,
     imageStorage: ImageStorage,
-): MirroredDomain<ContributorSyncPayload> =
-    MirroredDomain(
+): MirroredDomain<ContributorSyncPayload> {
+    val apply = ContributorMirrorApply(database, imageStorage)
+    return MirroredDomain(
         key = SyncDomains.CONTRIBUTORS,
-        syncIdOf = { it.id },
-        apply = ContributorMirrorApply(database, imageStorage),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.contributorDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.contributorDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Contributors),
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.contributorDao().revisionOf(id) },
-            ),
     )
+}
 
 /**
  * Room mapping for [ContributorSyncPayload]: enrichment copy-forward, alias junction
@@ -86,7 +82,7 @@ internal class ContributorMirrorApply(
      * fire); the junction is cleared explicitly because aliases are display data
      * tied to a live identity.
      */
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

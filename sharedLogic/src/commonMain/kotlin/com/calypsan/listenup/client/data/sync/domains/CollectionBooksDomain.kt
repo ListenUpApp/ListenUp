@@ -23,13 +23,23 @@ private val logger = KotlinLogging.logger {}
  * `deletedAt = null`; the upsert clears the tombstone. `isOwnEcho` needs no
  * shield: `@Upsert` is idempotent.
  */
-internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<CollectionBookSyncPayload> =
-    MirroredDomain(
+internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<CollectionBookSyncPayload> {
+    val apply = CollectionBookMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.COLLECTION_BOOKS,
-        syncIdOf = { "${it.collectionId}:${it.bookId}" },
-        apply = CollectionBookMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict =
+            ConflictPolicy.ServerWins(
+                RevisionGuard { id ->
+                    val parts = id.split(":")
+                    if (parts.size != 2) {
+                        null
+                    } else {
+                        database.collectionBookDao().revisionOf(collectionId = parts[0], bookId = parts[1])
+                    }
+                },
+            ),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.collectionBookDao()::digestRows),
         writes = WriteTier.OnlineOnly,
         accessGate =
@@ -39,19 +49,8 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
                     database.collectionBookDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id ->
-                    val parts = id.split(":")
-                    if (parts.size != 2) {
-                        null
-                    } else {
-                        database.collectionBookDao().revisionOf(collectionId = parts[0], bookId = parts[1])
-                    }
-                },
-            ),
     )
+}
 
 /** Room mapping for [CollectionBookSyncPayload] junction payloads. */
 internal class CollectionBookMirrorApply(
@@ -74,7 +73,7 @@ internal class CollectionBookMirrorApply(
      * `:` is unambiguous — both parts are UUIDv7 strings). Unlike book_tags, this
      * DAO's tombstone advances the stored revision.
      */
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

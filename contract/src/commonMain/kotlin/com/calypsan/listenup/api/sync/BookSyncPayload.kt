@@ -20,7 +20,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("BookSyncPayload")
 data class BookSyncPayload(
-    val id: String,
+    override val id: String,
     /** The library this book belongs to. */
     val libraryId: LibraryId,
     /** The folder within [libraryId] where this book's files were discovered. */
@@ -58,11 +58,11 @@ data class BookSyncPayload(
      * carry their own provenance ([ChapterSource.USER] / [CoverSource.UPLOADED]) and are not listed here.
      */
     val userEditedFields: Set<UserEditedField> = emptySet(),
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload
 
 /**
  * Contributor credit on a book — author, narrator, translator, etc.

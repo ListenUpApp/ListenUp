@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("PublicProfileSyncPayload")
 data class PublicProfileSyncPayload(
-    val id: String,
+    override val id: String,
     val displayName: String,
     val avatarType: String,
     val tagline: String?,
@@ -43,10 +43,10 @@ data class PublicProfileSyncPayload(
     val longestStreakLast7Days: Int = 0,
     val longestStreakLast30Days: Int = 0,
     val longestStreakLast365Days: Int = 0,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
     /** Epoch-ms the avatar bytes last changed server-side; the avatar re-download signal + Coil cache-buster. 0 = never. */
     val avatarUpdatedAt: Long = 0,
-) : Tombstoned
+) : SyncPayload

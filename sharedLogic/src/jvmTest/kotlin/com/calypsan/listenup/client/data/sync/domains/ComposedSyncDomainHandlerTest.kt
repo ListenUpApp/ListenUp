@@ -23,7 +23,8 @@ private class RecordingApply : MirrorApply<Tag> {
         upserts += payload
     }
 
-    override suspend fun tombstoneById(
+    /** Wired into [DeleteSemantics.SoftDelete]; records the id-only tombstone args. */
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,
@@ -47,23 +48,29 @@ private fun tag(
 
 private fun key() = SyncDomainKey("test_tags", Tag.serializer())
 
+/** [ConflictPolicy.ServerWins] whose revision guard's local lookup always returns [local]. */
+private fun serverWins(local: Long? = null) = ConflictPolicy.ServerWins<Tag>(RevisionGuard { local })
+
+/** [ConflictPolicy.EchoShielded] with a revision guard whose local lookup always returns [local]. */
+private fun echoShielded(
+    local: Long? = null,
+    onOwnEcho: suspend (id: String, payload: Tag) -> Boolean,
+) = ConflictPolicy.EchoShielded(onOwnEcho = onOwnEcho, revisionGuard = RevisionGuard { local })
+
 private fun domain(
-    apply: MirrorApply<Tag>,
-    conflict: ConflictPolicy<Tag> = ConflictPolicy.ServerWins(),
-    deletes: DeleteSemantics = DeleteSemantics.SoftDelete,
+    apply: RecordingApply,
+    conflict: ConflictPolicy<Tag> = serverWins(),
+    deletes: DeleteSemantics = DeleteSemantics.SoftDelete(apply::tombstoneById),
     digest: DigestParticipation = DigestParticipation.OptOut("test"),
     accessGate: AccessGate? = null,
-    revisionGuard: RevisionGuard<Tag>? = null,
 ) = MirroredDomain(
     key = key(),
-    syncIdOf = { it.id },
     apply = apply,
     conflict = conflict,
     deletes = deletes,
     digest = digest,
     writes = WriteTier.OnlineOnly,
     accessGate = accessGate,
-    revisionGuard = revisionGuard,
 )
 
 private fun updated(payload: Tag) =
@@ -72,13 +79,6 @@ private fun updated(payload: Tag) =
         revision = payload.revision,
         occurredAt = 1L,
         payload = payload,
-    )
-
-/** A [RevisionGuard] whose local lookup always returns the fixed [local] value. */
-private fun guard(local: Long?) =
-    RevisionGuard<Tag>(
-        incomingRevision = { it.revision },
-        localRevision = { local },
     )
 
 class ComposedSyncDomainHandlerTest :
@@ -154,7 +154,7 @@ class ComposedSyncDomainHandlerTest :
                 domain(
                     apply,
                     conflict =
-                        ConflictPolicy.EchoShielded { id, _ ->
+                        echoShielded { id, _ ->
                             shielded += id
                             true
                         },
@@ -171,7 +171,7 @@ class ComposedSyncDomainHandlerTest :
         test("EchoShielded falls through to a full apply when the shield declines") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, conflict = ConflictPolicy.EchoShielded { _, _ -> false })
+                domain(apply, conflict = echoShielded { _, _ -> false })
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(updated(tag()), isOwnEcho = true)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
@@ -180,7 +180,7 @@ class ComposedSyncDomainHandlerTest :
         test("EchoShielded never intercepts Deleted — an own-echo delete still tombstones") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, conflict = ConflictPolicy.EchoShielded { _, _ -> true })
+                domain(apply, conflict = echoShielded { _, _ -> true })
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 7L, occurredAt = 99L), isOwnEcho = true)
             apply.tombstonesById shouldContainExactly listOf(Triple("t1", 99L, 7L))
@@ -193,7 +193,7 @@ class ComposedSyncDomainHandlerTest :
                 domain(
                     apply,
                     conflict =
-                        ConflictPolicy.EchoShielded { id, _ ->
+                        echoShielded { id, _ ->
                             shielded += id
                             true
                         },
@@ -232,7 +232,7 @@ class ComposedSyncDomainHandlerTest :
         test("catch-up items apply through the conflict policy with no echo") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, conflict = ConflictPolicy.EchoShielded { _, _ -> true })
+                domain(apply, conflict = echoShielded { _, _ -> true })
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(), isTombstone = false)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
@@ -271,7 +271,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard skips a stale catch-up item (incoming < local)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = 10L))
+                domain(apply, conflict = serverWins(local = 10L))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
             apply.upserts.shouldBeEmpty()
@@ -280,7 +280,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard applies a catch-up item at an equal revision (digest-repair semantics)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = 5L))
+                domain(apply, conflict = serverWins(local = 5L))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
@@ -289,7 +289,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard applies a fresher catch-up item (incoming > local)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = 4L))
+                domain(apply, conflict = serverWins(local = 4L))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
@@ -298,7 +298,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard applies a catch-up item when the row has never been seen (null local revision)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = null))
+                domain(apply, conflict = serverWins(local = null))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(revision = 5L), isTombstone = false)
             apply.upserts.map { it.id } shouldContainExactly listOf("t1")
@@ -307,7 +307,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard skips a stale catch-up tombstone (incoming < local)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = 10L))
+                domain(apply, conflict = serverWins(local = 10L))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(revision = 5L), isTombstone = true)
             apply.tombstonesFromItem.shouldBeEmpty()
@@ -316,7 +316,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard applies a catch-up tombstone when the row has never been seen (null local revision)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = null))
+                domain(apply, conflict = serverWins(local = null))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onCatchUpItem(tag(revision = 5L), isTombstone = true)
             apply.tombstonesFromItem.map { it.id } shouldContainExactly listOf("t1")
@@ -325,7 +325,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard skips a stale live Updated event (replayed-frame race)") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = 10L))
+                domain(apply, conflict = serverWins(local = 10L))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = false)
             apply.upserts.shouldBeEmpty()
@@ -334,7 +334,7 @@ class ComposedSyncDomainHandlerTest :
         test("revisionGuard skips a stale live Deleted event") {
             val apply = RecordingApply()
             val handler =
-                domain(apply, revisionGuard = guard(local = 10L))
+                domain(apply, conflict = serverWins(local = 10L))
                     .toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(SyncEvent.Deleted(id = "t1", revision = 5L, occurredAt = 99L), isOwnEcho = false)
             apply.tombstonesById.shouldBeEmpty()
@@ -347,20 +347,21 @@ class ComposedSyncDomainHandlerTest :
                 domain(
                     apply,
                     conflict =
-                        ConflictPolicy.EchoShielded { id, _ ->
+                        echoShielded(local = 10L) { id, _ ->
                             shielded += id
                             true
                         },
-                    revisionGuard = guard(local = 10L),
                 ).toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = true)
             shielded.shouldBeEmpty()
             apply.upserts.shouldBeEmpty()
         }
 
-        test("a domain with no revisionGuard applies a would-be-stale event unconditionally (guard opt-out)") {
+        test("a policy with no revision guard (AppendOnly) applies a would-be-stale event unconditionally") {
             val apply = RecordingApply()
-            val handler = domain(apply).toHandler(runner, ClientSyncDomainRegistry())
+            val handler =
+                domain(apply, conflict = ConflictPolicy.AppendOnly())
+                    .toHandler(runner, ClientSyncDomainRegistry())
             handler.onEvent(updated(tag(revision = 5L)), isOwnEcho = false)
             apply.upserts.map { it.revision } shouldContainExactly listOf(5L)
         }

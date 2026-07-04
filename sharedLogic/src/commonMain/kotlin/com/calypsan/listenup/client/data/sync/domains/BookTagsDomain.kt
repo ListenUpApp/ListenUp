@@ -23,19 +23,14 @@ private val logger = KotlinLogging.logger {}
  * No FK constraints on `book_tags` — sync is responsible for integrity. `isOwnEcho`
  * needs no shield: `@Upsert` is idempotent.
  */
-internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagSyncPayload> =
-    MirroredDomain(
+internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagSyncPayload> {
+    val apply = BookTagMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.BOOK_TAGS,
-        syncIdOf = { "${it.bookId}:${it.tagId}" },
-        apply = BookTagMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
-        digest = fullDigest(database.bookTagDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id ->
+        apply = apply,
+        conflict =
+            ConflictPolicy.ServerWins(
+                RevisionGuard { id ->
                     val parts = id.split(":")
                     if (parts.size != 2) {
                         null
@@ -44,7 +39,12 @@ internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagS
                     }
                 },
             ),
+        // The DAO advances its own revision on tombstone, so the event revision is dropped (`_`).
+        deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
+        digest = fullDigest(database.bookTagDao()::digestRows),
+        writes = WriteTier.OnlineOnly,
     )
+}
 
 /** Room mapping for [BookTagSyncPayload] junction payloads. */
 internal class BookTagMirrorApply(
@@ -66,13 +66,11 @@ internal class BookTagMirrorApply(
      * Tombstone from an SSE `Deleted` frame. The server synthesises `"$bookId:$tagId"`
      * as the stable envelope id (see `BookTagId.asString()` server-side); the `:`
      * delimiter cannot appear in either part because book/tag ids are UUIDv7 strings.
-     * The DAO advances its own revision, ignoring the event's revision — [revision] is
-     * deliberately unused, matching the hand-written handler this replaces.
+     * The DAO advances its own revision, so the event revision is not taken here.
      */
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
-        revision: Long,
     ) {
         val parts = id.split(":")
         if (parts.size != 2) {

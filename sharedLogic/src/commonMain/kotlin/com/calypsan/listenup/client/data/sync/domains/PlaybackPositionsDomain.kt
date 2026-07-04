@@ -26,7 +26,6 @@ import com.calypsan.listenup.core.BookId
 internal fun playbackPositionsDomain(database: ListenUpDatabase): MirroredDomain<PlaybackPositionSyncPayload> =
     MirroredDomain(
         key = SyncDomains.PLAYBACK_POSITIONS,
-        syncIdOf = { it.id },
         apply = PlaybackPositionMirrorApply(database),
         conflict =
             ConflictPolicy.NewerWins(
@@ -76,12 +75,6 @@ internal class PlaybackPositionMirrorApply(
             ),
         )
     }
-
-    override suspend fun tombstoneById(
-        id: String,
-        deletedAt: Long,
-        revision: Long,
-    ): Unit = error("unreachable: playback_positions declares DeleteSemantics.CatchUpOnly")
 
     override suspend fun tombstoneFromItem(item: PlaybackPositionSyncPayload) {
         database.playbackPositionDao().softDelete(

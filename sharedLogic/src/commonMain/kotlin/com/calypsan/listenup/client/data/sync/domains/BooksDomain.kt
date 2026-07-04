@@ -41,32 +41,35 @@ internal fun booksDomain(
     mapper: BookEntityMapper,
     imageStorage: ImageStorage,
     documentStorage: DocumentStorage? = null,
-): MirroredDomain<BookSyncPayload> =
-    MirroredDomain(
+): MirroredDomain<BookSyncPayload> {
+    val apply =
+        BookMirrorApply(
+            database = database,
+            mapper = mapper,
+            imageStorage = imageStorage,
+            documentStorage = documentStorage,
+        )
+    return MirroredDomain(
         key = SyncDomains.BOOKS,
-        syncIdOf = { it.id },
-        apply =
-            BookMirrorApply(
-                database = database,
-                mapper = mapper,
-                imageStorage = imageStorage,
-                documentStorage = documentStorage,
-            ),
+        apply = apply,
         conflict =
-            ConflictPolicy.EchoShielded { id, payload ->
-                val bookId = BookId(id)
-                if (database.bookDao().getById(bookId) == null) {
-                    false
-                } else {
-                    database.bookDao().updateRevisionAndTimestamp(
-                        id = bookId,
-                        revision = payload.revision,
-                        updatedAt = Timestamp(payload.updatedAt),
-                    )
-                    true
-                }
-            },
-        deletes = DeleteSemantics.SoftDelete,
+            ConflictPolicy.EchoShielded(
+                onOwnEcho = { id, payload ->
+                    val bookId = BookId(id)
+                    if (database.bookDao().getById(bookId) == null) {
+                        false
+                    } else {
+                        database.bookDao().updateRevisionAndTimestamp(
+                            id = bookId,
+                            revision = payload.revision,
+                            updatedAt = Timestamp(payload.updatedAt),
+                        )
+                        true
+                    }
+                },
+                revisionGuard = RevisionGuard { id -> database.bookDao().revisionOf(BookId(id)) },
+            ),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.bookDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Books),
         accessGate =
@@ -77,9 +80,5 @@ internal fun booksDomain(
                     database.bookReadershipDao().deleteWhereBookNotLive()
                 },
             ),
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.bookDao().revisionOf(BookId(id)) },
-            ),
     )
+}

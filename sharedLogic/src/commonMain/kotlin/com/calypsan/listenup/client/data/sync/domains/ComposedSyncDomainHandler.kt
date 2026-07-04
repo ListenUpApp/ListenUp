@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync.domains
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.SyncPayload
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.sync.AccessFilteredSyncHandler
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -20,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * Self-registers in [ClientSyncDomainRegistry] at construction, exactly like the
  * hand-written handlers it replaces.
  */
-internal open class ComposedSyncDomainHandler<T : Any>(
+internal open class ComposedSyncDomainHandler<T : SyncPayload>(
     private val domain: MirroredDomain<T>,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
@@ -54,8 +55,8 @@ internal open class ComposedSyncDomainHandler<T : Any>(
 
                 is SyncEvent.Deleted -> {
                     when (val deletes = domain.deletes) {
-                        DeleteSemantics.SoftDelete -> {
-                            domain.apply.tombstoneById(event.id, event.occurredAt, event.revision)
+                        is DeleteSemantics.SoftDelete -> {
+                            deletes.tombstoneById(event.id, event.occurredAt, event.revision)
                         }
 
                         is DeleteSemantics.CatchUpOnly -> {
@@ -73,8 +74,7 @@ internal open class ComposedSyncDomainHandler<T : Any>(
         isTombstone: Boolean,
     ): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, syncId(item), logger) {
-            val guard = domain.revisionGuard
-            if (guard != null && isStale(syncId(item), guard.incomingRevision(item))) {
+            if (isStale(syncId(item), item.revision)) {
                 logger.debug { "[$domainName] skipping stale catch-up item ${syncId(item)}" }
                 return@applyEventAtomically
             }
@@ -124,18 +124,31 @@ internal open class ComposedSyncDomainHandler<T : Any>(
         syncId: String,
         incoming: Long,
     ): Boolean {
-        val guard = domain.revisionGuard ?: return false
+        val guard = domain.conflict.revisionGuard ?: return false
         val local = guard.localRevision(syncId) ?: return false
         return local > incoming
     }
 }
 
 /**
+ * The [RevisionGuard] a policy carries, or null for policies that don't compare
+ * revisions ([ConflictPolicy.AppendOnly] is insert-if-absent; [ConflictPolicy.NewerWins]
+ * carries its own timestamp guard).
+ */
+private val <T : Any> ConflictPolicy<T>.revisionGuard: RevisionGuard?
+    get() =
+        when (this) {
+            is ConflictPolicy.ServerWins -> revisionGuard
+            is ConflictPolicy.EchoShielded -> revisionGuard
+            is ConflictPolicy.AppendOnly, is ConflictPolicy.NewerWins -> null
+        }
+
+/**
  * Access-gated variant: additionally implements [AccessFilteredSyncHandler] by
  * delegating to the descriptor's [AccessGate], so the registry's
  * `accessFilteredHandlers()` discovery keeps working unchanged.
  */
-internal class AccessFilteredComposedSyncDomainHandler<T : Any>(
+internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
     domain: MirroredDomain<T>,
     private val gate: AccessGate,
     transactionRunner: TransactionRunner,
@@ -151,7 +164,7 @@ internal class AccessFilteredComposedSyncDomainHandler<T : Any>(
 }
 
 /** Compile a descriptor into the runtime handler the engine speaks. */
-internal fun <T : Any> MirroredDomain<T>.toHandler(
+internal fun <T : SyncPayload> MirroredDomain<T>.toHandler(
     transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
 ): SyncDomainHandler<T> =

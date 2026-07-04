@@ -14,21 +14,17 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  * non-admins never receive these events, so the client side is deliberately plain —
  * do not add a client-side gate here.
  */
-internal fun adminUserRosterDomain(database: ListenUpDatabase): MirroredDomain<AdminUserRosterSyncPayload> =
-    MirroredDomain(
+internal fun adminUserRosterDomain(database: ListenUpDatabase): MirroredDomain<AdminUserRosterSyncPayload> {
+    val apply = AdminUserRosterMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.ADMIN_USER_ROSTER,
-        syncIdOf = { it.id },
-        apply = AdminUserRosterMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.adminUserRosterDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.adminUserRosterDao()::digestRows),
         writes = WriteTier.ServerOwned,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.adminUserRosterDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [AdminUserRosterSyncPayload]: unconditional replace. */
 internal class AdminUserRosterMirrorApply(
@@ -50,7 +46,7 @@ internal class AdminUserRosterMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

@@ -29,7 +29,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<ActivitySyncPayload> =
     MirroredDomain(
         key = SyncDomains.ACTIVITIES,
-        syncIdOf = { it.id },
         apply = ActivityMirrorApply(database),
         conflict = ConflictPolicy.AppendOnly(),
         deletes =
@@ -103,12 +102,6 @@ internal class ActivityMirrorApply(
             ),
         )
     }
-
-    override suspend fun tombstoneById(
-        id: String,
-        deletedAt: Long,
-        revision: Long,
-    ): Unit = error("unreachable: activities declares DeleteSemantics.CatchUpOnly")
 
     override suspend fun tombstoneFromItem(item: ActivitySyncPayload) {
         database.activityDao().softDelete(

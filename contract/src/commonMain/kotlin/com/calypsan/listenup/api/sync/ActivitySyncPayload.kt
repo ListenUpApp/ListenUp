@@ -26,7 +26,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("ActivitySyncPayload")
 data class ActivitySyncPayload(
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     @SerialName("userId") val userId: String,
     @SerialName("type") val type: String,
     @SerialName("bookId") val bookId: String?,
@@ -37,8 +37,8 @@ data class ActivitySyncPayload(
     @SerialName("shelfId") val shelfId: String?,
     @SerialName("shelfName") val shelfName: String?,
     @SerialName("occurredAt") val occurredAt: Long,
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     @SerialName("createdAt") val createdAt: Long,
     @SerialName("updatedAt") val updatedAt: Long,
     @SerialName("deletedAt") override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload

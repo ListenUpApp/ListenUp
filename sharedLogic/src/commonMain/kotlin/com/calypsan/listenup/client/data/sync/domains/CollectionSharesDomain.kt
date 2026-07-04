@@ -22,13 +22,13 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  * [CollectionShareEntity.permission]. `isOwnEcho` needs no shield: `@Upsert` is
  * idempotent.
  */
-internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<CollectionShareSyncPayload> =
-    MirroredDomain(
+internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<CollectionShareSyncPayload> {
+    val apply = CollectionShareMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.COLLECTION_SHARES,
-        syncIdOf = { it.id },
-        apply = CollectionShareMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.collectionShareDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.collectionShareDao()::digestRows),
         writes = WriteTier.OnlineOnly,
         accessGate =
@@ -38,12 +38,8 @@ internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<
                     database.collectionShareDao().tombstoneNotIn(accessibleIds, now)
                 },
             ),
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.collectionShareDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [CollectionShareSyncPayload] payloads. */
 internal class CollectionShareMirrorApply(
@@ -64,7 +60,7 @@ internal class CollectionShareMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

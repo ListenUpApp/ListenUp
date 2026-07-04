@@ -32,7 +32,6 @@ internal fun listeningEventsDomain(
 ): MirroredDomain<ListeningEventSyncPayload> =
     MirroredDomain(
         key = SyncDomains.LISTENING_EVENTS,
-        syncIdOf = { it.id },
         apply = ListeningEventMirrorApply(database, authSession),
         conflict = ConflictPolicy.AppendOnly(),
         deletes =
@@ -84,12 +83,6 @@ internal class ListeningEventMirrorApply(
             ),
         )
     }
-
-    override suspend fun tombstoneById(
-        id: String,
-        deletedAt: Long,
-        revision: Long,
-    ): Unit = error("unreachable: listening_events declares DeleteSemantics.CatchUpOnly")
 
     override suspend fun tombstoneFromItem(item: ListeningEventSyncPayload) {
         database.listeningEventDao().softDelete(

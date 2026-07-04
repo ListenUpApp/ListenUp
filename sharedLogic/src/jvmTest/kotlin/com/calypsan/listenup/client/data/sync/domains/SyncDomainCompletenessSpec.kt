@@ -13,13 +13,11 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
 import com.calypsan.listenup.server.module
-import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -245,34 +243,6 @@ class SyncDomainCompletenessSpec :
                     .filter { it.digest is DigestParticipation.OptOut }
                     .map { it.key.name }
                     .toSet() shouldBe setOf("playback_positions")
-            } finally {
-                db.close()
-            }
-        }
-
-        test("every ServerWins/EchoShielded mirrored domain declares a revision guard") {
-            val db = createInMemoryTestDatabase()
-            try {
-                val catalog =
-                    syncDomainCatalog(
-                        database = db,
-                        mapper = BookEntityMapper(),
-                        imageStorage = stubImageStorage(),
-                        authSession = FakeAuthSession(userId = "spec-user"),
-                        avatarDownloadRepository = StubAvatarDownloadRepository(),
-                        pingPresence = {},
-                        refetchServerInfo = {},
-                        refetchPreferences = {},
-                    )
-
-                // AppendOnly is insert-if-absent by construction; NewerWins carries its own stamp guard.
-                catalog.mirrored
-                    .filter {
-                        it.conflict is ConflictPolicy.ServerWins<*> ||
-                            it.conflict is ConflictPolicy.EchoShielded<*>
-                    }.forEach { domain ->
-                        withClue(domain.key.name) { domain.revisionGuard shouldNotBe null }
-                    }
             } finally {
                 db.close()
             }
