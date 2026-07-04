@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -20,6 +21,8 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode.Companion.exactly
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
@@ -174,6 +177,61 @@ class ActiveSessionRepositoryImplTest :
                         awaitItem().size shouldBe 2
                         cancelAndIgnoreRemainingEvents()
                     }
+            }
+        }
+
+        test("with no ping, advancing past the poll interval re-fetches — a dropped nudge self-heals") {
+            runTest {
+                val scheduler = testScheduler
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } sequentiallyReturns
+                            listOf(
+                                AppResult.Success(listOf(session(userId = "u2", bookId = "bookA"))),
+                                AppResult.Success(
+                                    listOf(session(userId = "u2", bookId = "bookA"), session(userId = "u3", bookId = "bookA")),
+                                ),
+                            )
+                    }
+                val bookDao =
+                    bookDaoReturning(
+                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
+                    )
+
+                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitNonEmpty().size shouldBe 1
+                        // No ping fires — only the subscription-scoped backstop poll converges the roster.
+                        scheduler.advanceTimeBy(PRESENCE_POLL_INTERVAL_MS + 1)
+                        awaitItem().size shouldBe 2
+                        cancelAndIgnoreRemainingEvents()
+                    }
+            }
+        }
+
+        test("the backstop poll stops when the surface is closed — no refetch after the collector leaves") {
+            runTest {
+                val service =
+                    mock<SocialService> {
+                        everySuspend { currentlyListening() } returns
+                            AppResult.Success(listOf(session(userId = "u2", bookId = "bookA")))
+                    }
+                val bookDao =
+                    bookDaoReturning(
+                        BookSummary(id = "bookA", title = "A", coverBlurHash = null, coverHash = null, authorName = null),
+                    )
+
+                repo(fakeRpc(service), bookDao, FakeCachedActiveSessionDao())
+                    .observeActiveSessions("u1")
+                    .test {
+                        awaitNonEmpty().size shouldBe 1
+                        cancelAndIgnoreRemainingEvents()
+                    }
+
+                // Surface closed: advance past several poll intervals — the ticker died with the collector.
+                testScheduler.advanceTimeBy(PRESENCE_POLL_INTERVAL_MS * 3)
+                verifySuspend(exactly(1)) { service.currentlyListening() }
             }
         }
 

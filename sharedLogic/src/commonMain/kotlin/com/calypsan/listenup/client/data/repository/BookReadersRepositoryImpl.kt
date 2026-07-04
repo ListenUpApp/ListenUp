@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.BookReadershipDao
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
+import com.calypsan.listenup.client.data.sync.refreshTriggers
 import com.calypsan.listenup.client.domain.readers.BookReaders
 import com.calypsan.listenup.client.domain.readers.Reader
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
@@ -20,7 +21,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.transform
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -69,8 +69,8 @@ internal class BookReadersRepositoryImpl(
         }
 
     private fun refreshOnPing(bookId: String): Flow<BookReaders> =
-        presence.signal
-            .onStart { emit(Unit) }
+        presence
+            .refreshTriggers()
             .transform { refresh(bookId) } // never emits — the Room read carries the data
 
     /** Re-fetch the readership and replace the book's cached rows; leave the cache intact on failure. */

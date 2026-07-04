@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionEntity
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
+import com.calypsan.listenup.client.data.sync.refreshTriggers
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -21,7 +22,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.transform
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -69,8 +69,8 @@ internal class ActiveSessionRepositoryImpl(
         cachedSessionDao.observeAll().map { rows -> rows.mapNotNull { it.toDomainOrNull() } }
 
     private fun refreshOnPing(): Flow<List<ActiveSession>> =
-        presence.signal
-            .onStart { emit(Unit) }
+        presence
+            .refreshTriggers()
             .transform { refresh() } // never emits — the Room read carries the data
 
     /** Re-fetch the presence roster and replace the cache; leave it intact on failure. */
