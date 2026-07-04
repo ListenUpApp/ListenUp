@@ -694,7 +694,8 @@ private fun buildServerRepositories(
     val publicProfileMaintainer =
         PublicProfileMaintainer(serverSqlDb, PublicProfileRepository(serverSqlDb, bus, registry))
     statsUpdater = UserStatsUpdater(sql = serverSqlDb, userStatsRepo = userStatsRepo)
-    val statsRecorder = buildStatsRecorder(serverSqlDb, serverDriver, registry, bus, userStatsRepo, publicProfileMaintainer)
+    val statsRecorder =
+        buildStatsRecorder(serverSqlDb, serverDriver, registry, bus, userStatsRepo, publicProfileMaintainer)
     val listeningEventRepo =
         ListeningEventRepository(
             db = serverSqlDb,

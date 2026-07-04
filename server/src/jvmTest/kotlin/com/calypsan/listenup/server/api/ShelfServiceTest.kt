@@ -78,7 +78,6 @@ class ShelfServiceTest :
         fun makeServiceWithRecorder(
             sql: ListenUpDatabase,
             driver: SqlDriver,
-            activities: ActivityRepository,
         ): ShelfServiceImpl {
             val bus = ChangeBus()
             val registry = SyncRegistry()
@@ -131,7 +130,7 @@ class ShelfServiceTest :
                 runTest {
                     val activities = ActivityRepository(db = sql)
                     val created =
-                        makeServiceWithRecorder(sql, driver, activities)
+                        makeServiceWithRecorder(sql, driver)
                             .actAs("u1")
                             .createShelf(name = "Winter Reads", isPrivate = false)
                             .value()
@@ -152,7 +151,7 @@ class ShelfServiceTest :
                 sql.seedTestUser("u1")
                 runTest {
                     val activities = ActivityRepository(db = sql)
-                    makeServiceWithRecorder(sql, driver, activities)
+                    makeServiceWithRecorder(sql, driver)
                         .actAs("u1")
                         .createShelf(name = "Secret", isPrivate = true)
                         .value()

@@ -73,7 +73,10 @@ class ActivityCatchUpAccessTest :
                     extra shouldNotBe null
 
                     val bookIds =
-                        f.activityRepo.pullSince("member", cursor = 0L, limit = 100, extraWhere = extra).items.map { it.bookId }
+                        f.activityRepo
+                            .pullSince("member", cursor = 0L, limit = 100, extraWhere = extra)
+                            .items
+                            .map { it.bookId }
 
                     bookIds shouldContain "public-book"
                     bookIds shouldContain null // the non-book USER_JOINED row is public

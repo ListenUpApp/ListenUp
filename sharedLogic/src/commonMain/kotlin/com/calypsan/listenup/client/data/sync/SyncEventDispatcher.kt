@@ -92,7 +92,9 @@ internal class SyncEventDispatcher(
             // Activities are now a Room-mirrored data domain, not a nudge. A stray ActivityChanged
             // control (e.g. from an older server) has no refresh strategy — drop it generically.
             SyncControl.ActivityChanged -> {
-                logger.warn { "Received legacy ActivityChanged control; activities now sync as a data domain — dropped" }
+                logger.warn {
+                    "Received legacy ActivityChanged control; activities now sync as a data domain — dropped"
+                }
             }
         }
     }
