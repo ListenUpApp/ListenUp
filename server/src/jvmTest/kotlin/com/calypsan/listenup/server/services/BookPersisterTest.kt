@@ -728,7 +728,7 @@ class BookPersisterTest :
     })
 
 /** Changed-book count for the large-incremental suppression test — above the production threshold. */
-private const val LARGE_INCREMENTAL_COUNT = 60
+internal const val LARGE_INCREMENTAL_COUNT = 60
 
 // --- Fakes ------------------------------------------------------------------
 
@@ -830,6 +830,7 @@ internal suspend fun SqlTestDatabases.persister(
     ingest: BookIngestPort,
     scope: CoroutineScope,
     eventBus: MutableSharedFlow<ScanEvent> = MutableSharedFlow(),
+    changeBus: ChangeBus = ChangeBus(),
 ): BookPersister {
     // Seed a library_folders row at the default scanResult rootPath ("/lib") so folder resolution
     // finds a REAL folder rather than the "unknown" sentinel — which now (finding 5) skips the
@@ -856,6 +857,7 @@ internal suspend fun SqlTestDatabases.persister(
         sql = sql,
         scanResultBus = MutableSharedFlow(),
         eventBus = eventBus,
+        changeBus = changeBus,
         scope = scope,
     )
 }

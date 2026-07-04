@@ -330,6 +330,7 @@ private fun Module.coverAndPersisterBindings(
             sql = get<ListenUpDatabase>(),
             scanResultBus = get<MutableSharedFlow<ScanResult>>(EventBusQualifiers.ScanResults),
             eventBus = get<MutableSharedFlow<ScanEvent>>(EventBusQualifiers.ScanEvents),
+            changeBus = get(),
             scope = get(),
             coverImageStore = get<CoverImageStore>(),
             coverSpool = get(),
