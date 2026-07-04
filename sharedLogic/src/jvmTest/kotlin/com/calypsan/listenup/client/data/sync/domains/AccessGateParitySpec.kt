@@ -62,7 +62,7 @@ class AccessGateParitySpec :
             // returns nothing would make the guard vacuously green — refuse that.
             withClue("parser found no per-row gated domains — SyncRoutes.kt shape changed?") {
                 serverPerRowGated shouldBe
-                    setOf("books", "collections", "collection_shares", "collection_books")
+                    setOf("books", "activities", "collections", "collection_shares", "collection_books")
             }
 
             val db = createInMemoryTestDatabase()
@@ -103,7 +103,6 @@ private fun testCatalog(db: com.calypsan.listenup.client.data.local.db.ListenUpD
         authSession = FakeAuthSession(userId = "parity-user"),
         avatarDownloadRepository = StubAvatarDownloadRepository(),
         pingPresence = {},
-        pingActivity = {},
         refetchServerInfo = {},
         refetchPreferences = {},
     )

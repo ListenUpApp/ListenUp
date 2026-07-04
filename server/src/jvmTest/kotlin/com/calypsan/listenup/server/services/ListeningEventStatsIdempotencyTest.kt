@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -43,7 +44,7 @@ class ListeningEventStatsIdempotencyTest :
                         userStatsRepo = statsRepo,
                         bookReadsRepository = BookReadsRepository(db = sql),
                         publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = ChangeBus()),
+                        activityRecorder = activityRecorder(),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                         clock = clock,
                     )

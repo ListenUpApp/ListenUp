@@ -15,8 +15,6 @@ import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
-import com.calypsan.listenup.client.data.sync.ACTIVITY_PRIME_LIMIT
-import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
@@ -43,7 +41,6 @@ import com.calypsan.listenup.client.data.sync.domains.syncDomainCatalog
 import com.calypsan.listenup.client.data.repository.DefaultBookAvailability
 import com.calypsan.listenup.client.data.repository.SseServerReachability
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.usecase.activity.FetchActivitiesUseCase
 import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
@@ -80,7 +77,6 @@ internal val clientSyncModule =
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
         single { PresenceRefreshSignal() }
-        single { ActivityRefreshSignal() }
         single<ServerReachability> {
             SseServerReachability(
                 engineState = get(),
@@ -221,12 +217,11 @@ internal val clientSyncModule =
                 imageStorage = get(),
                 authSession = get(),
                 avatarDownloadRepository = get(),
-                // The nudge tier's refresh strategies. Presence/activity ping their hot
-                // signals (social repos + activity feed collect them); server-info/preferences
-                // re-fetch through their repositories' write-through side effects. These are the
-                // sole home of this wiring now — the dispatcher routes nudges via RefreshedDomainRouter.
+                // The nudge tier's refresh strategies. Presence pings its hot signal (the social
+                // repos collect it); server-info/preferences re-fetch through their repositories'
+                // write-through side effects. These are the sole home of this wiring now — the
+                // dispatcher routes nudges via RefreshedDomainRouter.
                 pingPresence = { get<PresenceRefreshSignal>().ping() },
-                pingActivity = { get<ActivityRefreshSignal>().ping() },
                 refetchServerInfo = { val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true) },
                 refetchPreferences = { val _ = get<UserPreferencesRepository>().getPreferences() },
                 documentStorage = get(),
@@ -267,7 +262,6 @@ internal val clientSyncModule =
         }
 
         single {
-            val fetchActivities: FetchActivitiesUseCase = get()
             SyncEngine(
                 registry = get(),
                 queue = get(),
@@ -278,10 +272,7 @@ internal val clientSyncModule =
                 reconciler = get(),
                 dispatcher = get(),
                 presenceRefreshSignal = get(),
-                activityRefreshSignal = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
-                // Prime / refresh the activity-feed Room cache on sync-start and reconnect, UI-independent.
-                primeActivityFeed = { fetchActivities(ACTIVITY_PRIME_LIMIT) },
                 // The nudge tier — the lifecycle-reconcile pass runs each entry's declared recovery so
                 // a dropped nudge self-heals on the next foreground/reconnect edge (Plan §6a).
                 refreshedDomains = get<SyncDomainCatalog>().refreshed,

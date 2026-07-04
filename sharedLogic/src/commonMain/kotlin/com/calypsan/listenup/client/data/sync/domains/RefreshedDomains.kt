@@ -19,16 +19,6 @@ internal fun presenceDomain(ping: () -> Unit): RefreshedDomain =
         recovery = NudgeRecovery.OnSubscribeAndReconcile(),
     )
 
-/** Activity feed changed: ping the signal the activity feed collects. */
-internal fun activityDomain(ping: () -> Unit): RefreshedDomain =
-    RefreshedDomain(
-        trigger = SyncControl.ActivityChanged::class,
-        refresh = RefreshStrategy.Ping(ping),
-        // The engine primes the activity feed into Room on every lifecycle edge (UI-independent),
-        // so a dropped ActivityChanged heals without the Discover surface being open.
-        recovery = NudgeRecovery.OnLifecycleReconcile,
-    )
-
 /** Server info changed (admin edited name / remote URL): re-fetch getServerInfo (persists the remote-URL fallback). */
 internal fun serverInfoDomain(refetch: suspend () -> Unit): RefreshedDomain =
     RefreshedDomain(

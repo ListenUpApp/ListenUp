@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -88,8 +89,11 @@ fun playbackModule(): Module =
         }
         single { UserRoleLookup(db = get<ListenUpDatabase>()) }
         single(createdAtStart = true) { ActiveSessionRepository(db = get<ListenUpDatabase>(), bus = get()) }
+        single(createdAtStart = true) {
+            ActivitySyncRepository(db = get(), bus = get(), registry = get(), driver = get())
+        }
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
-        single { ActivityRecorder(repo = get(), bus = get()) }
+        single { ActivityRecorder(syncRepo = get()) }
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
         single {
             StatsRecorder(

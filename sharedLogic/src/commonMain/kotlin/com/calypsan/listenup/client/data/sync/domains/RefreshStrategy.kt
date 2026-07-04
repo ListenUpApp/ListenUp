@@ -18,7 +18,7 @@ internal sealed interface RefreshStrategy {
     /**
      * Run a suspend re-fetch inline. Declared best-effort: the router swallows
      * non-cancellation failures so a nudge re-fetch can never take the SSE dispatch
-     * loop down (codifies `SyncEngine.primeActivityFeedSafely`).
+     * loop down.
      */
     class Refetch(
         val refetch: suspend () -> Unit,

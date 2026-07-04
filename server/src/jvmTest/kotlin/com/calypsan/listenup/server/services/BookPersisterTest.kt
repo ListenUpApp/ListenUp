@@ -745,6 +745,7 @@ internal class FakeBookIngest(
     private val failForRootRelPath: Set<String> = emptySet(),
     private val throwForRootRelPath: Set<String> = emptySet(),
     private val oomForRootRelPath: Set<String> = emptySet(),
+    private val sweepTombstoneCount: Int = 0,
 ) : BookIngestPort {
     /** rootRelPaths successfully resolved, in call order. */
     val resolved = mutableListOf<String>()
@@ -807,20 +808,22 @@ internal class FakeBookIngest(
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
         seen: Set<FolderScopedPath>,
-    ) {
+    ): Int {
         softDeleteAbsentByPathsSuppressed += currentCoroutineContext()[FirehoseSuppressed.Key] != null
         // Record just the paths — these orchestration tests assert WHICH paths are swept, not folder
         // attribution (the folder-qualified sweep is covered at the repository level in
         // BookIdentityStabilityTest).
         softDeleteAbsentByPathsCalls += seen.mapTo(mutableSetOf()) { it.rootRelPath }
+        return sweepTombstoneCount
     }
 
     override suspend fun softDeleteByPath(
         folderId: FolderId,
         rootRelPath: String,
-    ) {
+    ): Int {
         softDeleteByPathCalls += rootRelPath
         softDeleteByPathFolderIds[rootRelPath] = folderId
+        return 1
     }
 }
 

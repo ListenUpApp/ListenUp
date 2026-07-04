@@ -5,6 +5,7 @@ package com.calypsan.listenup.server.services
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -38,7 +39,7 @@ class StatsRecorderBulkRecomputeTest :
                                 publicProfileRepo = publicProfileRepo,
                                 clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                             ),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill =
                             UserStatsBackfillService(
                                 sql = sql,
@@ -101,7 +102,7 @@ class StatsRecorderBulkRecomputeTest :
                                 publicProfileRepo = publicProfileRepo,
                                 clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                             ),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill =
                             UserStatsBackfillService(
                                 sql = sql,

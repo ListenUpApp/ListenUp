@@ -19,6 +19,8 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -42,6 +44,19 @@ data class SqlTestDatabases(
     val sql: ListenUpDatabase,
     val driver: app.cash.sqldelight.db.SqlDriver,
 )
+
+/**
+ * Builds an [ActivitySyncRepository] over the test db — the syncable write-path for activities.
+ * Uses a throwaway [SyncRegistry] per call (fine for unit tests that only need the repo to write
+ * rows; a test exercising activity catch-up/digest against the real app must instead resolve the
+ * DI-registered repo so the domain is in the app's registry).
+ */
+fun SqlTestDatabases.activitySyncRepository(bus: ChangeBus = ChangeBus()): ActivitySyncRepository =
+    ActivitySyncRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = driver)
+
+/** Builds an [ActivityRecorder] over the test db's syncable activity repo. */
+fun SqlTestDatabases.activityRecorder(bus: ChangeBus = ChangeBus()): ActivityRecorder =
+    ActivityRecorder(syncRepo = activitySyncRepository(bus))
 
 /**
  * Runs [block] with a freshly-migrated SQLite database as a SQLDelight [ListenUpDatabase] (plus its

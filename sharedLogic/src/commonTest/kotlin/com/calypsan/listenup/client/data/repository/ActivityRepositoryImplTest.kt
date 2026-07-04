@@ -1,44 +1,33 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.ActivityService
-import com.calypsan.listenup.api.dto.activity.ActivityEvent
-import com.calypsan.listenup.api.dto.activity.ActivityType
-import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ActivityDao
-import com.calypsan.listenup.client.data.local.db.ActivityEntity
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.BookSummary
-import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
+import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
 import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
-import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verifySuspend
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.first
-import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Tests for ActivityRepositoryImpl.
+ * Tests for [ActivityRepositoryImpl].
  *
- * Read path (Room): `observeRecent`, `getOlderThan`, `getNewestTimestamp` are unchanged —
- * the local cache is the offline-first read source.
- *
- * Write path (RPC → Room): `fetchAndCacheActivities` now drives [ActivityService.feed] via
- * [ActivityRpcFactory], maps each [ActivityEvent] to a domain [Activity] (identity from the DTO,
- * `avatarColor` from [stableAvatarColorHex], book card enriched from local Room via
- * [BookDao.getBookSummary]), upserts into Room, and returns the count as an [AppResult].
+ * The repository is a pure Room read seam over the cursored `activities` mirror. Writes arrive on
+ * the sync data channel; this repository only READS and maps each fully-enriched
+ * [ActivityWithProfile] row into a domain `Activity`: identity (display name, avatar type) comes
+ * from the joined `public_profiles` columns, `avatarColor` is derived locally via
+ * [stableAvatarColorHex], `avatarValue` is always null (public profiles carry none), and the book
+ * card is built entirely from the joined `books` columns (`bookTitle`/`bookCoverPath`/
+ * `bookAuthorName`) — present only when the row has a book that is accessible locally. There is no
+ * per-row book lookup: the DAO join is the single enrichment seam.
  *
  * Uses Mokkery for mocking and follows Given-When-Then style.
  */
@@ -48,290 +37,140 @@ class ActivityRepositoryImplTest :
 
         fun createMockDao(): ActivityDao = mock<ActivityDao>()
 
-        fun createMockBookDao(): BookDao = mock<BookDao>()
-
-        // A fake [ActivityRpcFactory] that always returns the supplied [service].
-        fun fakeRpcFactory(service: ActivityService): ActivityRpcFactory =
-            object : ActivityRpcFactory {
-                override suspend fun get(): ActivityService = service
-
-                override suspend fun invalidate() = Unit
-            }
-
-        fun createRepository(
-            dao: ActivityDao = createMockDao(),
-            rpc: ActivityRpcFactory = fakeRpcFactory(mock<ActivityService>()),
-            bookDao: BookDao = createMockBookDao(),
-        ): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao, activityRpc = rpc, bookDao = bookDao)
+        fun createRepository(dao: ActivityDao = createMockDao()): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao)
 
         // ========== Test Data Factories ==========
 
-        fun bookEvent(
-            id: String = "event-book",
+        fun activityRow(
+            id: String = "activity-1",
             userId: String = "11111111-1111-1111-1111-111111111111",
-            bookId: String = "book-1",
-        ): ActivityEvent =
-            ActivityEvent(
+            bookId: String? = "book-1",
+            displayName: String? = "John Smith",
+            avatarType: String? = "auto",
+            bookTitle: String? = "The Way of Kings",
+            bookCoverPath: String? = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
+            bookAuthorName: String? = "Brandon Sanderson",
+        ): ActivityWithProfile =
+            ActivityWithProfile(
                 id = id,
                 userId = userId,
-                displayName = "John Smith",
-                avatarType = "auto",
-                type = ActivityType.FINISHED_BOOK,
-                occurredAtMs = 1704067200000L,
+                type = "finished_book",
+                occurredAt = 1704067200000L,
                 bookId = bookId,
                 isReread = true,
                 durationMs = 3600000L,
                 milestoneValue = 0,
                 milestoneUnit = null,
-            )
-
-        fun shelfEvent(
-            id: String = "event-shelf",
-            userId: String = "22222222-2222-2222-2222-222222222222",
-        ): ActivityEvent =
-            ActivityEvent(
-                id = id,
-                userId = userId,
-                displayName = "Jane Doe",
-                avatarType = "auto",
-                type = ActivityType.SHELF_CREATED,
-                occurredAtMs = 1704000000000L,
-                shelfId = "shelf-1",
-                shelfName = "Fantasy Favorites",
-            )
-
-        fun bookSummary(id: String = "book-1"): BookSummary =
-            BookSummary(
-                id = id,
-                title = "The Way of Kings",
-                coverBlurHash = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
-                coverHash = null,
-                authorName = "Brandon Sanderson",
-            )
-
-        fun createActivityEntity(
-            id: String = "activity-1",
-            bookId: String? = "book-1",
-            bookTitle: String? = "The Way of Kings",
-        ): ActivityEntity =
-            ActivityEntity(
-                id = id,
-                userId = "user-1",
-                type = "finished_book",
-                occurredAt = 1704067200000L,
-                userDisplayName = "John Smith",
-                userAvatarColor = "#FF5733",
-                userAvatarType = "auto",
-                userAvatarValue = null,
-                bookId = bookId,
-                bookTitle = bookTitle,
-                bookAuthorName = "Brandon Sanderson",
-                bookCoverPath = null,
-                isReread = false,
-                durationMs = 3600000L,
-                milestoneValue = 0,
-                milestoneUnit = null,
                 shelfId = null,
                 shelfName = null,
+                displayName = displayName,
+                avatarType = avatarType,
+                bookTitle = bookTitle,
+                bookCoverPath = bookCoverPath,
+                bookAuthorName = bookAuthorName,
             )
 
-        // ========== fetchAndCacheActivities (RPC → Room) ==========
+        // ========== observeRecent (Room read + enrichment) ==========
 
-        test("fetchAndCacheActivities maps events to activities and upserts them") {
+        test("observeRecent enriches identity from the joined profile and the book card from the joined columns") {
             runTest {
-                // Given - feed yields a book-bearing event and a shelf_created event
+                // Given - a book-bearing, fully-joined row
                 val dao = createMockDao()
-                everySuspend { dao.upsertAll(any()) } returns Unit
-                val bookDao = createMockBookDao()
-                everySuspend { bookDao.getBookSummary("book-1") } returns bookSummary()
-
-                val service =
-                    mock<ActivityService> {
-                        everySuspend { feed(any(), any()) } returns
-                            AppResult.Success(listOf(bookEvent(), shelfEvent()))
-                    }
-                val repository = createRepository(dao = dao, rpc = fakeRpcFactory(service), bookDao = bookDao)
-
-                // When
-                val result = repository.fetchAndCacheActivities(limit = 50)
-
-                // Then - success with the mapped count
-                val success = result.shouldBeInstanceOf<AppResult.Success<Int>>()
-                success.data shouldBe 2
-
-                // And the head was fetched (before = null)
-                verifySuspend { service.feed(null, 50) }
-
-                // And the mapped entities were persisted
-                verifySuspend { dao.upsertAll(any()) }
-            }
-        }
-
-        test("fetchAndCacheActivities maps identity and avatar colour from the DTO") {
-            runTest {
-                // Given
-                val dao = createMockDao()
-                val captured = mutableListOf<ActivityEntity>()
-                everySuspend { dao.upsertAll(any()) } calls { args ->
-                    @Suppress("UNCHECKED_CAST")
-                    captured.addAll(args.arg(0) as List<ActivityEntity>)
-                }
-                val bookDao = createMockBookDao()
-                everySuspend { bookDao.getBookSummary("book-1") } returns bookSummary()
-
-                val event = bookEvent()
-                val service =
-                    mock<ActivityService> {
-                        everySuspend { feed(any(), any()) } returns AppResult.Success(listOf(event))
-                    }
-                val repository = createRepository(dao = dao, rpc = fakeRpcFactory(service), bookDao = bookDao)
-
-                // When
-                repository.fetchAndCacheActivities(limit = 50)
-
-                // Then - identity from the DTO, avatarColor derived, avatarValue null
-                val entity = captured.single()
-                entity.userDisplayName shouldBe "John Smith"
-                entity.userAvatarType shouldBe "auto"
-                entity.userAvatarColor shouldBe stableAvatarColorHex(event.userId)
-                entity.userAvatarValue shouldBe null
-                // Book card enriched from local Room
-                entity.bookId shouldBe "book-1"
-                entity.bookTitle shouldBe "The Way of Kings"
-                entity.bookAuthorName shouldBe "Brandon Sanderson"
-                // DTO-borne activity fields preserved
-                entity.isReread shouldBe true
-                entity.durationMs shouldBe 3600000L
-            }
-        }
-
-        test("fetchAndCacheActivities leaves book null for non-book events") {
-            runTest {
-                // Given - only the shelf event (no bookId)
-                val dao = createMockDao()
-                val captured = mutableListOf<ActivityEntity>()
-                everySuspend { dao.upsertAll(any()) } calls { args ->
-                    @Suppress("UNCHECKED_CAST")
-                    captured.addAll(args.arg(0) as List<ActivityEntity>)
-                }
-                val bookDao = createMockBookDao()
-
-                val service =
-                    mock<ActivityService> {
-                        everySuspend { feed(any(), any()) } returns AppResult.Success(listOf(shelfEvent()))
-                    }
-                val repository = createRepository(dao = dao, rpc = fakeRpcFactory(service), bookDao = bookDao)
-
-                // When
-                repository.fetchAndCacheActivities(limit = 50)
-
-                // Then - no book card, shelf fields from the DTO
-                val entity = captured.single()
-                entity.bookId shouldBe null
-                entity.bookTitle shouldBe null
-                entity.shelfId shouldBe "shelf-1"
-                entity.shelfName shouldBe "Fantasy Favorites"
-            }
-        }
-
-        test("fetchAndCacheActivities returns Failure when the RPC throws") {
-            runTest {
-                // Given - feed throws a non-cancellation error
-                val service =
-                    mock<ActivityService> {
-                        everySuspend { feed(any(), any()) } throws RuntimeException("rpc down")
-                    }
-                val repository = createRepository(rpc = fakeRpcFactory(service))
-
-                // When
-                val result = repository.fetchAndCacheActivities(limit = 50)
-
-                // Then - a typed Failure, NOT a thrown exception
-                result.shouldBeInstanceOf<AppResult.Failure>()
-            }
-        }
-
-        test("fetchAndCacheActivities re-raises CancellationException") {
-            runTest {
-                // Given - feed throws CancellationException (structured concurrency must propagate)
-                val service =
-                    mock<ActivityService> {
-                        everySuspend { feed(any(), any()) } throws CancellationException("cancelled")
-                    }
-                val repository = createRepository(rpc = fakeRpcFactory(service))
-
-                // When / Then - the cancellation propagates rather than being swallowed
-                shouldThrow<CancellationException> {
-                    repository.fetchAndCacheActivities(limit = 50)
-                }
-            }
-        }
-
-        // ========== observeRecent (Room read path — unchanged) ==========
-
-        test("observeRecent returns activities from dao") {
-            runTest {
-                // Given
-                val dao = createMockDao()
-                val entities = listOf(createActivityEntity(id = "act-1"), createActivityEntity(id = "act-2"))
-                every { dao.observeRecent(10) } returns flowOf(entities)
+                val row = activityRow()
+                every { dao.observeRecent(10) } returns flowOf(listOf(row))
                 val repository = createRepository(dao = dao)
 
                 // When
-                val result = repository.observeRecent(10).first()
+                val activity = repository.observeRecent(10).first().single()
 
-                // Then
-                result.size shouldBe 2
-                result[0].id shouldBe "act-1"
-                result[1].id shouldBe "act-2"
+                // Then - identity from the joined profile, colour derived, value null
+                activity.id shouldBe "activity-1"
+                activity.user.displayName shouldBe "John Smith"
+                activity.user.avatarType shouldBe "auto"
+                activity.user.avatarColor shouldBe stableAvatarColorHex(row.userId)
+                activity.user.avatarValue.shouldBeNull()
+                // Book card built from the joined columns
+                activity.book.shouldNotBeNull()
+                activity.book?.id shouldBe "book-1"
+                activity.book?.title shouldBe "The Way of Kings"
+                activity.book?.authorName shouldBe "Brandon Sanderson"
+                activity.book?.coverPath shouldBe "LKO2?U%2Tw=w]~RBVZRi};RPxuwH"
+                // Raw activity fields carried through
+                activity.isReread shouldBe true
+                activity.durationMs shouldBe 3600000L
             }
         }
 
-        test("observeRecent emits updates when flow updates") {
+        test("observeRecent falls back to empty name and 'auto' avatar when the profile is not mirrored") {
+            runTest {
+                // Given - the author's public profile is not yet mirrored (LEFT JOIN yields nulls)
+                val dao = createMockDao()
+                val row =
+                    activityRow(
+                        bookId = null,
+                        displayName = null,
+                        avatarType = null,
+                        bookTitle = null,
+                        bookCoverPath = null,
+                        bookAuthorName = null,
+                    )
+                every { dao.observeRecent(any()) } returns flowOf(listOf(row))
+                val repository = createRepository(dao = dao)
+
+                // When
+                val activity = repository.observeRecent(10).first().single()
+
+                // Then - graceful fallbacks; no book card for a bookless row
+                activity.user.displayName shouldBe ""
+                activity.user.avatarType shouldBe "auto"
+                activity.book.shouldBeNull()
+            }
+        }
+
+        test("observeRecent yields a null book card when the book is inaccessible (join produced no title)") {
+            runTest {
+                // Given - a row with a bookId but no joined book (deleted/inaccessible locally: title null)
+                val dao = createMockDao()
+                val row = activityRow(bookTitle = null, bookCoverPath = null, bookAuthorName = null)
+                every { dao.observeRecent(any()) } returns flowOf(listOf(row))
+                val repository = createRepository(dao = dao)
+
+                // When
+                val activity = repository.observeRecent(10).first().single()
+
+                // Then - no card even though bookId is present, because the book row didn't join
+                activity.book.shouldBeNull()
+            }
+        }
+
+        test("observeRecent emits updates when the underlying flow updates") {
             runTest {
                 // Given
                 val dao = createMockDao()
-                val flowSource = MutableStateFlow<List<ActivityEntity>>(emptyList())
+                val flowSource = MutableStateFlow<List<ActivityWithProfile>>(emptyList())
                 every { dao.observeRecent(any()) } returns flowSource
                 val repository = createRepository(dao = dao)
 
-                // When - initial emission
+                // When - initial emission is empty
                 repository.observeRecent(10).first().isEmpty() shouldBe true
 
-                // When - flow updates
-                flowSource.value = listOf(createActivityEntity(id = "new-activity"))
+                // When - the flow updates
+                flowSource.value = listOf(activityRow(id = "new-activity"))
 
-                // Then - updated list
-                val result2 = repository.observeRecent(10).first()
-                result2.size shouldBe 1
-                result2[0].id shouldBe "new-activity"
+                // Then - the updated list is enriched and re-emitted
+                val result = repository.observeRecent(10).first()
+                result.size shouldBe 1
+                result[0].id shouldBe "new-activity"
             }
         }
 
-        test("observeRecent maps entity book card to domain") {
+        // ========== getOlderThan / getNewestTimestamp / count (Room) ==========
+
+        test("getOlderThan enriches older rows from the dao") {
             runTest {
                 // Given
                 val dao = createMockDao()
-                every { dao.observeRecent(any()) } returns flowOf(listOf(createActivityEntity(bookId = "book-9", bookTitle = "Mistborn")))
-                val repository = createRepository(dao = dao)
-
-                // When
-                val activity = repository.observeRecent(10).first().first()
-
-                // Then
-                activity.book.shouldNotBeNull()
-                activity.book?.id shouldBe "book-9"
-                activity.book?.title shouldBe "Mistborn"
-            }
-        }
-
-        // ========== getOlderThan / getNewestTimestamp (Room) ==========
-
-        test("getOlderThan returns activities from dao") {
-            runTest {
-                // Given
-                val dao = createMockDao()
-                everySuspend { dao.getOlderThan(1704067200000L, 10) } returns listOf(createActivityEntity(id = "old-1"))
+                everySuspend { dao.getOlderThan(1704067200000L, 10) } returns listOf(activityRow(id = "old-1"))
                 val repository = createRepository(dao = dao)
 
                 // When
@@ -340,10 +179,11 @@ class ActivityRepositoryImplTest :
                 // Then
                 result.size shouldBe 1
                 result[0].id shouldBe "old-1"
+                result[0].book?.title shouldBe "The Way of Kings"
             }
         }
 
-        test("getNewestTimestamp returns timestamp from dao") {
+        test("getNewestTimestamp passes through the dao value") {
             runTest {
                 // Given
                 val dao = createMockDao()
@@ -352,6 +192,18 @@ class ActivityRepositoryImplTest :
 
                 // When / Then
                 repository.getNewestTimestamp() shouldBe 1704067200000L
+            }
+        }
+
+        test("count passes through the dao value") {
+            runTest {
+                // Given
+                val dao = createMockDao()
+                everySuspend { dao.count() } returns 7
+                val repository = createRepository(dao = dao)
+
+                // When / Then
+                repository.count() shouldBe 7
             }
         }
     })

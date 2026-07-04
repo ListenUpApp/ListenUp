@@ -9,6 +9,7 @@ import com.calypsan.listenup.core.PlaybackPositionId
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -207,7 +208,7 @@ class PlaybackPositionRepositoryTest :
                         userStatsRepo = statsRepo,
                         bookReadsRepository = BookReadsRepository(db = sql),
                         publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
@@ -257,7 +258,7 @@ class PlaybackPositionRepositoryTest :
                         userStatsRepo = statsRepo,
                         bookReadsRepository = BookReadsRepository(db = sql),
                         publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
@@ -426,7 +427,7 @@ class PlaybackPositionRepositoryTest :
                 val publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry)
                 val publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo)
                 val activities = ActivityRepository(db = sql)
-                val activityRecorder = ActivityRecorder(repo = activities, bus = bus)
+                val activityRecorder = activityRecorder(bus = bus)
                 val statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo)
                 val recorder =
                     StatsRecorder(
@@ -487,7 +488,7 @@ class PlaybackPositionRepositoryTest :
                         userStatsRepo = statsRepo,
                         bookReadsRepository = BookReadsRepository(db = sql),
                         publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
-                        activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
@@ -529,7 +530,7 @@ class PlaybackPositionRepositoryTest :
                         userStatsRepo = statsRepo,
                         bookReadsRepository = BookReadsRepository(db = sql),
                         publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
-                        activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =
@@ -612,7 +613,7 @@ class PlaybackPositionRepositoryTest :
                         userStatsRepo = statsRepo,
                         bookReadsRepository = reads,
                         publicProfileMaintainer = PublicProfileMaintainer(sql = sql, publicProfileRepo = publicProfileRepo),
-                        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                        activityRecorder = activityRecorder(bus = bus),
                         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
                     )
                 val repo =

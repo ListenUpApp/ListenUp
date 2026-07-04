@@ -428,8 +428,7 @@ internal val discoverPresentationModule =
         factory {
             ActivityFeedViewModel(
                 activityRepository = get(),
-                fetchActivitiesUseCase = get(),
-                refreshSignal = get(),
+                syncRepository = get(),
             )
         }
     }

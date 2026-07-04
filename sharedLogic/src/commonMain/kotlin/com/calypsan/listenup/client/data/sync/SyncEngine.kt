@@ -6,9 +6,13 @@ import com.calypsan.listenup.client.data.sync.domains.NudgeRecovery
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomain
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -24,9 +28,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 private val logger = KotlinLogging.logger {}
-
-/** How many feed items the engine pulls when priming the activity-feed Room cache. */
-internal const val ACTIVITY_PRIME_LIMIT = 50
 
 /**
  * Lifecycle composer for the client sync engine.
@@ -56,9 +57,7 @@ internal class SyncEngine(
     private val reconciler: SyncReconciler,
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
-    private val activityRefreshSignal: ActivityRefreshSignal,
     private val scope: CoroutineScope,
-    private val primeActivityFeed: suspend () -> Unit = {},
     // The nudge tier's catalog entries. Their declared NudgeRecovery is what the lifecycle-reconcile
     // pass runs so a dropped nudge self-heals — the recovery is the wiring, not a comment (Plan §6a).
     private val refreshedDomains: List<RefreshedDomain> = emptyList(),
@@ -124,7 +123,12 @@ internal class SyncEngine(
     private val lifecycleReconcileMutex = Mutex()
     private var lifecycleReconcileRunning = false
     private var lifecycleReconcilePending = false
-    private var lastLifecycleReconcileAtMs = 0L
+
+    // Debounce anchor for [lifecycleReconcile]. MONOTONIC, not wall-clock: the debounce is a
+    // "duration since the last completed pass" comparison, and an NTP step (back OR forward) on a
+    // wall clock would arbitrarily extend or collapse the suppression window. null means "no pass
+    // has completed yet" → the first trigger is never debounced.
+    private var lastLifecycleReconcileMark: TimeSource.Monotonic.ValueTimeMark? = null
 
     // Flips to true on the last line of [runStart] for the active user. If
     // [runStart] throws before that line, the flag stays false even though
@@ -212,10 +216,6 @@ internal class SyncEngine(
         queue.clearForUserChange(currentUserId)
         // Step 2: catch-up across all registered domains.
         catchUp.catchUpAll(registry)
-        // Step 2b: prime the activity feed into Room so it is available offline even if the user
-        // never opens Discover. Best-effort — offline at start must not abort the engine; the
-        // reconnect path and ActivityChanged nudges recover.
-        primeActivityFeedSafely()
         // Step 3: seed SSE resume cursor.
         sseClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.
@@ -248,18 +248,7 @@ internal class SyncEngine(
         // Stamp the lifecycle-reconcile debounce clock: runStart just did the equivalent work
         // (forward catch-up + digest reconcile), so the connectRealtime() foreground reconcile
         // that immediately follows a cold start is debounced instead of redundantly re-draining.
-        lifecycleReconcileMutex.withLock { lastLifecycleReconcileAtMs = currentEpochMilliseconds() }
-    }
-
-    /** Invoke [primeActivityFeed], swallowing non-cancellation failures so priming never aborts a caller. */
-    private suspend fun primeActivityFeedSafely() {
-        try {
-            primeActivityFeed()
-        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            logger.warn(e) { "Activity-feed prime failed; continuing" }
-        }
+        lifecycleReconcileMutex.withLock { lastLifecycleReconcileMark = TimeSource.Monotonic.markNow() }
     }
 
     fun stop() {
@@ -373,37 +362,54 @@ internal class SyncEngine(
                 }
             }
         if (!shouldLead) return
+        // Set true ONLY on the loop's normal-exit branch, where this coroutine clears
+        // running/pending under the lock and ends the loop. It gates the finally so cleanup is
+        // ownership-scoped: a normally-completed leader must NOT touch shared state in finally,
+        // because a follow-on leader may already own it (the cross-leader stomp this guards).
+        var ledToCompletion = false
         try {
             var more = true
             while (more) {
                 runLifecycleReconcilePass()
                 more =
                     lifecycleReconcileMutex.withLock {
-                        lastLifecycleReconcileAtMs = currentEpochMilliseconds()
+                        lastLifecycleReconcileMark = TimeSource.Monotonic.markNow()
                         if (lifecycleReconcilePending) {
                             lifecycleReconcilePending = false
                             true
                         } else {
                             lifecycleReconcileRunning = false
+                            ledToCompletion = true
                             false
                         }
                     }
             }
         } finally {
-            // Normal exit already cleared the running flag in the loop; this only fires when a pass
-            // threw or was cancelled, so a future edge can still lead a recovery.
-            if (lifecycleReconcileRunning) {
-                lifecycleReconcileMutex.withLock {
-                    lifecycleReconcileRunning = false
-                    lifecycleReconcilePending = false
+            // Ownership-scoped cleanup. On normal completion the loop already cleared the flags under
+            // the lock, so this does nothing — reaching in would let a returning leader stomp a NEW
+            // leader's in-flight pass (and silently drop its forced follow-up). This reset therefore
+            // fires ONLY when a pass threw or was cancelled before the loop's normal exit, and it does
+            // the read+reset entirely under the lock so no unsynchronized flag read remains.
+            if (!ledToCompletion) {
+                // NonCancellable: this cleanup usually runs BECAUSE the pass was cancelled, and the
+                // mutex may be momentarily contended by another trigger — a bare `withLock` would then
+                // throw CancellationException and leave `running` stuck true forever, permanently
+                // no-op'ing every future reconcile (the "restart required" class this engine kills).
+                withContext(NonCancellable) {
+                    lifecycleReconcileMutex.withLock {
+                        lifecycleReconcileRunning = false
+                        lifecycleReconcilePending = false
+                    }
                 }
             }
         }
     }
 
     /** Whether the debounce window has elapsed since the last completed pass. MUST hold [lifecycleReconcileMutex]. */
-    private fun debounceElapsedLocked(): Boolean =
-        currentEpochMilliseconds() - lastLifecycleReconcileAtMs >= lifecycleReconcileMinIntervalMs
+    private fun debounceElapsedLocked(): Boolean {
+        val lastMark = lastLifecycleReconcileMark ?: return true
+        return lastMark.elapsedNow() >= lifecycleReconcileMinIntervalMs.milliseconds
+    }
 
     /** One lifecycle reconcile pass: forward catch-up → digest reconcile → nudge refreshes. */
     private suspend fun runLifecycleReconcilePass() {
@@ -423,11 +429,11 @@ internal class SyncEngine(
 
     /**
      * Re-fetch the ephemeral refreshed tier so a dropped nudge frame heals on this edge. Presence is
-     * a non-throwing tryEmit; the activity prime is guarded so an offline/failed fetch never aborts
-     * the pass. (Server-info + preferences keep their own control triggers until Phase 3 folds them
-     * in here via declared recovery.)
+     * a non-throwing tryEmit. (The activity feed is now a cursored mirror — catch-up above already
+     * drained it, so no separate prime. Server-info + preferences keep their own control triggers
+     * until Phase 3 folds them in here via declared recovery.)
      */
-    private suspend fun runLifecycleRefreshHooks() {
+    private fun runLifecycleRefreshHooks() {
         // Drive the refresh off each nudge domain's declared NudgeRecovery — both variants heal on a
         // lifecycle edge — so a new nudge domain's recovery runs here automatically once declared.
         refreshedDomains.forEach { domain ->
@@ -440,18 +446,16 @@ internal class SyncEngine(
     }
 
     /**
-     * Execute one nudge domain's lifecycle recovery. Presence pings its hot signal; the activity feed
-     * primes into Room UI-independently. Server-info / preferences declare a recovery but are still
-     * driven only by their control frame — TODO(Phase 3) folds their refetch in here.
+     * Execute one nudge domain's lifecycle recovery. Presence pings its hot signal — the
+     * Never-Stranded fallback for a dropped `ActiveSessionsChanged`. Server-info / preferences
+     * declare a recovery but are still driven only by their control frame — TODO(Phase 3) folds
+     * their refetch in here. (The activity feed is now a cursored mirror (#1028): forward catch-up
+     * in the reconcile pass already drained it, so it declares no nudge recovery.)
      */
-    private suspend fun runNudgeLifecycleRecovery(domain: RefreshedDomain) {
+    private fun runNudgeLifecycleRecovery(domain: RefreshedDomain) {
         when (domain.trigger) {
             SyncControl.ActiveSessionsChanged::class -> {
                 presenceRefreshSignal.ping()
-            }
-
-            SyncControl.ActivityChanged::class -> {
-                primeActivityFeedSafely()
             }
 
             SyncControl.ServerInfoChanged::class, SyncControl.PreferencesChanged::class -> {
@@ -534,11 +538,16 @@ internal class SyncEngine(
             // still outstanding (their covering pass never completed) must be released so coalesced
             // callers are not stranded — cancelled, not completed, since their request was not served.
             if (cursorStaleRunning) {
+                // NonCancellable for the same reason as lifecycleReconcile's cleanup: a contended
+                // `withLock` on the cancellation path would throw and strand `cursorStaleRunning` true,
+                // wedging all future CursorStale recovery.
                 val stranded =
-                    cursorStaleMutex.withLock {
-                        cursorStaleRunning = false
-                        cursorStalePending = false
-                        drainWaiters()
+                    withContext(NonCancellable) {
+                        cursorStaleMutex.withLock {
+                            cursorStaleRunning = false
+                            cursorStalePending = false
+                            drainWaiters()
+                        }
                     }
                 stranded.forEach { it.cancel() }
             }
@@ -572,9 +581,6 @@ internal class SyncEngine(
         // disconnected. Ping presence so the social repos re-fetch their ACL-filtered RPCs — the
         // Never-Stranded fallback for presence across a reconnect.
         presenceRefreshSignal.ping()
-        // Same reconnect gap applies to the activity feed: a missed ActivityChanged nudge while
-        // disconnected would leave the feed stale, so ping it too.
-        activityRefreshSignal.ping()
     }
 
     /**
@@ -732,14 +738,15 @@ internal class SyncEngine(
      * Refresh the Discover surfaces on every reconnect — NOT the initial start-connect.
      *
      * The offline→online path ([ReconnectionSupervisor] → [SseClient.reconnectNow]) only resumes the
-     * SSE stream; without this the activity feed and leaderboard stay stale until the server happens
-     * to emit a `CursorStale`. On each reconnect edge we run [lifecycleReconcile] — forward catch-up
-     * (draining rows written above the cursor during the outage), digest reconcile (refreshing
-     * `public_profiles` → the leaderboard), and the nudge refreshes (priming the activity feed into
-     * Room, pinging presence so currently-listening re-fetches).
+     * SSE stream; without this the leaderboard stays stale until the server happens to emit a
+     * `CursorStale`. On each reconnect edge we run [lifecycleReconcile] — forward catch-up (draining
+     * rows written above the cursor during the outage), digest reconcile (refreshing
+     * `public_profiles` → the leaderboard), and a presence ping so currently-listening re-fetches.
+     * The activity feed is now a Room-mirrored sync domain, so catch-up/live-tail keep it current
+     * with no separate prime.
      *
      * Subscribed before [SseClient.connect] and [drop]ping the first Connected, so the initial
-     * start-connect (already covered by [runStart]'s prime + reconcile) does not double-fire.
+     * start-connect (already covered by [runStart]'s reconcile) does not double-fire.
      */
     private suspend fun ensureReconnectRefresh() {
         if (reconnectRefreshJob?.isActive == true) return
@@ -759,11 +766,11 @@ internal class SyncEngine(
     }
 
     private suspend fun runReconnectRefresh() {
-        // A reconnect may have missed live events AND control nudges while the firehose was down.
-        // Funnel into the one lifecycle reconcile: forward catch-up drains rows written above the
-        // cursor during the outage (the digest can't see them), digest repairs below-cursor
-        // divergence, and the nudge refreshes re-fetch presence/activity. force = true bypasses the
-        // debounce so a reconnect edge always heals.
+        // A reconnect may have missed live events while the firehose was down. Funnel into the one
+        // lifecycle reconcile: forward catch-up drains rows written above the cursor during the
+        // outage (the digest can't see them), digest repairs below-cursor divergence, and the
+        // presence ping re-fetches currently-listening. force = true bypasses the debounce so a
+        // reconnect edge always heals.
         lifecycleReconcile(force = true)
     }
 

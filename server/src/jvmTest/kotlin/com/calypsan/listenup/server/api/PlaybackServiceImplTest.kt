@@ -29,7 +29,7 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -97,7 +97,7 @@ class PlaybackServiceImplTest :
             val signer = AudioUrlSigner(AudioUrlSigner.deriveSigningKey("x".repeat(32)))
             val coverSigner = CoverUrlSigner(CoverUrlSigner.deriveSigningKey("x".repeat(32)))
             val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-            val statsRecorder = buildStatsRecorderForTest(sql, statsRepo)
+            val statsRecorder = buildStatsRecorderForTest(sql, driver, statsRepo)
             val eventRepo =
                 ListeningEventRepository(
                     db = sql,
@@ -775,6 +775,7 @@ class PlaybackServiceImplTest :
  */
 private fun buildStatsRecorderForTest(
     sql: ListenUpDatabase,
+    driver: SqlDriver,
     statsRepo: UserStatsRepository,
 ): StatsRecorder =
     StatsRecorder(
@@ -782,7 +783,10 @@ private fun buildStatsRecorderForTest(
         userStatsRepo = statsRepo,
         bookReadsRepository = BookReadsRepository(db = sql),
         publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
-        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = ChangeBus()),
+        activityRecorder =
+            ActivityRecorder(
+                syncRepo = ActivitySyncRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver),
+            ),
         statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo),
     )
 

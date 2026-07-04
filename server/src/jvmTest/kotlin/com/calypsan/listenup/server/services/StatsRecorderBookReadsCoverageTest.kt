@@ -7,6 +7,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.seedTestBook
@@ -72,7 +73,7 @@ class StatsRecorderBookReadsCoverageTest :
                             publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                             clock = clock,
                         ),
-                    activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                    activityRecorder = activityRecorder(bus = bus),
                     statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo, clock = clock),
                     clock = clock,
                 )
