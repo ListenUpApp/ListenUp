@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -58,7 +59,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -80,6 +80,7 @@ import com.calypsan.listenup.client.design.components.UserAvatar
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.CollectionBookItem
 import com.calypsan.listenup.client.domain.model.SearchHit
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailUiState
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
 import com.calypsan.listenup.client.presentation.admin.CollectionShareItem
@@ -116,13 +117,13 @@ import listenup.composeapp.generated.resources.common_save_changes
 import listenup.composeapp.generated.resources.import_book_search_no_results
 import listenup.composeapp.generated.resources.library_collection
 import org.jetbrains.compose.resources.stringResource
+import org.koin.compose.koinInject
 
 private const val HERO_BADGE_SIZE_DP = 64
 private const val HERO_BADGE_ICON_RATIO = 0.5f
 private const val HERO_BOTTOM_CORNER_DP = 40
 private const val HERO_SEMI_TRANSPARENT = 0.18f
-private const val COVER_SIZE_NARROW_DP = 96
-private const val COVER_SIZE_WIDE_DP = 80
+private const val COVER_GRID_MIN_TILE_DP = 160
 private const val COVER_CORNER_DP = 12
 private const val SECTION_SPACING_DP = 24
 private const val EMPTY_PANEL_PADDING_DP = 32
@@ -135,8 +136,6 @@ private const val CHIP_PADDING_V_DP = 6
 private const val CHIP_SPACING_DP = 8
 private const val CHIP_ICON_SIZE_DP = 16
 private const val WIDE_SIDEBAR_WIDTH_DP = 360
-private const val BOOKS_COLS_NARROW = 3
-private const val BOOKS_COLS_WIDE = 5
 private const val ADD_ICON_SIZE_DP = 18
 private const val DELETE_TILE_SIZE_DP = 40
 
@@ -347,7 +346,6 @@ private fun NarrowDetailContent(
                 Spacer(modifier = Modifier.height(SECTION_SPACING_DP.dp))
                 BooksSection(
                     state = state,
-                    cols = BOOKS_COLS_NARROW,
                     onRemoveBookClick = onRemoveBookClick,
                     onAddBooksClick = onAddBooksClick,
                 )
@@ -384,7 +382,6 @@ private fun WideDetailContent(
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 BooksSection(
                     state = state,
-                    cols = BOOKS_COLS_WIDE,
                     onRemoveBookClick = onRemoveBookClick,
                     onAddBooksClick = onAddBooksClick,
                 )
@@ -558,7 +555,6 @@ private fun NameSection(
 @Composable
 private fun BooksSection(
     state: AdminCollectionDetailUiState.Ready,
-    cols: Int,
     onRemoveBookClick: (CollectionBookItem) -> Unit,
     onAddBooksClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -590,10 +586,14 @@ private fun BooksSection(
         if (state.books.isEmpty()) {
             EmptyBooksPanel()
         } else {
-            val coverSize: Dp = if (cols >= BOOKS_COLS_WIDE) COVER_SIZE_WIDE_DP.dp else COVER_SIZE_NARROW_DP.dp
             LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 160.dp),
-                modifier = Modifier.height(((coverSize + 8.dp) * 4).coerceAtMost(480.dp)).fillMaxWidth(),
+                columns = GridCells.Adaptive(minSize = COVER_GRID_MIN_TILE_DP.dp),
+                // Nested in a scrollable parent, so the grid needs a bounded viewport: reserve
+                // ~4 rows of adaptive (square) tiles, capped, and let it scroll internally.
+                modifier =
+                    Modifier
+                        .height(((COVER_GRID_MIN_TILE_DP.dp + 8.dp) * 4).coerceAtMost(480.dp))
+                        .fillMaxWidth(),
                 contentPadding = PaddingValues(8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -602,7 +602,6 @@ private fun BooksSection(
                     BookCoverTile(
                         book = book,
                         isRemoving = state.removingBookId == book.id,
-                        size = coverSize,
                         onRemoveClick = { onRemoveBookClick(book) },
                     )
                 }
@@ -642,12 +641,13 @@ private fun EmptyBooksPanel(modifier: Modifier = Modifier) {
 private fun BookCoverTile(
     book: CollectionBookItem,
     isRemoving: Boolean,
-    size: Dp,
     onRemoveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier.size(size).clickable(onClick = onRemoveClick),
+        // Fill the adaptive grid slot and stay square, matching the canonical BookCard cover.
+        // A fixed .size() here fought the slot's width and rendered landscape.
+        modifier = modifier.fillMaxWidth().aspectRatio(1f).clickable(onClick = onRemoveClick),
         contentAlignment = Alignment.Center,
     ) {
         BookCoverImage(
@@ -747,8 +747,16 @@ private fun MemberRow(
     onRemoveClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Resolve the member's display name from the public-profile mirror, exactly as the avatar
+    // does — the member model carries only the userId. Fall back to the userId so the row is
+    // never stranded before the profile has synced.
+    val profileRepository: UserProfileRepository = koinInject()
+    val profile by profileRepository
+        .observeProfile(share.userId)
+        .collectAsStateWithLifecycle(initialValue = null)
+
     SettingRow(
-        title = share.userId,
+        title = profile?.displayName?.ifBlank { null } ?: share.userId,
         subtitle = share.permission,
         showDivider = showDivider,
         modifier = modifier,
