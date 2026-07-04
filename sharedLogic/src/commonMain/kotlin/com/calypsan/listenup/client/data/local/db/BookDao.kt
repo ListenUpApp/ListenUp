@@ -189,17 +189,17 @@ internal interface BookDao {
     suspend fun liveIds(): List<String>
 
     /**
-     * Tombstone every live book whose id is NOT in [accessibleIds].
+     * Tombstone the given live books by id — the chunked access-change prune.
      *
-     * Local-only eviction for the access-change reconcile: a book the caller can no longer
-     * see is soft-deleted (`deletedAt` stamped) so the UI drops it, while accessible rows
-     * are left untouched. The existing `revision` is preserved — this is not a server
-     * tombstone, so there is no new revision to record. `updatedAt` advances so reactive
-     * queries re-emit.
+     * Local-only eviction: a book the caller can no longer see is soft-deleted (`deletedAt`
+     * stamped) so the UI drops it, while accessible rows are left untouched. The existing
+     * `revision` is preserved — this is not a server tombstone, so there is no new revision to
+     * record. `updatedAt` advances so reactive queries re-emit. The composed handler computes the
+     * doomed set in Kotlin and calls this with id chunks bounded under SQLite's bind-var ceiling.
      */
-    @Query("UPDATE books SET deletedAt = :now, updatedAt = :now WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)")
-    suspend fun tombstoneNotIn(
-        accessibleIds: Collection<String>,
+    @Query("UPDATE books SET deletedAt = :now, updatedAt = :now WHERE deletedAt IS NULL AND id IN (:ids)")
+    suspend fun tombstoneByIds(
+        ids: List<String>,
         now: Long,
     )
 

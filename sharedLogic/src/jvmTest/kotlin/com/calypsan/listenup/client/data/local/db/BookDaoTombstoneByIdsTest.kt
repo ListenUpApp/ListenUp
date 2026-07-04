@@ -6,38 +6,54 @@ import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * SECURITY-CRITICAL guard for [BookDao.tombstoneNotIn] under total revocation.
+ * Contract guard for [BookDao.tombstoneByIds] — the chunked access-change prune primitive.
  *
- * When the caller loses ALL access to the book domain, the access-change reconcile calls
- * `tombstoneNotIn(emptySet(), now)`. SQLite evaluates `id NOT IN ()` as TRUE for every row,
- * so all live books are tombstoned — the correct behaviour (total revocation must evict
- * everything). This test pins that: it FAILS if anyone adds an
- * `if (accessibleIds.isEmpty()) return` early-return to the DAO query, which would silently
- * leave revoked content readable (under-prune).
+ * The composed handler computes the doomed set (`liveIds - accessible`) and tombstones it in
+ * bounded chunks. This pins the DAO leg: [BookDao.tombstoneByIds] tombstones exactly the ids it is
+ * handed and nothing else, so a total revocation (handler passes every live id) evicts everything
+ * while an empty chunk (accessible = everything) touches nothing.
  */
-class BookDaoTombstoneNotInTest :
+class BookDaoTombstoneByIdsTest :
     FunSpec({
 
-        test("tombstoneNotIn(emptySet) tombstones EVERY live book (total revocation)") {
+        test("tombstoneByIds tombstones exactly the given books, leaving the rest live") {
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
                     val bookDao = db.bookDao()
                     seedBook(bookDao, "b1")
                     seedBook(bookDao, "b2")
-                    bookDao.liveIds().toSet() shouldBe setOf("b1", "b2")
+                    seedBook(bookDao, "b3")
+                    bookDao.liveIds().toSet() shouldBe setOf("b1", "b2", "b3")
 
-                    bookDao.tombstoneNotIn(emptySet(), now = 777L)
+                    bookDao.tombstoneByIds(listOf("b1", "b2"), now = 777L)
 
-                    bookDao.liveIds().shouldBeEmpty()
+                    bookDao.liveIds() shouldBe listOf("b3")
                     bookDao.getById(BookId("b1"))!!.deletedAt shouldNotBe null
                     bookDao.getById(BookId("b2"))!!.deletedAt shouldNotBe null
+                    bookDao.getById(BookId("b3"))!!.deletedAt shouldBe null
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("tombstoneByIds(emptyList) tombstones nothing (accessible = everything)") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val bookDao = db.bookDao()
+                    seedBook(bookDao, "b1")
+                    seedBook(bookDao, "b2")
+
+                    bookDao.tombstoneByIds(emptyList(), now = 777L)
+
+                    bookDao.liveIds().toSet() shouldBe setOf("b1", "b2")
                 }
             } finally {
                 db.close()

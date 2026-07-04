@@ -29,9 +29,9 @@ import com.calypsan.listenup.core.Timestamp
  *
  * **Access gate:** the server's `pullSince` for books is filtered to the caller's
  * accessible set, so an `AccessChanged` reconcile must prune local rows the user can
- * no longer see. [AccessGate.pruneTo] tombstones (not hard-deletes) every live row
- * outside the accessible set — revoked books disappear from view but restore
- * losslessly if access is re-granted.
+ * no longer see. The [AccessGate] tombstones (not hard-deletes) every live row outside
+ * the accessible set — revoked books disappear from view but restore losslessly if
+ * access is re-granted — then its `afterPrune` drops readership rows for the now-dead books.
  *
  * **Digest:** full participation — books are revision-fingerprintable, and
  * `digestRows` includes soft-deleted rows, matching the server's digest exactly.
@@ -74,11 +74,11 @@ internal fun booksDomain(
         writes = WriteTier.Outbox(OutboxChannels.Books),
         accessGate =
             AccessGate(
-                localLiveIds = { database.bookDao().liveIds().toSet() },
-                pruneTo = { accessibleIds, now ->
-                    database.bookDao().tombstoneNotIn(accessibleIds, now)
-                    database.bookReadershipDao().deleteWhereBookNotLive()
-                },
+                liveIds = database.bookDao()::liveIds,
+                tombstoneByIds = database.bookDao()::tombstoneByIds,
+                // Readership rows follow their book's liveness: once the prune tombstones the
+                // revoked books, drop the reader rows that now point at a non-live book.
+                afterPrune = database.bookReadershipDao()::deleteWhereBookNotLive,
             ),
     )
 }

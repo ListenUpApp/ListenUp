@@ -16,8 +16,8 @@ private val logger = KotlinLogging.logger {}
  * kept for digest), full digest, online-only writes, access-gated.
  *
  * **Access gate:** membership rows follow their collection's accessibility;
- * [AccessGate.localLiveIds] returns synthetic wire-form ids via
- * `liveSyntheticIds()`, and pruning tombstones rows outside the accessible set.
+ * [AccessGate.liveIds] returns synthetic wire-form ids via `liveSyntheticIds()`,
+ * and pruning tombstones rows outside the accessible set.
  *
  * **Re-add semantics.** Re-adding a book arrives as Created/Updated with
  * `deletedAt = null`; the upsert clears the tombstone. `isOwnEcho` needs no
@@ -44,10 +44,8 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
         writes = WriteTier.OnlineOnly,
         accessGate =
             AccessGate(
-                localLiveIds = { database.collectionBookDao().liveSyntheticIds().toSet() },
-                pruneTo = { accessibleIds, now ->
-                    database.collectionBookDao().tombstoneNotIn(accessibleIds, now)
-                },
+                liveIds = database.collectionBookDao()::liveSyntheticIds,
+                tombstoneByIds = database.collectionBookDao()::tombstoneByIds,
             ),
     )
 }

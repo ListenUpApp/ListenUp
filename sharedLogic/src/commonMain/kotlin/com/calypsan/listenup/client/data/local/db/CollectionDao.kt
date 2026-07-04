@@ -68,18 +68,19 @@ internal interface CollectionDao {
     suspend fun liveIds(): List<String>
 
     /**
-     * Tombstone every live collection whose id is NOT in [accessibleIds].
+     * Tombstone the given live collections by id — the chunked access-change prune.
      *
-     * Local-only eviction for the access-change reconcile: a collection the caller can no
-     * longer see is soft-deleted so the UI drops it; accessible rows are untouched. The
-     * existing `revision` is preserved (this is not a server tombstone).
+     * Local-only eviction: a collection the caller can no longer see is soft-deleted so the UI
+     * drops it; accessible rows are untouched. The existing `revision` is preserved (this is not a
+     * server tombstone). The composed handler computes the doomed set in Kotlin and calls this with
+     * id chunks bounded under SQLite's bind-var ceiling.
      */
     @Query(
         "UPDATE collections SET deletedAt = :now, updatedAt = :now " +
-            "WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)",
+            "WHERE deletedAt IS NULL AND id IN (:ids)",
     )
-    suspend fun tombstoneNotIn(
-        accessibleIds: Collection<String>,
+    suspend fun tombstoneByIds(
+        ids: List<String>,
         now: Long,
     )
 
@@ -148,18 +149,19 @@ internal interface CollectionBookDao {
     suspend fun liveSyntheticIds(): List<String>
 
     /**
-     * Tombstone every live junction row whose synthetic `"$collectionId:$bookId"` id is NOT in
-     * [accessibleIds].
+     * Tombstone the given live junction rows by synthetic `"$collectionId:$bookId"` id — the
+     * chunked access-change prune.
      *
-     * Local-only eviction for the access-change reconcile. The existing `revision` is preserved
-     * (this is not a server tombstone).
+     * Local-only eviction. The existing `revision` is preserved (this is not a server tombstone).
+     * The composed handler computes the doomed set in Kotlin and calls this with id chunks bounded
+     * under SQLite's bind-var ceiling.
      */
     @Query(
         "UPDATE collection_books SET deletedAt = :now " +
-            "WHERE deletedAt IS NULL AND (collectionId || ':' || bookId) NOT IN (:accessibleIds)",
+            "WHERE deletedAt IS NULL AND (collectionId || ':' || bookId) IN (:ids)",
     )
-    suspend fun tombstoneNotIn(
-        accessibleIds: Collection<String>,
+    suspend fun tombstoneByIds(
+        ids: List<String>,
         now: Long,
     )
 
@@ -223,17 +225,18 @@ internal interface CollectionShareDao {
     suspend fun liveIds(): List<String>
 
     /**
-     * Tombstone every live share whose id is NOT in [accessibleIds].
+     * Tombstone the given live shares by id — the chunked access-change prune.
      *
-     * Local-only eviction for the access-change reconcile. The existing `revision` is preserved
-     * (this is not a server tombstone).
+     * Local-only eviction. The existing `revision` is preserved (this is not a server tombstone).
+     * The composed handler computes the doomed set in Kotlin and calls this with id chunks bounded
+     * under SQLite's bind-var ceiling.
      */
     @Query(
         "UPDATE collection_shares SET deletedAt = :now, updatedAt = :now " +
-            "WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)",
+            "WHERE deletedAt IS NULL AND id IN (:ids)",
     )
-    suspend fun tombstoneNotIn(
-        accessibleIds: Collection<String>,
+    suspend fun tombstoneByIds(
+        ids: List<String>,
         now: Long,
     )
 

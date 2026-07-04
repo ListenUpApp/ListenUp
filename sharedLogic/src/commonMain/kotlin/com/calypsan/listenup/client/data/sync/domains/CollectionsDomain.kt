@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  *
  * **Access gate:** the server's `pullSince` for collections is filtered to the
  * caller's accessible set (pure-union grant model), so an `AccessChanged` reconcile
- * must prune local rows the user can no longer see. [AccessGate.pruneTo] tombstones
+ * must prune local rows the user can no longer see. The [AccessGate] tombstones
  * (not hard-deletes) every live row outside the accessible set.
  *
  * `bookCount` is JOIN-derived (never stored), so the apply maps only substrate
@@ -29,10 +29,8 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
         writes = WriteTier.OnlineOnly,
         accessGate =
             AccessGate(
-                localLiveIds = { database.collectionDao().liveIds().toSet() },
-                pruneTo = { accessibleIds, now ->
-                    database.collectionDao().tombstoneNotIn(accessibleIds, now)
-                },
+                liveIds = database.collectionDao()::liveIds,
+                tombstoneByIds = database.collectionDao()::tombstoneByIds,
             ),
     )
 }

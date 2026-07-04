@@ -33,10 +33,8 @@ internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<
         writes = WriteTier.OnlineOnly,
         accessGate =
             AccessGate(
-                localLiveIds = { database.collectionShareDao().liveIds().toSet() },
-                pruneTo = { accessibleIds, now ->
-                    database.collectionShareDao().tombstoneNotIn(accessibleIds, now)
-                },
+                liveIds = database.collectionShareDao()::liveIds,
+                tombstoneByIds = database.collectionShareDao()::tombstoneByIds,
             ),
     )
 }

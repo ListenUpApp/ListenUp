@@ -43,18 +43,16 @@ internal fun listeningEventsDomain(
     )
 
 /**
- * Room mapping for [ListeningEventSyncPayload]: insert-if-absent (append-only
- * guard) with signed-in-user stamping. See [listeningEventsDomain] for why both
- * behaviors are domain logic, not framework policy.
+ * Room mapping for [ListeningEventSyncPayload]: insert-if-absent (append-only guard)
+ * with signed-in-user stamping. The un-tombstone / revision-converge healing is the
+ * substrate policy in [AppendOnlyMirrorApply]; only the [insert] stamping is domain
+ * logic. See [listeningEventsDomain] for why the stamping is domain-specific.
  */
 internal class ListeningEventMirrorApply(
     private val database: ListenUpDatabase,
     private val authSession: AuthSession,
-) : MirrorApply<ListeningEventSyncPayload> {
-    override suspend fun upsert(payload: ListeningEventSyncPayload) {
-        val existing = database.listeningEventDao().getById(payload.id)
-        if (existing != null) return
-
+) : AppendOnlyMirrorApply<ListeningEventSyncPayload>() {
+    override suspend fun insert(payload: ListeningEventSyncPayload) {
         // Resolve the signed-in id from persisted storage (race-free) — authState may still be
         // Initializing during the startup catch-up, which previously poisoned rows with "".
         val currentUserId = authSession.getUserId()
@@ -83,6 +81,19 @@ internal class ListeningEventMirrorApply(
             ),
         )
     }
+
+    override suspend fun readMeta(id: String): AppendOnlyRowMeta? =
+        database.listeningEventDao().getById(id)?.let { AppendOnlyRowMeta(it.deletedAt, it.revision) }
+
+    override suspend fun restore(
+        id: String,
+        revision: Long,
+    ) = database.listeningEventDao().restore(id, revision)
+
+    override suspend fun updateRevision(
+        id: String,
+        revision: Long,
+    ) = database.listeningEventDao().updateRevision(id, revision)
 
     override suspend fun tombstoneFromItem(item: ListeningEventSyncPayload) {
         database.listeningEventDao().softDelete(

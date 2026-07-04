@@ -155,12 +155,20 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
     registry: ClientSyncDomainRegistry,
 ) : ComposedSyncDomainHandler<T>(domain, transactionRunner, registry),
     AccessFilteredSyncHandler {
-    override suspend fun localLiveIds(): Set<String> = gate.localLiveIds()
+    override suspend fun localLiveIds(): Set<String> = gate.liveIds().toSet()
 
     override suspend fun pruneTo(
         accessibleIds: Set<String>,
         now: Long,
-    ) = gate.pruneTo(accessibleIds, now)
+    ) {
+        // Diff and chunk here (not in the gate): a `NOT IN (huge set)` would breach SQLite's
+        // bind-variable ceiling for an append-forever domain like activities and throw, silently
+        // failing the prune. Computing the doomed set in Kotlin and tombstoning it in bounded
+        // chunks keeps the security-critical eviction correct at any cardinality.
+        val doomed = gate.liveIds() - accessibleIds
+        doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk -> gate.tombstoneByIds(chunk, now) }
+        gate.afterPrune()
+    }
 }
 
 /** Compile a descriptor into the runtime handler the engine speaks. */
