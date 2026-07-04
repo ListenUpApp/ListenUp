@@ -15,7 +15,9 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
@@ -82,6 +84,16 @@ class ActivityServiceTest :
             this.shouldBeInstanceOf<AppResult.Success<T>>()
             return data
         }
+
+        /**
+         * A syncable [ActivityRecorder] over the test db driven by [clock] — the write-path that
+         * seeds `activities` rows. Reads go through a plain [ActivityRepository] over the same db.
+         */
+        fun SqlTestDatabases.recorderWithClock(clock: Clock): ActivityRecorder =
+            ActivityRecorder(
+                syncRepo = ActivitySyncRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), driver = driver),
+                clock = clock,
+            )
 
         /** Inserts a `public_profiles` identity row directly (clients normally maintain it). */
         fun ListenUpDatabase.seedPublicProfile(
@@ -251,10 +263,11 @@ class ActivityServiceTest :
                     makeBookAccessible(this@withSqlDatabase, bookId = "book-b", viewer = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = sql, clock = clock)
-                    activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a")
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(clock)
+                    recorder.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
-                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-b")
+                    recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-b")
 
                     val result =
                         makeService(this@withSqlDatabase, activities, principalFor("alice"))
@@ -296,10 +309,11 @@ class ActivityServiceTest :
                     makeBookAccessible(this@withSqlDatabase, bookId = "public-book", viewer = "viewer")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = sql, clock = clock)
-                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(clock)
+                    recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
-                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "public-book")
+                    recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "public-book")
 
                     val result =
                         makeService(this@withSqlDatabase, activities, principalFor("viewer"))
@@ -332,18 +346,19 @@ class ActivityServiceTest :
                     )
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = sql, clock = clock)
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(clock)
                     // A book activity the viewer can't see, plus two non-book activities.
-                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                    recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
-                    activities.record(
+                    recorder.record(
                         userId = "alice",
                         type = ActivityType.SHELF_CREATED,
                         shelfId = "shelf-1",
                         shelfName = "Favorites",
                     )
                     clock.set(Instant.fromEpochMilliseconds(3_000L))
-                    activities.record(userId = "alice", type = ActivityType.USER_JOINED)
+                    recorder.record(userId = "alice", type = ActivityType.USER_JOINED)
 
                     val result =
                         makeService(this@withSqlDatabase, activities, principalFor("viewer"))
@@ -372,12 +387,13 @@ class ActivityServiceTest :
                     makeBookAccessible(this@withSqlDatabase, bookId = "book-a", viewer = "alice")
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = sql, clock = clock)
-                    activities.record(userId = "alice", type = ActivityType.USER_JOINED) // 1_000
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(clock)
+                    recorder.record(userId = "alice", type = ActivityType.USER_JOINED) // 1_000
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
-                    activities.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a") // 2_000
+                    recorder.record(userId = "alice", type = ActivityType.STARTED_BOOK, bookId = "book-a") // 2_000
                     clock.set(Instant.fromEpochMilliseconds(3_000L))
-                    activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-a") // 3_000
+                    recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "book-a") // 3_000
 
                     val result =
                         makeService(this@withSqlDatabase, activities, principalFor("alice"))
@@ -409,14 +425,15 @@ class ActivityServiceTest :
                     )
 
                     val clock = MutableClock(Instant.fromEpochMilliseconds(0L))
-                    val activities = ActivityRepository(db = sql, clock = clock)
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(clock)
                     // 20 accessible (non-book) rows interleaved with 20 inaccessible book rows.
                     var t = 1L
                     repeat(20) {
                         clock.set(Instant.fromEpochMilliseconds(t++))
-                        activities.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+                        recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                         clock.set(Instant.fromEpochMilliseconds(t++))
-                        activities.record(userId = "alice", type = ActivityType.USER_JOINED)
+                        recorder.record(userId = "alice", type = ActivityType.USER_JOINED)
                     }
 
                     val result =
@@ -439,12 +456,13 @@ class ActivityServiceTest :
             withSqlDatabase {
                 runTest {
                     val clock = MutableClock(Instant.fromEpochMilliseconds(1_000L))
-                    val activities = ActivityRepository(db = sql, clock = clock)
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(clock)
                     // Insert at clock=1_000 but with occurredAt=1_000 (older real event)
-                    activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 1_000L)
+                    recorder.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 1_000L)
                     // Insert at clock=2_000 but with occurredAt=9_000 (newer real event)
                     clock.set(Instant.fromEpochMilliseconds(2_000L))
-                    activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 9_000L)
+                    recorder.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 9_000L)
 
                     val page = activities.page(before = null, limit = 10)
                     page.map { it.occurredAt } shouldBe listOf(9_000L, 1_000L)
@@ -455,17 +473,15 @@ class ActivityServiceTest :
         test("page breaks occurred_at ties deterministically by id DESC") {
             withSqlDatabase {
                 runTest {
-                    val activities =
-                        ActivityRepository(
-                            db = sql,
-                            clock = MutableClock(Instant.fromEpochMilliseconds(1_000L)),
-                        )
+                    val activities = ActivityRepository(db = sql)
+                    val recorder = recorderWithClock(MutableClock(Instant.fromEpochMilliseconds(1_000L)))
                     // Two activities sharing the same occurredAt — the secondary `id DESC` sort must order them.
-                    val idA = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
-                    val idB = activities.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
+                    recorder.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
+                    recorder.record(userId = "u1", type = ActivityType.LISTENING_SESSION, occurredAt = 5_000L)
 
                     val page = activities.page(before = null, limit = 10)
-                    page.map { it.id } shouldBe listOf(idA, idB).sortedDescending()
+                    val ids = page.map { it.id }
+                    ids shouldBe ids.sortedDescending()
                 }
             }
         }

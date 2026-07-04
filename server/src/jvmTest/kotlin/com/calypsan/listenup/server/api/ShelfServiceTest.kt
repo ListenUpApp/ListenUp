@@ -17,6 +17,7 @@ import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
@@ -88,7 +89,8 @@ class ShelfServiceTest :
                 readAssembler = ShelfReadAssembler(sql),
                 clock = fixedClock,
                 principal = principalFor("u1"),
-                activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                activityRecorder =
+                    ActivityRecorder(syncRepo = ActivitySyncRepository(db = sql, bus = bus, registry = registry, driver = driver)),
             )
         }
 

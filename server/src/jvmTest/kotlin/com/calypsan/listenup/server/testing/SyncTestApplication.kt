@@ -16,7 +16,7 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ContributorRepository
@@ -191,7 +191,7 @@ internal fun withTestApplication(
                     sql = sqlDb,
                     userStatsRepo = statsRepo,
                 )
-            val statsRecorder = buildStatsRecorder(sqlDb, bus, statsRepo, publicProfileMaintainer)
+            val statsRecorder = buildStatsRecorder(sqlDb, driver, bus, registry, statsRepo, publicProfileMaintainer)
             val eventRepo =
                 ListeningEventRepository(
                     db = sqlDb,
@@ -348,7 +348,9 @@ private fun buildPublicProfileMaintainer(
  */
 private fun buildStatsRecorder(
     sqlDb: ListenUpDatabase,
+    driver: SqlDriver,
     bus: ChangeBus,
+    registry: SyncRegistry,
     statsRepo: UserStatsRepository,
     publicProfileMaintainer: PublicProfileMaintainer,
 ): StatsRecorder =
@@ -357,6 +359,11 @@ private fun buildStatsRecorder(
         userStatsRepo = statsRepo,
         bookReadsRepository = BookReadsRepository(db = sqlDb),
         publicProfileMaintainer = publicProfileMaintainer,
-        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sqlDb), bus = bus),
+        // The activities domain registers in the harness's SHARED registry (via ActivitySyncRepository)
+        // and rides the shared driver, so it participates in the app's sync catch-up/digest/firehose.
+        activityRecorder =
+            ActivityRecorder(
+                syncRepo = ActivitySyncRepository(db = sqlDb, bus = bus, registry = registry, driver = driver),
+            ),
         statsBackfill = UserStatsBackfillService(sql = sqlDb, userStatsRepo = statsRepo),
     )

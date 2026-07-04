@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -34,7 +35,7 @@ class StatsRecorderTest :
                         publicProfileRepo = publicProfileRepo,
                         clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                     )
-                val activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus)
+                val activityRecorder = activityRecorder(bus = bus)
                 val statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo)
                 val recorder =
                     StatsRecorder(
@@ -77,7 +78,7 @@ class StatsRecorderTest :
                         clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                     )
                 val activityRepo = ActivityRepository(db = sql)
-                val activityRecorder = ActivityRecorder(repo = activityRepo, bus = bus)
+                val activityRecorder = activityRecorder(bus = bus)
                 val statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo)
                 val recorder =
                     StatsRecorder(

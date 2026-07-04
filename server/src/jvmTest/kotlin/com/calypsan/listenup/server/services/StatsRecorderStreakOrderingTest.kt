@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -69,7 +70,7 @@ class StatsRecorderStreakOrderingTest :
                         publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                         clock = testClock,
                     ),
-                activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                activityRecorder = activityRecorder(bus = bus),
                 statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo),
                 clock = testClock,
             )

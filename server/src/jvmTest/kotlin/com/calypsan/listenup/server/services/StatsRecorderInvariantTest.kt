@@ -30,6 +30,7 @@ class StatsRecorderInvariantTest :
 
         fun harness(
             sql: com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase,
+            driver: app.cash.sqldelight.db.SqlDriver,
             nowMs: Long,
         ): Triple<StatsRecorder, UserStatsRepository, PublicProfileRepository> {
             val bus = ChangeBus()
@@ -47,7 +48,10 @@ class StatsRecorderInvariantTest :
                             publicProfileRepo = publicProfileRepo,
                             clock = FixedClock(Instant.fromEpochMilliseconds(nowMs)),
                         ),
-                    activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sql), bus = bus),
+                    activityRecorder =
+                        ActivityRecorder(
+                            syncRepo = ActivitySyncRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = driver),
+                        ),
                     statsBackfill =
                         UserStatsBackfillService(
                             sql = sql,
@@ -63,7 +67,7 @@ class StatsRecorderInvariantTest :
             val nowMs = 1_700_000_000_000L
             withSqlDatabase {
                 sql.seedTestUser("u1")
-                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, nowMs)
+                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, driver, nowMs)
                 val activities = ActivityRepository(db = sql)
 
                 runTest {
@@ -95,7 +99,7 @@ class StatsRecorderInvariantTest :
             val nowMs = 1_700_000_000_000L
             withSqlDatabase {
                 sql.seedTestUser("u1")
-                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, nowMs)
+                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, driver, nowMs)
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
@@ -130,7 +134,7 @@ class StatsRecorderInvariantTest :
             val nowMs = 1_700_000_000_000L
             withSqlDatabase {
                 sql.seedTestUser("u1")
-                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, nowMs)
+                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, driver, nowMs)
                 val activities = ActivityRepository(db = sql)
 
                 runTest {
@@ -155,7 +159,7 @@ class StatsRecorderInvariantTest :
             val nowMs = 1_700_000_000_000L
             withSqlDatabase {
                 sql.seedTestUser("u1")
-                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, nowMs)
+                val (recorder, userStatsRepo, publicProfileRepo) = harness(sql, driver, nowMs)
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
 
                 runTest {
