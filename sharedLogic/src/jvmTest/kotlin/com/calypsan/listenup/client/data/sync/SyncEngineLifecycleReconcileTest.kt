@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicInteger
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -82,10 +83,32 @@ class SyncEngineLifecycleReconcileTest :
                 catchUp.catchUpAllInvocations.get() shouldBe 1
             }
         }
+
+        // M1 regression: a forced trigger that arrives WHILE a pass is in flight must not be lost to
+        // the coalescing — the leader has to run one covering follow-up pass for it. Before the
+        // ownership-scoped finally fix, a returning leader could stomp the pending flag and silently
+        // drop exactly this forced follow-up.
+        test("a forced trigger arriving mid-pass schedules a covering follow-up pass") {
+            val catchUp = GatingLifecycleCatchUp()
+            // Large interval so the follow-up is earned by force alone, never by the debounce window.
+            withLifecycleEngine(minIntervalMs = 60_000L, catchUp = catchUp) { engine, _, _ ->
+                coroutineScope {
+                    val leader = launch { engine.lifecycleReconcile() }
+                    // Wait until the leader is provably inside pass 1 (running flag already set).
+                    catchUp.firstPassStarted.await()
+                    // Forced trigger during the in-flight pass → must register a covering follow-up.
+                    engine.lifecycleReconcile(force = true)
+                    // Let pass 1 finish; the leader's loop must now honor the pending follow-up.
+                    catchUp.releaseFirstPass.complete(Unit)
+                    leader.join()
+                }
+                catchUp.catchUpAllInvocations.get() shouldBe 2
+            }
+        }
     })
 
 /** Recording [CatchUp] that counts forward `catchUpAll` passes — the lifecycle-reconcile signal. */
-private class RecordingLifecycleCatchUp : CatchUp {
+private open class RecordingLifecycleCatchUp : CatchUp {
     val catchUpAllInvocations = AtomicInteger(0)
 
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
@@ -102,14 +125,34 @@ private class RecordingLifecycleCatchUp : CatchUp {
     override suspend fun domains(): AppResult<List<String>> = AppResult.Success(emptyList())
 }
 
+/**
+ * Recording [CatchUp] that blocks its FIRST `catchUpAll` pass until released, so a test can inject a
+ * concurrent trigger while a pass is provably in flight. [firstPassStarted] fires once the leader is
+ * inside pass 1 (running flag set); [releaseFirstPass] lets that pass complete.
+ */
+private class GatingLifecycleCatchUp : RecordingLifecycleCatchUp() {
+    val firstPassStarted = CompletableDeferred<Unit>()
+    val releaseFirstPass = CompletableDeferred<Unit>()
+
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> {
+        val result = super.catchUpAll(registry)
+        if (catchUpAllInvocations.get() == 1) {
+            firstPassStarted.complete(Unit)
+            releaseFirstPass.await()
+        }
+        return result
+    }
+}
+
 private fun withLifecycleEngine(
     minIntervalMs: Long,
+    catchUp: RecordingLifecycleCatchUp = RecordingLifecycleCatchUp(),
     block: suspend (SyncEngine, RecordingLifecycleCatchUp, FakeLifecycleSse) -> Unit,
 ) = runBlocking {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val db = createInMemoryTestDatabase()
     try {
-        val engineAndCatchUp = buildLifecycleEngine(db, scope, minIntervalMs)
+        val engineAndCatchUp = buildLifecycleEngine(db, scope, minIntervalMs, catchUp)
         block(engineAndCatchUp.first, engineAndCatchUp.second, engineAndCatchUp.third)
     } finally {
         scope.cancel()
@@ -123,13 +166,13 @@ private fun buildLifecycleEngine(
     db: ListenUpDatabase,
     scope: CoroutineScope,
     minIntervalMs: Long,
+    catchUp: RecordingLifecycleCatchUp = RecordingLifecycleCatchUp(),
 ): Triple<SyncEngine, RecordingLifecycleCatchUp, FakeLifecycleSse> {
     val registry = ClientSyncDomainRegistry()
     registry.register(LifecycleNoopTagHandler)
     val store = SyncCursorStore(db.syncCursorDao())
     val state = SyncEngineState()
     val sse = FakeLifecycleSse(state)
-    val catchUp = RecordingLifecycleCatchUp()
     val queue =
         PendingOperationQueue(
             dao = db.pendingOperationV2Dao(),
