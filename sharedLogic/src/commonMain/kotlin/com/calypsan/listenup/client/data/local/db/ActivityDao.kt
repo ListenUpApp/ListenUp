@@ -24,7 +24,7 @@ internal interface ActivityDao {
         """
         SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
                a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
-               pp.displayName AS displayName, pp.avatarType AS avatarType, pp.avatarValue AS avatarValue
+               pp.displayName AS displayName, pp.avatarType AS avatarType
         FROM activities a
         LEFT JOIN public_profiles pp ON pp.id = a.userId
         WHERE a.deletedAt IS NULL
@@ -42,7 +42,7 @@ internal interface ActivityDao {
         """
         SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
                a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
-               pp.displayName AS displayName, pp.avatarType AS avatarType, pp.avatarValue AS avatarValue
+               pp.displayName AS displayName, pp.avatarType AS avatarType
         FROM activities a
         LEFT JOIN public_profiles pp ON pp.id = a.userId
         WHERE a.occurredAt < :beforeMs AND a.deletedAt IS NULL
@@ -203,7 +203,6 @@ internal data class ActivityWithProfile(
     val shelfName: String?,
     val displayName: String?,
     val avatarType: String?,
-    val avatarValue: String?,
 )
 
 /**

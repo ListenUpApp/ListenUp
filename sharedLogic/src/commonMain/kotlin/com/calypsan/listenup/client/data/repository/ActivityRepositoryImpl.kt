@@ -75,7 +75,10 @@ private suspend fun ActivityWithProfile.toDomain(bookDao: BookDao): Activity {
                 displayName = displayName.orEmpty(),
                 avatarColor = stableAvatarColorHex(userId),
                 avatarType = avatarType ?: "auto",
-                avatarValue = avatarValue,
+                // `public_profiles` carries no avatar value; the avatar renderer resolves the image
+                // from userId + avatarType (cache-busted via the profile mirror), matching
+                // UserProfileRepositoryImpl which also maps public-profile avatarValue to null.
+                avatarValue = null,
             ),
         book = summary?.toActivityBook(),
         isReread = isReread,

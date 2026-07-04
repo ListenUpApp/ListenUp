@@ -16,13 +16,6 @@ internal fun presenceDomain(ping: () -> Unit): RefreshedDomain =
         refresh = RefreshStrategy.Ping(ping),
     )
 
-/** Activity feed changed: ping the signal the activity feed collects. */
-internal fun activityDomain(ping: () -> Unit): RefreshedDomain =
-    RefreshedDomain(
-        trigger = SyncControl.ActivityChanged::class,
-        refresh = RefreshStrategy.Ping(ping),
-    )
-
 /** Server info changed (admin edited name / remote URL): re-fetch getServerInfo (persists the remote-URL fallback). */
 internal fun serverInfoDomain(refetch: suspend () -> Unit): RefreshedDomain =
     RefreshedDomain(
