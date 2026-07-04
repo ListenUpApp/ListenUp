@@ -8,6 +8,8 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -403,9 +405,15 @@ internal class SyncEngine(
             // fires ONLY when a pass threw or was cancelled before the loop's normal exit, and it does
             // the read+reset entirely under the lock so no unsynchronized flag read remains.
             if (!ledToCompletion) {
-                lifecycleReconcileMutex.withLock {
-                    lifecycleReconcileRunning = false
-                    lifecycleReconcilePending = false
+                // NonCancellable: this cleanup usually runs BECAUSE the pass was cancelled, and the
+                // mutex may be momentarily contended by another trigger — a bare `withLock` would then
+                // throw CancellationException and leave `running` stuck true forever, permanently
+                // no-op'ing every future reconcile (the "restart required" class this engine kills).
+                withContext(NonCancellable) {
+                    lifecycleReconcileMutex.withLock {
+                        lifecycleReconcileRunning = false
+                        lifecycleReconcilePending = false
+                    }
                 }
             }
         }
@@ -511,11 +519,16 @@ internal class SyncEngine(
             // still outstanding (their covering pass never completed) must be released so coalesced
             // callers are not stranded — cancelled, not completed, since their request was not served.
             if (cursorStaleRunning) {
+                // NonCancellable for the same reason as lifecycleReconcile's cleanup: a contended
+                // `withLock` on the cancellation path would throw and strand `cursorStaleRunning` true,
+                // wedging all future CursorStale recovery.
                 val stranded =
-                    cursorStaleMutex.withLock {
-                        cursorStaleRunning = false
-                        cursorStalePending = false
-                        drainWaiters()
+                    withContext(NonCancellable) {
+                        cursorStaleMutex.withLock {
+                            cursorStaleRunning = false
+                            cursorStalePending = false
+                            drainWaiters()
+                        }
                     }
                 stranded.forEach { it.cancel() }
             }
