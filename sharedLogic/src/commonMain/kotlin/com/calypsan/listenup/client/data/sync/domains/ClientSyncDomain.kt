@@ -60,6 +60,7 @@ internal sealed interface NudgeRecovery {
      * slow poll while a collector stays subscribed ([pollWhileSubscribedMs], null = no poll).
      */
     data class OnSubscribeAndReconcile(
+        /** Slow-poll interval while a collector stays subscribed; null = no poll. Wired in Phase 3 — read by nothing yet. */
         val pollWhileSubscribedMs: Long? = null,
     ) : NudgeRecovery
 }

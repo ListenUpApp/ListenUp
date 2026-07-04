@@ -12,12 +12,15 @@ import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadReposito
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
+import com.calypsan.listenup.konsist.productionScope
 import com.calypsan.listenup.server.module
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -208,10 +211,42 @@ class SyncDomainCompletenessSpec :
                 val allControls = SyncControl::class.sealedSubclasses.toSet()
                 allControls shouldBe engineControls + refreshedTriggers.toSet()
 
-                // Every nudge domain declares its recovery (required at compile time; asserted for the
-                // guarantee that a dropped nudge has a declared self-heal — Plan §6a).
+                // Declaring a recovery is compile-time-required (the field is non-nullable), so a
+                // `recovery shouldNotBe null` assertion is dead. The real gap: the engine's dispatch,
+                // runNudgeLifecycleRecovery, switches on the trigger with an `else -> logger.warn(...)`
+                // fall-through. A new RefreshedDomain whose trigger the engine forgot to wire routes
+                // through that else and silently never self-heals a dropped nudge — CI stays green
+                // because the warn is a runtime log. Assert instead that EVERY refreshed domain's
+                // trigger is handled by an explicit (non-else) arm, so a forgotten wiring fails HERE.
+                val engineSource =
+                    productionScope()
+                        .files
+                        .firstOrNull { it.path.endsWith("/SyncEngine.kt") }
+                        .shouldNotBeNull()
+                        .text
+                val handledTriggers = NudgeRecoveryDispatchGuard.handledTriggerNames(engineSource)
+
+                // Sanity: the parser found the known explicit arms. A parser that silently returns
+                // nothing would make the coverage assertion vacuously green — refuse that.
+                withClue("parser found no handled triggers — runNudgeLifecycleRecovery shape changed?") {
+                    handledTriggers shouldBe
+                        setOf(
+                            "ActiveSessionsChanged",
+                            "ActivityChanged",
+                            "ServerInfoChanged",
+                            "PreferencesChanged",
+                        )
+                }
+
                 catalog.refreshed.forEach { domain ->
-                    withClue(domain.trigger.simpleName ?: "nudge") { domain.recovery shouldNotBe null }
+                    val name = domain.trigger.simpleName
+                    withClue(
+                        "RefreshedDomain trigger $name has no explicit arm in runNudgeLifecycleRecovery — " +
+                            "a dropped nudge would fall into the else warn-log and never self-heal. Wire an " +
+                            "explicit arm for it (Plan §6a).",
+                    ) {
+                        handledTriggers shouldContain name
+                    }
                 }
             } finally {
                 db.close()
