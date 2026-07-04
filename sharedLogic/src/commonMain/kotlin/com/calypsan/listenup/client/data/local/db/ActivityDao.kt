@@ -101,6 +101,20 @@ internal interface ActivityDao {
         revision: Long,
     )
 
+    /**
+     * Resurrect a locally-tombstoned activity: clear its tombstone and align its revision. Used when
+     * a row the access-gate prune soft-deleted is later re-delivered LIVE (a restored share re-sends
+     * it via catch-up with `deletedAt = null`). `deletedAt` is sync substrate, not append-only content,
+     * so it may flip back to null — without this the row would stay tombstoned forever and, because the
+     * server digest and the client's tombstone-inclusive digest then agree on `(id, revision)`, no
+     * reconcile could ever heal it.
+     */
+    @Query("UPDATE activities SET deletedAt = NULL, revision = :revision WHERE id = :id")
+    suspend fun restore(
+        id: String,
+        revision: Long,
+    )
+
     /** All rows (including tombstones) with revision <= max, for digest computation. */
     @Query("SELECT id AS id, revision FROM activities WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
@@ -110,14 +124,14 @@ internal interface ActivityDao {
     suspend fun liveIds(): List<String>
 
     /**
-     * Tombstone every live activity whose id is NOT in [accessibleIds] — the access-gate prune.
-     * A book deletion or share revocation shrinks the server's accessible-activity set; this evicts
-     * the now-inaccessible rows locally so the member no longer sees an activity for a book they
-     * lost access to (and the digest stops counting a row the server no longer serves).
+     * Tombstone the given live activities by id — the chunked access-gate prune. `activities` is
+     * append-forever (one row per listening session, every user), so the doomed set can exceed
+     * SQLite's ~32k bind-variable ceiling; the gate computes the doomed set in Kotlin and calls this
+     * with id chunks bounded well under the limit. A bounded `IN (:ids)` never overflows the binder.
      */
-    @Query("UPDATE activities SET deletedAt = :now WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)")
-    suspend fun tombstoneNotIn(
-        accessibleIds: Set<String>,
+    @Query("UPDATE activities SET deletedAt = :now WHERE deletedAt IS NULL AND id IN (:ids)")
+    suspend fun tombstoneByIds(
+        ids: List<String>,
         now: Long,
     )
 

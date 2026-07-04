@@ -41,9 +41,22 @@ internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<Activi
         accessGate =
             AccessGate(
                 localLiveIds = { database.activityDao().liveIds().toSet() },
-                pruneTo = { accessibleIds, now -> database.activityDao().tombstoneNotIn(accessibleIds, now) },
+                // activities is append-forever (one row per listening session, every user), so the
+                // doomed set can exceed SQLite's ~32k bind-variable ceiling. Compute it in Kotlin and
+                // tombstone by id in chunks under the limit — a `NOT IN (huge set)` would throw and the
+                // prune would silently fail. (books/collections gates share this latent ceiling but at
+                // far lower cardinality; only activities has the growth profile that forces chunking.)
+                pruneTo = { accessibleIds, now ->
+                    val doomed = database.activityDao().liveIds().toSet() - accessibleIds
+                    doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk ->
+                        database.activityDao().tombstoneByIds(chunk, now)
+                    }
+                },
             ),
     )
+
+/** SQLite's compiled bind-variable ceiling is ~32,766; chunk prune ids well under it. */
+private const val SQLITE_IN_CHUNK = 900
 
 /**
  * Room mapping for [ActivitySyncPayload]: insert-if-absent (append-only guard); the raw row is
@@ -55,6 +68,15 @@ internal class ActivityMirrorApply(
     override suspend fun upsert(payload: ActivitySyncPayload) {
         val existing = database.activityDao().getById(payload.id)
         if (existing != null) {
+            // A row the access-gate prune tombstoned, later re-delivered LIVE (a restored share
+            // re-sends it via catch-up with deletedAt = null), must un-tombstone — deletedAt is sync
+            // substrate, not append-only content. Without this the row stays tombstoned forever and no
+            // reconcile can heal it, because the server digest and the client's tombstone-inclusive
+            // digest then agree on (id, revision).
+            if (existing.deletedAt != null && payload.deletedAt == null) {
+                database.activityDao().restore(payload.id, payload.revision)
+                return
+            }
             // Append-only: domain fields never change. But if the server re-upserted this id (an
             // idempotent replay or a future backfill bumps its revision), converge the local revision
             // so the (id, revision) digest can never permanently drift on this client.

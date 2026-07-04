@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.client.data.local.db.ActivityEntity
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -190,6 +191,43 @@ class AccessChangedReconcileTest :
             }
         }
 
+        test("activities: a re-granted (live re-delivered) activity un-tombstones after an access prune") {
+            withReconcileEngine { harness, db, _ ->
+                val handler = activitiesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                handler.onCatchUpItem(activityPayload("a1", bookId = "b1"), isTombstone = false)
+
+                // Share revoked → the prune tombstones a1 (it dropped out of the accessible set).
+                harness.fakeCatchUp.accessibleByDomain["activities"] = emptySet()
+                harness.engine.handleAccessChanged()
+                db.activityDao().getById("a1")!!.deletedAt shouldNotBe null
+
+                // Share restored → catch-up re-delivers the SAME activity LIVE (deletedAt = null).
+                // The apply must resurrect the row, not leave it stranded-tombstoned forever.
+                handler.onCatchUpItem(activityPayload("a1", bookId = "b1"), isTombstone = false)
+
+                db.activityDao().getById("a1")!!.deletedAt shouldBe null
+                db.activityDao().liveIds() shouldBe listOf("a1")
+            }
+        }
+
+        test("activities: the prune tombstones EVERY doomed row across chunk boundaries (>900)") {
+            withReconcileEngine { harness, db, _ ->
+                // Seed more live rows than one SQLite bind-var chunk holds (900), so the prune must
+                // span multiple chunks — a single NOT IN would either overflow the binder or (if it
+                // fit) only ever touch one chunk's worth here we prove full coverage.
+                val total = 1000
+                repeat(total) { i -> db.activityDao().upsert(activityEntity("a$i")) }
+                db.activityDao().liveIds() shouldHaveSize total
+
+                // Only the first 10 stay accessible; the other 990 must all be tombstoned.
+                val accessible = (0 until 10).map { "a$it" }.toSet()
+                harness.fakeCatchUp.accessibleByDomain["activities"] = accessible
+                harness.engine.handleAccessChanged()
+
+                db.activityDao().liveIds().toSet() shouldBe accessible
+            }
+        }
+
         test("the persisted cursor store is never touched by the reconcile") {
             withReconcileEngine { harness, db, store ->
                 val handler =
@@ -367,6 +405,23 @@ private fun activityPayload(
         revision = 1L,
         createdAt = 1L,
         updatedAt = 100L,
+        deletedAt = null,
+    )
+
+private fun activityEntity(id: String): ActivityEntity =
+    ActivityEntity(
+        id = id,
+        userId = "author",
+        type = "finished_book",
+        occurredAt = 100L,
+        bookId = "b-$id",
+        isReread = false,
+        durationMs = 0L,
+        milestoneValue = 0,
+        milestoneUnit = null,
+        shelfId = null,
+        shelfName = null,
+        revision = 1L,
         deletedAt = null,
     )
 
