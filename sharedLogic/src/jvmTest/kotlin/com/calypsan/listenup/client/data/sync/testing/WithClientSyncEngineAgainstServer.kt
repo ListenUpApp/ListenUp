@@ -51,6 +51,7 @@ import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.bookServiceScopedTo
 import com.calypsan.listenup.server.api.createBookService
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -313,6 +314,11 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     module {
                         single { bus }
                         single { syncRegistry }
+                        // The catch-up / digest / firehose routes inject BookAccessPolicy to
+                        // access-filter the gated domains (books, activities, collections). Without
+                        // it, any access-gated FORWARD catch-up in-harness fails to resolve. Cheap to
+                        // wire here over the same already-migrated server DB.
+                        single { BookAccessPolicy(serverSqlDb, serverDriver) }
                         single(createdAtStart = true) { serverRepos.tagRepo }
                         single(createdAtStart = true) { serverRepos.bookRepo }
                         single(createdAtStart = true) { serverRepos.activeSessionRepo }
