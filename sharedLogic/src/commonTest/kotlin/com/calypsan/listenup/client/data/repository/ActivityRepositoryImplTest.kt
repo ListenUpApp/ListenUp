@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
-import com.calypsan.listenup.client.data.local.db.BookDao
-import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -23,11 +21,13 @@ import kotlinx.coroutines.test.runTest
  * Tests for [ActivityRepositoryImpl].
  *
  * The repository is a pure Room read seam over the cursored `activities` mirror. Writes arrive on
- * the sync data channel; this repository only READS and enriches each joined [ActivityWithProfile]
- * row into a domain `Activity`: identity (display name, avatar type) comes from the joined
- * `public_profiles` row, `avatarColor` is derived locally via [stableAvatarColorHex], `avatarValue`
- * is always null (public profiles carry none), and the book card is reconstructed from the local
- * book mirror via [BookDao.getBookSummary].
+ * the sync data channel; this repository only READS and maps each fully-enriched
+ * [ActivityWithProfile] row into a domain `Activity`: identity (display name, avatar type) comes
+ * from the joined `public_profiles` columns, `avatarColor` is derived locally via
+ * [stableAvatarColorHex], `avatarValue` is always null (public profiles carry none), and the book
+ * card is built entirely from the joined `books` columns (`bookTitle`/`bookCoverPath`/
+ * `bookAuthorName`) — present only when the row has a book that is accessible locally. There is no
+ * per-row book lookup: the DAO join is the single enrichment seam.
  *
  * Uses Mokkery for mocking and follows Given-When-Then style.
  */
@@ -37,23 +37,10 @@ class ActivityRepositoryImplTest :
 
         fun createMockDao(): ActivityDao = mock<ActivityDao>()
 
-        fun createMockBookDao(): BookDao = mock<BookDao>()
-
-        fun createRepository(
-            dao: ActivityDao = createMockDao(),
-            bookDao: BookDao = createMockBookDao(),
-        ): ActivityRepositoryImpl = ActivityRepositoryImpl(dao = dao, bookDao = bookDao)
+        fun createRepository(dao: ActivityDao = createMockDao()): ActivityRepositoryImpl =
+            ActivityRepositoryImpl(dao = dao)
 
         // ========== Test Data Factories ==========
-
-        fun bookSummary(id: String = "book-1"): BookSummary =
-            BookSummary(
-                id = id,
-                title = "The Way of Kings",
-                coverBlurHash = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
-                coverHash = null,
-                authorName = "Brandon Sanderson",
-            )
 
         fun activityRow(
             id: String = "activity-1",
@@ -61,6 +48,9 @@ class ActivityRepositoryImplTest :
             bookId: String? = "book-1",
             displayName: String? = "John Smith",
             avatarType: String? = "auto",
+            bookTitle: String? = "The Way of Kings",
+            bookCoverPath: String? = "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
+            bookAuthorName: String? = "Brandon Sanderson",
         ): ActivityWithProfile =
             ActivityWithProfile(
                 id = id,
@@ -76,19 +66,20 @@ class ActivityRepositoryImplTest :
                 shelfName = null,
                 displayName = displayName,
                 avatarType = avatarType,
+                bookTitle = bookTitle,
+                bookCoverPath = bookCoverPath,
+                bookAuthorName = bookAuthorName,
             )
 
         // ========== observeRecent (Room read + enrichment) ==========
 
-        test("observeRecent enriches identity from the joined profile and the book card from the mirror") {
+        test("observeRecent enriches identity from the joined profile and the book card from the joined columns") {
             runTest {
-                // Given - a book-bearing row and its local book summary
+                // Given - a book-bearing, fully-joined row
                 val dao = createMockDao()
-                val bookDao = createMockBookDao()
                 val row = activityRow()
                 every { dao.observeRecent(10) } returns flowOf(listOf(row))
-                everySuspend { bookDao.getBookSummary("book-1") } returns bookSummary()
-                val repository = createRepository(dao = dao, bookDao = bookDao)
+                val repository = createRepository(dao = dao)
 
                 // When
                 val activity = repository.observeRecent(10).first().single()
@@ -99,7 +90,7 @@ class ActivityRepositoryImplTest :
                 activity.user.avatarType shouldBe "auto"
                 activity.user.avatarColor shouldBe stableAvatarColorHex(row.userId)
                 activity.user.avatarValue.shouldBeNull()
-                // Book card reconstructed from the local mirror (blur hash stands in for the cover)
+                // Book card built from the joined columns
                 activity.book.shouldNotBeNull()
                 activity.book?.id shouldBe "book-1"
                 activity.book?.title shouldBe "The Way of Kings"
@@ -115,7 +106,15 @@ class ActivityRepositoryImplTest :
             runTest {
                 // Given - the author's public profile is not yet mirrored (LEFT JOIN yields nulls)
                 val dao = createMockDao()
-                val row = activityRow(bookId = null, displayName = null, avatarType = null)
+                val row =
+                    activityRow(
+                        bookId = null,
+                        displayName = null,
+                        avatarType = null,
+                        bookTitle = null,
+                        bookCoverPath = null,
+                        bookAuthorName = null,
+                    )
                 every { dao.observeRecent(any()) } returns flowOf(listOf(row))
                 val repository = createRepository(dao = dao)
 
@@ -129,15 +128,29 @@ class ActivityRepositoryImplTest :
             }
         }
 
+        test("observeRecent yields a null book card when the book is inaccessible (join produced no title)") {
+            runTest {
+                // Given - a row with a bookId but no joined book (deleted/inaccessible locally: title null)
+                val dao = createMockDao()
+                val row = activityRow(bookTitle = null, bookCoverPath = null, bookAuthorName = null)
+                every { dao.observeRecent(any()) } returns flowOf(listOf(row))
+                val repository = createRepository(dao = dao)
+
+                // When
+                val activity = repository.observeRecent(10).first().single()
+
+                // Then - no card even though bookId is present, because the book row didn't join
+                activity.book.shouldBeNull()
+            }
+        }
+
         test("observeRecent emits updates when the underlying flow updates") {
             runTest {
                 // Given
                 val dao = createMockDao()
-                val bookDao = createMockBookDao()
-                everySuspend { bookDao.getBookSummary(any()) } returns bookSummary()
                 val flowSource = MutableStateFlow<List<ActivityWithProfile>>(emptyList())
                 every { dao.observeRecent(any()) } returns flowSource
-                val repository = createRepository(dao = dao, bookDao = bookDao)
+                val repository = createRepository(dao = dao)
 
                 // When - initial emission is empty
                 repository.observeRecent(10).first().isEmpty() shouldBe true
@@ -158,10 +171,8 @@ class ActivityRepositoryImplTest :
             runTest {
                 // Given
                 val dao = createMockDao()
-                val bookDao = createMockBookDao()
-                everySuspend { bookDao.getBookSummary("book-1") } returns bookSummary()
                 everySuspend { dao.getOlderThan(1704067200000L, 10) } returns listOf(activityRow(id = "old-1"))
-                val repository = createRepository(dao = dao, bookDao = bookDao)
+                val repository = createRepository(dao = dao)
 
                 // When
                 val result = repository.getOlderThan(beforeMs = 1704067200000L, limit = 10)

@@ -1,17 +1,23 @@
 package com.calypsan.listenup.client.presentation.discover
 
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.Activity
+import com.calypsan.listenup.client.domain.model.ScanProgressState
+import com.calypsan.listenup.client.domain.model.SyncState
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -42,10 +48,12 @@ class ActivityFeedViewModelTest :
         class TestFixture {
             val activityRepository: ActivityRepository = mock()
             val activitiesFlow = MutableStateFlow<List<Activity>>(emptyList())
+            val syncRepository = RecordingSyncRepository()
 
             fun build(): ActivityFeedViewModel =
                 ActivityFeedViewModel(
                     activityRepository = activityRepository,
+                    syncRepository = syncRepository,
                 )
         }
 
@@ -172,4 +180,54 @@ class ActivityFeedViewModelTest :
                 err.message shouldBe "Failed to load activity feed"
             }
         }
+
+        // ========== Pull-to-refresh Tests ==========
+
+        test("refresh routes to syncRepository.refresh (Never-Stranded manual reconcile)") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+
+                // When
+                viewModel.refresh()
+                advanceUntilIdle()
+
+                // Then - the manual reconcile is forwarded to the sync engine
+                fixture.syncRepository.refreshCalled.shouldBeTrue()
+            }
+        }
     })
+
+/**
+ * [SyncRepository] fake that records whether [refresh] was invoked — the only method the
+ * ActivityFeed ViewModel touches. Everything else is a no-op stub.
+ */
+private class RecordingSyncRepository : SyncRepository {
+    var refreshCalled: Boolean = false
+        private set
+
+    override val syncState: StateFlow<SyncState> = MutableStateFlow(SyncState.Idle)
+    override val isServerScanning: StateFlow<Boolean> = MutableStateFlow(false)
+    override val isBuildingInitialLibrary: StateFlow<Boolean> = MutableStateFlow(false)
+    override val scanProgress: StateFlow<ScanProgressState?> = MutableStateFlow(null)
+
+    override suspend fun sync(): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun connectRealtime() = Unit
+
+    override suspend fun disconnect() = Unit
+
+    override suspend fun resetForNewLibrary(newLibraryId: String): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun refreshListeningHistory(): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun forceFullResync(): AppResult<Unit> = AppResult.Success(Unit)
+
+    override suspend fun refresh(): AppResult<Unit> {
+        refreshCalled = true
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun hasLocalLibrary(): Boolean = true
+}

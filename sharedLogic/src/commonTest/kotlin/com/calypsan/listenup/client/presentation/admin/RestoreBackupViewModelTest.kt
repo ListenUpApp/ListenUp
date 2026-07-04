@@ -269,5 +269,7 @@ private class FakeSyncRepository(
         return resyncResult
     }
 
+    override suspend fun refresh(): AppResult<Unit> = AppResult.Success(Unit)
+
     override suspend fun hasLocalLibrary(): Boolean = true
 }

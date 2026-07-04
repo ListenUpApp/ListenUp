@@ -4,12 +4,14 @@ import com.calypsan.listenup.api.sync.BookAudioFilePayload
 import com.calypsan.listenup.api.sync.BookChapterPayload
 import com.calypsan.listenup.api.sync.BookContributorPayload
 import com.calypsan.listenup.api.sync.BookSeriesPayload
+import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.activitiesDomain
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
@@ -147,6 +149,47 @@ class AccessChangedReconcileTest :
             }
         }
 
+        test("activities: a book that becomes inaccessible prunes its activity, the accessible one survives") {
+            withReconcileEngine { harness, db, _ ->
+                val handler = activitiesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                // a1's book stays accessible; a2's book (or share) is about to be revoked.
+                handler.onCatchUpItem(activityPayload("a1", bookId = "b1"), isTombstone = false)
+                handler.onCatchUpItem(activityPayload("a2", bookId = "b2"), isTombstone = false)
+                db.activityDao().liveIds().toSet() shouldBe setOf("a1", "a2")
+
+                // The access-filtered catch-up now returns only a1 — b2 was deleted / its share revoked,
+                // so a2 dropped out of the member's accessible set.
+                harness.fakeCatchUp.accessibleByDomain["activities"] = setOf("a1")
+                harness.engine.handleAccessChanged()
+
+                // a2 is tombstoned (soft-deleted), a1 remains live — same shape as books/collections.
+                db.activityDao().getById("a1")!!.deletedAt shouldBe null
+                db.activityDao().getById("a2")!!.deletedAt shouldNotBe null
+                db.activityDao().liveIds() shouldBe listOf("a1")
+            }
+        }
+
+        test("activities: the access prune converges — a second reconcile is a stable no-op (no permanent drift)") {
+            withReconcileEngine { harness, db, _ ->
+                val handler = activitiesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                handler.onCatchUpItem(activityPayload("a1", bookId = "b1"), isTombstone = false)
+                handler.onCatchUpItem(activityPayload("a2", bookId = "b2"), isTombstone = false)
+
+                // First reconcile prunes a2 to match the server's accessible set.
+                harness.fakeCatchUp.accessibleByDomain["activities"] = setOf("a1")
+                harness.engine.handleAccessChanged()
+                val digestAfterFirst = db.activityDao().digestRows(Long.MAX_VALUE).toSet()
+
+                // Second reconcile against the SAME accessible set must change nothing: the digest the
+                // server would compare against is now stable, so `activities` converges exactly like
+                // `books` — no row flip-flops, no permanent (id, revision) drift.
+                harness.engine.handleAccessChanged()
+
+                db.activityDao().digestRows(Long.MAX_VALUE).toSet() shouldBe digestAfterFirst
+                db.activityDao().liveIds() shouldBe listOf("a1")
+            }
+        }
+
         test("the persisted cursor store is never touched by the reconcile") {
             withReconcileEngine { harness, db, store ->
                 val handler =
@@ -223,6 +266,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
             collectionsDomain(db).toHandler(txn, registry)
             collectionBooksDomain(db).toHandler(txn, registry)
             collectionSharesDomain(db).toHandler(txn, registry)
+            activitiesDomain(db).toHandler(txn, registry)
 
             val store = SyncCursorStore(db.syncCursorDao())
             val state = SyncEngineState()
@@ -301,6 +345,28 @@ private fun bookPayload(id: String): BookSyncPayload =
         revision = 1L,
         updatedAt = 100L,
         createdAt = 1L,
+        deletedAt = null,
+    )
+
+private fun activityPayload(
+    id: String,
+    bookId: String?,
+): ActivitySyncPayload =
+    ActivitySyncPayload(
+        id = id,
+        userId = "author",
+        type = "finished_book",
+        bookId = bookId,
+        isReread = false,
+        durationMs = 0L,
+        milestoneValue = 0,
+        milestoneUnit = null,
+        shelfId = null,
+        shelfName = null,
+        occurredAt = 100L,
+        revision = 1L,
+        createdAt = 1L,
+        updatedAt = 100L,
         deletedAt = null,
     )
 

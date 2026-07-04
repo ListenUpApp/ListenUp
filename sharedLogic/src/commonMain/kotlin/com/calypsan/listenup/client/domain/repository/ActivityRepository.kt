@@ -37,11 +37,13 @@ interface ActivityRepository {
     ): List<Activity>
 
     /**
-     * Get the newest activity timestamp.
+     * Timestamp of the newest locally-mirrored activity.
      *
-     * Used as a cursor for sync operations.
+     * A read-only convenience for the UI (e.g. an "up to date as of…" hint / keyset paging anchor).
+     * This is NOT the sync cursor: the `activities` MirroredDomain advances its own revision cursor
+     * on the sync channel, independent of this value.
      *
-     * @return Epoch milliseconds of newest activity, or null if empty
+     * @return Epoch milliseconds of the newest live activity, or null if the mirror is empty.
      */
     suspend fun getNewestTimestamp(): Long?
 

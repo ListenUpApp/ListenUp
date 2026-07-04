@@ -208,6 +208,7 @@ internal data class ClientEngineScope(
     val serverUserStatsRepository: UserStatsRepository,
     val serverLibraryRepository: LibraryRepository,
     val serverLibraryFolderRepository: LibraryFolderRepository,
+    val serverActivityRecorder: ActivityRecorder,
     val clientDatabase: ListenUpDatabase,
     val bookEditRepository: BookEditRepository,
     val contributorEditRepository: ContributorEditRepository,
@@ -554,6 +555,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     serverUserStatsRepository = serverRepos.userStatsRepo,
                     serverLibraryRepository = serverRepos.libraryRepo,
                     serverLibraryFolderRepository = serverRepos.libraryFolderRepo,
+                    serverActivityRecorder = serverRepos.activityRecorder,
                     clientDatabase = clientDb,
                     bookEditRepository = bookEditRepository,
                     contributorEditRepository = contributorEditRepository,
@@ -595,6 +597,7 @@ private data class ServerRepositories(
     val userStatsRepo: UserStatsRepository,
     val libraryRepo: LibraryRepository,
     val libraryFolderRepo: LibraryFolderRepository,
+    val activityRecorder: ActivityRecorder,
 )
 
 /**
@@ -694,8 +697,15 @@ private fun buildServerRepositories(
     val publicProfileMaintainer =
         PublicProfileMaintainer(serverSqlDb, PublicProfileRepository(serverSqlDb, bus, registry))
     statsUpdater = UserStatsUpdater(sql = serverSqlDb, userStatsRepo = userStatsRepo)
+    // The activities syncable repo registers in the shared registry (+ driver) so the domain
+    // participates in the harness's in-process sync (catch-up/digest/firehose). Built here (not
+    // buried inside buildStatsRecorder) so the recorder can be exposed on the scope for e2e tests.
+    val activityRecorder =
+        ActivityRecorder(
+            syncRepo = ActivitySyncRepository(db = serverSqlDb, bus = bus, registry = registry, driver = serverDriver),
+        )
     val statsRecorder =
-        buildStatsRecorder(serverSqlDb, serverDriver, registry, bus, userStatsRepo, publicProfileMaintainer)
+        buildStatsRecorder(serverSqlDb, userStatsRepo, publicProfileMaintainer, activityRecorder)
     val listeningEventRepo =
         ListeningEventRepository(
             db = serverSqlDb,
@@ -716,28 +726,22 @@ private fun buildServerRepositories(
         userStatsRepo,
         libraryRepo,
         libraryFolderRepo,
+        activityRecorder,
     )
 }
 
 private fun buildStatsRecorder(
     sqlDb: ServerSqlDatabase,
-    driver: SqlDriver,
-    registry: SyncRegistry,
-    bus: ChangeBus,
     statsRepo: UserStatsRepository,
     publicProfileMaintainer: PublicProfileMaintainer,
+    activityRecorder: ActivityRecorder,
 ): StatsRecorder =
     StatsRecorder(
         sql = sqlDb,
         userStatsRepo = statsRepo,
         bookReadsRepository = BookReadsRepository(db = sqlDb),
         publicProfileMaintainer = publicProfileMaintainer,
-        // The activities syncable repo registers in the shared registry (+ driver) so the domain
-        // participates in the harness's in-process sync (catch-up/digest/firehose).
-        activityRecorder =
-            ActivityRecorder(
-                syncRepo = ActivitySyncRepository(db = sqlDb, bus = bus, registry = registry, driver = driver),
-            ),
+        activityRecorder = activityRecorder,
         statsBackfill = UserStatsBackfillService(sql = sqlDb, userStatsRepo = statsRepo),
     )
 
