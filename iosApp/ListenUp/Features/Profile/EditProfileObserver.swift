@@ -25,7 +25,6 @@ enum StagedAvatar: Equatable {
 final class EditProfileObserver {
     private(set) var isLoading: Bool = true
     private(set) var user: User?
-    private(set) var localAvatarPath: String?
     private(set) var firstName: String = ""
     private(set) var lastName: String = ""
     private(set) var tagline: String = ""
@@ -89,7 +88,6 @@ final class EditProfileObserver {
         case .ready(let r):
             isLoading = false
             user = r.user
-            localAvatarPath = r.localAvatarPath
             firstName = r.firstName
             lastName = r.lastName
             tagline = r.tagline
