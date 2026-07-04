@@ -177,7 +177,15 @@ internal class CollectionServiceImpl(
         // a suspend repo call that opens its own SQLDelight transaction, so they run sequentially
         // (they cannot nest inside a non-suspend SQLDelight transaction body). Sequential
         // single-engine writes never contend for the lone SQLite write lock.
+        // Capture the live members BEFORE the cascade so we can re-home any book that loses its
+        // last real membership: deleting a collection must never strand a book with zero memberships.
+        val affectedBookIds = collectionBookRepo.findBookIdsForCollection(id.value)
         collectionBookRepo.softDeleteAllForCollection(id.value)
+        // A book whose only membership was this collection returns to ALL_BOOKS (reconcile bumps
+        // its revision + nudges ALL_BOOKS grant-holders so members re-derive the now-public book).
+        for (bookId in affectedBookIds) {
+            reconcileSystemMembership(bookId)
+        }
         for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
             grantRepo.softDelete(grant.id)
         }
@@ -211,6 +219,12 @@ internal class CollectionServiceImpl(
                 // Bump the book's revision so each member's incremental `revision > cursor` pull
                 // re-delivers the now-visible book — the access nudge alone never carries the row.
                 bookRevisionTouch.touchRevision(bookId)
+                // First real membership ⇒ the book leaves the everyone-visible ALL_BOOKS substrate.
+                // Adding directly to a system collection (ALL_BOOKS/INBOX) is a managed action, not
+                // reconciled — reconcile there would immediately undo the deliberate placement.
+                if (id.value !in collectionRepo.systemCollectionIds()) {
+                    reconcileSystemMembership(bookId.value)
+                }
                 AppResult.Success(Unit)
             }
 
@@ -237,6 +251,8 @@ internal class CollectionServiceImpl(
         // Bump the book's revision so each member's incremental `revision > cursor` pull re-evaluates
         // its now-changed visibility and prunes it when no access path remains.
         bookRevisionTouch.touchRevision(bookId)
+        // Removing the last real membership ⇒ the book returns to ALL_BOOKS (never stranded).
+        reconcileSystemMembership(bookId.value)
         return AppResult.Success(Unit)
     }
 
@@ -249,9 +265,10 @@ internal class CollectionServiceImpl(
 
         if (!bookExists(bookId.value)) return AppResult.Failure(CollectionError.BookNotFound())
 
-        // System collections (ALL_BOOKS, INBOX) are managed by the server — setBookCollections must
-        // never add or remove them. Exclude system ids from both sides of the diff so only NORMAL
-        // collection memberships are affected by this replace-set operation.
+        // System collections (ALL_BOOKS, INBOX) are server-managed — a client must never NAME one
+        // as a target. Exclude system ids from the caller-supplied set and from the diff so this
+        // replace-set only touches NORMAL memberships; ALL_BOOKS is then maintained by
+        // reconcileSystemMembership below (derived from the resulting real set), never named here.
         val systemIds = collectionRepo.systemCollectionIds()
 
         // Validate every distinct target up front — exists and live — before mutating:
@@ -294,6 +311,10 @@ internal class CollectionServiceImpl(
         if (added.isNotEmpty() || removed.isNotEmpty()) {
             bookRevisionTouch.touchRevision(bookId)
         }
+        // Derive ALL_BOOKS from the resulting real set: in ALL_BOOKS iff no real membership remains
+        // (and not held in INBOX). This drops a curated book out of the everyone-collection (the
+        // #680/#730 leak) and re-homes an empty target set into ALL_BOOKS instead of orphaning it.
+        reconcileSystemMembership(bookId.value)
         return AppResult.Success(Unit)
     }
 
@@ -587,20 +608,70 @@ internal class CollectionServiceImpl(
         for (bookId in assignments.keys) {
             bookRevisionTouch.touchRevision(BookId(bookId))
         }
+        // Maintain exclusivity from the post-release set: a book released into explicit targets must
+        // not linger in ALL_BOOKS (defensive tombstone of any stale junction); one released unsorted
+        // stays in ALL_BOOKS (the fallback added above). reconcile derives both.
+        for (bookId in assignments.keys) {
+            reconcileSystemMembership(bookId)
+        }
         return AppResult.Success(Unit)
     }
 
     /**
-     * Publishes a per-user [SyncControl.AccessChanged] nudge to every enumerable user whose
-     * visibility may have shifted because the membership of [collectionIds] changed — each
-     * collection's owner plus its active-share recipients. The single emission contract shared
-     * by every visibility-mutating method (add/remove book, [setBookCollections], [releaseBooks]).
+     * Enforces the exclusivity invariant between the everyone-visible ALL_BOOKS substrate and
+     * every regular collection: a book is in ALL_BOOKS **iff** it belongs to no other (non-system)
+     * collection and is not held in INBOX. Called after any junction mutation.
      *
-     * A nudged member re-derives their view and prunes any book they can no longer reach — the
-     * gated-out book/junction sync events alone would never tell them. Admins see everything, so
-     * they need no signal; the non-enumerable public↔private "everyone" edge converges on the next
-     * firehose catch-up (the documented 1b behavior).
+     * Derives the book's live memberships, then:
+     *  - `real.isEmpty() && !held` → ensures a live ALL_BOOKS junction via
+     *    [CollectionBookRepository.upsert], which **resurrects** a tombstoned row — unlike the
+     *    insert-only `writeSystemMembership`, which would skip an existing/tombstoned junction.
+     *  - otherwise → tombstones the live ALL_BOOKS junction if present.
+     *
+     * Only when ALL_BOOKS membership actually flips does it nudge that collection's grant-holders
+     * (every member holds a default ALL_BOOKS grant) and bump the book's revision, so each member
+     * re-derives their view and the visibility delta converges. Idempotent: a no-op flip emits
+     * nothing.
      */
+    private suspend fun reconcileSystemMembership(bookId: String) {
+        val libraryId = bookLibraryId(bookId) ?: return
+        val systemIds = collectionRepo.systemCollectionIds()
+        val liveMemberships = collectionBookRepo.findCollectionIdsForBook(bookId).toSet()
+        val real = liveMemberships - systemIds
+        val inboxId = collectionRepo.findInboxForLibrary(libraryId)?.id
+        val held = inboxId != null && inboxId in liveMemberships
+        val allBooksId = collectionRepo.findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS)?.id
+        val allBooksLive = allBooksId != null && allBooksId in liveMemberships
+
+        if (real.isEmpty() && !held) {
+            if (allBooksLive) return
+            val id =
+                allBooksId
+                    ?: getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
+                        .getOrElse { return }
+                        .id.value
+            collectionBookRepo.upsert(
+                CollectionBookSyncPayload(
+                    collectionId = id,
+                    bookId = bookId,
+                    createdAt = clock.now().toEpochMilliseconds(),
+                    revision = 0L,
+                    deletedAt = null,
+                ),
+            )
+            notifyAccessChanged(listOf(id))
+            bookRevisionTouch.touchRevision(BookId(bookId))
+        } else if (allBooksLive) {
+            collectionBookRepo.softDelete(collectionId = allBooksId!!, bookId = bookId)
+            notifyAccessChanged(listOf(allBooksId))
+            bookRevisionTouch.touchRevision(BookId(bookId))
+        }
+    }
+
+    /** The `books.library_id` for [bookId], or null when the book is absent — resolves its system collections. */
+    private suspend fun bookLibraryId(bookId: String): String? =
+        suspendTransaction(sql) { sql.booksQueries.selectLibraryIdById(bookId).executeAsOneOrNull() }
+
     private suspend fun notifyAccessChanged(collectionIds: Collection<String>) {
         val affectedUserIds =
             collectionIds
@@ -610,6 +681,9 @@ internal class CollectionServiceImpl(
                     if (owner != null) shareUsers + owner else shareUsers
                 }.toSet()
         for (affectedUserId in affectedUserIds) {
+            // The ALL_BOOKS/INBOX sentinel owner is not a real client — nudging it is pure noise.
+            // (ALL_BOOKS reaches its real audience via the per-member default grants enumerated above.)
+            if (affectedUserId == SYSTEM_OWNER_ID) continue
             bus.publishControl(SyncControl.AccessChanged, affectedUserId)
         }
     }
