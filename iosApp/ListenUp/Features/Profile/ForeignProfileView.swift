@@ -63,11 +63,12 @@ struct ForeignProfileView: View {
 
     private var header: some View {
         VStack(spacing: 12) {
+            // Image-ness is resolved by userId inside UserAvatarView (one cheap negative-cached
+            // miss falls back to initials), so no avatar-type hint is threaded from the state.
             UserAvatarView(
                 userId: userId,
                 fallbackName: observer?.displayName ?? "",
                 avatarColor: observer?.avatarColorHex,
-                hasImageAvatar: observer?.hasImageAvatar ?? true,
                 size: 104
             )
 
