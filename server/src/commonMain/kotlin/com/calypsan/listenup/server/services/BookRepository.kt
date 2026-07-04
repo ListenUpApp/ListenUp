@@ -964,7 +964,7 @@ class BookRepository(
     override suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
         seen: Set<FolderScopedPath>,
-    ) {
+    ): Int {
         val toDelete =
             suspendTransaction(db) {
                 db.booksQueries
@@ -976,6 +976,7 @@ class BookRepository(
         for (id in toDelete) {
             softDelete(BookId(id), clientOpId = null)
         }
+        return toDelete.size
     }
 
     /**
@@ -986,15 +987,16 @@ class BookRepository(
     override suspend fun softDeleteByPath(
         folderId: FolderId,
         rootRelPath: String,
-    ) {
+    ): Int {
         val id =
             suspendTransaction<BookId?>(db) {
                 db.booksQueries
                     .selectLiveIdByPath(folderId.value, rootRelPath)
                     .executeAsOneOrNull()
                     ?.let { BookId(it) }
-            } ?: return // already gone — idempotent no-op
+            } ?: return 0 // already gone — idempotent no-op
         softDelete(id, clientOpId = null)
+        return 1
     }
 
     /**

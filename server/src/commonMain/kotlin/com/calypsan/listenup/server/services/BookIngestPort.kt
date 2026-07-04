@@ -162,11 +162,14 @@ interface BookIngestPort {
      * Accepts the set of folder-qualified [FolderScopedPath] locators seen on disk during a full
      * scan — no BookId resolution required for books that did not change. Folder-qualifying the
      * seen set closes a cross-folder path-aliasing bug (two folders sharing a relative path).
+     *
+     * Returns the number of books tombstoned, so the orchestrator knows a delete-only full scan
+     * changed rows above the client cursor and must broadcast the reconcile nudge.
      */
     suspend fun softDeleteAbsentByPaths(
         libraryId: LibraryId,
         seen: Set<FolderScopedPath>,
-    )
+    ): Int
 
     /**
      * Soft-delete the live book at `(folderId, rootRelPath)`, if one exists.
@@ -176,6 +179,9 @@ interface BookIngestPort {
      * [com.calypsan.listenup.api.sync.SyncEvent.Deleted] to the change bus so connected clients
      * reflow immediately.
      *
+     * Returns 1 when a live book was tombstoned, 0 on the idempotent no-op — so the orchestrator
+     * can count the deletions a delete-only suppressed scan applied and broadcast the reconcile nudge.
+     *
      * Called from [com.calypsan.listenup.server.services.BookPersister] when a
      * [com.calypsan.listenup.api.dto.scanner.ChangeEventDto.Removed] arrives on an
      * incremental scan — the only path that explicitly notifies of a deletion without
@@ -184,7 +190,7 @@ interface BookIngestPort {
     suspend fun softDeleteByPath(
         folderId: FolderId,
         rootRelPath: String,
-    )
+    ): Int
 }
 
 /**
