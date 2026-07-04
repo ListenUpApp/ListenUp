@@ -18,8 +18,10 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.ActiveSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.ActiveSessionRepository
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.BookRepository
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -88,8 +90,16 @@ fun playbackModule(): Module =
         }
         single { UserRoleLookup(db = get<ListenUpDatabase>()) }
         single(createdAtStart = true) { ActiveSessionRepository(db = get<ListenUpDatabase>(), bus = get()) }
+        single(createdAtStart = true) {
+            ActivitySyncRepository(
+                db = get<ListenUpDatabase>(),
+                bus = get(),
+                registry = get(),
+                driver = get<SqlDriver>(),
+            )
+        }
         single { ActivityRepository(db = get<ListenUpDatabase>()) }
-        single { ActivityRecorder(repo = get(), bus = get()) }
+        single { ActivityRecorder(syncRepo = get()) }
         single { BookReadsRepository(db = get<ListenUpDatabase>(), clock = get()) }
         single {
             StatsRecorder(

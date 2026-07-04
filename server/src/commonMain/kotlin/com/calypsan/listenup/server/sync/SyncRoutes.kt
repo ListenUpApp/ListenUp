@@ -3,6 +3,7 @@ package com.calypsan.listenup.server.sync
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.InternalError
+import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.DomainList
@@ -40,6 +41,12 @@ private const val SSE_EVENT_CONTROL = "control"
 // Every other domain passes a null filter (unchanged behaviour).
 private const val BOOKS_DOMAIN = "books"
 private const val COLLECTIONS_DOMAIN = "collections"
+
+// Book-gated but GLOBAL (not per-user): a row with a non-null book_id is visible iff the caller can
+// access that book; book_id IS NULL rows (e.g. user_joined) are public. Unlike books (`id IN
+// (accessibleBooks)`) the gate is on the row's book_id, so the access subquery selects visible
+// ACTIVITY ids, not book ids. ROOT/ADMIN are unconstrained (null filter).
+private const val ACTIVITIES_DOMAIN = "activities"
 
 // Wire domain stays "collection_shares" while the storage table is collection_grants — a USER grant
 // maps to a share on the wire. Do NOT rename to "collection_grants" without a coordinated client
@@ -88,6 +95,18 @@ private fun accessFilterFor(
 ): SqlFragment? =
     when (domainName) {
         BOOKS_DOMAIN -> policy().accessibleBookIdsSql(userId, role)
+        ACTIVITIES_DOMAIN ->
+            // Wrap the book-access subquery to select visible ACTIVITY ids: a row is visible iff its
+            // book_id is null (public) or accessible. ROOT/ADMIN → null (unconstrained). The wrapped
+            // subquery is code-controlled text; the caller's ids ride in `args`, order preserved.
+            policy().accessibleBookIdsSql(userId, role)?.let { bookAccess ->
+                SqlFragment(
+                    sql =
+                        "SELECT a2.id FROM activities a2 " +
+                            "WHERE a2.book_id IS NULL OR a2.book_id IN (${bookAccess.sql})",
+                    args = bookAccess.args,
+                )
+            }
         COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
         COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionGrantIdsSql(userId, role)
         COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
@@ -274,6 +293,7 @@ private suspend fun ServerSSESession.streamFirehose(
                 val gatedReason =
                     when {
                         isBookEventHidden(busEvent, userId, role, bookAccessPolicy) -> "book"
+                        isActivityEventHidden(busEvent, userId, role, bookAccessPolicy) -> "activity"
                         isCollectionEventHidden(busEvent, userId, role, bookAccessPolicy) -> "collection"
                         isLibraryFolderEventHidden(busEvent, role) -> "libraryFolder"
                         isAdminRosterEventHidden(busEvent, role) -> "adminRoster"
@@ -395,6 +415,41 @@ private suspend fun isBookEventHidden(
     if (busEvent.event is SyncEvent.Deleted) return false
     return !bookAccessPolicy().canAccess(userId, role, busEvent.event.id)
 }
+
+/**
+ * Whether a live firehose [busEvent] on the `activities` domain must be withheld from
+ * `(userId, role)`. Book-gated: a row with a non-null `book_id` is hidden unless the caller can
+ * access that book; a `book_id == null` row (e.g. `user_joined`) is public and always passes.
+ *
+ * Mirrors [isBookEventHidden]: ROOT/ADMIN and Deleted tombstones always pass (a tombstone strands
+ * no secret). Visibility matches the `activities` catch-up fragment exactly (`book_id IS NULL OR
+ * book_id IN accessible`), so the live tail and REST replay never disagree.
+ */
+private suspend fun isActivityEventHidden(
+    busEvent: BusEvent<*>,
+    userId: String,
+    role: UserRole,
+    bookAccessPolicy: () -> BookAccessPolicy,
+): Boolean {
+    if (busEvent.repo.domainName != ACTIVITIES_DOMAIN) return false
+    if (role == UserRole.ROOT || role == UserRole.ADMIN) return false
+    if (busEvent.event is SyncEvent.Deleted) return false
+    // Gate on the row's book_id (from the payload), not the event id (which is the activity id).
+    val bookId = activityBookIdOf(busEvent.event) ?: return false
+    return !bookAccessPolicy().canAccess(userId, role, bookId)
+}
+
+/**
+ * The `bookId` carried by a content [event] on the `activities` domain, or `null` when the row is
+ * a public (non-book) activity or a tombstone (already handled upstream). The repo↔event type
+ * binding guarantees the payload is an [ActivitySyncPayload] by construction.
+ */
+private fun activityBookIdOf(event: SyncEvent<*>): String? =
+    when (event) {
+        is SyncEvent.Created<*> -> (event.payload as ActivitySyncPayload).bookId
+        is SyncEvent.Updated<*> -> (event.payload as ActivitySyncPayload).bookId
+        is SyncEvent.Deleted -> null
+    }
 
 /**
  * Whether a live firehose [busEvent] on the `library_folders` domain must be withheld from
