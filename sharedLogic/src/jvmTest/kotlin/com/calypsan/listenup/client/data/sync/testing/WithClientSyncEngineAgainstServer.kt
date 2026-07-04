@@ -83,7 +83,7 @@ import com.calypsan.listenup.server.services.SeriesRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.StatsRecorder
 import com.calypsan.listenup.server.services.UserStatsBackfillService
@@ -696,7 +696,7 @@ private fun buildServerRepositories(
     val publicProfileMaintainer =
         PublicProfileMaintainer(serverSqlDb, PublicProfileRepository(serverSqlDb, bus, registry))
     statsUpdater = UserStatsUpdater(sql = serverSqlDb, userStatsRepo = userStatsRepo)
-    val statsRecorder = buildStatsRecorder(serverSqlDb, bus, userStatsRepo, publicProfileMaintainer)
+    val statsRecorder = buildStatsRecorder(serverSqlDb, serverDriver, registry, bus, userStatsRepo, publicProfileMaintainer)
     val listeningEventRepo =
         ListeningEventRepository(
             db = serverSqlDb,
@@ -722,6 +722,8 @@ private fun buildServerRepositories(
 
 private fun buildStatsRecorder(
     sqlDb: ServerSqlDatabase,
+    driver: SqlDriver,
+    registry: SyncRegistry,
     bus: ChangeBus,
     statsRepo: UserStatsRepository,
     publicProfileMaintainer: PublicProfileMaintainer,
@@ -731,7 +733,12 @@ private fun buildStatsRecorder(
         userStatsRepo = statsRepo,
         bookReadsRepository = BookReadsRepository(db = sqlDb),
         publicProfileMaintainer = publicProfileMaintainer,
-        activityRecorder = ActivityRecorder(repo = ActivityRepository(db = sqlDb), bus = bus),
+        // The activities syncable repo registers in the shared registry (+ driver) so the domain
+        // participates in the harness's in-process sync (catch-up/digest/firehose).
+        activityRecorder =
+            ActivityRecorder(
+                syncRepo = ActivitySyncRepository(db = sqlDb, bus = bus, registry = registry, driver = driver),
+            ),
         statsBackfill = UserStatsBackfillService(sql = sqlDb, userStatsRepo = statsRepo),
     )
 
