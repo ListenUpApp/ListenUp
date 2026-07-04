@@ -7,15 +7,12 @@ import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.core.ShelfId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
-import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -109,22 +106,14 @@ class UserProfileViewModelTest :
 
         class Fixture {
             val userRepository: UserRepository = mock()
-            val imageRepository: ImageRepository = mock()
             val publicProfileDao: PublicProfileDao = mock()
             val shelfRepository: ShelfRepository = mock()
-
-            fun configureImage() {
-                every { imageRepository.userAvatarExists(any()) } returns false
-                every { imageRepository.getUserAvatarPath(any()) } returns "/cache/avatar.jpg"
-            }
 
             fun build(): UserProfileViewModel =
                 UserProfileViewModel(
                     publicProfileDao = publicProfileDao,
                     shelfRepository = shelfRepository,
                     userRepository = userRepository,
-                    imageRepository = imageRepository,
-                    errorBus = ErrorBus(),
                 )
         }
 
@@ -136,7 +125,6 @@ class UserProfileViewModelTest :
             runTest {
                 val ownId = "me"
                 val fixture = Fixture()
-                fixture.configureImage()
                 val row =
                     publicProfile(
                         id = ownId,
@@ -181,7 +169,6 @@ class UserProfileViewModelTest :
             runTest {
                 val otherId = "other"
                 val fixture = Fixture()
-                fixture.configureImage()
                 val row =
                     publicProfile(
                         id = otherId,
@@ -224,7 +211,6 @@ class UserProfileViewModelTest :
             runTest {
                 val otherId = "other"
                 val fixture = Fixture()
-                fixture.configureImage()
                 val row = publicProfile(id = otherId, displayName = "Bob", totalSecondsAllTime = 60)
                 everySuspend { fixture.userRepository.getCurrentUser() } returns user(id = "me")
                 every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
@@ -251,62 +237,5 @@ class UserProfileViewModelTest :
             first shouldBe second
             first shouldStartWith "#"
             first.length shouldBe 7
-        }
-
-        test("own profile avatarCacheBuster equals row.avatarUpdatedAt (not user updatedAt)") {
-            runTest {
-                val ownId = "me-buster"
-                val fixture = Fixture()
-                fixture.configureImage()
-                val row =
-                    publicProfile(
-                        id = ownId,
-                        avatarType = "image",
-                        avatarUpdatedAt = 777L,
-                    )
-                val ownUser = user(id = ownId, updatedAtMs = 9_999L)
-                everySuspend { fixture.userRepository.getCurrentUser() } returns ownUser
-                every { fixture.userRepository.observeCurrentUser() } returns MutableStateFlow(ownUser)
-                every { fixture.publicProfileDao.observeById(ownId) } returns MutableStateFlow(row)
-                every { fixture.shelfRepository.observeMyShelves(ownId) } returns
-                    MutableStateFlow(emptyList())
-
-                val viewModel = fixture.build()
-                keepHot(viewModel)
-
-                viewModel.loadProfile(ownId)
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
-                ready.avatarCacheBuster shouldBe 777L
-            }
-        }
-
-        test("other profile avatarCacheBuster equals row.avatarUpdatedAt (so other users' avatar changes repaint)") {
-            runTest {
-                val otherId = "other-buster"
-                val fixture = Fixture()
-                fixture.configureImage()
-                val row =
-                    publicProfile(
-                        id = otherId,
-                        avatarType = "image",
-                        avatarUpdatedAt = 555L,
-                    )
-                everySuspend { fixture.userRepository.getCurrentUser() } returns user(id = "me")
-                every { fixture.publicProfileDao.observeById(otherId) } returns MutableStateFlow(row)
-                everySuspend { fixture.shelfRepository.getUserShelves(otherId) } returns
-                    AppResult.Success(emptyList())
-
-                val viewModel = fixture.build()
-                keepHot(viewModel)
-
-                viewModel.loadProfile(otherId)
-                advanceUntilIdle()
-
-                val ready = viewModel.state.value.shouldBeInstanceOf<UserProfileUiState.Ready>()
-                ready.isOwnProfile shouldBe false
-                ready.avatarCacheBuster shouldBe 555L
-            }
         }
     })

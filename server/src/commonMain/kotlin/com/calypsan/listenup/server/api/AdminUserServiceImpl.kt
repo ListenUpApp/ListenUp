@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.AdminUserRosterMaintainer
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -60,6 +61,7 @@ class AdminUserServiceImpl(
     private val sessions: SessionService,
     private val settings: ServerSettingsRepository,
     private val registrationBroadcaster: RegistrationBroadcaster,
+    private val registrationPolicyBroadcaster: RegistrationPolicyBroadcaster,
     private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
@@ -85,6 +87,7 @@ class AdminUserServiceImpl(
             sessions,
             settings,
             registrationBroadcaster,
+            registrationPolicyBroadcaster,
             bus,
             clock,
             provider,
@@ -303,6 +306,10 @@ class AdminUserServiceImpl(
     override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> {
         requireAdmin()?.let { return it }
         settings.setRegistrationPolicy(policy)
+        // Push the new policy to any clients sitting on the login screen so a stale Sign Up
+        // button flips the moment registration is closed (or reopened). Persisted first, so a
+        // reconnecting subscriber re-reads the same durable value.
+        registrationPolicyBroadcaster.notify(policy)
         return AppResult.Success(Unit)
     }
 

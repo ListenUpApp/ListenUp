@@ -7,10 +7,12 @@ import com.calypsan.listenup.client.data.remote.KtorInviteRpcFactory
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.data.repository.InviteRepositoryImpl
+import com.calypsan.listenup.client.data.repository.RegistrationPolicyStreamImpl
 import com.calypsan.listenup.client.data.repository.RegistrationStatusStreamImpl
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InviteRepository
+import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import com.calypsan.listenup.client.domain.usecase.auth.LoginUseCase
 import com.calypsan.listenup.client.domain.usecase.auth.LogoutUseCase
@@ -20,9 +22,12 @@ import com.calypsan.listenup.client.playback.PlaybackManager
 import org.koin.core.module.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.qualifier.named
 import org.koin.dsl.bind
 import org.koin.dsl.binds
 import org.koin.dsl.module
+
+private const val APP_SCOPE = "appScope"
 
 /**
  * Auth domain wiring — every binding the auth flow owns. Pulled out of
@@ -61,7 +66,20 @@ internal val clientAuthModule: Module
             // Lazy<AuthSession> in the SettingsRepositoryImpl constructor, so the
             // AuthSession reference is deferred until first suspend-method use.
             // See the SettingsRepositoryImpl binding comment in Koin.kt.
-            singleOf(::AuthSessionStore) bind AuthSession::class
+            //
+            // The appScope drives the login-screen registration-policy observation (live Sign Up
+            // toggle); explicit single because that scope is a named dependency.
+            single {
+                val scope = this
+                AuthSessionStore(
+                    secureStorage = get(),
+                    serverConfig = get(),
+                    instanceRepository = get(),
+                    // Lazy — breaks the cycle: RegistrationPolicyStream → ApiClientFactory → AuthSession.
+                    policyStream = lazy { scope.get<RegistrationPolicyStream>() },
+                    scope = scope.get(qualifier = named(APP_SCOPE)),
+                )
+            } bind AuthSession::class
 
             // kotlinx.rpc proxies for AuthServicePublic + AuthServiceAuthed.
             // Cached per mount; invalidated alongside ApiClientFactory whenever
@@ -91,6 +109,9 @@ internal val clientAuthModule: Module
 
             // SSE stream for the pending-approval flow.
             singleOf(::RegistrationStatusStreamImpl) bind RegistrationStatusStream::class
+
+            // SSE stream for the live registration-policy (Sign Up toggle on the login screen).
+            singleOf(::RegistrationPolicyStreamImpl) bind RegistrationPolicyStream::class
 
             // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here
             // by the concrete PlaybackManager that implements it — we keep the

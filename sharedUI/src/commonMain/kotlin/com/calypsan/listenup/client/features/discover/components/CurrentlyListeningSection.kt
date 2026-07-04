@@ -55,14 +55,7 @@ fun CurrentlyListeningSection(
             BookCard(
                 cover = session.toCoverModel(),
                 onClick = { onBookClick(session.bookId) },
-                avatarOverlay =
-                    AvatarOverlayData(
-                        userId = session.userId,
-                        displayName = session.displayName,
-                        avatarType = session.avatarType,
-                        avatarValue = session.avatarValue,
-                        avatarColor = session.avatarColor,
-                    ),
+                avatarOverlay = AvatarOverlayData(userId = session.userId),
                 cardWidth = 140.dp,
                 isInSelectionMode = isInSelectionMode,
                 isSelected = session.bookId in selectedBookIds,

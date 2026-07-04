@@ -38,7 +38,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,16 +56,15 @@ import coil3.request.ImageRequest
 import com.calypsan.listenup.client.design.components.BrowseCarousel
 import com.calypsan.listenup.client.design.components.HeroNavRow
 import com.calypsan.listenup.client.design.components.ListenUpAsyncImage
+import com.calypsan.listenup.client.design.components.rememberUserAvatarImage
 import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.cookieScallopShape
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
-import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.core.DurationFormatter
 import com.calypsan.listenup.client.presentation.profile.UserProfileUiState
 import com.calypsan.listenup.client.presentation.profile.UserProfileViewModel
 import kotlin.time.Duration.Companion.milliseconds
-import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
@@ -286,42 +284,24 @@ private fun ProfileColorHero(
 @Composable
 private fun ProfileScallopAvatar(state: UserProfileUiState.Ready) {
     val context = LocalPlatformContext.current
-    val serverConfig: ServerConfig = koinInject()
-    val serverUrl by produceState<String?>(null) { value = serverConfig.getServerUrl()?.value }
     val scallop = cookieScallopShape()
+    // Resolve the image the same reactive way as every other avatar: a synced avatar change or a
+    // completed download flips this to the photo in real time. Whenever there IS an image, show it.
+    val avatarImage = rememberUserAvatarImage(state.userId)
 
     Box(
         modifier = Modifier.size(132.dp).clip(scallop).background(MaterialTheme.colorScheme.primary),
         contentAlignment = Alignment.Center,
     ) {
-        val imageModel: Any? =
-            when {
-                state.avatarType == "image" && state.localAvatarPath != null -> {
-                    ImageRequest
-                        .Builder(context)
-                        .data(state.localAvatarPath)
-                        .memoryCacheKey("${state.localAvatarPath}-${state.avatarCacheBuster}")
-                        .diskCacheKey("${state.localAvatarPath}-${state.avatarCacheBuster}")
-                        .build()
-                }
-
-                state.avatarType == "image" && state.avatarValue != null && serverUrl != null -> {
-                    ImageRequest
-                        .Builder(context)
-                        .data("$serverUrl${state.avatarValue}")
-                        .memoryCacheKey("${state.avatarValue}-${state.avatarCacheBuster}")
-                        .diskCacheKey("${state.avatarValue}-${state.avatarCacheBuster}")
-                        .build()
-                }
-
-                else -> {
-                    null
-                }
-            }
-
-        if (imageModel != null) {
+        if (avatarImage != null) {
             AsyncImage(
-                model = imageModel,
+                model =
+                    ImageRequest
+                        .Builder(context)
+                        .data(avatarImage.localPath)
+                        .memoryCacheKey(avatarImage.cacheKey)
+                        .diskCacheKey(avatarImage.cacheKey)
+                        .build(),
                 contentDescription = stringResource(Res.string.common_displayname_avatar, state.displayName),
                 modifier = Modifier.size(120.dp).clip(scallop),
                 contentScale = ContentScale.Crop,

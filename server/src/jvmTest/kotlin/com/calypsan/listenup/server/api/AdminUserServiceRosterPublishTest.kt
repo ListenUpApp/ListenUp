@@ -13,6 +13,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.UserRoleColumn
@@ -86,6 +87,7 @@ class AdminUserServiceRosterPublishTest :
                 settings = settings,
                 clock = fixedClock,
                 registrationBroadcaster = RegistrationBroadcaster(),
+                registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
                 bus = ChangeBus(),
                 publicProfileMaintainer = sql.noOpPublicProfileMaintainer(),
                 adminUserRosterMaintainer = maintainer,

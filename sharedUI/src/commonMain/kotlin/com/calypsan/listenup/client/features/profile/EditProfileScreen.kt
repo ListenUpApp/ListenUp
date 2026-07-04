@@ -48,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.window.core.layout.WindowSizeClass
@@ -59,6 +60,7 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicator
 import com.calypsan.listenup.client.design.components.ListenUpTextField
 import com.calypsan.listenup.client.design.components.ScallopBadge
 import com.calypsan.listenup.client.design.components.cookieScallopShape
+import com.calypsan.listenup.client.design.components.rememberUserAvatarImage
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.presentation.profile.AvatarChange
 import com.calypsan.listenup.client.presentation.profile.EditProfileEvent
@@ -345,7 +347,6 @@ private fun AvatarCard(
     ) {
         AvatarEditRow(
             user = ready.user,
-            localAvatarPath = ready.localAvatarPath,
             avatarChange = ready.avatarChange,
             isSaving = ready.isSaving,
             onPickImage = onPickImage,
@@ -357,7 +358,6 @@ private fun AvatarCard(
 @Composable
 private fun AvatarEditRow(
     user: User,
-    localAvatarPath: String?,
     avatarChange: AvatarChange,
     isSaving: Boolean,
     onPickImage: () -> Unit,
@@ -369,7 +369,6 @@ private fun AvatarEditRow(
     ) {
         AvatarPreview(
             user = user,
-            localAvatarPath = localAvatarPath,
             avatarChange = avatarChange,
         )
 
@@ -411,59 +410,77 @@ private fun AvatarEditRow(
 @Composable
 private fun AvatarPreview(
     user: User,
-    localAvatarPath: String?,
     avatarChange: AvatarChange,
 ) {
     val size = AVATAR_SCALLOP_SIZE
     val context = LocalPlatformContext.current
 
-    // Staged upload → preview the picked bytes directly. Persisted image → load the cached file.
-    val model: Any? =
-        when (avatarChange) {
-            is AvatarChange.Upload -> avatarChange.bytes
-            AvatarChange.RevertToAuto -> null
-            AvatarChange.None -> if (user.hasImageAvatar && localAvatarPath != null) localAvatarPath else null
+    when (avatarChange) {
+        // Staged upload → preview the picked bytes directly (not yet saved to disk or server).
+        is AvatarChange.Upload -> {
+            AsyncImage(
+                model =
+                    ImageRequest
+                        .Builder(context)
+                        .data(avatarChange.bytes)
+                        .memoryCacheKey("staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}")
+                        .build(),
+                contentDescription = null,
+                modifier = Modifier.size(size).clip(cookieScallopShape()),
+                contentScale = ContentScale.Crop,
+            )
         }
 
-    if (model != null) {
-        val cacheKey =
-            if (avatarChange is AvatarChange.Upload) {
-                "staged-${avatarChange.bytes.size}-${avatarChange.bytes.contentHashCode()}"
-            } else {
-                "$localAvatarPath-${user.updatedAtMs}"
-            }
-        AsyncImage(
-            model =
-                ImageRequest
-                    .Builder(context)
-                    .data(model)
-                    .memoryCacheKey(cacheKey)
-                    .build(),
-            contentDescription = null,
-            modifier =
-                Modifier
-                    .size(size)
-                    .clip(cookieScallopShape()),
-            contentScale = ContentScale.Crop,
-        )
-    } else {
-        // Initials scallop — outer ring (brand tint) + inner tonal fill with text
-        Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
-            ScallopBadge(
-                size = size,
-                containerColor = MaterialTheme.colorScheme.primary,
-            ) {}
-            ScallopBadge(
-                size = size - 8.dp,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Text(
-                    text = user.initials,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+        // Staged revert → always show initials, ignoring any persisted photo.
+        AvatarChange.RevertToAuto -> {
+            InitialsScallop(user = user, size = size)
+        }
+
+        // No staged change → resolve the persisted avatar the same reactive way as every other
+        // avatar: a synced change or a completed download flips it to the photo in real time.
+        AvatarChange.None -> {
+            val avatarImage = rememberUserAvatarImage(user.id.value)
+            if (avatarImage != null) {
+                AsyncImage(
+                    model =
+                        ImageRequest
+                            .Builder(context)
+                            .data(avatarImage.localPath)
+                            .memoryCacheKey(avatarImage.cacheKey)
+                            .diskCacheKey(avatarImage.cacheKey)
+                            .build(),
+                    contentDescription = null,
+                    modifier = Modifier.size(size).clip(cookieScallopShape()),
+                    contentScale = ContentScale.Crop,
                 )
+            } else {
+                InitialsScallop(user = user, size = size)
             }
+        }
+    }
+}
+
+/** Initials scallop — outer ring (brand tint) + inner tonal fill with the user's initials. */
+@Composable
+private fun InitialsScallop(
+    user: User,
+    size: Dp,
+) {
+    Box(modifier = Modifier.size(size), contentAlignment = Alignment.Center) {
+        ScallopBadge(
+            size = size,
+            containerColor = MaterialTheme.colorScheme.primary,
+        ) {}
+        ScallopBadge(
+            size = size - 8.dp,
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+        ) {
+            Text(
+                text = user.initials,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
         }
     }
 }

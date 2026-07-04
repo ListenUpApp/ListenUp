@@ -10,7 +10,9 @@ import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import app.cash.turbine.test
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -19,6 +21,11 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 
 private fun createTestServerInfo(
@@ -40,11 +47,20 @@ private fun createMockServerConfig(): ServerConfig = mock<ServerConfig>()
 
 private fun createMockInstanceRepository(): InstanceRepository = mock<InstanceRepository>()
 
+/** A policy stream backed by a supplied flow; defaults to a silent stream (no live updates). */
+private class FakePolicyStream(
+    private val flow: Flow<RegistrationPolicy> = emptyFlow(),
+) : RegistrationPolicyStream {
+    override fun streamPolicy(): Flow<RegistrationPolicy> = flow
+}
+
 private fun createStore(
     storage: SecureStorage = createMockStorage(),
     serverConfig: ServerConfig = createMockServerConfig(),
     instanceRepository: InstanceRepository = createMockInstanceRepository(),
-): AuthSessionStore = AuthSessionStore(storage, serverConfig, instanceRepository)
+    policyStream: RegistrationPolicyStream = FakePolicyStream(),
+    scope: CoroutineScope = CoroutineScope(Dispatchers.Unconfined),
+): AuthSessionStore = AuthSessionStore(storage, serverConfig, instanceRepository, lazyOf(policyStream), scope)
 
 /**
  * Tests for [AuthSessionStore] — the auth slice extracted from
@@ -296,6 +312,41 @@ class AuthSessionStoreTest :
 
                 // Stays in NeedsLogin; URL is never cleared automatically — user can retry.
                 store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+            }
+        }
+
+        test("live policy CLOSED flips openRegistration to false while on the login screen") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                // Cached open → clearAuthTokens lands on NeedsLogin(openRegistration = true).
+                everySuspend { storage.read("open_registration") } returns "true"
+                val policy = MutableStateFlow(RegistrationPolicy.OPEN)
+                val store =
+                    createStore(
+                        storage = storage,
+                        policyStream = FakePolicyStream(policy),
+                        scope = backgroundScope,
+                    )
+                store.clearAuthTokens()
+
+                store.authState.test {
+                    // On the login screen with registration open.
+                    awaitItem()
+                        .shouldBeInstanceOf<AuthState.NeedsLogin>()
+                        .openRegistration shouldBe true
+
+                    // Admin closes registration → the stream pushes CLOSED → Sign Up flips off live.
+                    policy.value = RegistrationPolicy.CLOSED
+
+                    awaitItem()
+                        .shouldBeInstanceOf<AuthState.NeedsLogin>()
+                        .openRegistration shouldBe false
+
+                    // The new value is cached for the offline-first fallback.
+                    verifySuspend { storage.save("open_registration", "false") }
+                }
             }
         }
 

@@ -3,17 +3,14 @@ package com.calypsan.listenup.client.presentation.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
 import com.calypsan.listenup.client.domain.model.ProfileShelfSummary
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.User
-import com.calypsan.listenup.client.domain.repository.ImageRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +22,7 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlin.uuid.Uuid
 
@@ -37,6 +35,10 @@ private val logger = KotlinLogging.logger {}
  * renders identically aside from the `isOwnProfile` admin-control toggle. Header and
  * stats are sourced uniformly from the synced `public_profiles` row; only the shelves
  * source differs (own → local synced mirror; other → one-shot RPC).
+ *
+ * The avatar image is not carried here — the screen resolves it reactively by `userId`
+ * through the canonical `rememberUserAvatarImage`, so a synced avatar change or a completed
+ * download repaints in real time without the ViewModel re-emitting.
  */
 sealed interface UserProfileUiState {
     /** Pre-[UserProfileViewModel.loadProfile]. */
@@ -50,12 +52,8 @@ sealed interface UserProfileUiState {
         val userId: String,
         val isOwnProfile: Boolean,
         val displayName: String,
-        val avatarType: String,
-        val avatarValue: String?,
         val avatarColor: String,
         val tagline: String?,
-        val localAvatarPath: String?,
-        val avatarCacheBuster: Long,
         val totalListenTimeMs: Long,
         val booksFinished: Int,
         val currentStreak: Int,
@@ -85,8 +83,6 @@ class UserProfileViewModel internal constructor(
     private val publicProfileDao: PublicProfileDao,
     private val shelfRepository: ShelfRepository,
     private val userRepository: UserRepository,
-    private val imageRepository: ImageRepository,
-    private val errorBus: ErrorBus,
 ) : ViewModel() {
     private val requestFlow = MutableStateFlow<LoadRequest?>(null)
 
@@ -147,11 +143,11 @@ class UserProfileViewModel internal constructor(
             shelfRepository.observeMyShelves(userId),
         ) { row, currentUser, shelves ->
             when {
-                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries(), row.avatarUpdatedAt)
+                row != null -> readyFromRow(userId, isOwn = true, row, shelves.toSummaries())
                 currentUser != null -> readyFromUser(userId, currentUser, shelves.toSummaries())
                 else -> UserProfileUiState.Error("No user data available")
             }
-        }.withAvatarSelfHeal(userId)
+        }
 
     /**
      * Other profile: header + stats from the synced row; shelves fetched once over RPC.
@@ -172,12 +168,12 @@ class UserProfileViewModel internal constructor(
                     }
                 }
             emitAll(
-                publicProfileDao.observeById(userId).withAvatarSelfHeal(userId) { row ->
+                publicProfileDao.observeById(userId).map { row ->
                     if (row == null) {
                         logger.error { "No public profile row for user: $userId" }
                         UserProfileUiState.Error("Failed to load profile")
                     } else {
-                        readyFromRow(userId, isOwn = false, row, shelves, cacheBuster = row.avatarUpdatedAt)
+                        readyFromRow(userId, isOwn = false, row, shelves)
                     }
                 },
             )
@@ -188,18 +184,13 @@ class UserProfileViewModel internal constructor(
         isOwn: Boolean,
         row: PublicProfileEntity,
         shelves: List<ProfileShelfSummary>,
-        cacheBuster: Long,
     ): UserProfileUiState.Ready =
         UserProfileUiState.Ready(
             userId = userId,
             isOwnProfile = isOwn,
             displayName = row.displayName,
-            avatarType = row.avatarType,
-            avatarValue = null,
             avatarColor = stableAvatarColorHex(userId),
             tagline = row.tagline,
-            localAvatarPath = resolveLocalAvatarPath(userId, row.avatarType),
-            avatarCacheBuster = cacheBuster,
             totalListenTimeMs = row.totalSecondsAllTime * MS_PER_SECOND,
             booksFinished = row.booksFinished,
             currentStreak = row.currentStreakDays,
@@ -217,12 +208,8 @@ class UserProfileViewModel internal constructor(
             userId = userId,
             isOwnProfile = true,
             displayName = user.displayName,
-            avatarType = user.avatarType,
-            avatarValue = null,
             avatarColor = stableAvatarColorHex(userId),
             tagline = user.tagline,
-            localAvatarPath = resolveLocalAvatarPath(userId, user.avatarType),
-            avatarCacheBuster = user.updatedAtMs,
             totalListenTimeMs = 0L,
             booksFinished = 0,
             currentStreak = 0,
@@ -231,63 +218,8 @@ class UserProfileViewModel internal constructor(
             publicShelves = shelves,
         )
 
-    /**
-     * Self-heal image avatars: when a [UserProfileUiState.Ready] reports an image avatar with no
-     * cached local path, attempt a download and re-emit with the resolved path. Each upstream
-     * emission is mapped through [transform] first, so the self-heal applies to whatever the row
-     * (or fallback) produced.
-     */
-    private fun <T> Flow<T>.withAvatarSelfHeal(
-        userId: String,
-        transform: (T) -> UserProfileUiState,
-    ): Flow<UserProfileUiState> =
-        flow {
-            collect { upstream ->
-                val state = transform(upstream)
-                emit(state)
-                if (state is UserProfileUiState.Ready &&
-                    state.avatarType == "image" &&
-                    state.localAvatarPath == null
-                ) {
-                    val downloaded = tryDownloadAvatar(userId)
-                    if (downloaded != null) {
-                        emit(state.copy(localAvatarPath = downloaded))
-                    }
-                }
-            }
-        }
-
-    private fun Flow<UserProfileUiState>.withAvatarSelfHeal(userId: String): Flow<UserProfileUiState> =
-        withAvatarSelfHeal(userId) { it }
-
     private fun List<Shelf>.toSummaries(): List<ProfileShelfSummary> =
         map { ProfileShelfSummary(id = it.id.value, name = it.name, bookCount = it.bookCount) }
-
-    private fun resolveLocalAvatarPath(
-        userId: String,
-        avatarType: String,
-    ): String? =
-        if (avatarType == "image" && imageRepository.userAvatarExists(userId)) {
-            imageRepository.getUserAvatarPath(userId)
-        } else {
-            null
-        }
-
-    private suspend fun tryDownloadAvatar(userId: String): String? =
-        try {
-            // The path lookup below returns null if the download failed, so a dropped result is safe here.
-            val _ = imageRepository.downloadUserAvatar(userId, forceRefresh = false)
-            imageRepository.getUserAvatarPath(userId)
-        } catch (cancel: kotlin.coroutines.cancellation.CancellationException) {
-            throw cancel
-        } catch (
-            @Suppress("TooGenericExceptionCaught") e: Exception,
-        ) {
-            @Suppress("DEPRECATION")
-            errorBus.emit(ErrorMapper.map(e))
-            logger.warn(e) { "Failed to download avatar for user $userId" }
-            null
-        }
 
     private data class LoadRequest(
         val userId: String,

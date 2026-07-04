@@ -40,9 +40,14 @@ data class User(
 
     /**
      * Returns true if the user has an uploaded avatar image.
+     *
+     * Image-ness is determined solely by [avatarType]; the actual bytes are resolved by
+     * user id from local storage (see the canonical `UserAvatar` composable). [avatarValue]
+     * is legacy and always null on every write path, so it is intentionally not consulted —
+     * gating on it left this predicate permanently false and blanked own-user avatars.
      */
     val hasImageAvatar: Boolean
-        get() = avatarType == "image" && !avatarValue.isNullOrBlank()
+        get() = avatarType == "image"
 
     /**
      * Returns the user's initials for fallback avatar display.

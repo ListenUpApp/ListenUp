@@ -163,6 +163,47 @@ internal fun rememberUserAvatarState(
     }
 }
 
+/**
+ * A resolved local avatar image, ready to render.
+ *
+ * @property localPath Absolute path to the avatar file in local storage.
+ * @property cacheKey Coil memory/disk cache key, versioned on the profile's avatar-update time so a
+ *   re-uploaded avatar re-decodes instead of serving a stale bitmap.
+ * @property contentDescription Accessibility description for the image.
+ */
+data class UserAvatarImage(
+    val localPath: String,
+    val cacheKey: String,
+    val contentDescription: String,
+)
+
+/**
+ * Reactively resolves a user's avatar image exactly the way the canonical [UserAvatar] does —
+ * observing `public_profiles`, fetching the image on first sight, and re-checking disk presence
+ * when the synced avatar changes or a download completes — but hands the image back so callers can
+ * render their own initials/loading chrome (the profile scallop screens).
+ *
+ * Returns `null` while there is no image to show (auto avatar, or an image not yet downloaded), so
+ * the caller renders its own fallback. Flips to a non-null [UserAvatarImage] in real time the moment
+ * the avatar downloads or a synced change lands — no revisit, no manual refresh. Whenever a user has
+ * a profile image, this resolves it, so callers show the photo rather than initials.
+ */
+@Composable
+fun rememberUserAvatarImage(userId: String): UserAvatarImage? =
+    when (val state = rememberUserAvatarState(userId)) {
+        is UserAvatarUiState.Image -> {
+            UserAvatarImage(
+                localPath = state.localPath,
+                cacheKey = state.cacheKey,
+                contentDescription = state.contentDescription,
+            )
+        }
+
+        UserAvatarUiState.Loading, is UserAvatarUiState.Initials -> {
+            null
+        }
+    }
+
 // ---------------------------------------------------------------------------
 // Internal rendering helpers
 // ---------------------------------------------------------------------------

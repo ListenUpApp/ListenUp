@@ -496,8 +496,6 @@ internal val profilePresentationModule =
                 publicProfileDao = get(),
                 shelfRepository = get(),
                 userRepository = get(),
-                imageRepository = get(),
-                errorBus = get(),
             )
         }
         // EditProfileViewModel for editing own profile
@@ -505,7 +503,6 @@ internal val profilePresentationModule =
             com.calypsan.listenup.client.presentation.profile.EditProfileViewModel(
                 profileEditRepository = get(),
                 userRepository = get(),
-                imageRepository = get(),
             )
         }
     }

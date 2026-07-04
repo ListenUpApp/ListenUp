@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.SessionService
@@ -78,6 +79,7 @@ class PublicProfileLifecycleTest :
                 settings = settings,
                 clock = fixedClock,
                 registrationBroadcaster = RegistrationBroadcaster(),
+                registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
                 bus = ChangeBus(),
                 publicProfileMaintainer = maintainer,
             )
