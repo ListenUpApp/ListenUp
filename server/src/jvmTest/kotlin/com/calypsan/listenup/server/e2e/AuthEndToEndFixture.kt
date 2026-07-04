@@ -14,8 +14,12 @@ import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.EngineConnectorBuilder
 import io.ktor.server.engine.applicationEnvironment
 import io.ktor.server.engine.embeddedServer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.koin.core.KoinApplication
+import org.koin.core.qualifier.named
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import java.nio.file.Files
@@ -120,6 +124,11 @@ internal class AuthEndToEndFixture private constructor(
                 single<SecureStorage> { InMemorySecureStorage() }
                 single<ServerConfig> { TestServerConfig(baseUrl) }
                 single<InstanceRepository> { StubInstanceRepository() }
+                // AuthSessionStore observes the registration-policy stream on the app scope; the
+                // production binding lives in appCoreModule, which this minimal fixture omits.
+                single<CoroutineScope>(qualifier = named("appScope")) {
+                    CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                }
                 // ApiClientFactory is bound by `clientApiClientFactoryTestModule()` (in :sharedLogic
                 // jvmMain) — the type is internal to :sharedLogic so it can't be bound from here.
                 // `UserRepository` and `PlaybackManager` are only needed by

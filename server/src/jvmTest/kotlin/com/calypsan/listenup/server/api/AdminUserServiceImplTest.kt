@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.RegistrationDecision
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -75,6 +76,7 @@ class AdminUserServiceImplTest :
         fun makeAdminUserService(
             db: SqlTestDatabases,
             broadcaster: RegistrationBroadcaster = RegistrationBroadcaster(),
+            policyBroadcaster: RegistrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
             bus: ChangeBus = ChangeBus(),
             activityRecorder: ActivityRecorder? = null,
         ): AdminUserServiceImpl {
@@ -87,6 +89,7 @@ class AdminUserServiceImplTest :
                 settings = settings,
                 clock = fixedClock,
                 registrationBroadcaster = broadcaster,
+                registrationPolicyBroadcaster = policyBroadcaster,
                 bus = bus,
                 publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
                 activityRecorder = activityRecorder,
@@ -230,6 +233,7 @@ class AdminUserServiceImplTest :
                             settings = settings,
                             clock = fixedClock,
                             registrationBroadcaster = RegistrationBroadcaster(),
+                            registrationPolicyBroadcaster = RegistrationPolicyBroadcaster(),
                             bus = ChangeBus(),
                             publicProfileMaintainer = db.sql.noOpPublicProfileMaintainer(),
                         ).copyWith(principalFor("a1", UserRole.ADMIN))
@@ -402,6 +406,23 @@ class AdminUserServiceImplTest :
                     val svc = makeAdminUserService(db).actAs("root1", UserRole.ROOT)
                     svc.setRegistrationPolicy(RegistrationPolicy.CLOSED).shouldSucceed()
                     svc.getRegistrationPolicy().shouldSucceed() shouldBe RegistrationPolicy.CLOSED
+                }
+            }
+        }
+
+        test("setRegistrationPolicy notifies the policy broadcaster with the new policy") {
+            withSqlDatabase {
+                val db = this
+                val policyBroadcaster = RegistrationPolicyBroadcaster()
+                sql.seedTestUser("root1", UserRoleColumn.ROOT)
+                runTest {
+                    val received = async { policyBroadcaster.subscribe().first() }
+                    advanceUntilIdle()
+                    val svc =
+                        makeAdminUserService(db, policyBroadcaster = policyBroadcaster)
+                            .actAs("root1", UserRole.ROOT)
+                    svc.setRegistrationPolicy(RegistrationPolicy.CLOSED).shouldSucceed()
+                    received.await() shouldBe RegistrationPolicy.CLOSED
                 }
             }
         }

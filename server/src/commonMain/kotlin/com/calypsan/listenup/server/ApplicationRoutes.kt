@@ -32,6 +32,8 @@ import com.calypsan.listenup.server.audio.AudioUrlSigner
 import com.calypsan.listenup.server.audio.CoverUrlSigner
 import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
+import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.cover.CoverResponder
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -62,6 +64,7 @@ import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.publicInviteRoutes
+import com.calypsan.listenup.server.routes.registrationPolicyRoutes
 import com.calypsan.listenup.server.routes.registrationStatusRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
 import com.calypsan.listenup.server.routes.scannerRoutes
@@ -98,6 +101,8 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val inviteService by inject<InviteServiceImpl>()
     val instanceService by inject<InstanceService>()
     val registrationBroadcaster by inject<RegistrationBroadcaster>()
+    val registrationPolicyBroadcaster by inject<RegistrationPolicyBroadcaster>()
+    val serverSettings by inject<ServerSettingsRepository>()
     val scannerService by inject<ScannerService>()
     val eventBus by inject<SharedFlow<ScanEvent>>()
     val bookService by inject<BookService>()
@@ -160,6 +165,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
                 }
             }
         }
+        registrationPolicyRoutes(registrationPolicyBroadcaster) { serverSettings.registrationPolicy() }
         rpcRoutes(rpcServices)
         authenticate(JWT_PROVIDER) {
             syncRoutes()

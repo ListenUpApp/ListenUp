@@ -20,6 +20,7 @@ import com.calypsan.listenup.server.auth.PasswordHasher
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
+import com.calypsan.listenup.server.auth.RegistrationPolicyBroadcaster
 import com.calypsan.listenup.server.auth.SessionIssuer
 import com.calypsan.listenup.server.auth.SessionService
 import com.calypsan.listenup.server.auth.resolveServerSecrets
@@ -149,6 +150,7 @@ fun authModule(config: ApplicationConfig): Module {
                 sessions = get(),
                 settings = get(),
                 registrationBroadcaster = get(),
+                registrationPolicyBroadcaster = get(),
                 bus = get(),
                 clock = get(),
                 publicProfileMaintainer = getOrNull(),
@@ -195,6 +197,8 @@ fun authModule(config: ApplicationConfig): Module {
         single { ExpiredSessionCleanupTask(sessionService = get(), clock = get()) }
 
         single { RegistrationBroadcaster() }
+
+        single { RegistrationPolicyBroadcaster() }
     }
 }
 

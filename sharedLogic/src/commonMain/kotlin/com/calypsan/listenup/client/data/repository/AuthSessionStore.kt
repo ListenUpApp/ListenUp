@@ -11,10 +11,22 @@ import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
+import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
 
@@ -32,9 +44,61 @@ internal class AuthSessionStore(
     private val secureStorage: SecureStorage,
     private val serverConfig: ServerConfig,
     private val instanceRepository: InstanceRepository,
+    // Lazy to break the Koin construction cycle: the policy stream pulls ApiClientFactory, whose
+    // auth-refresh path resolves back to this AuthSession. The stream is only touched later, once
+    // the login screen shows, by which point the graph is fully built. Mirrors SettingsRepositoryImpl's
+    // Lazy<AuthSession>.
+    policyStream: Lazy<RegistrationPolicyStream>,
+    private val scope: CoroutineScope,
 ) : AuthSession {
+    private val policyStream by policyStream
     override val authState: StateFlow<DomainAuthState>
         field = MutableStateFlow<DomainAuthState>(DomainAuthState.Initializing)
+
+    init {
+        observeRegistrationPolicy()
+    }
+
+    /**
+     * Keeps `openRegistration` live while the login screen is showing: subscribes to the server's
+     * registration-policy SSE only in [DomainAuthState.NeedsLogin] and flips the Sign Up affordance
+     * the instant an admin closes (or reopens) registration — no relaunch, no pull-to-refresh.
+     *
+     * Scoped to NeedsLogin via [flatMapLatest] over a `NeedsLogin?`-boolean so our own state writes
+     * don't churn the subscription. A dropped connection retries with backoff (still never-stranded:
+     * [refreshOpenRegistration]'s one-shot fetch and the cached value remain the fallback).
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeRegistrationPolicy() {
+        scope.launch {
+            authState
+                .map { it is DomainAuthState.NeedsLogin }
+                .distinctUntilChanged()
+                .flatMapLatest { onLoginScreen ->
+                    if (onLoginScreen) resilientPolicyStream() else emptyFlow()
+                }.collect { policy ->
+                    applyOpenRegistration(policy != RegistrationPolicy.CLOSED)
+                }
+        }
+    }
+
+    /** The policy SSE, reconnecting with a fixed backoff on any non-cancellation failure. */
+    private fun resilientPolicyStream(): Flow<RegistrationPolicy> =
+        policyStream.streamPolicy().retryWhen { cause, _ ->
+            if (cause is CancellationException) throw cause
+            logger.warn(cause) { "registration-policy stream dropped; reconnecting" }
+            delay(POLICY_STREAM_RETRY_MILLIS)
+            true
+        }
+
+    /** Persists the cached flag and, when still on the login screen, flips the live auth state. */
+    private suspend fun applyOpenRegistration(open: Boolean) {
+        secureStorage.save(KEY_OPEN_REGISTRATION, open.toString())
+        val current = authState.value
+        if (current is DomainAuthState.NeedsLogin && current.openRegistration != open) {
+            authState.value = DomainAuthState.NeedsLogin(openRegistration = open)
+        }
+    }
 
     override suspend fun saveAuthTokens(
         access: AccessToken,
@@ -226,5 +290,7 @@ internal class AuthSessionStore(
         const val KEY_SETUP_REQUIRED = "setup_required"
         const val KEY_PENDING_USER_ID = "pending_user_id"
         const val KEY_PENDING_EMAIL = "pending_email"
+
+        const val POLICY_STREAM_RETRY_MILLIS = 5_000L
     }
 }

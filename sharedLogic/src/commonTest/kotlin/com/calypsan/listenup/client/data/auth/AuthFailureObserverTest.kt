@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.error.ErrorBus
@@ -21,7 +22,9 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 
@@ -42,7 +45,17 @@ class AuthFailureObserverTest :
             everySuspend { storage.delete(any()) } returns Unit
             // clearAuthTokens reads KEY_OPEN_REGISTRATION when routing to NeedsLogin.
             everySuspend { storage.read(any()) } returns null
-            return AuthSessionStore(storage, mock<ServerConfig>(), mock<InstanceRepository>())
+            val silentPolicyStream =
+                object : RegistrationPolicyStream {
+                    override fun streamPolicy() = emptyFlow<com.calypsan.listenup.api.dto.auth.RegistrationPolicy>()
+                }
+            return AuthSessionStore(
+                storage,
+                mock<ServerConfig>(),
+                mock<InstanceRepository>(),
+                lazyOf(silentPolicyStream),
+                CoroutineScope(Dispatchers.Unconfined),
+            )
         }
 
         test("session-invalidating error while Authenticated drives state to NeedsLogin") {

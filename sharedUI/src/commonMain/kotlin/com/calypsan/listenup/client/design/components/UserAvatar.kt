@@ -191,14 +191,17 @@ data class UserAvatarImage(
 @Composable
 fun rememberUserAvatarImage(userId: String): UserAvatarImage? =
     when (val state = rememberUserAvatarState(userId)) {
-        is UserAvatarUiState.Image ->
+        is UserAvatarUiState.Image -> {
             UserAvatarImage(
                 localPath = state.localPath,
                 cacheKey = state.cacheKey,
                 contentDescription = state.contentDescription,
             )
+        }
 
-        UserAvatarUiState.Loading, is UserAvatarUiState.Initials -> null
+        UserAvatarUiState.Loading, is UserAvatarUiState.Initials -> {
+            null
+        }
     }
 
 // ---------------------------------------------------------------------------

@@ -30,6 +30,8 @@ import org.koin.test.verify.verify
  *    on logout).
  *  - [DeviceInfoProvider] — owned by the per-platform playback/platform module
  *    (login/register/setup/claim send the device's structured metadata).
+ *  - [kotlinx.coroutines.CoroutineScope] — the `appScope` owned by `appCoreModule`;
+ *    AuthSessionStore observes the registration-policy stream on it.
  */
 @OptIn(KoinExperimentalAPI::class)
 class AuthModuleVerifyTest :
@@ -48,6 +50,7 @@ class AuthModuleVerifyTest :
                         DeviceInfoProvider::class,
                         SyncRepository::class,
                         com.calypsan.listenup.client.data.remote.RpcCacheInvalidator::class,
+                        kotlinx.coroutines.CoroutineScope::class,
                     ),
             )
         }

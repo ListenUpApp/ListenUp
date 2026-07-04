@@ -417,7 +417,7 @@ private fun AvatarPreview(
 
     when (avatarChange) {
         // Staged upload → preview the picked bytes directly (not yet saved to disk or server).
-        is AvatarChange.Upload ->
+        is AvatarChange.Upload -> {
             AsyncImage(
                 model =
                     ImageRequest
@@ -429,9 +429,12 @@ private fun AvatarPreview(
                 modifier = Modifier.size(size).clip(cookieScallopShape()),
                 contentScale = ContentScale.Crop,
             )
+        }
 
         // Staged revert → always show initials, ignoring any persisted photo.
-        AvatarChange.RevertToAuto -> InitialsScallop(user = user, size = size)
+        AvatarChange.RevertToAuto -> {
+            InitialsScallop(user = user, size = size)
+        }
 
         // No staged change → resolve the persisted avatar the same reactive way as every other
         // avatar: a synced change or a completed download flips it to the photo in real time.
