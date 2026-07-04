@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
+import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.core.fallbackTo
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.SharingStarted
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 private val logger = KotlinLogging.logger {}
 
@@ -31,6 +33,7 @@ private const val MAX_ACTIVITIES = 100
  */
 class ActivityFeedViewModel internal constructor(
     private val activityRepository: ActivityRepository,
+    private val syncRepository: SyncRepository,
 ) : ViewModel() {
     /**
      * Observe recent activities from Room — the single read source.
@@ -50,6 +53,15 @@ class ActivityFeedViewModel internal constructor(
                 started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
                 initialValue = ActivityFeedUiState.Loading,
             )
+
+    /**
+     * Manual pull-to-refresh (Never-Stranded fallback). The feed is a Room mirror that stays current
+     * on its own, but an explicit refresh forces a lifecycle reconcile so a missed live event
+     * self-heals on demand. Fire-and-forget: Room repaints the feed when the reconcile lands rows.
+     */
+    fun refresh() {
+        viewModelScope.launch { syncRepository.refresh() }
+    }
 }
 
 /**

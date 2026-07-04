@@ -34,5 +34,11 @@ internal val MIGRATION_46_47: Migration =
             connection.execSQL(
                 "CREATE INDEX IF NOT EXISTS `index_activities_occurredAt` ON `activities` (`occurredAt`)",
             )
+            // Defensive: clear any persisted `activities` sync cursor so catch-up re-populates the
+            // just-dropped table from revision 0. No such cursor exists today (activities was a
+            // nudge-tier domain that stored none), but a stale cursor here would strand all
+            // below-cursor history — this DELETE is the load-bearing safety a future domain-promotion
+            // migration must copy alongside the table rebuild.
+            connection.execSQL("DELETE FROM `sync_cursor` WHERE `domainName` = 'activities'")
         }
     }

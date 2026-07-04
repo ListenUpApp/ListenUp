@@ -14,19 +14,27 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 internal interface ActivityDao {
     /**
-     * Observe the newest [limit] live activities, each LEFT-JOINed to its author's `public_profiles`
-     * mirror so identity (display name, avatar) is enriched at READ time — a later rename reflects
-     * automatically because the Flow re-emits when either `activities` OR `public_profiles` changes.
-     * The book card is enriched per-row in the repository from the local book mirror. Tombstones
-     * (`deletedAt` set) are excluded.
+     * Observe the newest [limit] live activities, fully enriched at READ time by LEFT-JOINing the
+     * local `public_profiles` mirror (identity) and the `books` mirror (book card: title, cover,
+     * primary author). All enrichment is in SQL, so the Flow re-emits whenever `activities`,
+     * `public_profiles`, `books`, `book_contributors`, or `contributors` change — a rename of the
+     * user OR the book/author reflects automatically, and there is no per-row N+1. A book that is
+     * absent locally (inaccessible) or tombstoned yields a null card. Activity tombstones excluded.
      */
     @Query(
         """
         SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
                a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
-               pp.displayName AS displayName, pp.avatarType AS avatarType
+               pp.displayName AS displayName, pp.avatarType AS avatarType,
+               b.title AS bookTitle, b.coverBlurHash AS bookCoverPath,
+               (
+                   SELECT c.name FROM book_contributors bc
+                   INNER JOIN contributors c ON bc.contributorId = c.id
+                   WHERE bc.bookId = b.id AND bc.role = 'author' LIMIT 1
+               ) AS bookAuthorName
         FROM activities a
         LEFT JOIN public_profiles pp ON pp.id = a.userId
+        LEFT JOIN books b ON b.id = a.bookId AND b.deletedAt IS NULL
         WHERE a.deletedAt IS NULL
         ORDER BY a.occurredAt DESC
         LIMIT :limit
@@ -36,15 +44,22 @@ internal interface ActivityDao {
 
     /**
      * Page of live activities older than [beforeMs] (keyset pagination), enriched with the author's
-     * `public_profiles` identity exactly as [observeRecent]. Tombstones excluded.
+     * `public_profiles` identity and the book card exactly as [observeRecent]. Tombstones excluded.
      */
     @Query(
         """
         SELECT a.id, a.userId, a.type, a.occurredAt, a.bookId, a.isReread, a.durationMs,
                a.milestoneValue, a.milestoneUnit, a.shelfId, a.shelfName,
-               pp.displayName AS displayName, pp.avatarType AS avatarType
+               pp.displayName AS displayName, pp.avatarType AS avatarType,
+               b.title AS bookTitle, b.coverBlurHash AS bookCoverPath,
+               (
+                   SELECT c.name FROM book_contributors bc
+                   INNER JOIN contributors c ON bc.contributorId = c.id
+                   WHERE bc.bookId = b.id AND bc.role = 'author' LIMIT 1
+               ) AS bookAuthorName
         FROM activities a
         LEFT JOIN public_profiles pp ON pp.id = a.userId
+        LEFT JOIN books b ON b.id = a.bookId AND b.deletedAt IS NULL
         WHERE a.occurredAt < :beforeMs AND a.deletedAt IS NULL
         ORDER BY a.occurredAt DESC
         LIMIT :limit
@@ -67,6 +82,17 @@ internal interface ActivityDao {
     @Query("SELECT * FROM activities WHERE id = :id")
     suspend fun getById(id: String): ActivityEntity?
 
+    /**
+     * Advance only the revision of an existing row (append-only re-apply). Domain fields are never
+     * mutated, but converging the revision when the server re-upserts an id (idempotent replay /
+     * backfill) keeps the `(id, revision)` digest from permanently drifting on that client.
+     */
+    @Query("UPDATE activities SET revision = :revision WHERE id = :id")
+    suspend fun updateRevision(
+        id: String,
+        revision: Long,
+    )
+
     /** Soft-delete (tombstone) an activity by id — the mirror's catch-up tombstone path. */
     @Query("UPDATE activities SET deletedAt = :deletedAt, revision = :revision WHERE id = :id")
     suspend fun softDelete(
@@ -79,6 +105,22 @@ internal interface ActivityDao {
     @Query("SELECT id AS id, revision FROM activities WHERE revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
+    /** Ids of every live (non-tombstoned) activity — the access-gate's local-live set. */
+    @Query("SELECT id FROM activities WHERE deletedAt IS NULL")
+    suspend fun liveIds(): List<String>
+
+    /**
+     * Tombstone every live activity whose id is NOT in [accessibleIds] — the access-gate prune.
+     * A book deletion or share revocation shrinks the server's accessible-activity set; this evicts
+     * the now-inaccessible rows locally so the member no longer sees an activity for a book they
+     * lost access to (and the digest stops counting a row the server no longer serves).
+     */
+    @Query("UPDATE activities SET deletedAt = :now WHERE deletedAt IS NULL AND id NOT IN (:accessibleIds)")
+    suspend fun tombstoneNotIn(
+        accessibleIds: Set<String>,
+        now: Long,
+    )
+
     /**
      * Insert or update an activity entity.
      * If an activity with the same ID exists, it will be updated.
@@ -89,41 +131,10 @@ internal interface ActivityDao {
     suspend fun upsert(activity: ActivityEntity)
 
     /**
-     * Insert or update multiple activity entities in a single transaction.
-     *
-     * @param activities List of activity entities to upsert
-     */
-    @Upsert
-    suspend fun upsertAll(activities: List<ActivityEntity>)
-
-    /**
-     * Delete an activity by ID.
-     *
-     * @param id The activity ID to delete
-     */
-    @Query("DELETE FROM activities WHERE id = :id")
-    suspend fun deleteById(id: String)
-
-    /**
-     * Delete activities older than the given cutoff.
-     * Used to prune old activities (> 30 days) to save storage.
-     *
-     * @param cutoffMs Epoch milliseconds - activities with occurredAt before this are deleted
-     * @return Number of activities deleted
-     */
-    @Query("DELETE FROM activities WHERE occurredAt < :cutoffMs")
-    suspend fun deleteOlderThan(cutoffMs: Long): Int
-
-    /**
-     * Delete all activities.
-     * Used for testing and full re-sync scenarios.
-     */
-    @Query("DELETE FROM activities")
-    suspend fun deleteAll()
-
-    /**
-     * Count total activities.
-     * Used for debugging and monitoring.
+     * Count total activities (tombstones included) — the local mirror size. NOTE: hard-DELETE queries
+     * were intentionally removed. `activities` is a cursored MirroredDomain; a hard delete would drop
+     * a row the server still counts in the member's digest → permanent, non-converging drift.
+     * Removal is soft-delete only (tombstone via [softDelete] / the access-gate prune).
      */
     @Query("SELECT COUNT(*) FROM activities")
     suspend fun count(): Int
@@ -203,6 +214,9 @@ internal data class ActivityWithProfile(
     val shelfName: String?,
     val displayName: String?,
     val avatarType: String?,
+    val bookTitle: String?,
+    val bookCoverPath: String?,
+    val bookAuthorName: String?,
 )
 
 /**

@@ -153,7 +153,6 @@ private fun buildLifecycleEngine(
             reconciler = noopSyncReconciler(registry, store, catchUp),
             dispatcher = dispatcher,
             presenceRefreshSignal = PresenceRefreshSignal(),
-            activityRefreshSignal = ActivityRefreshSignal(),
             scope = scope,
             lifecycleReconcileMinIntervalMs = minIntervalMs,
         )

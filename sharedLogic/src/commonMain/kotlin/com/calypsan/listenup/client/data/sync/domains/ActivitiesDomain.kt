@@ -18,6 +18,13 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  * Unlike `listening_events`, the payload CARRIES its `userId` (activities are a cross-user feed, not
  * a per-user stream), so no signed-in-user stamping is needed — the row is written verbatim, and
  * identity/book display are enriched at read time by joining the local mirrors.
+ *
+ * **Access-gated** (like `books`): the server filters catch-up/digest to the caller's accessible set
+ * (a row is visible iff its book is accessible or it has no book). The [AccessGate] makes the composed
+ * handler an `AccessFilteredSyncHandler`, so a book deletion / share revocation — which drops the
+ * activity out of the member's accessible set — prunes it locally via `AccessChanged` (and via the
+ * Phase-0 digest-drift backstop for a dropped frame) instead of stranding it visible and re-pulling
+ * the whole table on every reconcile edge.
  */
 internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<ActivitySyncPayload> =
     MirroredDomain(
@@ -31,6 +38,11 @@ internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<Activi
             ),
         digest = fullDigest(database.activityDao()::digestRows),
         writes = WriteTier.ServerOwned,
+        accessGate =
+            AccessGate(
+                localLiveIds = { database.activityDao().liveIds().toSet() },
+                pruneTo = { accessibleIds, now -> database.activityDao().tombstoneNotIn(accessibleIds, now) },
+            ),
     )
 
 /**
@@ -41,7 +53,16 @@ internal class ActivityMirrorApply(
     private val database: ListenUpDatabase,
 ) : MirrorApply<ActivitySyncPayload> {
     override suspend fun upsert(payload: ActivitySyncPayload) {
-        if (database.activityDao().getById(payload.id) != null) return
+        val existing = database.activityDao().getById(payload.id)
+        if (existing != null) {
+            // Append-only: domain fields never change. But if the server re-upserted this id (an
+            // idempotent replay or a future backfill bumps its revision), converge the local revision
+            // so the (id, revision) digest can never permanently drift on this client.
+            if (existing.revision != payload.revision) {
+                database.activityDao().updateRevision(payload.id, payload.revision)
+            }
+            return
+        }
         database.activityDao().upsert(
             ActivityEntity(
                 id = payload.id,

@@ -46,13 +46,14 @@ VALUES (
 -- tiebreak gives a stable total order. The service ACL-filters/overfetches on top.
 pageBefore:
 SELECT * FROM activities
-WHERE occurred_at < :before
+WHERE occurred_at < :before AND deleted_at IS NULL
 ORDER BY occurred_at DESC, id DESC
 LIMIT :limit;
 
 -- First page (no cursor) — most-recent-first.
 pageFirst:
 SELECT * FROM activities
+WHERE deleted_at IS NULL
 ORDER BY occurred_at DESC, id DESC
 LIMIT :limit;
 

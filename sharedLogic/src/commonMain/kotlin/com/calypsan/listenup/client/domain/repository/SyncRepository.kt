@@ -125,6 +125,16 @@ interface SyncRepository {
     suspend fun forceFullResync(): AppResult<Unit>
 
     /**
+     * Force a standing lifecycle reconcile now (forward catch-up → digest → nudge refreshes),
+     * bypassing the debounce. The manual-recovery hook behind pull-to-refresh: a user who suspects
+     * a Room-mirrored surface (activity feed, library, leaderboard) is stale can force every domain
+     * to re-catch-up and self-heal without a restart — the Never-Stranded fallback for the live tail.
+     *
+     * @return Success on completion, Failure if the engine could not start for the current user.
+     */
+    suspend fun refresh(): AppResult<Unit>
+
+    /**
      * True when a synced library already exists in local Room (books present) — the offline-first
      * fallback signal: a returning user can open offline even if the server is unreachable.
      */
