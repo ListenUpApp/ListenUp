@@ -9,8 +9,11 @@ import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.domain.model.Library
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -28,6 +31,14 @@ class LibrarySettingsViewModel(
 ) : ViewModel() {
     val state: StateFlow<LibrarySettingsUiState>
         field = MutableStateFlow<LibrarySettingsUiState>(LibrarySettingsUiState.Loading)
+
+    private val _events = Channel<LibrarySettingsEvent>(Channel.BUFFERED)
+
+    /**
+     * One-shot events the screen consumes exactly once (e.g. a transient "scanning" confirmation).
+     * Uses a [Channel] per the one-shot-events rubric rule so re-collection never replays a toast.
+     */
+    val events: Flow<LibrarySettingsEvent> = _events.receiveAsFlow()
 
     init {
         loadLibrary()
@@ -110,7 +121,10 @@ class LibrarySettingsViewModel(
     }
 
     /**
-     * Add a scan path to the library.
+     * Save a new scan folder. The repository registers the folder and triggers a scan of JUST
+     * that folder (not a full library rescan), so newly-added content appears without the
+     * minutes-long full walk. On success a one-shot [LibrarySettingsEvent.FolderSavedScanStarted]
+     * confirms the scan kicked off.
      */
     fun addScanPath(path: String) {
         if (state.value !is LibrarySettingsUiState.Ready) return
@@ -120,13 +134,14 @@ class LibrarySettingsViewModel(
             when (val result = adminRepository.addScanPath(path)) {
                 is AppResult.Success -> {
                     val updatedLibrary = result.data
-                    logger.info { "Added scan path: $path" }
+                    logger.info { "Saved scan folder and started per-folder scan: $path" }
                     updateReady {
                         it.copy(
                             isSaving = false,
                             library = updatedLibrary,
                         )
                     }
+                    _events.trySend(LibrarySettingsEvent.FolderSavedScanStarted)
                 }
 
                 is AppResult.Failure -> {
@@ -291,4 +306,12 @@ sealed interface LibrarySettingsUiState {
     data class Error(
         val error: AppError,
     ) : LibrarySettingsUiState
+}
+
+/**
+ * One-shot events emitted by [LibrarySettingsViewModel] for the screen to render exactly once.
+ */
+sealed interface LibrarySettingsEvent {
+    /** A folder was saved and a scan of just that folder has started. Drives a transient snackbar. */
+    data object FolderSavedScanStarted : LibrarySettingsEvent
 }

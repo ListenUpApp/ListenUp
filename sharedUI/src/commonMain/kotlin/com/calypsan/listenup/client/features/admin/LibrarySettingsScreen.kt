@@ -49,18 +49,20 @@ import com.calypsan.listenup.client.design.components.ListenUpLoadingIndicatorSm
 import com.calypsan.listenup.client.design.components.SectionGroup
 import com.calypsan.listenup.client.design.components.SettingRow
 import com.calypsan.listenup.client.domain.model.LibraryFolderRef
+import com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
 import com.calypsan.listenup.client.presentation.error.localized
 import com.calypsan.listenup.client.presentation.error.localizedString
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.admin_add_folder
-import listenup.composeapp.generated.resources.admin_add_this_folder
+import listenup.composeapp.generated.resources.admin_folder_saved_scanning
 import listenup.composeapp.generated.resources.admin_library_settings
 import listenup.composeapp.generated.resources.admin_remove_path
 import listenup.composeapp.generated.resources.admin_remove_path_from_library_scan
 import listenup.composeapp.generated.resources.admin_remove_scan_path
 import listenup.composeapp.generated.resources.admin_rescan_library
+import listenup.composeapp.generated.resources.admin_save_and_scan_folder
 import listenup.composeapp.generated.resources.admin_scan_all_paths_for_new
 import listenup.composeapp.generated.resources.admin_scan_paths
 import listenup.composeapp.generated.resources.admin_scanning
@@ -93,6 +95,18 @@ fun LibrarySettingsScreen(
         readyError?.let {
             snackbarHostState.showSnackbar(it.localizedString())
             viewModel.clearError()
+        }
+    }
+
+    // One-shot "folder saved — scanning it now" confirmation.
+    val folderSavedScanningMessage = stringResource(Res.string.admin_folder_saved_scanning)
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                LibrarySettingsEvent.FolderSavedScanStarted -> {
+                    snackbarHostState.showSnackbar(folderSavedScanningMessage)
+                }
+            }
         }
     }
 
@@ -306,7 +320,7 @@ private fun FolderBrowserDialog(
                     modifier = Modifier.padding(horizontal = 8.dp),
                 ) {
                     Icon(Icons.Outlined.Add, null, modifier = Modifier.padding(end = 4.dp))
-                    Text(stringResource(Res.string.admin_add_this_folder))
+                    Text(stringResource(Res.string.admin_save_and_scan_folder))
                 }
 
                 HorizontalDivider()

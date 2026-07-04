@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.Library
+import com.calypsan.listenup.client.domain.model.LibraryFolderRef
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.returns
@@ -14,6 +15,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import app.cash.turbine.test
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -88,6 +90,52 @@ class LibrarySettingsViewModelTest :
                 advanceUntilIdle()
 
                 viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Error>()
+            }
+        }
+
+        test("addScanPath saves the folder and clears the saving overlay") {
+            runTest(dispatcher) {
+                val adminRepository: AdminRepository = mock()
+                val initial = createLibrary()
+                val withFolder =
+                    initial.copy(folders = listOf(LibraryFolderRef(id = "f0", rootPath = "/audiobooks")))
+                everySuspend { adminRepository.getLibrary() } returns AppResult.Success(initial)
+                everySuspend { adminRepository.addScanPath("/audiobooks") } returns AppResult.Success(withFolder)
+
+                val viewModel =
+                    LibrarySettingsViewModel(
+                        adminRepository = adminRepository,
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.addScanPath("/audiobooks")
+                advanceUntilIdle()
+
+                val ready = viewModel.state.value.shouldBeInstanceOf<LibrarySettingsUiState.Ready>()
+                ready.library.folders.map { it.rootPath } shouldBe listOf("/audiobooks")
+                ready.isSaving shouldBe false
+            }
+        }
+
+        test("addScanPath emits FolderSavedScanStarted so the screen can confirm the scan") {
+            runTest(dispatcher) {
+                val adminRepository: AdminRepository = mock()
+                val library = createLibrary()
+                everySuspend { adminRepository.getLibrary() } returns AppResult.Success(library)
+                everySuspend { adminRepository.addScanPath("/audiobooks") } returns AppResult.Success(library)
+
+                val viewModel =
+                    LibrarySettingsViewModel(
+                        adminRepository = adminRepository,
+                        errorBus = ErrorBus(),
+                    )
+                advanceUntilIdle()
+
+                viewModel.events.test {
+                    viewModel.addScanPath("/audiobooks")
+                    awaitItem() shouldBe LibrarySettingsEvent.FolderSavedScanStarted
+                }
             }
         }
 

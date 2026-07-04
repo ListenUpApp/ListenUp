@@ -9,7 +9,6 @@
     <string name="admin_add_member">Add Member</string>
     <string name="admin_add_members_to_share_this">Add members to share this collection</string>
     <string name="admin_add_subgenre">Add Sub-genre</string>
-    <string name="admin_add_this_folder">Add This Folder</string>
     <string name="admin_administrator">Administrator</string>
     <string name="admin_all_users_are_already_members">All users are already members of this collection</string>
     <string name="admin_allow_anyone_to_request_an">Allow anyone to request an account</string>
@@ -63,6 +62,7 @@
     <string name="admin_enter_a_name_for_the">Enter a name for the collection</string>
     <string name="admin_events_sessions_and_progress_data">Events, sessions, and progress data</string>
     <string name="admin_expires_in">Expires in</string>
+    <string name="admin_folder_saved_scanning">Folder saved. Scanning it now…</string>
     <string name="admin_genre_name">Genre name</string>
     <string name="admin_import_books_progress">Books: %1$d/%2$d</string>
     <string name="admin_import_sessions_progress">Sessions: %1$d/%2$d</string>
@@ -141,6 +141,7 @@
     <string name="admin_restored_from">Restored from %1$s</string>
     <string name="admin_review_new_books_before_they">Review new books before they appear in library</string>
     <string name="admin_revoke_invite">Revoke Invite</string>
+    <string name="admin_save_and_scan_folder">Save &amp; Scan Folder</string>
     <string name="admin_save_settings">Save settings</string>
     <string name="admin_scan_all_paths_for_new">Scan all paths for new or updated audiobooks</string>
     <string name="admin_scan_paths">Scan Paths</string>
