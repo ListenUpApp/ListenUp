@@ -81,7 +81,7 @@ fun seedModule(
             single { PlaybackPositionDomainSeeder(sql = get(), playbackPositionRepository = get()) }
             single { ListeningEventDomainSeeder(sql = get(), listeningEventRepository = get()) }
             single { ActiveSessionSeeder(sql = get(), activeSessionRepository = get()) }
-            single { ActivitySeeder(sql = get(), activityRepository = get()) }
+            single { ActivitySeeder(sql = get(), activityRecorder = get()) }
         }
         if (hasBooksModule) {
             single { ContributorEnrichmentSeeder(sql = get(), contributorRepository = get()) }

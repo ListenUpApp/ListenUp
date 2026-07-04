@@ -12,7 +12,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.server.module
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -69,7 +69,7 @@ import java.nio.file.Files
  *  - omits the `private-book` activity entirely (`none { bookId == "private-book" }`),
  *  - contains the non-book `shelf_created` (always shown — non-book activity is ACL-exempt).
  *
- * Activities are recorded through the real [ActivityRepository.record] write-path resolved from the
+ * Activities are recorded through the real [ActivityRecorder.record] write-path resolved from the
  * running application's Koin — the same path the seven recording hooks drive — and A is given a live
  * `public_profiles` identity via [PublicProfileMaintainer.refresh], else her activity has no identity
  * to join and the service drops it.
@@ -208,8 +208,8 @@ class ActivityAclE2ETest :
                     val profiles by application.inject<PublicProfileMaintainer>()
                     profiles.refresh(alice.userId)
 
-                    // ── A records activity through the real ActivityRepository write-path. ──────
-                    val activities by application.inject<ActivityRepository>()
+                    // ── A records activity through the real ActivityRecorder write-path. ──────
+                    val activities by application.inject<ActivityRecorder>()
                     activities.record(userId = alice.userId, type = ActivityType.FINISHED_BOOK, bookId = "public-book")
                     activities.record(userId = alice.userId, type = ActivityType.FINISHED_BOOK, bookId = "private-book")
                     activities.record(

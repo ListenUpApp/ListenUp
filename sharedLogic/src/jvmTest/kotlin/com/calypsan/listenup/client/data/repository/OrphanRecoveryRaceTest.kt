@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
-import com.calypsan.listenup.client.data.sync.ActivityRefreshSignal
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.ConnectionState
@@ -316,7 +315,6 @@ private fun buildOrphanTestEngine(
         reconciler = reconciler,
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
-        activityRefreshSignal = ActivityRefreshSignal(),
         scope = scope,
     )
 }

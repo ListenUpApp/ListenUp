@@ -129,7 +129,6 @@ private fun buildEngineWithCatchUp(
         reconciler = noopSyncReconciler(registry, store, catchUp),
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
-        activityRefreshSignal = ActivityRefreshSignal(),
         scope = scope,
     )
 }

@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.withSqlDatabase
@@ -54,7 +55,6 @@ class StatsRecorderStreakOrderingTest :
 
         fun SqlTestDatabases.recorderWith(
             userStatsRepo: UserStatsRepository,
-            activities: ActivityRepository,
             testClock: FixedClock,
         ): StatsRecorder {
             val bus = ChangeBus()
@@ -69,7 +69,7 @@ class StatsRecorderStreakOrderingTest :
                         publicProfileRepo = PublicProfileRepository(db = sql, bus = bus, registry = registry),
                         clock = testClock,
                     ),
-                activityRecorder = ActivityRecorder(repo = activities, bus = bus),
+                activityRecorder = activityRecorder(bus = bus),
                 statsBackfill = UserStatsBackfillService(sql = sql, userStatsRepo = userStatsRepo),
                 clock = testClock,
             )
@@ -80,7 +80,7 @@ class StatsRecorderStreakOrderingTest :
                 val testClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms + dayMs))
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val recorder = recorderWith(userStatsRepo, ActivityRepository(db = sql), testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     val e1 = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -111,7 +111,7 @@ class StatsRecorderStreakOrderingTest :
                 val testClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms + dayMs))
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val recorder = recorderWith(userStatsRepo, ActivityRepository(db = sql), testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     val e1 = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -139,7 +139,7 @@ class StatsRecorderStreakOrderingTest :
                 val testClock = FixedClock(Instant.fromEpochMilliseconds(day0Ms + 2 * dayMs))
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
-                val recorder = recorderWith(userStatsRepo, ActivityRepository(db = sql), testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     val e1 = eventAt("evt-1", "book-1", endedAtMs = day0Ms, wallSeconds = 30L)
@@ -172,7 +172,7 @@ class StatsRecorderStreakOrderingTest :
                 val userStatsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val eventRepo = ListeningEventRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 val activities = ActivityRepository(db = sql)
-                val recorder = recorderWith(userStatsRepo, activities, testClock)
+                val recorder = recorderWith(userStatsRepo, testClock)
 
                 runTest {
                     // Seven consecutive days → streak climbs 1..7, firing STREAK_MILESTONE(7).

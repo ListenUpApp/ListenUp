@@ -191,6 +191,12 @@ internal class SyncRepositoryImpl(
             }
         }
 
+    override suspend fun refresh(): AppResult<Unit> =
+        when (val started = startEngineForCurrentUser()) {
+            is AppResult.Success -> suspendRunCatching { syncEngine.lifecycleReconcile(force = true) }
+            is AppResult.Failure -> started
+        }
+
     /**
      * Refresh the local search index after a reconcile, isolating failure — a search-index hiccup
      * must never fail or strand a sync. With a [watermark] (snapshotted before the reconcile) only

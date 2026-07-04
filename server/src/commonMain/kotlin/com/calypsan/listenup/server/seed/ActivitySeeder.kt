@@ -3,7 +3,7 @@ package com.calypsan.listenup.server.seed
 import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.logging.loggerFor
 
 private val logger = loggerFor<ActivitySeeder>()
@@ -14,8 +14,8 @@ private val logger = loggerFor<ActivitySeeder>()
  *
  * Records one [ActivityType.FINISHED_BOOK] on the first available book plus one
  * [ActivityType.USER_JOINED] (non-book) activity, written through the real
- * [ActivityRepository.record] write-path so the rows are indistinguishable from those the hooks
- * emit. The `user_joined` row is intentionally non-book so the demo feed exercises the
+ * [ActivityRecorder] write-path (the syncable repo) so the rows are indistinguishable from those
+ * the hooks emit. The `user_joined` row is intentionally non-book so the demo feed exercises the
  * always-visible (ACL-exempt) activity surface alongside a book-bearing one.
  *
  * Runs after [ActiveSessionSeeder] (order 30): like the other playback seeders it depends on the
@@ -27,7 +27,7 @@ private val logger = loggerFor<ActivitySeeder>()
  */
 internal class ActivitySeeder(
     private val sql: ListenUpDatabase,
-    private val activityRepository: ActivityRepository,
+    private val activityRecorder: ActivityRecorder,
 ) : DomainSeeder {
     override val domainName: String = "activities"
 
@@ -56,10 +56,10 @@ internal class ActivitySeeder(
             logger.info { "seed [$domainName]: no books scanned yet — deferring activity seeding to next restart" }
             return
         }
-        activityRepository.record(userId = userId, type = ActivityType.FINISHED_BOOK, bookId = bookId)
+        activityRecorder.record(userId = userId, type = ActivityType.FINISHED_BOOK, bookId = bookId)
         logger.info { "seed [$domainName]: finished_book for book $bookId" }
 
-        activityRepository.record(userId = userId, type = ActivityType.USER_JOINED)
+        activityRecorder.record(userId = userId, type = ActivityType.USER_JOINED)
         logger.info { "seed [$domainName]: user_joined for demo user" }
     }
 

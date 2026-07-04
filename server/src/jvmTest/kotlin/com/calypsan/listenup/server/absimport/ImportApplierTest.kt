@@ -10,8 +10,6 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -23,6 +21,7 @@ import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.ControlFrame
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
@@ -522,7 +521,7 @@ private suspend fun stageAnalyzedImport(
             userStatsRepo = statsRepo,
             bookReadsRepository = bookReads,
             publicProfileMaintainer = publicProfileMaintainer,
-            activityRecorder = ActivityRecorder(repo = ActivityRepository(db = dbs.sql), bus = bus),
+            activityRecorder = dbs.activityRecorder(bus = bus),
             statsBackfill = statsBackfill,
         )
     val listeningEventRepo =

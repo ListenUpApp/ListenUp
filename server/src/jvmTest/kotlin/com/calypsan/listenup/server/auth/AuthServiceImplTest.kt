@@ -17,8 +17,10 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
 import com.calypsan.listenup.server.testing.migratedTestDatabase
 import io.kotest.core.spec.style.FunSpec
@@ -60,7 +62,7 @@ class AuthServiceImplTest :
         fun newSvcWithRecorder(
             policy: RegistrationPolicy = RegistrationPolicy.OPEN,
         ): Pair<AuthServiceImpl, ActivityRepository> {
-            val db = migratedTestDatabase().db
+            val (db, driver) = migratedTestDatabase()
             val hasher = PasswordHasher()
             val sessions =
                 SessionService(db, RefreshTokenHasher(pepper), RefreshTokenGenerator(), clock = clock)
@@ -76,7 +78,16 @@ class AuthServiceImplTest :
                     sessionIssuer = SessionIssuer(sessions, jwt, clock),
                     clock = clock,
                     settings = settings,
-                    activityRecorder = ActivityRecorder(repo = activities, bus = ChangeBus()),
+                    activityRecorder =
+                        ActivityRecorder(
+                            syncRepo =
+                                ActivitySyncRepository(
+                                    db = db,
+                                    bus = ChangeBus(),
+                                    registry = SyncRegistry(),
+                                    driver = driver,
+                                ),
+                        ),
                 )
             return svc to activities
         }

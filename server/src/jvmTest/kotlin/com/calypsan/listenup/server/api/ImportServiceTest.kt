@@ -23,8 +23,6 @@ import com.calypsan.listenup.server.absimport.buildSyntheticAbsDb
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.services.ActivityRecorder
-import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -34,6 +32,7 @@ import com.calypsan.listenup.server.services.UserStatsBackfillService
 import com.calypsan.listenup.server.services.UserStatsRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.activityRecorder
 import com.calypsan.listenup.server.testing.SqlTestDatabases
 import com.calypsan.listenup.server.testing.noOpPublicProfileMaintainer
 import com.calypsan.listenup.server.testing.seedTestUser
@@ -235,7 +234,7 @@ private suspend fun stageService(
             userStatsRepo = statsRepo,
             bookReadsRepository = BookReadsRepository(db = dbs.sql),
             publicProfileMaintainer = dbs.sql.noOpPublicProfileMaintainer(),
-            activityRecorder = ActivityRecorder(repo = ActivityRepository(db = dbs.sql), bus = bus),
+            activityRecorder = dbs.activityRecorder(bus = bus),
             statsBackfill = statsBackfill,
         )
     val analyzer =
