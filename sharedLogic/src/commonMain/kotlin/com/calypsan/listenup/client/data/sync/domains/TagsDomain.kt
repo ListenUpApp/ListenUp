@@ -11,21 +11,17 @@ import com.calypsan.listenup.client.data.local.db.TagEntity
  * `isOwnEcho` needs no shield: the client has no local tag-row write path
  * that would generate echoes.
  */
-internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> =
-    MirroredDomain(
+internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> {
+    val apply = TagMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.TAGS,
-        syncIdOf = { it.id },
-        apply = TagMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.tagDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.tagDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.tagDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [Tag] payloads. */
 internal class TagMirrorApply(
@@ -44,7 +40,7 @@ internal class TagMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

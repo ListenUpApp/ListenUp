@@ -10,8 +10,15 @@ package com.calypsan.listenup.client.data.sync.domains
  * unchecked casts; the stateless variants are classes for the same reason.
  */
 internal sealed interface ConflictPolicy<T : Any> {
-    /** The server payload is canonical; apply unconditionally. (tags, genres, …) */
-    class ServerWins<T : Any> : ConflictPolicy<T>
+    /**
+     * The server payload is canonical; apply unconditionally, subject to the
+     * [revisionGuard] that skips inbound snapshots strictly older than the local
+     * row. The guard lives on the policy because ServerWins is one of the two
+     * policies that compare revisions. (tags, genres, …)
+     */
+    class ServerWins<T : Any>(
+        val revisionGuard: RevisionGuard,
+    ) : ConflictPolicy<T>
 
     /**
      * Append-only rows: the domain's [MirrorApply.upsert] is insert-if-absent, so
@@ -36,8 +43,12 @@ internal sealed interface ConflictPolicy<T : Any> {
      * only (revision/updatedAt) and returns true — repainting fields the user just
      * wrote would flicker the UI. Returning false falls through to a full apply
      * (e.g. an echo for a row not yet mirrored locally). (books)
+     *
+     * Carries the same [revisionGuard] as [ServerWins]: it is a revision-comparing
+     * policy, so the guard rides with it.
      */
     class EchoShielded<T : Any>(
         val onOwnEcho: suspend (id: String, payload: T) -> Boolean,
+        val revisionGuard: RevisionGuard,
     ) : ConflictPolicy<T>
 }

@@ -20,11 +20,11 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("LibraryFolderSyncPayload")
 data class LibraryFolderSyncPayload(
-    val id: String,
+    override val id: String,
     val libraryId: String,
     val rootPath: String,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload

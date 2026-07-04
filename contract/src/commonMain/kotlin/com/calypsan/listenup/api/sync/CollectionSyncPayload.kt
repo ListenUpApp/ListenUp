@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 @SerialName("CollectionSyncPayload")
 data class CollectionSyncPayload(
     /** Stable identifier for this collection (UUIDv7). */
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     /** The library this collection belongs to. */
     @SerialName("libraryId") val libraryId: String,
     /** User who owns (created) this collection. */
@@ -29,11 +29,11 @@ data class CollectionSyncPayload(
     /** Whether this is a server-managed system collection (ALL_BOOKS or INBOX). Read-only in the UI. */
     @SerialName("isSystem") val isSystem: Boolean = false,
     /** Sync revision counter — bumped on every write. */
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     /** Epoch millis of the last server-side write. */
     @SerialName("updatedAt") val updatedAt: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload
 
 /**
  * Wire DTO for a book–collection junction synced between server and client.
@@ -54,9 +54,12 @@ data class CollectionBookSyncPayload(
     /** Epoch millis when this junction row was first created. */
     @SerialName("createdAt") val createdAt: Long,
     /** Sync revision counter — bumped on every write (create or soft-delete). */
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload {
+    /** Synthetic sync identity `"$collectionId:$bookId"` — matches the server's envelope id. Not serialized. */
+    override val id: String get() = "$collectionId:$bookId"
+}
 
 /**
  * Wire DTO for a collection share record synced between server and client.
@@ -68,7 +71,7 @@ data class CollectionBookSyncPayload(
 @SerialName("CollectionShareSyncPayload")
 data class CollectionShareSyncPayload(
     /** Stable identifier for this share record (UUIDv7). */
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     /** The collection being shared. */
     @SerialName("collectionId") val collectionId: String,
     /** The user receiving access. */
@@ -78,8 +81,8 @@ data class CollectionShareSyncPayload(
     /** The level of access granted. */
     @SerialName("permission") val permission: SharePermission,
     /** Sync revision counter — bumped on every write. */
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     /** Epoch millis of the last server-side write. */
     @SerialName("updatedAt") val updatedAt: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload

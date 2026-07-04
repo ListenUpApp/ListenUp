@@ -12,7 +12,7 @@ import com.calypsan.listenup.client.domain.repository.ImageStorage
 /**
  * The explicit list of every declared sync domain — the client's complete sync
  * rulebook in one value. [mirrored] domains are Room-mirrored; [refreshed] domains
- * are nudge-driven. The server's registrations are asserted 1:1 against [mirrored]
+ * are refresh-driven. The server's registrations are asserted 1:1 against [mirrored]
  * by the completeness spec; the four [refreshed] triggers are asserted there too.
  */
 internal class SyncDomainCatalog(

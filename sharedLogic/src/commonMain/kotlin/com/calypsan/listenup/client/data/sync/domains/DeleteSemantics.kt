@@ -13,8 +13,14 @@ internal sealed interface DeleteSemantics {
      * …) — junctions keep tombstoned rows so [DigestParticipation.Full] still covers
      * them; a literal row delete would break digest reconciliation. No domain
      * hard-deletes (spec correction 2026-07-02).
+     *
+     * [tombstoneById] applies an SSE `Deleted` frame (id + occurredAt + revision).
+     * Only [SoftDelete] carries it, so a [CatchUpOnly] domain can no longer be handed
+     * an id-only frame — the old `error("unreachable")` stubs are unrepresentable.
      */
-    data object SoftDelete : DeleteSemantics
+    class SoftDelete(
+        val tombstoneById: suspend (id: String, deletedAt: Long, revision: Long) -> Unit,
+    ) : DeleteSemantics
 
     /**
      * SSE-level `Deleted` is a declared no-op; the tombstone converges on the next

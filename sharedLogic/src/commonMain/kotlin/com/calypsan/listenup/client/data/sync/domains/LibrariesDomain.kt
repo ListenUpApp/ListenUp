@@ -9,21 +9,17 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryEntity
  * The `libraries` domain: cross-user rows written only via the LibraryAdminService
  * RPC — server-wins apply, soft-delete tombstones, full digest, online-only writes.
  */
-internal fun librariesDomain(database: ListenUpDatabase): MirroredDomain<LibrarySyncPayload> =
-    MirroredDomain(
+internal fun librariesDomain(database: ListenUpDatabase): MirroredDomain<LibrarySyncPayload> {
+    val apply = LibraryMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.LIBRARIES,
-        syncIdOf = { it.id },
-        apply = LibraryMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.libraryDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.libraryDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.libraryDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [LibrarySyncPayload] payloads. */
 internal class LibraryMirrorApply(
@@ -45,7 +41,7 @@ internal class LibraryMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

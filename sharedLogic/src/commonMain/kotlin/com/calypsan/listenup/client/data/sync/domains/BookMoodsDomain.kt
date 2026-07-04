@@ -20,19 +20,14 @@ private val logger = KotlinLogging.logger {}
  * No FK constraints on `book_moods` — sync is responsible for integrity. `isOwnEcho`
  * needs no shield: `@Upsert` is idempotent.
  */
-internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoodSyncPayload> =
-    MirroredDomain(
+internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoodSyncPayload> {
+    val apply = BookMoodMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.BOOK_MOODS,
-        syncIdOf = { "${it.bookId}:${it.moodId}" },
-        apply = BookMoodMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
-        digest = fullDigest(database.bookMoodDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id ->
+        apply = apply,
+        conflict =
+            ConflictPolicy.ServerWins(
+                RevisionGuard { id ->
                     val parts = id.split(":")
                     if (parts.size != 2) {
                         null
@@ -41,7 +36,12 @@ internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoo
                     }
                 },
             ),
+        // The DAO advances its own revision on tombstone, so the event revision is dropped (`_`).
+        deletes = DeleteSemantics.SoftDelete { id, deletedAt, _ -> apply.tombstoneById(id, deletedAt) },
+        digest = fullDigest(database.bookMoodDao()::digestRows),
+        writes = WriteTier.OnlineOnly,
     )
+}
 
 /** Room mapping for [BookMoodSyncPayload] junction payloads. */
 internal class BookMoodMirrorApply(
@@ -62,13 +62,11 @@ internal class BookMoodMirrorApply(
     /**
      * Tombstone from an SSE `Deleted` frame (`"$bookId:$moodId"` envelope id; `:` is
      * unambiguous — both parts are UUIDv7 strings). The DAO advances its own revision,
-     * ignoring the event's revision — [revision] is deliberately unused, matching the
-     * old handler.
+     * so the event revision is not taken here.
      */
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
-        revision: Long,
     ) {
         val parts = id.split(":")
         if (parts.size != 2) {

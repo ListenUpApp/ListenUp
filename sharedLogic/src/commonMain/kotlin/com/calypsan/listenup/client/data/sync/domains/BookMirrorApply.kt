@@ -56,7 +56,7 @@ internal class BookMirrorApply(
     // never write document cache files. See [applyDocuments].
     private val documentStorage: DocumentStorage? = null,
 ) : MirrorApply<BookSyncPayload> {
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

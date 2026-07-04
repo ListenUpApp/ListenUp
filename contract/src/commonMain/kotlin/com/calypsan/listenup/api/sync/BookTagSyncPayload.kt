@@ -27,6 +27,9 @@ data class BookTagSyncPayload(
     /** Epoch millis when this junction row was first created. */
     @SerialName("createdAt") val createdAt: Long,
     /** Sync revision counter — bumped on every write (create or soft-delete). */
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload {
+    /** Synthetic sync identity `"$bookId:$tagId"` — matches the server's envelope id. Not serialized. */
+    override val id: String get() = "$bookId:$tagId"
+}

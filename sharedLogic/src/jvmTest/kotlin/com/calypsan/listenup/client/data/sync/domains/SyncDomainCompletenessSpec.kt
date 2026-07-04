@@ -12,17 +12,12 @@ import com.calypsan.listenup.client.data.sync.testing.StubAvatarDownloadReposito
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.test.stubImageStorage
-import com.calypsan.listenup.konsist.productionScope
 import com.calypsan.listenup.server.module
-import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContainAnyOf
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -148,9 +143,9 @@ class SyncDomainCompletenessSpec :
                 // router's KClass map would silently drop one).
                 triggers.toSet() shouldHaveSize triggers.size
 
-                // Exactly the three fold-candidate nudges. ActivityChanged was retired when
+                // Exactly the three fold-candidate refresh triggers. ActivityChanged was retired when
                 // `activities` was promoted to a Room-mirrored data domain (catch-up + live tail),
-                // so it is no longer a refreshed nudge.
+                // so it is no longer a refreshed trigger.
                 triggers.toSet() shouldBe
                     setOf(
                         SyncControl.ActiveSessionsChanged::class,
@@ -203,52 +198,20 @@ class SyncDomainCompletenessSpec :
                     )
                 val refreshedTriggers = catalog.refreshed.map { it.trigger }
 
-                // Distinct owners — no control claimed twice, no engine/nudge overlap.
+                // Distinct owners — no control claimed twice, no engine/refreshed overlap.
                 refreshedTriggers.toSet() shouldHaveSize refreshedTriggers.size
                 (engineControls intersect refreshedTriggers.toSet()).shouldBeEmpty()
 
                 // Completeness: every sealed SyncControl subtype is owned by exactly one side. A new
                 // control frame with no engine handler and no RefreshedDomain trigger fails HERE — the
                 // regression that today only warn-logs at runtime (SyncEventDispatcher).
+                //
+                // Recovery of a dropped refresh trigger is now derived, not declared: the lifecycle-reconcile
+                // edge re-runs every refreshed domain's refresh through RefreshedDomainRouter.refreshAll,
+                // so a new refreshed domain self-heals by construction — no per-trigger engine arm to
+                // parse for, no guard that can rot.
                 val allControls = SyncControl::class.sealedSubclasses.toSet()
                 allControls shouldBe engineControls + refreshedTriggers.toSet()
-
-                // Declaring a recovery is compile-time-required (the field is non-nullable), so a
-                // `recovery shouldNotBe null` assertion is dead. The real gap: the engine's dispatch,
-                // runNudgeLifecycleRecovery, switches on the trigger with an `else -> logger.warn(...)`
-                // fall-through. A new RefreshedDomain whose trigger the engine forgot to wire routes
-                // through that else and silently never self-heals a dropped nudge — CI stays green
-                // because the warn is a runtime log. Assert instead that EVERY refreshed domain's
-                // trigger is handled by an explicit (non-else) arm, so a forgotten wiring fails HERE.
-                val engineSource =
-                    productionScope()
-                        .files
-                        .firstOrNull { it.path.endsWith("/SyncEngine.kt") }
-                        .shouldNotBeNull()
-                        .text
-                val handledTriggers = NudgeRecoveryDispatchGuard.handledTriggerNames(engineSource)
-
-                // Sanity: the parser found the known explicit arms. A parser that silently returns
-                // nothing would make the coverage assertion vacuously green — refuse that.
-                withClue("parser found no handled triggers — runNudgeLifecycleRecovery shape changed?") {
-                    handledTriggers shouldBe
-                        setOf(
-                            "ActiveSessionsChanged",
-                            "ServerInfoChanged",
-                            "PreferencesChanged",
-                        )
-                }
-
-                catalog.refreshed.forEach { domain ->
-                    val name = domain.trigger.simpleName
-                    withClue(
-                        "RefreshedDomain trigger $name has no explicit arm in runNudgeLifecycleRecovery — " +
-                            "a dropped nudge would fall into the else warn-log and never self-heal. Wire an " +
-                            "explicit arm for it (Plan §6a).",
-                    ) {
-                        handledTriggers shouldContain name
-                    }
-                }
             } finally {
                 db.close()
             }
@@ -280,34 +243,6 @@ class SyncDomainCompletenessSpec :
                     .filter { it.digest is DigestParticipation.OptOut }
                     .map { it.key.name }
                     .toSet() shouldBe setOf("playback_positions")
-            } finally {
-                db.close()
-            }
-        }
-
-        test("every ServerWins/EchoShielded mirrored domain declares a revision guard") {
-            val db = createInMemoryTestDatabase()
-            try {
-                val catalog =
-                    syncDomainCatalog(
-                        database = db,
-                        mapper = BookEntityMapper(),
-                        imageStorage = stubImageStorage(),
-                        authSession = FakeAuthSession(userId = "spec-user"),
-                        avatarDownloadRepository = StubAvatarDownloadRepository(),
-                        pingPresence = {},
-                        refetchServerInfo = {},
-                        refetchPreferences = {},
-                    )
-
-                // AppendOnly is insert-if-absent by construction; NewerWins carries its own stamp guard.
-                catalog.mirrored
-                    .filter {
-                        it.conflict is ConflictPolicy.ServerWins<*> ||
-                            it.conflict is ConflictPolicy.EchoShielded<*>
-                    }.forEach { domain ->
-                        withClue(domain.key.name) { domain.revisionGuard shouldNotBe null }
-                    }
             } finally {
                 db.close()
             }

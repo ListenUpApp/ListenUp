@@ -20,10 +20,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("SeriesSyncPayload")
 data class SeriesSyncPayload(
-    val id: String,
+    override val id: String,
     val name: String,
     val sortName: String?,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
@@ -32,4 +32,4 @@ data class SeriesSyncPayload(
     val description: String? = null,
     val coverPath: String? = null,
     val coverBlurHash: String? = null,
-) : Tombstoned
+) : SyncPayload

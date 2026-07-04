@@ -87,53 +87,69 @@ class CollectionDaoTest :
             }
         }
 
-        // ── Total-revocation guard: tombstoneNotIn(emptySet()) prunes EVERY live row ──
+        // ── Access-prune primitive: tombstoneByIds tombstones exactly the given rows ──
         //
-        // SECURITY-CRITICAL: when the caller loses ALL access to this domain, the reconcile
-        // calls tombstoneNotIn(emptySet(), now). SQLite evaluates `id NOT IN ()` as TRUE for
-        // every row, so all live rows are tombstoned — the correct total-revocation behaviour.
-        // This test pins it: it FAILS if anyone adds an `if (accessibleIds.isEmpty()) return`
-        // early-return to the DAO query, which would silently leave revoked content readable.
+        // The composed handler computes the doomed set (`liveIds - accessible`) and tombstones it in
+        // bounded chunks. These pin the DAO leg: tombstoneByIds evicts exactly the ids it is handed,
+        // so a total revocation (handler passes every live id) evicts everything, while an empty
+        // chunk (accessible = everything) touches nothing.
 
-        test("tombstoneNotIn(emptySet) tombstones EVERY live collection (total revocation)") {
+        test("tombstoneByIds tombstones exactly the given collections, leaving the rest live") {
             runTest {
                 collectionDao.upsert(collection("c1", "Alpha"))
                 collectionDao.upsert(collection("c2", "Beta"))
-                collectionDao.liveIds().toSet() shouldBe setOf("c1", "c2")
+                collectionDao.upsert(collection("c3", "Gamma"))
+                collectionDao.liveIds().toSet() shouldBe setOf("c1", "c2", "c3")
 
-                collectionDao.tombstoneNotIn(emptySet(), now = 777L)
+                collectionDao.tombstoneByIds(listOf("c1", "c2"), now = 777L)
 
-                collectionDao.liveIds().shouldBeEmpty()
+                collectionDao.liveIds() shouldBe listOf("c3")
                 collectionDao.getById("c1") shouldBe null
                 collectionDao.getById("c2") shouldBe null
+                collectionDao.getById("c3") shouldNotBe null
             }
         }
 
-        test("tombstoneNotIn(emptySet) tombstones EVERY live junction row (total revocation)") {
+        test("tombstoneByIds tombstones exactly the given junction rows, leaving the rest live") {
             runTest {
                 bookDao.upsert(member("c1", "b1"))
                 bookDao.upsert(member("c1", "b2"))
-                bookDao.liveSyntheticIds().toSet() shouldBe setOf("c1:b1", "c1:b2")
+                bookDao.upsert(member("c1", "b3"))
+                bookDao.liveSyntheticIds().toSet() shouldBe setOf("c1:b1", "c1:b2", "c1:b3")
 
-                bookDao.tombstoneNotIn(emptySet(), now = 777L)
+                bookDao.tombstoneByIds(listOf("c1:b1", "c1:b2"), now = 777L)
 
-                bookDao.liveSyntheticIds().shouldBeEmpty()
+                bookDao.liveSyntheticIds() shouldBe listOf("c1:b3")
                 bookDao.findByKey("c1", "b1")!!.deletedAt shouldNotBe null
                 bookDao.findByKey("c1", "b2")!!.deletedAt shouldNotBe null
+                bookDao.findByKey("c1", "b3")!!.deletedAt shouldBe null
             }
         }
 
-        test("tombstoneNotIn(emptySet) revokes EVERY live share (total revocation)") {
+        test("tombstoneByIds revokes exactly the given shares, leaving the rest live") {
             runTest {
                 shareDao.upsert(share("s1", "c1", "u1"))
                 shareDao.upsert(share("s2", "c1", "u2"))
-                shareDao.liveIds().toSet() shouldBe setOf("s1", "s2")
+                shareDao.upsert(share("s3", "c1", "u3"))
+                shareDao.liveIds().toSet() shouldBe setOf("s1", "s2", "s3")
 
-                shareDao.tombstoneNotIn(emptySet(), now = 777L)
+                shareDao.tombstoneByIds(listOf("s1", "s2"), now = 777L)
 
-                shareDao.liveIds().shouldBeEmpty()
+                shareDao.liveIds() shouldBe listOf("s3")
                 shareDao.getById("s1") shouldBe null
                 shareDao.getById("s2") shouldBe null
+                shareDao.getById("s3") shouldNotBe null
+            }
+        }
+
+        test("tombstoneByIds(emptyList) tombstones nothing (accessible = everything)") {
+            runTest {
+                collectionDao.upsert(collection("c1", "Alpha"))
+                collectionDao.upsert(collection("c2", "Beta"))
+
+                collectionDao.tombstoneByIds(emptyList(), now = 777L)
+
+                collectionDao.liveIds().toSet() shouldBe setOf("c1", "c2")
             }
         }
 

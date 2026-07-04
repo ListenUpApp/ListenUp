@@ -318,7 +318,7 @@ class SyncEventDispatcherTest :
         test("control: ActivityChanged is unclaimed and handled generically (activities now sync as a data domain)") {
             runTest {
                 val db = createInMemoryTestDatabase()
-                // A router with a DIFFERENT nudge entry: activities are no longer a nudge, so an
+                // A router with a DIFFERENT refresh entry: activities are no longer a refresh trigger, so an
                 // ActivityChanged frame must NOT trigger any refresh strategy and must not crash.
                 var otherPinged = false
                 val router =
@@ -343,7 +343,7 @@ class SyncEventDispatcherTest :
                         event = "control",
                         data = contractJson.encodeToString(SyncControl.serializer(), SyncControl.ActivityChanged),
                     )
-                // Completes without throwing; no unrelated nudge fires.
+                // Completes without throwing; no unrelated refresh fires.
                 dispatcher.handle(frame)
                 otherPinged shouldBe false
                 db.close()

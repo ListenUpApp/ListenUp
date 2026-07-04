@@ -12,21 +12,17 @@ import com.calypsan.listenup.client.data.local.db.ShelfEntity
  * tombstones, full digest, online-only writes. `bookCount` is JOIN-derived and never
  * stored, so drift is impossible by construction.
  */
-internal fun shelvesDomain(database: ListenUpDatabase): MirroredDomain<ShelfSyncPayload> =
-    MirroredDomain(
+internal fun shelvesDomain(database: ListenUpDatabase): MirroredDomain<ShelfSyncPayload> {
+    val apply = ShelfMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.SHELVES,
-        syncIdOf = { it.id },
-        apply = ShelfMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.shelfDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.shelfDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.shelfDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [ShelfSyncPayload] payloads. */
 internal class ShelfMirrorApply(
@@ -47,7 +43,7 @@ internal class ShelfMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

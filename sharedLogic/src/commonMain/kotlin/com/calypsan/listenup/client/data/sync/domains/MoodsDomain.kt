@@ -11,21 +11,17 @@ import com.calypsan.listenup.client.data.local.db.MoodEntity
  * Structurally identical to [tagsDomain]; `isOwnEcho` needs no shield — the
  * client has no local mood-row write path.
  */
-internal fun moodsDomain(database: ListenUpDatabase): MirroredDomain<Mood> =
-    MirroredDomain(
+internal fun moodsDomain(database: ListenUpDatabase): MirroredDomain<Mood> {
+    val apply = MoodMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.MOODS,
-        syncIdOf = { it.id },
-        apply = MoodMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.moodDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.moodDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.moodDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [Mood] payloads. */
 internal class MoodMirrorApply(
@@ -44,7 +40,7 @@ internal class MoodMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

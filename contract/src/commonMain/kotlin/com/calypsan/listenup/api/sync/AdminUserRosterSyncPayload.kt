@@ -11,15 +11,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("AdminUserRosterSyncPayload")
 data class AdminUserRosterSyncPayload(
-    val id: String,
+    override val id: String,
     val email: String,
     val displayName: String,
     val role: String,
     val status: String,
     val canShare: Boolean,
     val accountCreatedAt: Long,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload

@@ -17,7 +17,7 @@ import kotlinx.serialization.Serializable
 @SerialName("ShelfSyncPayload")
 data class ShelfSyncPayload(
     /** Stable identifier for this shelf (UUIDv7). */
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     /** Display name of the shelf. */
     @SerialName("name") val name: String,
     /** Optional description for the shelf. */
@@ -25,13 +25,13 @@ data class ShelfSyncPayload(
     /** Whether this shelf is private (visible only to the owner). */
     @SerialName("isPrivate") val isPrivate: Boolean = false,
     /** Sync revision counter — bumped on every write. */
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     /** Epoch millis of the last server-side write. */
     @SerialName("updatedAt") val updatedAt: Long,
     /** Epoch millis when this shelf was first created. */
     @SerialName("createdAt") val createdAt: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload
 
 /**
  * Wire DTO for a shelf–book junction synced between server and client.
@@ -47,7 +47,7 @@ data class ShelfSyncPayload(
 @SerialName("ShelfBookSyncPayload")
 data class ShelfBookSyncPayload(
     /** Synthetic stable id for sync-cursor identity (`"$shelfId:$bookId"`). */
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     /** The shelf this book belongs to. */
     @SerialName("shelfId") val shelfId: String,
     /** The book added to the shelf. */
@@ -55,10 +55,10 @@ data class ShelfBookSyncPayload(
     /** Display ordering within the shelf — lower values appear first. */
     @SerialName("sortOrder") val sortOrder: Int,
     /** Sync revision counter — bumped on every write. */
-    @SerialName("revision") val revision: Long,
+    @SerialName("revision") override val revision: Long,
     /** Epoch millis of the last server-side write. */
     @SerialName("updatedAt") val updatedAt: Long,
     /** Epoch millis when this junction row was first created. */
     @SerialName("createdAt") val createdAt: Long,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload

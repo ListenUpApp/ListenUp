@@ -14,7 +14,7 @@ private val logger = KotlinLogging.logger {}
  * Routes parsed SSE frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
  *  - `clientOpId` echoes are matched against the pending queue (and acked),
- *  - control events are recognised: nudge controls run their catalog-declared refresh
+ *  - control events are recognised: refresh controls run their catalog-declared refresh
  *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
  *    `StreamError`, `AccessChanged`, `UserDeleted`, `LibraryDataChanged`) fire their callbacks,
  *  - unknown domains are logged and dropped (graceful for forward-compat),
@@ -50,7 +50,7 @@ internal class SyncEventDispatcher(
                 logger.warn(e) { "Failed to decode SyncControl frame" }
                 return
             }
-        // Nudge tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
+        // Refreshed tier: catalog-declared refresh strategies. Engine/lifecycle controls fall through.
         if (refreshedRouter.dispatch(control)) return
         when (control) {
             is SyncControl.CursorStale -> {
@@ -80,16 +80,16 @@ internal class SyncEventDispatcher(
                 onLibraryDataChanged()
             }
 
-            // The nudge tier is handled by refreshedRouter above. Reaching here means a
+            // The refreshed tier is handled by refreshedRouter above. Reaching here means a
             // catalog RefreshedDomain entry is missing — log loudly rather than drop silently.
             SyncControl.ActiveSessionsChanged,
             SyncControl.ServerInfoChanged,
             SyncControl.PreferencesChanged,
             -> {
-                logger.warn { "Nudge control $control unclaimed by any RefreshedDomain; dropped" }
+                logger.warn { "Refresh control $control unclaimed by any RefreshedDomain; dropped" }
             }
 
-            // Activities are now a Room-mirrored data domain, not a nudge. A stray ActivityChanged
+            // Activities are now a Room-mirrored data domain, not a refresh trigger. A stray ActivityChanged
             // control (e.g. from an older server) has no refresh strategy — drop it generically.
             SyncControl.ActivityChanged -> {
                 logger.warn {

@@ -19,21 +19,17 @@ import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 internal fun publicProfilesDomain(
     database: ListenUpDatabase,
     avatarDownloadRepository: AvatarDownloadRepository,
-): MirroredDomain<PublicProfileSyncPayload> =
-    MirroredDomain(
+): MirroredDomain<PublicProfileSyncPayload> {
+    val apply = PublicProfileMirrorApply(database, avatarDownloadRepository)
+    return MirroredDomain(
         key = SyncDomains.PUBLIC_PROFILES,
-        syncIdOf = { it.id },
-        apply = PublicProfileMirrorApply(database, avatarDownloadRepository),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.publicProfileDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.publicProfileDao()::digestRows),
         writes = WriteTier.ServerOwned,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.publicProfileDao().revisionOf(id) },
-            ),
     )
+}
 
 /**
  * Room mapping for [PublicProfileSyncPayload]: unconditional replace plus the
@@ -77,7 +73,7 @@ internal class PublicProfileMirrorApply(
         }
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

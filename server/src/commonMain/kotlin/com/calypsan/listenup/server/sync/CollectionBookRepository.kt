@@ -2,8 +2,6 @@ package com.calypsan.listenup.server.sync
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
-import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.server.db.sqldelight.Collection_books
@@ -46,9 +44,10 @@ data class CollectionBookId(
  *
  * **Access-filtered sync.** A member's membership catch-up/digest must exclude membership rows
  * for collections they cannot reach (including the system collections), so the firehose arrives
- * with a non-null [SqlFragment] `extraWhere` (the `accessibleCollectionBookIdsSql` rule). This
- * class overrides the filtered [pullSince] / [digest] path engine-neutrally over the SQLDelight
- * driver ([selectIdRevAccessFiltered]); the unfiltered (admin / null) path delegates to the base.
+ * with a non-null [SqlFragment] `extraWhere` (the `accessibleCollectionBookIdsSql` rule). The base
+ * [SqlSyncableRepository] splices it engine-neutrally over the injected [SqlDriver]; this class
+ * only wires that driver. The unfiltered (admin / null) path takes the base's substrate read
+ * unchanged.
  *
  * In addition to the standard [upsert] / [softDelete], this repository provides bulk-cascade
  * variants used by service-layer delete operations:
@@ -61,7 +60,7 @@ class CollectionBookRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<CollectionBookSyncPayload, CollectionBookId>(
         db = db,
@@ -237,62 +236,6 @@ class CollectionBookRepository(
             }
             live.size
         }
-
-    /**
-     * Access-filtered catch-up pull. The unfiltered path ([extraWhere] null — admins) delegates
-     * to the base; the filtered path (a member's `accessibleCollectionBookIdsSql` subquery) reads
-     * the `(id, revision)` page engine-neutrally over the SQLDelight driver and hydrates via the
-     * SQLDelight [readPayloads].
-     */
-    override suspend fun pullSince(
-        userId: String?,
-        cursor: Long,
-        limit: Int,
-        extraWhere: SqlFragment?,
-    ): Page<CollectionBookSyncPayload> {
-        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        return suspendTransaction(db) {
-            val idsWithRev =
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision > ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = true,
-                    limit = limit,
-                )
-            Page(
-                items = readPayloads(idsWithRev.map { it.id }),
-                nextCursor = idsWithRev.lastOrNull()?.revision,
-                hasMore = idsWithRev.size == limit,
-            )
-        }
-    }
-
-    /**
-     * Access-filtered drift digest. The unfiltered path delegates to the base; the filtered path
-     * reads the `(id, revision)` slice engine-neutrally over the SQLDelight driver and computes
-     * the permanent-wire-contract SHA-256 digest identically to the base.
-     */
-    override suspend fun digest(
-        userId: String?,
-        cursor: Long,
-        extraWhere: SqlFragment?,
-    ): DomainDigest {
-        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
-        val rows =
-            suspendTransaction(db) {
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision <= ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = false,
-                    limit = null,
-                )
-            }.sortedBy { it.id }
-        return accessFilteredDigest(cursor, rows)
-    }
 
     /** Maps a generated [Collection_books] row to the wire [CollectionBookSyncPayload] DTO. */
     private fun Collection_books.toSyncPayload(): CollectionBookSyncPayload =

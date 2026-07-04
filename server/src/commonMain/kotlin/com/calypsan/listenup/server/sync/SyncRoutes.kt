@@ -79,30 +79,111 @@ private val ADMIN_USER_ROSTER_HIDDEN =
 private fun isAdmin(role: UserRole): Boolean = role == UserRole.ROOT || role == UserRole.ADMIN
 
 /**
+ * How a wire domain's sync catch-up/digest is access-filtered — declared **data**, not control
+ * flow. [ACCESS_FILTERS] maps each gated domain to its spec and [accessFilterFor] is a lookup, so
+ * the per-row-vs-role-gated classification is a value a test can read directly (via
+ * [perRowAccessGatedSyncDomains] / [roleGatedSyncDomains]) rather than parse out of a `when`.
+ */
+private sealed interface AccessFilterSpec {
+    /**
+     * `true` when a member sees a *subset* of the domain's rows through a per-row [BookAccessPolicy]
+     * gate — the domains that oblige a matching client `AccessGate`. `false` for a whole-domain
+     * role gate, whose members hold no rows at all and so need no client gate.
+     */
+    val perRowGated: Boolean
+
+    /** The access subquery to splice as `id IN (…)`, or `null` when the caller is unconstrained (admin / sees-all). */
+    fun fragment(
+        userId: String,
+        role: UserRole,
+        policy: () -> BookAccessPolicy,
+    ): SqlFragment?
+
+    /**
+     * A per-row gate: the visible id set is produced from [BookAccessPolicy] by [produce] — the
+     * domain's single visibility rule. The [policy] thunk is resolved here (only for a gated
+     * domain), never for an ungated one.
+     */
+    class PerRow(
+        private val produce: (BookAccessPolicy, String, UserRole) -> SqlFragment?,
+    ) : AccessFilterSpec {
+        override val perRowGated: Boolean = true
+
+        override fun fragment(
+            userId: String,
+            role: UserRole,
+            policy: () -> BookAccessPolicy,
+        ): SqlFragment? = produce(policy(), userId, role)
+    }
+
+    /**
+     * A whole-domain role gate: non-admins get [hidden] (a subquery yielding no rows), admins get
+     * `null` (no filter). Never touches [BookAccessPolicy] — the row content, not the caller's
+     * access, is what makes it admin-only.
+     */
+    class RoleGatedHide(
+        private val hidden: SqlFragment,
+    ) : AccessFilterSpec {
+        override val perRowGated: Boolean = false
+
+        override fun fragment(
+            userId: String,
+            role: UserRole,
+            policy: () -> BookAccessPolicy,
+        ): SqlFragment? = if (isAdmin(role)) null else hidden
+    }
+}
+
+/**
+ * The declared access-filter catalog: every gated wire domain → how its catch-up/digest filter is
+ * produced. A field rename in any visibility predicate ripples through this single map, not
+ * per-route. An ungated domain is simply absent — the lookup returns `null` (no filter).
+ */
+private val ACCESS_FILTERS: Map<String, AccessFilterSpec> =
+    mapOf(
+        BOOKS_DOMAIN to AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleBookIdsSql(userId, role) },
+        ACTIVITIES_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> activitiesAccessFilter(policy, userId, role) },
+        COLLECTIONS_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleCollectionIdsSql(userId, role) },
+        COLLECTION_SHARES_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.visibleCollectionGrantIdsSql(userId, role) },
+        COLLECTION_BOOKS_DOMAIN to
+            AccessFilterSpec.PerRow { policy, userId, role -> policy.accessibleCollectionBookIdsSql(userId, role) },
+        LIBRARY_FOLDERS_DOMAIN to AccessFilterSpec.RoleGatedHide(LIBRARY_FOLDERS_HIDDEN),
+        ADMIN_USER_ROSTER_DOMAIN to AccessFilterSpec.RoleGatedHide(ADMIN_USER_ROSTER_HIDDEN),
+    )
+
+/**
+ * The wire domain names whose sync catch-up/digest is access-filtered **per row** — exactly the
+ * domains that oblige a client-side `AccessGate`. Read at runtime by `AccessGateParitySpec`, which
+ * asserts this set equals the client catalog's gated domains — a data comparison, no source parsing.
+ */
+val perRowAccessGatedSyncDomains: Set<String>
+    get() = ACCESS_FILTERS.filterValues { it.perRowGated }.keys
+
+/**
+ * The wire domain names hidden wholesale from non-admins by role — whole-domain gates that hold
+ * no member rows and so need no client `AccessGate` (`AccessGateParitySpec`'s conscious-edit
+ * exempt set).
+ */
+val roleGatedSyncDomains: Set<String>
+    get() = ACCESS_FILTERS.filterValues { !it.perRowGated }.keys
+
+/**
  * The access filter for [domainName]'s catch-up/digest, scoped to `(userId, role)` — or `null`
- * for an ungated domain (or an admin, who sees all). A field rename in any visibility predicate
- * ripples through this single dispatch, not per-route.
+ * for an ungated domain (or an admin, who sees all). A pure lookup into [ACCESS_FILTERS].
  *
- * [policy] is a thunk, resolved only for a gated domain: an ungated domain never touches it, so
- * harnesses that drive only such domains need not register a [BookAccessPolicy] (mirrors the
- * firehose thunk).
+ * [policy] is a thunk, resolved only for a per-row gated domain: an ungated (absent) or role-gated
+ * domain never touches it, so harnesses that drive only such domains need not register a
+ * [BookAccessPolicy] (mirrors the firehose thunk).
  */
 private fun accessFilterFor(
     domainName: String,
     userId: String,
     role: UserRole,
     policy: () -> BookAccessPolicy,
-): SqlFragment? =
-    when (domainName) {
-        BOOKS_DOMAIN -> policy().accessibleBookIdsSql(userId, role)
-        ACTIVITIES_DOMAIN -> activitiesAccessFilter(policy(), userId, role)
-        COLLECTIONS_DOMAIN -> policy().accessibleCollectionIdsSql(userId, role)
-        COLLECTION_SHARES_DOMAIN -> policy().visibleCollectionGrantIdsSql(userId, role)
-        COLLECTION_BOOKS_DOMAIN -> policy().accessibleCollectionBookIdsSql(userId, role)
-        LIBRARY_FOLDERS_DOMAIN -> if (isAdmin(role)) null else LIBRARY_FOLDERS_HIDDEN
-        ADMIN_USER_ROSTER_DOMAIN -> if (isAdmin(role)) null else ADMIN_USER_ROSTER_HIDDEN
-        else -> null
-    }
+): SqlFragment? = ACCESS_FILTERS[domainName]?.fragment(userId, role, policy)
 
 /**
  * The `activities` access fragment: selects the visible ACTIVITY ids — a row is visible iff its

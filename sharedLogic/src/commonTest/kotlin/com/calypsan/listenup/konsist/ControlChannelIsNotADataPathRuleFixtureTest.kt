@@ -27,10 +27,10 @@ class ControlChannelIsNotADataPathRuleFixtureTest :
             }
 
             test("an allowlisted file emitting a DIFFERENT frame than it is cleared for offends") {
-                // ActivityRecorder is cleared for ActivityChanged only; emitting LibraryDataChanged is new.
+                // AdminSettingsServiceImpl is cleared for ServerInfoChanged only; LibraryDataChanged is new.
                 val offenders =
                     ControlChannelDetector.controlCallSiteOffenders(
-                        fileName = "ActivityRecorder.kt",
+                        fileName = "AdminSettingsServiceImpl.kt",
                         source = "fun x() { bus.broadcastControl(SyncControl.LibraryDataChanged) }",
                         allowlist = ControlChannelDetector.CONTROL_CALL_SITES,
                     )
@@ -40,8 +40,8 @@ class ControlChannelIsNotADataPathRuleFixtureTest :
             test("an allowlisted (file, frame) pair is clean") {
                 ControlChannelDetector
                     .controlCallSiteOffenders(
-                        fileName = "ActivityRecorder.kt",
-                        source = "fun x() { bus.broadcastControl(SyncControl.ActivityChanged) }",
+                        fileName = "AdminSettingsServiceImpl.kt",
+                        source = "fun x() { bus.broadcastControl(SyncControl.ServerInfoChanged) }",
                         allowlist = ControlChannelDetector.CONTROL_CALL_SITES,
                     ).shouldBeEmpty()
             }
@@ -128,6 +128,36 @@ class ControlChannelIsNotADataPathRuleFixtureTest :
                         path = "sharedLogic/src/commonMain/.../client/data/sync/PresenceRefreshSignal.kt",
                         source = "private val signal = MutableSharedFlow<Unit>()",
                     ).shouldBeFalse()
+            }
+        }
+
+        context("sub-rule 1 (reverse) — no rotted allowlist entries") {
+            test("an allowlist entry whose file emits nothing is reported as rotted") {
+                val offenders =
+                    ControlChannelDetector.unusedAllowlistEntries(
+                        sourcesByFileName = mapOf("Ghost.kt" to "fun x() { doNothing() }"),
+                        allowlist = mapOf("Ghost.kt" to setOf("ActivityChanged")),
+                    )
+                offenders.size shouldBe 1
+                offenders.first() shouldContain "rotted"
+            }
+
+            test("an allowlist entry whose file is absent from sources is reported as rotted") {
+                val offenders =
+                    ControlChannelDetector.unusedAllowlistEntries(
+                        sourcesByFileName = emptyMap(),
+                        allowlist = mapOf("Ghost.kt" to setOf("ActivityChanged")),
+                    )
+                offenders.size shouldBe 1
+            }
+
+            test("an allowlist entry backed by a real emission is clean") {
+                ControlChannelDetector
+                    .unusedAllowlistEntries(
+                        sourcesByFileName =
+                            mapOf("Real.kt" to "fun x() { bus.broadcastControl(SyncControl.ServerInfoChanged) }"),
+                        allowlist = mapOf("Real.kt" to setOf("ServerInfoChanged")),
+                    ).shouldBeEmpty()
             }
         }
     })

@@ -2,20 +2,14 @@ package com.calypsan.listenup.server.services
 
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.sync.ActivitySyncPayload
-import com.calypsan.listenup.api.sync.DomainDigest
-import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.server.db.sqldelight.Activities
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
-import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.IdRev
-import com.calypsan.listenup.server.sync.SqlFragment
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
-import com.calypsan.listenup.server.sync.accessFilteredDigest
-import com.calypsan.listenup.server.sync.selectIdRevAccessFiltered
 import kotlin.time.Clock
 
 /**
@@ -25,8 +19,9 @@ import kotlin.time.Clock
  * created, listening session). **Server-authored, append-only, book-gated but GLOBAL** (not
  * per-user): a row with a non-null `book_id` is visible only to callers who can access that book;
  * `book_id == null` rows are public. Because access is by book — not by owning user — this clones
- * the `books` access-filtered mirror shape (`userScoped = false`, [pullSince]/[digest] overridden
- * to route through the access-filtered driver reads), NOT the per-user `listening_events` path.
+ * the `books` access-filtered mirror shape (`userScoped = false`, an injected [driver] so the
+ * base's access-filtered `pullSince`/`digest` path splices the visibility subquery), NOT the
+ * per-user `listening_events` path.
  *
  * Append-only: [writePayload] inserts on first write and, on an idempotent re-upsert of the same
  * id, advances only `revision`/`updatedAt`/`clientOpId` — domain fields are never mutated.
@@ -37,7 +32,7 @@ class ActivitySyncRepository(
     db: ListenUpDatabase,
     bus: ChangeBus,
     registry: SyncRegistry,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     clock: Clock = Clock.System,
 ) : SqlSyncableRepository<ActivitySyncPayload, String>(
         db = db,
@@ -145,61 +140,6 @@ class ActivitySyncRepository(
         }
     }
 
-    /**
-     * Access-filtered catch-up pull (mirrors [BookRepository.pullSince]). The unfiltered path
-     * ([extraWhere] null) delegates to the base; the filtered path reads the `(id, revision)` page
-     * engine-neutrally over the SQLDelight driver and hydrates via [readPayloads].
-     */
-    override suspend fun pullSince(
-        userId: String?,
-        cursor: Long,
-        limit: Int,
-        extraWhere: SqlFragment?,
-    ): Page<ActivitySyncPayload> {
-        if (extraWhere == null) return super.pullSince(userId, cursor, limit, extraWhere)
-        return suspendTransaction(db) {
-            val idsWithRev =
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision > ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = true,
-                    limit = limit,
-                )
-            Page(
-                items = readPayloads(idsWithRev.map { it.id }),
-                nextCursor = idsWithRev.lastOrNull()?.revision,
-                hasMore = idsWithRev.size == limit,
-            )
-        }
-    }
-
-    /**
-     * Access-filtered drift digest (mirrors [BookRepository.digest]). Unfiltered delegates to the
-     * base; the filtered path reads the `(id, revision)` slice over the driver and computes the
-     * permanent-wire-contract SHA-256 digest identically to the base.
-     */
-    override suspend fun digest(
-        userId: String?,
-        cursor: Long,
-        extraWhere: SqlFragment?,
-    ): DomainDigest {
-        if (extraWhere == null) return super.digest(userId, cursor, extraWhere)
-        val rows =
-            suspendTransaction(db) {
-                driver.selectIdRevAccessFiltered(
-                    table = domainName,
-                    revisionPredicate = "revision <= ?",
-                    revisionArg = cursor,
-                    extraWhere = extraWhere,
-                    ascendingByRevision = false,
-                    limit = null,
-                )
-            }.sortedBy { it.id }
-        return accessFilteredDigest(cursor, rows)
-    }
-
     private fun Activities.toSyncPayload(): ActivitySyncPayload =
         ActivitySyncPayload(
             id = id,
@@ -220,7 +160,10 @@ class ActivitySyncRepository(
         )
 
     private companion object {
-        /** Chunk size for `IN (…)` batch reads. Under SQLite's 999-variable cap with headroom. */
+        /**
+         * Chunk size for `IN (…)` batch reads. Stays under SQLite's conservative 999-variable default
+         * cap (raised to 32,766 in 3.32+), so it is safe on any build.
+         */
         const val SQLITE_IN_CHUNK = 900
     }
 }

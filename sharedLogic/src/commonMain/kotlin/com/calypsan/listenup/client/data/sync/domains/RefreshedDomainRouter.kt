@@ -8,12 +8,12 @@ import kotlin.reflect.KClass
 private val logger = KotlinLogging.logger {}
 
 /**
- * Routes a nudge [SyncControl] to its declared [RefreshStrategy], derived from the
- * catalog's [RefreshedDomain] entries. Replaces the four ad-hoc nudge lambdas that
+ * Routes a refresh [SyncControl] to its declared [RefreshStrategy], derived from the
+ * catalog's [RefreshedDomain] entries. Replaces the four ad-hoc refresh lambdas that
  * used to live in the DI module: one table, one runner, all driven by the catalog.
  */
 internal class RefreshedDomainRouter(
-    refreshed: List<RefreshedDomain>,
+    private val refreshed: List<RefreshedDomain>,
 ) {
     // Trigger distinctness is not enforced here (a collision would silently keep the
     // last entry); the completeness spec asserts the catalog's triggers are distinct.
@@ -27,12 +27,26 @@ internal class RefreshedDomainRouter(
      */
     suspend fun dispatch(control: SyncControl): Boolean {
         val strategy = byTrigger[control::class] ?: return false
-        logger.debug { "Nudge $control claimed by a refreshed domain; running ${strategy::class.simpleName} refresh" }
+        logger.debug { "Control $control claimed by a refreshed domain; running ${strategy::class.simpleName} refresh" }
+        runStrategy(strategy)
+        return true
+    }
+
+    /**
+     * Re-run every declared refresh — the lifecycle-edge recovery for the whole refreshed tier.
+     * A refresh trigger is lossy, so the engine funnels every foreground/reconnect edge here to
+     * self-heal any trigger dropped while the app was backgrounded or the firehose was down.
+     * Derived, not declared: a new refreshed domain heals the moment it joins the catalog.
+     */
+    suspend fun refreshAll() {
+        refreshed.forEach { runStrategy(it.refresh) }
+    }
+
+    private suspend fun runStrategy(strategy: RefreshStrategy) {
         when (strategy) {
             is RefreshStrategy.Ping -> strategy.ping()
             is RefreshStrategy.Refetch -> runRefetchSafely(strategy.refetch)
         }
-        return true
     }
 
     private suspend fun runRefetchSafely(refetch: suspend () -> Unit) {
@@ -41,7 +55,7 @@ internal class RefreshedDomainRouter(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.warn(e) { "Nudge refetch failed; continuing" }
+            logger.warn(e) { "Refresh refetch failed; continuing" }
         }
     }
 }

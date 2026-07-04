@@ -14,8 +14,9 @@ import io.kotest.matchers.collections.shouldNotBeEmpty
  * catch-up `isTombstone` check is permanently false for that domain.
  *
  * This rule pins the invariant structurally: **every `@Serializable` payload in
- * `api.sync` that declares a `deletedAt` property must implement `Tombstoned`.**
- * It caught `GenreSyncPayload`, the one domain that had drifted off the marker.
+ * `api.sync` that declares a `deletedAt` property must implement `Tombstoned`** —
+ * directly or transitively via `SyncPayload`, which extends it. It caught
+ * `GenreSyncPayload`, the one domain that had drifted off the marker.
  */
 class SyncPayloadsWithDeletedAtAreTombstonedRule :
     FunSpec({
@@ -32,8 +33,9 @@ class SyncPayloadsWithDeletedAtAreTombstonedRule :
 
             val missingMarker =
                 syncPayloadsWithDeletedAt
-                    .filterNot { cls -> cls.parents().any { it.name == "Tombstoned" } }
-                    .map { it.name }
+                    .filterNot { cls ->
+                        cls.parents(indirectParents = true).any { it.name == "Tombstoned" }
+                    }.map { it.name }
 
             missingMarker.shouldBeEmpty()
         }

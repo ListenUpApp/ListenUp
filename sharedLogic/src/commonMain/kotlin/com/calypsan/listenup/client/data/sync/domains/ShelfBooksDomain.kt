@@ -19,21 +19,17 @@ import com.calypsan.listenup.client.data.local.db.ShelfBookEntity
  * `deletedAt = null`; the upsert clears the tombstone. `isOwnEcho` needs no shield:
  * `@Upsert` is idempotent.
  */
-internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfBookSyncPayload> =
-    MirroredDomain(
+internal fun shelfBooksDomain(database: ListenUpDatabase): MirroredDomain<ShelfBookSyncPayload> {
+    val apply = ShelfBookMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.SHELF_BOOKS,
-        syncIdOf = { it.id },
-        apply = ShelfBookMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.shelfBookDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.shelfBookDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.shelfBookDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [ShelfBookSyncPayload] junction payloads. */
 internal class ShelfBookMirrorApply(
@@ -59,7 +55,7 @@ internal class ShelfBookMirrorApply(
      * softDelete takes the event revision — the id is already the primary key, so no
      * composite parse.
      */
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

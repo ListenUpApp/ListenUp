@@ -11,21 +11,17 @@ import com.calypsan.listenup.core.Timestamp
  * apply, soft-delete tombstones, full digest participation, online-only writes.
  * `isOwnEcho` needs no shield: the client has no local genre-row write path.
  */
-internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncPayload> =
-    MirroredDomain(
+internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncPayload> {
+    val apply = GenreMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.GENRES,
-        syncIdOf = { it.id },
-        apply = GenreMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.genreDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.genreDao()::digestRows),
         writes = WriteTier.OnlineOnly,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.genreDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [GenreSyncPayload] payloads. */
 internal class GenreMirrorApply(
@@ -49,7 +45,7 @@ internal class GenreMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

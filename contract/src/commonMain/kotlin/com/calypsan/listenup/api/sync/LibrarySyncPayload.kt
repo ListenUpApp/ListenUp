@@ -22,12 +22,12 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("LibrarySyncPayload")
 data class LibrarySyncPayload(
-    val id: String,
+    override val id: String,
     val name: String,
     val metadataPrecedence: String,
     val accessMode: String,
     val createdByUserId: String?,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
@@ -36,4 +36,4 @@ data class LibrarySyncPayload(
      * signal driving the client initial-population gate.
      */
     val initialScanCompletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload

@@ -16,21 +16,17 @@ import com.calypsan.listenup.core.Timestamp
  * never null Books-B2 enrichment. This is apply-layer mapping, not conflict policy.
  * `isOwnEcho` needs no shield: idempotent upsert; edits echo identical values.
  */
-internal fun seriesDomain(database: ListenUpDatabase): MirroredDomain<SeriesSyncPayload> =
-    MirroredDomain(
+internal fun seriesDomain(database: ListenUpDatabase): MirroredDomain<SeriesSyncPayload> {
+    val apply = SeriesMirrorApply(database)
+    return MirroredDomain(
         key = SyncDomains.SERIES,
-        syncIdOf = { it.id },
-        apply = SeriesMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
-        deletes = DeleteSemantics.SoftDelete,
+        apply = apply,
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.seriesDao().revisionOf(id) }),
+        deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.seriesDao()::digestRows),
         writes = WriteTier.Outbox(OutboxChannels.Series),
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.seriesDao().revisionOf(id) },
-            ),
     )
+}
 
 /** Room mapping for [SeriesSyncPayload] payloads (enrichment copy-forward). */
 internal class SeriesMirrorApply(
@@ -55,7 +51,7 @@ internal class SeriesMirrorApply(
         )
     }
 
-    override suspend fun tombstoneById(
+    suspend fun tombstoneById(
         id: String,
         deletedAt: Long,
         revision: Long,

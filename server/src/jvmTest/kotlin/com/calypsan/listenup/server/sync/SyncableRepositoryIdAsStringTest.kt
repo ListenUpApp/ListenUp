@@ -116,7 +116,7 @@ internal data class FixturePayload(
  */
 internal class FixtureRepository(
     db: ListenUpDatabase,
-    private val driver: SqlDriver,
+    override val driver: SqlDriver,
     bus: ChangeBus,
     registry: SyncRegistry,
 ) : SqlSyncableRepository<FixturePayload, FixtureId>(

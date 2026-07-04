@@ -171,6 +171,31 @@ internal interface ListeningEventDao {
     )
 
     /**
+     * Advance only the revision of an existing row (append-only re-apply). Domain fields are never
+     * mutated, but converging the revision when the server re-upserts an id (idempotent replay /
+     * backfill) keeps the `(id, revision)` digest from permanently drifting on that client. See
+     * [com.calypsan.listenup.client.data.sync.domains.AppendOnlyMirrorApply].
+     */
+    @Query("UPDATE listening_events SET revision = :revision WHERE id = :id")
+    suspend fun updateRevision(
+        id: String,
+        revision: Long,
+    )
+
+    /**
+     * Resurrect a locally-tombstoned event: clear its tombstone and align its revision. Used when a
+     * row is re-delivered LIVE (`deletedAt = null`) after having been soft-deleted — `deletedAt` is
+     * sync substrate, not append-only content, so without this the row would stay tombstoned forever
+     * and no reconcile could heal it (the digests would agree on `(id, revision)`). See
+     * [com.calypsan.listenup.client.data.sync.domains.AppendOnlyMirrorApply].
+     */
+    @Query("UPDATE listening_events SET deletedAt = NULL, revision = :revision WHERE id = :id")
+    suspend fun restore(
+        id: String,
+        revision: Long,
+    )
+
+    /**
      * Get the most recent event timestamp for sync cursor.
      */
     @Query("SELECT MAX(endedAt) FROM listening_events")

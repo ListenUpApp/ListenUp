@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("GenreSyncPayload")
 data class GenreSyncPayload(
-    @SerialName("id") val id: String,
+    @SerialName("id") override val id: String,
     @SerialName("name") val name: String,
     @SerialName("slug") val slug: String,
     @SerialName("path") val path: String,
@@ -23,11 +23,11 @@ data class GenreSyncPayload(
     @SerialName("color") val color: String? = null,
     @SerialName("description") val description: String? = null,
     // Substrate bookkeeping
-    @SerialName("revision") val revision: Long = 0L,
+    @SerialName("revision") override val revision: Long = 0L,
     @SerialName("updatedAt") val updatedAt: Long = 0L,
     @SerialName("createdAt") val createdAt: Long = 0L,
     @SerialName("deletedAt") override val deletedAt: Long? = null,
-) : Tombstoned
+) : SyncPayload
 
 /**
  * Denormalized genre reference on [BookSyncPayload.genres].

@@ -9,10 +9,10 @@ import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncEvent
 import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.TransactionWithReturn
+import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.logging.loggerFor
-import com.calypsan.listenup.server.io.hashBytesSha256
 import kotlin.time.Clock
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.serialization.KSerializer
@@ -70,6 +70,39 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * subclass wires this to its generated SQLDelight queries.
      */
     protected abstract val substrate: SyncableSubstrateQueries
+
+    /**
+     * The shared SQLDelight [SqlDriver] behind [db], used **only** for the access-filtered
+     * catch-up/digest path ([pullSince]/[digest] with a non-null `extraWhere`): that path
+     * splices a runtime-built access subquery as raw SQL, which the generated substrate queries
+     * cannot express, so it runs engine-neutrally over the driver (see [selectIdRevAccessFiltered]).
+     *
+     * Default `null` — an ungated domain (Tags, Moods, …) never receives an `extraWhere` and so
+     * never touches the driver. An access-gated aggregate overrides this with its injected driver;
+     * a non-null `extraWhere` on a domain that failed to wire one fails loud via [accessDriver].
+     */
+    protected open val driver: SqlDriver? = null
+
+    /**
+     * The root table the access-filtered read splices its `id IN (…)` predicate against — a
+     * closed, code-controlled name, never user input. Defaults to [domainName], correct for
+     * every gated aggregate whose wire domain matches its storage table.
+     *
+     * `collection_shares` is the sole exception: its wire domain is `collection_shares` but its
+     * rows live in `collection_grants`, so [CollectionGrantRepository] overrides this. Keeping it
+     * a property means the base's filtered read needs no per-domain branch.
+     */
+    protected open val rootTableName: String get() = domainName
+
+    /**
+     * The [driver] required by the access-filtered read path, or a loud failure if the domain
+     * declared an access filter (`extraWhere != null`) without wiring a driver — a wiring bug,
+     * never a runtime condition, so it fails fast rather than silently degrading.
+     */
+    private fun accessDriver(): SqlDriver =
+        requireNotNull(driver) {
+            "access-filtered read on '$domainName' requires a SqlDriver, but none was wired"
+        }
 
     /**
      * Read the full aggregate (root row + children) for [idStr], or null if absent.
@@ -435,28 +468,42 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * [userId], so the page covers only that user's rows — exactly the `AND user_id = ?`
      * the Exposed base applies. Global domains ignore [userId].
      *
-     * [extraWhere] (the access-filtered path) is **deferred** — see the parameter
-     * note. It is accepted so route call sites stay source-compatible, but a
-     * non-null fragment is not yet supported.
+     * When [extraWhere] is non-null the page is **access-filtered**: the id query splices the
+     * access subquery as `id IN (…)` and runs engine-neutrally over the [driver] (see
+     * [selectIdRevAccessFiltered]). This is the first-class path every access-gated aggregate
+     * (books, activities, collections, collection grants/books, library folders, admin roster)
+     * inherits — no per-domain override. An ungated domain always passes a null fragment and
+     * takes the substrate path unchanged.
      */
     override suspend fun pullSince(
         userId: String?,
         cursor: Long,
         limit: Int,
         extraWhere: SqlFragment?,
-    ): Page<T> {
-        require(extraWhere == null) {
-            "access-filtered pullSince (extraWhere) not supported in SqlSyncableRepository base; " +
-                "override for access-filtered domains"
-        }
-        return suspendTransaction(db) {
-            val idsWithRev =
-                if (userScoped) {
-                    val scopedUserId =
-                        requireNotNull(userId) { "user-scoped pullSince on '$domainName' requires a userId" }
-                    substrate.selectIdsAboveRevisionForUser(scopedUserId, cursor, limit.toLong())
-                } else {
-                    substrate.selectIdsAboveRevision(cursor, limit.toLong())
+    ): Page<T> =
+        suspendTransaction(db) {
+            val idsWithRev: List<IdRev> =
+                when {
+                    extraWhere != null -> {
+                        accessDriver().selectIdRevAccessFiltered(
+                            table = rootTableName,
+                            revisionPredicate = "revision > ?",
+                            revisionArg = cursor,
+                            extraWhere = extraWhere,
+                            ascendingByRevision = true,
+                            limit = limit,
+                        )
+                    }
+
+                    userScoped -> {
+                        val scopedUserId =
+                            requireNotNull(userId) { "user-scoped pullSince on '$domainName' requires a userId" }
+                        substrate.selectIdsAboveRevisionForUser(scopedUserId, cursor, limit.toLong())
+                    }
+
+                    else -> {
+                        substrate.selectIdsAboveRevision(cursor, limit.toLong())
+                    }
                 }
             val items = readPayloads(idsWithRev.map { it.id })
             Page(
@@ -465,57 +512,57 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                 hasMore = idsWithRev.size == limit,
             )
         }
-    }
 
     /**
      * Returns a [DomainDigest] over all rows with `revision <= cursor`, soft-deleted
      * rows included. Used by clients to detect drift cheaply.
      *
-     * Algorithm (identical to [SyncableRepository.digest], a permanent wire
-     * contract): sort `(id, revision)` pairs lexicographically by id, join as
-     * `<id>|<revision>` per row separated by `\n` with a trailing `\n`, SHA-256 the
-     * UTF-8 bytes, format as `"sha256:<lowercase-hex>"`. Empty domain → `count = 0`,
-     * `hash = ""`.
+     * The `(id, revision)` slice — from the substrate (global or [userScoped]) or, when
+     * [extraWhere] is non-null, from the access-filtered driver read — is sorted by id and
+     * folded into the digest by [accessFilteredDigest], the single implementation of the
+     * permanent-wire-contract SHA-256 algorithm (lexicographic-by-id, `<id>|<revision>` joined
+     * with `\n` and a trailing `\n`, `"sha256:<lowercase-hex>"`; empty → `count = 0, hash = ""`).
      *
      * For a user-scoped domain ([userScoped] `= true`) the slice routes through
      * [SyncableSubstrateQueries.selectIdRevAtMostForUser] with a required non-null
      * [userId], so the digest covers only that user's rows. Global domains ignore
      * [userId].
      *
-     * [extraWhere] (the access-filtered path) is **deferred** — accepted for
-     * source-compatibility, non-null not yet supported.
+     * When [extraWhere] is non-null the slice is **access-filtered** engine-neutrally over the
+     * [driver], the first-class counterpart to the filtered [pullSince] path — every access-gated
+     * aggregate inherits it, no per-domain override.
      */
     override suspend fun digest(
         userId: String?,
         cursor: Long,
         extraWhere: SqlFragment?,
     ): DomainDigest {
-        require(extraWhere == null) {
-            "access-filtered digest (extraWhere) not supported in SqlSyncableRepository base; " +
-                "override for access-filtered domains"
-        }
-        return suspendTransaction(db) {
-            val idRevs =
-                if (userScoped) {
-                    val scopedUserId =
-                        requireNotNull(userId) { "user-scoped digest on '$domainName' requires a userId" }
-                    substrate.selectIdRevAtMostForUser(scopedUserId, cursor)
-                } else {
-                    substrate.selectIdRevAtMost(cursor)
+        val rows =
+            suspendTransaction(db) {
+                when {
+                    extraWhere != null -> {
+                        accessDriver().selectIdRevAccessFiltered(
+                            table = rootTableName,
+                            revisionPredicate = "revision <= ?",
+                            revisionArg = cursor,
+                            extraWhere = extraWhere,
+                            ascendingByRevision = false,
+                            limit = null,
+                        )
+                    }
+
+                    userScoped -> {
+                        val scopedUserId =
+                            requireNotNull(userId) { "user-scoped digest on '$domainName' requires a userId" }
+                        substrate.selectIdRevAtMostForUser(scopedUserId, cursor)
+                    }
+
+                    else -> {
+                        substrate.selectIdRevAtMost(cursor)
+                    }
                 }
-            val rows =
-                idRevs
-                    .map { it.id to it.revision }
-                    .sortedBy { it.first }
-            if (rows.isEmpty()) {
-                DomainDigest(cursor = cursor, count = 0, hash = "")
-            } else {
-                val joined =
-                    rows.joinToString(separator = "\n") { (id, rev) -> "$id|$rev" } + "\n"
-                val hex = hashBytesSha256(joined.encodeToByteArray())
-                DomainDigest(cursor = cursor, count = rows.size, hash = "sha256:$hex")
-            }
-        }
+            }.sortedBy { it.id }
+        return accessFilteredDigest(cursor, rows)
     }
 
     /**

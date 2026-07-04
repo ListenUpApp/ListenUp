@@ -1,9 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.SyncControl
-import com.calypsan.listenup.client.data.sync.domains.NudgeRecovery
-import com.calypsan.listenup.client.data.sync.domains.RefreshedDomain
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Duration.Companion.milliseconds
@@ -58,9 +56,10 @@ internal class SyncEngine(
     private val dispatcher: SyncEventDispatcher,
     private val presenceRefreshSignal: PresenceRefreshSignal,
     private val scope: CoroutineScope,
-    // The nudge tier's catalog entries. Their declared NudgeRecovery is what the lifecycle-reconcile
-    // pass runs so a dropped nudge self-heals — the recovery is the wiring, not a comment (Plan §6a).
-    private val refreshedDomains: List<RefreshedDomain> = emptyList(),
+    // The refreshed tier's router. The lifecycle-reconcile pass re-runs every refreshed domain's
+    // declared refresh through it, so a dropped refresh trigger self-heals on the next foreground/reconnect
+    // edge — derived from the catalog, no per-domain recovery wiring (Plan §6a).
+    private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
     private val lifecycleReconcileMinIntervalMs: Long = LIFECYCLE_RECONCILE_MIN_INTERVAL_MS,
 ) {
@@ -322,7 +321,7 @@ internal class SyncEngine(
      * The standing recovery pass every lifecycle edge funnels into — app-foreground (via
      * [com.calypsan.listenup.client.data.repository.SyncRepository.connectRealtime]) and firehose
      * reconnect ([runReconnectRefresh]). Removes the "restart required" failure class structurally:
-     * anything a live event or control nudge dropped while the app was backgrounded or the firehose
+     * anything a live event or control frame dropped while the app was backgrounded or the firehose
      * was down self-heals on the next edge.
      *
      * Ordering is load-bearing:
@@ -332,8 +331,8 @@ internal class SyncEngine(
      *     excluded from both sides' digests.
      *  2. **Digest reconcile SECOND** ([SyncReconciler.reconcileAll]) — repairs in-place divergence
      *     at/below the cursor.
-     *  3. **Nudge refreshes** — re-fetch the ephemeral refreshed tier (presence, activity) so a
-     *     dropped control frame heals on this edge too.
+     *  3. **Refreshed-tier recovery** — re-run every refreshed domain's refresh (presence, server-info,
+     *     preferences) so a dropped control frame heals on this edge too.
      *
      * Coalesced + debounced: a pass within [LIFECYCLE_RECONCILE_MIN_INTERVAL_MS] of the last is
      * skipped unless [force] is true, so rapid foreground/reconnect edges collapse to one pass.
@@ -411,7 +410,7 @@ internal class SyncEngine(
         return lastMark.elapsedNow() >= lifecycleReconcileMinIntervalMs.milliseconds
     }
 
-    /** One lifecycle reconcile pass: forward catch-up → digest reconcile → nudge refreshes. */
+    /** One lifecycle reconcile pass: forward catch-up → digest reconcile → refreshed-tier recovery. */
     private suspend fun runLifecycleReconcilePass() {
         when (val result = catchUp.catchUpAll(registry)) {
             is AppResult.Success -> {}
@@ -422,53 +421,11 @@ internal class SyncEngine(
                 }
             }
         }
-        // reconcileAll is non-throwing; nudge refreshes are individually guarded.
+        // reconcileAll is non-throwing; the router guards each refresh individually.
         reconciler.reconcileAll()
-        runLifecycleRefreshHooks()
-    }
-
-    /**
-     * Re-fetch the ephemeral refreshed tier so a dropped nudge frame heals on this edge. Presence is
-     * a non-throwing tryEmit. (The activity feed is now a cursored mirror — catch-up above already
-     * drained it, so no separate prime. Server-info + preferences keep their own control triggers
-     * until Phase 3 folds them in here via declared recovery.)
-     */
-    private fun runLifecycleRefreshHooks() {
-        // Drive the refresh off each nudge domain's declared NudgeRecovery — both variants heal on a
-        // lifecycle edge — so a new nudge domain's recovery runs here automatically once declared.
-        refreshedDomains.forEach { domain ->
-            when (domain.recovery) {
-                NudgeRecovery.OnLifecycleReconcile,
-                is NudgeRecovery.OnSubscribeAndReconcile,
-                -> runNudgeLifecycleRecovery(domain)
-            }
-        }
-    }
-
-    /**
-     * Execute one nudge domain's lifecycle recovery. Presence pings its hot signal — the
-     * Never-Stranded fallback for a dropped `ActiveSessionsChanged`. Server-info / preferences
-     * declare a recovery but are still driven only by their control frame — TODO(Phase 3) folds
-     * their refetch in here. (The activity feed is now a cursored mirror (#1028): forward catch-up
-     * in the reconcile pass already drained it, so it declares no nudge recovery.)
-     */
-    private fun runNudgeLifecycleRecovery(domain: RefreshedDomain) {
-        when (domain.trigger) {
-            SyncControl.ActiveSessionsChanged::class -> {
-                presenceRefreshSignal.ping()
-            }
-
-            SyncControl.ServerInfoChanged::class, SyncControl.PreferencesChanged::class -> {
-                Unit
-            }
-
-            else -> {
-                logger.warn {
-                    "Nudge ${domain.trigger.simpleName} declares a lifecycle recovery but the engine wires " +
-                        "no action for it — a dropped frame will not self-heal. See ClientSyncModule."
-                }
-            }
-        }
+        // Re-run every refreshed domain's declared refresh so a dropped refresh trigger (presence, server-info,
+        // preferences) self-heals on this lifecycle edge — derived from the catalog, not hand-dispatched.
+        refreshedRouter.refreshAll()
     }
 
     /**
@@ -588,7 +545,7 @@ internal class SyncEngine(
      * changed without a book row mutating (a collection was shared/unshared with them, a share's
      * permission changed, or a book was released into a collection they can see).
      *
-     * For each access-gated domain (books plus the three collection domains) this **re-derives
+     * For each access-gated domain (`books`, `activities`, and the three collection domains) this **re-derives
      * and prunes** (approach B — always re-derive, no digest gate):
      *  1. Run a TRANSIENT access-filtered catch-up from cursor 0 via [CatchUp.catchUpTransient].
      *     The server's `pullSince` for these domains is access-filtered, so the pass upserts

@@ -26,7 +26,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("ListeningEventSyncPayload")
 data class ListeningEventSyncPayload(
-    val id: String,
+    override val id: String,
     val bookId: String,
     val startPositionMs: Long,
     val endPositionMs: Long,
@@ -35,8 +35,8 @@ data class ListeningEventSyncPayload(
     val playbackSpeed: Float,
     val tz: String,
     val deviceLabel: String?,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload

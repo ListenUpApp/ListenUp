@@ -24,20 +24,14 @@ import com.calypsan.listenup.client.data.local.db.UserStatsEntity
 internal fun userStatsDomain(database: ListenUpDatabase): MirroredDomain<UserStatsSyncPayload> =
     MirroredDomain(
         key = SyncDomains.USER_STATS,
-        syncIdOf = { it.id },
         apply = UserStatsMirrorApply(database),
-        conflict = ConflictPolicy.ServerWins(),
+        conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.userStatsDao().revisionOf(id) }),
         deletes =
             DeleteSemantics.CatchUpOnly(
                 "server never tombstones user_stats; the row lives for the user's lifetime",
             ),
         digest = fullDigest(database.userStatsDao()::digestRows),
         writes = WriteTier.ServerOwned,
-        revisionGuard =
-            RevisionGuard(
-                incomingRevision = { it.revision },
-                localRevision = { id -> database.userStatsDao().revisionOf(id) },
-            ),
     )
 
 /** Room mapping for [UserStatsSyncPayload]: unconditional replace, no merge logic. */
@@ -61,12 +55,6 @@ internal class UserStatsMirrorApply(
             ),
         )
     }
-
-    override suspend fun tombstoneById(
-        id: String,
-        deletedAt: Long,
-        revision: Long,
-    ): Unit = error("unreachable: user_stats declares DeleteSemantics.CatchUpOnly")
 
     override suspend fun tombstoneFromItem(item: UserStatsSyncPayload) {
         database.userStatsDao().softDelete(

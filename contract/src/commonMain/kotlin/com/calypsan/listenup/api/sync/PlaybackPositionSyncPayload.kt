@@ -21,15 +21,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("PlaybackPositionSyncPayload")
 data class PlaybackPositionSyncPayload(
-    val id: String,
+    override val id: String,
     val bookId: String,
     val positionMs: Long,
     val lastPlayedAt: Long,
     val finished: Boolean,
     val playbackSpeed: Float,
     val currentChapterId: String?,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload

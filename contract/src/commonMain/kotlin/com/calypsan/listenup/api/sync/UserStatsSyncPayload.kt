@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @SerialName("UserStatsSyncPayload")
 data class UserStatsSyncPayload(
-    val id: String,
+    override val id: String,
     val totalSecondsAllTime: Long,
     val totalSecondsLast7Days: Long,
     val totalSecondsLast30Days: Long,
@@ -30,8 +30,8 @@ data class UserStatsSyncPayload(
     val currentStreakDays: Int,
     val longestStreakDays: Int,
     val lastEventDate: String?,
-    val revision: Long,
+    override val revision: Long,
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
-) : Tombstoned
+) : SyncPayload
