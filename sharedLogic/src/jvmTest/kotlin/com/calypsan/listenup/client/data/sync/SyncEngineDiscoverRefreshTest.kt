@@ -147,8 +147,10 @@ class SyncEngineDiscoverRefreshTest :
                             // domains is what makes the reconnect edge re-fire both.
                             refreshedDomains =
                                 listOf(
-                                    com.calypsan.listenup.client.data.sync.domains.presenceDomain(ping = {}),
-                                    com.calypsan.listenup.client.data.sync.domains.activityDomain(ping = {}),
+                                    com.calypsan.listenup.client.data.sync.domains
+                                        .presenceDomain(ping = {}),
+                                    com.calypsan.listenup.client.data.sync.domains
+                                        .activityDomain(ping = {}),
                                 ),
                         )
 

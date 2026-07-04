@@ -82,7 +82,10 @@ internal object AccessGateParityGuard {
         var depth = 0
         for (i in open until source.length) {
             when (source[i]) {
-                '{' -> depth++
+                '{' -> {
+                    depth++
+                }
+
                 '}' -> {
                     depth--
                     if (depth == 0) return source.substring(open + 1, i)

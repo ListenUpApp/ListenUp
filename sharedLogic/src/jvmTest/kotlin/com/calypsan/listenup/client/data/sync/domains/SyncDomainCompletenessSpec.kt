@@ -206,7 +206,7 @@ class SyncDomainCompletenessSpec :
                 // control frame with no engine handler and no RefreshedDomain trigger fails HERE — the
                 // regression that today only warn-logs at runtime (SyncEventDispatcher).
                 val allControls = SyncControl::class.sealedSubclasses.toSet()
-                allControls shouldBe (engineControls + refreshedTriggers.toSet())
+                allControls shouldBe engineControls + refreshedTriggers.toSet()
 
                 // Every nudge domain declares its recovery (required at compile time; asserted for the
                 // guarantee that a dropped nudge has a declared self-heal — Plan §6a).

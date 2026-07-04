@@ -446,14 +446,24 @@ internal class SyncEngine(
      */
     private suspend fun runNudgeLifecycleRecovery(domain: RefreshedDomain) {
         when (domain.trigger) {
-            SyncControl.ActiveSessionsChanged::class -> presenceRefreshSignal.ping()
-            SyncControl.ActivityChanged::class -> primeActivityFeedSafely()
-            SyncControl.ServerInfoChanged::class, SyncControl.PreferencesChanged::class -> Unit
-            else ->
+            SyncControl.ActiveSessionsChanged::class -> {
+                presenceRefreshSignal.ping()
+            }
+
+            SyncControl.ActivityChanged::class -> {
+                primeActivityFeedSafely()
+            }
+
+            SyncControl.ServerInfoChanged::class, SyncControl.PreferencesChanged::class -> {
+                Unit
+            }
+
+            else -> {
                 logger.warn {
                     "Nudge ${domain.trigger.simpleName} declares a lifecycle recovery but the engine wires " +
                         "no action for it — a dropped frame will not self-heal. See ClientSyncModule."
                 }
+            }
         }
     }
 
