@@ -203,10 +203,12 @@ internal val clientSyncModule =
                 // by the dispatcher; there's no existing one-shot channel here to surface it.
                 onUserDeleted = { _ -> get<AuthSession>().clearAuthTokens() },
                 // The server's content-free bulk-write nudge (e.g. an ABS import's firehose-suppressed
-                // burst): re-derive every domain via digest reconciliation so the imported positions/
-                // sessions land live instead of only on the next reconnect. Same lazy-SyncEngine
-                // resolution as onCursorStale/onAccessChanged to break the construction cycle.
-                onLibraryDataChanged = { get<SyncEngine>().forceReconcile() },
+                // burst): the suppressed rows are written ABOVE the client cursor, so a digest-only
+                // reconcile (forceReconcile) can't see them — it fingerprints AT the cursor. Route
+                // through lifecycleReconcile(force = true), whose forward catch-up drains the
+                // above-cursor rows before the digest pass. Same lazy-SyncEngine resolution as
+                // onCursorStale/onAccessChanged to break the construction cycle.
+                onLibraryDataChanged = { get<SyncEngine>().lifecycleReconcile(force = true) },
             )
         }
 

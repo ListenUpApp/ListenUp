@@ -141,7 +141,14 @@ internal class SyncRepositoryImpl(
     override suspend fun sync(): AppResult<Unit> = startEngineForCurrentUser()
 
     override suspend fun connectRealtime() {
+        // Every platform's app-foreground path funnels through here (MainActivity.onResume, the
+        // auth-transition collector, shell entry, the offline-banner retry). Starting the engine
+        // no-ops when it's already running for this user — so foregrounding used to do ZERO
+        // reconciliation, and anything a live event dropped while backgrounded sat invisible until a
+        // cold restart. lifecycleReconcile closes that hole: it's debounced (the cold-start
+        // double-run right after start() is skipped) and heals anything missed on every foreground.
         startEngineForCurrentUser()
+        syncEngine.lifecycleReconcile()
     }
 
     override suspend fun disconnect() {

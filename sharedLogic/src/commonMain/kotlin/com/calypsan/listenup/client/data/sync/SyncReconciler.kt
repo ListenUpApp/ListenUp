@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -71,13 +72,38 @@ internal class SyncReconciler(
                     }
                 }
             if (local.count != remote.count || local.hash != remote.hash) {
-                logger.info { "Digest drift on ${handler.domainName}; re-pulling from 0" }
-                catchUp.catchUpFromZero(handler)
+                repairDrift(handler)
             }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "Reconcile failed for ${handler.domainName}; skipping" }
+        }
+    }
+
+    /**
+     * Repair a drifted domain. For an [AccessFilteredSyncHandler] a plain upsert-only re-pull cannot
+     * remove rows the server no longer counts (a revoked share leaves inaccessible rows local), so
+     * the digest would detect drift on EVERY pass and never converge. Route these through the same
+     * transient catch-up + prune sequence as [SyncEngine.handleAccessChanged], giving `AccessChanged`
+     * its lifecycle backstop: a dropped access frame heals on the next reconcile edge. Every other
+     * domain re-pulls from zero (upsert is sufficient — no rows to evict).
+     */
+    private suspend fun <T : Any> repairDrift(handler: SyncDomainHandler<T>) {
+        if (handler is AccessFilteredSyncHandler) {
+            logger.info { "Digest drift on ${handler.domainName} (access-gated); re-deriving + pruning" }
+            when (val ids = catchUp.catchUpTransient(handler)) {
+                is AppResult.Success -> {
+                    handler.pruneTo(ids.data, currentEpochMilliseconds())
+                }
+
+                is AppResult.Failure -> {
+                    logger.warn { "Access-gated re-derive failed for ${handler.domainName}: ${ids.error.code}" }
+                }
+            }
+        } else {
+            logger.info { "Digest drift on ${handler.domainName}; re-pulling from 0" }
+            catchUp.catchUpFromZero(handler)
         }
     }
 }

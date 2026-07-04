@@ -19,6 +19,7 @@ import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -188,9 +189,15 @@ class ForceReconcileWhileActiveTest :
 
                     repo.refreshListeningHistory()
 
-                    // Exactly one forward catch-up was forced, despite start()'s no-op. Pre-fix this was
-                    // a digest reconcile that added no catch-up (delta 0), stranding the import progress.
-                    catchUp.allInvocations.get() shouldBe afterStart + 1
+                    // refreshListeningHistory forces a forward catch-up (handleCursorStale → catchUpAll),
+                    // despite start()'s no-op. Pre-fix it did a digest reconcile that added NO catch-up
+                    // (delta 0), stranding the import progress — so the guard is "at least one forward
+                    // catch-up was forced". It must be `>=`, not `==`: handleCursorStale's recovery also
+                    // reseeds and RECONNECTS the SSE, and since Phase 0 every reconnect edge fires a forced
+                    // lifecycleReconcile (another catchUpAll) on the reconnect-refresh collector — async and
+                    // unjoined, so the count settles at +1 or +2 by timing. The invariant under test is that
+                    // a forward catch-up happened, not the exact number of downstream reconnect heals.
+                    catchUp.allInvocations.get() shouldBeGreaterThanOrEqual afterStart + 1
                 } finally {
                     scope.cancel()
                     scope.coroutineContext.job.children
