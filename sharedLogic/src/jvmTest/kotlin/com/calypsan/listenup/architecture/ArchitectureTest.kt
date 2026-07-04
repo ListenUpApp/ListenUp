@@ -128,6 +128,11 @@ class ArchitectureTest :
                 // are exactly 1:1:1. Asserting against the real production DI graph is the whole point,
                 // so the server import is intentional. Same exemption class — confined to jvmTest.
                 .filter { "data/sync/domains/SyncDomainCompletenessSpec" !in it.path }
+                // Access-gate parity spec: reads the server's declared `perRowAccessGatedSyncDomains` /
+                // `roleGatedSyncDomains` catalogs and asserts them equal to the client domains that declare
+                // an AccessGate — a runtime data comparison (no source-parsing). Reading the real server
+                // registration is the whole point. Same exemption class — confined to jvmTest, not production.
+                .filter { "data/sync/domains/AccessGateParitySpec" !in it.path }
                 .assertFalse { file ->
                     file.imports.any { it.name.startsWith("com.calypsan.listenup.server.") }
                 }
