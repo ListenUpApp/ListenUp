@@ -34,6 +34,7 @@ internal val listeningModule: Module =
             StatsRepositoryImpl(
                 listeningEventDao = get(),
                 genreDao = get(),
+                playbackPositionDao = get(),
                 authSession = get(),
             )
         }

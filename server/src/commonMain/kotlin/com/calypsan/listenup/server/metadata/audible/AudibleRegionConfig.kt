@@ -45,12 +45,13 @@ internal val AudibleRegion.webHost: String
         }
 
 /**
- * The storefront locale cookie for this region, sent on web-host scrapes.
+ * The storefront locale cookie for this region, sent on web-host scrapes to force the correct
+ * regional catalog.
  *
- * Audible's website (`/pd/{ASIN}` product pages, the author page, and the
- * author-search page) returns **HTTP 503** without a storefront locale cookie
- * and **HTTP 200** with one. Sending the right cookie both unblocks product-tag
- * scraping and fixes the non-US contributor lookup.
+ * Historically this cookie also turned Audible's cookie-less 503 into a 200, but that no longer holds:
+ * the `www` host now bot-blocks datacenter clients with a uniform 503 regardless of the cookie, so the
+ * web-scrape features (contributor match, product-tag/mood enrichment) are degraded — see Finding
+ * #18b. The cookie is retained for when a future scrape provider can reach the site again.
  */
 internal fun AudibleRegion.localeCookie(): String =
     when (this) {

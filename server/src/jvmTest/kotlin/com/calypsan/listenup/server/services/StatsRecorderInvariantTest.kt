@@ -81,10 +81,12 @@ class StatsRecorderInvariantTest :
 
                     val stats = userStatsRepo.getForUser("u1").shouldNotBeNull()
                     stats.booksFinished shouldBe 1
-                    // Spec §6: a completion moves booksFinished but must never fabricate listening
-                    // time or touch the streak — no synthesized listening_events.
+                    // A completion fabricates NO listening time (no synthesized listening_events) —
+                    // totalSecondsAllTime stays 0. It DOES count as a listening day for the streak
+                    // (Finding #20): finishing book-1 yesterday is a day the user listened, so the
+                    // streak now includes the book_reads.finished_at day → currentStreak = 1.
                     stats.totalSecondsAllTime shouldBe 0
-                    stats.currentStreakDays shouldBe 0
+                    stats.currentStreakDays shouldBe 1
                     val profile = publicProfileRepo.pullSince(userId = null, cursor = 0L, limit = 10).items.single()
                     profile.booksFinished shouldBe 1
                     profile.booksFinishedLast7Days shouldBe 1

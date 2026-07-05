@@ -715,7 +715,7 @@ internal class CollectionServiceImpl(
             notifyAccessChanged(listOf(id), listOf(bookId))
             bookRevisionTouch.touchRevision(BookId(bookId))
         } else if (allBooksLive) {
-            collectionBookRepo.softDelete(collectionId = allBooksId!!, bookId = bookId)
+            collectionBookRepo.softDelete(collectionId = allBooksId, bookId = bookId)
             notifyAccessChanged(listOf(allBooksId), listOf(bookId))
             bookRevisionTouch.touchRevision(BookId(bookId))
         }

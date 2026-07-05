@@ -21,6 +21,7 @@ import kotlinx.cinterop.toKString
 import kotlinx.cinterop.usePinned
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.Flow
@@ -77,7 +78,7 @@ private const val EVENT_BUFFER_BYTES = 64 * 1024
  * `eventfd`; [close] writes the eventfd to wake the loop — a race-free alternative to closing the fd
  * out from under a blocking `read`.
  */
-@OptIn(ExperimentalForeignApi::class, DelicateCoroutinesApi::class)
+@OptIn(ExperimentalForeignApi::class, DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 internal class InotifyDirectoryWatcher(
     private val scope: CoroutineScope,
 ) : LowLevelDirectoryWatcher {

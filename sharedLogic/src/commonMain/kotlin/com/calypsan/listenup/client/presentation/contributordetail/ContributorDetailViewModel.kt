@@ -11,6 +11,7 @@ import com.calypsan.listenup.client.domain.model.Contributor
 import com.calypsan.listenup.client.domain.model.ContributorRole
 import com.calypsan.listenup.client.domain.model.RoleWithBookCount
 import com.calypsan.listenup.client.domain.model.SeriesWithBooks
+import com.calypsan.listenup.client.domain.repository.BookWithContributorRole
 import com.calypsan.listenup.client.domain.repository.ContributorRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -24,9 +25,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -72,15 +73,67 @@ class ContributorDetailViewModel(
             if (id == null) {
                 flowOf(ContributorDetailUiState.Idle)
             } else {
-                combine(
-                    contributorRepository.observeById(id).filterNotNull(),
-                    contributorRepository.observeRolesWithCountForContributor(id),
-                ) { contributor, rolesWithCount ->
-                    val ready: ContributorDetailUiState = buildReadyState(id, contributor, rolesWithCount)
-                    ready
-                }.onStart { emit(ContributorDetailUiState.Loading) }
+                observeReadyState(id).onStart { emit(ContributorDetailUiState.Loading) }
             }
         }
+
+    /**
+     * Fully reactive Ready-state pipeline: the contributor, its per-role book lists, and the derived
+     * series are all LIVE Room subscriptions. Removing this contributor from a book updates the
+     * `book_contributors` mirror, which re-emits on [ContributorRepository.observeBooksForContributorRole]
+     * and refreshes the list here — no re-navigation required (Finding #21). Mirrors the healthy
+     * `ContributorBooksViewModel`; the earlier one-shot `.first()` snapshots were the stale-read bug.
+     */
+    private fun observeReadyState(contributorId: String): Flow<ContributorDetailUiState> =
+        combine(
+            contributorRepository.observeById(contributorId).filterNotNull(),
+            contributorRepository.observeRolesWithCountForContributor(contributorId),
+        ) { contributor, rolesWithCount -> contributor to rolesWithCount }
+            .flatMapLatest { (contributor, rolesWithCount) ->
+                observeRoleBooks(contributorId, rolesWithCount).flatMapLatest { roleBooks ->
+                    observeSeries(roleBooks).map { series ->
+                        buildReadyState(contributor, roleBooks, series)
+                    }
+                }
+            }
+
+    /** Live per-role book lists, one live subscription per role, combined into a single emission. */
+    private fun observeRoleBooks(
+        contributorId: String,
+        rolesWithCount: List<RoleWithBookCount>,
+    ): Flow<List<RoleBooks>> {
+        if (rolesWithCount.isEmpty()) return flowOf(emptyList())
+        val perRole =
+            rolesWithCount.map { roleWithCount ->
+                contributorRepository
+                    .observeBooksForContributorRole(contributorId, roleWithCount.role)
+                    .map { books -> RoleBooks(roleWithCount, books) }
+            }
+        return combine(perRole) { it.toList() }
+    }
+
+    /** Live series subscriptions derived from the current [roleBooks], ordered by contributor presence. */
+    private fun observeSeries(roleBooks: List<RoleBooks>): Flow<List<SeriesWithBooks>> {
+        val distinctBooks = roleBooks.flatMap { it.booksWithRole }.map { it.book }.distinctBy { it.id }
+        val seriesIds = distinctBooks.flatMap { it.series }.map { it.seriesId }.distinct()
+        if (seriesIds.isEmpty()) return flowOf(emptyList())
+        val flows = seriesIds.map { seriesRepository.observeSeriesWithBooks(it) }
+        return combine(flows) { emitted ->
+            emitted
+                .filterNotNull()
+                .sortedWith(
+                    compareByDescending<SeriesWithBooks> { sb ->
+                        distinctBooks.count { b -> b.series.any { it.seriesId == sb.series.id.value } }
+                    }.thenBy { it.series.name },
+                )
+        }
+    }
+
+    /** A role paired with its currently-observed books. */
+    private data class RoleBooks(
+        val roleWithCount: RoleWithBookCount,
+        val booksWithRole: List<BookWithContributorRole>,
+    )
 
     val state: StateFlow<ContributorDetailUiState> =
         combine(dataState, deleteOverlay) { data, overlay ->
@@ -131,38 +184,33 @@ class ContributorDetailViewModel(
     }
 
     private suspend fun buildReadyState(
-        contributorId: String,
         contributor: Contributor,
-        rolesWithCount: List<RoleWithBookCount>,
+        roleBooks: List<RoleBooks>,
+        series: List<SeriesWithBooks>,
     ): ContributorDetailUiState.Ready {
         val allCreditedAs = mutableMapOf<String, String>()
         val roleBooksFull = mutableListOf<List<BookListItem>>()
 
         val roleSections =
-            rolesWithCount.map { roleWithCount ->
-                val result = loadBooksForRole(contributorId, contributor.name, roleWithCount.role)
-                allCreditedAs.putAll(result.creditedAsMap)
-                roleBooksFull += result.books
+            roleBooks.map { (roleWithCount, booksWithRole) ->
+                val books = booksWithRole.map { it.book }
+                booksWithRole.forEach { bwr ->
+                    val creditedAs = bwr.creditedAs
+                    if (creditedAs != null && !creditedAs.equals(contributor.name, ignoreCase = true)) {
+                        allCreditedAs[bwr.book.id.value] = creditedAs
+                    }
+                }
+                roleBooksFull += books
                 RoleSection(
                     role = roleWithCount.role,
                     displayName = roleToDisplayName(roleWithCount.role),
                     bookCount = roleWithCount.bookCount,
-                    previewBooks = result.books.take(PREVIEW_BOOK_COUNT),
+                    previewBooks = books.take(PREVIEW_BOOK_COUNT),
                 )
             }
 
         val distinctBooks = roleBooksFull.flatten().distinctBy { it.id }
         val totalDuration = distinctBooks.sumOf { it.duration }.milliseconds
-
-        val seriesIds = distinctBooks.flatMap { it.series }.map { it.seriesId }.distinct()
-        val series =
-            seriesIds
-                .mapNotNull { seriesId -> seriesRepository.observeSeriesWithBooks(seriesId).first() }
-                .sortedWith(
-                    compareByDescending<SeriesWithBooks> { sb ->
-                        distinctBooks.count { b -> b.series.any { it.seriesId == sb.series.id.value } }
-                    }.thenBy { it.series.name },
-                )
 
         val allPreviewBooks = roleSections.flatMap { it.previewBooks }
         val bookProgress = playbackPositionRepository.calculateProgressMap(allPreviewBooks)
@@ -178,38 +226,6 @@ class ContributorDetailViewModel(
             isDeleting = false,
             deleteError = null,
         )
-    }
-
-    private data class BooksForRoleResult(
-        val books: List<BookListItem>,
-        /** Maps bookId to creditedAs name (when different from contributor's name). */
-        val creditedAsMap: Map<String, String>,
-    )
-
-    private suspend fun loadBooksForRole(
-        contributorId: String,
-        contributorName: String,
-        role: String,
-    ): BooksForRoleResult {
-        val booksWithRole =
-            contributorRepository
-                .observeBooksForContributorRole(contributorId, role)
-                .first()
-
-        val books = booksWithRole.map { it.book }
-
-        val creditedAsMap =
-            booksWithRole
-                .mapNotNull { bwr ->
-                    val creditedAs = bwr.creditedAs
-                    if (creditedAs != null && !creditedAs.equals(contributorName, ignoreCase = true)) {
-                        bwr.book.id.value to creditedAs
-                    } else {
-                        null
-                    }
-                }.toMap()
-
-        return BooksForRoleResult(books, creditedAsMap)
     }
 
     companion object {

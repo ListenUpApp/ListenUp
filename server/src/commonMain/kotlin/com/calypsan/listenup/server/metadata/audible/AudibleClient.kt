@@ -172,32 +172,20 @@ class AudibleClient(
      *
      * Endpoint: `GET https://www.audible.{tld}/pd/{asin}`
      *
-     * Reuses [webGet] (web host + storefront locale cookie from Task 4, which
-     * turns Audible's 503-without-cookie into a 200; the request follows the
-     * redirect to the canonical slug URL). Best-effort: a 404 maps the `null`
-     * body to an empty list; any transport failure stays a typed [MetadataError].
+     * Best-effort and known-degraded: a 404 maps the `null` body to an empty list, and any transport
+     * failure — including Audible's edge bot-block, which currently returns a uniform 503 for the
+     * `www` host (Finding #18b) — is returned as a typed [MetadataError] that the caller flattens to
+     * an empty list, so moods/tags are simply absent rather than fatal. Failures are not logged per
+     * request here; [webGet] logs the www scrape's known 503 at debug level to avoid log spam.
      */
     override suspend fun getProductTags(
         region: AudibleRegion,
         asin: String,
     ): AppResult<List<ProductTag>> {
         rateLimiter.await(region)
-        val result =
-            webGet(region, "/pd/$asin", failOnGeoRedirect = true) { body ->
-                parseProductTags(body)
-            }.map { it ?: emptyList() }
-        if (result is AppResult.Failure) {
-            // Distinguish a geo-redirect / fetch failure from a genuine "title has no tags" empty:
-            // Audible IP-redirects the regional storefront when the server isn't located in that
-            // region (see [webGet]), so the /pd page — and its moods/tags — never loads. The caller
-            // flattens this to an empty list (best-effort), so without this log it would be silent.
-            logger.warn {
-                "Product-tag scrape for ASIN $asin in $region failed (${result.error.debugInfo}); " +
-                    "moods/tags will be empty. Audible geo-gates storefronts by IP — pick the Audible " +
-                    "region matching the server's country."
-            }
-        }
-        return result
+        return webGet(region, "/pd/$asin", failOnGeoRedirect = true) { body ->
+            parseProductTags(body)
+        }.map { it ?: emptyList() }
     }
 
     // ─── Private infrastructure ───────────────────────────────────────────────
@@ -294,9 +282,9 @@ class AudibleClient(
                         "User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     )
-                    // The storefront locale cookie forces the correct regional catalog and turns
-                    // Audible's 503-without-cookie into a 200 (covers /pd product pages + the
-                    // contributor scrape, fixing non-US contributor lookups).
+                    // Storefront locale cookie — forces the correct regional catalog. (It no longer
+                    // clears Audible's 503: the www host now bot-blocks datacenter clients regardless
+                    // of the cookie — Finding #18b.)
                     header("Cookie", region.localeCookie())
                     queryParams.forEach { (k, v) -> parameter(k, v) }
                 }
@@ -325,7 +313,9 @@ class AudibleClient(
                 }
 
                 else -> {
-                    logger.warn {
+                    // The www host is known-degraded (Audible edge bot-blocks datacenter clients with a
+                    // uniform 503 — Finding #18b); log at debug so a per-request 5xx doesn't spam WARN.
+                    logger.debug {
                         "Audible web request server error: region=$region path=$path status=${response.status.value}"
                     }
                     AppResult.Failure(

@@ -489,6 +489,49 @@ class ContributorDetailViewModelTest :
             }
         }
 
+        test("book list updates reactively when a contributor is removed from a book, without re-navigation") {
+            runTest {
+                val fixture = createFixture()
+                val contributor = createContributor(id = "c1")
+                val role = RoleWithBookCount(role = ContributorRole.AUTHOR.apiValue, bookCount = 2)
+
+                // The per-role book list is a LIVE Room subscription — removing a contributor from a
+                // book updates book_contributors, which must re-emit here without re-navigating.
+                val booksFlow =
+                    MutableStateFlow(
+                        listOf(
+                            createBookWithContributorRole(createBook(id = "b1", title = "Book One")),
+                            createBookWithContributorRole(createBook(id = "b2", title = "Book Two")),
+                        ),
+                    )
+                every {
+                    fixture.contributorRepository.observeBooksForContributorRole("c1", ContributorRole.AUTHOR.apiValue)
+                } returns booksFlow
+
+                val viewModel = fixture.build()
+                backgroundScope.launch { viewModel.state.collect { } }
+
+                viewModel.loadContributor("c1")
+                fixture.contributorFlow.value = contributor
+                fixture.rolesFlow.value = listOf(role)
+                advanceUntilIdle()
+
+                (viewModel.state.value as ContributorDetailUiState.Ready)
+                    .roleSections[0]
+                    .previewBooks
+                    .map { it.title } shouldBe listOf("Book One", "Book Two")
+
+                // b2 loses this contributor — only the book_contributors mirror changes.
+                booksFlow.value = listOf(createBookWithContributorRole(createBook(id = "b1", title = "Book One")))
+                advanceUntilIdle()
+
+                (viewModel.state.value as ContributorDetailUiState.Ready)
+                    .roleSections[0]
+                    .previewBooks
+                    .map { it.title } shouldBe listOf("Book One")
+            }
+        }
+
         // ========== Series + Catalog Stats ==========
 
         test("Ready exposes distinct book count, total hours, and derived series") {

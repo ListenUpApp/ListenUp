@@ -17,6 +17,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +26,23 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlin.time.Duration.Companion.seconds
 
 private val logger = KotlinLogging.logger {}
+
+/**
+ * Hard ceiling on a single metadata RPC call. Metadata lookups hit external providers and can be
+ * genuinely slow, so this is generous — its only job is to guarantee that a black-hole WebSocket (an
+ * RPC that never resolves and never throws) eventually surfaces as a visible error instead of an
+ * infinite spinner. Never-Stranded: the user always gets an outcome.
+ */
+private val METADATA_RPC_TIMEOUT = 30.seconds
+
+private const val SEARCH_TIMEOUT_MESSAGE = "Search timed out. Check your connection and try again."
+private const val SEARCH_FAILED_MESSAGE = "Something went wrong while searching. Please try again."
+private const val PREVIEW_TIMEOUT_MESSAGE = "Loading the match timed out. Check your connection and try again."
+private const val PREVIEW_FAILED_MESSAGE = "Something went wrong while loading the match. Please try again."
 
 /** Tracks which metadata fields the user has selected to apply. */
 data class MetadataSelections(
@@ -324,29 +340,51 @@ class MetadataViewModel(
         state.value = current.copy(loadState = SearchLoadState.InFlight)
 
         viewModelScope.launch {
-            when (val result = metadataRepository.searchBooks(query, current.region)) {
-                is AppResult.Success -> {
-                    val hits = result.data.hits
-                    state.update { latest ->
-                        if (latest is MetadataUiState.Search && latest.query.trim() == query) {
-                            latest.copy(loadState = SearchLoadState.Loaded(hits))
-                        } else {
-                            latest
+            try {
+                val result =
+                    withTimeout(METADATA_RPC_TIMEOUT) {
+                        metadataRepository.searchBooks(query, current.region)
+                    }
+                when (result) {
+                    is AppResult.Success -> {
+                        val hits = result.data.hits
+                        state.update { latest ->
+                            if (latest is MetadataUiState.Search && latest.query.trim() == query) {
+                                latest.copy(loadState = SearchLoadState.Loaded(hits))
+                            } else {
+                                latest
+                            }
                         }
                     }
-                }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Metadata search failed: ${result.error.message}" }
-                    state.update { latest ->
-                        if (latest is MetadataUiState.Search && latest.query.trim() == query) {
-                            latest.copy(loadState = SearchLoadState.Failed(result.error.message))
-                        } else {
-                            latest
-                        }
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Metadata search failed: ${result.error.message}" }
+                        setSearchFailed(query, result.error.message)
                     }
                 }
+            } catch (e: TimeoutCancellationException) {
+                logger.error(e) { "Metadata search timed out for query \"$query\"" }
+                setSearchFailed(query, SEARCH_TIMEOUT_MESSAGE)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logger.error(e) { "Metadata search failed unexpectedly for query \"$query\"" }
+                setSearchFailed(query, SEARCH_FAILED_MESSAGE)
+            }
+        }
+    }
+
+    /** Project a [SearchLoadState.Failed] onto the still-current search, ignoring a superseded query. */
+    private fun setSearchFailed(
+        query: String,
+        message: String,
+    ) {
+        state.update { latest ->
+            if (latest is MetadataUiState.Search && latest.query.trim() == query) {
+                latest.copy(loadState = SearchLoadState.Failed(message))
+            } else {
+                latest
             }
         }
     }
@@ -648,41 +686,67 @@ class MetadataViewModel(
         bookId: String,
     ) {
         viewModelScope.launch {
-            when (val result = metadataRepository.getBookMetadata(match.asin, region)) {
-                is AppResult.Success -> {
-                    val preview = result.data
-                    if (preview != null) {
-                        val hasNoData =
-                            preview.authors.isEmpty() &&
-                                preview.narrators.isEmpty() &&
-                                preview.series.isEmpty() &&
-                                preview.coverUrl == null &&
-                                preview.description == null
-                        transitionToReady(match, preview, previewNotFound = hasNoData, bookId = bookId, region = region)
-                    } else {
-                        // Server returned null — book not found in region
-                        transitionToReady(match, match, previewNotFound = true, bookId = bookId, region = region)
+            try {
+                val result =
+                    withTimeout(METADATA_RPC_TIMEOUT) {
+                        metadataRepository.getBookMetadata(match.asin, region)
                     }
-                }
+                when (result) {
+                    is AppResult.Success -> {
+                        val preview = result.data
+                        if (preview != null) {
+                            val hasNoData =
+                                preview.authors.isEmpty() &&
+                                    preview.narrators.isEmpty() &&
+                                    preview.series.isEmpty() &&
+                                    preview.coverUrl == null &&
+                                    preview.description == null
+                            transitionToReady(
+                                match,
+                                preview,
+                                previewNotFound = hasNoData,
+                                bookId = bookId,
+                                region = region,
+                            )
+                        } else {
+                            // Server returned null — book not found in region
+                            transitionToReady(match, match, previewNotFound = true, bookId = bookId, region = region)
+                        }
+                    }
 
-                is AppResult.Failure -> {
-                    errorBus.emit(result.error)
-                    logger.error { "Failed to load metadata preview: ${result.error.message}" }
-                    if (match.title.isNotBlank()) {
-                        logger.info { "Using search result data as preview fallback" }
-                        transitionToReady(match, match, previewNotFound = false, bookId = bookId, region = region)
-                    } else {
-                        state.update { latest ->
-                            if (latest is MetadataUiState.Preview && latest.match.asin == match.asin) {
-                                latest.copy(
-                                    loadState = PreviewLoadState.Failed(result.error.message),
-                                )
-                            } else {
-                                latest
-                            }
+                    is AppResult.Failure -> {
+                        errorBus.emit(result.error)
+                        logger.error { "Failed to load metadata preview: ${result.error.message}" }
+                        if (match.title.isNotBlank()) {
+                            logger.info { "Using search result data as preview fallback" }
+                            transitionToReady(match, match, previewNotFound = false, bookId = bookId, region = region)
+                        } else {
+                            setPreviewFailed(match.asin, result.error.message)
                         }
                     }
                 }
+            } catch (e: TimeoutCancellationException) {
+                logger.error(e) { "Metadata preview timed out for ${match.asin}" }
+                setPreviewFailed(match.asin, PREVIEW_TIMEOUT_MESSAGE)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                logger.error(e) { "Metadata preview failed unexpectedly for ${match.asin}" }
+                setPreviewFailed(match.asin, PREVIEW_FAILED_MESSAGE)
+            }
+        }
+    }
+
+    /** Project a [PreviewLoadState.Failed] onto the still-current preview, ignoring a switched match. */
+    private fun setPreviewFailed(
+        asin: String,
+        message: String,
+    ) {
+        state.update { latest ->
+            if (latest is MetadataUiState.Preview && latest.match.asin == asin) {
+                latest.copy(loadState = PreviewLoadState.Failed(message))
+            } else {
+                latest
             }
         }
     }

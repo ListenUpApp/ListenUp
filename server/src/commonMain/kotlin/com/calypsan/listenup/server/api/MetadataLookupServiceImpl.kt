@@ -40,6 +40,13 @@ import kotlinx.coroutines.CancellationException
 private val log = loggerFor<MetadataLookupServiceImpl>()
 
 /**
+ * Feature flag for contributor auto-match (search + profile fetch). Off while the only source — the
+ * `www.audible.com` scrape — is bot-blocked (uniform 503); the future multi-target scrape provider
+ * flips it back on. See [MetadataLookupServiceImpl.searchContributorMetadata]. Finding #18b.
+ */
+private const val CONTRIBUTOR_MATCH_ENABLED = false
+
+/**
  * Server-side implementation of [MetadataLookupService].
  *
  * Delegates search/fetch/refresh to the injected [metadataProviders] list, which own
@@ -136,23 +143,30 @@ internal class MetadataLookupServiceImpl(
     ): AppResult<MetadataChapters?> = audible.getChapters(asin, region)
 
     /**
-     * Searches Audible for contributors matching [query] using HTML scraping of
-     * `www.audible.com/search?searchAuthor={query}`. Results are deduplicated by
-     * ASIN and mapped to [MetadataContributorHit] wire DTOs.
+     * Contributor auto-match (search + profile fetch) is served only by scraping `www.audible.com`,
+     * which Audible's edge now bot-blocks with a uniform 503 (the `api.audible.com` book-match path is
+     * unaffected). Rather than surface that 503 to users, the feature is disabled until a multi-target
+     * scrape provider exists — [searchContributorMetadata] returns an empty result and
+     * [getContributorMetadata] returns null, so the UI cleanly shows "no matches" and the user falls
+     * back to manual contributor editing (Never-Stranded). See Finding #18b.
      *
-     * Backed by [MetadataService.searchContributors], which adds TTL caching
-     * so repeated queries for the same name avoid redundant scraping.
+     * The re-enable seam is intact: flip [CONTRIBUTOR_MATCH_ENABLED] to `true` once a working scrape
+     * source lands and the [metadataService] calls below resume.
      */
-    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
-        metadataService
+    override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> {
+        if (!CONTRIBUTOR_MATCH_ENABLED) return AppResult.Success(emptyList())
+        return metadataService
             .searchContributors(defaultRegion, query)
             .map { profiles -> profiles.map { MetadataContributorHit(asin = it.asin, name = it.name) } }
+    }
 
     override suspend fun getContributorMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataContributorProfile?> =
-        metadataService.getContributor(region, asin).map { it?.toMetadataContributorProfile() }
+    ): AppResult<MetadataContributorProfile?> {
+        if (!CONTRIBUTOR_MATCH_ENABLED) return AppResult.Success(null)
+        return metadataService.getContributor(region, asin).map { it?.toMetadataContributorProfile() }
+    }
 
     override suspend fun refreshBookMetadata(
         asin: String,
