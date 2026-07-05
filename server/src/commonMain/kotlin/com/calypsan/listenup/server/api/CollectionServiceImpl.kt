@@ -363,7 +363,7 @@ internal class CollectionServiceImpl(
         return when (val result = grantRepo.upsert(payload)) {
             is AppResult.Success -> {
                 // The newly-shared user's accessible set just grew — tell them to re-derive.
-                bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+                bus.publishControl(SyncControl.AccessChanged(), sharedWithUserId)
                 AppResult.Success(result.data.toDto())
             }
 
@@ -390,7 +390,7 @@ internal class CollectionServiceImpl(
         return when (val result = grantRepo.upsert(updated)) {
             is AppResult.Success -> {
                 // The share's permission changed — the recipient must re-derive what they can do.
-                bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+                bus.publishControl(SyncControl.AccessChanged(), sharedWithUserId)
                 AppResult.Success(result.data.toDto())
             }
 
@@ -412,7 +412,7 @@ internal class CollectionServiceImpl(
         // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
         // when a live grant was actually removed: a no-op revoke didn't change their access.
         if (grantRepo.softDeleteGrant(id.value, sharedWithUserId) is AppResult.Success) {
-            bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+            bus.publishControl(SyncControl.AccessChanged(), sharedWithUserId)
         }
         return AppResult.Success(Unit)
     }
@@ -693,7 +693,7 @@ internal class CollectionServiceImpl(
             // The ALL_BOOKS/INBOX sentinel owner is not a real client — nudging it is pure noise.
             // (ALL_BOOKS reaches its real audience via the per-member default grants enumerated above.)
             if (affectedUserId == SYSTEM_OWNER_ID) continue
-            bus.publishControl(SyncControl.AccessChanged, affectedUserId)
+            bus.publishControl(SyncControl.AccessChanged(), affectedUserId)
         }
     }
 

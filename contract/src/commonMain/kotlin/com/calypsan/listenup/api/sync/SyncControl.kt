@@ -49,13 +49,23 @@ sealed interface SyncControl {
      * Sent when the recipient's accessible set may have changed without a book row
      * itself mutating — e.g. a collection was shared/unshared with them, a share's
      * permission changed, or a book was released into a collection they can see.
-     * The client treats this as "re-derive your accessible library" and re-pulls
-     * the access-aware books digest. A bare signal is enough; no scope is carried.
+     *
+     * When [scope] is present, it names the affected entities (recipient-agnostic): the
+     * client does a targeted access-filtered fetch of just those ids — returned entities are
+     * upserted, requested-but-not-returned entities are tombstoned — turning the reconcile
+     * from O(library) into O(changed). When [scope] is `null` the client falls back to the
+     * coarse "re-derive your whole accessible library" pass (the pre-scope behavior, and the
+     * safe anchor for skew or frame loss). The `scope` field is additive: an older server
+     * omits it (→ `null` → coarse) and an older client ignores it (→ coarse), so the frame
+     * degrades gracefully in both skew directions.
      */
     @HiddenFromObjC
     @Serializable
     @SerialName("SyncControl.AccessChanged")
-    data object AccessChanged : SyncControl
+    data class AccessChanged(
+        @SerialName("scope")
+        val scope: AccessScope? = null,
+    ) : SyncControl
 
     /**
      * The authenticated user's account was deleted by an admin. The client clears auth (logout)
@@ -129,3 +139,26 @@ sealed interface SyncControl {
     @SerialName("SyncControl.LibraryDataChanged")
     data object LibraryDataChanged : SyncControl
 }
+
+/**
+ * The affected entities carried by a scoped [SyncControl.AccessChanged] frame — recipient-agnostic.
+ *
+ * The frame names *what changed*, not *who can now see it*: per-user truth is resolved at fetch
+ * time by the server's access filter. The client fetches these ids access-filtered — entities that
+ * come back are (still) accessible and are upserted; ids that were requested but not returned are no
+ * longer accessible and are tombstoned. This is what lets one recipient-agnostic payload serve every
+ * recipient without any per-user diffing on the server.
+ *
+ * @property collectionIds Collections whose membership or sharing changed.
+ * @property bookIds Books whose accessibility may have flipped (e.g. released into / removed from a
+ *   visible collection).
+ */
+@HiddenFromObjC
+@Serializable
+@SerialName("AccessScope")
+data class AccessScope(
+    @SerialName("collectionIds")
+    val collectionIds: List<String>,
+    @SerialName("bookIds")
+    val bookIds: List<String>,
+)

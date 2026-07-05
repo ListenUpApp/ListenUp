@@ -65,7 +65,7 @@ internal class SyncEventDispatcher(
                 state.recordError(control.error)
             }
 
-            SyncControl.AccessChanged -> {
+            is SyncControl.AccessChanged -> {
                 logger.info { "AccessChanged received; re-deriving accessible set via catch-up" }
                 onAccessChanged()
             }

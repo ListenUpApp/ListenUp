@@ -129,7 +129,7 @@ class AccessChangedEmissionTest :
                     }
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
+                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged(), "u2"))
                 }
             }
         }
@@ -158,7 +158,7 @@ class AccessChangedEmissionTest :
                     }
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
+                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged(), "u2"))
                 }
             }
         }
@@ -184,7 +184,7 @@ class AccessChangedEmissionTest :
                     owner.revokeShare(created.data.id, "u2") shouldBe AppResult.Success(Unit)
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
+                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged(), "u2"))
                 }
             }
         }
@@ -244,7 +244,7 @@ class AccessChangedEmissionTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach { it.control shouldBe SyncControl.AccessChanged() }
                 }
             }
         }
@@ -273,7 +273,7 @@ class AccessChangedEmissionTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach { it.control shouldBe SyncControl.AccessChanged() }
                 }
             }
         }
@@ -303,7 +303,7 @@ class AccessChangedEmissionTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach { it.control shouldBe SyncControl.AccessChanged() }
                 }
             }
         }

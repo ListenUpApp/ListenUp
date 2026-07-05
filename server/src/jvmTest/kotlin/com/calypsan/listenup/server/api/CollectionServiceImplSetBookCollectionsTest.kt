@@ -314,7 +314,7 @@ class CollectionServiceImplSetBookCollectionsTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2", "u3")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach { it.control shouldBe SyncControl.AccessChanged() }
                 }
             }
         }
