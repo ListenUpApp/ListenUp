@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
+import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.SearchRepository
 import com.calypsan.listenup.client.domain.repository.SeriesRepository
@@ -82,6 +83,8 @@ class KoinModuleVerifyTest :
                         PlaybackPreferences::class,
                         NetworkMonitor::class,
                         DocumentRepository::class,
+                        DownloadRepository::class,
+                        PlaybackPositionRepository::class,
                     ),
             )
         }
