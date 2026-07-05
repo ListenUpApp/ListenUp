@@ -14,6 +14,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupPaths
 import com.calypsan.listenup.server.backup.RestoreOrchestrator
+import com.calypsan.listenup.server.backup.isSafeBackupId
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -84,6 +85,9 @@ class BackupServiceImpl(
     override suspend fun getBackup(id: BackupId): AppResult<BackupSummary> {
         requireAdmin()?.let { return it }
         return withContext(fileIoDispatcher) {
+            if (!isSafeBackupId(id.value)) {
+                return@withContext AppResult.Failure(BackupError.BackupNotFound())
+            }
             val archivePath = paths.archiveFor(id.value)
             if (!SystemFileSystem.exists(archivePath)) {
                 return@withContext AppResult.Failure(BackupError.BackupNotFound())
@@ -95,6 +99,9 @@ class BackupServiceImpl(
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> {
         requireAdmin()?.let { return it }
         return withContext(fileIoDispatcher) {
+            if (!isSafeBackupId(id.value)) {
+                return@withContext AppResult.Failure(BackupError.BackupNotFound())
+            }
             val archivePath = paths.archiveFor(id.value)
             val existed = SystemFileSystem.exists(archivePath)
             SystemFileSystem.delete(archivePath, mustExist = false)
@@ -108,6 +115,7 @@ class BackupServiceImpl(
 
     override suspend fun restoreBackup(id: BackupId): AppResult<RestoreResult> {
         requireAdmin()?.let { return it }
+        if (!isSafeBackupId(id.value)) return AppResult.Failure(BackupError.BackupNotFound())
         return restoreOrchestrator.restore(id)
     }
 
