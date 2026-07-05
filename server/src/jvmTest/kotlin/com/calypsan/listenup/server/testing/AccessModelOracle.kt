@@ -28,6 +28,15 @@ import io.kotest.matchers.shouldBe
  * holds a live USER grant on.* No "uncollected is public" branch, no global-access branch — public
  * visibility is structural (the `ALL_BOOKS` substrate collection + the member's default grant), so
  * the union rule alone reaches exactly the intended set.
+ *
+ * **Scope of what this oracle catches — do not over-trust it.** It guards *production visibility-rule
+ * drift* (e.g. a reintroduced "uncollected is public" branch in [BookAccessPolicy]): [naiveVisible]
+ * and `canAccess` would then disagree, and the guard fires. It does **not**, by itself, catch the
+ * #680 *membership-maintenance* bug (a mutation that forgets `reconcileSystemMembership`), because
+ * both sides read the same junction state and would agree "visible." That specific regression is
+ * caught by the explicit `canAccess(...).shouldBeFalse()` + `pullSince` assertions in
+ * `AccessInvariantMatrixTest` (row I1) and by `CollectionMembershipRoutingRule` — so those must not be
+ * deleted on the assumption the oracle covers them.
  */
 object AccessModelOracle {
     /**
