@@ -16,6 +16,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -121,6 +122,35 @@ class BookRemovalOrphanPurgeTest :
                         .executeAsOne()
                         .deleted_at
                         .shouldNotBeNull()
+                }
+            }
+        }
+
+        test("re-adding a book after its sole parents were purged revives contributor and series under their original ids") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    val (bookRepo, _, _) = buildRepo(sql, driver)
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val contributorRepo = ContributorRepository(sql, bus, registry)
+                    val seriesRepo = SeriesRepository(sql, bus, registry)
+                    val c1 = contributorRepo.resolveOrCreate("Sole Author", "Author, Sole")
+                    val s1 = seriesRepo.resolveOrCreate("Sole Saga")
+                    sql.bookContributorsQueries.insert("book1", c1.value, "author", null, 0)
+                    sql.bookSeriesMembershipsQueries.insert("book1", s1.value, null, 0)
+
+                    // Removal purges the sole-linked parents (pinned by the neighbor tests above).
+                    bookRepo.softDelete(BookId("book1"), clientOpId = null)
+                    sql.contributorsQueries.selectById(c1.value).executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.seriesQueries.selectById(s1.value).executeAsOne().deleted_at.shouldNotBeNull()
+
+                    // Re-ingest the same names — the scanner's resolve path — and both parents come back live.
+                    contributorRepo.resolveOrCreate("Sole Author", "Author, Sole") shouldBe c1
+                    seriesRepo.resolveOrCreate("Sole Saga") shouldBe s1
+                    sql.contributorsQueries.selectById(c1.value).executeAsOne().deleted_at.shouldBeNull()
+                    sql.seriesQueries.selectById(s1.value).executeAsOne().deleted_at.shouldBeNull()
                 }
             }
         }

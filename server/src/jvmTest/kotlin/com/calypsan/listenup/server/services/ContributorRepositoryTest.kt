@@ -11,6 +11,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -309,6 +310,63 @@ class ContributorRepositoryTest :
                     val digest = repo.digest(userId = null, cursor = cursor)
                     digest.count shouldBe 2
                     digest.hash.startsWith("sha256:") shouldBe true
+                }
+            }
+        }
+
+        // ── revive on tombstoned dedup hit (plan 088) ─────────────────────────────
+
+        test("resolveOrCreate revives a tombstoned dedup hit — same id, live, revision bumped, Updated published") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = ContributorRepository(db = sql, bus = bus, registry = SyncRegistry())
+                runTest {
+                    val id = repo.resolveOrCreate("Purged Author", sortName = null)
+                    repo.softDelete(id)
+                    val revisionAfterDelete =
+                        sql.contributorsQueries.selectById(id.value).executeAsOne().revision
+
+                    // Subscribe after the delete so the first observed event is the revive's.
+                    val deferred = async { bus.subscribe().first() }
+                    advanceUntilIdle()
+
+                    val resolved = repo.resolveOrCreate("Purged Author", sortName = null)
+
+                    resolved shouldBe id // id stays stable — no re-mint
+                    val row = sql.contributorsQueries.selectById(id.value).executeAsOne()
+                    row.deleted_at.shouldBeNull() // FAILS before the fix: still tombstoned
+                    (row.revision > revisionAfterDelete) shouldBe true
+
+                    val busEvent = deferred.await()
+                    busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<ContributorSyncPayload>>()
+                }
+            }
+        }
+
+        test("resolveOrCreateAll revives tombstoned hits and leaves live hits untouched") {
+            withSqlDatabase {
+                val repo = ContributorRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val purged = repo.resolveOrCreate("Purged Author", sortName = null)
+                    val live = repo.resolveOrCreate("Live Author", sortName = null)
+                    repo.softDelete(purged)
+                    val liveRevisionBefore =
+                        sql.contributorsQueries.selectById(live.value).executeAsOne().revision
+
+                    val resolved =
+                        repo.resolveOrCreateAll(
+                            listOf("Purged Author" to null, "Live Author" to null, "Brand New Author" to null),
+                        )
+
+                    resolved.values.toSet().size shouldBe 3
+                    resolved.values shouldContain purged // same id — no re-mint
+                    sql.contributorsQueries
+                        .selectById(purged.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull() // FAILS before the fix
+                    // Live hit stays a pure read — no gratuitous revision bump.
+                    sql.contributorsQueries.selectById(live.value).executeAsOne().revision shouldBe liveRevisionBefore
                 }
             }
         }
