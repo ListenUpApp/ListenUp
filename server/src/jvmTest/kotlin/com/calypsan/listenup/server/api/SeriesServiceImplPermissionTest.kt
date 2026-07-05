@@ -114,6 +114,7 @@ private fun makeService(dbs: SqlTestDatabases): PermServiceDeps {
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = dbs.sql,
+            accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             permissionPolicy = UserPermissionPolicy(dbs.sql),
         )
     return PermServiceDeps(service, seriesRepo)

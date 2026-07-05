@@ -223,6 +223,7 @@ private fun makeMergeSeriesServiceAndDeps(dbs: SqlTestDatabases): MergeSeriesSer
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = dbs.sql,
+            accessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
             principal = rootPrincipal(),
         )
     return MergeSeriesServiceDeps(service, seriesRepo, bookRepo)

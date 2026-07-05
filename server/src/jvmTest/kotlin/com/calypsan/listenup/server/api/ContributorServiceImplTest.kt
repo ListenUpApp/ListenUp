@@ -342,6 +342,7 @@ private fun makeServiceAndDeps(db: SqlTestDatabases): ServiceDeps {
             bookRepo = bookRepo,
             reindexer = reindexer,
             sqlDb = db.sql,
+            accessPolicy = BookAccessPolicy(db.sql, db.driver),
             principal = rootPrincipal(),
         )
     return ServiceDeps(service, contributorRepo, bookRepo, reindexer)

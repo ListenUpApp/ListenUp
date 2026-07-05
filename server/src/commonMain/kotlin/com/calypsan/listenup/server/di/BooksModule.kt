@@ -163,6 +163,7 @@ fun booksModule(
                 bookRepo = get(),
                 reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
+                accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("ContributorService"),
             )
@@ -173,6 +174,7 @@ fun booksModule(
                 bookRepo = get(),
                 reindexer = get(),
                 sqlDb = get<ListenUpDatabase>(),
+                accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("SeriesService"),
             )
@@ -195,6 +197,7 @@ fun booksModule(
                 bookRepository = get<BookRepository>(),
                 reindexer = get<BookSearchReindexer>(),
                 sqlDb = get<ListenUpDatabase>(),
+                accessPolicy = get<BookAccessPolicy>(),
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("GenreService"),
             )
