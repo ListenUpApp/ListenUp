@@ -130,7 +130,13 @@ class AccessChangedEmissionTest :
                     }
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())), "u2"))
+                    frames shouldContainExactlyInAnyOrder
+                        listOf(
+                            ControlFrame(
+                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
+                                "u2",
+                            ),
+                        )
                 }
             }
         }
@@ -159,7 +165,13 @@ class AccessChangedEmissionTest :
                     }
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())), "u2"))
+                    frames shouldContainExactlyInAnyOrder
+                        listOf(
+                            ControlFrame(
+                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
+                                "u2",
+                            ),
+                        )
                 }
             }
         }
@@ -185,7 +197,13 @@ class AccessChangedEmissionTest :
                     owner.revokeShare(created.data.id, "u2") shouldBe AppResult.Success(Unit)
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())), "u2"))
+                    frames shouldContainExactlyInAnyOrder
+                        listOf(
+                            ControlFrame(
+                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
+                                "u2",
+                            ),
+                        )
                 }
             }
         }
