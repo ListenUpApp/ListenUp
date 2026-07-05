@@ -123,7 +123,12 @@ class ConnectionCoordinator internal constructor(
                     if (connected && !wasConnected) {
                         if (hasConnectedOnce) {
                             logger.info { "Firehose reconnected; invalidating stale RPC proxy caches" }
-                            invalidator.invalidateAll()
+                            // SCOPED sweep: refresh the stale RPC proxies + request client, but spare the
+                            // streaming client. This reconnect edge fires FROM the streaming client itself;
+                            // closing it here would abort the in-flight SSE read and spin a self-teardown
+                            // loop (reconnect → invalidate → abort → reconnect …). A genuine host change
+                            // takes the full invalidateAll() path in observeActiveUrl() instead.
+                            invalidator.invalidateRequestCaches()
                         }
                         hasConnectedOnce = true
                     }

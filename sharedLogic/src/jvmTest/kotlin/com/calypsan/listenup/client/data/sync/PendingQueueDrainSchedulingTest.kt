@@ -267,6 +267,91 @@ class PendingQueueDrainSchedulingTest :
             }
         }
 
+        test("an op enqueued while the SSE firehose is DOWN still drains when the device is online") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val sent = MutableSharedFlow<String>(replay = 64)
+                    val sender =
+                        PendingOperationSender { op ->
+                            sent.tryEmit(op.clientOpId)
+                            AppResult.Success(Unit)
+                        }
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                        )
+                    val state = SyncEngineState()
+                    // Firehose never connects; the outbox rides the RPC/request transport, which is up.
+                    val sse = NeverConnectingSseClient(state)
+                    val engine =
+                        buildEngine(db, queue, state, sse, scope, networkMonitor = FakeNetworkMonitor(online = true))
+
+                    engine.start(currentUserId = "u1")
+
+                    // The firehose is observably NOT connected — proving the drain is not riding an SSE
+                    // Connected edge. Playback progress etc. must still push over RPC.
+                    (state.value.connection is ConnectionState.Connected) shouldBe false
+
+                    val opId = queue.enqueue(tagsChannel, "t-offline-sse", OpKind.Upsert, "{}", "u1")
+
+                    withTimeout(TIMEOUT_SECONDS.seconds) {
+                        sent.first { it == opId }
+                    }
+                    db.pendingOperationV2Dao().get(opId) shouldBe null
+                } finally {
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
+
+        test("an op enqueued while the device is OFFLINE does not drain (retry budget preserved)") {
+            runBlocking {
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                val db = createInMemoryTestDatabase()
+                try {
+                    val attempts = AtomicInteger(0)
+                    val sender =
+                        PendingOperationSender { _ ->
+                            attempts.incrementAndGet()
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                        }
+                    val queue =
+                        PendingOperationQueue(
+                            dao = db.pendingOperationV2Dao(),
+                            sender = sender,
+                        )
+                    val state = SyncEngineState()
+                    val sse = NeverConnectingSseClient(state)
+                    // Device offline: draining now would only burn the op's retry budget against an
+                    // unreachable server — the outbox must hold until connectivity returns.
+                    val engine =
+                        buildEngine(db, queue, state, sse, scope, networkMonitor = FakeNetworkMonitor(online = false))
+
+                    engine.start(currentUserId = "u1")
+
+                    val opId = queue.enqueue(tagsChannel, "t-offline", OpKind.Upsert, "{}", "u1")
+
+                    // Give the engine ample time to (wrongly) attempt a drain.
+                    delay(POLL_DELAY_MILLIS * 10)
+
+                    attempts.get() shouldBe 0
+                    // The op is still queued, its retry budget untouched, ready for the next online edge.
+                    db.pendingOperationV2Dao().get(opId)?.failureCount shouldBe 0
+                } finally {
+                    scope.cancel()
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
+                    db.close()
+                }
+            }
+        }
+
         test("a multi-op backlog for one entity fully drains after a single Connected transition") {
             runBlocking {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -313,6 +398,7 @@ private fun buildEngine(
     sse: SseClient,
     scope: CoroutineScope,
     retryBackoffMillis: Long = 1_000L,
+    networkMonitor: com.calypsan.listenup.client.domain.repository.NetworkMonitor = FakeNetworkMonitor(online = true),
 ): SyncEngine {
     val registry = ClientSyncDomainRegistry()
     registry.register(NoopTagHandler)
@@ -335,8 +421,47 @@ private fun buildEngine(
         dispatcher = dispatcher,
         presenceRefreshSignal = PresenceRefreshSignal(),
         scope = scope,
+        networkMonitor = networkMonitor,
         retryBackoffMillis = retryBackoffMillis,
     )
+}
+
+/** [NetworkMonitor] whose online state is fixed for the lifetime of a test. */
+private class FakeNetworkMonitor(
+    private val online: Boolean,
+) : com.calypsan.listenup.client.domain.repository.NetworkMonitor {
+    override fun isOnline(): Boolean = online
+
+    override val isOnlineFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
+    override val isOnUnmeteredNetworkFlow = kotlinx.coroutines.flow.MutableStateFlow(online)
+}
+
+/**
+ * SSE client that NEVER reaches [ConnectionState.Connected] — `connect()` leaves the firehose
+ * Disconnected. Models the outage the fix targets: the firehose is down, but the RPC/request
+ * transport the outbox rides is healthy.
+ */
+private class NeverConnectingSseClient(
+    private val state: SyncEngineState,
+) : SseClient {
+    private val flow = MutableSharedFlow<ParsedSseFrame>()
+    override val frames: SharedFlow<ParsedSseFrame> = flow.asSharedFlow()
+
+    override fun seedLastEventId(initial: Long?) = Unit
+
+    override fun connect() {
+        state.setConnection(ConnectionState.Disconnected(reason = "firehose down"))
+    }
+
+    override fun disconnect() {
+        state.setConnection(ConnectionState.Disconnected(reason = "firehose down"))
+    }
+
+    override fun currentLastEventId(): Long? = null
+
+    override suspend fun reseed(newLastEventId: Long?) = Unit
+
+    override fun reconnectNow() = Unit
 }
 
 private object NoopCatchUp : CatchUp {

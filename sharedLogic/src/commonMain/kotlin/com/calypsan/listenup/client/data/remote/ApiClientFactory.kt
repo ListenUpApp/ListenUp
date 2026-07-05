@@ -109,6 +109,19 @@ internal interface ApiClientFactory : RemoteCache {
     suspend fun getUnauthenticatedStreamingClient(): HttpClient
 
     /**
+     * Invalidate ONLY the request/RPC client, leaving the long-lived streaming clients open.
+     *
+     * The full [invalidate] (from [RemoteCache]) closes every cached client — including the
+     * streaming client the SSE firehose rides on. That is correct for a server-URL change, but
+     * fatal on a firehose *reconnect*: the reconnect sweep exists to refresh stale RPC proxies +
+     * the regular request client, NOT to abort the very SSE connection whose reconnect triggered
+     * it (closing it aborts the in-flight read → reconnect → sweep → abort … a self-teardown loop).
+     * This narrower path drops the request client (so the next RPC call — and the RPC proxies that
+     * derive their client from it — rebinds fresh) while the streaming client keeps streaming.
+     */
+    suspend fun invalidateRequestClientOnly()
+
+    /**
      * Eagerly create and cache the authenticated client without exposing it.
      *
      * Lets cross-module startup code prime the lazy client (so the first real request doesn't pay the
@@ -419,6 +432,15 @@ internal class KtorApiClientFactory(
             cachedStreamingClient = null
             cachedUnauthenticatedStreamingClient?.close()
             cachedUnauthenticatedStreamingClient = null
+        }
+    }
+
+    override suspend fun invalidateRequestClientOnly() {
+        mutex.withLock {
+            cachedClient?.close()
+            cachedClient = null
+            // Deliberately leave cachedStreamingClient / cachedUnauthenticatedStreamingClient open:
+            // the firehose-reconnect sweep must not abort the SSE connection it rode in on.
         }
     }
 
