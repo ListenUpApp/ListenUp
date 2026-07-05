@@ -341,9 +341,10 @@ class MetadataViewModel(
 
         viewModelScope.launch {
             try {
-                val result = withTimeout(METADATA_RPC_TIMEOUT) {
-                    metadataRepository.searchBooks(query, current.region)
-                }
+                val result =
+                    withTimeout(METADATA_RPC_TIMEOUT) {
+                        metadataRepository.searchBooks(query, current.region)
+                    }
                 when (result) {
                     is AppResult.Success -> {
                         val hits = result.data.hits
@@ -686,9 +687,10 @@ class MetadataViewModel(
     ) {
         viewModelScope.launch {
             try {
-                val result = withTimeout(METADATA_RPC_TIMEOUT) {
-                    metadataRepository.getBookMetadata(match.asin, region)
-                }
+                val result =
+                    withTimeout(METADATA_RPC_TIMEOUT) {
+                        metadataRepository.getBookMetadata(match.asin, region)
+                    }
                 when (result) {
                     is AppResult.Success -> {
                         val preview = result.data
@@ -699,7 +701,13 @@ class MetadataViewModel(
                                     preview.series.isEmpty() &&
                                     preview.coverUrl == null &&
                                     preview.description == null
-                            transitionToReady(match, preview, previewNotFound = hasNoData, bookId = bookId, region = region)
+                            transitionToReady(
+                                match,
+                                preview,
+                                previewNotFound = hasNoData,
+                                bookId = bookId,
+                                region = region,
+                            )
                         } else {
                             // Server returned null — book not found in region
                             transitionToReady(match, match, previewNotFound = true, bookId = bookId, region = region)
