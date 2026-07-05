@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.shelvesDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -66,12 +66,12 @@ class ShelvesDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withShelfHandler { handler, db ->
                 handler.onEvent(createdShelf(shelfPayload("s1")), isOwnEcho = false)
                 handler.onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
                 db.shelfDao().getById("s1") shouldBe null
-                db.shelfDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "s1"
+                db.shelfDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "s1"
             }
         }
 

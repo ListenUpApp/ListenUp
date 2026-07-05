@@ -10,7 +10,7 @@ import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -94,10 +94,10 @@ class PublicProfilesDomainTest :
                         isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                // digestRows includes all rows; the tombstoned row must carry the updated revision
-                val allRows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
-                val row = allRows.first { it.id == "user-deleted" }
-                row.revision shouldBe 2L
+                // The tombstoned row is retained (revision bumped) but EXCLUDED from the digest;
+                // read its revision via the tombstone-inclusive revisionOf, not digestRows.
+                db.publicProfileDao().revisionOf("user-deleted") shouldBe 2L
+                db.publicProfileDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "user-deleted"
                 // observeAll() only emits live rows; confirm the row is absent there
                 // (collect one emission — we're inside runTest so the Room Flow is synchronous)
                 val liveRows = db.publicProfileDao().observeAll().first()
@@ -105,7 +105,7 @@ class PublicProfilesDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("user-tomb-digest", revision = 1L)), isOwnEcho = false)
                 handler.onEvent(
@@ -114,8 +114,10 @@ class PublicProfilesDomainTest :
                 )
                 // observeById filters tombstones — invisible to reads
                 db.publicProfileDao().observeById("user-tomb-digest").first() shouldBe null
-                // but still fingerprinted for digest-drift reconciliation
-                db.publicProfileDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "user-tomb-digest"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation
+                db.publicProfileDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "user-tomb-digest"
             }
         }
 
@@ -131,10 +133,10 @@ class PublicProfilesDomainTest :
                         isTombstone = true,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
-                // observeAll excludes tombstoned rows; digestRows includes them
-                val allRows = db.publicProfileDao().digestRows(Long.MAX_VALUE)
-                val row = allRows.first { it.id == "user-4" }
-                row.revision shouldBe 2L
+                // The row is retained (revision bumped) but EXCLUDED from the digest; read its
+                // revision via the tombstone-inclusive revisionOf, not digestRows.
+                db.publicProfileDao().revisionOf("user-4") shouldBe 2L
+                db.publicProfileDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "user-4"
             }
         }
 

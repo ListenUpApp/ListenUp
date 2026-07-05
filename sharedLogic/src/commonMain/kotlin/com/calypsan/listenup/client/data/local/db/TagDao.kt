@@ -87,7 +87,7 @@ internal interface TagDao {
     suspend fun deleteAll()
 
     /** All rows (including tombstones) with [revision][TagEntity.revision] <= [max], for digest computation. */
-    @Query("SELECT id AS id, revision FROM tags WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM tags WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with [id], tombstones included; null when the row has never been seen. */
@@ -154,7 +154,7 @@ internal interface BookTagDao {
      *
      * The synthetic id is `"$bookId:$tagId"` — the same form the server uses on the wire.
      */
-    @Query("SELECT bookId || ':' || tagId AS id, revision FROM book_tags WHERE revision <= :max")
+    @Query("SELECT bookId || ':' || tagId AS id, revision FROM book_tags WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /**

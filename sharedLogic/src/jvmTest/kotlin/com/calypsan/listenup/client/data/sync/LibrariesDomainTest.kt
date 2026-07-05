@@ -9,7 +9,7 @@ import com.calypsan.listenup.client.data.sync.domains.librariesDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -66,7 +66,7 @@ class LibrariesDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("lib1", "My Library")), isOwnEcho = false)
                 handler.onEvent(
@@ -74,7 +74,7 @@ class LibrariesDomainTest :
                     isOwnEcho = false,
                 )
                 db.libraryDao().findById("lib1") shouldBe null
-                db.libraryDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "lib1"
+                db.libraryDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "lib1"
             }
         }
 

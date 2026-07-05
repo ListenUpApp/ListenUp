@@ -143,15 +143,17 @@ class SeriesRepositoryTest :
             }
         }
 
-        test("allIdRevisionsForTest returns all rows including soft-deleted") {
+        test("allIdRevisionsForTest returns only live rows (tombstones excluded), matching the digest") {
             withSqlDatabase {
                 val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
                 runTest {
                     val keep = repo.resolveOrCreate("Kept Series")
                     val gone = repo.resolveOrCreate("Gone Series")
                     repo.softDelete(gone)
+                    // The digest counts LIVE rows only (F1); the parity helper mirrors that set, so a
+                    // tombstoned series is excluded — feeding the client DigestComputer the same rows.
                     val ids = repo.allIdRevisionsForTest().map { it.first }
-                    ids shouldContainExactly listOf(keep.value, gone.value)
+                    ids shouldContainExactly listOf(keep.value)
                 }
             }
         }

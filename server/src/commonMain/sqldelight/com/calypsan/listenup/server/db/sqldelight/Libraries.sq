@@ -39,7 +39,7 @@ selectIdsAboveRevision:
 SELECT id, revision FROM libraries WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM libraries WHERE revision <= :cursor;
+SELECT id, revision FROM libraries WHERE deleted_at IS NULL AND revision <= :cursor;
 
 -- ── Syncable read/write (carries the LibrarySyncPayload columns only) ─────────
 

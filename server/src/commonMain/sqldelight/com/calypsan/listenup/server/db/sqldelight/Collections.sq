@@ -49,7 +49,7 @@ selectIdsAboveRevision:
 SELECT id, revision FROM collections WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM collections WHERE revision <= :cursor;
+SELECT id, revision FROM collections WHERE deleted_at IS NULL AND revision <= :cursor;
 
 -- ── root-row reads / writes ──────────────────────────────────────────────────────
 

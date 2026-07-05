@@ -51,7 +51,7 @@ internal interface ShelfBookDao {
      *
      * The id is the synthetic `"$shelfId:$bookId"` — the same form the server uses on the wire.
      */
-    @Query("SELECT id AS id, revision FROM shelf_books WHERE revision <= :max")
+    @Query("SELECT id AS id, revision FROM shelf_books WHERE deletedAt IS NULL AND revision <= :max")
     suspend fun digestRows(max: Long): List<IdRevision>
 
     /** The stored revision of the row with synthetic [id], tombstones included; null when never seen. */

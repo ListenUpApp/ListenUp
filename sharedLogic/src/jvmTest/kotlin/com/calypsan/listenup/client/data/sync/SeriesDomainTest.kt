@@ -12,7 +12,7 @@ import com.calypsan.listenup.client.data.sync.domains.seriesDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -70,7 +70,7 @@ class SeriesDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("s1", "The Stormlight Archive")), isOwnEcho = false)
                 handler.onEvent(
@@ -79,8 +79,10 @@ class SeriesDomainTest :
                 )
                 // observeById filters tombstones — invisible to reads
                 db.seriesDao().observeById("s1").first() shouldBe null
-                // but still fingerprinted for digest-drift reconciliation
-                db.seriesDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "s1"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation
+                db.seriesDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "s1"
             }
         }
 

@@ -37,7 +37,7 @@ import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
@@ -266,7 +266,7 @@ class BooksDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withTestHandler { handler, db ->
                 val initial = bookPayload(id = "b1")
                 handler.onEvent(created(initial), isOwnEcho = false)
@@ -276,8 +276,10 @@ class BooksDomainTest :
                 )
                 // getAllLive filters tombstones — invisible to reads
                 db.bookDao().getAllLive().none { it.id == BookId("b1") } shouldBe true
-                // but still fingerprinted for digest-drift reconciliation
-                db.bookDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "b1"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation
+                db.bookDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "b1"
             }
         }
 

@@ -26,7 +26,9 @@ data class IdRev(
  * - [softDeleteById] — stamps `deleted_at`, bumps `revision` and `updated_at`, records
  *   the originating `client_op_id`. Returns the number of rows affected (0 = not found).
  * - [selectIdsAboveRevision] — cursor-forward page: `revision > cursor ORDER BY revision ASC LIMIT limit`.
- * - [selectIdRevAtMost] — digest slice: `revision <= cursor` (all rows, soft-deleted included).
+ * - [selectIdRevAtMost] — digest slice: `deleted_at IS NULL AND revision <= cursor` (LIVE rows
+ *   only; tombstones are excluded so the digest counts the same set the client's tombstone-excluding
+ *   digest does — see F1 convergence).
  *
  * **User-scoped variants.** A per-user aggregate (root table carries `user_id`, repo
  * sets `userScoped = true`) additionally implements [selectIdsAboveRevisionForUser] /

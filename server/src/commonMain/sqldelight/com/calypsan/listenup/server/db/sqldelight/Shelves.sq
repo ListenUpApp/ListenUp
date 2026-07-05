@@ -34,7 +34,7 @@ selectIdsAboveRevision:
 SELECT id, revision FROM shelves WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM shelves WHERE revision <= :cursor;
+SELECT id, revision FROM shelves WHERE deleted_at IS NULL AND revision <= :cursor;
 
 -- User-scoped substrate variants — the per-user filtering the Exposed base applies
 -- via `(revision <cmp> cursor) AND user_id = userId`. Used by the userScoped
@@ -47,7 +47,7 @@ ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMostForUser:
 SELECT id, revision FROM shelves
-WHERE user_id = :userId AND revision <= :cursor;
+WHERE user_id = :userId AND deleted_at IS NULL AND revision <= :cursor;
 
 -- Domain queries.
 

@@ -492,6 +492,10 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                             extraWhere = extraWhere,
                             ascendingByRevision = true,
                             limit = limit,
+                            // Catch-up must deliver deletions: a tombstone passes the access gate so a
+                            // member who missed the live delete can still learn to remove the row and
+                            // converge. Mirrors the firehose (Deleted events are tombstone-ungated).
+                            includeTombstones = true,
                         )
                     }
 
@@ -514,8 +518,13 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
         }
 
     /**
-     * Returns a [DomainDigest] over all rows with `revision <= cursor`, soft-deleted
-     * rows included. Used by clients to detect drift cheaply.
+     * Returns a [DomainDigest] over the LIVE rows with `revision <= cursor` — tombstones are
+     * excluded (both the substrate slice and the access-filtered slice drop `deleted_at IS NOT
+     * NULL`). Used by clients to detect drift cheaply. The exclusion is symmetric with the client's
+     * tombstone-excluding `digestRows`, so a member who tombstoned a row locally (a delivered
+     * deletion or an `AccessGate` prune) still converges — the deleted row leaves both digests at
+     * once, instead of lingering in the client's forever (F1). Deletions still reach clients: the
+     * live firehose and the (now tombstone-ungated) filtered [pullSince] both deliver them.
      *
      * The `(id, revision)` slice — from the substrate (global or [userScoped]) or, when
      * [extraWhere] is non-null, from the access-filtered driver read — is sorted by id and
@@ -548,6 +557,10 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                             extraWhere = extraWhere,
                             ascendingByRevision = false,
                             limit = null,
+                            // The digest counts only LIVE accessible rows — the access subquery already
+                            // excludes tombstones (`deleted_at IS NULL`), symmetric with the client's
+                            // tombstone-excluding digest. Delivering tombstones here would break parity.
+                            includeTombstones = false,
                         )
                     }
 

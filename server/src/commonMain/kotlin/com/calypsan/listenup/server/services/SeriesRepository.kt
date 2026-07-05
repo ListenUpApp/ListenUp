@@ -247,11 +247,12 @@ class SeriesRepository(
     internal fun idAsStringForTest(id: SeriesId): String = idAsString(id)
 
     /**
-     * Returns `(id, revision)` pairs for ALL rows in the series table, soft-deleted
-     * included, with no revision filter. Exists solely to feed the cross-stack digest
+     * Returns `(id, revision)` pairs for the LIVE rows in the series table (soft-deleted
+     * excluded), with no revision filter. Exists solely to feed the cross-stack digest
      * parity test (`DigestParityE2ETest` in `:sharedLogic:jvmTest`) so the client
      * [com.calypsan.listenup.client.data.sync.DigestComputer] can be driven over the
-     * identical row set the server [digest] covers.
+     * identical row set the server [digest] covers — which, since F1, is LIVE rows only
+     * (tombstones excluded, symmetric with the client's tombstone-excluding digest).
      *
      * Intentionally public (not internal) because the test lives in a different Gradle
      * module (`:sharedLogic`) and Kotlin's `internal` does not cross module boundaries.

@@ -34,7 +34,8 @@ import com.calypsan.listenup.core.Timestamp
  * access is re-granted — then its `afterPrune` drops readership rows for the now-dead books.
  *
  * **Digest:** full participation — books are revision-fingerprintable, and
- * `digestRows` includes soft-deleted rows, matching the server's digest exactly.
+ * `digestRows` excludes soft-deleted rows, matching the server's (tombstone-excluding) digest
+ * exactly, so a member who tombstoned a book locally converges instead of drifting forever (F1).
  */
 internal fun booksDomain(
     database: ListenUpDatabase,

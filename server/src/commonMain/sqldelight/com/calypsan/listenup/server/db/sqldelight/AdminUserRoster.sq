@@ -35,7 +35,7 @@ selectIdsAboveRevision:
 SELECT id, revision FROM admin_user_roster WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM admin_user_roster WHERE revision <= :cursor;
+SELECT id, revision FROM admin_user_roster WHERE deleted_at IS NULL AND revision <= :cursor;
 
 -- Domain queries.
 

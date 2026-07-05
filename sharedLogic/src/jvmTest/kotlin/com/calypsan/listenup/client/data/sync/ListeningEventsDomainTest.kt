@@ -11,7 +11,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -137,7 +137,7 @@ class ListeningEventsDomainTest :
             }
         }
 
-        test("tombstoned row survives in digestRows — the digest covers deletes") {
+        test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("ev-6", "book-1")), isOwnEcho = false)
                 handler.onCatchUpItem(
@@ -150,8 +150,10 @@ class ListeningEventsDomainTest :
                     .observeEventsForBook("book-1")
                     .first()
                     .none { it.id == "ev-6" } shouldBe true
-                // but still fingerprinted for digest-drift reconciliation
-                db.listeningEventDao().digestRows(Long.MAX_VALUE).map { it.id } shouldContain "ev-6"
+                // and EXCLUDED from the digest — the digest counts live rows only, so a client that
+                // tombstoned this row locally converges (F1). Deletions still reach clients via the
+                // firehose and the tombstone-ungated access-filtered catch-up. Digest-drift reconciliation
+                db.listeningEventDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "ev-6"
             }
         }
 

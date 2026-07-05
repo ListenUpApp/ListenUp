@@ -50,7 +50,7 @@ selectIdsAboveRevision:
 SELECT id, revision FROM tags WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
 
 selectIdRevAtMost:
-SELECT id, revision FROM tags WHERE revision <= :cursor;
+SELECT id, revision FROM tags WHERE deleted_at IS NULL AND revision <= :cursor;
 
 -- True iff at least one live (non-deleted) tag row exists — drives TagDomainSeeder.isAlreadySeeded.
 hasAnyLive:

@@ -8,8 +8,9 @@ import com.calypsan.listenup.client.data.local.db.IdRevision
 internal sealed interface DigestParticipation {
     /**
      * The domain is fingerprintable: [rows] returns local `(id, revision)` pairs with
-     * `revision <= maxRevision`, INCLUDING soft-deleted rows — the exact set the
-     * server's digest covers.
+     * `revision <= maxRevision`, EXCLUDING soft-deleted rows — the exact LIVE set the
+     * server's (now tombstone-excluding) digest covers, so a locally-tombstoned row leaves
+     * both digests at once and the member converges (F1).
      */
     class Full(
         val rows: suspend (maxRevision: Long) -> List<Pair<String, Long>>,

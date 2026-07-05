@@ -33,8 +33,9 @@ import kotlinx.coroutines.test.runTest
  * over the same `(id, revision)` rows.
  *
  * Seeds three series on the real server repository (two live, one soft-deleted so
- * the digest must include a tombstoned row), then computes both the server digest
- * and the client digest and asserts count AND hash equality.
+ * the digest must EXCLUDE the tombstoned row — the F1 tombstone-excluding contract),
+ * then computes both the server digest and the client digest and asserts count AND
+ * hash equality.
  *
  * If this test ever fails it means the two algorithms have drifted — do not weaken
  * the assertion; instead reconcile the implementations.
@@ -68,7 +69,9 @@ class DigestParityE2ETest :
             val repo = SeriesRepository(db = sqlDb, bus = ChangeBus(), registry = SyncRegistry())
 
             runTest {
-                // Seed: two live series + one that is immediately soft-deleted (tombstoned).
+                // Seed: two live series + one that is immediately soft-deleted (tombstoned). The
+                // tombstone must be EXCLUDED by both the server digest and the parity helper (F1),
+                // so the two sides still agree on the LIVE set.
                 repo.resolveOrCreate("Mistborn")
                 repo.resolveOrCreate("Stormlight")
                 val thirdId = repo.resolveOrCreate("Deleted Series")
