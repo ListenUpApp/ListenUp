@@ -199,15 +199,20 @@ fun NowPlayingHost(
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = bottomPadding)
                         .onSizeChanged { size ->
-                            // Only report the bar's resting footprint. A visible snackbar lifts the
-                            // bar (snackbarPadding) — reporting that would reflow every detail screen
-                            // up for the snackbar's duration, so we skip those measurements.
+                            // Report the bar's FULL resting footprint — its own height *plus* the
+                            // nav-bar + 8dp offset it floats above — by measuring outside the
+                            // .padding below. LocalNowPlayingInsets must span from the screen bottom
+                            // to the bar's top edge so ListenUpScaffold's union with the system bars
+                            // clears a docked bottomBar (e.g. Save Changes); measuring inside the
+                            // padding under-reported by exactly that offset and let the bar overlap.
+                            // A visible snackbar lifts the bar (snackbarPadding) — reporting that
+                            // would reflow every detail screen up for the snackbar's duration, so we
+                            // skip those measurements.
                             if (!isSnackbarVisible) {
                                 onBarFootprintChanged(with(density) { size.height.toDp() })
                             }
-                        },
+                        }.padding(bottom = bottomPadding),
             )
         }
 
