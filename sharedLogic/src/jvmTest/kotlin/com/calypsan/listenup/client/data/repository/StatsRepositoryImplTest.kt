@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.BookGenreCrossRef
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
+import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.domain.WeeklyStats
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -77,12 +78,28 @@ class StatsRepositoryImplTest :
                 override fun now(): Instant = nowInstant
             }
 
+        fun makePosition(
+            bookId: String,
+            lastPlayedAt: Long,
+            finishedAt: Long? = null,
+        ): PlaybackPositionEntity =
+            PlaybackPositionEntity(
+                bookId = BookId(bookId),
+                positionMs = 0L,
+                playbackSpeed = 1.0f,
+                updatedAt = lastPlayedAt,
+                lastPlayedAt = lastPlayedAt,
+                isFinished = finishedAt != null,
+                finishedAt = finishedAt,
+            )
+
         fun buildRepo(
             db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
             authFlow: MutableStateFlow<AuthState>,
         ) = StatsRepositoryImpl(
             listeningEventDao = db.listeningEventDao(),
             genreDao = db.genreDao(),
+            playbackPositionDao = db.playbackPositionDao(),
             authSession = FakeAuthSession(authFlow),
             clock = fixedClock(),
             timeZone = { utc },
@@ -309,6 +326,28 @@ class StatsRepositoryImplTest :
 
                     val stats = repo.observeWeeklyStats().first()
                     stats.currentStreakDays shouldBe 2
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("days with only playback progress (no listening events) count toward the streak") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    // ABS import lands as playback_positions with the original last-played time — no
+                    // listening_events. Yesterday (progress) → today (finished) must count → current 2.
+                    val msPerDay = 86_400_000L
+                    db.playbackPositionDao().save(makePosition("book-a", lastPlayedAt = nowMs - msPerDay))
+                    db.playbackPositionDao().save(makePosition("book-b", lastPlayedAt = nowMs, finishedAt = nowMs))
+
+                    val authFlow = MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
+                    val repo = buildRepo(db, authFlow)
+
+                    val stats = repo.observeWeeklyStats().first()
+                    stats.currentStreakDays shouldBe 2
+                    stats.longestStreakDays shouldBe 2
                 }
             } finally {
                 db.close()

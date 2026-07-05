@@ -114,9 +114,24 @@ suspend fun deriveUserStats(
                 .toInt()
         }
 
-    // 5. Current + longest streak via the shared reducer, resolved as-of-today in the home timezone.
+    // 5. Streak day-set: union the listening_events days with the days the user advanced progress
+    //    (playback_positions.last_played_at) or finished a book (book_reads.finished_at). ABS imports
+    //    write mediaProgress → positions + completions but keep session rows (→ listening_events)
+    //    sparsely, so events alone leave false gaps that collapse the streak. Both engines (this and
+    //    the client's StatsRepositoryImpl) union the same primitives so their streaks agree.
+    val streakDays = ArrayList(listeningDays)
+    suspendTransaction(sql) {
+        sql.playbackPositionsQueries.selectLastPlayedAtForUser(userId).executeAsList().forEach { ms ->
+            streakDays += Instant.fromEpochMilliseconds(ms).toLocalDateTime(userTz).date
+        }
+        sql.bookReadsQueries.finishedAtForUser(userId).executeAsList().forEach { ms ->
+            streakDays += Instant.fromEpochMilliseconds(ms).toLocalDateTime(userTz).date
+        }
+    }
+
+    // 6. Current + longest streak via the shared reducer, resolved as-of-today in the home timezone.
     val today = Instant.fromEpochMilliseconds(nowMs).toLocalDateTime(userTz).date
-    val streaks = StreakReducer.reduce(listeningDays, today)
+    val streaks = StreakReducer.reduce(streakDays, today)
 
     return UserStatsSyncPayload(
         id = userId,

@@ -121,14 +121,14 @@ class UserStatsBackfillServiceTest :
                     stats.booksStarted shouldBe 2
                     // 1 finished position
                     stats.booksFinished shouldBe 1
-                    // Streak: events processed in endedAt order.
-                    // Dates (UTC): -35d=Apr-17, -33d=Apr-19, -32d=Apr-20, -31d=Apr-21,
+                    // Streak day-set = event days UNION the finished position's last-played day.
+                    // Event dates (UTC): -35d=Apr-17, -33d=Apr-19, -32d=Apr-20, -31d=Apr-21,
                     //              -29d=Apr-23, -20d=May-02, -10d=May-12, -5d=May-17,
-                    //              -3d=May-19, -2d=May-20
-                    // Apr-19→Apr-20→Apr-21 forms a 3-day streak (longestStreak = 3).
-                    // Last event is May-20; today (clock) is May-22 — neither today nor yesterday →
-                    // currentStreak lapses to 0.
-                    stats.currentStreakDays shouldBe 0
+                    //              -3d=May-19, -2d=May-20; finished position last-played = -1d=May-21.
+                    // Apr-19→Apr-20→Apr-21 forms a 3-day run (longestStreak = 3).
+                    // With the position counted, May-19→May-20→May-21 is also a 3-day run ending
+                    // yesterday (today = May-22) → currentStreak = 3.
+                    stats.currentStreakDays shouldBe 3
                     stats.longestStreakDays shouldBe 3
                 }
             }
@@ -236,6 +236,49 @@ class UserStatsBackfillServiceTest :
                     stats.totalSecondsLast30Days shouldBe 120L
                     stats.booksStarted shouldBe 1
                     stats.booksFinished shouldBe 0
+                }
+            }
+        }
+
+        test("streak counts days with only imported progress + finishes, not just listening_events") {
+            // ABS import writes mediaProgress → playback_positions + book_reads, but keeps
+            // playbackSessions (→ listening_events) sparsely. A day the user demonstrably listened
+            // (progress advanced / book finished) with no session row must still count toward the
+            // streak. Here there are NO listening_events at all: yesterday is covered by a finished
+            // position, today by a book_reads completion. Both must count → currentStreak = 2.
+            withSqlDatabase {
+                val clock = FixedClock(Instant.fromEpochMilliseconds(nowMs))
+                val statsRepo = UserStatsRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry(), clock = clock)
+                val positionRepo = PlaybackPositionRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                val backfillService = UserStatsBackfillService(sql = sql, userStatsRepo = statsRepo, clock = clock)
+
+                runTest {
+                    // Yesterday: a finished position (imported mediaProgress), no session row.
+                    positionRepo.recordPosition(
+                        userId = "u1",
+                        bookId = "book-a",
+                        positionMs = 0L,
+                        lastPlayedAt = nowMs - dayMs,
+                        finished = true,
+                        playbackSpeed = 1.0f,
+                        currentChapterId = null,
+                    )
+                    // Today: a book_reads completion for a different book, no session or position.
+                    sql.bookReadsQueries.insert(
+                        id = "br-today",
+                        user_id = "u1",
+                        book_id = "book-b",
+                        finished_at = nowMs,
+                        source = "import",
+                        created_at = nowMs,
+                    )
+
+                    backfillService.backfillFor("u1")
+
+                    val stats = statsRepo.getForUser("u1").shouldNotBeNull()
+                    // yesterday (position) → today (book_read) = consecutive 2-day run ending today.
+                    stats.currentStreakDays shouldBe 2
+                    stats.longestStreakDays shouldBe 2
                 }
             }
         }

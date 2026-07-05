@@ -57,3 +57,9 @@ UPDATE book_reads SET finished_at = :finished_at WHERE id = :id;
 -- True iff the user has any completion row for this book — gates the idempotent reconcile insert.
 existsForUserBook:
 SELECT EXISTS(SELECT 1 FROM book_reads WHERE user_id = :userId AND book_id = :bookId);
+
+-- Stats support: every completion timestamp for a user. Feeds the streak day-set so an imported
+-- finish that never produced a listening_events session still counts as a listening day. Re-reads add
+-- multiple rows; the streak reducer collapses same-day duplicates.
+finishedAtForUser:
+SELECT finished_at FROM book_reads WHERE user_id = :userId;

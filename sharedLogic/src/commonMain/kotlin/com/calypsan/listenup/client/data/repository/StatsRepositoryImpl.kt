@@ -5,6 +5,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
+import com.calypsan.listenup.client.data.local.db.PlaybackPositionDao
 import com.calypsan.listenup.client.domain.DayBucket
 import com.calypsan.listenup.client.domain.GenreShare
 import com.calypsan.listenup.client.domain.WeeklyStats
@@ -37,12 +38,15 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
  * Reactive: republishes whenever new events land, so the home screen updates
  * without manual refresh and works fully offline.
  *
- * Streak counters are computed client-side from the full [ListeningEventDao.observeEndedAt]
- * history in the device timezone — real-time, tz-correct, and self-correcting on idle days
- * via the [midnightPulse] ticker. This deliberately diverges from the old server-authoritative
- * streak math: the server's `user_stats` still drives the cross-user leaderboard (a different
- * consumer); the Home display derives locally for immediate reactivity and correct tz handling
- * of imported events (which land in UTC but belong to the device's calendar day).
+ * Streak counters are computed client-side from the full [ListeningEventDao.observeEndedAt] history
+ * unioned with [PlaybackPositionDao.observeListenedDayTimestamps] (each position's last-played and
+ * finish day) in the device timezone — real-time, tz-correct, and self-correcting on idle days via
+ * the [midnightPulse] ticker. Including the playback days is what makes imported listening visible:
+ * ABS mediaProgress lands as playback_positions with no matching listening_events session, so an
+ * events-only streak shows false gaps (Finding #20). The server's [StatsRepositoryImpl] twin unions
+ * the same primitives so the two engines agree. This deliberately diverges from the old
+ * server-authoritative streak math: the server's `user_stats` still drives the cross-user
+ * leaderboard (a different consumer); the Home display derives locally for immediate reactivity.
  *
  * Genre seconds use wall-clock time (`endedAt - startedAt`) so fast-forwarded or slow-mo
  * sessions don't inflate genre totals.
@@ -60,6 +64,7 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
 internal class StatsRepositoryImpl(
     private val listeningEventDao: ListeningEventDao,
     private val genreDao: GenreDao,
+    private val playbackPositionDao: PlaybackPositionDao,
     private val authSession: AuthSession,
     private val clock: Clock = Clock.System,
     private val timeZone: () -> TimeZone = { TimeZone.currentSystemDefault() },
@@ -82,15 +87,17 @@ internal class StatsRepositoryImpl(
                 combine(
                     listeningEventDao.observeWithinWindow(userId, startMs, endMs),
                     listeningEventDao.observeEndedAt(userId),
-                ) { events, allEndedAt -> aggregate(events, allEndedAt, tz) }
+                    playbackPositionDao.observeListenedDayTimestamps(),
+                ) { events, allEndedAt, playbackDays -> aggregate(events, allEndedAt, playbackDays, tz) }
             }
 
     private suspend fun aggregate(
         events: List<ListeningEventEntity>,
         allEndedAt: List<Long>,
+        playbackDays: List<Long>,
         tz: TimeZone,
     ): WeeklyStats {
-        if (events.isEmpty() && allEndedAt.isEmpty()) return WeeklyStats.empty()
+        if (events.isEmpty() && allEndedAt.isEmpty() && playbackDays.isEmpty()) return WeeklyStats.empty()
 
         val today = clock.now().toLocalDateTime(tz).date
         val buckets = MutableList(7) { offset -> DayBucket(dayOffsetFromToday = offset, totalSeconds = 0L) }
@@ -122,7 +129,9 @@ internal class StatsRepositoryImpl(
                 .take(3)
                 .map { GenreShare(it.key, it.value) }
 
-        val (currentStreak, longestStreak) = computeStreaks(allEndedAt, tz, today)
+        // Streak day-set unions listening-event days with playback progress/finish days so imported
+        // listening (positions without a session row) is not invisible to the streak (Finding #20).
+        val (currentStreak, longestStreak) = computeStreaks(allEndedAt + playbackDays, tz, today)
 
         return WeeklyStats(
             dailyBuckets = buckets,

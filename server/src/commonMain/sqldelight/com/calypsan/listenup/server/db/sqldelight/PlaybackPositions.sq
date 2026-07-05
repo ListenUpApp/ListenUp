@@ -111,6 +111,13 @@ selectFinishedBooksForUser:
 SELECT book_id, last_played_at FROM playback_positions
 WHERE user_id = :userId AND finished = 1 AND deleted_at IS NULL;
 
+-- Stats support: last-played timestamp of every live position of a user. Feeds the streak day-set so
+-- imported mediaProgress (which advances a position but need not produce a listening_events session)
+-- still counts as a listening day.
+selectLastPlayedAtForUser:
+SELECT last_played_at FROM playback_positions
+WHERE user_id = :userId AND deleted_at IS NULL;
+
 insert:
 INSERT INTO playback_positions (
     id, user_id, book_id, position_ms, last_played_at, finished, playback_speed,
