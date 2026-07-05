@@ -1,15 +1,35 @@
 import SwiftUI
 
-/// The Discover leaderboard section: a title, a Week / Month / All period control, and
-/// flat ranked rows. Renders loading / empty / data / error from the observer's phase.
+/// The Discover leaderboard section: a title, a Week / Month / All period control, a
+/// Time / Books / Streak metric control, and flat ranked rows. Renders loading / empty /
+/// data / error from the observer's phase.
 struct LeaderboardSectionView: View {
     let observer: LeaderboardObserver
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            metricPicker
             content
         }
+    }
+
+    // MARK: - Metric control
+
+    private var metricPicker: some View {
+        Picker(
+            String(localized: "discover.leaderboard"),
+            selection: Binding(
+                get: { observer.selectedMetric },
+                set: { observer.selectMetric($0) }
+            )
+        ) {
+            ForEach(LeaderboardMetric.allCases) { metric in
+                Text(String(localized: metric.titleKey)).tag(metric)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     // MARK: - Header

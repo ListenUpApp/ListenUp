@@ -2,9 +2,10 @@ import Foundation
 import Shared
 
 /// Observes `LeaderboardViewModel` — flattens the sealed `LeaderboardUiState` into a
-/// SwiftUI-native `LeaderboardPhase` for the Discover leaderboard. Surfaces only the
-/// **Time** category (the design shows no category tabs) and the period control
-/// (Week / Month / All).
+/// SwiftUI-native `LeaderboardPhase` for the Discover leaderboard. Surfaces the period
+/// control (Week / Month / All) and the metric control (Time / Books / Streak); the
+/// snapshot already carries all three category rankings, so switching metric is a pure
+/// state transformation with no upstream re-fetch.
 ///
 /// The current-user "(You)" highlight is resolved here: `LeaderboardEntry` carries no
 /// `isCurrentUser` flag, only a `userId`, so the screen passes the signed-in user's id
@@ -18,6 +19,7 @@ final class LeaderboardObserver {
 
     private(set) var phase: LeaderboardPhase = .loading
     private(set) var selectedPeriod: LeaderboardSelection = .week
+    private(set) var selectedMetric: LeaderboardMetric = .time
 
     // MARK: - Dependencies
 
@@ -45,6 +47,16 @@ final class LeaderboardObserver {
         viewModel.selectPeriod(p: selection.kmpPeriod)
     }
 
+    /// Switch the ranked metric (Time / Books / Streak). The snapshot already holds all three
+    /// lists, so this re-maps the latest snapshot locally; it also nudges the shared VM to keep
+    /// its category state in sync.
+    func selectMetric(_ metric: LeaderboardMetric) {
+        guard selectedMetric != metric else { return }
+        selectedMetric = metric
+        viewModel.selectCategory(c: metric.kmpCategory)
+        apply(latestState)
+    }
+
     /// Update the id used for the "(You)" highlight, re-tagging the current snapshot.
     func setCurrentUserId(_ id: String?) {
         guard currentUserId != id else { return }
@@ -62,7 +74,10 @@ final class LeaderboardObserver {
         case .empty:
             phase = .empty
         case .data(let data):
-            phase = .data(Self.rows(from: data.snapshot, currentUserId: currentUserId))
+            // The KMP state is `.data` when ANY category has entries; the selected metric's list
+            // can still be empty (e.g. Books/Streak for a bounded period), so fall to `.empty`.
+            let rows = Self.rows(from: data.snapshot, currentUserId: currentUserId, metric: selectedMetric)
+            phase = rows.isEmpty ? .empty : .data(rows)
         case .error(let error):
             phase = .error(isRetryable: error.isRetryable)
         case .unknown:
@@ -71,12 +86,51 @@ final class LeaderboardObserver {
         }
     }
 
-    /// Pure: map the snapshot's `time` ranking to display rows, tagging the current user.
-    /// `time` is the headline ranking the design surfaces; category tabs are not shown.
+    /// Pure: map the ranking for `metric` to display rows, tagging the current user.
     /// `nonisolated` because it touches no actor state — callable from tests off the main actor.
-    nonisolated static func rows(from snapshot: LeaderboardSnapshot, currentUserId: String?) -> [LeaderboardRow] {
-        snapshot.time.map { entry in
-            LeaderboardRow(from: entry, isCurrentUser: entry.userId == currentUserId)
+    nonisolated static func rows(
+        from snapshot: LeaderboardSnapshot,
+        currentUserId: String?,
+        metric: LeaderboardMetric = .time
+    ) -> [LeaderboardRow] {
+        metric.entries(in: snapshot).map { entry in
+            LeaderboardRow(from: entry, isCurrentUser: entry.userId == currentUserId, metric: metric)
+        }
+    }
+}
+
+// MARK: - Metric selection
+
+/// The three ranked metrics the leaderboard surfaces. Maps to the KMP `LeaderboardCategory`.
+enum LeaderboardMetric: CaseIterable, Identifiable {
+    case time
+    case books
+    case streak
+
+    var id: Self { self }
+
+    var kmpCategory: LeaderboardCategory {
+        switch self {
+        case .time: LeaderboardCategory.time
+        case .books: LeaderboardCategory.books
+        case .streak: LeaderboardCategory.streak
+        }
+    }
+
+    /// The snapshot ranking for this metric.
+    func entries(in snapshot: LeaderboardSnapshot) -> [LeaderboardEntry] {
+        switch self {
+        case .time: snapshot.time
+        case .books: snapshot.books
+        case .streak: snapshot.streak
+        }
+    }
+
+    var titleKey: String.LocalizationValue {
+        switch self {
+        case .time: "discover.leaderboard_category_time"
+        case .books: "discover.leaderboard_category_books"
+        case .streak: "discover.leaderboard_category_streak"
         }
     }
 }
@@ -132,12 +186,12 @@ struct LeaderboardRow: Identifiable, Equatable {
     let value: String
     let isCurrentUser: Bool
 
-    init(from entry: LeaderboardEntry, isCurrentUser: Bool) {
+    init(from entry: LeaderboardEntry, isCurrentUser: Bool, metric: LeaderboardMetric = .time) {
         self.id = entry.userId
         self.rank = Int(entry.rank)
         self.displayName = entry.displayName
         self.initials = Self.initials(from: entry.displayName)
-        self.value = Self.formatHours(seconds: entry.totalSeconds)
+        self.value = Self.value(for: entry, metric: metric)
         self.isCurrentUser = isCurrentUser
     }
 
@@ -155,6 +209,19 @@ struct LeaderboardRow: Identifiable, Equatable {
         let words = name.split(separator: " ").prefix(2)
         let letters = words.compactMap { $0.first.map(String.init) }
         return letters.joined().uppercased()
+    }
+
+    /// The value-column string for a metric: listen-time for Time, a book count for Books, a
+    /// day count for Streak (longest run, matching the Android leaderboard).
+    static func value(for entry: LeaderboardEntry, metric: LeaderboardMetric) -> String {
+        switch metric {
+        case .time:
+            return formatHours(seconds: entry.totalSeconds)
+        case .books:
+            return String(format: String(localized: "common.books_count"), entry.booksFinished)
+        case .streak:
+            return String(format: String(localized: "common.n_days"), String(entry.longestStreakDays))
+        }
     }
 
     /// Format a listen-time total as "14h 20m" / "48m" — matches the design's value column.
