@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.dto.profile.Profile
@@ -8,6 +9,7 @@ import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
@@ -27,11 +29,16 @@ import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
 
 /**
@@ -56,9 +63,6 @@ class ProfileEditRepositoryImplTest :
                 isRoot = false,
                 createdAt = Timestamp(0L),
                 updatedAt = Timestamp(0L),
-                avatarType = "auto",
-                avatarValue = null,
-                avatarColor = "#6B7280",
                 tagline = null,
             )
 
@@ -71,8 +75,8 @@ class ProfileEditRepositoryImplTest :
                 updatedAt = 1_000L,
             )
 
-        /** No-op [AvatarUploader] — avatar upload is not exercised in unit tests. */
-        val noOpUploader = AvatarUploader { _, _ -> AppResult.Success(Unit) }
+        /** No-op [AvatarUploader] — avatar upload is not exercised in these unit tests. */
+        val noOpUploader = AvatarUploader { _, _ -> AppResult.Success(0L) }
 
         /**
          * Builds a real [OfflineEditor] over a mocked [PendingOperationV2Dao] — no Room needed,
@@ -98,6 +102,7 @@ class ProfileEditRepositoryImplTest :
 
         fun repo(
             userDao: UserDao = mock(),
+            publicProfileDao: PublicProfileDao = mock(),
             service: ProfileService = mock(),
             avatarUploader: AvatarUploader = noOpUploader,
             imageStorage: ImageStorage = mock<ImageStorage>(),
@@ -108,6 +113,7 @@ class ProfileEditRepositoryImplTest :
             everySuspend { imageStorage.saveUserAvatar(any(), any()) } returns AppResult.Success(Unit)
             return ProfileEditRepositoryImpl(
                 userDao = userDao,
+                publicProfileDao = publicProfileDao,
                 profileRpcFactory = rpcFactory,
                 avatarUploader = avatarUploader,
                 imageStorage = imageStorage,
@@ -258,22 +264,21 @@ class ProfileEditRepositoryImplTest :
         // ── Avatar upload (REST multipart, not RPC) ──────────────────────────────────────
 
         /*
-         * Regression guard: the server returns 204 No Content on a successful avatar
-         * upload. The original avatarUploaderOf called `.body<ApiResponse<Unit>>()` on the
-         * response, which tried to deserialize an empty body as JSON and threw, causing the
-         * upload to report failure even though the server had accepted the image.
-         *
-         * This test drives avatarUploaderOf against a mock engine that returns 204 with an
-         * empty body. The fix is to check HttpResponse.status.isSuccess() instead of
-         * deserializing the body.
+         * The server returns 200 with { "avatarUpdatedAt": <ms> } on a successful upload. The
+         * uploader parses that body and returns the server's avatar version, which the repository
+         * writes verbatim into the observed public_profiles row (no client-clock guess).
          */
-        test("avatarUploaderOf returns Success when server responds 204 No Content") {
+        test("avatarUploaderOf returns the server avatarUpdatedAt on a 200 response") {
             runTest {
                 val engine =
                     MockEngine { _ ->
-                        respond(content = "", status = HttpStatusCode.NoContent)
+                        respond(
+                            content = """{"avatarUpdatedAt":4242}""",
+                            status = HttpStatusCode.OK,
+                            headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                        )
                     }
-                val fakeClient = HttpClient(engine)
+                val fakeClient = HttpClient(engine) { install(ContentNegotiation) { json(contractJson) } }
                 val fakeFactory =
                     mock<ApiClientFactory> {
                         everySuspend { getClient() } returns fakeClient
@@ -281,30 +286,36 @@ class ProfileEditRepositoryImplTest :
 
                 val result = avatarUploaderOf(fakeFactory).upload(ByteArray(4), "image/jpeg")
 
-                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                result.shouldBeInstanceOf<AppResult.Success<Long>>()
+                (result as AppResult.Success).data shouldBe 4242L
             }
         }
 
-        test("uploadAvatar caches the uploaded bytes locally on success") {
+        test("uploadAvatar writes the self public_profiles row and caches the bytes locally on success") {
             runTest {
                 val bytes = byteArrayOf(1, 2, 3)
+                val serverTs = 7_000L
                 val userDao = mock<UserDao>()
+                val publicProfileDao = mock<PublicProfileDao>()
                 val avatarUploader = mock<AvatarUploader>()
                 val imageStorage = mock<ImageStorage>()
 
                 everySuspend { userDao.getCurrentUser() } returns userEntity
-                everySuspend { userDao.updateAvatar(any(), any(), any(), any(), any()) } returns Unit
-                everySuspend { avatarUploader.upload(bytes, "image/jpeg") } returns AppResult.Success(Unit)
+                everySuspend { publicProfileDao.findById(userId) } returns null
+                everySuspend { publicProfileDao.upsert(any()) } returns Unit
+                everySuspend { avatarUploader.upload(bytes, "image/jpeg") } returns AppResult.Success(serverTs)
                 everySuspend { imageStorage.saveUserAvatar(userId, bytes) } returns AppResult.Success(Unit)
 
                 val result =
                     repo(
                         userDao = userDao,
+                        publicProfileDao = publicProfileDao,
                         avatarUploader = avatarUploader,
                         imageStorage = imageStorage,
                     ).uploadAvatar(bytes, "image/jpeg")
 
                 result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                verifySuspend { publicProfileDao.upsert(any()) }
                 verifySuspend { imageStorage.saveUserAvatar(userId, bytes) }
             }
         }

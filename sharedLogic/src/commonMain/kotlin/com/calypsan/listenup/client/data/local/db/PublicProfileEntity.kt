@@ -10,8 +10,13 @@ import kotlinx.coroutines.flow.Flow
 
 /**
  * Room mirror of the server `public_profiles` global sync domain — the book-agnostic
- * social roster that powers the Discover leaderboard. Server-maintained; the client
- * only ever applies synced rows (never writes locally).
+ * social roster that powers the Discover leaderboard, and the SINGLE source every avatar
+ * render resolves from. Server-maintained: the client applies synced rows and does not
+ * originate changes — with ONE carve-out. On the caller's OWN avatar upload / revert-to-auto,
+ * [com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl] optimistically writes
+ * this user's own row ([avatarType] + [avatarUpdatedAt]) so the observed avatar re-emits before
+ * the sync round-trip. The eventual SSE echo (higher [revision], ServerWins) replaces it without
+ * regressing the version — the server stamped the same [avatarUpdatedAt].
  *
  * Carries the canonical sync substrate ([revision], [deletedAt]) consumed by the
  * public-profile sync handler for catch-up and SSE event application.

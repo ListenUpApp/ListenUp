@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
@@ -7,6 +8,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.error.ErrorMapper
+import com.calypsan.listenup.client.data.local.db.PublicProfileDao
+import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
@@ -16,6 +19,7 @@ import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.ktor.client.call.body
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.http.Headers
@@ -38,11 +42,14 @@ private val logger = KotlinLogging.logger {}
  * without requiring a live [ApiClientFactory] (which is a final class).
  */
 internal fun interface AvatarUploader {
-    /** POST [imageData] to the avatar endpoint; return success or a transport failure. */
+    /**
+     * POST [imageData] to the avatar endpoint; on success return the server's `avatarUpdatedAt`
+     * (epoch-ms) — the exact avatar version to write into the observed `public_profiles` row.
+     */
     suspend fun upload(
         imageData: ByteArray,
         contentType: String,
-    ): AppResult<Unit>
+    ): AppResult<Long>
 }
 
 /**
@@ -67,10 +74,9 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
                             )
                         },
                 )
-            // The server returns 204 No Content on success — do not attempt to deserialize
-            // an empty body. Check the status code directly instead.
+            // The server returns 200 with { avatarUpdatedAt } — the authoritative avatar version.
             if (response.status.isSuccess()) {
-                AppResult.Success(Unit)
+                AppResult.Success(response.body<AvatarUploadResponse>().avatarUpdatedAt)
             } else {
                 AppResult.Failure(
                     ErrorMapper.map(IllegalStateException("avatar upload failed: ${response.status}")),
@@ -92,12 +98,16 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
  * [updateProfileOnline], because password changes need immediate current-password validation
  * from the server and must never be queued.
  *
- * Avatar upload delegates to [AvatarUploader] (a REST multipart POST) and flips the local
- * [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` on success.
- * Avatar methods stay online-only, unchanged by the offline-first split.
+ * Avatar upload delegates to [AvatarUploader] (a REST multipart POST). On success it writes the
+ * caller's own row in [PublicProfileDao] — the SINGLE avatar source the UI observes — flipping
+ * [PublicProfileEntity.avatarType] to `"image"` and stamping the server-returned
+ * [PublicProfileEntity.avatarUpdatedAt]. This is the one local write to the otherwise
+ * server-synced `public_profiles` table; the eventual SSE echo (higher revision, ServerWins)
+ * replaces it without regressing the version. Avatar methods stay online-only.
  */
 internal class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
+    private val publicProfileDao: PublicProfileDao,
     private val profileRpcFactory: ProfileRpcFactory,
     private val avatarUploader: AvatarUploader,
     private val imageStorage: ImageStorage,
@@ -226,8 +236,9 @@ internal class ProfileEditRepositoryImpl(
     /**
      * Upload a new avatar image via multipart POST to the REST avatar endpoint.
      *
-     * Flips [com.calypsan.listenup.client.data.local.db.UserEntity.avatarType] to `"image"` locally
-     * on success so the UI can immediately switch to the avatar-render path.
+     * On success writes the caller's own `public_profiles` row (`avatarType = "image"`,
+     * `avatarUpdatedAt` = the server-returned version) so the observed avatar re-emits instantly,
+     * before any sync round-trip. Also caches the bytes locally for offline render.
      */
     override suspend fun uploadAvatar(
         imageData: ByteArray,
@@ -243,30 +254,33 @@ internal class ProfileEditRepositoryImpl(
                 }
             when (val uploadResult = avatarUploader.upload(imageData, contentType)) {
                 is AppResult.Success -> {
-                    userDao.updateAvatar(
+                    writeSelfAvatar(
                         userId = user.id.value,
+                        displayName = user.displayName,
                         avatarType = IMAGE_VALUE,
-                        avatarValue = null,
-                        avatarColor = user.avatarColor,
-                        updatedAt = currentEpochMilliseconds(),
+                        avatarUpdatedAt = uploadResult.data,
                     )
                     when (val cached = imageStorage.saveUserAvatar(user.id.value, imageData)) {
                         is AppResult.Failure -> logger.warn { "Avatar local cache write failed: ${cached.error}" }
                         is AppResult.Success -> Unit
                     }
-                    logger.info { "Avatar uploaded, local type flipped to image" }
+                    logger.info { "Avatar uploaded, public profile flipped to image" }
                     AppResult.Success(Unit)
                 }
 
                 is AppResult.Failure -> {
                     logger.error { "Avatar upload failed: ${uploadResult.message}" }
-                    uploadResult
+                    AppResult.Failure(uploadResult.error)
                 }
             }
         }
 
     /**
-     * Revert to auto-generated avatar.
+     * Revert to the auto-generated avatar.
+     *
+     * On the server's confirmation writes the caller's own `public_profiles` row
+     * (`avatarType = "auto"`, `avatarUpdatedAt` = the server's fresh version from [Profile.updatedAt])
+     * and deletes the now-stale local avatar bytes.
      */
     override suspend fun revertToAutoAvatar(): AppResult<Unit> =
         withContext(IODispatcher) {
@@ -277,22 +291,67 @@ internal class ProfileEditRepositoryImpl(
                         ErrorMapper.map(IllegalStateException(NO_CURRENT_USER_MESSAGE)),
                     )
                 }
-            rpcCall { profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(avatarType = AUTO_VALUE)) }
-                .also { result ->
-                    if (result is AppResult.Success) {
-                        userDao.updateAvatar(
-                            userId = user.id.value,
-                            avatarType = AUTO_VALUE,
-                            avatarValue = null,
-                            avatarColor = user.avatarColor,
-                            updatedAt = currentEpochMilliseconds(),
-                        )
-                        logger.info { "Reverted to auto avatar" }
+            when (
+                val result =
+                    rpcCall { profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(avatarType = AUTO_VALUE)) }
+            ) {
+                is AppResult.Success -> {
+                    writeSelfAvatar(
+                        userId = user.id.value,
+                        displayName = user.displayName,
+                        avatarType = AUTO_VALUE,
+                        avatarUpdatedAt = result.data.updatedAt,
+                    )
+                    when (val deleted = imageStorage.deleteUserAvatar(user.id.value)) {
+                        is AppResult.Failure -> logger.warn { "Avatar local delete failed: ${deleted.error}" }
+                        is AppResult.Success -> Unit
                     }
-                }.toUnit()
+                    logger.info { "Reverted to auto avatar" }
+                    AppResult.Success(Unit)
+                }
+
+                is AppResult.Failure -> {
+                    result
+                }
+            }
         }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────
+
+    /**
+     * Write the caller's own avatar facet into the observed `public_profiles` row — the single
+     * source every avatar render resolves from. Read-modify-write preserves the synced stats and
+     * revision on an existing row; when the row hasn't synced yet, a minimal `revision = 0` row is
+     * seeded so the optimistic render works before the first catch-up. The eventual SSE echo (higher
+     * revision, ServerWins) replaces this row without regressing [avatarUpdatedAt] — the server
+     * stamped the same version we wrote here.
+     */
+    private suspend fun writeSelfAvatar(
+        userId: String,
+        displayName: String,
+        avatarType: String,
+        avatarUpdatedAt: Long,
+    ) {
+        val existing = publicProfileDao.findById(userId)
+        val row =
+            existing?.copy(avatarType = avatarType, avatarUpdatedAt = avatarUpdatedAt)
+                ?: PublicProfileEntity(
+                    id = userId,
+                    displayName = displayName,
+                    avatarType = avatarType,
+                    totalSecondsAllTime = 0,
+                    totalSecondsLast7Days = 0,
+                    totalSecondsLast30Days = 0,
+                    totalSecondsLast365Days = 0,
+                    booksFinished = 0,
+                    currentStreakDays = 0,
+                    longestStreakDays = 0,
+                    avatarUpdatedAt = avatarUpdatedAt,
+                    revision = 0,
+                    deletedAt = null,
+                )
+        publicProfileDao.upsert(row)
+    }
 
     /**
      * Collapses an optional first/last-name change into a display name, merging each unchanged

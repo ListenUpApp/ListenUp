@@ -13,7 +13,6 @@ import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LeaderboardRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ProfileEditRepositoryImpl
-import com.calypsan.listenup.client.data.repository.ProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserProfileRepositoryImpl
 import com.calypsan.listenup.client.data.repository.UserRepositoryImpl
 import com.calypsan.listenup.client.data.repository.avatarUploaderOf
@@ -22,7 +21,6 @@ import com.calypsan.listenup.client.domain.repository.ActivityRepository
 import com.calypsan.listenup.client.domain.repository.BookReadersRepository
 import com.calypsan.listenup.client.domain.repository.LeaderboardRepository
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
-import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.module.Module
@@ -38,7 +36,6 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
  *  - [com.calypsan.listenup.client.data.local.db.UserDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.data.local.db.UserProfileDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.ActivityDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.PublicProfileDao] — `persistenceModule`
@@ -46,7 +43,6 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.remote.AuthRpcFactory] — `clientAuthModule`
- *  - [com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
  */
 internal val socialModule: Module =
@@ -82,6 +78,7 @@ internal val socialModule: Module =
         single<ProfileEditRepository> {
             ProfileEditRepositoryImpl(
                 userDao = get(),
+                publicProfileDao = get(),
                 profileRpcFactory = get(),
                 avatarUploader = avatarUploaderOf(get()),
                 imageStorage = get(),
@@ -120,16 +117,6 @@ internal val socialModule: Module =
                 imageStorage = get(),
                 presence = get(),
                 cachedSessionDao = get(),
-            )
-        }
-
-        // ProfileRepository for public user profiles (SOLID: interface in domain, impl in data)
-        single<ProfileRepository> {
-            ProfileRepositoryImpl(
-                profileRpcFactory = get(),
-                userDao = get(),
-                userProfileDao = get(),
-                avatarDownloadRepository = get(),
             )
         }
 
