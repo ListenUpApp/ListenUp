@@ -55,13 +55,6 @@ struct ImportWizardView: View {
             } message: { message in
                 Text(message)
             }
-            .confirmationDialog(
-                String(localized: "import.user_pick_user"),
-                isPresented: assignSheetPresented,
-                titleVisibility: .visible
-            ) {
-                assignButtons
-            }
         }
         .onAppear {
             if observer == nil {
@@ -101,6 +94,7 @@ struct ImportWizardView: View {
         case .review(let review):
             ImportReviewContent(
                 review: review,
+                assigningUser: $assigningUser,
                 onAccept: { observer.assignUser(absUserId: $0.absUserId, listenUpUserId: $1) },
                 onAssign: { assigningUser = $0 },
                 onSkip: { observer.skipUser(absUserId: $0.absUserId) },
@@ -193,21 +187,6 @@ struct ImportWizardView: View {
         }
     }
 
-    // MARK: - Assign picker
-
-    @ViewBuilder
-    private var assignButtons: some View {
-        if case .review(let review) = observer?.phase, let assigning = assigningUser {
-            ForEach(review.listenupUsers) { pickerUser in
-                Button(pickerUser.name) {
-                    observer?.assignUser(absUserId: assigning.absUserId, listenUpUserId: pickerUser.id)
-                    assigningUser = nil
-                }
-            }
-            Button(String(localized: "common.cancel"), role: .cancel) { assigningUser = nil }
-        }
-    }
-
     // MARK: - Derived flags
 
     private var isTerminal: Bool { observer?.phase.isTerminal ?? false }
@@ -222,10 +201,6 @@ struct ImportWizardView: View {
 
     private var pickErrorPresented: Binding<Bool> {
         Binding(get: { pickError != nil }, set: { if !$0 { pickError = nil } })
-    }
-
-    private var assignSheetPresented: Binding<Bool> {
-        Binding(get: { assigningUser != nil }, set: { if !$0 { assigningUser = nil } })
     }
 }
 
