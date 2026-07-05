@@ -25,7 +25,13 @@ struct SelectableBookCard<Label: View>: View {
         } else if let selection {
             NavigationLink(value: BookDestination(id: bookId)) { label() }
                 .buttonStyle(.pressScaleCard)
-                .onLongPressGesture { selection.enter(bookId) }
+                // A long-press attached directly to a NavigationLink is swallowed by the link's
+                // own press recognizer and never fires. `simultaneousGesture` lets the long-press
+                // run alongside the tap: a quick tap still navigates, a hold enters selection.
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.4)
+                        .onEnded { _ in selection.enter(bookId) }
+                )
         } else {
             NavigationLink(value: BookDestination(id: bookId)) { label() }
                 .buttonStyle(.pressScaleCard)

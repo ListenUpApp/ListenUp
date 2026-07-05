@@ -327,14 +327,18 @@ final class BookDetailObserver {
     }
 
     private func buildShareURL(bookId: String) async {
-        guard let instance = try? await Dependencies.shared.instanceRepository.getInstanceOrNull(forceRefresh: false)
+        // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the Kotlin
+        // server responds a bare (non-enveloped) body there, so decoding it as `ApiResponse<Instance>`
+        // threw `EnvelopeMismatchException` on every book-detail load. `getServerInfo` is pure RPC
+        // and carries the `remoteUrl` + `instanceId` the share link needs. The embedded `serverUrl`
+        // is advisory (display / future connect), so the WAN `remoteUrl` is the right value.
+        guard let info = try? await Dependencies.shared.instanceRepository.getServerInfoOrNull(forceRefresh: false)
         else { return }
-        let baseUrl = instance.remoteUrl ?? instance.localUrl
-        let trimmed = baseUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
+        let trimmed = info.remoteUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
         let raw = ShareLinkCodec.shared.encode(
             target: ShareTargetBook(
                 bookId: BookId(value: bookId),
-                serverInstanceId: instance.id.value,
+                serverInstanceId: info.instanceId,
                 serverUrl: trimmed
             )
         )

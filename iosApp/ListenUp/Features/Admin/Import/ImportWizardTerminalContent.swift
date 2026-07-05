@@ -8,6 +8,10 @@ import SwiftUI
 /// warning tells them what will be skipped rather than blocking them).
 struct ImportReviewContent: View {
     let review: ImportReviewModel
+    /// The ABS user whose target picker is open, if any. Bound to the parent so a single row's
+    /// popover is presented; the popover itself is attached to that row (below) so it anchors to
+    /// the tapped row rather than floating at the top of the screen.
+    @Binding var assigningUser: ImportUserRowModel?
     let onAccept: (ImportUserRowModel, String) -> Void
     let onAssign: (ImportUserRowModel) -> Void
     let onSkip: (ImportUserRowModel) -> Void
@@ -28,6 +32,9 @@ struct ImportReviewContent: View {
                             onSkip: { onSkip(user) },
                             onChange: { onAssign(user) }
                         )
+                        .popover(item: assignPopoverBinding(for: user)) { _ in
+                            assignPicker(for: user)
+                        }
                     }
                     if review.unresolvedCount > 0 {
                         warning
@@ -39,6 +46,33 @@ struct ImportReviewContent: View {
             }
             actionTray
         }
+    }
+
+    /// A binding that is non-nil only for the row whose picker is open, so the `.popover(item:)`
+    /// attached to each row presents on exactly that row (and thus anchors to it).
+    private func assignPopoverBinding(for user: ImportUserRowModel) -> Binding<ImportUserRowModel?> {
+        Binding(
+            get: { assigningUser?.absUserId == user.absUserId ? assigningUser : nil },
+            set: { assigningUser = $0 }
+        )
+    }
+
+    /// The target-user picker shown in the row popover. On a regular width it renders as a popover
+    /// anchored to the row; on a compact width SwiftUI adapts it to a sheet automatically.
+    private func assignPicker(for user: ImportUserRowModel) -> some View {
+        List(review.listenupUsers) { pickerUser in
+            Button {
+                onAccept(user, pickerUser.id)
+                assigningUser = nil
+            } label: {
+                Text(pickerUser.name)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .listStyle(.plain)
+        .frame(minWidth: 260, idealWidth: 300, minHeight: 240, idealHeight: 320)
+        .presentationDetents([.medium, .large])
     }
 
     private var countHeader: some View {

@@ -526,7 +526,8 @@ private struct RegistrationPolicyCard: View {
             .pickerStyle(.segmented)
             .disabled(isBusy)
         }
-        .padding(.vertical, 4)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
     }
 
     private static func label(_ policy: RegistrationPolicy) -> String {
