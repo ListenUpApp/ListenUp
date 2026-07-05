@@ -114,8 +114,10 @@ class ImportApplierTest :
                     stats.booksStarted shouldBe 2
                     // book-1's finished progress position is reflected after backfill.
                     stats.booksFinished shouldBe 1
-                    // sess-kings/mist/fidelity end on Jan 17/18/19 UTC (consecutive days) → streak = 3.
-                    stats.longestStreakDays shouldBe 3
+                    // Streak day-set unions the session days (sess-kings/mist/fidelity end Jan 17/18/19
+                    // UTC) with imported progress: book-1's finished mediaProgress + book_reads finish
+                    // land on Jan 16. Jan 16→17→18→19 is a 4-day consecutive run (Finding #20).
+                    stats.longestStreakDays shouldBe 4
                 }
             }
         }
