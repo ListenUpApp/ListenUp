@@ -59,6 +59,7 @@ final class Dependencies {
     var documentRepository: DocumentRepository { resolve { KoinHelper.shared.getDocumentRepository() } }
     var imageStorage: ImageStorage { resolve { KoinHelper.shared.getImageStorage() } }
     var imageRepository: ImageRepository { resolve { KoinHelper.shared.getImageRepository() } }
+    var userProfileRepository: UserProfileRepository { resolve { KoinHelper.shared.getUserProfileRepository() } }
     var downloadService: DownloadService { resolve { KoinHelper.shared.getDownloadService() } }
 
     // MARK: - Player coordinator (app-wide Swift singleton)

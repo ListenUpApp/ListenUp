@@ -66,7 +66,6 @@ class UserProfileViewModelTest :
         fun user(
             id: String,
             displayName: String = "Display",
-            avatarType: String = "auto",
             tagline: String? = "a tagline",
             updatedAtMs: Long = 1_000L,
         ): User =
@@ -77,9 +76,6 @@ class UserProfileViewModelTest :
                 firstName = null,
                 lastName = null,
                 isAdmin = false,
-                avatarType = avatarType,
-                avatarValue = null,
-                avatarColor = "#6B7280",
                 tagline = tagline,
                 createdAtMs = 0L,
                 updatedAtMs = updatedAtMs,

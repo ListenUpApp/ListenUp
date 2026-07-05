@@ -370,7 +370,6 @@ PreparedPlayback
 PreviewLoadState
 ProfileEditRepository
 ProfileRecentBook
-ProfileRepository
 ProfileShelfSummary
 ProgressSyncItem
 Reachability

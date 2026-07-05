@@ -11,8 +11,6 @@ data class CachedUserProfile(
     val id: String,
     val displayName: String,
     val avatarType: String,
-    val avatarValue: String?,
-    val avatarColor: String,
     /**
      * Last-update timestamp (epoch ms). The server bumps it whenever the profile changes —
      * including on avatar upload — so it doubles as the avatar's content version: folded into

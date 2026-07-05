@@ -35,7 +35,6 @@ final class UserProfileObserver {
     private(set) var phase: UserProfilePhase = .loading
     private(set) var displayName: String = ""
     private(set) var tagline: String?
-    private(set) var avatarColorHex: String = "#6B7280"
     /// True when the loaded profile is the signed-in user's own — lets a shared observer back both the
     /// own-profile and foreign-profile screens (the foreign screen renders read-only regardless).
     private(set) var isOwnProfile: Bool = false
@@ -66,7 +65,6 @@ final class UserProfileObserver {
             phase = .ready
             displayName = r.displayName
             tagline = r.tagline
-            avatarColorHex = r.avatarColor
             isOwnProfile = r.isOwnProfile
             totalListenTimeMs = r.totalListenTimeMs
             booksFinished = Int(r.booksFinished)

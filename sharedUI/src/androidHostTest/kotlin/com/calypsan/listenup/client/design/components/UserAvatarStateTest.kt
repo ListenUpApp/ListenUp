@@ -10,14 +10,11 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 private fun profile(
     avatarType: String = "auto",
     displayName: String = "Ada Lovelace",
-    avatarColor: String = "#3949AB",
     updatedAt: Long = 100L,
 ) = CachedUserProfile(
     id = "u1",
     displayName = displayName,
     avatarType = avatarType,
-    avatarValue = null,
-    avatarColor = avatarColor,
     updatedAt = updatedAt,
 )
 
@@ -92,18 +89,18 @@ class UserAvatarStateTest :
 
         test("a non-null public-profile-derived profile never maps to Loading") {
             userAvatarUiState(
-                profile = profile(avatarType = "auto", avatarColor = ""),
+                profile = profile(avatarType = "auto"),
                 hasLocalAvatar = false,
                 localPath = "/p",
                 userId = "u1",
             ) shouldNotBe UserAvatarUiState.Loading
         }
 
-        test("blank avatarColor yields Initials with a stable, non-transparent per-user color") {
+        test("auto avatar yields Initials with a stable, non-transparent per-user color") {
             fun colorFor(userId: String) =
                 (
                     userAvatarUiState(
-                        profile = profile(avatarType = "auto", avatarColor = ""),
+                        profile = profile(avatarType = "auto"),
                         hasLocalAvatar = false,
                         localPath = "/p",
                         userId = userId,
@@ -118,7 +115,7 @@ class UserAvatarStateTest :
         test("cache key folds updatedAt (= avatarUpdatedAt) for a public-profile-derived image avatar") {
             val state =
                 userAvatarUiState(
-                    profile = profile(avatarType = "image", avatarColor = "", updatedAt = 777L),
+                    profile = profile(avatarType = "image", updatedAt = 777L),
                     hasLocalAvatar = true,
                     localPath = "/avatars/u1.webp",
                     userId = "u1",

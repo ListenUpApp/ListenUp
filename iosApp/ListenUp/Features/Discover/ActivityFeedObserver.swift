@@ -69,7 +69,6 @@ struct ActivityRowItem: Identifiable, Equatable {
     let userId: String
     let who: String
     let initials: String
-    let avatarColor: String
     /// The action phrase ("finished", "started", "hit a listening streak").
     let action: String
     /// The book title, rendered in coral by the view; nil for book-less activities.
@@ -83,7 +82,6 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.userId = model.userId
         self.who = model.userDisplayName
         self.initials = LeaderboardRow.initials(from: model.userDisplayName)
-        self.avatarColor = model.userAvatarColor
         self.action = ActivityRowItem.action(for: model)
         self.book = model.bookTitle
         self.bookId = model.bookId
@@ -95,7 +93,6 @@ struct ActivityRowItem: Identifiable, Equatable {
         userId: String,
         who: String,
         initials: String,
-        avatarColor: String,
         action: String,
         book: String?,
         bookId: String?,
@@ -105,7 +102,6 @@ struct ActivityRowItem: Identifiable, Equatable {
         self.userId = userId
         self.who = who
         self.initials = initials
-        self.avatarColor = avatarColor
         self.action = action
         self.book = book
         self.bookId = bookId

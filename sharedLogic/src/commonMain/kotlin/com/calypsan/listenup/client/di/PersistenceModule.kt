@@ -15,7 +15,6 @@ internal val persistenceModule: Module =
     module {
         // Provide DAOs from database
         single { get<ListenUpDatabase>().userDao() }
-        single { get<ListenUpDatabase>().userProfileDao() }
         single { get<ListenUpDatabase>().bookDao() }
         single { get<ListenUpDatabase>().chapterDao() }
         single { get<ListenUpDatabase>().seriesDao() }

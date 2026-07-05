@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.domain.model.CachedUserProfile
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -37,17 +39,21 @@ class EditProfileViewModelTest :
         class TestFixture {
             val profileEditRepository: ProfileEditRepository = mock()
             val userRepository: UserRepository = mock()
+            val userProfileRepository: UserProfileRepository = mock()
             val currentUserFlow = MutableStateFlow<User?>(null)
+            val profileFlow = MutableStateFlow<CachedUserProfile?>(null)
 
             fun configure(currentUser: User?) {
                 currentUserFlow.value = currentUser
                 every { userRepository.observeCurrentUser() } returns currentUserFlow
+                every { userProfileRepository.observeProfile(any()) } returns profileFlow
             }
 
             fun build(): EditProfileViewModel =
                 EditProfileViewModel(
                     profileEditRepository = profileEditRepository,
                     userRepository = userRepository,
+                    userProfileRepository = userProfileRepository,
                 )
         }
 
@@ -64,8 +70,6 @@ class EditProfileViewModelTest :
             firstName: String? = "Alice",
             lastName: String? = "Smith",
             tagline: String? = "Hello world",
-            avatarType: String = "auto",
-            avatarValue: String? = null,
             updatedAtMs: Long = 1000L,
         ): User =
             User(
@@ -75,9 +79,6 @@ class EditProfileViewModelTest :
                 firstName = firstName,
                 lastName = lastName,
                 isAdmin = false,
-                avatarType = avatarType,
-                avatarValue = avatarValue,
-                avatarColor = "#6B7280",
                 tagline = tagline,
                 createdAtMs = 0L,
                 updatedAtMs = updatedAtMs,

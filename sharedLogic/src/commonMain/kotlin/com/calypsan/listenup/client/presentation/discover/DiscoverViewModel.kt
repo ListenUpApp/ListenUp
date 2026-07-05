@@ -106,9 +106,6 @@ class DiscoverViewModel(
             coverHash = book.coverHash,
             coverBlurHash = book.coverBlurHash,
             displayName = user.displayName,
-            avatarType = user.avatarType,
-            avatarValue = user.avatarValue,
-            avatarColor = user.avatarColor,
             startedAt = startedAtMs,
         )
 
@@ -398,9 +395,6 @@ data class CurrentlyListeningUiSession(
     val coverHash: String?,
     val coverBlurHash: String?,
     val displayName: String,
-    val avatarType: String,
-    val avatarValue: String?,
-    val avatarColor: String,
     val startedAt: Long,
 )
 

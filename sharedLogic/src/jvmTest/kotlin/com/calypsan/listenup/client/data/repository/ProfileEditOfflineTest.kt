@@ -66,6 +66,7 @@ class ProfileEditOfflineTest :
                 val repo =
                     ProfileEditRepositoryImpl(
                         userDao = db.userDao(),
+                        publicProfileDao = db.publicProfileDao(),
                         profileRpcFactory = mock<ProfileRpcFactory>(),
                         avatarUploader = mock(),
                         imageStorage = mock<ImageStorage>(),
@@ -123,6 +124,7 @@ class ProfileEditOfflineTest :
                 val repo =
                     ProfileEditRepositoryImpl(
                         userDao = db.userDao(),
+                        publicProfileDao = db.publicProfileDao(),
                         profileRpcFactory = profileRpcFactory,
                         avatarUploader = mock(),
                         imageStorage = mock<ImageStorage>(),

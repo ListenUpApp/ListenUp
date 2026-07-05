@@ -19,6 +19,8 @@ import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.UserStatusColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.routes.AVATAR_MAX_BYTES
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
@@ -345,4 +347,15 @@ fun ListenUpDatabase.noOpPublicProfileMaintainer(): PublicProfileMaintainer =
     PublicProfileMaintainer(
         sql = this,
         publicProfileRepo = PublicProfileRepository(db = this, bus = ChangeBus(), registry = SyncRegistry()),
+    )
+
+/**
+ * A throwaway [ImageStore] rooted at a fresh temp directory, for constructing [ProfileServiceImpl]
+ * in tests that don't exercise the avatar disk-byte side-effect. The revert-to-auto delete tests
+ * pass their own store so they can assert on it.
+ */
+fun tempAvatarImageStore(): ImageStore =
+    ImageStore(
+        baseDir = kotlinx.io.files.Path(Files.createTempDirectory("listenup-test-avatars-").toString()),
+        maxBytes = AVATAR_MAX_BYTES,
     )

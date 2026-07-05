@@ -7,26 +7,33 @@ import io.kotest.matchers.shouldBe
 class UserTest :
     FunSpec({
         fun user(
-            avatarType: String,
-            avatarValue: String?,
+            displayName: String = "Ada Lovelace",
+            firstName: String? = null,
+            lastName: String? = null,
         ) = User(
             id = UserId("u1"),
             email = "a@b.c",
-            displayName = "Ada Lovelace",
+            displayName = displayName,
+            firstName = firstName,
+            lastName = lastName,
             isAdmin = false,
-            avatarType = avatarType,
-            avatarValue = avatarValue,
             createdAtMs = 0,
             updatedAtMs = 0,
         )
 
-        test("hasImageAvatar is true for an image avatar even when avatarValue is null") {
-            // avatarValue is architecturally dead (always null); image-ness is avatarType only.
-            // The actual bytes are resolved by user id from local storage (see UserAvatar).
-            user(avatarType = "image", avatarValue = null).hasImageAvatar shouldBe true
+        test("initials takes the first letter of the first two name parts") {
+            user(displayName = "Ada Lovelace").initials shouldBe "AL"
         }
 
-        test("hasImageAvatar is false for an auto avatar") {
-            user(avatarType = "auto", avatarValue = null).hasImageAvatar shouldBe false
+        test("initials falls back to a single letter for a one-word name") {
+            user(displayName = "Grace").initials shouldBe "G"
+        }
+
+        test("fullName prefers first + last name over displayName") {
+            user(displayName = "ada_l", firstName = "Ada", lastName = "Lovelace").fullName shouldBe "Ada Lovelace"
+        }
+
+        test("fullName falls back to displayName when no name parts are set") {
+            user(displayName = "Ada Lovelace").fullName shouldBe "Ada Lovelace"
         }
     })

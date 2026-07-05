@@ -148,9 +148,13 @@ UPDATE users SET deleted_at = :deleted_at WHERE id = :id;
 -- Writes the self-editable profile fields + a fresh updated_at in one statement. The
 -- service reads the row, merges only the request's non-null fields in Kotlin, then writes
 -- the merged values back here — matching the prior field-by-field UserEntity mutation.
+-- avatar_updated_at is bumped by the service only when avatar_type actually changes (e.g.
+-- revert-to-auto), so the public_profiles projection's avatar version advances and every
+-- client busts its cached bitmap — otherwise the revert would silently never propagate.
 updateProfileFields:
 UPDATE users
 SET display_name = :display_name, tagline = :tagline, avatar_type = :avatar_type,
+    avatar_updated_at = :avatar_updated_at,
     password_hash = :password_hash, updated_at = :updated_at
 WHERE id = :id;
 

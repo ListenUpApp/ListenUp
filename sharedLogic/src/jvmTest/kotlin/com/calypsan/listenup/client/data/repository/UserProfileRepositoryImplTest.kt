@@ -86,14 +86,6 @@ class UserProfileRepositoryImplTest :
             }
         }
 
-        test("observeProfile leaves avatarColor blank so the renderer derives a stable per-user color") {
-            val (repo, _) = repoWith(publicProfile(id = "other"))
-            repo.observeProfile("other").test {
-                awaitItem()!!.avatarColor shouldBe ""
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
         test("observeProfile emits null for a tombstoned public profile") {
             val (repo, _) = repoWith(publicProfile(id = "gone", deletedAt = 99L))
             repo.observeProfile("gone").test {

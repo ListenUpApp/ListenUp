@@ -68,7 +68,6 @@ struct ForeignProfileView: View {
             UserAvatarView(
                 userId: userId,
                 fallbackName: observer?.displayName ?? "",
-                avatarColor: observer?.avatarColorHex,
                 size: 104
             )
 

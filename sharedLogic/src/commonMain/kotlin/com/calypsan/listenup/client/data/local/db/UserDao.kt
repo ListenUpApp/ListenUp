@@ -43,29 +43,6 @@ internal interface UserDao {
     suspend fun clear()
 
     /**
-     * Update the avatar fields for a user.
-     * Called when avatar is changed in profile settings.
-     * Also updates updatedAt to bust image cache.
-     */
-    @Query(
-        """
-        UPDATE users
-        SET avatarType = :avatarType,
-            avatarValue = :avatarValue,
-            avatarColor = :avatarColor,
-            updatedAt = :updatedAt
-        WHERE id = :userId
-        """,
-    )
-    suspend fun updateAvatar(
-        userId: String,
-        avatarType: String,
-        avatarValue: String?,
-        avatarColor: String,
-        updatedAt: Long,
-    )
-
-    /**
      * Update the tagline for a user.
      * Called when tagline is changed in profile settings.
      */

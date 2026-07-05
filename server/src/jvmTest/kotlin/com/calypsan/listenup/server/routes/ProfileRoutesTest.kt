@@ -2,6 +2,7 @@ package com.calypsan.listenup.server.routes
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.auth.AuthSession
+import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -116,8 +117,9 @@ class ProfileRoutesTest :
                     val client = createClient { install(ContentNegotiation) { json(contractJson) } }
 
                     val (token, userId) = client.setupRoot()
+                    val beforeUpload = System.currentTimeMillis()
 
-                    // Upload a valid PNG — expect 204 No Content.
+                    // Upload a valid PNG — expect 200 OK carrying the server avatar version.
                     val uploadResponse =
                         client.post("/api/v1/profile/avatar") {
                             bearerAuth(token)
@@ -139,7 +141,9 @@ class ProfileRoutesTest :
                                 ),
                             )
                         }
-                    uploadResponse.status shouldBe HttpStatusCode.NoContent
+                    uploadResponse.status shouldBe HttpStatusCode.OK
+                    // The response body carries the server's fresh avatar version (client writes it verbatim).
+                    (uploadResponse.body<AvatarUploadResponse>().avatarUpdatedAt >= beforeUpload) shouldBe true
 
                     // Serve the uploaded avatar — expect the exact bytes back.
                     val serveResponse =
@@ -208,7 +212,7 @@ class ProfileRoutesTest :
                                     },
                                 ),
                             )
-                        }.status shouldBe HttpStatusCode.NoContent
+                        }.status shouldBe HttpStatusCode.OK
 
                     // The public_profiles projection is what every client syncs (the uploader reads its
                     // own avatar back through it, and other devices receive it). It MUST reflect the new

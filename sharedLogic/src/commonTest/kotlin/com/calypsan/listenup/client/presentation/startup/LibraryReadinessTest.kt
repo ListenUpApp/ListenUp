@@ -14,10 +14,8 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.api.result.AppResult as CoreAppResult
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -58,9 +56,6 @@ class LibraryReadinessTest :
                 firstName = null,
                 lastName = null,
                 isAdmin = true,
-                avatarType = "auto",
-                avatarValue = null,
-                avatarColor = "#3B82F6",
                 tagline = null,
                 createdAtMs = 0L,
                 updatedAtMs = 0L,
@@ -83,13 +78,6 @@ class LibraryReadinessTest :
             val session = mock<AuthSession>()
             every { session.authState } returns state
             return session
-        }
-
-        // Profile refresh is fire-and-forget at startup and not exercised here — a no-op stub.
-        fun profileRepo(): ProfileRepository {
-            val repo = mock<ProfileRepository>()
-            everySuspend { repo.refreshMyProfile() } returns CoreAppResult.Success(Unit)
-            return repo
         }
 
         fun syncRepo(
@@ -136,7 +124,6 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(service),
                         authSession(authState),
-                        profileRepo(),
                         syncRepo(scanning),
                     )
 
@@ -174,7 +161,6 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(service),
                         authSession(MutableStateFlow(authenticated)),
-                        profileRepo(),
                         syncRepo(MutableStateFlow(false)),
                     )
 
@@ -197,7 +183,6 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(service),
                         authSession(MutableStateFlow(authenticated)),
-                        profileRepo(),
                         syncRepo(MutableStateFlow(false)),
                     )
 
@@ -222,7 +207,6 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(setUpAdminService()),
                         authSession(MutableStateFlow(authenticated)),
-                        profileRepo(),
                         syncRepo(scanning),
                     )
 
@@ -252,7 +236,6 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(setUpAdminService()),
                         authSession(MutableStateFlow(authenticated)),
-                        profileRepo(),
                         syncRepo(scanning, progress),
                     )
 
@@ -286,7 +269,6 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(setUpAdminService()),
                         authSession(MutableStateFlow(authenticated)),
-                        profileRepo(),
                         syncRepo(scanning),
                     )
 

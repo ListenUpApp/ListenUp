@@ -54,7 +54,6 @@ class ShelfRepositoryImplTest :
                 isRoot = false,
                 createdAt = Timestamp(0L),
                 updatedAt = Timestamp(0L),
-                avatarColor = "#112233",
             )
 
         fun repo(

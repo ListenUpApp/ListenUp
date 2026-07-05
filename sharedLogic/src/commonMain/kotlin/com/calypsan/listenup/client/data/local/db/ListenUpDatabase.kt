@@ -15,17 +15,21 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v47. Migrations live in the `data/local/migrations/` package
+ * Schema is at v48. Migrations live in the `data/local/migrations/` package
  * (e.g. `Migration14To15`, `Migration19To20`) and are registered via `.addMigrations(...)`
  * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
  * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
  * verify the full migration chain is registered. The `@Database.exportSchema`
  * on-disk JSON for each version is the authoritative source for writing migrations.
+ *
+ * v47 → v48 (avatar single-source): dropped the `user_profiles` table and the
+ * `users.avatarType`/`avatarValue`/`avatarColor` columns. Avatar state now lives solely in the
+ * synced `public_profiles` row. No hand-written migration — the pre-launch destructive fallback
+ * recreates the schema (beta DBs re-sync from the server), which is acceptable pre-release.
  */
 @Database(
     entities = [
         UserEntity::class,
-        UserProfileEntity::class,
         LibraryEntity::class,
         LibraryFolderEntity::class,
         BookEntity::class,
@@ -63,7 +67,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 47,
+    version = 48,
     exportSchema = true,
 )
 @TypeConverters(
@@ -77,8 +81,6 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
 @Suppress("TooManyFunctions")
 internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
-
-    abstract fun userProfileDao(): UserProfileDao
 
     abstract fun libraryDao(): LibraryDao
 
