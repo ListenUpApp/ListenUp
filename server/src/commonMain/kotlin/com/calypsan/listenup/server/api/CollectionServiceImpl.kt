@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.getOrElse
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
@@ -33,6 +34,31 @@ import kotlin.time.Clock
 private const val LIST_BOOKS_MIN = 1
 private const val LIST_BOOKS_MAX = 1000
 private const val MAX_NAME_LENGTH = 200
+
+/**
+ * The largest scoped [AccessChanged][SyncControl.AccessChanged] delta the server will emit. Above
+ * it — too many affected collections or books — the frame degrades to coarse (scope = null) and the
+ * client re-derives its whole accessible library, which is cheaper than a huge targeted fetch. 200
+ * comfortably covers every realistic single collection mutation while capping the pathological case.
+ */
+internal const val DELTA_MAX_BOOKS = 200
+
+/**
+ * Builds the recipient-agnostic [AccessScope] naming the entities an access change touched, or
+ * `null` when the change is too large to delta ([maxBooks]) — the explicit, never-silent fallback to
+ * a coarse re-derive. A pure function of the affected ids, so the emission sites can build the scope
+ * without any per-user computation and a unit test can pin the threshold directly.
+ */
+internal fun accessScopeFor(
+    collectionIds: Collection<String>,
+    bookIds: Collection<String>,
+    maxBooks: Int = DELTA_MAX_BOOKS,
+): AccessScope? {
+    val cols = collectionIds.toSet()
+    val books = bookIds.toSet()
+    if (cols.size > maxBooks || books.size > maxBooks) return null
+    return AccessScope(collectionIds = cols.toList(), bookIds = books.toList())
+}
 
 /**
  * [CollectionService] implementation.
@@ -180,11 +206,14 @@ internal class CollectionServiceImpl(
         // Capture the live members BEFORE the cascade so we can re-home any book that loses its
         // last real membership: deleting a collection must never strand a book with zero memberships.
         val affectedBookIds = collectionBookRepo.findBookIdsForCollection(id.value)
-        // S2: nudge the collection's audience (owner + active grant recipients) BEFORE the grants are
-        // tombstoned — captured while the grants are still live, exactly like revokeShare. A member who
-        // could reach these books ONLY via this collection loses access in real time, not just on the
-        // next foreground reconcile.
-        notifyAccessChanged(listOf(id.value))
+        // S2: capture the collection's audience (owner + active grant recipients) and the scoped
+        // delta BEFORE the cascade — while the grants are still live — but PUBLISH the frame AFTER
+        // the cascade commits. Staging the audience keeps the "loses access in real time" guarantee
+        // for a member who could reach these books only via this collection; deferring the publish
+        // fixes the pre-existing race where the frame raced ahead of the membership/revision writes
+        // it points at, so a fast client could fetch stale rows.
+        val audience = accessChangedAudience(listOf(id.value))
+        val scope = accessScopeFor(listOf(id.value), affectedBookIds)
         collectionBookRepo.softDeleteAllForCollection(id.value)
         // A book whose only membership was this collection returns to ALL_BOOKS (reconcile bumps
         // its revision + nudges ALL_BOOKS grant-holders so members re-derive the now-public book).
@@ -199,6 +228,8 @@ internal class CollectionServiceImpl(
             grantRepo.softDelete(grant.id)
         }
         collectionRepo.softDelete(id.value)
+        // Cascade committed — now nudge the staged audience so no frame outruns its writes.
+        if (audience.isNotEmpty()) publishAccessChanged(audience, scope)
         return AppResult.Success(Unit)
     }
 
@@ -224,7 +255,7 @@ internal class CollectionServiceImpl(
             is AppResult.Success -> {
                 // Adding the book to this collection grants its visible users (owner + active-share
                 // recipients) a new access path — nudge each to re-derive, matching setBookCollections.
-                notifyAccessChanged(listOf(id.value))
+                notifyAccessChanged(listOf(id.value), listOf(bookId.value))
                 // Bump the book's revision so each member's incremental `revision > cursor` pull
                 // re-delivers the now-visible book — the access nudge alone never carries the row.
                 bookRevisionTouch.touchRevision(bookId)
@@ -256,7 +287,7 @@ internal class CollectionServiceImpl(
         collectionBookRepo.softDelete(collectionId = id.value, bookId = bookId.value)
         // Removing the book may have severed a visible user's only access path to it — nudge this
         // collection's visible users to re-derive (and prune if needed), matching setBookCollections.
-        notifyAccessChanged(listOf(id.value))
+        notifyAccessChanged(listOf(id.value), listOf(bookId.value))
         // Bump the book's revision so each member's incremental `revision > cursor` pull re-evaluates
         // its now-changed visibility and prunes it when no access path remains.
         bookRevisionTouch.touchRevision(bookId)
@@ -314,7 +345,7 @@ internal class CollectionServiceImpl(
         // gained the book) and each REMOVED collection (they may have lost their only access path) —
         // is nudged once to re-derive. The non-enumerable public↔private "everyone" edge converges on
         // the next firehose catch-up — the documented 1b behavior.
-        notifyAccessChanged(added + removed)
+        notifyAccessChanged(added + removed, listOf(bookId.value))
         // Bump the subject book's revision once when its membership actually changed, so each member's
         // incremental `revision > cursor` pull re-evaluates its visibility (delivering or pruning it).
         if (added.isNotEmpty() || removed.isNotEmpty()) {
@@ -362,8 +393,12 @@ internal class CollectionServiceImpl(
             )
         return when (val result = grantRepo.upsert(payload)) {
             is AppResult.Success -> {
-                // The newly-shared user's accessible set just grew — tell them to re-derive.
-                bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+                // The newly-shared user's accessible set just grew — tell them to re-derive, scoped
+                // to this collection and the books it currently holds (the ones they just gained).
+                publishAccessChanged(
+                    setOf(sharedWithUserId),
+                    accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),
+                )
                 AppResult.Success(result.data.toDto())
             }
 
@@ -389,8 +424,12 @@ internal class CollectionServiceImpl(
         val updated = existing.copy(permission = permission, updatedAt = clock.now().toEpochMilliseconds())
         return when (val result = grantRepo.upsert(updated)) {
             is AppResult.Success -> {
-                // The share's permission changed — the recipient must re-derive what they can do.
-                bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+                // The share's permission changed — the recipient must re-derive what they can do,
+                // scoped to this collection and its current books.
+                publishAccessChanged(
+                    setOf(sharedWithUserId),
+                    accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),
+                )
                 AppResult.Success(result.data.toDto())
             }
 
@@ -412,7 +451,12 @@ internal class CollectionServiceImpl(
         // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
         // when a live grant was actually removed: a no-op revoke didn't change their access.
         if (grantRepo.softDeleteGrant(id.value, sharedWithUserId) is AppResult.Success) {
-            bus.publishControl(SyncControl.AccessChanged, sharedWithUserId)
+            // The ex-target lost this grant — scope the re-derive to this collection and the books
+            // it holds (the ones they may have just lost; per-user truth resolves at fetch time).
+            publishAccessChanged(
+                setOf(sharedWithUserId),
+                accessScopeFor(listOf(id.value), collectionBookRepo.findBookIdsForCollection(id.value)),
+            )
         }
         return AppResult.Success(Unit)
     }
@@ -611,7 +655,7 @@ internal class CollectionServiceImpl(
 
         // Every user who can see a target collection just gained access to the released books —
         // nudge each once to re-derive. ALL_BOOKS is included so its grant recipients re-derive.
-        notifyAccessChanged(explicitTargetIds + listOfNotNull(allBooksId))
+        notifyAccessChanged(explicitTargetIds + listOfNotNull(allBooksId), assignments.keys)
         // Bump each released book's revision so members' incremental `revision > cursor` pull
         // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
         for (bookId in assignments.keys) {
@@ -668,11 +712,11 @@ internal class CollectionServiceImpl(
                     deletedAt = null,
                 ),
             )
-            notifyAccessChanged(listOf(id))
+            notifyAccessChanged(listOf(id), listOf(bookId))
             bookRevisionTouch.touchRevision(BookId(bookId))
         } else if (allBooksLive) {
             collectionBookRepo.softDelete(collectionId = allBooksId!!, bookId = bookId)
-            notifyAccessChanged(listOf(allBooksId))
+            notifyAccessChanged(listOf(allBooksId), listOf(bookId))
             bookRevisionTouch.touchRevision(BookId(bookId))
         }
     }
@@ -681,19 +725,47 @@ internal class CollectionServiceImpl(
     private suspend fun bookLibraryId(bookId: String): String? =
         suspendTransaction(sql) { sql.booksQueries.selectLibraryIdById(bookId).executeAsOneOrNull() }
 
-    private suspend fun notifyAccessChanged(collectionIds: Collection<String>) {
-        val affectedUserIds =
-            collectionIds
-                .flatMap { collectionId ->
-                    val owner = collectionRepo.findById(collectionId)?.ownerId
-                    val shareUsers = grantRepo.listActiveGrantsForCollection(collectionId).map { it.sharedWithUserId }
-                    if (owner != null) shareUsers + owner else shareUsers
-                }.toSet()
-        for (affectedUserId in affectedUserIds) {
-            // The ALL_BOOKS/INBOX sentinel owner is not a real client — nudging it is pure noise.
-            // (ALL_BOOKS reaches its real audience via the per-member default grants enumerated above.)
-            if (affectedUserId == SYSTEM_OWNER_ID) continue
-            bus.publishControl(SyncControl.AccessChanged, affectedUserId)
+    /**
+     * Nudge the audience of an access change on [collectionIds] — each collection's owner + active
+     * grant recipients — to re-derive, carrying the [scoped delta][accessScopeFor] of the
+     * [affectedBookIds] (books whose accessibility may have flipped). [affectedBookIds] is
+     * **required**: an emission site that cannot enumerate the touched books passes the coarse
+     * `emptyList()` deliberately (there is no way to forget it silently), and a scope over
+     * [DELTA_MAX_BOOKS] entities degrades to coarse. The audience is resolved once here; the
+     * recipient-agnostic frame is published to every member (per-user truth resolves at fetch time).
+     */
+    private suspend fun notifyAccessChanged(
+        collectionIds: Collection<String>,
+        affectedBookIds: Collection<String>,
+    ) {
+        val audience = accessChangedAudience(collectionIds)
+        if (audience.isEmpty()) return
+        publishAccessChanged(audience, accessScopeFor(collectionIds, affectedBookIds))
+    }
+
+    /**
+     * The users to nudge for an access change on [collectionIds]: each collection's owner + its
+     * active grant recipients, minus the [SYSTEM_OWNER_ID] sentinel (not a real client — ALL_BOOKS
+     * reaches its real audience through the per-member default grants enumerated here). Captured
+     * separately from [publishAccessChanged] so a cascade (e.g. [deleteCollection]) can resolve the
+     * audience *before* it tombstones the grants, then publish *after* the writes commit.
+     */
+    private suspend fun accessChangedAudience(collectionIds: Collection<String>): Set<String> =
+        collectionIds
+            .flatMap { collectionId ->
+                val owner = collectionRepo.findById(collectionId)?.ownerId
+                val shareUsers = grantRepo.listActiveGrantsForCollection(collectionId).map { it.sharedWithUserId }
+                if (owner != null) shareUsers + owner else shareUsers
+            }.toSet()
+            .minus(SYSTEM_OWNER_ID)
+
+    /** Publishes the recipient-agnostic [AccessChanged][SyncControl.AccessChanged] frame carrying [scope] to each of [userIds]. */
+    private suspend fun publishAccessChanged(
+        userIds: Set<String>,
+        scope: AccessScope?,
+    ) {
+        for (userId in userIds) {
+            bus.publishControl(SyncControl.AccessChanged(scope), userId)
         }
     }
 

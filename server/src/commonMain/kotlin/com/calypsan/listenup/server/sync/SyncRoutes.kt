@@ -54,6 +54,12 @@ private const val ACTIVITIES_DOMAIN = "activities"
 private const val COLLECTION_SHARES_DOMAIN = "collection_shares"
 private const val COLLECTION_BOOKS_DOMAIN = "collection_books"
 
+// Cap on a single targeted `?ids=` / `?collectionIds=` fetch (the scoped AccessChanged delta).
+// The client chunks larger scopes into ≤ this many ids per request; the server rejects an
+// over-cap request rather than silently truncating — a truncated response would look to the
+// client like "these ids are no longer accessible" and wrongly tombstone them.
+private const val MAX_TARGETED_IDS = 100
+
 // Admin-only domain: a row carries an absolute server filesystem path (operator disk
 // topology), which members must never see. Unlike the per-row book/collection gates, this
 // is whole-domain by role — members hold no folder rows at all, so there is nothing for them
@@ -186,6 +192,21 @@ private fun accessFilterFor(
 ): SqlFragment? = ACCESS_FILTERS[domainName]?.fragment(userId, role, policy)
 
 /**
+ * Parses a targeted `?ids=` / `?collectionIds=` CSV into a de-duplicated id list, or `null` if it
+ * exceeds [MAX_TARGETED_IDS] (the caller turns that into a `400`). Blank segments are dropped so a
+ * trailing comma or an empty param yields an empty list rather than a phantom `""` id.
+ */
+private fun parseTargetedIds(raw: String): List<String>? {
+    val ids =
+        raw
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+    return if (ids.size > MAX_TARGETED_IDS) null else ids
+}
+
+/**
  * The `activities` access fragment: selects the visible ACTIVITY ids — a row is visible iff its
  * `book_id` is null (public) or accessible. Returns null for ROOT/ADMIN (unconstrained). Extracted
  * so the catch-up/digest override, the firehose gate's sibling logic, and their tests all share one
@@ -236,13 +257,6 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
         val domainName =
             call.parameters["domain"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "missing domain")
-        val since =
-            call.request.queryParameters["since"]?.toLongOrNull()
-                ?: return@get call.respond(HttpStatusCode.BadRequest, "since must be a Long")
-        val limit =
-            call.request.queryParameters["limit"]
-                ?.toIntOrNull()
-                ?.coerceIn(1, 5000) ?: 500
 
         val repo =
             registry.lookup(domainName)
@@ -254,8 +268,44 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
 
         @Suppress("UNCHECKED_CAST")
         val typedRepo = repo as SyncableRepo<Any>
-        val page: Page<Any> = typedRepo.pullSince(userId, since, limit, extraWhere)
-        log.debug { "sync pull: domain=$domainName since=$since → ${page.items.size} rows userId=$userId" }
+
+        // Targeted scoped-delta fetch: `?ids=` matches the row's own id (books, collections),
+        // `?collectionIds=` matches its `collection_id` (collection_books). Both are access-
+        // filtered, capped, and un-paged. Absent both, fall back to the `?since=` catch-up page.
+        val idsParam = call.request.queryParameters["ids"]
+        val collectionIdsParam = call.request.queryParameters["collectionIds"]
+
+        val page: Page<Any> =
+            when {
+                idsParam != null -> {
+                    parseTargetedIds(idsParam)?.let { ids ->
+                        typedRepo.pullByIds(userId, matchColumn = "id", matchValues = ids, extraWhere = extraWhere)
+                    } ?: return@get call.respond(HttpStatusCode.BadRequest, "too many ids (max $MAX_TARGETED_IDS)")
+                }
+
+                collectionIdsParam != null -> {
+                    parseTargetedIds(collectionIdsParam)?.let { ids ->
+                        typedRepo.pullByIds(
+                            userId,
+                            matchColumn = "collection_id",
+                            matchValues = ids,
+                            extraWhere = extraWhere,
+                        )
+                    } ?: return@get call.respond(HttpStatusCode.BadRequest, "too many ids (max $MAX_TARGETED_IDS)")
+                }
+
+                else -> {
+                    val since =
+                        call.request.queryParameters["since"]?.toLongOrNull()
+                            ?: return@get call.respond(HttpStatusCode.BadRequest, "since must be a Long")
+                    val limit =
+                        call.request.queryParameters["limit"]
+                            ?.toIntOrNull()
+                            ?.coerceIn(1, 5000) ?: 500
+                    typedRepo.pullSince(userId, since, limit, extraWhere)
+                }
+            }
+        log.debug { "sync pull: domain=$domainName → ${page.items.size} rows userId=$userId" }
         // call.respond(page) would fail at runtime: kotlinx.serialization cannot
         // infer the concrete element serializer from the type-erased Page<Any>.
         // encodePageAsJson uses the concrete KSerializer<T> each repository provides.

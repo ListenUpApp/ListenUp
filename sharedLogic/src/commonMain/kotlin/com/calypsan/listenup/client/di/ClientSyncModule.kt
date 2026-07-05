@@ -192,7 +192,7 @@ internal val clientSyncModule =
                 // AccessChanged re-derives the accessible set via catch-up without tearing down
                 // the live tail — same lazy-SyncEngine resolution as onCursorStale to break the
                 // construction cycle.
-                onAccessChanged = { get<SyncEngine>().handleAccessChanged() },
+                onAccessChanged = { scope -> get<SyncEngine>().handleAccessChanged(scope) },
                 // Account deleted by an admin: clear auth (soft logout → NeedsLogin),
                 // the same path the 401 fallback uses. Resolved lazily to avoid pulling
                 // AuthSession into the dispatcher's construction graph. The reason is logged

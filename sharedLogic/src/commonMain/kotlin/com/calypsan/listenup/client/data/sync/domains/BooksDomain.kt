@@ -86,6 +86,11 @@ internal fun booksDomain(
                     database.bookReadershipDao().deleteWhereBookNotLive()
                     database.playbackPositionDao().deleteWhereBookNotLive()
                 },
+                // Delta-only: a scoped AccessChanged never fetches the activities domain, so an
+                // activity gating on a now-revoked book must be tombstoned here for the access-filtered
+                // activities digest to converge. Soft-delete — activities is a cursored domain. The
+                // coarse path re-derives activities via their own prune, so this must NOT run there.
+                afterScopedPrune = { now -> database.activityDao().tombstoneWhereBookNotLive(now) },
             ),
     )
 }

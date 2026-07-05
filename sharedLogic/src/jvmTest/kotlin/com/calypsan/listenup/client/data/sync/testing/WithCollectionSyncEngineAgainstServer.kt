@@ -94,6 +94,9 @@ internal data class CollectionSyncEngineScope(
     val adminCollections: CollectionService,
     val serverBookRepository: BookRepository,
     val clientDatabase: ListenUpDatabase,
+    // The server's access policy, exposed so a test can build the member's access-filtered book
+    // digest (`accessibleBookIdsSql(member, MEMBER)`) — the convergence oracle for the scoped delta.
+    val serverBookAccessPolicy: BookAccessPolicy,
 )
 
 /**
@@ -241,6 +244,7 @@ internal fun withCollectionSyncEngineAgainstServer(block: suspend CollectionSync
                     adminCollections = adminCollections,
                     serverBookRepository = bookRepo,
                     clientDatabase = clientDb,
+                    serverBookAccessPolicy = bookAccessPolicy,
                 ).block()
             } finally {
                 engine.stopAndJoin()
@@ -303,8 +307,8 @@ private fun buildMemberSyncEngine(
             onCursorStale = {
                 checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleCursorStale()
             },
-            onAccessChanged = {
-                checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleAccessChanged()
+            onAccessChanged = { scope ->
+                checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleAccessChanged(scope)
             },
         )
 

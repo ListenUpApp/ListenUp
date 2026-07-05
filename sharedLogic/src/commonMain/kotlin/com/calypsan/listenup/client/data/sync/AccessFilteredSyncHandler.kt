@@ -27,8 +27,31 @@ internal interface AccessFilteredSyncHandler {
      * Soft-delete (tombstone) every live local row whose id is NOT in [accessibleIds].
      * [now] is the tombstone timestamp. Rows already accessible are left untouched so the
      * UI never flickers; rows already tombstoned stay tombstoned.
+     *
+     * Whole-domain sweep — correct for a coarse re-derive ([catchUpTransient] returned the caller's
+     * entire accessible set). For a scoped delta, use [pruneWithin] instead, which never touches a
+     * row outside the scope.
      */
     suspend fun pruneTo(
+        accessibleIds: Set<String>,
+        now: Long,
+    )
+
+    /**
+     * Scoped prune: soft-delete every live local row that is BOTH in [candidateIds] AND absent from
+     * [accessibleIds] — the removal half of the scoped `AccessChanged` delta.
+     *
+     * Restricting the doomed set to [candidateIds] IS the substrate protection: a live row OUTSIDE
+     * the scope — e.g. a public `ALL_BOOKS` book the client mirrors but that a targeted delta never
+     * named — is never a candidate, so a scoped delta can never tombstone it. This is the structural
+     * difference from [pruneTo], which sweeps every live row not in [accessibleIds] and so is only
+     * sound when [accessibleIds] is the caller's WHOLE accessible set, not a targeted subset.
+     *
+     * [now] is the tombstone timestamp; already-tombstoned rows stay tombstoned, accessible rows are
+     * left untouched (no UI flicker).
+     */
+    suspend fun pruneWithin(
+        candidateIds: Set<String>,
         accessibleIds: Set<String>,
         now: Long,
     )

@@ -74,7 +74,7 @@ class RefreshedDomainRouterTest :
                         listOf(presenceDomain(ping = {})),
                     )
 
-                router.dispatch(SyncControl.AccessChanged) shouldBe false
+                router.dispatch(SyncControl.AccessChanged()) shouldBe false
                 router.dispatch(SyncControl.LibraryDataChanged) shouldBe false
             }
         }

@@ -18,8 +18,20 @@ internal class AccessGate(
     val liveIds: suspend () -> List<String>,
     /** Tombstone the given live local rows by wire id (called per bounded chunk). */
     val tombstoneByIds: suspend (ids: List<String>, now: Long) -> Unit,
-    /** Optional cascade run once after the prune completes (e.g. books' readership cleanup). */
+    /**
+     * Optional cascade run once after ANY prune (coarse or scoped) completes — the sweep for pure
+     * caches that have no sync domain of their own (e.g. books' readership + Continue-Listening
+     * positions). Safe to run in both paths because these rows are re-fetched, never digested.
+     */
     val afterPrune: suspend () -> Unit = {},
+    /**
+     * Optional cascade run once after a SCOPED prune ([AccessFilteredSyncHandler.pruneWithin]) only,
+     * receiving that prune's tombstone timestamp. Reserved for dependents that ARE their own
+     * access-gated sync domain — e.g. `activities`, which the coarse path re-derives authoritatively
+     * via its own prune, but a scoped delta never fetches. Running this in the coarse path would
+     * double-tombstone against that domain's own re-derivation, so it fires on the delta path alone.
+     */
+    val afterScopedPrune: suspend (now: Long) -> Unit = {},
 )
 
 /**

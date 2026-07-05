@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.auth.PrincipalProvider
@@ -129,7 +130,13 @@ class AccessChangedEmissionTest :
                     }
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
+                    frames shouldContainExactlyInAnyOrder
+                        listOf(
+                            ControlFrame(
+                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
+                                "u2",
+                            ),
+                        )
                 }
             }
         }
@@ -158,7 +165,13 @@ class AccessChangedEmissionTest :
                     }
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
+                    frames shouldContainExactlyInAnyOrder
+                        listOf(
+                            ControlFrame(
+                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
+                                "u2",
+                            ),
+                        )
                 }
             }
         }
@@ -184,7 +197,13 @@ class AccessChangedEmissionTest :
                     owner.revokeShare(created.data.id, "u2") shouldBe AppResult.Success(Unit)
                     drainControlFrames()
 
-                    frames shouldContainExactlyInAnyOrder listOf(ControlFrame(SyncControl.AccessChanged, "u2"))
+                    frames shouldContainExactlyInAnyOrder
+                        listOf(
+                            ControlFrame(
+                                SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), emptyList())),
+                                "u2",
+                            ),
+                        )
                 }
             }
         }
@@ -244,7 +263,10 @@ class AccessChangedEmissionTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach {
+                        it.control shouldBe
+                            SyncControl.AccessChanged(AccessScope(listOf(target.data.id.value), listOf("book1")))
+                    }
                 }
             }
         }
@@ -273,7 +295,10 @@ class AccessChangedEmissionTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach {
+                        it.control shouldBe
+                            SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), listOf("book1")))
+                    }
                 }
             }
         }
@@ -303,7 +328,10 @@ class AccessChangedEmissionTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged }
+                    frames.forEach {
+                        it.control shouldBe
+                            SyncControl.AccessChanged(AccessScope(listOf(created.data.id.value), listOf("book1")))
+                    }
                 }
             }
         }

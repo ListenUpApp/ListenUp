@@ -276,4 +276,12 @@ private fun accessGatedHandler(
         ) {
             prunedTo += accessibleIds
         }
+
+        override suspend fun pruneWithin(
+            candidateIds: Set<String>,
+            accessibleIds: Set<String>,
+            now: Long,
+        ) {
+            prunedTo += (candidateIds intersect accessibleIds)
+        }
     }
