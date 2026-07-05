@@ -228,10 +228,17 @@ jobs:
         working-directory: iosApp
         run: |
           set -o pipefail
+          # Per-test timeouts: a hung test (never-completing await / black-hole Flow) fails fast with
+          # its own name after 120s instead of freezing the whole run until the 45-min job timeout —
+          # which surfaced as an opaque "operation was canceled" with no culprit. Individual tests may
+          # opt into longer via executionTimeAllowance, capped at the 300s maximum.
           xcodebuild test \
             -scheme ListenUp \
             -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }},OS=latest" \
-            -resultBundlePath "$RUNNER_TEMP/ios-test.xcresult"
+            -resultBundlePath "$RUNNER_TEMP/ios-test.xcresult" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 300
 
       - name: Upload iOS test results
         uses: actions/upload-artifact@v7
