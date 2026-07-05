@@ -314,7 +314,14 @@ class CollectionServiceImplSetBookCollectionsTest :
                     drainControlFrames()
 
                     frames.map { it.userId } shouldContainExactlyInAnyOrder listOf("u1", "u2", "u3")
-                    frames.forEach { it.control shouldBe SyncControl.AccessChanged() }
+                    // Recipient-agnostic scope: every frame names both touched collections and the book.
+                    frames.forEach { frame ->
+                        val control = frame.control
+                        require(control is SyncControl.AccessChanged)
+                        control.scope!!.collectionIds shouldContainExactlyInAnyOrder
+                            listOf(c1.data.id.value, c2.data.id.value)
+                        control.scope!!.bookIds shouldBe listOf("book1")
+                    }
                 }
             }
         }
