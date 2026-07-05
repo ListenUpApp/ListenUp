@@ -487,8 +487,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                     extraWhere != null -> {
                         accessDriver().selectIdRevAccessFiltered(
                             table = rootTableName,
-                            revisionPredicate = "revision > ?",
-                            revisionArg = cursor,
+                            predicate = SqlFragment(sql = "revision > ?", args = listOf(cursor)),
                             extraWhere = extraWhere,
                             ascendingByRevision = true,
                             limit = limit,
@@ -516,6 +515,52 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                 hasMore = idsWithRev.size == limit,
             )
         }
+
+    /**
+     * Access-filtered targeted read: the aggregates whose [matchColumn] is in [matchValues] and
+     * which the caller can still see — the read half of the scoped `AccessChanged` delta.
+     *
+     * Where [pullSince] walks the revision axis, this walks an explicit id set. It is **always**
+     * access-filtered (via the same [selectIdRevAccessFiltered] path as the filtered [pullSince]),
+     * so a returned row is one the caller is entitled to; an id the client asked about but that does
+     * **not** come back is either gone or no longer accessible, and the client tombstones it. The
+     * result is therefore ⊆ what an unbounded `since = 0` catch-up would return — no new surface.
+     *
+     * [matchColumn] is a closed, code-controlled column name (`"id"` for the books/collections
+     * targeted fetch, `"collection_id"` for the collection-books-by-collection fetch), never user
+     * input — the same trust level as [rootTableName]. [matchValues] are bound positionally.
+     *
+     * Tombstones are included ([selectIdRevAccessFiltered]'s `includeTombstones = true`), matching
+     * the filtered [pullSince] catch-up contract: a deletion the client missed is delivered so it
+     * can converge. The page is un-paged — the caller (the sync route) caps the request size, so
+     * `nextCursor` is null and `hasMore` is false.
+     *
+     * When [extraWhere] is null (an all-seeing role) the access clause is dropped and every matched
+     * row returns. Only ever called on access-gated aggregates, which wire a [driver]; an ungated
+     * domain has none and [accessDriver] fails loud rather than silently degrading.
+     */
+    override suspend fun pullByIds(
+        userId: String?,
+        matchColumn: String,
+        matchValues: List<String>,
+        extraWhere: SqlFragment?,
+    ): Page<T> {
+        if (matchValues.isEmpty()) return Page(items = emptyList(), nextCursor = null, hasMore = false)
+        return suspendTransaction(db) {
+            val placeholders = matchValues.joinToString(separator = ", ") { "?" }
+            val idsWithRev =
+                accessDriver().selectIdRevAccessFiltered(
+                    table = rootTableName,
+                    predicate = SqlFragment(sql = "$matchColumn IN ($placeholders)", args = matchValues),
+                    extraWhere = extraWhere,
+                    ascendingByRevision = false,
+                    limit = null,
+                    includeTombstones = true,
+                )
+            val items = readPayloads(idsWithRev.map { it.id })
+            Page(items = items, nextCursor = null, hasMore = false)
+        }
+    }
 
     /**
      * Returns a [DomainDigest] over the LIVE rows with `revision <= cursor` — tombstones are
@@ -552,8 +597,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                     extraWhere != null -> {
                         accessDriver().selectIdRevAccessFiltered(
                             table = rootTableName,
-                            revisionPredicate = "revision <= ?",
-                            revisionArg = cursor,
+                            predicate = SqlFragment(sql = "revision <= ?", args = listOf(cursor)),
                             extraWhere = extraWhere,
                             ascendingByRevision = false,
                             limit = null,

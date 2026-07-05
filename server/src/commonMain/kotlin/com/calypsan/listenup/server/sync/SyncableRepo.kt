@@ -62,6 +62,21 @@ interface SyncableRepo<T : Any> {
     ): Page<T>
 
     /**
+     * Access-filtered targeted read: the aggregates whose [matchColumn] is in [matchValues] and
+     * the caller can still see — the read half of the scoped `AccessChanged` delta. The result is
+     * ⊆ what an unbounded `since = 0` catch-up would return; an asked-about id that does not come
+     * back is gone or no longer accessible and the client tombstones it. See the base override for
+     * the full tombstone / access / trust contract. [matchColumn] is code-controlled, never user
+     * input.
+     */
+    suspend fun pullByIds(
+        userId: String?,
+        matchColumn: String,
+        matchValues: List<String>,
+        extraWhere: SqlFragment? = null,
+    ): Page<T>
+
+    /**
      * Returns a [DomainDigest] over all rows with `revision <= cursor`,
      * soft-deleted rows included — the cheap drift-detection probe.
      */

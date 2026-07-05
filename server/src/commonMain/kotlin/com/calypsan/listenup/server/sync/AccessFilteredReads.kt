@@ -18,7 +18,9 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  * same placeholder order, raw bind values instead of Exposed-typed pairs.
  *
  * **Bind-arg ordering is security-relevant and load-bearing.** The placeholders bind, in order:
- *  1. the revision cursor (the `?` in [revisionPredicate]) — bound first,
+ *  1. every [predicate] arg (the row-selection clause) — the revision cursor for a `revision > ?`
+ *     pull / `revision <= ?` digest slice, or the target ids for an `id IN (?, …)` /
+ *     `collection_id IN (?, …)` targeted fetch — bound first, in [SqlFragment.args] order,
  *  2. then every [SqlFragment.args] value of the spliced access subquery, in its existing order,
  *  3. then the optional trailing `LIMIT ?` ([limit]).
  *
@@ -31,19 +33,21 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  * bind from `parameterIndex = 0`; the driver adds 1 internally).
  *
  * **Called only from inside an active SQLDelight transaction** (the
- * `suspendTransaction(db) { … }` opened by each aggregate's filtered `pullSince` / `digest`),
- * so the raw query runs on the same connection as the surrounding read.
+ * `suspendTransaction(db) { … }` opened by each aggregate's filtered `pullSince` / `digest` /
+ * `pullByIds`), so the raw query runs on the same connection as the surrounding read.
  *
  * @param table the aggregate's root table name (`"books"`, `"collections"`, …) — a closed,
  *   code-controlled string, never user input.
- * @param revisionPredicate the revision clause carrying exactly one `?` — `"revision > ?"` for a
- *   pull page, `"revision <= ?"` for a digest slice.
- * @param revisionArg the cursor value bound to [revisionPredicate]'s `?`.
- * @param extraWhere the access subquery to splice as `id IN (<sql>)`, with its ordered raw args.
+ * @param predicate the row-selection clause and its ordered args — `"revision > ?"` for a pull
+ *   page, `"revision <= ?"` for a digest slice, `"id IN (?, …)"` / `"collection_id IN (?, …)"` for
+ *   a targeted-by-ids fetch. The column names are code-controlled, never user input.
+ * @param extraWhere the access subquery to splice as `id IN (<sql>)`, with its ordered raw args;
+ *   `null` when the caller is unconstrained (an admin, or a targeted fetch by an all-seeing role) —
+ *   the access clause is then omitted entirely and every matched row (tombstones included) returns.
  * @param ascendingByRevision when true, append `ORDER BY revision ASC` (the pull-page ordering;
- *   the digest slice is unordered — it is sorted by id in Kotlin afterwards).
+ *   the digest slice and the targeted fetch are unordered — sorted by id in Kotlin if needed).
  * @param limit the page cap; when non-null a trailing `LIMIT ?` is appended and the value bound
- *   last (the pull path), null for the unbounded digest slice.
+ *   last (the pull path), null for the unbounded digest slice and targeted fetch.
  * @param includeTombstones when true, a tombstone (`deleted_at IS NOT NULL`) passes the access
  *   gate regardless of the subquery — the member needs to learn what to remove even for a row it
  *   can no longer "access" (a deleted row is never accessible: `accessibleBookIdsSql` requires
@@ -51,13 +55,13 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  *   lets every `SyncEvent.Deleted` through) so catch-up and the live tail agree, and it leaks no
  *   content — a tombstone carries only id/revision/deleted_at. Set true on the pull path (catch-up
  *   must deliver deletions), false on the digest path (the digest counts only LIVE accessible rows,
- *   symmetric with the tombstone-excluding client digest).
+ *   symmetric with the tombstone-excluding client digest). Only meaningful when [extraWhere] is
+ *   non-null; with no access clause, every matched row already returns.
  */
 internal fun SqlDriver.selectIdRevAccessFiltered(
     table: String,
-    revisionPredicate: String,
-    revisionArg: Long,
-    extraWhere: SqlFragment,
+    predicate: SqlFragment,
+    extraWhere: SqlFragment?,
     ascendingByRevision: Boolean,
     limit: Int?,
     includeTombstones: Boolean,
@@ -67,17 +71,19 @@ internal fun SqlDriver.selectIdRevAccessFiltered(
             append("SELECT id, revision FROM ")
             append(table)
             append(" WHERE ")
-            append(revisionPredicate)
-            append(" AND (id IN (")
-            append(extraWhere.sql)
-            append(")")
-            if (includeTombstones) append(" OR deleted_at IS NOT NULL")
-            append(")")
+            append(predicate.sql)
+            if (extraWhere != null) {
+                append(" AND (id IN (")
+                append(extraWhere.sql)
+                append(")")
+                if (includeTombstones) append(" OR deleted_at IS NOT NULL")
+                append(")")
+            }
             if (ascendingByRevision) append(" ORDER BY revision ASC")
             if (limit != null) append(" LIMIT ?")
         }
-    // Placeholder count: 1 (revision) + access-subquery args + (1 if limited).
-    val parameterCount = 1 + extraWhere.args.size + if (limit != null) 1 else 0
+    // Placeholder count: predicate args + access-subquery args + (1 if limited).
+    val parameterCount = predicate.args.size + (extraWhere?.args?.size ?: 0) + if (limit != null) 1 else 0
     return executeQuery(
         identifier = null,
         sql = sql,
@@ -92,8 +98,8 @@ internal fun SqlDriver.selectIdRevAccessFiltered(
         binders = {
             // Bind in the exact placeholder order — the load-bearing invariant.
             var index = 0
-            bindLong(index++, revisionArg)
-            extraWhere.args.forEach { arg -> bindRaw(index++, arg) }
+            predicate.args.forEach { arg -> bindRaw(index++, arg) }
+            extraWhere?.args?.forEach { arg -> bindRaw(index++, arg) }
             if (limit != null) bindLong(index, limit.toLong())
         },
     ).value

@@ -39,4 +39,21 @@ class SyncCatchUpRouteTest :
                 response.status shouldBe HttpStatusCode.BadRequest
             }
         }
+
+        test("a targeted ?ids= fetch over the 100-id cap returns 400") {
+            withTestApplication {
+                // The cap is enforced before the repo read, so it fires on any registered domain.
+                val ids = (1..101).joinToString(",") { "id-$it" }
+                val response = client.get("/api/v1/sync/tags?ids=$ids")
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("a targeted ?collectionIds= fetch over the 100-id cap returns 400") {
+            withTestApplication {
+                val ids = (1..101).joinToString(",") { "col-$it" }
+                val response = client.get("/api/v1/sync/tags?collectionIds=$ids")
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
     })
