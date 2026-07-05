@@ -10,16 +10,24 @@ import Foundation
 /// `AsyncGate` replaces the clock with causality: a fake records a mutation, then calls
 /// `signal()`; a test `await wait(until:)`s the exact state transition it cares about and
 /// resumes the instant that transition happens — never sooner, and with no timeout to lose
-/// a race against. A hang here means the awaited work genuinely never occurred, which is the
-/// honest failure we want (Swift Testing surfaces it as a stuck test, not a flaky pass).
+/// a race against.
 ///
-/// **Isolation:** the gate has no internal locking. Register, signal, and evaluate the
-/// predicate must all happen in one isolation domain — the same domain that mutates the
-/// observed state. The player fakes satisfy this: `FakePlaybackEngine` confines its gate to
-/// its actor; the `@MainActor`-touched reporting/sleep fakes confine theirs to the main actor.
-/// `@unchecked Sendable` so it can be stored in the `Sendable` player fakes. There is no
-/// internal synchronization — soundness rests entirely on the single-isolation-domain
-/// discipline documented above, exactly as the fakes' own `@unchecked Sendable` does.
+/// **Isolation — why the `isolation:` parameter is load-bearing.** The gate has no internal
+/// locking: register (`wait`), signal (`signal`/`fire`), and predicate evaluation must all
+/// happen in one isolation domain — the same domain that mutates the observed state. The
+/// fakes satisfy this: `FakePlaybackEngine` confines its gate to its actor; the
+/// `@MainActor`-touched reporting/sleep fakes and the boot recorder confine theirs to the
+/// main actor. But a *plain* `nonisolated async` method does **not** run in its caller's
+/// domain — it hops onto the generic cooperative executor. That silently broke the invariant:
+/// `wait` ran off the main actor while `fire`/`signal` (synchronous) ran on it, racing the
+/// `waiters` array from two threads. A `fire()` landing between `wait`'s predicate check and
+/// its waiter append was a lost wakeup — the continuation was never resumed and the test hung
+/// forever (surfacing in CI as an un-attributable 45-minute job stall, not a named failure).
+/// The `isolation: isolated (any Actor)? = #isolation` parameter pins each `wait` to its
+/// caller's actor, so registration and signalling genuinely share one single-threaded domain
+/// and the check-then-append is atomic against `fire`/`signal`. `@unchecked Sendable` so the
+/// gate can be stored in the `Sendable` player fakes; soundness now rests on that honoured
+/// single-domain discipline, not on an assumption the compiler was quietly violating.
 final class AsyncGate: @unchecked Sendable {
     private var waiters: [(predicate: () -> Bool, resume: () -> Void)] = []
     /// Keys that have fired at least once, for the keyed `fire`/`wait(forKey:)` API used by
@@ -30,7 +38,15 @@ final class AsyncGate: @unchecked Sendable {
 
     /// Suspend until `predicate` holds. Returns immediately if it already does, so a test
     /// that awaits an already-completed transition never blocks.
-    func wait(until predicate: @escaping () -> Bool) async {
+    ///
+    /// Runs in the caller's isolation domain (`isolation` defaults to the caller via
+    /// `#isolation`) so the predicate check and the waiter append are atomic against a
+    /// concurrent `signal()`/`fire()` on that same domain — see the type doc for why that
+    /// is what makes the gate race-free.
+    func wait(
+        until predicate: @escaping () -> Bool,
+        isolation: isolated (any Actor)? = #isolation
+    ) async {
         if predicate() { return }
         await withCheckedContinuation { continuation in
             waiters.append((predicate, { continuation.resume() }))
@@ -53,9 +69,13 @@ final class AsyncGate: @unchecked Sendable {
         resumeSatisfied()
     }
 
-    /// Suspend until `key` has fired. Returns immediately if it already has.
-    func wait(forKey key: String) async {
-        await wait { [weak self] in self?.firedKeys.contains(key) ?? false }
+    /// Suspend until `key` has fired. Returns immediately if it already has. Inherits the
+    /// caller's isolation domain and threads it into the underlying `wait(until:)`.
+    func wait(
+        forKey key: String,
+        isolation: isolated (any Actor)? = #isolation
+    ) async {
+        await wait(until: { [weak self] in self?.firedKeys.contains(key) ?? false }, isolation: isolation)
     }
 
     private func resumeSatisfied() {
