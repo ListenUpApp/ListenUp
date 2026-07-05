@@ -336,7 +336,7 @@ private suspend fun TestScope.captureAccessChanged(
     val collector =
         launch(start = CoroutineStart.UNDISPATCHED) {
             bus.subscribeControl().collect { frame ->
-                if (frame.control == SyncControl.AccessChanged) recipients += frame.userId
+                if (frame.control is SyncControl.AccessChanged) recipients += frame.userId
             }
         }
     action()
