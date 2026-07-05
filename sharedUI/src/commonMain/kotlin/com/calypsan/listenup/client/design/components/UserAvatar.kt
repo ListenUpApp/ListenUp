@@ -67,8 +67,8 @@ enum class AvatarSize(
  * renders with a defensive cascade:
  *  1. Image avatar — loaded from local [ImageStorage] with disk + memory cache enabled.
  *     Falls back to an initials circle if the file has not yet been downloaded.
- *  2. Initials — uses [CachedUserProfile.avatarColor] (server-assigned hex, e.g. `"#3949AB"`)
- *     as the circle background. Initials are derived from [CachedUserProfile.displayName].
+ *  2. Initials — the circle background is a stable per-user color derived from the user id
+ *     (`stableColorForUserId`). Initials are derived from [CachedUserProfile.displayName].
  *     Renders `"?"` when the name is blank.
  *  3. Loading placeholder — [MaterialTheme.colorScheme.surfaceVariant] circle shown while
  *     the profile is not yet in the local cache. Never silent grey.
@@ -271,31 +271,6 @@ private fun LoadingPlaceholder(modifier: Modifier) {
 // Internal utilities
 // ---------------------------------------------------------------------------
 
-/** Fully-opaque alpha channel OR-ed onto a parsed 24-bit RGB hex color. */
-private const val OPAQUE_ALPHA_MASK = 0xFF000000L
-
-/**
- * Parse a server-assigned hex color string (e.g. `"#6B7280"`) into a [Color].
- *
- * Falls back to [stableColorForUserId] when the hex string is blank or malformed, so every
- * initials avatar gets a visually distinct, cross-platform stable color rather than a
- * hardcoded neutral grey.
- *
- * @param hexColor Server-assigned hex color, e.g. `"#3949AB"`. May be blank or invalid for
- *   profiles created before the server began assigning colors.
- * @param userId Forwarded to [stableColorForUserId] when [hexColor] cannot be parsed.
- */
-private fun parseAvatarHexColor(
-    hexColor: String,
-    userId: String,
-): Color =
-    try {
-        if (hexColor.isBlank()) error("blank")
-        Color(hexColor.removePrefix("#").toLong(16) or OPAQUE_ALPHA_MASK)
-    } catch (_: Exception) {
-        stableColorForUserId(userId)
-    }
-
 /**
  * Stable avatar color derived from [userId] using a cross-platform stable UUID hash.
  *
@@ -387,7 +362,7 @@ internal fun userAvatarUiState(
         else -> {
             UserAvatarUiState.Initials(
                 initials = avatarInitials(profile.displayName),
-                color = parseAvatarHexColor(profile.avatarColor, userId),
+                color = stableColorForUserId(userId),
             )
         }
     }

@@ -347,6 +347,7 @@ private fun AvatarCard(
     ) {
         AvatarEditRow(
             user = ready.user,
+            hasImageAvatar = ready.hasImageAvatar,
             avatarChange = ready.avatarChange,
             isSaving = ready.isSaving,
             onPickImage = onPickImage,
@@ -358,6 +359,7 @@ private fun AvatarCard(
 @Composable
 private fun AvatarEditRow(
     user: User,
+    hasImageAvatar: Boolean,
     avatarChange: AvatarChange,
     isSaving: Boolean,
     onPickImage: () -> Unit,
@@ -388,7 +390,7 @@ private fun AvatarEditRow(
 
             // Show Remove only when there's a real image avatar or one staged for upload
             val showRemove =
-                user.hasImageAvatar || avatarChange is AvatarChange.Upload
+                hasImageAvatar || avatarChange is AvatarChange.Upload
             if (showRemove) {
                 TextButton(
                     onClick = onRevert,

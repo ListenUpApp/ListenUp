@@ -4,10 +4,8 @@ import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.UserDao
-import com.calypsan.listenup.client.data.local.db.UserProfileDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
-import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -25,7 +23,6 @@ import org.koin.test.verify.verify
  *  - [ApiClientFactory] — owned by `networkModule`.
  *  - [ServerConfig] — owned by `settingsModule`.
  *  - [UserDao] — owned by `persistenceModule`.
- *  - [UserProfileDao] — owned by `persistenceModule`.
  *  - [ActivityDao] — owned by `persistenceModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [PublicProfileDao] — owned by `persistenceModule`.
@@ -33,7 +30,6 @@ import org.koin.test.verify.verify
  *  - [PresenceRefreshSignal] — owned by `clientSyncModule`.
  *  - [OfflineEditor] — owned by `clientSyncModule`.
  *  - [AuthRpcFactory] — owned by `clientAuthModule`.
- *  - [AvatarDownloadRepository] — owned by `mediaModule`.
  *  - [PlaybackPositionRepository] — owned by `listeningModule`.
  */
 @OptIn(KoinExperimentalAPI::class)
@@ -45,7 +41,6 @@ class SocialModuleVerifyTest :
                 extraTypes =
                     listOf(
                         UserDao::class,
-                        UserProfileDao::class,
                         ActivityDao::class,
                         BookDao::class,
                         PublicProfileDao::class,
@@ -53,7 +48,6 @@ class SocialModuleVerifyTest :
                         PresenceRefreshSignal::class,
                         OfflineEditor::class,
                         AuthRpcFactory::class,
-                        AvatarDownloadRepository::class,
                         PlaybackPositionRepository::class,
                         ApiClientFactory::class,
                         ServerConfig::class,

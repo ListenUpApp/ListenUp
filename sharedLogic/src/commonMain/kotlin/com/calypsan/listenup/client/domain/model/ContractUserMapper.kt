@@ -8,10 +8,10 @@ import com.calypsan.listenup.api.dto.auth.User as ContractUser
  * to the client's local [User] domain model.
  *
  * The contract carries identity + role + status + createdAt; the domain
- * model adds nullable profile fields (`firstName`, `lastName`, avatar
- * details, `tagline`) that other features fetch separately. We default
- * those to nulls / sensible UI fallbacks; later profile-fetch paths
- * overwrite them in Room.
+ * model adds nullable profile fields (`firstName`, `lastName`, `tagline`)
+ * that other features fetch separately. We default those to null; later
+ * profile-fetch paths overwrite them in Room. Avatar state is not part of
+ * [User] — it lives in the synced `public_profiles` row.
  */
 fun ContractUser.toDomain(): User =
     User(
@@ -21,9 +21,6 @@ fun ContractUser.toDomain(): User =
         firstName = null,
         lastName = null,
         isAdmin = role == UserRole.ROOT || role == UserRole.ADMIN,
-        avatarType = "auto",
-        avatarValue = null,
-        avatarColor = "#6B7280",
         tagline = null,
         createdAtMs = createdAt,
         updatedAtMs = createdAt,

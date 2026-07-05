@@ -7,15 +7,20 @@ import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.core.resolveNameFields
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -58,6 +63,8 @@ sealed interface EditProfileUiState {
      * [isDirty] is true whenever any field differs from the loaded [user] or a pending
      * avatar change is staged.
      * [isSaving] overlays on top of data while a save is in flight.
+     * [hasImageAvatar] mirrors the observed `public_profiles` avatar type (the single avatar
+     * source) — it gates the "remove avatar" affordance without [User] carrying avatar state.
      */
     data class Ready(
         val user: User,
@@ -68,6 +75,7 @@ sealed interface EditProfileUiState {
         val newPassword: String,
         val confirmPassword: String,
         val avatarChange: AvatarChange,
+        val hasImageAvatar: Boolean,
         val isDirty: Boolean,
         val isSaving: Boolean,
     ) : EditProfileUiState
@@ -115,9 +123,11 @@ private data class FormState(
  * Save outcomes surface via [events] (a `Channel`-backed `Flow`) so the UI can show
  * a snackbar without polling state flags.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class EditProfileViewModel(
     private val profileEditRepository: ProfileEditRepository,
     private val userRepository: UserRepository,
+    private val userProfileRepository: UserProfileRepository,
 ) : ViewModel() {
     private val savingFlow = MutableStateFlow(false)
     private val formFlow = MutableStateFlow(FormState())
@@ -126,15 +136,32 @@ class EditProfileViewModel(
     private val eventChannel = Channel<EditProfileEvent>(Channel.BUFFERED)
     val events: Flow<EditProfileEvent> = eventChannel.receiveAsFlow()
 
+    /**
+     * The current user paired with whether they have an image avatar — the latter read reactively
+     * from the observed `public_profiles` row (the single avatar source), so "remove avatar"
+     * gating stays consistent with what the avatar actually renders.
+     */
+    private val userWithAvatar: Flow<Pair<User, Boolean>?> =
+        userRepository.observeCurrentUser().flatMapLatest { user ->
+            if (user == null) {
+                flowOf(null)
+            } else {
+                userProfileRepository
+                    .observeProfile(user.id.value)
+                    .map { profile -> user to (profile?.avatarType == "image") }
+            }
+        }
+
     val state: StateFlow<EditProfileUiState> =
         combine(
-            userRepository.observeCurrentUser(),
+            userWithAvatar,
             formFlow,
             savingFlow,
-        ) { user, form, isSaving ->
-            if (user == null) {
+        ) { pair, form, isSaving ->
+            if (pair == null) {
                 EditProfileUiState.Error("No user data available")
             } else {
+                val (user, hasImageAvatar) = pair
                 // Seed the form exactly once from the first non-null user so that
                 // re-emissions from Room don't overwrite edits already in progress, then
                 // build Ready from the seeded values in the same pass. We must NOT seed and
@@ -174,6 +201,7 @@ class EditProfileViewModel(
                     newPassword = effectiveForm.newPassword,
                     confirmPassword = effectiveForm.confirmPassword,
                     avatarChange = effectiveForm.avatarChange,
+                    hasImageAvatar = hasImageAvatar,
                     isDirty = isDirty,
                     isSaving = isSaving,
                 )

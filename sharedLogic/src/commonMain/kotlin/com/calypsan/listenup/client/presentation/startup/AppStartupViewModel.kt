@@ -11,7 +11,6 @@ import com.calypsan.listenup.client.core.suspendRunCatching
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -82,16 +81,14 @@ data class AppStartupState(
  * - Long background (>= BACKGROUND_THRESHOLD_MS): onAppForegrounded resets the
  *   state and re-runs the check so stale library-setup state is refreshed.
  *
- * On every startup check the own profile is refreshed from the server in the
- * background via [ProfileRepository.refreshMyProfile] so local Room reflects the
- * latest server values (displayName, tagline, avatarType). The refresh is
- * fire-and-forget — failures are logged and never surfaced to the UI.
+ * The current user's identity is refreshed from the server via
+ * [UserRepository.refreshCurrentUser]; profile facets (displayName, tagline, avatar)
+ * arrive through the `public_profiles` sync stream, so no separate profile refresh runs here.
  */
 class AppStartupViewModel(
     private val userRepository: UserRepository,
     private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
     private val authSession: AuthSession,
-    private val profileRepository: ProfileRepository,
     private val syncRepository: SyncRepository,
 ) : ViewModel() {
     val state: StateFlow<AppStartupState>
@@ -262,22 +259,6 @@ class AppStartupViewModel(
             try {
                 val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
                 logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
-
-                // Refresh own profile in the background — keeps displayName/tagline/avatarType in sync.
-                // Fire-and-forget: never blocks the startup check or surfaces failures to the UI.
-                if (user != null) {
-                    launch {
-                        try {
-                            profileRepository
-                                .refreshMyProfile()
-                                .onFailure { logger.warn { "Own profile refresh failed at startup: ${it.message}" } }
-                        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            logger.warn(e) { "Own profile refresh failed at startup" }
-                        }
-                    }
-                }
 
                 if (user?.isAdmin == true) {
                     applyAdminSetupCheckResult(

@@ -51,9 +51,6 @@ class UserRepositoryImplTest :
             firstName: String? = "Test",
             lastName: String? = "User",
             isRoot: Boolean = false,
-            avatarType: String = "auto",
-            avatarValue: String? = null,
-            avatarColor: String = "#3B82F6",
             tagline: String? = "Audiobook enthusiast",
             createdAt: Long = 1704067200000L, // 2024-01-01 00:00:00 UTC
             updatedAt: Long = 1704153600000L, // 2024-01-02 00:00:00 UTC
@@ -66,9 +63,6 @@ class UserRepositoryImplTest :
                 firstName = firstName,
                 lastName = lastName,
                 isRoot = isRoot,
-                avatarType = avatarType,
-                avatarValue = avatarValue,
-                avatarColor = avatarColor,
                 tagline = tagline,
                 createdAt =
                     com.calypsan.listenup.core
@@ -487,95 +481,6 @@ class UserRepositoryImplTest :
             }
         }
 
-        test("toDomain converts avatarType correctly for auto avatar") {
-            runTest {
-                // Given
-                val userDao = createMockUserDao()
-                val entity = createTestUserEntity(avatarType = "auto")
-                everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
-
-                // When
-                val user = repository.getCurrentUser()
-
-                // Then
-                user?.avatarType shouldBe "auto"
-            }
-        }
-
-        test("toDomain converts avatarType correctly for image avatar") {
-            runTest {
-                // Given
-                val userDao = createMockUserDao()
-                val entity = createTestUserEntity(avatarType = "image")
-                everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
-
-                // When
-                val user = repository.getCurrentUser()
-
-                // Then
-                user?.avatarType shouldBe "image"
-            }
-        }
-
-        test("toDomain converts avatarValue correctly when present") {
-            runTest {
-                // Given
-                val userDao = createMockUserDao()
-                val entity =
-                    createTestUserEntity(
-                        avatarType = "image",
-                        avatarValue = "/avatars/user-001.jpg",
-                    )
-                everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
-
-                // When
-                val user = repository.getCurrentUser()
-
-                // Then
-                user?.avatarValue shouldBe "/avatars/user-001.jpg"
-            }
-        }
-
-        test("toDomain converts avatarValue correctly when null") {
-            runTest {
-                // Given
-                val userDao = createMockUserDao()
-                val entity = createTestUserEntity(avatarValue = null)
-                everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
-
-                // When
-                val user = repository.getCurrentUser()
-
-                // Then
-                user?.avatarValue shouldBe null
-            }
-        }
-
-        test("toDomain converts avatarColor correctly") {
-            runTest {
-                // Given
-                val userDao = createMockUserDao()
-                val entity = createTestUserEntity(avatarColor = "#EF4444")
-                everySuspend { userDao.getCurrentUser() } returns entity
-                val authRpcFactory = createMockAuthRpcFactory()
-                val repository = UserRepositoryImpl(userDao, authRpcFactory)
-
-                // When
-                val user = repository.getCurrentUser()
-
-                // Then
-                user?.avatarColor shouldBe "#EF4444"
-            }
-        }
-
         test("toDomain converts tagline correctly when present") {
             runTest {
                 // Given
@@ -659,9 +564,6 @@ class UserRepositoryImplTest :
                         firstName = "Alice",
                         lastName = "Administrator",
                         isRoot = true,
-                        avatarType = "image",
-                        avatarValue = "/avatars/admin.png",
-                        avatarColor = "#10B981",
                         tagline = "Keeping things running smoothly",
                         createdAt =
                             com.calypsan.listenup.core
@@ -684,9 +586,6 @@ class UserRepositoryImplTest :
                 user.firstName shouldBe "Alice"
                 user.lastName shouldBe "Administrator"
                 user.isAdmin shouldBe true
-                user.avatarType shouldBe "image"
-                user.avatarValue shouldBe "/avatars/admin.png"
-                user.avatarColor shouldBe "#10B981"
                 user.tagline shouldBe "Keeping things running smoothly"
                 user.createdAtMs shouldBe 1700000000000L
                 user.updatedAtMs shouldBe 1705000000000L
@@ -703,7 +602,6 @@ class UserRepositoryImplTest :
                     createTestUserEntity(
                         displayName = "",
                         email = "",
-                        avatarColor = "",
                     )
                 everySuspend { userDao.getCurrentUser() } returns entity
                 val authRpcFactory = createMockAuthRpcFactory()
@@ -715,7 +613,6 @@ class UserRepositoryImplTest :
                 // Then
                 user.displayName shouldBe ""
                 user.email shouldBe ""
-                user.avatarColor shouldBe ""
             }
         }
 
@@ -772,14 +669,11 @@ class UserRepositoryImplTest :
                     createTestUserEntity(
                         id = "user-1",
                         isRoot = false,
-                        avatarType = "auto",
                     )
                 val user2Entity =
                     createTestUserEntity(
                         id = "user-2",
                         isRoot = true,
-                        avatarType = "image",
-                        avatarValue = "/path/to/avatar.jpg",
                     )
                 every { userDao.observeCurrentUser() } returns flowOf(user1Entity, user2Entity)
                 val authRpcFactory = createMockAuthRpcFactory()
@@ -792,13 +686,10 @@ class UserRepositoryImplTest :
                 val user1 = emissions[0].shouldNotBeNull()
                 user1.id.value shouldBe "user-1"
                 user1.isAdmin shouldBe false
-                user1.avatarType shouldBe "auto"
 
                 val user2 = emissions[1].shouldNotBeNull()
                 user2.id.value shouldBe "user-2"
                 user2.isAdmin shouldBe true
-                user2.avatarType shouldBe "image"
-                user2.avatarValue shouldBe "/path/to/avatar.jpg"
             }
         }
 

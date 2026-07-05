@@ -10,10 +10,8 @@ import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.ProfileRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
-import com.calypsan.listenup.api.result.AppResult as CoreAppResult
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.every
@@ -55,13 +53,6 @@ class AppStartupViewModelTest :
 
         fun createMockUserRepository(): UserRepository = mock<UserRepository>()
 
-        // No-op [ProfileRepository] mock — profile refresh is fire-and-forget and not exercised here.
-        fun createNoOpProfileRepository(): ProfileRepository {
-            val repo = mock<ProfileRepository>()
-            everySuspend { repo.refreshMyProfile() } returns CoreAppResult.Success(Unit)
-            return repo
-        }
-
         // readiness derives from the sync layer's scan signal; these tests don't drive a scan, so a
         // not-scanning stub is all the aggregator needs. hasLocalLibrary() defaults to false so that
         // existing failure tests still expect CheckFailed — only tests that explicitly opt in to
@@ -102,9 +93,6 @@ class AppStartupViewModelTest :
                 firstName = null,
                 lastName = null,
                 isAdmin = isAdmin,
-                avatarType = "auto",
-                avatarValue = null,
-                avatarColor = "#3B82F6",
                 tagline = null,
                 createdAtMs = 1704067200000L,
                 updatedAtMs = 1704153600000L,
@@ -129,7 +117,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.getCurrentUser() } returns null
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
 
                 // Then - initial state before coroutine completes
                 viewModel.state.value.isChecking shouldBe true
@@ -146,7 +134,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.getCurrentUser() } returns regularUser
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Then
@@ -168,7 +156,7 @@ class AppStartupViewModelTest :
                     AppResult.Success(SetupStatus(needsSetup = true))
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Then
@@ -198,7 +186,7 @@ class AppStartupViewModelTest :
                 every { authSession.authState } returns authState
 
                 // When - constructed before login (as MainActivity does at app launch)
-                val viewModel = AppStartupViewModel(userRepository, factory, authSession, createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, authSession, createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Then - no premature check; not dropped into the wizard
@@ -224,7 +212,7 @@ class AppStartupViewModelTest :
                 val factory = createMockLibraryAdminRpcFactory()
                 everySuspend { userRepository.refreshCurrentUser() } returns null
                 everySuspend { userRepository.getCurrentUser() } returns null
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // When
@@ -245,7 +233,7 @@ class AppStartupViewModelTest :
                 val factory = createMockLibraryAdminRpcFactory()
                 everySuspend { userRepository.refreshCurrentUser() } returns null
                 everySuspend { userRepository.getCurrentUser() } returns null
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Verify backgroundedAtMs is null before the call
@@ -268,7 +256,7 @@ class AppStartupViewModelTest :
                 val factory = createMockLibraryAdminRpcFactory()
                 everySuspend { userRepository.refreshCurrentUser() } returns null
                 everySuspend { userRepository.getCurrentUser() } returns null
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Initial check is complete, isChecking should be false
@@ -301,7 +289,7 @@ class AppStartupViewModelTest :
                     AppResult.Failure(TransportError.NetworkUnavailable())
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Then - check is settled, failure surfaced, NOT forced into the wizard
@@ -327,7 +315,7 @@ class AppStartupViewModelTest :
                 everySuspend { sync.hasLocalLibrary() } throws CancellationException("scope cancelled")
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), sync)
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), sync)
                 advanceUntilIdle()
 
                 // Then - cancellation must propagate, not be mistaken for "no local library" and
@@ -349,7 +337,7 @@ class AppStartupViewModelTest :
                     AppResult.Success(SetupStatus(needsSetup = true))
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Then
@@ -369,7 +357,7 @@ class AppStartupViewModelTest :
                 everySuspend { userRepository.getCurrentUser() } returns regularUser
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Then
@@ -391,7 +379,7 @@ class AppStartupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Failure(TransportError.NetworkUnavailable())
 
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
                 viewModel.state.value.setupCheckFailed shouldBe true
 
@@ -422,7 +410,7 @@ class AppStartupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Success(SetupStatus(needsSetup = true))
 
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), createMockSyncRepository())
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createMockSyncRepository())
                 advanceUntilIdle()
 
                 // Verify initial state
@@ -464,7 +452,7 @@ class AppStartupViewModelTest :
                 val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), syncRepository)
                 advanceUntilIdle()
 
                 // Then - opens offline, NOT stranded on the error wall
@@ -492,7 +480,7 @@ class AppStartupViewModelTest :
                 val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
 
                 // When
-                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), createNoOpProfileRepository(), syncRepository)
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), syncRepository)
                 advanceUntilIdle()
 
                 // Then - retryable error surfaced (honest over silent for genuine no-library case)

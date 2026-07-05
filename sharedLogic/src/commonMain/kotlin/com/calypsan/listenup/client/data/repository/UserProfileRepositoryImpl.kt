@@ -28,17 +28,15 @@ internal class UserProfileRepositoryImpl(
 /**
  * Map a synced public-profile row to the lightweight avatar model.
  *
- * [avatarColor] is deliberately blank: [PublicProfileEntity] carries no server-assigned hex, so
- * the avatar renderer's `parseAvatarHexColor` fallback derives a stable per-user color from the
- * id. [PublicProfileEntity.avatarUpdatedAt] maps to [CachedUserProfile.updatedAt] so the Coil
- * cache key versions on avatar-byte changes — a re-uploaded avatar busts the stale bitmap.
+ * The avatar color is not carried: [PublicProfileEntity] holds no server-assigned hex, so the
+ * avatar renderer derives a stable per-user color from the id. [PublicProfileEntity.avatarUpdatedAt]
+ * maps to [CachedUserProfile.updatedAt] so the Coil cache key versions on avatar-byte changes —
+ * a re-uploaded avatar busts the stale bitmap.
  */
 private fun PublicProfileEntity.toDomain(): CachedUserProfile =
     CachedUserProfile(
         id = id,
         displayName = displayName,
         avatarType = avatarType,
-        avatarValue = null,
-        avatarColor = "",
         updatedAt = avatarUpdatedAt,
     )

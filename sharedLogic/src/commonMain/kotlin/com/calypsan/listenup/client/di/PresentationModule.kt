@@ -502,6 +502,7 @@ internal val profilePresentationModule =
             com.calypsan.listenup.client.presentation.profile.EditProfileViewModel(
                 profileEditRepository = get(),
                 userRepository = get(),
+                userProfileRepository = get(),
             )
         }
     }
@@ -550,7 +551,6 @@ internal val startupPresentationModule =
                 userRepository = get(),
                 libraryAdminRpcFactory = get(),
                 authSession = get(),
-                profileRepository = get(),
                 syncRepository = get(),
             )
         }

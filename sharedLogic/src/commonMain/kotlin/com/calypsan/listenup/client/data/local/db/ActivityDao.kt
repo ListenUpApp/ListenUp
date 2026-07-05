@@ -116,61 +116,6 @@ internal interface ActivityDao {
      */
     @Query("SELECT COUNT(*) FROM activities")
     suspend fun count(): Int
-
-    // ==================== Leaderboard Aggregation Queries ====================
-
-    /**
-     * Observe aggregated stats for all users (for leaderboard).
-     *
-     * Joins `user_profiles` (for display data) with `activities` (for recent stats).
-     * Users with no recent activity show 0 values.
-     *
-     * TODO: The `user_stats` table now holds per-user materialized
-     *  stats; this query should be updated to join `user_stats` for all-time stats and
-     *  `user_profiles` for profile data once the stats sync domain handler lands.
-     *
-     * @param sinceMs Epoch milliseconds - only include activities since this time
-     * @return Flow emitting list of user stats
-     */
-    @Query(
-        """
-        SELECT
-            up.id as userId,
-            up.displayName,
-            up.avatarColor,
-            up.avatarType,
-            up.avatarValue,
-            COALESCE(SUM(CASE WHEN a.type = 'listening_session' AND a.durationMs > 0 THEN a.durationMs ELSE 0 END), 0) as totalTimeMs,
-            COUNT(DISTINCT CASE WHEN a.type = 'finished_book' THEN a.bookId END) as booksCount
-        FROM user_profiles up
-        LEFT JOIN activities a ON a.userId = up.id AND a.occurredAt >= :sinceMs AND a.deletedAt IS NULL
-        GROUP BY up.id
-        ORDER BY totalTimeMs DESC
-    """,
-    )
-    fun observeLeaderboardStats(sinceMs: Long): Flow<List<UserLeaderboardStats>>
-
-    /**
-     * Observe community totals for all users.
-     * Used for the community stats footer in leaderboard.
-     *
-     * Uses `user_profiles` as the universe of known users.
-     * Uses durationMs > 0 check to filter negative durations (from bad data) to prevent overflow.
-     *
-     * @param sinceMs Epoch milliseconds - only include activities since this time
-     * @return Flow emitting community aggregate stats
-     */
-    @Query(
-        """
-        SELECT
-            COALESCE(SUM(CASE WHEN a.type = 'listening_session' AND a.durationMs > 0 THEN a.durationMs ELSE 0 END), 0) as totalTimeMs,
-            COUNT(DISTINCT CASE WHEN a.type = 'finished_book' THEN a.bookId END) as totalBooks,
-            (SELECT COUNT(*) FROM user_profiles) as activeUsers
-        FROM user_profiles up
-        LEFT JOIN activities a ON a.userId = up.id AND a.occurredAt >= :sinceMs AND a.deletedAt IS NULL
-    """,
-    )
-    fun observeCommunityStats(sinceMs: Long): Flow<CommunityStatsProjection>
 }
 
 /**
@@ -195,28 +140,4 @@ internal data class ActivityWithProfile(
     val bookTitle: String?,
     val bookCoverPath: String?,
     val bookAuthorName: String?,
-)
-
-/**
- * Projection for leaderboard user stats aggregation.
- * Maps to Room query result columns.
- */
-internal data class UserLeaderboardStats(
-    val userId: String,
-    val displayName: String,
-    val avatarColor: String,
-    val avatarType: String,
-    val avatarValue: String?,
-    val totalTimeMs: Long,
-    val booksCount: Int,
-)
-
-/**
- * Projection for community aggregate stats.
- * Maps to Room query result columns.
- */
-internal data class CommunityStatsProjection(
-    val totalTimeMs: Long,
-    val totalBooks: Int,
-    val activeUsers: Int,
 )
