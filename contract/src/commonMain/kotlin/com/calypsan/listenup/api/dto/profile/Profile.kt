@@ -19,6 +19,20 @@ data class Profile(
     val updatedAt: Long,
 )
 
+/**
+ * Response to a successful avatar upload (`POST /api/v1/profile/avatar`).
+ *
+ * [avatarUpdatedAt] is the server's epoch-ms stamp for the freshly stored bytes — the exact value
+ * the `public_profiles` projection now carries. The client writes it verbatim into its own observed
+ * row so the optimistic pre-sync render and the eventual SSE echo agree on the avatar version,
+ * busting the cached bitmap without a redundant re-download.
+ */
+@Serializable
+@SerialName("AvatarUploadResponse")
+data class AvatarUploadResponse(
+    val avatarUpdatedAt: Long,
+)
+
 /** A password change: current password is verified before the new one is stored. */
 @Serializable
 @SerialName("PasswordChange")

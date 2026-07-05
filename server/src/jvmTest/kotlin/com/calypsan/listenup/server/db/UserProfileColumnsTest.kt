@@ -40,6 +40,7 @@ class UserProfileColumnsTest :
                         display_name = "Pat",
                         tagline = "Reader of books",
                         avatar_type = "image",
+                        avatar_updated_at = 1L,
                         password_hash = "h",
                         updated_at = 1L,
                         id = "u-prof-1",

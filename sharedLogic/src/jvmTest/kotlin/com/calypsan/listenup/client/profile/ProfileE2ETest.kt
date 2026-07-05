@@ -18,6 +18,9 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.DatabaseConfig
 import com.calypsan.listenup.server.db.DatabaseFactory
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase as ServerSqlDatabase
+import com.calypsan.listenup.server.media.ImageStore
+import com.calypsan.listenup.server.routes.AVATAR_MAX_BYTES
+import kotlinx.io.files.Path as IoPath
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.rpcguard.guard
@@ -113,6 +116,7 @@ class ProfileE2ETest :
                             serverSqlDb,
                             PublicProfileRepository(serverSqlDb, ChangeBus(), SyncRegistry()),
                         ),
+                    imageStore = ImageStore(IoPath(Files.createTempDirectory("e2e-avatars").toString()), AVATAR_MAX_BYTES),
                 )
 
             testApplication {
@@ -169,6 +173,7 @@ class ProfileE2ETest :
                             serverSqlDb,
                             PublicProfileRepository(serverSqlDb, ChangeBus(), SyncRegistry()),
                         ),
+                    imageStore = ImageStore(IoPath(Files.createTempDirectory("e2e-avatars").toString()), AVATAR_MAX_BYTES),
                 )
 
             testApplication {

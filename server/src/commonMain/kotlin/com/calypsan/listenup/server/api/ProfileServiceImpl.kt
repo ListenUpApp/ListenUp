@@ -12,8 +12,11 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Users
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.media.ImageStore
 import com.calypsan.listenup.server.services.PublicProfileMaintainer
 import kotlin.time.Clock
+
+private const val AVATAR_TYPE_AUTO = "auto"
 
 /**
  * Server-side implementation of [ProfileService].
@@ -34,6 +37,7 @@ internal class ProfileServiceImpl(
     private val sql: ListenUpDatabase,
     private val passwordHasher: PasswordHasher,
     private val publicProfileMaintainer: PublicProfileMaintainer,
+    private val imageStore: ImageStore,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : ProfileService {
@@ -75,15 +79,27 @@ internal class ProfileServiceImpl(
         val mergedAvatarType = request.avatarType ?: current.avatar_type
         val mergedHash = newHash ?: current.password_hash
         val now = clock.now().toEpochMilliseconds()
+        // The avatar version advances only when the avatar type actually flips (the sole self-service
+        // change here is revert-to-auto; upload flips to "image" via the REST route). Bumping it feeds
+        // the public_profiles projection so every client's cached bitmap busts — otherwise a revert
+        // would silently never propagate (the bug this closes).
+        val avatarChanged = mergedAvatarType != current.avatar_type
+        val mergedAvatarUpdatedAt = if (avatarChanged) now else current.avatar_updated_at
         suspendTransaction(sql) {
             sql.usersQueries.updateProfileFields(
                 display_name = mergedDisplayName,
                 tagline = mergedTagline,
                 avatar_type = mergedAvatarType,
+                avatar_updated_at = mergedAvatarUpdatedAt,
                 password_hash = mergedHash,
                 updated_at = now,
                 id = userId,
             )
+        }
+        // Reverting to the auto avatar orphans the stored bytes — delete them so GET /avatars/{id}
+        // 404s and no stale image lingers on disk. Idempotent; runs outside the transaction.
+        if (avatarChanged && mergedAvatarType == AVATAR_TYPE_AUTO) {
+            imageStore.delete(userId)
         }
         // Refresh the projection after the user-row write commits — reads back from DB.
         publicProfileMaintainer.refreshBestEffort(userId)
@@ -104,6 +120,7 @@ internal class ProfileServiceImpl(
             sql = sql,
             passwordHasher = passwordHasher,
             publicProfileMaintainer = publicProfileMaintainer,
+            imageStore = imageStore,
             clock = clock,
             principal = principal,
         )
@@ -130,8 +147,14 @@ fun createProfileService(
     sql: ListenUpDatabase,
     passwordHasher: PasswordHasher,
     publicProfileMaintainer: PublicProfileMaintainer,
+    imageStore: ImageStore,
 ): ProfileService =
-    ProfileServiceImpl(sql = sql, passwordHasher = passwordHasher, publicProfileMaintainer = publicProfileMaintainer)
+    ProfileServiceImpl(
+        sql = sql,
+        passwordHasher = passwordHasher,
+        publicProfileMaintainer = publicProfileMaintainer,
+        imageStore = imageStore,
+    )
 
 /**
  * Scopes a [ProfileService] built by [createProfileService] to [principal] for one request.

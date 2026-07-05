@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.io.MultipartPartTooLargeException
@@ -70,7 +71,9 @@ fun Route.profileRoutes(
         // stream — both back to the uploader (its own UserAvatar reads the synced projection, not
         // the users row) and out to other clients. Mirrors ProfileServiceImpl.updateMyProfile.
         publicProfileMaintainer.refreshBestEffort(userId)
-        call.respond(HttpStatusCode.NoContent)
+        // Return the server's avatar version so the client writes exact server truth into its
+        // observed public_profiles row (no client-clock guess, no redundant re-download).
+        call.respond(AvatarUploadResponse(avatarUpdatedAt = now))
     }
 
     get("/api/v1/avatars/{userId}") {

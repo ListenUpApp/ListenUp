@@ -359,5 +359,5 @@ private fun unscopedPlaceholder(serviceName: String): PrincipalProvider =
  */
 private const val DEFAULT_EMBEDDED_COVER_CACHE_SIZE = 1000
 
-/** Maximum accepted cover image size (10 MiB). Covers are larger than avatars (2 MiB). */
+/** Maximum accepted cover image size (10 MiB). Covers are larger than avatars (5 MiB). */
 private const val COVER_MAX_BYTES = 10L * 1024 * 1024

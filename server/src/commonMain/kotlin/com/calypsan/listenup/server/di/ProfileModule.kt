@@ -12,13 +12,14 @@ import org.koin.dsl.module
 /** Profile RPC service + avatar ImageStore wiring. [avatarsDir] is `$LISTENUP_HOME/avatars`. */
 fun profileModule(avatarsDir: Path): Module =
     module {
+        single { ImageStore(avatarsDir, maxBytes = AVATAR_MAX_BYTES) }
         single<ProfileService> {
             ProfileServiceImpl(
                 sql = get<ListenUpDatabase>(),
                 passwordHasher = get(),
                 publicProfileMaintainer = get(),
+                imageStore = get(),
                 clock = get(),
             )
         }
-        single { ImageStore(avatarsDir, maxBytes = AVATAR_MAX_BYTES) }
     }
