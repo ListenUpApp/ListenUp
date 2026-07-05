@@ -73,7 +73,7 @@ inline below.
    - **Never `await` an `AppResult`-returning Kotlin suspend from Swift.** It traps in the Swift Export
      bridge (`__createProtocolWrapper(...) as! any AppResult` cast failure → frozen UI). Consume
      `AppResult` in Kotlin and expose a plain-typed `*OrNull` accessor (see `AppResult.valueOrNull` +
-     the `getInstanceOrNull`/`getResumeBookOrNull`/`downloadBookOrNull`/`ensureLocalPathOrNull`
+     the `getServerInfoOrNull`/`getResumeBookOrNull`/`downloadBookOrNull`/`ensureLocalPathOrNull`
      precedents); Swift `await`s the plain optional. Enforced by `scripts/check-no-appresult-await.sh`
      in the `Test (iOS)` CI job. (Plain-typed suspends — `String?`, domain types, `Flow`,
      fire-and-forget `Unit` — are fine.)

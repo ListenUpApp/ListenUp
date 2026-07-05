@@ -46,7 +46,7 @@ interface InstanceRepository {
     /**
      * iOS-safe accessor: the [ServerInfo] or `null` on failure (folded in Kotlin). Use from Swift —
      * never `await` the `AppResult`-returning [getServerInfo] (Swift Export bridge trap). This is
-     * the RPC-backed replacement for [getInstanceOrNull] on the share-link / server-identity path.
+     * the RPC-backed accessor for the share-link / server-identity path.
      */
     suspend fun getServerInfoOrNull(forceRefresh: Boolean = false): ServerInfo? =
         getServerInfo(forceRefresh).valueOrNull {
@@ -61,15 +61,6 @@ interface InstanceRepository {
      * GET surface exists. New code should prefer [getServerInfo].
      */
     suspend fun getInstance(forceRefresh: Boolean = false): AppResult<Instance>
-
-    /**
-     * iOS-safe accessor: the [Instance] or `null` on failure (folded in Kotlin). Use from Swift —
-     * never `await` the `AppResult`-returning [getInstance] (Swift Export bridge trap). Android/server use [getInstance].
-     */
-    suspend fun getInstanceOrNull(forceRefresh: Boolean = false): Instance? =
-        getInstance(forceRefresh).valueOrNull {
-            instanceRepositoryLogger.warn { "getInstanceOrNull: ${it.debugInfo ?: it.message}" }
-        }
 
     /**
      * Verifies a server URL is a valid ListenUp instance before authentication.
