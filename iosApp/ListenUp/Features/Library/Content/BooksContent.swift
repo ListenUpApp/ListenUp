@@ -205,7 +205,13 @@ struct BooksContent: View {
         } else {
             NavigationLink(value: BookDestination(id: book.id)) { card }
                 .buttonStyle(.plain)
-                .onLongPressGesture { selection.enter(book.id) }
+                // A long-press attached directly to a NavigationLink is swallowed by the link's
+                // own press recognizer and never fires. `simultaneousGesture` lets the long-press
+                // run alongside the tap: a quick tap still navigates, a hold enters selection.
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.4)
+                        .onEnded { _ in selection.enter(book.id) }
+                )
         }
     }
 
