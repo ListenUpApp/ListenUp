@@ -63,10 +63,10 @@ selectByNormalizedName:
 SELECT * FROM contributors WHERE normalized_name = :normalized_name;
 
 -- Batch dedup lookup: resolveOrCreateAll resolves a whole scan's contributors in one
--- query. Projects (normalized_name, id) so the caller builds the dedup-key → id map
--- without re-reading every column.
+-- query. Projects (normalized_name, id, deleted_at) so the caller builds the
+-- dedup-key → id map without re-reading every column AND can revive tombstoned hits.
 selectByNormalizedNames:
-SELECT normalized_name, id FROM contributors WHERE normalized_name IN :normalized_names;
+SELECT normalized_name, id, deleted_at FROM contributors WHERE normalized_name IN :normalized_names;
 
 -- Live (non-tombstoned) id strings — OrphanImageCleanupTask uses these to keep
 -- images whose contributor still exists.

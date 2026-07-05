@@ -38,8 +38,11 @@ class LinkedParents(
  * live-book count has dropped to zero. Each count joins live books, so a lingering junction to the
  * now-dead book never keeps a parent alive.
  *
- * **Revival note.** A purged parent is not explicitly revived; a remove-then-rescan re-ingests the
- * book through `resolveOrCreate`, which resurrects the parent, so memberships return on re-scan.
+ * **Revival note.** A remove-then-rescan resurrects purged parents: contributors and series are
+ * revived IN PLACE by `resolveOrCreate` (a dedup hit on a tombstoned row clears `deleted_at`,
+ * bumps the revision, and publishes `SyncEvent.Updated`, keeping the id stable). Genres, tags,
+ * and moods are re-created as fresh rows instead — their slug lookups are live-only and their
+ * slug unique indexes are partial (`WHERE deleted_at IS NULL`), so a new id is minted.
  */
 class OrphanParentPurger(
     private val db: ListenUpDatabase,

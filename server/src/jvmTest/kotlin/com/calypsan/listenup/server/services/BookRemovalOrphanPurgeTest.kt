@@ -143,14 +143,30 @@ class BookRemovalOrphanPurgeTest :
 
                     // Removal purges the sole-linked parents (pinned by the neighbor tests above).
                     bookRepo.softDelete(BookId("book1"), clientOpId = null)
-                    sql.contributorsQueries.selectById(c1.value).executeAsOne().deleted_at.shouldNotBeNull()
-                    sql.seriesQueries.selectById(s1.value).executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.contributorsQueries
+                        .selectById(c1.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                    sql.seriesQueries
+                        .selectById(s1.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
 
                     // Re-ingest the same names — the scanner's resolve path — and both parents come back live.
                     contributorRepo.resolveOrCreate("Sole Author", "Author, Sole") shouldBe c1
                     seriesRepo.resolveOrCreate("Sole Saga") shouldBe s1
-                    sql.contributorsQueries.selectById(c1.value).executeAsOne().deleted_at.shouldBeNull()
-                    sql.seriesQueries.selectById(s1.value).executeAsOne().deleted_at.shouldBeNull()
+                    sql.contributorsQueries
+                        .selectById(c1.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
+                    sql.seriesQueries
+                        .selectById(s1.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
                 }
             }
         }

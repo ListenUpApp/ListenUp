@@ -151,6 +151,11 @@ class SeriesRepository(
      * publishing `SyncEvent.Created`). Idempotent on the normalized name; the
      * display name preserves the first writer's casing.
      *
+     * A dedup hit on a TOMBSTONED row (a series purged by [OrphanParentPurger] after its last
+     * live book was removed) is revived in place — `deleted_at` cleared, revision bumped,
+     * `SyncEvent.Updated` published — so re-ingesting the same name resurrects the series under
+     * its original id. Live hits remain pure reads: no event, no revision bump.
+     *
      * The find-miss → create window is a benign race only under SQLite's
      * single-writer model; the single-threaded scan never triggers it.
      */
@@ -161,9 +166,11 @@ class SeriesRepository(
                 db.seriesQueries
                     .selectByNormalizedName(normalized)
                     .executeAsOneOrNull()
-                    ?.id
             }
-        if (existing != null) return SeriesId(existing)
+        if (existing != null) {
+            if (existing.deleted_at != null) reviveTombstonedHit(existing.id)
+            return SeriesId(existing.id)
+        }
 
         val id = SeriesId(Uuid.random().toString())
         upsert(
@@ -197,6 +204,8 @@ class SeriesRepository(
      *
      * @return a `Map<normalizedKey, SeriesId>` keyed by [normalizeForDedup] — callers look an id up
      *   by recomputing that key for each book's series. Every supplied name's key is present.
+     *
+     * Tombstoned hits are revived; see [resolveOrCreate].
      */
     suspend fun resolveOrCreateAll(names: Collection<String>): Map<String, SeriesId> {
         if (names.isEmpty()) return emptyMap()
@@ -209,19 +218,39 @@ class SeriesRepository(
         }
 
         // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.
-        val existing =
+        val existingRows =
             suspendTransaction(db) {
                 byKey.keys
                     .chunked(SQLITE_IN_CHUNK)
                     .flatMap { chunk -> db.seriesQueries.selectByNormalizedNames(chunk).executeAsList() }
-                    .associate { it.normalized_name to SeriesId(it.id) }
             }
+        // Revive tombstoned dedup hits before handing their ids back: a purged series returned by
+        // the dedup lookup must come back live (see reviveTombstonedHit). Rare — only ever after an
+        // orphan purge — so per-id upserts are fine here.
+        for (row in existingRows) {
+            if (row.deleted_at != null) reviveTombstonedHit(row.id)
+        }
+        val existing = existingRows.associate { it.normalized_name to SeriesId(it.id) }
 
         val resolved = LinkedHashMap<String, SeriesId>(byKey.size)
         for ((key, name) in byKey) {
             resolved[key] = existing[key] ?: resolveOrCreate(name)
         }
         return resolved
+    }
+
+    /**
+     * Revives a tombstoned dedup hit in place: re-upserts the row's own read-back payload with
+     * `deletedAt = null`. The base `upsert` bumps the domain revision and publishes
+     * [com.calypsan.listenup.api.sync.SyncEvent.Updated]; [writePayload]'s update branch always
+     * clears `deleted_at`. The id stays stable, so junction rows written against it resolve again —
+     * the same revive semantics as [BookRepository.reviveById] (clear deleted_at + bump revision +
+     * publish Updated), composed from the existing substrate instead of a dedicated query.
+     * Enrichment columns survive because the payload is the row's own current content.
+     */
+    private suspend fun reviveTombstonedHit(idStr: String) {
+        val payload = findById(idStr) ?: return
+        upsert(payload.copy(deletedAt = null), clientOpId = null)
     }
 
     /** Reads a series by raw id outside substrate orchestration — test/diagnostic use. */

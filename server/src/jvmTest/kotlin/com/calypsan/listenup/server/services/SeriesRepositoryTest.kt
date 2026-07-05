@@ -252,10 +252,14 @@ class SeriesRepositoryTest :
                     val id = repo.resolveOrCreate("Purged Saga")
                     repo.softDelete(id)
                     val revisionAfterDelete =
-                        sql.seriesQueries.selectById(id.value).executeAsOne().revision
+                        sql.seriesQueries
+                            .selectById(id.value)
+                            .executeAsOne()
+                            .revision
 
-                    // Subscribe after the delete so the first observed event is the revive's.
-                    val deferred = async { bus.subscribe().first() }
+                    // The bus replays the earlier Created/Deleted; the revive is the only Updated,
+                    // so filter for it rather than taking the replayed head.
+                    val deferred = async { bus.subscribe().first { it.event is SyncEvent.Updated<*> } }
                     advanceUntilIdle()
 
                     val resolved = repo.resolveOrCreate("Purged Saga")
@@ -267,6 +271,7 @@ class SeriesRepositoryTest :
 
                     val busEvent = deferred.await()
                     busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<SeriesSyncPayload>>()
+                    busEvent.event.id shouldBe id.value
                 }
             }
         }
@@ -279,7 +284,10 @@ class SeriesRepositoryTest :
                     val live = repo.resolveOrCreate("Live Saga")
                     repo.softDelete(purged)
                     val liveRevisionBefore =
-                        sql.seriesQueries.selectById(live.value).executeAsOne().revision
+                        sql.seriesQueries
+                            .selectById(live.value)
+                            .executeAsOne()
+                            .revision
 
                     val resolved =
                         repo.resolveOrCreateAll(listOf("Purged Saga", "Live Saga", "Brand New Saga"))
@@ -292,7 +300,10 @@ class SeriesRepositoryTest :
                         .deleted_at
                         .shouldBeNull() // FAILS before the fix
                     // Live hit stays a pure read — no gratuitous revision bump.
-                    sql.seriesQueries.selectById(live.value).executeAsOne().revision shouldBe liveRevisionBefore
+                    sql.seriesQueries
+                        .selectById(live.value)
+                        .executeAsOne()
+                        .revision shouldBe liveRevisionBefore
                 }
             }
         }

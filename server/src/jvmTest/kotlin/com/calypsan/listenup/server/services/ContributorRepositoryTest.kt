@@ -324,10 +324,14 @@ class ContributorRepositoryTest :
                     val id = repo.resolveOrCreate("Purged Author", sortName = null)
                     repo.softDelete(id)
                     val revisionAfterDelete =
-                        sql.contributorsQueries.selectById(id.value).executeAsOne().revision
+                        sql.contributorsQueries
+                            .selectById(id.value)
+                            .executeAsOne()
+                            .revision
 
-                    // Subscribe after the delete so the first observed event is the revive's.
-                    val deferred = async { bus.subscribe().first() }
+                    // The bus replays the earlier Created/Deleted; the revive is the only Updated,
+                    // so filter for it rather than taking the replayed head.
+                    val deferred = async { bus.subscribe().first { it.event is SyncEvent.Updated<*> } }
                     advanceUntilIdle()
 
                     val resolved = repo.resolveOrCreate("Purged Author", sortName = null)
@@ -339,6 +343,7 @@ class ContributorRepositoryTest :
 
                     val busEvent = deferred.await()
                     busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<ContributorSyncPayload>>()
+                    busEvent.event.id shouldBe id.value
                 }
             }
         }
@@ -351,7 +356,10 @@ class ContributorRepositoryTest :
                     val live = repo.resolveOrCreate("Live Author", sortName = null)
                     repo.softDelete(purged)
                     val liveRevisionBefore =
-                        sql.contributorsQueries.selectById(live.value).executeAsOne().revision
+                        sql.contributorsQueries
+                            .selectById(live.value)
+                            .executeAsOne()
+                            .revision
 
                     val resolved =
                         repo.resolveOrCreateAll(
@@ -366,7 +374,10 @@ class ContributorRepositoryTest :
                         .deleted_at
                         .shouldBeNull() // FAILS before the fix
                     // Live hit stays a pure read — no gratuitous revision bump.
-                    sql.contributorsQueries.selectById(live.value).executeAsOne().revision shouldBe liveRevisionBefore
+                    sql.contributorsQueries
+                        .selectById(live.value)
+                        .executeAsOne()
+                        .revision shouldBe liveRevisionBefore
                 }
             }
         }
