@@ -96,3 +96,16 @@ relinkByCreditedAs:
 UPDATE book_contributors
 SET contributor_id = :to_id, credited_as = NULL
 WHERE contributor_id = :from_id AND credited_as = :alias_name;
+
+-- Distinct contributor ids linked to a book — the orphan-purge capture set (read while the book
+-- is still live). book_contributors is a hard-replace child table, so a soft-deleted book's rows
+-- persist; the count below joins live books to decide orphanhood.
+contributorIdsForBook:
+SELECT DISTINCT contributor_id FROM book_contributors WHERE book_id = :book_id;
+
+-- Count of LIVE books linked to a contributor (dead books excluded via the join). Zero ⇒ the
+-- contributor is orphaned by a book removal and is tombstoned by the orphan-purge cascade.
+liveBookCountForContributor:
+SELECT COUNT(DISTINCT bc.book_id) FROM book_contributors bc
+JOIN books b ON b.id = bc.book_id AND b.deleted_at IS NULL
+WHERE bc.contributor_id = :contributor_id;

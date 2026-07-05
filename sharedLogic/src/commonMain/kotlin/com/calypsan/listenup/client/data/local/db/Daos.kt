@@ -176,6 +176,7 @@ internal interface ContributorDao {
         SELECT c.*, COUNT(bc.bookId) as bookCount
         FROM contributors c
         INNER JOIN book_contributors bc ON c.id = bc.contributorId
+        INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL
         WHERE bc.role = :role AND c.deletedAt IS NULL
         GROUP BY c.id
         ORDER BY c.name ASC
@@ -202,6 +203,7 @@ internal interface ContributorDao {
         """
         SELECT bc.role, COUNT(bc.bookId) as bookCount
         FROM book_contributors bc
+        INNER JOIN books b ON b.id = bc.bookId AND b.deletedAt IS NULL
         WHERE bc.contributorId = :contributorId
         GROUP BY bc.role
         ORDER BY bc.role ASC

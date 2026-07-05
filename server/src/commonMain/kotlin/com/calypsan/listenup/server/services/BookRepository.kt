@@ -141,6 +141,8 @@ class BookRepository(
     private val collectionBookRepository: com.calypsan.listenup.server.sync.CollectionBookRepository? = null,
     private val tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
+    private val bookMoodRepository: com.calypsan.listenup.server.sync.BookMoodRepository? = null,
+    private val orphanParentPurger: OrphanParentPurger? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
 ) : SqlSyncableRepository<BookSyncPayload, BookId>(
@@ -909,17 +911,31 @@ class BookRepository(
     }
 
     /**
-     * Tombstones this book and cascade-soft-deletes all of its `book_tags` junction
-     * rows so clients receive per-row tombstones for the orphaned junctions.
+     * Tombstones this book and cascade-soft-deletes all of its junction rows — `book_tags`,
+     * `book_moods`, and `collection_books` — so clients receive per-row tombstones for the orphaned
+     * junctions. Tombstoning the `collection_books` rows is what makes a removed book leave every
+     * collection it was in (Continue-Listening/search/collection-visibility all key off live
+     * memberships): a dead book no longer surfaces via any collection's list, count, or the
+     * `accessibleBookIdsSql` grant branch. Each cascade opens its own transaction (matching the
+     * per-row substrate contract), run after the book's own tombstone commits.
+     *
+     * Finally, the orphan-purge cascade ([orphanParentPurger]) tombstones any contributor / series /
+     * genre / tag / mood the removal left with zero live book children, so an orphaned parent stops
+     * appearing. The linked parents are captured BEFORE the removal (the tag/mood junctions are
+     * tombstoned by the cascade), then re-evaluated after it.
      */
     override suspend fun softDelete(
         id: BookId,
         clientOpId: String?,
         userId: String?,
     ): AppResult<Unit> {
+        val linkedParents = orphanParentPurger?.captureParents(id.value)
         val result = super.softDelete(id, clientOpId, userId)
         if (result is AppResult.Success) {
             bookTagRepository?.softDeleteAllForBook(id.value)
+            bookMoodRepository?.softDeleteAllForBook(id.value)
+            collectionBookRepository?.softDeleteAllForBook(id.value)
+            if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
         return result
     }
@@ -1074,9 +1090,14 @@ class BookRepository(
                 }
             }
         }
-        // Symmetric with softDelete's tag tombstone cascade: restore each book's user tags (its own
-        // transaction, exactly as the tombstone cascade is a separate call after the book write).
-        bookTagRepository?.reviveAllForBooks(ids.map { it.value }, cascadeFloor)
+        // Symmetric with softDelete's junction tombstone cascade: restore each book's user tags,
+        // moods, and collection memberships (each its own transaction, exactly as the tombstone
+        // cascade is a separate call after the book write), floored on the folder-removal instant so
+        // a remove-then-rescan keeps a book's memberships instead of losing them.
+        val idValues = ids.map { it.value }
+        bookTagRepository?.reviveAllForBooks(idValues, cascadeFloor)
+        bookMoodRepository?.reviveAllForBooks(idValues, cascadeFloor)
+        collectionBookRepository?.reviveAllForBooks(idValues, cascadeFloor)
     }
 
     /**

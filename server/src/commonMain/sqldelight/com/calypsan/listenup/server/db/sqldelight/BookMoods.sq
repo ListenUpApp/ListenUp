@@ -71,6 +71,16 @@ WHERE book_id = :book_id AND mood_id = :mood_id;
 selectLiveIdsForBook:
 SELECT id FROM book_moods WHERE book_id = :book_id AND deleted_at IS NULL;
 
+-- Tombstoned junction rows for a batch of books at or after :floor — the revive counterpart to
+-- selectLiveIdsForBook, floored on the folder-removal cascade instant (mirrors BookTags): only
+-- moods tombstoned BY the folder removal return with the book on re-add.
+selectDeletedForBooksSince:
+SELECT * FROM book_moods WHERE book_id IN :book_ids AND deleted_at IS NOT NULL AND deleted_at >= :floor;
+
+-- Revives a tombstoned junction (clears deleted_at, bumps revision) so clients reflow the mood as live.
+reviveById:
+UPDATE book_moods SET revision = :revision, updated_at = :updated_at, deleted_at = NULL WHERE id = :id;
+
 selectLiveIdsForMood:
 SELECT id FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
 
@@ -79,3 +89,9 @@ SELECT id FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
 -- `BookMoodsTable.selectAll().where { moodId eq … and deletedAt.isNull() }.count()`.
 countLiveForMood:
 SELECT COUNT(*) FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
+
+-- Count of LIVE books linked to a mood via a LIVE junction — the orphan-purge decision for moods.
+liveBookCountForMood:
+SELECT COUNT(*) FROM book_moods bm
+JOIN books b ON b.id = bm.book_id AND b.deleted_at IS NULL
+WHERE bm.mood_id = :mood_id AND bm.deleted_at IS NULL;

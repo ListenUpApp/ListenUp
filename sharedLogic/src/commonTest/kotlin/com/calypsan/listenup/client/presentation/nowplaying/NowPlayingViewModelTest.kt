@@ -83,6 +83,8 @@ class NowPlayingViewModelTest :
                 // Default: bookRepository.getBookListItem returns null (no metadata).
                 // bookFlow tolerates null; pure mapToNowPlayingState handles it.
                 everySuspend { bookRepository.getBookListItem(any()) } returns null
+                // Default: the now-playing book stays live, so the liveness teardown never fires.
+                every { bookRepository.observeIsBookLive(any()) } returns flowOf(true)
                 // Default: documentRepository.observeDocuments returns empty list (no documents).
                 every { documentRepository.observeDocuments(any()) } returns flowOf(emptyList())
                 // NowPlayingViewModel's init block calls playbackController.acquire() to
@@ -100,6 +102,12 @@ class NowPlayingViewModelTest :
                     playbackPreferences = playbackPreferences,
                     networkMonitor = networkMonitor,
                     documentRepository = documentRepository,
+                    downloadRepository =
+                        com.calypsan.listenup.client.test.fake
+                            .FakeDownloadRepository(),
+                    playbackPositionRepository =
+                        com.calypsan.listenup.client.test.fake
+                            .FakePlaybackPositionRepository(),
                 )
         }
 

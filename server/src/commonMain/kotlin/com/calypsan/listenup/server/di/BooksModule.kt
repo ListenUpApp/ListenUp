@@ -49,6 +49,7 @@ import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.GenreAutoCreator
 import com.calypsan.listenup.server.services.GenreRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
+import com.calypsan.listenup.server.services.OrphanParentPurger
 import com.calypsan.listenup.server.services.PendingGenrePromotion
 import com.calypsan.listenup.server.services.SearchReindexService
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -136,6 +137,8 @@ fun booksModule(
                 collectionBookRepository = get(),
                 tagRepository = getOrNull<TagRepository>(),
                 bookTagRepository = getOrNull<BookTagRepository>(),
+                bookMoodRepository = getOrNull<BookMoodRepository>(),
+                orphanParentPurger = get<OrphanParentPurger>(),
                 homeDir = homeDir,
                 coverImageStore = get<CoverImageStore>(),
             )

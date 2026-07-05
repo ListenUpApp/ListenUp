@@ -42,6 +42,10 @@ class FakeBookRepository(
 
     override fun observeChapters(bookId: String): Flow<List<Chapter>> = flowOf(chaptersByBookId[bookId].orEmpty())
 
+    /** A book is "live" in this fake when it is present in the current [books] list. */
+    override fun observeIsBookLive(id: String): Flow<Boolean> =
+        books.asStateFlow().map { list -> list.any { it.id == BookId(id) } }
+
     override fun observeRandomUnstartedBooks(limit: Int): Flow<List<DiscoveryBook>> =
         books.asStateFlow().map { list -> list.take(limit).map(::toDiscoveryBook) }
 

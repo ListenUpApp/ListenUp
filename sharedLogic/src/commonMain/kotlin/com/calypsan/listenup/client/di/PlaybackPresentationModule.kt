@@ -25,6 +25,8 @@ internal val playbackPresentationModule =
                 playbackPreferences = get(),
                 networkMonitor = get(),
                 documentRepository = get(),
+                downloadRepository = get(),
+                playbackPositionRepository = get(),
             )
         }
     }

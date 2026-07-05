@@ -124,6 +124,19 @@ internal interface BookDao {
     fun observeByIdWithContributors(id: BookId): Flow<BookWithContributors?>
 
     /**
+     * Observe whether a book is currently live (present and not tombstoned) in the local mirror.
+     *
+     * Emits `false` when the row is absent OR soft-deleted (`deletedAt` non-null) — the signal the
+     * now-playing teardown watches so a revoked/removed book stops streaming while a downloaded,
+     * in-progress copy is honoured (offline grace).
+     *
+     * @param id The type-safe book ID
+     * @return Flow emitting `true` while the book is live, `false` once it is gone or tombstoned
+     */
+    @Query("SELECT COUNT(*) > 0 FROM books WHERE id = :id AND deletedAt IS NULL")
+    fun observeIsLive(id: BookId): Flow<Boolean>
+
+    /**
      * Get multiple books by IDs with their contributors in a single batched query.
      *
      * Uses Room Relations to efficiently load books and their contributors,

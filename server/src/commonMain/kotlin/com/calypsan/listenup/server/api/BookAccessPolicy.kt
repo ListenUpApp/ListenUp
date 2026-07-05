@@ -212,6 +212,12 @@ class BookAccessPolicy(
      *
      * The selected `cb.id` matches the synthetic key the junction's [SyncableRepository] stores,
      * so the substrate's `collection_books.id IN (<sql>)` splice lines up exactly.
+     *
+     * **Book-liveness-aware (belt-and-suspenders).** A junction pointing at a tombstoned book is
+     * excluded (`books.deleted_at IS NULL`), so even if the book-removal cascade somehow missed a
+     * junction it never surfaces a dead book to a member's collection view — the removal cascade
+     * tombstones the junction directly, and the client's `collection_books` access-gate prunes any
+     * that slip past. Redundant with the cascade by design, cheap to enforce here.
      */
     fun accessibleCollectionBookIdsSql(
         userId: String,
@@ -222,6 +228,7 @@ class BookAccessPolicy(
             """
             SELECT cb.id FROM collection_books cb
             WHERE cb.collection_id IN ($accessibleCollectionIdsSubquery)
+              AND EXISTS (SELECT 1 FROM books b WHERE b.id = cb.book_id AND b.deleted_at IS NULL)
             """.trimIndent()
         return SqlFragment(sql = sql, args = listOf(userId, userId))
     }

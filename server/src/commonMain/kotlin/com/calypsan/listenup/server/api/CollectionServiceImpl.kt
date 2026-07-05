@@ -180,11 +180,20 @@ internal class CollectionServiceImpl(
         // Capture the live members BEFORE the cascade so we can re-home any book that loses its
         // last real membership: deleting a collection must never strand a book with zero memberships.
         val affectedBookIds = collectionBookRepo.findBookIdsForCollection(id.value)
+        // S2: nudge the collection's audience (owner + active grant recipients) BEFORE the grants are
+        // tombstoned — captured while the grants are still live, exactly like revokeShare. A member who
+        // could reach these books ONLY via this collection loses access in real time, not just on the
+        // next foreground reconcile.
+        notifyAccessChanged(listOf(id.value))
         collectionBookRepo.softDeleteAllForCollection(id.value)
         // A book whose only membership was this collection returns to ALL_BOOKS (reconcile bumps
         // its revision + nudges ALL_BOOKS grant-holders so members re-derive the now-public book).
+        // Every affected book's revision is touched regardless, so a member whose access just changed
+        // re-derives visibility on their incremental `revision > cursor` pull (a book that stays in
+        // other collections isn't reconciled but must still drop for this collection's lost audience).
         for (bookId in affectedBookIds) {
             reconcileSystemMembership(bookId)
+            bookRevisionTouch.touchRevision(BookId(bookId))
         }
         for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
             grantRepo.softDelete(grant.id)

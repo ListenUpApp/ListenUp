@@ -3,6 +3,8 @@ package com.calypsan.listenup.server.di
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.services.GenreRepository
+import com.calypsan.listenup.server.services.OrphanParentPurger
 import com.calypsan.listenup.server.sync.BookMoodRepository
 import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.ChangeBus
@@ -49,6 +51,21 @@ fun syncModule(): Module =
         single(createdAtStart = true) { BookTagRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { MoodRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { BookMoodRepository(get<ListenUpDatabase>(), get(), get()) }
+        // Orphan-purge collaborator, co-located with the tag/mood/junction repos it reads: when a
+        // book removal leaves a parent (contributor/series/genre/tag/mood) with zero live children,
+        // BookRepository.softDelete captures the parents, then this tombstones the orphaned ones.
+        single {
+            OrphanParentPurger(
+                db = get<ListenUpDatabase>(),
+                contributorRepository = get(),
+                seriesRepository = get(),
+                genreRepository = get<GenreRepository>(),
+                tagRepository = getOrNull<TagRepository>(),
+                moodRepository = getOrNull<MoodRepository>(),
+                bookTagRepository = getOrNull<BookTagRepository>(),
+                bookMoodRepository = getOrNull<BookMoodRepository>(),
+            )
+        }
         // Collection aggregate — fully SQLDelight. The access-filtered catch-up/digest raw reads
         // now run engine-neutral over the shared [SqlDriver] (the firehose's runtime-built
         // `extraWhere` subquery carries plain raw args; see each repo's pullSince override), so

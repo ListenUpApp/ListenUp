@@ -218,6 +218,8 @@ internal class BookRepositoryImpl(
             .map { it.toListItem(imageStorage) }
     }
 
+    override fun observeIsBookLive(id: String): Flow<Boolean> = bookDao.observeIsLive(BookId(id))
+
     override fun observeBookListItems(ids: List<String>): Flow<List<BookListItem>> {
         if (ids.isEmpty()) return kotlinx.coroutines.flow.flowOf(emptyList())
         return bookDao

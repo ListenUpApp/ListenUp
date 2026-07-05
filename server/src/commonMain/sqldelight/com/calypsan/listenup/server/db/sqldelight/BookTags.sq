@@ -91,3 +91,10 @@ SELECT id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 -- `BookTagsTable.selectAll().where { tagId eq … and deletedAt.isNull() }.count()`.
 countLiveForTag:
 SELECT COUNT(*) FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
+
+-- Count of LIVE books linked to a tag via a LIVE junction — the orphan-purge decision for tags.
+-- Both the junction and the book must be live; zero ⇒ orphaned tag → tombstone.
+liveBookCountForTag:
+SELECT COUNT(*) FROM book_tags bt
+JOIN books b ON b.id = bt.book_id AND b.deleted_at IS NULL
+WHERE bt.tag_id = :tag_id AND bt.deleted_at IS NULL;
