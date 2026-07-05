@@ -221,7 +221,7 @@ class CollectionServiceImplSetBookCollectionsTest :
             }
         }
 
-        test("setBookCollections preserves ALL_BOOKS membership when it is not in the target set") {
+        test("setBookCollections removes ALL_BOOKS when real collections are set, and restores it on an empty set") {
             withSqlDatabase {
                 val db = this
                 sql.seedTestLibraryAndFolder()
@@ -245,23 +245,34 @@ class CollectionServiceImplSetBookCollectionsTest :
                     }
 
                     // Create a NORMAL collection and set the book's collections to [normal only].
-                    // ALL_BOOKS is deliberately NOT included in the target set.
+                    // Under the exclusivity invariant, curating the book OUT of the everyone-collection
+                    // must drop its ALL_BOOKS membership (the #680/#730 leak fix) — even though the
+                    // caller never names ALL_BOOKS in the target set.
                     val normal = admin.createCollection("test-library", "Normal")
                     require(normal is AppResult.Success)
                     val normalId = normal.data.id
 
                     admin.setBookCollections(BookId("book1"), listOf(normalId)) shouldBe AppResult.Success(Unit)
 
-                    // The book must still be in ALL_BOOKS — system memberships are never touched.
+                    // The book must have LEFT ALL_BOOKS — it now lives only in its explicit collection.
                     admin.listCollectionBooks(allBooksId).let {
+                        require(it is AppResult.Success)
+                        it.data shouldHaveSize 0
+                    }
+                    admin.listCollectionBooks(normalId).let {
                         require(it is AppResult.Success)
                         it.data shouldBe listOf(BookId("book1"))
                     }
 
-                    // The book must also be in the NORMAL collection.
-                    admin.listCollectionBooks(normalId).let {
+                    // Clearing every real membership must RETURN the book to ALL_BOOKS (never orphaned).
+                    admin.setBookCollections(BookId("book1"), emptyList()) shouldBe AppResult.Success(Unit)
+                    admin.listCollectionBooks(allBooksId).let {
                         require(it is AppResult.Success)
                         it.data shouldBe listOf(BookId("book1"))
+                    }
+                    admin.listCollectionBooks(normalId).let {
+                        require(it is AppResult.Success)
+                        it.data shouldHaveSize 0
                     }
                 }
             }

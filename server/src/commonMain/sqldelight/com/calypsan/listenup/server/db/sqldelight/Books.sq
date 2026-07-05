@@ -272,6 +272,11 @@ SELECT EXISTS(SELECT 1 FROM books WHERE id = :id);
 existsLiveById:
 SELECT EXISTS(SELECT 1 FROM books WHERE id = :id AND deleted_at IS NULL);
 
+-- library_id for a single book — resolves the book's per-library system collections
+-- (ALL_BOOKS / INBOX) when reconciling its exclusive system-collection membership.
+selectLibraryIdById:
+SELECT library_id FROM books WHERE id = :id;
+
 -- (id, title) for a batch of LIVE books — the ShelfReadAssembler view projection.
 -- A tombstoned book yields no row, so it never appears in a shelf view.
 selectLiveTitlesByIds:

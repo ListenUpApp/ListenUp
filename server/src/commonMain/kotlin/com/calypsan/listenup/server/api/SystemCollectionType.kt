@@ -20,8 +20,10 @@ internal const val SYSTEM_OWNER_ID = "system"
  *
  * Identified by the server-only `collections.type` column (never on the wire). Member-facing
  * sync uses [com.calypsan.listenup.api.sync.CollectionSyncPayload.isInbox] / the access layer;
- * `type` is a server-internal discriminator that distinguishes the always-everything [ALL_BOOKS]
- * view from the quarantine [INBOX]. The enum name is the persisted column value.
+ * `type` is a server-internal discriminator that distinguishes the [ALL_BOOKS] substrate — the
+ * exclusive everyone-collection that holds a book **iff** it is in no other (non-system) collection —
+ * from the quarantine [INBOX]. Both are exclusive with regular collections. The enum name is the
+ * persisted column value.
  */
 internal enum class SystemCollectionType {
     ALL_BOOKS,

@@ -26,9 +26,12 @@ import com.calypsan.listenup.server.sync.bindRaw
  * collection at all is denied. ROOT and ADMIN bypass the filter entirely — every live book,
  * including inbox and private ones.
  *
- * Public visibility is now expressed structurally: every member holds a default `ALL_BOOKS`
- * grant and every scanned book joins `ALL_BOOKS`, so the union rule reaches the same set the
- * old "uncollected = public" branch used to — without the special case.
+ * Public visibility is expressed structurally: every member holds a default `ALL_BOOKS` grant and
+ * every **uncollected** book sits in `ALL_BOOKS`. `ALL_BOOKS` is **exclusive** — a book leaves it
+ * the moment it is curated into a real collection and returns when its last real membership is
+ * removed (the invariant maintained by `CollectionServiceImpl.reconcileSystemMembership`). So the
+ * pure-union rule reaches exactly the set the old "uncollected = public" branch used to — a curated
+ * book is visible only to its collection's audience, not to everyone — without the special case.
  *
  * **System collections and book-level visibility:** `ALL_BOOKS` and `INBOX` are
  * server-managed substrate collections. They are excluded from the COLLECTION-domain sync

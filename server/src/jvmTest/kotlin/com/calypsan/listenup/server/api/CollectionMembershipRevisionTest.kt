@@ -141,7 +141,10 @@ class CollectionMembershipRevisionTest :
                         require(it is AppResult.Success)
                     }
 
-                    touch.touched shouldContainExactly listOf("b1")
+                    // Removing the last real membership returns the book to ALL_BOOKS (exclusivity
+                    // invariant), so its revision is bumped again by that restore — only b1 is ever
+                    // touched. `distinct` tolerates the legitimate second bump for the same book.
+                    touch.touched.distinct() shouldContainExactly listOf("b1")
                 }
             }
         }
