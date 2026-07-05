@@ -105,7 +105,8 @@ private class Sqlite3AdminConnection(
             execute("COMMIT")
             return result
         } catch (e: Throwable) {
-            runCatching { execute("ROLLBACK") }
+            // Best-effort rollback; the original exception is rethrown below.
+            runCatching { execute("ROLLBACK") }.getOrNull()
             throw e
         }
     }
