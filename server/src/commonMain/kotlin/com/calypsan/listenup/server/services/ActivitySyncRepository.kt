@@ -103,6 +103,21 @@ class ActivitySyncRepository(
         return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
     }
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: ActivitySyncPayload): ActivitySyncPayload =
+        payload.copy(
+            userId = "",
+            type = "",
+            bookId = null,
+            isReread = false,
+            durationMs = 0L,
+            milestoneValue = 0,
+            milestoneUnit = null,
+            shelfId = null,
+            shelfName = null,
+            occurredAt = 0L,
+        )
+
     override fun writePayload(
         value: ActivitySyncPayload,
         rev: Long,

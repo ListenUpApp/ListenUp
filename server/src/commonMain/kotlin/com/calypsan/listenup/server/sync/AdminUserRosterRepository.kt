@@ -90,6 +90,17 @@ class AdminUserRosterRepository(
             .executeAsOneOrNull()
             ?.toSyncPayload()
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: AdminUserRosterSyncPayload): AdminUserRosterSyncPayload =
+        payload.copy(
+            email = "",
+            displayName = "",
+            role = "",
+            status = "",
+            canShare = false,
+            accountCreatedAt = 0L,
+        )
+
     override fun writePayload(
         value: AdminUserRosterSyncPayload,
         rev: Long,

@@ -121,6 +121,10 @@ class CollectionRepository(
         return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
     }
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: CollectionSyncPayload): CollectionSyncPayload =
+        payload.copy(libraryId = "", ownerId = "", name = "", isInbox = false, isSystem = false)
+
     override fun writePayload(
         value: CollectionSyncPayload,
         rev: Long,

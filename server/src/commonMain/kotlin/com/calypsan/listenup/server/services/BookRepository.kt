@@ -244,6 +244,38 @@ class BookRepository(
     /** Batched hydration: fetches each child table once per id-chunk and assembles in input-id order. */
     override fun readPayloads(idStrs: List<String>): List<BookSyncPayload> = db.readBookPayloads(idStrs)
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: BookSyncPayload): BookSyncPayload =
+        payload.copy(
+            // libraryId/folderId are @JvmInline value classes with isNotBlank() init guards
+            // AND opaque UUIDs, not content — they stay. Everything content-bearing goes.
+            title = "",
+            sortTitle = null,
+            subtitle = null,
+            description = null,
+            publishYear = null,
+            publisher = null,
+            language = null,
+            isbn = null,
+            asin = null,
+            abridged = false,
+            explicit = false,
+            hasScanWarning = false,
+            totalDuration = 0L,
+            cover = null,
+            rootRelPath = "",
+            inode = null,
+            scannedAt = 0L,
+            contributors = emptyList(),
+            series = emptyList(),
+            genres = emptyList(),
+            audioFiles = emptyList(),
+            documents = emptyList(),
+            chapters = emptyList(),
+            chapterSource = ChapterSource.EMBEDDED,
+            userEditedFields = emptySet(),
+        )
+
     /**
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
      *
