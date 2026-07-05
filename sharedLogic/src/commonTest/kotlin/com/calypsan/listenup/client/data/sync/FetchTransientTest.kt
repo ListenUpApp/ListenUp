@@ -150,8 +150,7 @@ private class InMemoryCursorDao : SyncCursorDao {
         cursors[entity.domainName] = entity.revision
     }
 
-    override suspend fun all(): List<SyncCursorEntity> =
-        cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
+    override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
     override suspend fun deleteAll() {
         cursors.clear()

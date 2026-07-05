@@ -197,7 +197,12 @@ private fun accessFilterFor(
  * trailing comma or an empty param yields an empty list rather than a phantom `""` id.
  */
 private fun parseTargetedIds(raw: String): List<String>? {
-    val ids = raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+    val ids =
+        raw
+            .split(',')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
     return if (ids.size > MAX_TARGETED_IDS) null else ids
 }
 
@@ -272,12 +277,13 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
 
         val page: Page<Any> =
             when {
-                idsParam != null ->
+                idsParam != null -> {
                     parseTargetedIds(idsParam)?.let { ids ->
                         typedRepo.pullByIds(userId, matchColumn = "id", matchValues = ids, extraWhere = extraWhere)
                     } ?: return@get call.respond(HttpStatusCode.BadRequest, "too many ids (max $MAX_TARGETED_IDS)")
+                }
 
-                collectionIdsParam != null ->
+                collectionIdsParam != null -> {
                     parseTargetedIds(collectionIdsParam)?.let { ids ->
                         typedRepo.pullByIds(
                             userId,
@@ -286,6 +292,7 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                             extraWhere = extraWhere,
                         )
                     } ?: return@get call.respond(HttpStatusCode.BadRequest, "too many ids (max $MAX_TARGETED_IDS)")
+                }
 
                 else -> {
                     val since =
