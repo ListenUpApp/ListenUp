@@ -332,7 +332,7 @@ final class BookDetailObserver {
         // threw `EnvelopeMismatchException` on every book-detail load. `getServerInfo` is pure RPC
         // and carries the `remoteUrl` + `instanceId` the share link needs. The embedded `serverUrl`
         // is advisory (display / future connect), so the WAN `remoteUrl` is the right value.
-        guard let info = await Dependencies.shared.instanceRepository.getServerInfoOrNull(forceRefresh: false)
+        guard let info = try? await Dependencies.shared.instanceRepository.getServerInfoOrNull(forceRefresh: false)
         else { return }
         let trimmed = info.remoteUrl.map { $0.hasSuffix("/") ? String($0.dropLast()) : $0 }
         let raw = ShareLinkCodec.shared.encode(

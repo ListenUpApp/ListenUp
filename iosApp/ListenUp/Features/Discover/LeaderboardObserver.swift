@@ -111,9 +111,9 @@ enum LeaderboardMetric: CaseIterable, Identifiable {
 
     var kmpCategory: LeaderboardCategory {
         switch self {
-        case .time: LeaderboardCategory.time
-        case .books: LeaderboardCategory.books
-        case .streak: LeaderboardCategory.streak
+        case .time: LeaderboardCategory.Time
+        case .books: LeaderboardCategory.Books
+        case .streak: LeaderboardCategory.Streak
         }
     }
 
