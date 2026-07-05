@@ -3,7 +3,7 @@ package com.calypsan.listenup.client.data.sync
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
-import com.calypsan.listenup.core.currentEpochMilliseconds
+import com.calypsan.listenup.api.sync.AccessScope
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -121,6 +121,24 @@ internal class SyncEngine(
     // satisfied by a pass that began after it registered (and the pending flag guarantees that pass
     // runs), the caller suspends exactly until a catch-up pass covering its request has drained.
     private val cursorStaleWaiters = mutableListOf<CompletableDeferred<Unit>>()
+
+    // The access-gated re-derive/prune half of AccessChanged, extracted to its own concern.
+    // Built from the engine's existing registry + catchUp, so wiring is unchanged.
+    private val accessReconciler = AccessReconciler(registry, catchUp)
+
+    // Serializes + coalesces AccessChanged reconciles. A single access mutation fans out one frame
+    // per affected recipient, and a bulk action (release, delete) can fan out a burst — routing each
+    // straight into a reconcile would overlap N access-filtered fetches. This guard runs at most one
+    // reconcile at a time and folds a burst into a SINGLE follow-up: the pending scopes UNION, and a
+    // coarse frame (or a union that outgrows the delta budget) POISONS the follow-up to one coarse
+    // pass (cheaper than a huge targeted fetch, and the safe anchor). Same shape as the CursorStale
+    // coalesce, minus the completion waiters — no caller awaits an AccessChanged reconcile.
+    private val accessChangedMutex = Mutex()
+    private var accessChangedRunning = false
+    private var accessChangedDirty = false
+    private var pendingAccessCoarse = false
+    private val pendingAccessCollectionIds = mutableSetOf<String>()
+    private val pendingAccessBookIds = mutableSetOf<String>()
 
     // Serializes + debounces the standing lifecycle reconcile — the one recovery pass every
     // lifecycle edge (app-foreground via connectRealtime, firehose reconnect) funnels into.
@@ -552,43 +570,103 @@ internal class SyncEngine(
     }
 
     /**
-     * Recover from an `AccessChanged` control signal: the caller's accessible set may have
-     * changed without a book row mutating (a collection was shared/unshared with them, a share's
-     * permission changed, or a book was released into a collection they can see).
+     * Recover from an `AccessChanged` control signal: the caller's accessible set may have changed
+     * without a book row mutating (a collection shared/unshared, a share's permission changed, a book
+     * released into a collection they can see). [scope] names the affected entities for a targeted
+     * delta, or is `null` for a coarse whole-library re-derive (the safe anchor). The actual
+     * re-derive/prune lives in [AccessReconciler]; this method is the coalescer in front of it.
      *
-     * For each access-gated domain (`books`, `activities`, and the three collection domains) this **re-derives
-     * and prunes** (approach B — always re-derive, no digest gate):
-     *  1. Run a TRANSIENT access-filtered catch-up from cursor 0 via [CatchUp.catchUpTransient].
-     *     The server's `pullSince` for these domains is access-filtered, so the pass upserts
-     *     exactly the rows the caller may now see and returns their ids. It deliberately does
-     *     NOT touch [SyncCursorStore] — the live SSE/cursor path continues independently.
-     *  2. [AccessFilteredSyncHandler.pruneTo] soft-deletes every locally-live row NOT in that
-     *     accessible set — the load-bearing security step that evicts a revoked share's now
-     *     inaccessible books from Room (closing the gap a plain catch-up would leave open).
-     *
-     * For an admin, the access-filtered catch-up returns everything, so `pruneTo` deletes
-     * nothing — the same code is correct for both members and admins.
-     *
-     * Unlike [handleCursorStale] this does not tear down the SSE connection: the live tail is
-     * still valid (no cursor was lost), only the *visibility* of existing rows shifted. A failed
-     * re-derive for one domain is logged and swallowed — the next signal (or a manual refresh)
-     * recovers, and one domain's failure must not strand the others.
+     * Coalesce: a single access mutation fans out one frame per recipient and a bulk action a whole
+     * burst, so an unguarded reconcile would overlap N access-filtered fetches. At most one reconcile
+     * runs at a time; frames that arrive while one is in flight FOLD into a single follow-up — their
+     * scopes union, and a coarse frame (or a union that outgrows the delta budget) poisons the
+     * follow-up to one coarse pass. Unlike [handleCursorStale] the SSE tail is never torn down (no
+     * cursor was lost, only visibility shifted); and no caller awaits this, so there are no
+     * completion waiters — a fire-and-forget signal.
      */
-    internal suspend fun handleAccessChanged() {
-        logger.info { "AccessChanged: re-deriving + pruning access-gated domains" }
-        for (handler in registry.accessFilteredHandlers()) {
-            @Suppress("UNCHECKED_CAST")
-            val typed = handler as SyncDomainHandler<Any>
-            when (val ids = catchUp.catchUpTransient(typed)) {
-                is AppResult.Success -> {
-                    (handler as AccessFilteredSyncHandler).pruneTo(ids.data, currentEpochMilliseconds())
+    internal suspend fun handleAccessChanged(scope: AccessScope?) {
+        val leader =
+            accessChangedMutex.withLock {
+                accumulateAccessChange(scope)
+                if (accessChangedRunning) {
+                    false
+                } else {
+                    accessChangedRunning = true
+                    true
                 }
+            }
+        if (!leader) return
 
-                is AppResult.Failure -> {
-                    logger.warn { "AccessChanged reconcile failed for ${handler.domainName}: ${ids.error.code}" }
+        try {
+            while (true) {
+                val work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
+                when (work) {
+                    PendingAccessChange.None -> break
+                    PendingAccessChange.Coarse -> accessReconciler.reconcile(null)
+                    is PendingAccessChange.Delta -> accessReconciler.reconcile(work.scope)
+                }
+            }
+        } finally {
+            // Normal exit already cleared the flag under the lock (via drain → None). This fires only
+            // on a thrown/cancelled reconcile, and — like the CursorStale cleanup — runs
+            // NonCancellable so a contended withLock on the cancellation path can't strand
+            // accessChangedRunning = true and wedge every future AccessChanged.
+            if (accessChangedRunning) {
+                withContext(NonCancellable) {
+                    accessChangedMutex.withLock { resetAccessChangeState() }
                 }
             }
         }
+    }
+
+    /** Fold [scope] into the pending accumulator. `null` poisons the follow-up to coarse. MUST hold [accessChangedMutex]. */
+    private fun accumulateAccessChange(scope: AccessScope?) {
+        accessChangedDirty = true
+        if (scope == null) {
+            pendingAccessCoarse = true
+        } else {
+            pendingAccessCollectionIds += scope.collectionIds
+            pendingAccessBookIds += scope.bookIds
+        }
+    }
+
+    /**
+     * Take the accumulated pending work and clear it, choosing coarse vs delta. Returns
+     * [PendingAccessChange.None] (and clears `accessChangedRunning`) when nothing is pending — the
+     * leader's loop-exit under the lock. A union that outgrows [ACCESS_DELTA_MAX_BOOKS], or any
+     * coarse frame, collapses to one coarse pass. MUST hold [accessChangedMutex].
+     */
+    private fun drainAccumulatedAccessChange(): PendingAccessChange {
+        if (!accessChangedDirty) {
+            accessChangedRunning = false
+            return PendingAccessChange.None
+        }
+        accessChangedDirty = false
+        val coarse =
+            pendingAccessCoarse ||
+                pendingAccessCollectionIds.size > ACCESS_DELTA_MAX_BOOKS ||
+                pendingAccessBookIds.size > ACCESS_DELTA_MAX_BOOKS
+        val result =
+            if (coarse) {
+                PendingAccessChange.Coarse
+            } else {
+                PendingAccessChange.Delta(
+                    AccessScope(pendingAccessCollectionIds.toList(), pendingAccessBookIds.toList()),
+                )
+            }
+        pendingAccessCoarse = false
+        pendingAccessCollectionIds.clear()
+        pendingAccessBookIds.clear()
+        return result
+    }
+
+    /** Clear all AccessChanged coalesce state after an abnormal exit. MUST hold [accessChangedMutex]. */
+    private fun resetAccessChangeState() {
+        accessChangedRunning = false
+        accessChangedDirty = false
+        pendingAccessCoarse = false
+        pendingAccessCollectionIds.clear()
+        pendingAccessBookIds.clear()
     }
 
     /** Stop SSE and wait until the frame collector is fully cancelled. Used by tests and deterministic shutdown paths. */
@@ -858,6 +936,27 @@ internal class SyncEngine(
         // edge, wasteful at 1 Hz. force = true (reconnect, LibraryDataChanged) bypasses it.
         const val LIFECYCLE_RECONCILE_MIN_INTERVAL_MS = 30_000L
     }
+}
+
+/**
+ * The largest coalesced AccessChanged scope the client will still fetch as a delta. A pending union
+ * bigger than this collapses to one coarse re-derive — cheaper than an enormous targeted fetch, and
+ * the safe anchor. Mirrors the server's `DELTA_MAX_BOOKS`.
+ */
+private const val ACCESS_DELTA_MAX_BOOKS = 200
+
+/** The coalesced AccessChanged work the leader loop pulls each pass: nothing, a coarse re-derive, or a scoped delta. */
+private sealed interface PendingAccessChange {
+    /** No pending work — the leader loop exits. */
+    data object None : PendingAccessChange
+
+    /** A coarse whole-library re-derive (a coarse frame arrived, or the union outgrew the delta budget). */
+    data object Coarse : PendingAccessChange
+
+    /** A scoped delta over the unioned affected entities. */
+    data class Delta(
+        val scope: AccessScope,
+    ) : PendingAccessChange
 }
 
 /**

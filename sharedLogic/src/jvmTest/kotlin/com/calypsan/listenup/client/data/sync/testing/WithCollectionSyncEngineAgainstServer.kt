@@ -303,8 +303,8 @@ private fun buildMemberSyncEngine(
             onCursorStale = {
                 checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleCursorStale()
             },
-            onAccessChanged = {
-                checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleAccessChanged()
+            onAccessChanged = { scope ->
+                checkNotNull(engineRef) { "SyncEngine not yet constructed" }.handleAccessChanged(scope)
             },
         )
 

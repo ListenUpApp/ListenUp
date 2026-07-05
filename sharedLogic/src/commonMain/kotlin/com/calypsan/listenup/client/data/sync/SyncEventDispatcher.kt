@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
@@ -27,7 +28,7 @@ internal class SyncEventDispatcher(
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
     private val onCursorStale: suspend () -> Unit = {},
-    private val onAccessChanged: suspend () -> Unit = {},
+    private val onAccessChanged: suspend (scope: AccessScope?) -> Unit = {},
     private val onUserDeleted: suspend (reason: String?) -> Unit = {},
     private val onLibraryDataChanged: suspend () -> Unit = {},
 ) {
@@ -66,8 +67,12 @@ internal class SyncEventDispatcher(
             }
 
             is SyncControl.AccessChanged -> {
-                logger.info { "AccessChanged received; re-deriving accessible set via catch-up" }
-                onAccessChanged()
+                logger.info {
+                    val shape =
+                        control.scope?.let { "delta(${it.collectionIds.size}c/${it.bookIds.size}b)" } ?: "coarse"
+                    "AccessChanged received ($shape); re-deriving accessible set"
+                }
+                onAccessChanged(control.scope)
             }
 
             is SyncControl.UserDeleted -> {
