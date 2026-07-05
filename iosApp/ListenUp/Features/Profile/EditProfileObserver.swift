@@ -33,6 +33,9 @@ final class EditProfileObserver {
     private(set) var confirmPassword: String = ""
     private(set) var isDirty: Bool = false
     private(set) var isSaving: Bool = false
+    /// Mirrors the observed `public_profiles` avatar type: true when the signed-in user currently
+    /// has an uploaded image (so "Remove avatar" is offered). The single avatar source, not `User`.
+    private(set) var hasImageAvatar: Bool = false
     private(set) var stagedAvatar: StagedAvatar = .none
     private(set) var lastError: String?
 
@@ -96,6 +99,7 @@ final class EditProfileObserver {
             confirmPassword = r.confirmPassword
             isDirty = r.isDirty
             isSaving = r.isSaving
+            hasImageAvatar = r.hasImageAvatar
             stagedAvatar = Self.stagedAvatar(for: r.avatarChange, pickedImage: pickedImage)
         case .error:
             isLoading = false

@@ -208,7 +208,7 @@ struct EditProfileView: View {
     // MARK: - Derived
 
     private func canRemoveAvatar(_ observer: EditProfileObserver) -> Bool {
-        Self.canRemoveAvatar(staged: observer.stagedAvatar, hasImageAvatar: observer.user?.hasImageAvatar ?? false)
+        Self.canRemoveAvatar(staged: observer.stagedAvatar, hasImageAvatar: observer.hasImageAvatar)
     }
 
     /// Remove is offered when there's a real image avatar to clear, or an upload is staged

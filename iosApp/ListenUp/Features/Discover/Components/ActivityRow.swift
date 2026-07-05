@@ -29,7 +29,7 @@ struct ActivityRow: View {
             // The avatar is its own tap target → the actor's profile. Kept a sibling of (not nested
             // inside) the book link below, since nested NavigationLinks don't compose.
             NavigationLink(value: ProfileDestination(userId: item.userId)) {
-                UserAvatarView(userId: item.userId, fallbackName: item.who, avatarColor: item.avatarColor)
+                UserAvatarView(userId: item.userId, fallbackName: item.who)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(item.who)

@@ -129,9 +129,6 @@ struct ActivityFeedObserverTests {
             type: type,
             occurredAt: 1_609_459_200_000,
             userDisplayName: "Marcus Lee",
-            userAvatarColor: "#2E8BFF",
-            userAvatarType: "initials",
-            userAvatarValue: nil,
             bookId: book == nil ? nil : "b1",
             bookTitle: book,
             bookAuthorName: "Frank Herbert",
@@ -239,9 +236,6 @@ struct CurrentlyListeningMappingTests {
             coverHash: nil,
             coverBlurHash: nil,
             displayName: name,
-            avatarType: "initials",
-            avatarValue: nil,
-            avatarColor: "#2E8BFF",
             startedAt: startedAt
         )
     }
@@ -256,7 +250,6 @@ struct CurrentlyListeningMappingTests {
         #expect(row.author == "Frank Herbert")
         #expect(row.displayName == "Priya Nair")
         #expect(row.initials == "PN")
-        #expect(row.avatarColor == "#2E8BFF")
     }
 
     @Test func dedupsToOneRowPerUserKeepingMostRecentBook() {

@@ -27,6 +27,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
@@ -279,6 +280,8 @@ object KoinHelper {
     fun getImageStorage(): ImageStorage = resolve(ImageStorage::class)
 
     fun getImageRepository(): ImageRepository = resolve(ImageRepository::class)
+
+    fun getUserProfileRepository(): UserProfileRepository = resolve(UserProfileRepository::class)
 
     /**
      * String-keyed [ImageRepository.ensureBookCoverCached] for the Swift boundary, where the

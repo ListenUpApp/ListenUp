@@ -195,7 +195,6 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
     let userId: String
     let displayName: String
     let initials: String
-    let avatarColor: String
     let bookId: String
     let title: String
     let author: String?
@@ -207,7 +206,6 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         self.userId = session.userId
         self.displayName = session.displayName
         self.initials = LeaderboardRow.initials(from: session.displayName)
-        self.avatarColor = session.avatarColor
         self.bookId = session.bookId
         self.title = session.bookTitle
         self.author = session.authorName
@@ -220,7 +218,6 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         userId: String,
         displayName: String,
         initials: String,
-        avatarColor: String,
         bookId: String,
         title: String,
         author: String?,
@@ -231,7 +228,6 @@ struct CurrentlyListeningRow: Identifiable, Equatable {
         self.userId = userId
         self.displayName = displayName
         self.initials = initials
-        self.avatarColor = avatarColor
         self.bookId = bookId
         self.title = title
         self.author = author
