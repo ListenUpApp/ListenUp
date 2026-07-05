@@ -22,7 +22,9 @@ import com.calypsan.listenup.client.domain.repository.TagRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.error.ErrorBus
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
@@ -32,6 +34,7 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -181,6 +184,53 @@ class MetadataViewModelTest :
                 val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
                 val failed = state.loadState.shouldBeInstanceOf<SearchLoadState.Failed>()
                 failed.message shouldBe error.message
+            }
+        }
+
+        test("search that never resolves surfaces Failed after the timeout, not an infinite spinner") {
+            runTest {
+                val repo = mock<MetadataRepository>()
+                // Black-hole WebSocket: the RPC never returns and never throws.
+                everySuspend { repo.searchBooks(any(), any()) } calls { awaitCancellation() }
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                state.loadState.shouldBeInstanceOf<SearchLoadState.Failed>()
+            }
+        }
+
+        test("search throwing an unexpected error surfaces Failed instead of hanging InFlight") {
+            runTest {
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.searchBooks(any(), any()) } throws IllegalStateException("boom")
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.search()
+                advanceUntilIdle()
+
+                val state = vm.state.value.shouldBeInstanceOf<MetadataUiState.Search>()
+                state.loadState.shouldBeInstanceOf<SearchLoadState.Failed>()
+            }
+        }
+
+        test("preview that never resolves surfaces Failed after the timeout, not an infinite spinner") {
+            runTest {
+                val book = makeBook(asin = "B001", title = "Dune")
+                val repo = mock<MetadataRepository>()
+                everySuspend { repo.getBookMetadata(any(), any()) } calls { awaitCancellation() }
+                val vm = buildVm(repo)
+
+                vm.initForBook("b1", "Dune", "Frank Herbert")
+                vm.selectMatch(book)
+                advanceUntilIdle()
+
+                val preview = vm.state.value.shouldBeInstanceOf<MetadataUiState.Preview>()
+                preview.loadState.shouldBeInstanceOf<PreviewLoadState.Failed>()
             }
         }
 
