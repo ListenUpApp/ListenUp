@@ -44,6 +44,16 @@ interface InstanceRepository {
     suspend fun getServerInfo(forceRefresh: Boolean = false): AppResult<ServerInfo>
 
     /**
+     * iOS-safe accessor: the [ServerInfo] or `null` on failure (folded in Kotlin). Use from Swift —
+     * never `await` the `AppResult`-returning [getServerInfo] (Swift Export bridge trap). This is
+     * the RPC-backed replacement for [getInstanceOrNull] on the share-link / server-identity path.
+     */
+    suspend fun getServerInfoOrNull(forceRefresh: Boolean = false): ServerInfo? =
+        getServerInfo(forceRefresh).valueOrNull {
+            instanceRepositoryLogger.warn { "getServerInfoOrNull: ${it.debugInfo ?: it.message}" }
+        }
+
+    /**
      * Legacy REST fetch of the richer [Instance] aggregate.
      *
      * Retained only for admin/settings consumers that read fields absent from
