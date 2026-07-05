@@ -30,5 +30,35 @@ internal interface CatchUp {
      */
     suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>>
 
+    /**
+     * Targeted, access-filtered fetch of just the rows named by [fetch] — the read half of the
+     * scoped `AccessChanged` delta, [catchUpTransient] minus the from-0 paging. Each returned row is
+     * applied through [SyncDomainHandler.onCatchUpItem], so it inherits the same ServerWins /
+     * EchoShielded no-lost-update guard as paged catch-up. Returns the non-tombstone ids that came
+     * back — for [TargetedFetch.ByIds] that is the still-accessible subset of the requested ids (the
+     * requested-but-not-returned remainder is what the caller prunes); the persisted
+     * [SyncCursorStore] is deliberately untouched, exactly like [catchUpTransient].
+     *
+     * The default returns the empty set: only the production [SyncCatchUpClient] performs the real
+     * HTTP fetch; a test fake that does not drive the delta path can leave this default.
+     */
+    suspend fun <T : Any> fetchTransient(
+        handler: SyncDomainHandler<T>,
+        fetch: TargetedFetch,
+    ): AppResult<Set<String>> = AppResult.Success(emptySet())
+
     suspend fun domains(): AppResult<List<String>>
+}
+
+/**
+ * A targeted, cursor-agnostic fetch of a subset of an access-gated domain — names WHICH rows to
+ * pull for the scoped `AccessChanged` delta. The server access-filters the result regardless, so a
+ * returned row is one the caller may still see.
+ */
+internal sealed interface TargetedFetch {
+    /** Match rows by their own wire id — books and collections. */
+    data class ByIds(val ids: List<String>) : TargetedFetch
+
+    /** Match rows by their `collection_id` — collection_books, to pull a set of collections' memberships. */
+    data class ByCollectionIds(val collectionIds: List<String>) : TargetedFetch
 }

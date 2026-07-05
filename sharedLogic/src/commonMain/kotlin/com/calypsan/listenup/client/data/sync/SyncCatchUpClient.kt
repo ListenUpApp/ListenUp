@@ -22,6 +22,11 @@ private val logger = KotlinLogging.logger {}
 private const val PAGE_LIMIT = 100
 private const val SERVER_URL_NOT_CONFIGURED = "Server URL not configured"
 
+// Per-request cap on a targeted `?ids=` / `?collectionIds=` fetch — matches the server's
+// MAX_TARGETED_IDS. A scope larger than this is chunked, never truncated: a truncated response
+// would read to the client as "these ids are gone" and wrongly tombstone still-accessible rows.
+private const val TARGETED_FETCH_LIMIT = 100
+
 /**
  * Drives REST `?since=<rev>` per-domain pagination for client sync catch-up.
  *
@@ -147,6 +152,49 @@ internal class SyncCatchUpClient(
                 if (!page.hasMore) break
             }
             accessibleIds
+        }
+
+    /**
+     * Targeted access-filtered fetch of just [fetch]'s ids WITHOUT advancing [SyncCursorStore] —
+     * the read half of the scoped `AccessChanged` delta. Chunks the id set under
+     * [TARGETED_FETCH_LIMIT] (the server's per-request cap) so a large scope never truncates,
+     * applies each returned row via [SyncDomainHandler.onCatchUpItem] (inheriting the same
+     * ServerWins/EchoShielded guard as paged catch-up), and returns the non-tombstone ids that came
+     * back — the still-accessible subset the caller diffs against to prune.
+     */
+    override suspend fun <T : Any> fetchTransient(
+        handler: SyncDomainHandler<T>,
+        fetch: TargetedFetch,
+    ): AppResult<Set<String>> =
+        suspendRunCatching {
+            val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
+            val httpClient = httpClientProvider()
+            val (paramName, values) =
+                when (fetch) {
+                    is TargetedFetch.ByIds -> "ids" to fetch.ids
+                    is TargetedFetch.ByCollectionIds -> "collectionIds" to fetch.collectionIds
+                }
+            val returnedIds = mutableSetOf<String>()
+            for (chunk in values.distinct().chunked(TARGETED_FETCH_LIMIT)) {
+                val csv = chunk.joinToString(",")
+                val element: JsonElement =
+                    httpClient
+                        .get("$baseUrl/api/v1/sync/${handler.domainName}?$paramName=$csv")
+                        .body()
+                val page: Page<T> =
+                    contractJson.decodeFromJsonElement(
+                        Page.serializer(handler.payloadSerializer),
+                        element,
+                    )
+                transactionRunner.atomically {
+                    for (item in page.items) {
+                        val isTomb = (item as? Tombstoned)?.deletedAt != null
+                        handler.onCatchUpItem(item, isTomb)
+                        if (!isTomb) returnedIds += handler.syncId(item)
+                    }
+                }
+            }
+            returnedIds
         }
 
     /**

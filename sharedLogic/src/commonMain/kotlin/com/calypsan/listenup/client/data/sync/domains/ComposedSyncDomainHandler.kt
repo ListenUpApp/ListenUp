@@ -169,6 +169,20 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
         doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk -> gate.tombstoneByIds(chunk, now) }
         gate.afterPrune()
     }
+
+    override suspend fun pruneWithin(
+        candidateIds: Set<String>,
+        accessibleIds: Set<String>,
+        now: Long,
+    ) {
+        // Doomed = candidates that are still live locally but did NOT come back accessible. The
+        // intersection with the candidate set is the substrate protection: a live row outside the
+        // scope is never a candidate, so a scoped delta can never tombstone it. Same Kotlin-side
+        // diff + bounded chunking as pruneTo, so the bind-variable ceiling stays closed.
+        val doomed = (candidateIds intersect gate.liveIds().toSet()) - accessibleIds
+        doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk -> gate.tombstoneByIds(chunk, now) }
+        gate.afterPrune()
+    }
 }
 
 /** Compile a descriptor into the runtime handler the engine speaks. */
