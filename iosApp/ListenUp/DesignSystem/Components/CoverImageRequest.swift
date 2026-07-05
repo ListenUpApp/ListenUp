@@ -10,11 +10,17 @@ import Nuke
 /// re-downloads just because the access token rotated.
 enum CoverImageRequest {
     @MainActor
-    static func book(bookId: String?, coverPath: String?, targetPixels: CGFloat) async -> ImageRequest? {
+    static func book(
+        bookId: String?,
+        coverPath: String?,
+        coverHash: String?,
+        targetPixels: CGFloat
+    ) async -> ImageRequest? {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
 
         if let coverPath, !coverPath.isEmpty {
-            return AuthenticatedImageRequest.localFile(coverPath, processors: processors)
+            let cacheKey = coverCacheKey(identity: bookId ?? coverPath, coverHash: coverHash)
+            return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
         }
 
         guard let bookId, !bookId.isEmpty else { return nil }
@@ -29,6 +35,14 @@ enum CoverImageRequest {
               let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
         else { return nil }
 
-        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors)
+        let cacheKey = coverCacheKey(identity: bookId, coverHash: coverHash)
+        return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
+    }
+
+    /// Fold the cover content hash into Nuke's cache identity so a new cover at the same stable
+    /// path/URL busts the old entry — mirrors Android's `"$bookId:$coverHash"` Coil key. The key is
+    /// token-independent, so a cached cover still survives access-token rotation.
+    private static func coverCacheKey(identity: String, coverHash: String?) -> String {
+        "\(identity):\(coverHash ?? "cover")"
     }
 }

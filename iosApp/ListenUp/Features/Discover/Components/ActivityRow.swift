@@ -12,17 +12,16 @@ struct ActivityRow: View {
         return formatter
     }()
 
+    /// Relative timestamp, floored to the past. A just-created event whose server `occurredAt` sits a
+    /// few seconds ahead of the device clock would otherwise read "in 3 seconds"; we clamp sub-minute
+    /// ages to "Just now" and never let the formatter phrase a future instant — matching Android's
+    /// floored `relativeTime`.
     private var timeLabel: String {
-        Self.relativeFormatter.localizedString(for: item.occurredAt, relativeTo: Date())
-    }
-
-    /// Timestamp, with the listened duration appended as a middot-separated detail when present
-    /// ("2h ago · 1h 5m").
-    private var detailLabel: String {
-        if let duration = item.duration {
-            return "\(timeLabel) · \(duration)"
+        let now = Date()
+        if item.occurredAt >= now.addingTimeInterval(-60) {
+            return String(localized: "discover.time_ago_now")
         }
-        return timeLabel
+        return Self.relativeFormatter.localizedString(for: min(item.occurredAt, now), relativeTo: now)
     }
 
     var body: some View {
@@ -59,7 +58,7 @@ struct ActivityRow: View {
                     .font(.subheadline)
                     .lineLimit(2)
 
-                Text(detailLabel)
+                Text(timeLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -84,8 +83,8 @@ struct ActivityRow: View {
 
     private var accessibilityText: String {
         if let book = item.book, !book.isEmpty {
-            return "\(item.who) \(item.action) \(book), \(detailLabel)"
+            return "\(item.who) \(item.action) \(book), \(timeLabel)"
         }
-        return "\(item.who) \(item.action), \(detailLabel)"
+        return "\(item.who) \(item.action), \(timeLabel)"
     }
 }

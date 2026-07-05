@@ -22,6 +22,9 @@ struct BookRow: Identifiable, Equatable, Hashable {
     let hasDocuments: Bool
     let coverPath: String?
     let coverBlurHash: String?
+    /// Content hash of the cover, threaded into `BookCoverImage` so a cover change busts the stale
+    /// image cache (mirrors Android). Nil when unknown.
+    let coverHash: String?
     /// Total duration in ms — for cards that show it (e.g. the contributor/series book rows).
     let duration: Int64
     /// The book's sequence within a series, when shown in a series context (e.g. Series detail).
@@ -35,6 +38,7 @@ struct BookRow: Identifiable, Equatable, Hashable {
         hasDocuments: Bool,
         coverPath: String?,
         coverBlurHash: String?,
+        coverHash: String? = nil,
         duration: Int64 = 0,
         sequence: String? = nil
     ) {
@@ -44,6 +48,7 @@ struct BookRow: Identifiable, Equatable, Hashable {
         self.hasDocuments = hasDocuments
         self.coverPath = coverPath
         self.coverBlurHash = coverBlurHash
+        self.coverHash = coverHash
         self.duration = duration
         self.sequence = sequence
     }
@@ -58,6 +63,7 @@ struct BookRow: Identifiable, Equatable, Hashable {
         self.hasDocuments = item.hasDocuments
         self.coverPath = item.coverPath
         self.coverBlurHash = item.coverBlurHash
+        self.coverHash = item.coverHash
         self.duration = item.duration
         self.sequence = sequence
     }

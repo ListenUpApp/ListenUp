@@ -181,28 +181,40 @@ struct ActivityFeedObserverTests {
         #expect(item.action == "joined the server")
     }
 
-    @Test func listeningSessionCarriesFormattedDuration() {
-        // 1h 5m = 65 minutes = 3_900_000 ms
-        let item = ActivityRowItem(from: model(type: "listening_session", durationMs: 3_900_000))
-        #expect(item.duration == "1h 5m")
+    @Test func listeningSessionWeavesDurationIntoPhrase() {
+        // 1h 5m = 65 minutes = 3_900_000 ms — Android reads "listened to 1 hour 5 minutes of <book>".
+        #expect(
+            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 3_900_000))
+                == "listened to 1 hour 5 minutes of"
+        )
     }
 
-    @Test func listeningSessionUnderAnHourShowsMinutesOnly() {
+    @Test func listeningSessionUnderAnHourReadsMinutesOnly() {
         // 54m = 3_240_000 ms
-        let item = ActivityRowItem(from: model(type: "listening_session", durationMs: 3_240_000))
-        #expect(item.duration == "54m")
+        #expect(
+            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 3_240_000))
+                == "listened to 54 minutes of"
+        )
     }
 
-    @Test func zeroDurationListeningSessionHasNoDuration() {
-        let item = ActivityRowItem(from: model(type: "listening_session", durationMs: 0))
-        #expect(item.duration == nil)
+    @Test func listeningSessionRoundsToWholeHour() {
+        // Exactly 2h = 7_200_000 ms — no trailing "0 minutes", singular unit.
+        #expect(
+            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 7_200_000))
+                == "listened to 2 hours of"
+        )
     }
 
-    @Test func nonListeningActivityHasNoDurationEvenWithMs() {
-        let started = ActivityRowItem(from: model(type: "started_book", durationMs: 3_900_000))
-        let finished = ActivityRowItem(from: model(type: "finished_book", durationMs: 3_900_000))
-        #expect(started.duration == nil)
-        #expect(finished.duration == nil)
+    @Test func zeroDurationListeningSessionReadsSeconds() {
+        #expect(
+            ActivityRowItem.action(for: model(type: "listening_session", durationMs: 0))
+                == "listened to 0 seconds of"
+        )
+    }
+
+    @Test func nonListeningActivityIgnoresDurationEvenWithMs() {
+        #expect(ActivityRowItem.action(for: model(type: "started_book", durationMs: 3_900_000)) == "started")
+        #expect(ActivityRowItem.action(for: model(type: "finished_book", durationMs: 3_900_000)) == "finished")
     }
 }
 

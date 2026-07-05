@@ -24,6 +24,10 @@ struct BookCoverImage: View {
     let bookId: String?
     let coverPath: String?
     let blurHash: String?
+    /// Content hash of the current cover, folded into the image cache key so a new cover at the same
+    /// stable path/URL busts the stale entry (mirrors Android's `"$bookId:$coverHash"` Coil key).
+    /// Nil when unknown — the cache then keys on the path/URL alone, as before.
+    let coverHash: String?
     /// VoiceOver label. When nil the cover is treated as decorative and hidden from VoiceOver
     /// (an unlabeled cover is noise — meaningful covers pass a label via `CoverAccessibility.label`).
     var accessibilityLabel: String?
@@ -37,6 +41,7 @@ struct BookCoverImage: View {
         self.bookId = book.idString
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
+        self.coverHash = book.coverHash
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
 
@@ -45,6 +50,7 @@ struct BookCoverImage: View {
         self.bookId = book.id
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
+        self.coverHash = book.coverHash
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
 
@@ -53,22 +59,31 @@ struct BookCoverImage: View {
         self.bookId = book.idString
         self.coverPath = book.coverPath
         self.blurHash = book.coverBlurHash
+        self.coverHash = book.coverHash
         self.accessibilityLabel = CoverAccessibility.label(title: book.title, author: book.authorNames)
     }
 
     /// Direct initializer with a book id, so the authenticated server URL can resolve.
-    init(bookId: String?, coverPath: String?, blurHash: String? = nil, accessibilityLabel: String? = nil) {
+    init(
+        bookId: String?,
+        coverPath: String?,
+        blurHash: String? = nil,
+        coverHash: String? = nil,
+        accessibilityLabel: String? = nil
+    ) {
         self.bookId = bookId
         self.coverPath = coverPath
         self.blurHash = blurHash
+        self.coverHash = coverHash
         self.accessibilityLabel = accessibilityLabel
     }
 
     /// Local-only initializer (no `bookId`): renders the downloaded file or a placeholder.
-    init(coverPath: String?, blurHash: String? = nil, accessibilityLabel: String? = nil) {
+    init(coverPath: String?, blurHash: String? = nil, coverHash: String? = nil, accessibilityLabel: String? = nil) {
         self.bookId = nil
         self.coverPath = coverPath
         self.blurHash = blurHash
+        self.coverHash = coverHash
         self.accessibilityLabel = accessibilityLabel
     }
 
@@ -98,11 +113,12 @@ struct BookCoverImage: View {
                 targetMaxPixels = px
             }
         }
-        .task(id: TaskKey(bookId: bookId, coverPath: coverPath, targetPixels: targetMaxPixels)) {
+        .task(id: TaskKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash, targetPixels: targetMaxPixels)) {
             guard targetMaxPixels > 0 else { return }
             request = await CoverImageRequest.book(
                 bookId: bookId,
                 coverPath: coverPath,
+                coverHash: coverHash,
                 targetPixels: targetMaxPixels
             )
         }
@@ -116,6 +132,7 @@ struct BookCoverImage: View {
     private struct TaskKey: Equatable {
         let bookId: String?
         let coverPath: String?
+        let coverHash: String?
         let targetPixels: CGFloat
     }
 
