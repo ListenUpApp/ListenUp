@@ -102,8 +102,12 @@ class NowPlayingViewModelTest :
                     playbackPreferences = playbackPreferences,
                     networkMonitor = networkMonitor,
                     documentRepository = documentRepository,
-                    downloadRepository = com.calypsan.listenup.client.test.fake.FakeDownloadRepository(),
-                    playbackPositionRepository = com.calypsan.listenup.client.test.fake.FakePlaybackPositionRepository(),
+                    downloadRepository =
+                        com.calypsan.listenup.client.test.fake
+                            .FakeDownloadRepository(),
+                    playbackPositionRepository =
+                        com.calypsan.listenup.client.test.fake
+                            .FakePlaybackPositionRepository(),
                 )
         }
 

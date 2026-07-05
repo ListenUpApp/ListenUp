@@ -102,3 +102,13 @@ DELETE FROM book_genres WHERE genre_id = :genre_id;
 relinkGenreCopy:
 INSERT OR IGNORE INTO book_genres (book_id, genre_id)
 SELECT book_id, :to_id FROM book_genres WHERE genre_id = :from_id;
+
+-- Distinct genre ids linked to a book — the orphan-purge capture set (see BookContributors).
+genreIdsForBook:
+SELECT DISTINCT genre_id FROM book_genres WHERE book_id = :book_id;
+
+-- Count of LIVE books linked to a genre (dead books excluded). Zero ⇒ orphaned genre → tombstone.
+liveBookCountForGenre:
+SELECT COUNT(DISTINCT bg.book_id) FROM book_genres bg
+JOIN books b ON b.id = bg.book_id AND b.deleted_at IS NULL
+WHERE bg.genre_id = :genre_id;

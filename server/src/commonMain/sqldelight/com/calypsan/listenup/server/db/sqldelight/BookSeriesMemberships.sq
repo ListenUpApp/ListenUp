@@ -56,3 +56,13 @@ DELETE FROM book_series_memberships WHERE series_id = :series_id;
 -- IS the intended semantic.
 relinkSeries:
 UPDATE book_series_memberships SET series_id = :to_id WHERE series_id = :from_id;
+
+-- Distinct series ids linked to a book — the orphan-purge capture set (see BookContributors).
+seriesIdsForBook:
+SELECT DISTINCT series_id FROM book_series_memberships WHERE book_id = :book_id;
+
+-- Count of LIVE books linked to a series (dead books excluded). Zero ⇒ orphaned series → tombstone.
+liveBookCountForSeries:
+SELECT COUNT(DISTINCT bsm.book_id) FROM book_series_memberships bsm
+JOIN books b ON b.id = bsm.book_id AND b.deleted_at IS NULL
+WHERE bsm.series_id = :series_id;

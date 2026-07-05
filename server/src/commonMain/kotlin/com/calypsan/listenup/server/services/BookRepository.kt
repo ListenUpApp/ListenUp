@@ -142,6 +142,7 @@ class BookRepository(
     private val tagRepository: com.calypsan.listenup.server.sync.TagRepository? = null,
     private val bookTagRepository: com.calypsan.listenup.server.sync.BookTagRepository? = null,
     private val bookMoodRepository: com.calypsan.listenup.server.sync.BookMoodRepository? = null,
+    private val orphanParentPurger: OrphanParentPurger? = null,
     private val homeDir: Path? = null,
     private val coverImageStore: CoverImageStore? = null,
 ) : SqlSyncableRepository<BookSyncPayload, BookId>(
@@ -917,17 +918,24 @@ class BookRepository(
      * memberships): a dead book no longer surfaces via any collection's list, count, or the
      * `accessibleBookIdsSql` grant branch. Each cascade opens its own transaction (matching the
      * per-row substrate contract), run after the book's own tombstone commits.
+     *
+     * Finally, the orphan-purge cascade ([orphanParentPurger]) tombstones any contributor / series /
+     * genre / tag / mood the removal left with zero live book children, so an orphaned parent stops
+     * appearing. The linked parents are captured BEFORE the removal (the tag/mood junctions are
+     * tombstoned by the cascade), then re-evaluated after it.
      */
     override suspend fun softDelete(
         id: BookId,
         clientOpId: String?,
         userId: String?,
     ): AppResult<Unit> {
+        val linkedParents = orphanParentPurger?.captureParents(id.value)
         val result = super.softDelete(id, clientOpId, userId)
         if (result is AppResult.Success) {
             bookTagRepository?.softDeleteAllForBook(id.value)
             bookMoodRepository?.softDeleteAllForBook(id.value)
             collectionBookRepository?.softDeleteAllForBook(id.value)
+            if (linkedParents != null) orphanParentPurger.purgeOrphaned(linkedParents)
         }
         return result
     }
