@@ -344,6 +344,31 @@ class AccessChangedReconcileTest :
             }
         }
 
+        test("delta: revoking a scoped book cascades to activities — its activity is tombstoned, a book-less one survives") {
+            withReconcileEngine { harness, db, _ ->
+                val books =
+                    booksDomain(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+                val activities = activitiesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                books.onCatchUpItem(bookPayload("b2"), isTombstone = false)
+                activities.onCatchUpItem(activityPayload("a2", bookId = "b2"), isTombstone = false)
+                // A book-less activity has no gating book, so the cascade must leave it live.
+                activities.onCatchUpItem(activityPayload("aNoBook", bookId = null), isTombstone = false)
+
+                // b2 revoked → the delta only touches books, but the books afterPrune cascade must
+                // tombstone a2 so the access-filtered activities digest converges (the delta never
+                // fetches the activities domain).
+                harness.fakeCatchUp.returnedByDomain["books"] = emptySet()
+                harness.engine.handleAccessChanged(AccessScope(collectionIds = emptyList(), bookIds = listOf("b2")))
+
+                db.activityDao().getById("a2")!!.deletedAt shouldNotBe null
+                db.activityDao().getById("aNoBook")!!.deletedAt shouldBe null
+            }
+        }
+
         test("coarse frame re-derives every access-gated domain — the 5-domain sweep") {
             withReconcileEngine { harness, _, _ ->
                 harness.engine.handleAccessChanged(null)

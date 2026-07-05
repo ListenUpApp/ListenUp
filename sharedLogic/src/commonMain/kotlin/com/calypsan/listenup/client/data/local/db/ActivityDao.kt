@@ -100,6 +100,23 @@ internal interface ActivityDao {
     )
 
     /**
+     * Soft-delete every live activity whose gating book is gone or tombstoned — the activities half of
+     * the books access-gate `afterPrune` cascade. A scoped `AccessChanged` delta only fetches the
+     * `books`/`collections`/`collection_books` domains, so an activity whose book was just revoked
+     * would otherwise linger live locally while the server's access-filtered activities digest no
+     * longer counts it → permanent digest drift. Tombstoning it here (soft, like [tombstoneByIds] —
+     * `activities` is a cursored domain, so a hard delete would itself drift the digest) converges the
+     * two sides; a re-grant re-delivers the row live via catch-up. Book-less activities (`bookId IS
+     * NULL`) are always visible and are left untouched.
+     */
+    @Query(
+        "UPDATE activities SET deletedAt = :now " +
+            "WHERE deletedAt IS NULL AND bookId IS NOT NULL " +
+            "AND bookId NOT IN (SELECT id FROM books WHERE deletedAt IS NULL)",
+    )
+    suspend fun tombstoneWhereBookNotLive(now: Long)
+
+    /**
      * Insert or update an activity entity.
      * If an activity with the same ID exists, it will be updated.
      *

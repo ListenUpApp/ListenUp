@@ -57,8 +57,12 @@ internal interface CatchUp {
  */
 internal sealed interface TargetedFetch {
     /** Match rows by their own wire id — books and collections. */
-    data class ByIds(val ids: List<String>) : TargetedFetch
+    data class ByIds(
+        val ids: List<String>,
+    ) : TargetedFetch
 
     /** Match rows by their `collection_id` — collection_books, to pull a set of collections' memberships. */
-    data class ByCollectionIds(val collectionIds: List<String>) : TargetedFetch
+    data class ByCollectionIds(
+        val collectionIds: List<String>,
+    ) : TargetedFetch
 }
