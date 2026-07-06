@@ -69,6 +69,54 @@ aboutLibraries {
     }
 }
 
+// ── OSS license-manifest drift gate ─────────────────────────────────────────
+// `verifyLicenses` mirrors `verifyStrings`: regenerate, diff against the
+// committed artifact, fail with a "commit the result" message on drift.
+// Mechanics differ because the license data comes from the plugin's
+// dependency-graph collector (not a pure function): the committed manifest is
+// snapshotted BEFORE exportLibraryDefinitions rewrites it in place, then the
+// gate diffs snapshot vs regenerated. On drift the corrected file is already
+// on disk — review and commit it. (Export output is deterministic: entries
+// are sorted and the timestamp metadata block is disabled by default.)
+val licenseManifestFile = file("src/commonMain/composeResources/files/aboutlibraries.json")
+val licenseManifestSnapshot = layout.buildDirectory.file("aboutLibraries/committed-manifest-snapshot.json")
+
+val snapshotLicenseManifest =
+    tasks.register("snapshotLicenseManifest") {
+        description = "Snapshot the committed aboutlibraries.json before regeneration"
+        // Gate plumbing: never UP-TO-DATE, must capture the pre-export content every run.
+        outputs.upToDateWhen { false }
+        val source = licenseManifestFile
+        val target = licenseManifestSnapshot
+        doLast {
+            val out = target.get().asFile
+            out.parentFile.mkdirs()
+            out.writeText(if (source.exists()) source.readText() else "")
+        }
+    }
+
+tasks.named("exportLibraryDefinitions") {
+    mustRunAfter(snapshotLicenseManifest)
+}
+
+tasks.register("verifyLicenses") {
+    group = "verification"
+    description = "Fail if the committed aboutlibraries.json is out of sync with the dependency catalog"
+    dependsOn(snapshotLicenseManifest, "exportLibraryDefinitions")
+    outputs.upToDateWhen { false }
+    val committed = licenseManifestSnapshot
+    val regenerated = licenseManifestFile
+    doLast {
+        if (committed.get().asFile.readText() != regenerated.readText()) {
+            throw GradleException(
+                "OSS license manifest is out of sync with the dependency catalog:\n" +
+                    " - sharedUI/src/commonMain/composeResources/files/aboutlibraries.json\n" +
+                    "exportLibraryDefinitions has regenerated it in place — review the diff and commit the result.",
+            )
+        }
+    }
+}
+
 kotlin {
     // Android target using new AGP 9.0-compatible plugin
     android {

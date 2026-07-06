@@ -98,6 +98,12 @@ jobs:
       - name: Verify localization artifacts in sync
         run: ./gradlew :sharedUI:verifyStrings --no-daemon
 
+      # Drift gate: regenerates the OSS license manifest from the dependency graph
+      # and fails if the committed aboutlibraries.json is out of sync (e.g. a
+      # catalog bump landed without re-running exportLibraryDefinitions).
+      - name: Verify license manifest in sync
+        run: ./gradlew :sharedUI:verifyLicenses --no-daemon
+
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :sharedLogic), and the server. :sharedUI host tests are Robolectric (JVM, no
       # emulator) — included here so Compose-UI test rot can't land unnoticed.
