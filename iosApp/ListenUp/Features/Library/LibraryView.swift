@@ -69,38 +69,10 @@ struct LibraryView: View {
         // so the toolbar surfaces only a "Done" exit + the action bar once selecting — no idle
         // "Select" button cluttering the nav bar beside the profile avatar.
         if let selection, isSelecting {
-            // The live count sits in the title (principal) slot, not a bottom-bar item — a bare
-            // `Text` in `.bottomBar` becomes a Liquid Glass capsule that truncated to "1 sel…" and
-            // read as a broken button. The bottom bar carries only the real actions.
-            ToolbarItem(placement: .principal) {
-                Text(String(format: String(localized: "selection.n_selected"),
-                            selection.selectedBookIds.count))
-                    .font(.headline)
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(String(localized: "common.done")) { selection.exit() }
-            }
-            ToolbarItemGroup(placement: .bottomBar) {
-                Button {
-                    selection.showShelfPicker = true
-                } label: {
-                    Label(String(localized: "book.detail_add_to_shelf"),
-                          systemImage: "rectangle.stack.badge.plus")
-                }
-                .disabled(selection.selectedBookIds.isEmpty)
-
-                Spacer()
-
-                if selection.isAdmin {
-                    Button {
-                        selection.showCollectionPicker = true
-                    } label: {
-                        Label(String(localized: "book.detail_add_to_collection"),
-                              systemImage: "folder.badge.plus")
-                    }
-                    .disabled(selection.selectedBookIds.isEmpty)
-                }
-            }
+            // The Books-tab selection surface reuses the same toolbar as the Home/Discover chrome
+            // (BookSelectionToolbar) so the two never drift; the inline-title switch below keeps the
+            // principal "N selected" count from sitting under the large "Library" title.
+            BookSelectionToolbar(selection: selection)
         }
     }
 

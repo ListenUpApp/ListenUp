@@ -12,7 +12,9 @@ import SwiftUI
 ///      NavigationLink(navigate)+long-press based on the screen-wide `BookSelectionObserver`.
 ///
 /// `selection` is optional: when `nil` the card renders a plain `NavigationLink` and the chrome is a
-/// no-op, so callers that don't participate in multi-select stay unchanged.
+/// no-op, so callers that don't participate in multi-select stay unchanged. A host that passes a
+/// **non-nil** `selection` must also install `.bookSelectionChrome(selection)` (or otherwise surface a
+/// Done exit) — the card can *enter* selection mode but has no way to leave it on its own.
 struct SelectableBookCard<Label: View>: View {
     let bookId: String
     let selection: BookSelectionObserver?
