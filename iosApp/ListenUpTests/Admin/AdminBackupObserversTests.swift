@@ -54,7 +54,7 @@ struct BackupsPhaseTests {
     }
 
     @Test func readyErrorIsSurfaced() {
-        let appError = TransportErrorNetworkUnavailable(correlationId: nil, debugInfo: nil)
+        let appError = ServerConnectErrorInvalidUrl(correlationId: nil, debugInfo: nil, reason: "bad url")
         let ready = AdminBackupUiStateReady(
             backups: [],
             isCreating: false,
@@ -70,7 +70,7 @@ struct BackupsPhaseTests {
     }
 
     @Test func errorStateMapsToError() {
-        let appError = TransportErrorNetworkUnavailable(correlationId: nil, debugInfo: nil)
+        let appError = ServerConnectErrorInvalidUrl(correlationId: nil, debugInfo: nil, reason: "bad url")
         #expect(AdminBackupsObserver.phase(from: AdminBackupUiStateError(error: appError)) == .error(message: appError.message))
     }
 }
@@ -80,7 +80,7 @@ struct BackupsPhaseTests {
 @Suite("Restore phase mapping")
 struct RestorePhaseTests {
     @Test func idleMapsToIdleWithError() {
-        let appError = TransportErrorNetworkUnavailable(correlationId: nil, debugInfo: nil)
+        let appError = ServerConnectErrorInvalidUrl(correlationId: nil, debugInfo: nil, reason: "bad url")
         #expect(RestoreBackupObserver.phase(from: RestoreBackupUiStateIdle(error: nil)) == .idle(error: nil))
         #expect(RestoreBackupObserver.phase(from: RestoreBackupUiStateIdle(error: appError)) == .idle(error: appError.message))
     }
@@ -116,19 +116,21 @@ struct RestoreStatusLabelTests {
         #expect(RestoreBackupObserver.statusLabel(from: nil) == String(localized: "admin.restore_status_default"))
     }
 
-    @Test func eachEventMapsToItsLabel() {
-        #expect(RestoreBackupObserver.statusLabel(from: BackupEventValidating.shared) == String(localized: "admin.restore_status_validating"))
-        #expect(RestoreBackupObserver.statusLabel(from: BackupEventDraining.shared) == String(localized: "admin.restore_status_draining"))
-        #expect(RestoreBackupObserver.statusLabel(from: BackupEventSwapping.shared) == String(localized: "admin.restore_status_swapping"))
-        #expect(RestoreBackupObserver.statusLabel(from: BackupEventMigrating.shared) == String(localized: "admin.restore_status_migrating"))
+    // The restore-progress data-object events — Validating/Draining/Swapping/Migrating (and the
+    // creation data objects Finalizing/DbSnapshotting) — are `@Serializable data object`s, which the
+    // current Swift Export exports as empty classes with no singleton accessor: they are unreachable
+    // from Swift, so their label mappings can't be exercised here. That mapping is pinned instead by
+    // RestoreBackupObserver's exhaustive `onEnum` switch and the sealed-subtype-count guard in
+    // SwiftExportSourcePatcher. The reachable data-*class* events are asserted directly below.
+
+    @Test func terminalEventsMapToTheirLabels() {
         #expect(RestoreBackupObserver.statusLabel(from: BackupEventRestoreComplete(includedImages: true)) == String(localized: "admin.restore_status_finishing"))
         #expect(RestoreBackupObserver.statusLabel(from: BackupEventRolledBack(reason: "boom")) == String(localized: "admin.restore_status_rolling_back"))
     }
 
-    @Test func otherEventsMapToDefault() {
-        // Backup-creation events are not restore progress — they fall through to the default label.
-        #expect(RestoreBackupObserver.statusLabel(from: BackupEventFinalizing.shared) == String(localized: "admin.restore_status_default"))
-        #expect(RestoreBackupObserver.statusLabel(from: BackupEventDbSnapshotting.shared) == String(localized: "admin.restore_status_default"))
+    @Test func nonRestoreEventsMapToDefault() {
+        // A backup-creation event is not restore progress — it falls through to the default label.
+        #expect(RestoreBackupObserver.statusLabel(from: BackupEventImagesCopying(done: 1, total: 3)) == String(localized: "admin.restore_status_default"))
     }
 }
 
@@ -145,7 +147,7 @@ struct UploadPhaseTests {
     }
 
     @Test func errorSurfacesMessage() {
-        let appError = TransportErrorNetworkUnavailable(correlationId: nil, debugInfo: nil)
+        let appError = ServerConnectErrorInvalidUrl(correlationId: nil, debugInfo: nil, reason: "bad url")
         #expect(RestoreFromFileObserver.phase(from: RestoreFromFileUiStateError(error: appError)) == .error(message: appError.message))
     }
 }
