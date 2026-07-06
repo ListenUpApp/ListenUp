@@ -13,7 +13,12 @@ import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
  * open sessions never inflate totals; wall-clock span is irrelevant.
  *
  * `tz` defaults to `"UTC"` — ABS sessions don't carry a reliable IANA time zone; the stats
- * day-boundary math (streaks) uses it, and UTC is a safe deterministic default.
+ * day-boundary math (streaks) uses it, and UTC is a safe deterministic default. Consequence:
+ * imported history is day-bucketed in UTC, so a session late in the user's local evening can
+ * land on the "wrong" local day and slightly shift imported streaks. Considered and rejected
+ * (BACKUP-04): threading the source offset through — ABS timestamps carry at most a fixed
+ * numeric offset (usually +00:00), not the listener's IANA zone, so the plumbing
+ * (parseAbsTimestampMs return shape, AbsSession field, reader) would buy no real fidelity.
  */
 internal class SessionConverter {
     fun toEvent(

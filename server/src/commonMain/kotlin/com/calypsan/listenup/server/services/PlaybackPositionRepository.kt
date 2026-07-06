@@ -189,6 +189,12 @@ class PlaybackPositionRepository(
      *
      * The position row commits via [SqlSyncableRepository.upsert]; the completion/start cascade hooks
      * are de-nested and fire sequentially afterwards (see the class KDoc).
+     *
+     * [startedBookOccurredAt] overrides ONLY the `STARTED_BOOK` activity date (both the new-start and
+     * the re-read [StatsEvent.BookRestarted] branches). The ABS-import backfill uses it to date the
+     * imported start strictly before the book's imported sessions; live callers leave it null and the
+     * activity keeps using [lastPlayedAt]. Position `lastPlayedAt` semantics (the wins-guard, the
+     * payload, the `BookCompleted` date) are untouched by this parameter.
      */
     suspend fun recordPosition(
         userId: String,
@@ -198,6 +204,7 @@ class PlaybackPositionRepository(
         finished: Boolean,
         playbackSpeed: Float,
         currentChapterId: String?,
+        startedBookOccurredAt: Long? = null,
     ): AppResult<PlaybackPositionSyncPayload> {
         val existing = getPosition(userId, bookId)
         // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
@@ -243,7 +250,7 @@ class PlaybackPositionRepository(
                     StatsEvent.BookRestarted(
                         userId = userId,
                         bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: lastPlayedAt),
                         isReread = false,
                     ),
                 )
@@ -252,7 +259,7 @@ class PlaybackPositionRepository(
                     StatsEvent.BookRestarted(
                         userId = userId,
                         bookId = bookId,
-                        occurredAt = Instant.fromEpochMilliseconds(lastPlayedAt),
+                        occurredAt = Instant.fromEpochMilliseconds(startedBookOccurredAt ?: lastPlayedAt),
                         isReread = true,
                     ),
                 )

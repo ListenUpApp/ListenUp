@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.client.data.sync.testing.COLLECTION_E2E_MEMBER_ID
 import com.calypsan.listenup.client.data.sync.testing.CollectionSyncEngineScope
+import com.calypsan.listenup.client.data.sync.testing.awaitUntil
 import com.calypsan.listenup.client.data.sync.testing.withCollectionSyncEngineAgainstServer
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
@@ -25,7 +26,6 @@ import io.kotest.matchers.shouldBe
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
 
 private val ROUND_TRIP_TIMEOUT = 30.seconds
 
@@ -112,10 +112,8 @@ class AccessChangedDeltaE2ETest :
                     // to book-scoped alone.
                     adminCollections.revokeShare(scopedCollection, COLLECTION_E2E_MEMBER_ID).requireSuccess()
 
-                    withTimeout(ROUND_TRIP_TIMEOUT) {
-                        while (clientDatabase.bookDao().getById(BookId("book-scoped"))?.deletedAt == null) {
-                            // poll until the scoped prune tombstones the book
-                        }
+                    awaitUntil(ROUND_TRIP_TIMEOUT) {
+                        clientDatabase.bookDao().getById(BookId("book-scoped"))?.deletedAt != null
                     }
 
                     // The scoped book is pruned, and its dependents cascade away.
@@ -147,10 +145,8 @@ class AccessChangedDeltaE2ETest :
 private suspend fun awaitLiveBook(
     database: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
     bookId: String,
-) = withTimeout(ROUND_TRIP_TIMEOUT) {
-    while (database.bookDao().getById(BookId(bookId)).let { it == null || it.deletedAt != null }) {
-        // poll until the AccessChanged delta upserts the book live
-    }
+) = awaitUntil(ROUND_TRIP_TIMEOUT) {
+    database.bookDao().getById(BookId(bookId)).let { it != null && it.deletedAt == null }
 }
 
 /**

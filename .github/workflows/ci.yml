@@ -49,8 +49,8 @@ jobs:
         run: ./gradlew detekt --no-daemon
 
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
-      # container, pinned to match local. Non-strict: error-severity violations gate;
-      # style is advisory. Config: iosApp/.swiftlint.yml.
+      # container, pinned (0.63.3 — keep CLAUDE.md's local-commands row in sync when bumping).
+      # Non-strict: error-severity violations gate; style is advisory. Config: iosApp/.swiftlint.yml.
       - name: Run SwiftLint (iOS)
         run: |
           docker run --rm \

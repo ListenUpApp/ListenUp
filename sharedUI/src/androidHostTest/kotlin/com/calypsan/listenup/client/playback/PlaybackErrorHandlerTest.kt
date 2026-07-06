@@ -474,6 +474,8 @@ private class RecordingPositionRepository : PlaybackPositionRepository {
 
     override fun observeAll() = TODO("not used")
 
+    override fun observe(bookId: BookId) = TODO("not used")
+
     override suspend fun delete(bookId: BookId) = TODO("not used")
 
     override suspend fun markComplete(

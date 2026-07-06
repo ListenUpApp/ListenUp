@@ -156,7 +156,7 @@ Concrete example: `data/remote/` API methods use `apiCall(errorMessage = "...") 
 
 ### Modern Everything
 
-This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multiplatform 1.11.1, Room KMP 2.8, Ktor 3.4, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
+This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multiplatform 1.11.1, Room KMP 2.8, Ktor 3.5, Koin 4.2, Navigation 3, Media3. When canonical guidance exists, follow it — do not rely on training-cutoff knowledge. Fetch current docs.
 
 ### The Stack
 
@@ -166,7 +166,7 @@ This codebase targets the latest stable versions. Kotlin 2.4.0, Compose Multipla
 | UI | Compose Multiplatform |
 | Navigation | Compose Navigation 3 (multiplatform) |
 | DI | Koin 4.2 |
-| Networking | Ktor 3.4 |
+| Networking | Ktor 3.5 |
 | Persistence | Room KMP 2.8 + SQLite (BundledSQLiteDriver) |
 | Playback | Media3 / ExoPlayer (Android), platform-specific (Desktop, iOS) |
 | Serialization | kotlinx.serialization |
@@ -245,7 +245,7 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 | Stage / job | Lane | Local command |
 |---|---|---|
 | `Lint` (Kotlin) | Linux | `./gradlew spotlessCheck detekt --no-daemon` |
-| `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint`); CI runs it via the pinned `ghcr.io/realm/swiftlint` container. †iOS |
+| `Lint` (Swift) | Linux | `swiftlint lint` — run from `iosApp/` (`brew install swiftlint` — CI pins `ghcr.io/realm/swiftlint:0.63.3`; match that version locally if results differ). †iOS |
 | `Test (JVM)` | Linux | `./gradlew :sharedUI:verifyStrings :sharedUI:verifyLicenses :sharedLogic:compileCommonMainKotlinMetadata :contract:jvmTest :sharedLogic:jvmTest :sharedLogic:testAndroidHostTest :server:jvmTest :sharedUI:testAndroidHostTest :build-logic:convention:test --no-daemon` — verbatim the three commands of CI's `test-jvm` job (localization + license drift gates + full JVM test set) folded into one invocation. |
 | `Test (iOS)` | macOS | `xcodebuild test -scheme ListenUp -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest'` — from `iosApp/`. †iOS |
 | `Build & Test (server linuxX64)` | Linux | `./gradlew :server:compileKotlinLinuxX64 :server:linuxX64Test --no-daemon` — needs native link headers (CI: `apt-get install libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch: `argon2`, `sqlite`, `curl`). |

@@ -82,6 +82,8 @@ internal class PlaybackPositionRepositoryImpl(
             positions.associate { it.bookId to it.toDomain() }
         }
 
+    override fun observe(bookId: BookId): Flow<PlaybackPosition?> = dao.observe(bookId).map { it?.toDomain() }
+
     override suspend fun getLastPlayedBook(): AppResult<LastPlayedInfo?> =
         suspendRunCatching {
             val positions = dao.getRecentPositions(1)
