@@ -30,8 +30,10 @@ private val logger = KotlinLogging.logger {}
  *    neither is fetched here.
  *
  * A delta pass ends in exactly the state a coarse pass restricted to the scope would: same upserts,
- * same tombstones, no leak. Per-domain failures are logged and swallowed — one domain must not
- * strand the others; the next signal (or the coarse anchor) recovers. The persisted
+ * same tombstones, no leak. A per-domain failure never strands the others — the pass continues — but
+ * it is no longer swallowed: the failed remainder is reported to the caller via
+ * [AccessReconcileOutcome] so the engine can re-queue it for exactly one bounded retry. After that
+ * one retry, the reconnect / coarse anchor remains the convergence backstop. The persisted
  * [SyncCursorStore] is never touched: the live SSE/cursor path continues independently.
  */
 internal class AccessReconciler(
@@ -40,17 +42,18 @@ internal class AccessReconciler(
     private val now: () -> Long = { currentEpochMilliseconds() },
 ) {
     /** Re-derive access-gated domains: coarse when [scope] is null, otherwise a scoped delta. */
-    suspend fun reconcile(scope: AccessScope?) {
+    suspend fun reconcile(scope: AccessScope?): AccessReconcileOutcome =
         if (scope == null) reconcileCoarse() else reconcileDelta(scope)
-    }
 
     /**
      * Whole-library re-derive: every access-gated domain re-pulled from 0 and pruned to the
-     * returned accessible set. The semantic anchor — correct regardless of what changed.
+     * returned accessible set. The semantic anchor — correct regardless of what changed. A failed
+     * domain does not stop the others; if any failed, the whole pass is re-queued as coarse.
      */
-    private suspend fun reconcileCoarse() {
+    private suspend fun reconcileCoarse(): AccessReconcileOutcome {
         logger.info { "AccessChanged (coarse): re-deriving + pruning every access-gated domain" }
         val ts = now()
+        var anyFailure = false
         for (handler in registry.accessFilteredHandlers()) {
             @Suppress("UNCHECKED_CAST")
             val typed = handler as SyncDomainHandler<Any>
@@ -61,49 +64,62 @@ internal class AccessReconciler(
 
                 is AppResult.Failure -> {
                     logger.warn { "AccessChanged coarse reconcile failed for ${handler.domainName}: ${ids.error.code}" }
+                    anyFailure = true
                 }
             }
         }
+        return if (anyFailure) AccessReconcileOutcome.Requeue(null) else AccessReconcileOutcome.Clean
     }
 
     /**
      * Scoped delta: fetch + prune only the named entities, in dependency order so a collection's
      * membership is reconciled before the books it gates. Each step is independent — a failure logs
-     * and moves on; the coarse anchor backstops any gap.
+     * and moves on — but its ids are collected into the failed remainder so the engine can re-queue
+     * exactly that portion; the coarse anchor backstops any gap after the one retry.
      */
-    private suspend fun reconcileDelta(scope: AccessScope) {
+    private suspend fun reconcileDelta(scope: AccessScope): AccessReconcileOutcome {
         logger.info {
             "AccessChanged (delta): ${scope.collectionIds.size} collection(s), ${scope.bookIds.size} book(s)"
         }
         val ts = now()
-        fetchAndPruneById("collections", scope.collectionIds, ts)
-        fetchAndPruneCollectionBooks(scope, ts)
-        fetchAndPruneById("books", scope.bookIds, ts)
+        val failedCollectionIds = mutableSetOf<String>()
+        val failedBookIds = mutableSetOf<String>()
+        if (!fetchAndPruneById("collections", scope.collectionIds, ts)) failedCollectionIds += scope.collectionIds
+        if (!fetchAndPruneCollectionBooks(scope, ts)) failedCollectionIds += scope.collectionIds
+        if (!fetchAndPruneById("books", scope.bookIds, ts)) failedBookIds += scope.bookIds
+        return if (failedCollectionIds.isEmpty() && failedBookIds.isEmpty()) {
+            AccessReconcileOutcome.Clean
+        } else {
+            AccessReconcileOutcome.Requeue(AccessScope(failedCollectionIds.toList(), failedBookIds.toList()))
+        }
     }
 
     /**
      * Delta one own-id-keyed domain (`books` / `collections`): fetch [ids] access-filtered, upsert
      * what comes back, and [AccessFilteredSyncHandler.pruneWithin] the candidate set [ids] against
      * the returned accessible subset — so an id asked about but not returned is tombstoned, and
-     * every row outside [ids] is left untouched.
+     * every row outside [ids] is left untouched. Returns `true` when the step completed (including
+     * the no-op paths: empty ids or a non-access-gated handler), `false` only on a fetch failure.
      */
     private suspend fun fetchAndPruneById(
         domainName: String,
         ids: List<String>,
         ts: Long,
-    ) {
-        if (ids.isEmpty()) return
-        val handler = accessGatedHandler(domainName) ?: return
+    ): Boolean {
+        if (ids.isEmpty()) return true
+        val handler = accessGatedHandler(domainName) ?: return true
 
         @Suppress("UNCHECKED_CAST")
         val typed = handler as SyncDomainHandler<Any>
-        when (val returned = catchUp.fetchTransient(typed, TargetedFetch.ByIds(ids))) {
+        return when (val returned = catchUp.fetchTransient(typed, TargetedFetch.ByIds(ids))) {
             is AppResult.Success -> {
                 (handler as AccessFilteredSyncHandler).pruneWithin(ids.toSet(), returned.data, ts)
+                true
             }
 
             is AppResult.Failure -> {
                 logger.warn { "AccessChanged delta fetch failed for $domainName: ${returned.error.code}" }
+                false
             }
         }
     }
@@ -118,22 +134,24 @@ internal class AccessReconciler(
     private suspend fun fetchAndPruneCollectionBooks(
         scope: AccessScope,
         ts: Long,
-    ) {
-        if (scope.collectionIds.isEmpty()) return
-        val handler = accessGatedHandler("collection_books") ?: return
+    ): Boolean {
+        if (scope.collectionIds.isEmpty()) return true
+        val handler = accessGatedHandler("collection_books") ?: return true
         val gated = handler as AccessFilteredSyncHandler
 
         @Suppress("UNCHECKED_CAST")
         val typed = handler as SyncDomainHandler<Any>
         val scopeCols = scope.collectionIds.toSet()
         val candidateIds = gated.localLiveIds().filterTo(mutableSetOf()) { it.substringBefore(':') in scopeCols }
-        when (val returned = catchUp.fetchTransient(typed, TargetedFetch.ByCollectionIds(scope.collectionIds))) {
+        return when (val returned = catchUp.fetchTransient(typed, TargetedFetch.ByCollectionIds(scope.collectionIds))) {
             is AppResult.Success -> {
                 gated.pruneWithin(candidateIds, returned.data, ts)
+                true
             }
 
             is AppResult.Failure -> {
                 logger.warn { "AccessChanged delta fetch failed for collection_books: ${returned.error.code}" }
+                false
             }
         }
     }
@@ -147,4 +165,19 @@ internal class AccessReconciler(
         }
         return handler
     }
+}
+
+/**
+ * What an [AccessReconciler.reconcile] pass could not complete. The engine folds a
+ * [Requeue] back into its coalescer for exactly one follow-up attempt; a `null`
+ * [Requeue.retryScope] re-queues a coarse pass (the accumulator's poison semantics).
+ */
+internal sealed interface AccessReconcileOutcome {
+    /** Every fetch succeeded — nothing to retry. */
+    data object Clean : AccessReconcileOutcome
+
+    /** At least one fetch failed; [retryScope] is the failed remainder (`null` = coarse). */
+    data class Requeue(
+        val retryScope: AccessScope?,
+    ) : AccessReconcileOutcome
 }
