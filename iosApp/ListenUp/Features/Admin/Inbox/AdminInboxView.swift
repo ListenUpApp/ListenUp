@@ -467,7 +467,9 @@ private struct InboxBookRow: View {
     @ViewBuilder
     private var rowActions: some View {
         Button(String(localized: "admin.inbox_review_edit"), systemImage: "square.and.pencil", action: onEdit)
-        Button(String(localized: "book.detail_find_metadata"), systemImage: "sparkle.magnifyingglass", action: onFindMetadata)
+        // Same label + icon as BookDetail's "Match on Audible" — one canonical affordance for the
+        // shared MetadataMatchView flow across both entry points.
+        Button(String(localized: "metadata.match_on_audible"), systemImage: "sparkles", action: onFindMetadata)
     }
 
     private var selectionIndicator: some View {
