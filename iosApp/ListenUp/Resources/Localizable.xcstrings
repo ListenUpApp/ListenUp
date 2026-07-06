@@ -1321,6 +1321,56 @@
         }
       }
     },
+    "admin.restore_complete": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore complete"
+          }
+        }
+      }
+    },
+    "admin.restore_confirm_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This replaces everything on this server, including all user accounts, with the contents of this backup. You'll be signed out and must sign in again with an account from this backup. This cannot be undone."
+          }
+        }
+      }
+    },
+    "admin.restore_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore Backup?"
+          }
+        }
+      }
+    },
+    "admin.restore_destructive_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring replaces all current server data with the contents of this backup. This cannot be undone."
+          }
+        }
+      }
+    },
+    "admin.restore_destructive_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Destructive action"
+          }
+        }
+      }
+    },
     "admin.restore_from_file": {
       "localizations": {
         "en": {
@@ -1377,6 +1427,106 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uploading %1$@…"
+          }
+        }
+      }
+    },
+    "admin.restore_images_included": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover images and avatars were included."
+          }
+        }
+      }
+    },
+    "admin.restore_images_not_included": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cover images and avatars were not included."
+          }
+        }
+      }
+    },
+    "admin.restore_status_default": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring backup…"
+          }
+        }
+      }
+    },
+    "admin.restore_status_draining": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing in-flight requests…"
+          }
+        }
+      }
+    },
+    "admin.restore_status_finishing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finishing up…"
+          }
+        }
+      }
+    },
+    "admin.restore_status_migrating": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Migrating to the current schema…"
+          }
+        }
+      }
+    },
+    "admin.restore_status_rolling_back": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rolling back…"
+          }
+        }
+      }
+    },
+    "admin.restore_status_swapping": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Swapping in the restored database…"
+          }
+        }
+      }
+    },
+    "admin.restore_status_validating": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validating backup…"
+          }
+        }
+      }
+    },
+    "admin.restore_this_backup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore this backup"
           }
         }
       }

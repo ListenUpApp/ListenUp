@@ -30,11 +30,14 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.presentation.admin.ABSImportHubViewModel
+import com.calypsan.listenup.client.presentation.admin.AdminBackupViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionDetailViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminCollectionsViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminSettingsViewModel
 import com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel
+import com.calypsan.listenup.client.presentation.admin.RestoreBackupViewModel
+import com.calypsan.listenup.client.presentation.admin.RestoreFromFileViewModel
 import com.calypsan.listenup.client.presentation.admin.AdminViewModel
 import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.admin.imports.ImportFlowViewModel
@@ -226,6 +229,13 @@ object KoinHelper {
     fun getCreateInviteViewModel(): CreateInviteViewModel = resolve(CreateInviteViewModel::class)
 
     fun getABSImportHubViewModel(): ABSImportHubViewModel = resolve(ABSImportHubViewModel::class)
+
+    fun getAdminBackupViewModel(): AdminBackupViewModel = resolve(AdminBackupViewModel::class)
+
+    fun getRestoreFromFileViewModel(): RestoreFromFileViewModel = resolve(RestoreFromFileViewModel::class)
+
+    fun getRestoreBackupViewModel(backupId: String): RestoreBackupViewModel =
+        resolveWithParams(RestoreBackupViewModel::class, listOf(backupId))
 
     fun getImportFlowViewModel(): ImportFlowViewModel = resolve(ImportFlowViewModel::class)
 
