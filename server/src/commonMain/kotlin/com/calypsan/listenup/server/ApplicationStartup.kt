@@ -71,6 +71,13 @@ internal fun Application.startBackgroundTasks(
     val statsFreshnessSweepTask by inject<StatsFreshnessSweepTask>()
     statsFreshnessSweepTask.start(scope)
 
+    // Heal any ABS import whose apply was interrupted by a crash: re-running is idempotent and
+    // restores stats + the client nudge. A path-less boot is a no-op (the imports dir is absent).
+    // Never fatal to startup.
+    scope.launchNeverFatal("interrupted-import resume failed") {
+        koinGet<com.calypsan.listenup.server.absimport.InterruptedImportResumer>().resumeAll()
+    }
+
     val rescanOnStartup = environment.config.rescanOnStartup()
     scope.launch {
         runCatching {
@@ -119,6 +126,21 @@ internal fun Application.startBackgroundTasks(
                 logger.warn(e) { "mDNS advertisement failed to start — server keeps running" }
             }
         }
+    }
+}
+
+/**
+ * Launches [task] as a fire-and-forget startup job that must never break server boot: any
+ * non-cancellation failure is logged (prefixed with [description]) and swallowed.
+ * [kotlinx.coroutines.CancellationException] is re-raised to honor structured concurrency.
+ */
+private fun CoroutineScope.launchNeverFatal(
+    description: String,
+    task: suspend () -> Unit,
+) = launch {
+    runCatching { task() }.onFailure { e ->
+        if (e is kotlinx.coroutines.CancellationException) throw e
+        logger.error(e) { "$description — server keeps running" }
     }
 }
 

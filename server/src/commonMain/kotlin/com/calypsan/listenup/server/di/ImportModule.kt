@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.absimport.ImportAnalyzer
 import com.calypsan.listenup.server.absimport.ImportApplier
 import com.calypsan.listenup.server.absimport.ImportPaths
 import com.calypsan.listenup.server.absimport.ImportStore
+import com.calypsan.listenup.server.absimport.InterruptedImportResumer
 import com.calypsan.listenup.server.absimport.MappingValidator
 import com.calypsan.listenup.server.absimport.SessionConverter
 import com.calypsan.listenup.server.absimport.UserMatcher
@@ -32,6 +33,7 @@ import org.koin.dsl.module
  *  - [ImportApplier] — write listening progress + sessions, then recompute per-user stats via
  *    [com.calypsan.listenup.server.services.StatsRecorder].
  *  - [MutableSharedFlow]<[ImportEvent]> — process-wide progress event bus.
+ *  - [InterruptedImportResumer] — boot-time healer that re-applies any import interrupted mid-burst.
  *  - [ImportService] / [ImportServiceImpl] — admin-only RPC surface.
  *
  * [com.calypsan.listenup.server.db.DatabaseHandle], [com.calypsan.listenup.server.services.LibraryRegistry],
@@ -79,6 +81,14 @@ fun importModule(homeDir: Path): Module =
         // MutableSharedFlow<ImportEvent> would collide with the scan/backup event buses.
         single<MutableSharedFlow<ImportEvent>>(EventBusQualifiers.ImportEvents) {
             MutableSharedFlow(replay = 0, extraBufferCapacity = 64)
+        }
+
+        single {
+            InterruptedImportResumer(
+                store = get(),
+                applier = get(),
+                eventBus = get(EventBusQualifiers.ImportEvents),
+            )
         }
 
         single<ImportService> {

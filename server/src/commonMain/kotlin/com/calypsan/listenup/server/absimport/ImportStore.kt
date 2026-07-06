@@ -27,7 +27,8 @@ import kotlinx.serialization.json.Json
  * files present in its working directory under [ImportPaths.dirFor]. [ImportStore] is the single
  * place that reads and writes those files — enumerating jobs, deriving their
  * [ImportStatus] from which staging files exist, and persisting/reading the
- * `analysis.json` and `mapping.json` sidecars.
+ * `analysis.json` and `mapping.json` sidecars. It also owns the `.applying`/`.applied`
+ * apply markers, whose combination detects an interrupted apply (see [hasInterruptedApply]).
  *
  * All file I/O runs on [fileIoDispatcher].
  */
@@ -108,10 +109,52 @@ class ImportStore(
             if (SystemFileSystem.exists(file)) json.decodeFromString<StoredMapping>(file.readText()) else null
         }
 
-    /** Touches the `.applied` marker, recording that apply has completed for [id]. */
+    /**
+     * Touches the `.applying` marker, recording that apply has started writing rows for [id]. A
+     * marker that persists without `.applied` means an apply was interrupted (crash or failure)
+     * after possibly committing partial rows — see [hasInterruptedApply] and
+     * [InterruptedImportResumer].
+     */
+    suspend fun markApplying(id: ImportId) =
+        onIo {
+            paths.applyingMarkerFor(id.value).writeText("")
+        }
+
+    /**
+     * Touches the `.applied` marker, recording that apply has completed for [id], and clears the
+     * in-flight `.applying` marker so a completed import can never look interrupted.
+     */
     suspend fun markApplied(id: ImportId) =
         onIo {
             paths.appliedMarkerFor(id.value).writeText("")
+            SystemFileSystem.delete(paths.applyingMarkerFor(id.value), mustExist = false)
+        }
+
+    /**
+     * True when an apply started for [id] but never completed: the `.applying` marker exists and
+     * `.applied` does not. Partial rows may be committed and per-user stats may be stale until the
+     * apply is re-run (idempotent).
+     */
+    suspend fun hasInterruptedApply(id: ImportId): Boolean =
+        onIo {
+            SystemFileSystem.exists(paths.applyingMarkerFor(id.value)) &&
+                !SystemFileSystem.exists(paths.appliedMarkerFor(id.value))
+        }
+
+    /** Every staged import whose apply was interrupted (see [hasInterruptedApply]). */
+    suspend fun listInterruptedApplies(): List<ImportId> =
+        onIo {
+            val root = paths.importsDir
+            if (!SystemFileSystem.exists(root)) return@onIo emptyList()
+            SystemFileSystem
+                .list(root)
+                .filter { entry ->
+                    SystemFileSystem.metadataOrNull(entry)?.isDirectory == true && entry.name != paths.tmpDir.name
+                }.map { ImportId(it.name) }
+                .filter { id ->
+                    SystemFileSystem.exists(paths.applyingMarkerFor(id.value)) &&
+                        !SystemFileSystem.exists(paths.appliedMarkerFor(id.value))
+                }
         }
 
     /** Derives the lifecycle status of [id] from which staging files exist. */

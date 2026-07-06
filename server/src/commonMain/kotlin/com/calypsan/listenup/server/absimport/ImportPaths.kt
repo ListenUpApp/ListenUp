@@ -42,6 +42,9 @@ class ImportPaths(
     /** The marker file written once apply has completed for the import [id]. */
     fun appliedMarkerFor(id: String): Path = Path(dirFor(id), ".applied")
 
+    /** Marker touched when apply starts writing; cleared by a successful apply (see ImportStore). */
+    fun applyingMarkerFor(id: String): Path = Path(dirFor(id), ".applying")
+
     /** The small upload-time metadata sidecar (`meta.json`) for the import [id]. */
     fun metaFor(id: String): Path = Path(dirFor(id), "meta.json")
 

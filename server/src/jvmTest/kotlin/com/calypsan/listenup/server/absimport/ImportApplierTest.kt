@@ -1,6 +1,8 @@
 package com.calypsan.listenup.server.absimport
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.imports.ImportEvent
+import com.calypsan.listenup.api.dto.imports.ImportStatus
 import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncControl
@@ -33,6 +35,7 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -458,6 +461,136 @@ class ImportApplierTest :
                             bookOverrides = mapOf(AbsItemId("book-1") to BookId(LU_KINGS)),
                         )
                     error.shouldBeNull()
+                }
+            }
+        }
+
+        test("an interrupted apply is detectable and a re-apply converges it") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val store = ImportStore(staged.paths)
+
+                    // Inject a mid-burst failure: throw on the FIRST Applying event only. The catch
+                    // path re-invokes onEvent with ImportEvent.Failed, so a throw-always callback
+                    // would explode inside the catch block; the single-shot guard leaves ≥1 row
+                    // committed with the burst aborted — a true partial state, no mocks.
+                    var thrown = false
+                    val result =
+                        applier.apply(staged.importId) { event ->
+                            if (event is ImportEvent.Applying && !thrown) {
+                                thrown = true
+                                throw IllegalStateException("simulated crash mid-apply")
+                            }
+                        }
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+
+                    // Partial state: rows committed, but the import is not marked applied.
+                    store.statusOf(staged.importId) shouldBe ImportStatus.MAPPED
+                    store.hasInterruptedApply(staged.importId) shouldBe true
+
+                    // Re-apply with a normal sink: converges.
+                    val second = applier.apply(staged.importId) {}
+                    second.shouldBeInstanceOf<AppResult.Success<*>>()
+                    store.statusOf(staged.importId) shouldBe ImportStatus.APPLIED
+                    store.hasInterruptedApply(staged.importId) shouldBe false
+                    staged.repo
+                        .getPosition(LU_USER, LU_KINGS)
+                        .shouldNotBeNull()
+                        .finished shouldBe true
+                    staged.statsRepo
+                        .getForUser(LU_USER)
+                        .shouldNotBeNull()
+                        .totalSecondsAllTime shouldBe 5_460L
+                }
+            }
+        }
+
+        test("a successful apply leaves no interrupted-apply marker") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val store = ImportStore(staged.paths)
+
+                    applier.apply(staged.importId) {}
+
+                    store.hasInterruptedApply(staged.importId) shouldBe false
+                    store.statusOf(staged.importId) shouldBe ImportStatus.APPLIED
+                }
+            }
+        }
+
+        test("boot-time resume converges an interrupted apply: applied, stats, broadcast") {
+            withSqlDatabase {
+                val dbs = this
+                runTest(UnconfinedTestDispatcher()) {
+                    val staged = stageAnalyzedImport(dbs)
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val store = ImportStore(staged.paths)
+
+                    // Interrupt the first apply (same seam as the detection test).
+                    var thrown = false
+                    applier.apply(staged.importId) { event ->
+                        if (event is ImportEvent.Applying && !thrown) {
+                            thrown = true
+                            throw IllegalStateException("boom")
+                        }
+                    }
+                    store.hasInterruptedApply(staged.importId) shouldBe true
+
+                    // Collect control frames like the existing LibraryDataChanged test.
+                    val frames = mutableListOf<ControlFrame>()
+                    staged.bus
+                        .subscribeControl()
+                        .onEach { frames += it }
+                        .launchIn(backgroundScope)
+                    repeat(8) { yield() } // ensure the collector is subscribed before resume publishes
+
+                    val resumer =
+                        InterruptedImportResumer(
+                            store = store,
+                            applier = applier,
+                            eventBus = MutableSharedFlow(extraBufferCapacity = 64),
+                        )
+                    resumer.resumeAll() shouldBe listOf(staged.importId.value)
+                    repeat(8) { yield() } // let the post-apply broadcast drain to the collector
+
+                    store.statusOf(staged.importId) shouldBe ImportStatus.APPLIED
+                    store.hasInterruptedApply(staged.importId) shouldBe false
+                    staged.statsRepo
+                        .getForUser(LU_USER)
+                        .shouldNotBeNull()
+                        .totalSecondsAllTime shouldBe 5_460L
+                    frames.map { it.control } shouldContain SyncControl.LibraryDataChanged
+                }
+            }
+        }
+
+        test("resumer is a no-op when nothing was interrupted") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    confirmSimonMapping(staged.paths, staged.importId)
+                    val store = ImportStore(staged.paths)
+
+                    // Mapped but never applied → no `.applying` marker exists to heal.
+                    val resumer =
+                        InterruptedImportResumer(
+                            store = store,
+                            applier = applierFor(staged),
+                            eventBus = MutableSharedFlow(extraBufferCapacity = 64),
+                        )
+                    resumer.resumeAll() shouldBe emptyList<String>()
+                    store.statusOf(staged.importId) shouldBe ImportStatus.MAPPED
+                    staged.repo.getPosition(LU_USER, LU_KINGS).shouldBeNull()
                 }
             }
         }
