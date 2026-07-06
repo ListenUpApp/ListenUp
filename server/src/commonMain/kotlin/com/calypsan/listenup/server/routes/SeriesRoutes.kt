@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -23,8 +24,10 @@ import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.patch
 import io.ktor.server.resources.post
+import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import kotlinx.io.files.Path
 
 /**
  * REST surface for [SeriesService]. Five endpoints:
@@ -51,7 +54,11 @@ import io.ktor.server.routing.Route
 private const val AUTH_WALL_REGRESSION_MSG =
     "series REST mount reached without a principal — auth wall regression"
 
-fun Route.seriesRoutes(seriesService: SeriesService) {
+fun Route.seriesRoutes(
+    seriesService: SeriesService,
+    imageHome: Path,
+    imageStorage: ImageStorage,
+) {
     get<SeriesResources.Detail> { res ->
         when (val result = seriesService.getSeries(SeriesId(res.id))) {
             is AppResult.Success -> {
@@ -80,6 +87,29 @@ fun Route.seriesRoutes(seriesService: SeriesService) {
         when (val result = call.scoped(seriesService).updateSeries(SeriesId(res.id), patch)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<SeriesResources.Cover> { res ->
+        // Store the bytes content-addressed, then persist the path through the scoped service so its
+        // internal requireCanEdit gate + revision bump + sync-event publication fire (series' canEdit
+        // check is not exposed for a pre-buffer gate; the 10 MiB cap bounds the exposure).
+        when (val outcome = call.storeMultipartImage("series", imageHome, imageStorage)) {
+            is ImageUploadOutcome.Rejected -> {
+                call.respond(outcome.status, outcome.message)
+            }
+
+            is ImageUploadOutcome.Stored -> {
+                when (
+                    val result =
+                        call
+                            .scoped(seriesService)
+                            .updateSeries(SeriesId(res.id), SeriesUpdate(coverPath = outcome.relPath))
+                ) {
+                    is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+                    is AppResult.Failure -> call.respondBareAppError(result.error)
+                }
+            }
         }
     }
 

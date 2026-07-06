@@ -37,7 +37,12 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import com.calypsan.listenup.server.metadata.ImageStorage
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpStatusCode
+import kotlinx.io.files.Path
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.auth.Authentication
@@ -104,7 +109,12 @@ class ContributorRoutesTest :
                         install(Authentication) { testAuth(roleResolver = sql::roleOf) }
                         routing {
                             authenticate(JWT_PROVIDER) {
-                                contributorRoutes(service)
+                                // Image-upload deps unused by these tests; a stub ImageStorage + tmp home satisfy the signature.
+                                contributorRoutes(
+                                    service,
+                                    Path(System.getProperty("java.io.tmpdir")),
+                                    ImageStorage(HttpClient(MockEngine { respond(ByteArray(0), HttpStatusCode.OK) })),
+                                )
                             }
                         }
                     }
