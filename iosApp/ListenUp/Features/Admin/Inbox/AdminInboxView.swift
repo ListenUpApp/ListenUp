@@ -19,6 +19,8 @@ struct AdminInboxView: View {
     /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
     /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
     @State private var editingBook: InboxEditTarget?
+    /// The inbox book currently being matched against Audible metadata. `nil` when no sheet is open.
+    @State private var metadataBook: InboxMetadataTarget?
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
@@ -36,6 +38,9 @@ struct AdminInboxView: View {
         .toolbar { selectToolbarItem }
         .sheet(item: $editingBook) { target in
             BookEditView(bookId: target.id)
+        }
+        .sheet(item: $metadataBook) { target in
+            MetadataMatchView(bookId: target.id, title: target.title, author: target.author, asin: nil)
         }
         .onAppear {
             if observer == nil {
@@ -126,7 +131,8 @@ struct AdminInboxView: View {
                     isSelected: ready.selectedBookIds.contains(book.id),
                     isSelecting: ready.hasSelection,
                     onTap: { observer.toggleBookSelection(bookId: book.id) },
-                    onEdit: { editingBook = InboxEditTarget(id: book.id) }
+                    onEdit: { editingBook = InboxEditTarget(id: book.id) },
+                    onFindMetadata: { metadataBook = InboxMetadataTarget(book: book) }
                 )
             }
             .padding(.horizontal, 20)
@@ -156,7 +162,8 @@ struct AdminInboxView: View {
                             isSelected: ready.selectedBookIds.contains(b.id),
                             isSelecting: ready.hasSelection,
                             onTap: { observer.toggleBookSelection(bookId: b.id) },
-                            onEdit: { editingBook = InboxEditTarget(id: b.id) }
+                            onEdit: { editingBook = InboxEditTarget(id: b.id) },
+                            onFindMetadata: { metadataBook = InboxMetadataTarget(book: b) }
                         )
                     }
                 }
@@ -369,17 +376,32 @@ private struct InboxEditTarget: Identifiable {
     let id: String
 }
 
+/// Identifiable wrapper carrying the fields `MetadataMatchView` needs to seed its Audible search.
+private struct InboxMetadataTarget: Identifiable {
+    let id: String
+    let title: String
+    let author: String
+
+    init(book: InboxBookRowModel) {
+        self.id = book.id
+        self.title = book.title
+        self.author = book.author ?? ""
+    }
+}
+
 private struct InboxBookRow: View {
     let book: InboxBookRowModel
     let isSelected: Bool
     let isSelecting: Bool
     let onTap: () -> Void
     let onEdit: () -> Void
+    let onFindMetadata: () -> Void
 
     var body: some View {
         // Two independent hit targets: the main content toggles select-for-release, the trailing
-        // pencil opens BookEdit. A single row-spanning Button can't host a nested Button, so the two
-        // sit side by side. A long-press context menu offers the same Edit for discoverability.
+        // ellipsis menu hosts the per-book actions (edit, find metadata). A single row-spanning
+        // Button can't host a nested control, so the two sit side by side. A long-press context menu
+        // mirrors the same actions for discoverability.
         HStack(spacing: 8) {
             Button(action: onTap) {
                 HStack(spacing: 13) {
@@ -416,28 +438,36 @@ private struct InboxBookRow: View {
             .accessibilityLabel(book.title)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
 
-            editButton
+            actionsMenu
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
         .background(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
-        .contextMenu {
-            Button(String(localized: "admin.inbox_review_edit"), systemImage: "square.and.pencil", action: onEdit)
-        }
+        .contextMenu { rowActions }
     }
 
-    /// Visible per-row affordance to review/edit the book (metadata + collections) before release.
-    private var editButton: some View {
-        Button(action: onEdit) {
-            Image(systemName: "square.and.pencil")
+    /// Visible per-row actions: review/edit (metadata fields + collections) or match against Audible —
+    /// both before releasing. A `Menu` so the two share one discoverable, HIG-standard affordance; the
+    /// long-press context menu mirrors it via the same `rowActions`.
+    private var actionsMenu: some View {
+        Menu {
+            rowActions
+        } label: {
+            Image(systemName: "ellipsis.circle")
                 .font(.body)
                 .foregroundStyle(Color.luTint)
                 .frame(width: 44, height: 44)   // HIG minimum tap target
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(String(localized: "admin.inbox_review_edit"))
+        .accessibilityLabel(String(localized: "common.more_actions"))
+    }
+
+    @ViewBuilder
+    private var rowActions: some View {
+        Button(String(localized: "admin.inbox_review_edit"), systemImage: "square.and.pencil", action: onEdit)
+        Button(String(localized: "book.detail_find_metadata"), systemImage: "sparkle.magnifyingglass", action: onFindMetadata)
     }
 
     private var selectionIndicator: some View {
