@@ -19,6 +19,10 @@ struct LibraryView: View {
 
     private var user: User? { userObserver.user }
 
+    /// True while the Books tab is in multi-select mode — drives the inline title, the tab-bar hide,
+    /// and the action bar. Only the Books tab is selectable (Series/Authors/Narrators aren't).
+    private var isSelecting: Bool { selection?.isSelecting == true && selectedTab == .books }
+
     var body: some View {
         Group {
             if let observer, let selection {
@@ -28,8 +32,12 @@ struct LibraryView: View {
             }
         }
         .navigationTitle(String(localized: "common.library"))
-        .navigationBarTitleDisplayMode(.large)
+        // While selecting, collapse the large "Library" title so the toolbar's principal item shows
+        // the live "N selected" count (Photos idiom); the tab bar hides so the bottom action bar owns
+        // the bottom strip instead of colliding with the floating Library/Search tab pills.
+        .navigationBarTitleDisplayMode(isSelecting ? .inline : .large)
         .toolbar { libraryToolbar }
+        .toolbar(isSelecting ? .hidden : .automatic, for: .tabBar)
         .modifier(SelectionSheets(selection: selection))
         .onAppear {
             if observer == nil {
@@ -60,7 +68,15 @@ struct LibraryView: View {
         // Multi-select on the Books tab is entered by long-pressing a cover (see BooksContent),
         // so the toolbar surfaces only a "Done" exit + the action bar once selecting — no idle
         // "Select" button cluttering the nav bar beside the profile avatar.
-        if let selection, selectedTab == .books, selection.isSelecting {
+        if let selection, isSelecting {
+            // The live count sits in the title (principal) slot, not a bottom-bar item — a bare
+            // `Text` in `.bottomBar` becomes a Liquid Glass capsule that truncated to "1 sel…" and
+            // read as a broken button. The bottom bar carries only the real actions.
+            ToolbarItem(placement: .principal) {
+                Text(String(format: String(localized: "selection.n_selected"),
+                            selection.selectedBookIds.count))
+                    .font(.headline)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button(String(localized: "common.done")) { selection.exit() }
             }
@@ -72,13 +88,6 @@ struct LibraryView: View {
                           systemImage: "rectangle.stack.badge.plus")
                 }
                 .disabled(selection.selectedBookIds.isEmpty)
-
-                Spacer()
-
-                Text(String(format: String(localized: "selection.n_selected"),
-                            selection.selectedBookIds.count))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
 
                 Spacer()
 

@@ -203,15 +203,17 @@ struct BooksContent: View {
             Button { selection.toggle(book.id) } label: { card }
                 .buttonStyle(.plain)
         } else {
+            // A plain value-based NavigationLink: a tap opens the book. Selection is entered via a
+            // native long-press → context menu → "Select", which iOS arbitrates against the link's
+            // own tap so the two never double-fire. (The old `.simultaneousGesture(LongPressGesture)`
+            // let a long-press *and* the link's tap-on-release both fire, so releasing navigated.)
             NavigationLink(value: BookDestination(id: book.id)) { card }
                 .buttonStyle(.plain)
-                // A long-press attached directly to a NavigationLink is swallowed by the link's
-                // own press recognizer and never fires. `simultaneousGesture` lets the long-press
-                // run alongside the tap: a quick tap still navigates, a hold enters selection.
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.4)
-                        .onEnded { _ in selection.enter(book.id) }
-                )
+                .contextMenu {
+                    Button(String(localized: "common.select"), systemImage: "checkmark.circle") {
+                        selection.enter(book.id)
+                    }
+                }
         }
     }
 
