@@ -49,8 +49,8 @@ jobs:
         run: ./gradlew detekt --no-daemon
 
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
-      # container, pinned to match local. Non-strict: error-severity violations gate;
-      # style is advisory. Config: iosApp/.swiftlint.yml.
+      # container, pinned (0.63.3 — keep CLAUDE.md's local-commands row in sync when bumping).
+      # Non-strict: error-severity violations gate; style is advisory. Config: iosApp/.swiftlint.yml.
       - name: Run SwiftLint (iOS)
         run: |
           docker run --rm \
@@ -97,6 +97,12 @@ jobs:
       # an artifact was hand-edited).
       - name: Verify localization artifacts in sync
         run: ./gradlew :sharedUI:verifyStrings --no-daemon
+
+      # Drift gate: regenerates the OSS license manifest from the dependency graph
+      # and fails if the committed aboutlibraries.json is out of sync (e.g. a
+      # catalog bump landed without re-running exportLibraryDefinitions).
+      - name: Verify license manifest in sync
+        run: ./gradlew :sharedUI:verifyLicenses --no-daemon
 
       # Kotest across the contract DTOs, the shared client core (every client consumes
       # :sharedLogic), and the server. :sharedUI host tests are Robolectric (JVM, no

@@ -245,15 +245,19 @@ private fun BookDetailReadyContent(
         onAddToCollectionClick = { viewModel.showCollectionPicker() },
         onShareClick = {
             scope.launch {
-                val result = instanceRepository.getInstance()
+                // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the
+                // Kotlin server responds a bare (non-enveloped) body there, so decoding it as
+                // `ApiResponse<Instance>` threw on every share. `getServerInfo` is pure RPC and
+                // carries the `remoteUrl` + `instanceId` the share link needs. Mirrors iOS #1045.
+                val result = instanceRepository.getServerInfo()
                 if (result is AppResult.Success) {
-                    val instance = result.data
+                    val info = result.data
                     val url =
                         ShareLinkCodec.encode(
                             ShareTarget.Book(
                                 bookId = book.id,
-                                serverInstanceId = instance.id.value,
-                                serverUrl = (instance.remoteUrl ?: instance.localUrl)?.trimEnd('/'),
+                                serverInstanceId = info.instanceId,
+                                serverUrl = info.remoteUrl?.trimEnd('/'),
                             ),
                         )
                     val text = "Check out ${book.title} on ListenUp!\n$url"

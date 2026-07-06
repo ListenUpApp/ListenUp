@@ -2,8 +2,6 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
 import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
-import com.calypsan.listenup.client.data.remote.BackupApi
-import com.calypsan.listenup.client.data.remote.BackupApiContract
 import com.calypsan.listenup.client.data.remote.BackupRpcFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
@@ -33,7 +31,6 @@ import com.calypsan.listenup.client.domain.usecase.admin.RevokeInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.SetRegistrationPolicyUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.UpdateServerSettingsUseCase
 import org.koin.core.module.Module
-import org.koin.dsl.bind
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
@@ -49,11 +46,6 @@ import org.koin.dsl.module
  */
 internal val adminModule: Module =
     module {
-        // BackupApi for admin backup/restore operations
-        single {
-            BackupApi(clientFactory = get())
-        } bind BackupApiContract::class
-
         // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
         single<LibraryAdminRpcFactory> {
             KtorLibraryAdminRpcFactory(

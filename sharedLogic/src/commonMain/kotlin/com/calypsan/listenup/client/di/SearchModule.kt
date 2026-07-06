@@ -1,7 +1,5 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.SearchApi
-import com.calypsan.listenup.client.data.remote.SearchApiContract
 import com.calypsan.listenup.client.data.repository.SearchRepositoryImpl
 import com.calypsan.listenup.client.data.sync.FtsPopulator
 import com.calypsan.listenup.client.data.sync.FtsPopulatorContract
@@ -11,7 +9,7 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 
 /**
- * Search aggregate Koin wiring — API proxy, repository, and FTS populator for the
+ * Search aggregate Koin wiring — repository and FTS populator for the
  * search domain.
  *
  * External dependencies (owned by other modules):
@@ -24,11 +22,6 @@ import org.koin.dsl.module
  */
 internal val searchModule: Module =
     module {
-        // SearchApi for server-side search
-        single<SearchApiContract> {
-            SearchApi(clientFactory = get())
-        }
-
         // FtsPopulator for rebuilding FTS tables after sync
         single {
             FtsPopulator(

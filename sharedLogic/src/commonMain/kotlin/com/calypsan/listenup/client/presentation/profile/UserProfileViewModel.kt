@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.model.ProfileRecentBook
@@ -24,7 +25,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlin.uuid.Uuid
 
 private val logger = KotlinLogging.logger {}
 
@@ -231,33 +231,3 @@ class UserProfileViewModel internal constructor(
         private const val MS_PER_SECOND = 1_000L
     }
 }
-
-/**
- * Stable, per-user avatar background as a hex string, mirroring the UI-layer palette in
- * `design/components/UserAvatar.kt` so generated colors stay consistent app-wide.
- */
-fun stableAvatarColorHex(userId: String): String {
-    val index =
-        try {
-            Uuid.parse(userId).toLongs { msb, _ -> msb.hashCode() }.mod(AVATAR_PALETTE.size)
-        } catch (_: IllegalArgumentException) {
-            userId.length.mod(AVATAR_PALETTE.size)
-        }
-    return AVATAR_PALETTE[index]
-}
-
-private val AVATAR_PALETTE =
-    listOf(
-        "#E53935",
-        "#D81B60",
-        "#8E24AA",
-        "#5E35B1",
-        "#3949AB",
-        "#1E88E5",
-        "#039BE5",
-        "#00ACC1",
-        "#00897B",
-        "#43A047",
-        "#FB8C00",
-        "#6D4C41",
-    )

@@ -4,10 +4,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Response from `GET /api/v1/filesystem`.
+ * Response shape for the filesystem-browse surface.
  *
- * Lists directories available for selection as scan paths. Shared by the REST
- * Backup/ABS-import surface ([BackupApiContract.browseFilesystem]) and reconstructed
+ * Lists directories available for selection as scan paths. Reconstructed
  * client-side by [com.calypsan.listenup.client.data.repository.AdminRepositoryImpl.browseFilesystem]
  * from the [com.calypsan.listenup.api.LibraryAdminService.browseFilesystem] RPC result.
  */

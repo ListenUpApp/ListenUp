@@ -116,6 +116,7 @@ tasks.register("verifyLocal") {
         "spotlessCheck",
         "detekt",
         ":sharedUI:verifyStrings",
+        ":sharedUI:verifyLicenses",
         ":sharedLogic:compileCommonMainKotlinMetadata",
         ":contract:jvmTest",
         ":sharedLogic:jvmTest",

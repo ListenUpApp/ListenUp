@@ -6,8 +6,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
@@ -56,7 +56,7 @@ internal class PlaybackManagerImpl(
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
     private val playbackRpcFactory: PlaybackRpcFactory,
-    private val syncApi: SyncApiContract?,
+    private val bookRpcFactory: BookRpcFactory,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
 ) : PlaybackManager {
@@ -73,7 +73,7 @@ internal class PlaybackManagerImpl(
             deviceContext = deviceContext,
             downloadService = downloadService,
             playbackRpcFactory = playbackRpcFactory,
-            syncApi = syncApi,
+            bookRpcFactory = bookRpcFactory,
             scope = scope,
             bookSyncDomainHandler = bookSyncDomainHandler,
         )

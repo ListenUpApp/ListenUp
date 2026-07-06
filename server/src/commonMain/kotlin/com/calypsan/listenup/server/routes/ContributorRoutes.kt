@@ -12,6 +12,7 @@ import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.metadata.ImageStorage
 import com.calypsan.listenup.server.plugins.toHttpStatus
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.plugins.withCorrelationId
@@ -24,8 +25,10 @@ import io.ktor.server.resources.delete
 import io.ktor.server.resources.get
 import io.ktor.server.resources.patch
 import io.ktor.server.resources.post
+import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
+import kotlinx.io.files.Path
 
 /**
  * REST surface for [ContributorService]. Seven endpoints:
@@ -56,7 +59,11 @@ import io.ktor.server.routing.Route
 private const val AUTH_WALL_REGRESSION_MSG =
     "contributor REST mount reached without a principal — auth wall regression"
 
-fun Route.contributorRoutes(contributorService: ContributorService) {
+fun Route.contributorRoutes(
+    contributorService: ContributorService,
+    imageHome: Path,
+    imageStorage: ImageStorage,
+) {
     get<ContributorResources.Detail> { res ->
         when (val result = contributorService.getContributor(ContributorId(res.id))) {
             is AppResult.Success -> {
@@ -85,6 +92,29 @@ fun Route.contributorRoutes(contributorService: ContributorService) {
         when (val result = call.scoped(contributorService).updateContributor(ContributorId(res.id), patch)) {
             is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
             is AppResult.Failure -> call.respondBareAppError(result.error)
+        }
+    }
+
+    put<ContributorResources.Image> { res ->
+        // Store the bytes content-addressed, then persist the path through the scoped service so its
+        // internal requireCanEdit gate + revision bump + sync-event publication fire (contributor's
+        // canEdit check is not exposed for a pre-buffer gate; the 10 MiB cap bounds the exposure).
+        when (val outcome = call.storeMultipartImage("contributors", imageHome, imageStorage)) {
+            is ImageUploadOutcome.Rejected -> {
+                call.respond(outcome.status, outcome.message)
+            }
+
+            is ImageUploadOutcome.Stored -> {
+                when (
+                    val result =
+                        call
+                            .scoped(contributorService)
+                            .updateContributor(ContributorId(res.id), ContributorUpdate(imagePath = outcome.relPath))
+                ) {
+                    is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
+                    is AppResult.Failure -> call.respondBareAppError(result.error)
+                }
+            }
         }
     }
 

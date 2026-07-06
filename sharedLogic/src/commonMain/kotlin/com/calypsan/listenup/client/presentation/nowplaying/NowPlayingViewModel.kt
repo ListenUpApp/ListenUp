@@ -275,10 +275,9 @@ class NowPlayingViewModel(
                         combine(
                             bookRepository.observeIsBookLive(bookId.value),
                             downloadRepository.observeBookStatus(bookId),
-                            playbackPositionRepository.observeAll(),
-                        ) { isLive, downloadStatus, positions ->
+                            playbackPositionRepository.observe(bookId),
+                        ) { isLive, downloadStatus, position ->
                             val downloaded = downloadStatus is BookDownloadStatus.Completed
-                            val position = positions[bookId]
                             val inProgress = position != null && position.positionMs > 0 && !position.isFinished
                             !isLive && !(downloaded && inProgress)
                         }

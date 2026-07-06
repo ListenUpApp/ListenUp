@@ -1,8 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
-import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.matcher.any

@@ -5,8 +5,6 @@ import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.SessionApi
-import com.calypsan.listenup.client.data.remote.SessionApiContract
 import com.calypsan.listenup.client.data.remote.SocialRpcFactory
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
@@ -24,7 +22,6 @@ import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.module.Module
-import org.koin.dsl.bind
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
@@ -47,11 +44,6 @@ import org.koin.dsl.module
  */
 internal val socialModule: Module =
     module {
-        // SessionApi for reading session operations
-        single {
-            SessionApi(clientFactory = get())
-        } bind SessionApiContract::class
-
         // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
         single<SocialRpcFactory> {
             KtorSocialRpcFactory(

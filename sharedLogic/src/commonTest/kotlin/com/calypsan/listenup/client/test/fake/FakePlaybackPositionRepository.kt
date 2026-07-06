@@ -50,6 +50,8 @@ class FakePlaybackPositionRepository(
             stringKeyed.mapKeys { (k, _) -> BookId(k) }
         }
 
+    override fun observe(bookId: BookId): Flow<PlaybackPosition?> = state.asStateFlow().map { it[bookId.value] }
+
     override suspend fun delete(bookId: BookId): AppResult<Unit> {
         state.value = state.value - bookId.value
         return AppResult.Success(Unit)

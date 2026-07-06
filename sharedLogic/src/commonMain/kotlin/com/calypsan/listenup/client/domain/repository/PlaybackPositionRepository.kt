@@ -44,6 +44,16 @@ interface PlaybackPositionRepository {
     fun observeAll(): Flow<Map<BookId, PlaybackPosition>>
 
     /**
+     * Observe the persisted playback position for a single book. Emits null while
+     * the book has never been played. Cheaper than [observeAll] when only one
+     * book's position matters (e.g. the Now Playing liveness watcher).
+     *
+     * @param bookId The book to observe.
+     * @return Flow emitting the book's position, or null when absent.
+     */
+    fun observe(bookId: BookId): Flow<PlaybackPosition?>
+
+    /**
      * Delete position for a book.
      *
      * Used when resetting progress or removing a book.

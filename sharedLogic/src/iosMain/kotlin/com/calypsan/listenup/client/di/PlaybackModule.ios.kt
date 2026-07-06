@@ -133,7 +133,7 @@ internal val iosPlaybackModule: Module =
                 deviceContext = get(),
                 downloadService = get(),
                 playbackRpcFactory = get(),
-                syncApi = get(),
+                bookRpcFactory = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )

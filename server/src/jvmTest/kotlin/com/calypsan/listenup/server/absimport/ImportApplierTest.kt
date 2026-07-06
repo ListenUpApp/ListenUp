@@ -1,5 +1,6 @@
 package com.calypsan.listenup.server.absimport
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.imports.ImportEvent
 import com.calypsan.listenup.api.dto.imports.ImportStatus
@@ -12,6 +13,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.services.ActivityRepository
 import com.calypsan.listenup.server.services.BookReadsRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.ListeningEventRepository
@@ -95,6 +97,42 @@ class ImportApplierTest :
                     result.sessionsImported shouldBe 3
                     listeningEventIdsFor(dbs.sql, LU_USER)
                         .shouldContainAll(listOf("abs:sess-kings", "abs:sess-mist", "abs:sess-fidelity"))
+                }
+            }
+        }
+
+        test("imported started_book is dated before the book's earliest imported session") {
+            withSqlDatabase {
+                val dbs = this
+                runTest {
+                    val staged = stageAnalyzedImport(dbs)
+                    // Real ABS data has progress.updatedAt AT/AFTER the last session; the synthetic
+                    // fixture has it before. Push book-2's progress timestamp past both sessions so
+                    // the feed-ordering bug is observable (apply re-reads the ABS db, so the post-stage
+                    // mutation is seen).
+                    java.sql.DriverManager
+                        .getConnection("jdbc:sqlite:${staged.paths.absDbFor(staged.importId.value)}")
+                        .use { conn ->
+                            conn.createStatement().use { st ->
+                                st.executeUpdate(
+                                    "UPDATE mediaProgresses SET updatedAt = '2022-01-20 04:33:12.000 +00:00' " +
+                                        "WHERE userId = 'user-simon' AND mediaItemId = 'book-2'",
+                                )
+                            }
+                        }
+                    val applier = applierFor(staged)
+                    confirmSimonMapping(staged.paths, staged.importId)
+
+                    applier.apply(staged.importId) {}.shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val started =
+                        ActivityRepository(db = dbs.sql)
+                            .page(before = null, limit = 50)
+                            .single { it.type == ActivityType.STARTED_BOOK && it.bookId == LU_MIST }
+                    // Earliest imported session for book-2 (mistborn): sess-mist startedAt 2022-01-18T04:33:12.000Z.
+                    val earliestSessionStart = 1_642_480_392_000L
+                    // Strictly before the earliest imported session for (user, book).
+                    started.occurredAt shouldBe earliestSessionStart - 1
                 }
             }
         }

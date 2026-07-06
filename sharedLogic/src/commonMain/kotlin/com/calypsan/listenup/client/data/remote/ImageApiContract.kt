@@ -77,14 +77,6 @@ interface ImageApiContract {
     ): AppResult<ImageUploadResponse>
 
     /**
-     * Delete cover image for a series.
-     *
-     * @param seriesId Unique identifier for the series
-     * @return Result with Unit on success or error
-     */
-    suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit>
-
-    /**
      * Download multiple contributor images in a single request.
      *
      * Server returns a TAR stream containing all requested images.

@@ -137,6 +137,26 @@ class ListeningEventsDomainTest :
             }
         }
 
+        test("re-delivered LIVE event un-tombstones after a catch-up tombstone (AppendOnlyMirrorApply.restore through Room)") {
+            // The stranded-tombstone healer: a row soft-deleted by a defensive catch-up tombstone,
+            // then re-delivered LIVE, must clear deletedAt and align its revision — otherwise the
+            // (id, revision) digests agree and no reconcile can ever heal it.
+            withHandler(userId = "u1") { handler, db ->
+                handler.onCatchUpItem(payload("e1", "book-1"), isTombstone = false)
+                val inserted = db.listeningEventDao().getById("e1").shouldNotBeNull()
+                inserted.deletedAt shouldBe null
+                inserted.userId shouldBe "u1"
+
+                handler.onCatchUpItem(payload("e1", "book-1", deletedAt = 500L, revision = 2L), isTombstone = true)
+                db.listeningEventDao().getById("e1")!!.deletedAt shouldNotBe null
+
+                handler.onCatchUpItem(payload("e1", "book-1", revision = 3L), isTombstone = false)
+                val restored = db.listeningEventDao().getById("e1")!!
+                restored.deletedAt shouldBe null
+                restored.revision shouldBe 3L
+            }
+        }
+
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
                 handler.onEvent(created(payload("ev-6", "book-1")), isOwnEcho = false)

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.presentation.profile
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.PublicProfileDao
 import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.domain.model.Shelf

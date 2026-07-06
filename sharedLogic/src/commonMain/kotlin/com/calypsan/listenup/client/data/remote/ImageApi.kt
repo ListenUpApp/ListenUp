@@ -3,20 +3,15 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.api.result.mapSuspend
 import com.calypsan.listenup.client.core.suspendRunCatching
-import com.calypsan.listenup.client.data.remote.model.ApiResponse
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.ktor.client.call.body
-import io.ktor.client.request.delete
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 
 private const val COVER_REQUEST_TIMEOUT_MS = 60_000L
 private const val TAR_BLOCK_SIZE = 512
@@ -117,29 +112,29 @@ internal class ImageApi(
      * Endpoint: PUT /api/v1/books/{bookId}/cover
      * Auth: Required (Bearer token)
      * Request: multipart/form-data with "file" field
+     * Response: 204 No Content on success (no body).
      *
      * @param bookId Unique identifier for the book
      * @param imageData Raw image bytes
      * @param filename Original filename (used for content disposition)
-     * @return Result containing the image URL or error
+     * @return Result carrying the canonical cover GET URL on success, or a typed error
      */
     override suspend fun uploadBookCover(
         bookId: String,
         imageData: ByteArray,
         filename: String,
     ): AppResult<ImageUploadResponse> =
-        apiCall(errorMessage = "Book cover upload response missing data") {
+        suspendRunCatching {
             val client = clientFactory.getClient()
-            client
-                .submitFormWithBinaryData(
-                    url = "/api/v1/books/$bookId/cover",
-                    formData = imageFormData(imageData, filename),
-                ) {
-                    method = io.ktor.http.HttpMethod.Put
-                }.body<ApiResponse<ImageUploadApiResponse>>()
-        }.mapSuspend { apiResponse ->
-            val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
-            ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
+            client.submitFormWithBinaryData(
+                url = "/api/v1/books/$bookId/cover",
+                formData = imageFormData(imageData, filename),
+            ) {
+                method = io.ktor.http.HttpMethod.Put
+            }
+            // Server responds 204 No Content on success; expectSuccess raises on non-2xx.
+            // The canonical GET path is the stable client-side cache URL.
+            ImageUploadResponse(imageUrl = buildFullUrl("/api/v1/covers/$bookId"))
         }
 
     /**
@@ -151,29 +146,28 @@ internal class ImageApi(
      * Endpoint: PUT /api/v1/contributors/{contributorId}/image
      * Auth: Required (Bearer token)
      * Request: multipart/form-data with "file" field
+     * Response: 204 No Content on success (no body).
      *
      * @param contributorId Unique identifier for the contributor
      * @param imageData Raw image bytes
      * @param filename Original filename (used for content disposition)
-     * @return Result containing the image URL or error
+     * @return Result carrying the canonical photo GET URL on success, or a typed error
      */
     override suspend fun uploadContributorImage(
         contributorId: String,
         imageData: ByteArray,
         filename: String,
     ): AppResult<ImageUploadResponse> =
-        apiCall(errorMessage = "Contributor image upload response missing data") {
+        suspendRunCatching {
             val client = clientFactory.getClient()
-            client
-                .submitFormWithBinaryData(
-                    url = "/api/v1/contributors/$contributorId/image",
-                    formData = imageFormData(imageData, filename),
-                ) {
-                    method = io.ktor.http.HttpMethod.Put
-                }.body<ApiResponse<ImageUploadApiResponse>>()
-        }.mapSuspend { apiResponse ->
-            val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
-            ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
+            client.submitFormWithBinaryData(
+                url = "/api/v1/contributors/$contributorId/image",
+                formData = imageFormData(imageData, filename),
+            ) {
+                method = io.ktor.http.HttpMethod.Put
+            }
+            // Server responds 204 No Content on success; expectSuccess raises on non-2xx.
+            ImageUploadResponse(imageUrl = buildFullUrl("/api/v1/contributors/$contributorId/photo"))
         }
 
     /**
@@ -204,47 +198,28 @@ internal class ImageApi(
      * Endpoint: PUT /api/v1/series/{seriesId}/cover
      * Auth: Required (Bearer token)
      * Request: multipart/form-data with "file" field
+     * Response: 204 No Content on success (no body).
      *
      * @param seriesId Unique identifier for the series
      * @param imageData Raw image bytes
      * @param filename Original filename (used for content disposition)
-     * @return Result containing the image URL or error
+     * @return Result carrying the canonical cover GET URL on success, or a typed error
      */
     override suspend fun uploadSeriesCover(
         seriesId: String,
         imageData: ByteArray,
         filename: String,
     ): AppResult<ImageUploadResponse> =
-        apiCall(errorMessage = "Series cover upload response missing data") {
+        suspendRunCatching {
             val client = clientFactory.getClient()
-            client
-                .submitFormWithBinaryData(
-                    url = seriesCoverPath(seriesId),
-                    formData = imageFormData(imageData, filename),
-                ) {
-                    method = io.ktor.http.HttpMethod.Put
-                }.body<ApiResponse<ImageUploadApiResponse>>()
-        }.mapSuspend { apiResponse ->
-            val relativeUrl = apiResponse.imageUrl ?: apiResponse.coverUrl ?: ""
-            ImageUploadResponse(imageUrl = buildFullUrl(relativeUrl))
-        }
-
-    /**
-     * Delete cover image for a series.
-     *
-     * Removes the cover image from the server.
-     *
-     * Endpoint: DELETE /api/v1/series/{seriesId}/cover
-     * Auth: Required (Bearer token)
-     * Response: 204 No Content
-     *
-     * @param seriesId Unique identifier for the series
-     * @return Result with Unit on success or error
-     */
-    override suspend fun deleteSeriesCover(seriesId: String): AppResult<Unit> =
-        apiCallUnit {
-            val client = clientFactory.getClient()
-            client.delete(seriesCoverPath(seriesId)).body<ApiResponse<Unit>>()
+            client.submitFormWithBinaryData(
+                url = seriesCoverPath(seriesId),
+                formData = imageFormData(imageData, filename),
+            ) {
+                method = io.ktor.http.HttpMethod.Put
+            }
+            // Server responds 204 No Content on success; expectSuccess raises on non-2xx.
+            ImageUploadResponse(imageUrl = buildFullUrl(seriesCoverPath(seriesId)))
         }
 
     /**
@@ -372,14 +347,3 @@ internal class ImageApi(
         return true
     }
 }
-
-/**
- * API response for image upload.
- */
-@Serializable
-private data class ImageUploadApiResponse(
-    @SerialName("cover_url")
-    val coverUrl: String? = null,
-    @SerialName("image_url")
-    val imageUrl: String? = null,
-)

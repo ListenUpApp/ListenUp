@@ -178,7 +178,7 @@ class SettingsViewModel(
      * Fetch server instance info to get version.
      */
     private suspend fun fetchServerInfo() {
-        when (val result = instanceRepository.getInstance()) {
+        when (val result = instanceRepository.getServerInfo()) {
             is AppResult.Success -> {
                 internalState.update {
                     it.copy(serverVersion = result.data.version)

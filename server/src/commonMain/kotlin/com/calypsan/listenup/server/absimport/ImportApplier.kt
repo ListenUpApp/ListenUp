@@ -121,6 +121,14 @@ class ImportApplier internal constructor(
                 // write loops, which simply skip the unresolvable rows.
                 val booksNotInLibrary =
                     mappedUserBooksNotInLibrary(progress, sessions, mapping.userMappings, effectiveBooks)
+                // Earliest imported session start per raw (ABS user, ABS item) — used to date the
+                // imported STARTED_BOOK activity strictly before the book's own sessions, so the
+                // activity feed doesn't show a start AFTER the listening it kicked off.
+                val earliestSessionStartMs: Map<Pair<String, String>, Long> =
+                    sessions
+                        .filter { it.startedAtMs > 0L }
+                        .groupBy({ it.userId to it.itemId }, { it.startedAtMs })
+                        .mapValues { (_, starts) -> starts.min() }
                 // Bulk import: suppress the live firehose so the burst can't overflow the lossy
                 // tail, and defer the per-row stats cascade so the importer doesn't refresh
                 // user_stats/public_profiles once per row. Source rows still commit + bump the
@@ -128,7 +136,14 @@ class ImportApplier internal constructor(
                 val result =
                     withContext(FirehoseSuppressed + StatsCascadeDeferred) {
                         val perUser =
-                            recordAll(progress, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
+                            recordAll(
+                                progress,
+                                mapping.userMappings,
+                                effectiveBooks,
+                                earliestSessionStartMs,
+                                affectedUsers,
+                                onEvent,
+                            )
                         val sessionsImported =
                             recordSessions(sessions, mapping.userMappings, effectiveBooks, affectedUsers, onEvent)
                         ImportResult(
@@ -207,11 +222,15 @@ class ImportApplier internal constructor(
      * Records every resolvable progress row, counting imports per user, and adds each imported user
      * to [affectedUsers] so their stats are backfilled (a finished position refreshes `booksFinished`
      * even when the user has no imported sessions). Returns the per-user written-position counts.
+     *
+     * [earliestSessionStartMs] (keyed on raw `(ABS user, ABS item)`) dates each imported
+     * `STARTED_BOOK` activity strictly before that book's earliest imported session.
      */
     private suspend fun recordAll(
         progress: List<AbsProgress>,
         userMappings: Map<AbsUserId, UserId>,
         effectiveBooks: Map<AbsItemId, BookId>,
+        earliestSessionStartMs: Map<Pair<String, String>, Long>,
         affectedUsers: MutableSet<String>,
         onEvent: (ImportEvent) -> Unit,
     ): Map<UserId, Int> {
@@ -222,7 +241,7 @@ class ImportApplier internal constructor(
             val targetUser = userMappings[AbsUserId(row.userId)]
             val targetBook = effectiveBooks[AbsItemId(row.itemId)]
             if (targetUser != null && targetBook != null) {
-                recordPosition(targetUser, targetBook, row)
+                recordPosition(targetUser, targetBook, row, earliestSessionStartMs)
                 perUser[targetUser] = (perUser[targetUser] ?: 0) + 1
                 affectedUsers += targetUser.value
             }
@@ -283,6 +302,7 @@ class ImportApplier internal constructor(
         targetUser: UserId,
         targetBook: BookId,
         row: AbsProgress,
+        earliestSessionStartMs: Map<Pair<String, String>, Long>,
     ) {
         playbackPositionRepository.recordPosition(
             userId = targetUser.value,
@@ -292,6 +312,12 @@ class ImportApplier internal constructor(
             finished = row.isFinished || row.progress >= FINISHED_THRESHOLD,
             playbackSpeed = DEFAULT_PLAYBACK_SPEED,
             currentChapterId = null,
+            // Date the imported start strictly before this book's earliest session, and never
+            // later than the un-fixed value (so progress that already predates the sessions is
+            // unchanged). Null when the book has no imported sessions → live behavior (lastPlayedAt).
+            startedBookOccurredAt =
+                earliestSessionStartMs[row.userId to row.itemId]
+                    ?.let { minOf(row.lastUpdateMs, it - 1) },
         )
     }
 

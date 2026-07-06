@@ -137,7 +137,7 @@ class SettingsViewModelTest :
 
             // Default stubs for new dependencies
             everySuspend { fixture.serverConfig.getServerUrl() } returns null
-            everySuspend { fixture.instanceRepository.getInstance() } returns
+            everySuspend { fixture.instanceRepository.getServerInfo() } returns
                 Failure(Exception("Not configured"))
             everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
             everySuspend { fixture.syncRepository.disconnect() } returns Unit

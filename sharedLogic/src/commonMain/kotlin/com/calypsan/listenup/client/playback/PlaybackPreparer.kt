@@ -2,6 +2,7 @@
 package com.calypsan.listenup.client.playback
 
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -12,8 +13,8 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
@@ -27,6 +28,7 @@ import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -90,7 +92,7 @@ class PlaybackPreparer internal constructor(
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
     private val playbackRpcFactory: PlaybackRpcFactory,
-    private val syncApi: SyncApiContract?,
+    private val bookRpcFactory: BookRpcFactory,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
 ) {
@@ -340,27 +342,25 @@ class PlaybackPreparer internal constructor(
 
     /**
      * Fetch book data from server and persist locally. Used as a fallback when
-     * local book data is incomplete. Decodes the contract [BookSyncPayload] and writes the
-     * whole aggregate through the shared [bookSyncDomainHandler] — the same atomic path the
-     * RPC on-demand fetch ([com.calypsan.listenup.client.data.repository.BookRepositoryImpl]
-     * `fetchAndCacheBook`) uses, so the book + audio-file rows (incl. audio-stream fields)
-     * land identically with no parallel-mapping drift.
+     * local book data is incomplete. Fetches the contract [BookSyncPayload] over the
+     * [BookService] RPC proxy and writes the whole aggregate through the shared
+     * [bookSyncDomainHandler] — the exact same atomic path the RPC on-demand fetch
+     * ([com.calypsan.listenup.client.data.repository.BookRepositoryImpl] `fetchAndCacheBook`)
+     * uses, so the book + audio-file rows (incl. audio-stream fields) land identically with
+     * no parallel-mapping drift.
      *
      * Internal visibility allows [PlaybackManagerFallbackFetchAtomicityTest] to
      * invoke the method directly.
      *
      * @return true if fetch + persist succeeded.
      */
-    internal suspend fun fetchBookFromServer(bookId: BookId): Boolean {
-        val api = syncApi
-        if (api == null) {
-            logger.error { "SyncApi not available for fetching book" }
-            return false
-        }
-
-        return when (val result = api.getBook(bookId.value)) {
-            is AppResult.Success -> {
-                val payload = result.data
+    internal suspend fun fetchBookFromServer(bookId: BookId): Boolean =
+        try {
+            val payload = bookRpcFactory.bookService().getBook(bookId).wireResultOrNull()
+            if (payload == null) {
+                logger.error { "Failed to fetch book from server: ${bookId.value}" }
+                false
+            } else {
                 logger.info { "Fetched book from server: ${payload.title}" }
                 when (val writeResult = bookSyncDomainHandler.onCatchUpItem(payload, isTombstone = false)) {
                     is AppResult.Success -> {
@@ -376,13 +376,14 @@ class PlaybackPreparer internal constructor(
                     }
                 }
             }
-
-            is AppResult.Failure -> {
-                logger.error { "Failed to fetch book from server: ${bookId.value}" }
-                false
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Covers ServerUrlNotConfiguredException (no server configured — the old
+            // `syncApi == null` case) and transport failures alike.
+            logger.warn(e) { "Fallback book fetch failed for ${bookId.value}" }
+            false
         }
-    }
 
     /** Load chapters for a book. */
     private suspend fun loadChapters(bookId: BookId): List<Chapter> {
