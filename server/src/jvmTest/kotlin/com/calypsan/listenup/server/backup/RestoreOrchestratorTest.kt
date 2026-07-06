@@ -4,14 +4,21 @@ import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BackupId
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.ControlFrame
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import java.nio.file.Files
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
@@ -35,6 +42,7 @@ class RestoreOrchestratorTest :
             fixture: BackupTestFixture,
             maintenance: MaintenanceState = MaintenanceState(),
             eventBus: MutableSharedFlow<BackupEvent> = MutableSharedFlow(extraBufferCapacity = 64),
+            changeBus: ChangeBus = ChangeBus(),
         ): RestoreOrchestrator =
             RestoreOrchestrator(
                 paths = fixture.paths,
@@ -42,6 +50,7 @@ class RestoreOrchestratorTest :
                 dbHandle = fixture.handle,
                 maintenance = maintenance,
                 eventBus = eventBus,
+                changeBus = changeBus,
             )
 
         test("round-trip restore: db returns to pre-backup state after restore") {
@@ -71,6 +80,38 @@ class RestoreOrchestratorTest :
 
                     // row A is back, row B is gone
                     fixture.handle.queryScalarString("SELECT v FROM restore_test") shouldBe "row-A"
+                }
+            }
+        }
+
+        test("successful restore broadcasts SyncControl.LibraryDataChanged to the firehose") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    // Subscribe BEFORE the restore: the control channel has replay = 0, so a frame
+                    // emitted before subscription would be missed. UNDISPATCHED runs the collector
+                    // up to its first suspension (the subscribe) synchronously, guaranteeing it is
+                    // registered on the bus before restore emits.
+                    val changeBus = ChangeBus()
+                    val received = mutableListOf<ControlFrame>()
+                    val collector =
+                        launch(start = CoroutineStart.UNDISPATCHED) {
+                            changeBus.subscribeControl().toList(received)
+                        }
+
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS restore_test(v TEXT)",
+                        "INSERT INTO restore_test(v) VALUES ('row-A')",
+                    )
+                    fixture.archive.create("bcast1", includeImages = false, onEvent = {})
+
+                    val orchestrator = buildOrchestrator(fixture, changeBus = changeBus)
+                    orchestrator
+                        .restore(BackupId("bcast1"))
+                        .shouldBeInstanceOf<AppResult.Success<RestoreResult>>()
+
+                    testScheduler.advanceUntilIdle()
+                    received shouldBe listOf(ControlFrame(SyncControl.LibraryDataChanged, ChangeBus.BROADCAST))
+                    collector.cancel()
                 }
             }
         }
@@ -136,6 +177,66 @@ class RestoreOrchestratorTest :
                     // Connections must be resumed: a normal DB query must work, and row B is still there
                     // (rollback restored the original db).
                     fixture.handle.queryScalarString("SELECT v FROM rollback_test") shouldBe "row-B"
+                }
+            }
+        }
+
+        test("rolled-back restore does not broadcast: the DB is back to its pre-restore state") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    val changeBus = ChangeBus()
+                    val received = mutableListOf<ControlFrame>()
+                    val collector =
+                        launch(start = CoroutineStart.UNDISPATCHED) {
+                            changeBus.subscribeControl().toList(received)
+                        }
+
+                    fixture.handle.execSql(
+                        "CREATE TABLE IF NOT EXISTS no_bcast_test(v TEXT)",
+                        "INSERT INTO no_bcast_test(v) VALUES ('row-B')",
+                    )
+
+                    // Malicious archive: garbage db bytes with a matching checksum (validate passes)
+                    // and schemaVersion "0" (not rejected as incompatible), so the swap fails and the
+                    // orchestrator rolls back — the rollback path must NOT broadcast.
+                    val garbageBytes = "not-a-sqlite-database-at-all".toByteArray()
+                    val manifest =
+                        BackupManifest(
+                            formatVersion = BackupManifest.FORMAT_VERSION,
+                            serverId = "srv-test",
+                            createdAt = System.currentTimeMillis(),
+                            appVersion = "0.0.0-test",
+                            schemaVersion = "0",
+                            includesImages = false,
+                            checksums = mapOf("db" to sha256OfBytes(garbageBytes)),
+                            bookCount = 0,
+                            userCount = 0,
+                        )
+                    fixture.paths.ensureDirs()
+                    val archivePath = fixture.paths.archiveFor("no-bcast1")
+                    ZipOutputStream(
+                        Files.newOutputStream(
+                            java.nio.file.Path
+                                .of(archivePath.toString()),
+                        ),
+                    ).use { zip ->
+                        zip.putNextEntry(ZipEntry("listenup.db"))
+                        zip.write(garbageBytes)
+                        zip.closeEntry()
+                        zip.putNextEntry(ZipEntry("manifest.json"))
+                        zip.write(manifest.toJson().toByteArray())
+                        zip.closeEntry()
+                    }
+
+                    val orchestrator = buildOrchestrator(fixture, changeBus = changeBus)
+                    val result = orchestrator.restore(BackupId("no-bcast1"))
+
+                    val failure = result.shouldBeInstanceOf<AppResult.Failure>()
+                    failure.error.shouldBeInstanceOf<BackupError.RestoreFailed>()
+
+                    testScheduler.advanceUntilIdle()
+                    received.shouldBeEmpty()
+                    collector.cancel()
                 }
             }
         }

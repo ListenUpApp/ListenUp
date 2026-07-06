@@ -18,6 +18,7 @@ import com.calypsan.listenup.server.backup.RestoreOrchestrator
 import com.calypsan.listenup.server.backup.backupTestFixture
 import com.calypsan.listenup.server.backup.execSql
 import com.calypsan.listenup.server.backup.queryScalarInt
+import com.calypsan.listenup.server.sync.ChangeBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -65,6 +66,7 @@ class BackupServiceTest :
                     dbHandle = fixture.handle,
                     maintenance = maintenance,
                     eventBus = eventBus,
+                    changeBus = ChangeBus(),
                 )
             return BackupServiceImpl(
                 paths = fixture.paths,
@@ -181,6 +183,7 @@ class BackupServiceTest :
                             dbHandle = fixture.handle,
                             maintenance = maintenance,
                             eventBus = eventBus,
+                            changeBus = ChangeBus(),
                         )
                     val svc =
                         BackupServiceImpl(
@@ -214,6 +217,7 @@ class BackupServiceTest :
                             dbHandle = fixture.handle,
                             maintenance = maintenance,
                             eventBus = eventBus,
+                            changeBus = ChangeBus(),
                         )
                     val svc =
                         BackupServiceImpl(

@@ -107,6 +107,7 @@ internal object ControlChannelDetector {
         mapOf(
             "ImportApplier.kt" to setOf("LibraryDataChanged"),
             "BookPersister.kt" to setOf("LibraryDataChanged"),
+            "RestoreOrchestrator.kt" to setOf("LibraryDataChanged"),
             "AdminSettingsServiceImpl.kt" to setOf("ServerInfoChanged"),
             "UserPreferencesServiceImpl.kt" to setOf("PreferencesChanged"),
             "CollectionServiceImpl.kt" to setOf("AccessChanged"),

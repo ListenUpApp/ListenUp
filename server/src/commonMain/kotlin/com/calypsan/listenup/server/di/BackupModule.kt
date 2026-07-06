@@ -31,6 +31,9 @@ import org.koin.dsl.module
  *
  * The [InstanceIdentity] is resolved from the mDNS module (mdnsModule must be
  * installed in the same Koin container). [DatabaseHandle] is resolved from [authModule].
+ * The [com.calypsan.listenup.server.sync.ChangeBus] singleton — resolved from `syncModule`
+ * — is threaded into [RestoreOrchestrator] so a completed restore broadcasts a
+ * re-baseline nudge to every connected device.
  */
 fun backupModule(
     homeDir: Path,
@@ -85,6 +88,7 @@ fun backupModule(
                 dbHandle = get(),
                 maintenance = get(),
                 eventBus = get(EventBusQualifiers.BackupEvents),
+                changeBus = get(),
             )
         }
 
