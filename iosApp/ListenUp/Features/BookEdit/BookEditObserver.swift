@@ -5,8 +5,8 @@ import Shared
 /// properties and dispatching edits as `BookEditUiEvent`s. `NavigateBack` flips
 /// `didFinish` so the sheet dismisses.
 ///
-/// The relational lists (contributors, series, genres, tags, moods) are mapped to native
-/// `EditableRelation` chips and `RelationSearchResult` rows at the observer boundary — no
+/// The relational lists (contributors, series, genres, tags, moods, collections) are mapped to
+/// native `EditableRelation` chips and `RelationSearchResult` rows at the observer boundary — no
 /// Swift Export-bridged Kotlin object ever reaches a `ForEach`. Both display+remove and the
 /// search-and-add pickers are wired here.
 @Observable
@@ -37,6 +37,11 @@ final class BookEditObserver {
     private(set) var genres: [EditableRelation] = []
     private(set) var tags: [EditableRelation] = []
     private(set) var moods: [EditableRelation] = []
+    private(set) var collections: [EditableRelation] = []
+
+    /// Whether the current user is an admin — gates the Collections section (admin-only, per the
+    /// shared `BookEditUiState.isAdmin`).
+    private(set) var isAdmin: Bool = false
 
     // Raw Kotlin lists retained for the id→object lookup when a chip's remove button is tapped.
     // Held off the SwiftUI diff path (never iterated by a ForEach), so they don't re-bridge.
@@ -46,6 +51,7 @@ final class BookEditObserver {
     private var rawGenres: [EditableGenre] = []
     private var rawTags: [EditableTag] = []
     private var rawMoods: [EditableMood] = []
+    private var rawCollections: [EditableCollection] = []
 
     // Add-picker search sub-state — native projections fed to the result rows. Queries are echoed
     // from shared state so the field stays the single source of truth across re-emits.
@@ -55,6 +61,7 @@ final class BookEditObserver {
     private(set) var genreQuery: String = ""
     private(set) var tagQuery: String = ""
     private(set) var moodQuery: String = ""
+    private(set) var collectionQuery: String = ""
 
     private(set) var authorResults: [RelationSearchResult] = []
     private(set) var narratorResults: [RelationSearchResult] = []
@@ -62,6 +69,7 @@ final class BookEditObserver {
     private(set) var genreResults: [RelationSearchResult] = []
     private(set) var tagResults: [RelationSearchResult] = []
     private(set) var moodResults: [RelationSearchResult] = []
+    private(set) var collectionResults: [RelationSearchResult] = []
 
     private(set) var authorSearching: Bool = false
     private(set) var narratorSearching: Bool = false
@@ -77,6 +85,7 @@ final class BookEditObserver {
     private var rawGenreResults: [EditableGenre] = []
     private var rawTagResults: [EditableTag] = []
     private var rawMoodResults: [EditableMood] = []
+    private var rawCollectionResults: [EditableCollection] = []
 
     private(set) var hasChanges: Bool = false
     private(set) var isSaving: Bool = false
@@ -146,6 +155,10 @@ final class BookEditObserver {
         guard let value = rawMoods.first(where: { $0.id == relation.id }) else { return }
         viewModel.onEvent(event: BookEditUiEventRemoveMood(mood: value))
     }
+    func removeCollection(_ relation: EditableRelation) {
+        guard let value = rawCollections.first(where: { $0.id == relation.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventRemoveCollection(collection: value))
+    }
 
     // MARK: - Relation add intents
 
@@ -207,6 +220,15 @@ final class BookEditObserver {
         viewModel.onEvent(event: BookEditUiEventMoodEntered(name: name))
     }
 
+    // Collections (admin-only) — select an existing collection only (no free-text creation).
+    func setCollectionQuery(_ value: String) {
+        viewModel.onEvent(event: BookEditUiEventCollectionSearchQueryChanged(query: value))
+    }
+    func selectCollectionResult(_ result: RelationSearchResult) {
+        guard let match = rawCollectionResults.first(where: { $0.id == result.id }) else { return }
+        viewModel.onEvent(event: BookEditUiEventCollectionSelected(collection: match))
+    }
+
     // MARK: - Actions
 
     func onSave() { viewModel.onEvent(event: BookEditUiEventSave.shared) }
@@ -232,12 +254,15 @@ final class BookEditObserver {
         rawGenres = state.genres
         rawTags = state.tags
         rawMoods = state.moods
+        rawCollections = state.collections
         authors = state.authors.map { EditableRelation.contributor(name: $0.name) }
         narrators = state.narrators.map { EditableRelation.contributor(name: $0.name) }
         series = state.series.map { EditableRelation.series(name: $0.name, sequence: $0.sequence) }
         genres = state.genres.map { EditableRelation.genre(id: $0.id, name: $0.name) }
         tags = state.tags.map { EditableRelation.tag(id: $0.id, slug: $0.slug) }
         moods = state.moods.map { EditableRelation.mood(id: $0.id, slug: $0.slug) }
+        collections = state.collections.map { EditableRelation.collection(id: $0.id, name: $0.name) }
+        isAdmin = state.isAdmin
         applySearchState(state)
         hasChanges = state.hasChanges
         isSaving = state.isSaving
@@ -279,6 +304,11 @@ final class BookEditObserver {
         moodSearching = state.moodSearchLoading || state.moodCreating
         rawMoodResults = state.moodSearchResults
         moodResults = rawMoodResults.map { Self.slugResult(id: $0.id, slug: $0.slug) }
+
+        // Collections (select-only — no loading flag in shared state, filtered locally like genres).
+        collectionQuery = state.collectionSearchQuery
+        rawCollectionResults = state.collectionSearchResults
+        collectionResults = rawCollectionResults.map(Self.collectionResult)
     }
 
     // MARK: - Result projections (pure, off the diff path)
@@ -302,6 +332,9 @@ final class BookEditObserver {
     }
     private static func slugResult(id: String, slug: String) -> RelationSearchResult {
         RelationSearchResult(id: id, name: BookEditFormatting.tagLabel(slug: slug), subtitle: nil)
+    }
+    private static func collectionResult(_ collection: EditableCollection) -> RelationSearchResult {
+        RelationSearchResult(id: collection.id, name: collection.name, subtitle: nil)
     }
 
     private func applyNav(_ action: BookEditNavAction) {

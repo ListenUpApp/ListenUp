@@ -1,15 +1,15 @@
 import Foundation
 
 /// A native, value-typed projection of one Book-Edit relational chip (a contributor, series,
-/// genre, tag, or mood).
+/// genre, tag, mood, or collection).
 ///
 /// **Why this exists (the no-bridged-`ForEach` convention).** The Book-Edit form's relations
 /// arrive as Swift Export-bridged Kotlin `Editable*` types. Feeding those straight into a `ForEach` makes
 /// every SwiftUI diff re-read their properties across the Kotlin boundary — the same main-thread
 /// re-bridging hazard that froze the library grid. `BookEditObserver` maps them to `EditableRelation`
 /// once at the observer boundary; the chips diff cheap Swift values. The `id` is the same key the
-/// view used to key on (contributor/series → name; genre/tag/mood → entity id) and is what the
-/// observer uses to look the Kotlin object back up when a chip's remove button is tapped.
+/// view used to key on (contributor/series → name; genre/tag/mood/collection → entity id) and is what
+/// the observer uses to look the Kotlin object back up when a chip's remove button is tapped.
 struct EditableRelation: Identifiable, Equatable, Hashable {
     /// The remove key — contributor/series key by name, genre/tag/mood by entity id.
     let id: String
@@ -43,6 +43,11 @@ extension EditableRelation {
     /// Mood: keyed by entity id; the label title-cases the slug (same shape as a tag).
     static func mood(id: String, slug: String) -> EditableRelation {
         EditableRelation(id: id, label: BookEditFormatting.tagLabel(slug: slug))
+    }
+
+    /// Collection (admin-only): keyed by entity id; the label is the name (same shape as a genre).
+    static func collection(id: String, name: String) -> EditableRelation {
+        EditableRelation(id: id, label: name)
     }
 }
 
