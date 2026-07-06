@@ -423,7 +423,7 @@ private struct InboxBookRow: View {
         .background(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
         .contextMenu {
-            Button(String(localized: "common.edit"), systemImage: "square.and.pencil", action: onEdit)
+            Button(String(localized: "admin.inbox_review_edit"), systemImage: "square.and.pencil", action: onEdit)
         }
     }
 
@@ -437,7 +437,7 @@ private struct InboxBookRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(String(format: String(localized: "admin.inbox_edit_book"), book.title))
+        .accessibilityLabel(String(localized: "admin.inbox_review_edit"))
     }
 
     private var selectionIndicator: some View {

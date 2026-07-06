@@ -352,6 +352,7 @@ One beautiful library.</string>
     <string name="book_detail_you_can_redownload_anytime_by">You can re-download anytime by playing the book.</string>
     <string name="book_edit_abridged">Abridged</string>
     <string name="book_edit_add_author">Add author…</string>
+    <string name="book_edit_add_collection">Add collection…</string>
     <string name="book_edit_add_genre">Add genre…</string>
     <string name="book_edit_add_mood">Add mood…</string>
     <string name="book_edit_add_narrator">Add narrator…</string>
@@ -365,6 +366,7 @@ One beautiful library.</string>
     <string name="book_edit_book_sequence_label">Book #</string>
     <string name="book_edit_change_cover">Change cover</string>
     <string name="book_edit_classification">Classification</string>
+    <string name="book_edit_collections">Collections</string>
     <string name="book_edit_date_added">Date Added</string>
     <string name="book_edit_description_label">Description</string>
     <string name="book_edit_description_placeholder">Add a description</string>
@@ -376,6 +378,7 @@ One beautiful library.</string>
     <string name="book_edit_keep_editing">Keep Editing</string>
     <string name="book_edit_narrators">Narrators</string>
     <string name="book_edit_no_authors">No authors yet.</string>
+    <string name="book_edit_no_collections">No collections yet.</string>
     <string name="book_edit_no_genres">No genres yet.</string>
     <string name="book_edit_no_matches">No matches.</string>
     <string name="book_edit_no_moods">No moods yet.</string>

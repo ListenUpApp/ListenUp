@@ -701,16 +701,6 @@
         }
       }
     },
-    "admin.inbox_edit_book": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Edit %@"
-          }
-        }
-      }
-    },
     "admin.inbox_empty": {
       "localizations": {
         "en": {
