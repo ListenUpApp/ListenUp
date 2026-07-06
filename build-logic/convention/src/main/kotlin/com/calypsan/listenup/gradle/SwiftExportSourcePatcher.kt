@@ -386,7 +386,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.bookdetail.BookReadersUiState" to 4,
             "com.calypsan.listenup.client.presentation.bookedit.BookEditNavAction" to 2,
             "com.calypsan.listenup.client.presentation.bookedit.BookEditUiEvent" to 42,
-            "com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent" to 3,
+            "com.calypsan.listenup.client.presentation.books.BookMultiSelectEvent" to 4,
             "com.calypsan.listenup.client.presentation.books.SelectionMode" to 2,
             "com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetUiState" to 3,
             "com.calypsan.listenup.client.presentation.browsegenre.BrowseGenreUiState" to 3,
