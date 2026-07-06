@@ -4771,6 +4771,16 @@
         }
       }
     },
+    "common.more_actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "More actions"
+          }
+        }
+      }
+    },
     "common.my_profile": {
       "localizations": {
         "en": {
