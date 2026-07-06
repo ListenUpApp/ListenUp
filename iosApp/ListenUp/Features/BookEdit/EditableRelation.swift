@@ -44,6 +44,11 @@ extension EditableRelation {
     static func mood(id: String, slug: String) -> EditableRelation {
         EditableRelation(id: id, label: BookEditFormatting.tagLabel(slug: slug))
     }
+
+    /// Collection (admin-only): keyed by entity id; the label is the name (same shape as a genre).
+    static func collection(id: String, name: String) -> EditableRelation {
+        EditableRelation(id: id, label: name)
+    }
 }
 
 /// A native, value-typed projection of one add-picker search result (a contributor, series,

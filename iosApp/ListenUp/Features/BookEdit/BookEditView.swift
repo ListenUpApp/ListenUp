@@ -86,6 +86,9 @@ struct BookEditView: View {
             genresSection(observer)
             tagsSection(observer)
             moodsSection(observer)
+            if observer.isAdmin {
+                collectionsSection(observer)
+            }
         }
         .padding(.horizontal)
     }
@@ -294,6 +297,39 @@ struct BookEditView: View {
                 onQueryChange: { observer.setMoodQuery($0) },
                 onSelect: { observer.selectMoodResult($0) },
                 onCreate: { observer.enterMood($0) }
+            )
+        }
+    }
+
+    /// Admin-only: attach the book to existing collections (select-only, no free-text creation —
+    /// same shape as genres). Persisted on Save via the shared VM's `setBookCollections` RPC. This is
+    /// the sanctioned place to assign collections before releasing an inbox book.
+    @ViewBuilder
+    private func collectionsSection(_ observer: BookEditObserver) -> some View {
+        EditSection(title: String(localized: "book.edit_collections")) {
+            if observer.collections.isEmpty {
+                EmptyRelationHint(text: String(localized: "book.edit_no_collections"))
+            } else {
+                ChipFlow {
+                    ForEach(observer.collections) { collection in
+                        RemovableChip(
+                            label: collection.label,
+                            roleKind: nil,
+                            removeLabel: String(format: String(localized: "common.remove_name"), collection.label),
+                            onRemove: { observer.removeCollection(collection) }
+                        )
+                    }
+                }
+            }
+            RelationSearchField(
+                placeholder: String(localized: "book.edit_add_collection"),
+                query: observer.collectionQuery,
+                results: observer.collectionResults,
+                isLoading: false,
+                allowsCreate: false,
+                onQueryChange: { observer.setCollectionQuery($0) },
+                onSelect: { observer.selectCollectionResult($0) },
+                onCreate: nil
             )
         }
     }

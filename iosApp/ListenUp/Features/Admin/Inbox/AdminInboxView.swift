@@ -16,6 +16,9 @@ struct AdminInboxView: View {
 
     @State private var observer: AdminInboxObserver?
     @State private var showingReleaseConfirm = false
+    /// The inbox book currently being edited in the BookEdit sheet (metadata + admin collections),
+    /// so an admin can review and assign collections before releasing. `nil` when no sheet is open.
+    @State private var editingBook: InboxEditTarget?
 
     private var isRegularWidth: Bool { horizontalSizeClass == .regular }
 
@@ -31,6 +34,9 @@ struct AdminInboxView: View {
         .navigationTitle(String(localized: "common.inbox"))
         .navigationBarTitleDisplayMode(.large)
         .toolbar { selectToolbarItem }
+        .sheet(item: $editingBook) { target in
+            BookEditView(bookId: target.id)
+        }
         .onAppear {
             if observer == nil {
                 observer = AdminInboxObserver(viewModel: deps.createAdminInboxViewModel())
@@ -119,7 +125,8 @@ struct AdminInboxView: View {
                     book: book,
                     isSelected: ready.selectedBookIds.contains(book.id),
                     isSelecting: ready.hasSelection,
-                    onTap: { observer.toggleBookSelection(bookId: book.id) }
+                    onTap: { observer.toggleBookSelection(bookId: book.id) },
+                    onEdit: { editingBook = InboxEditTarget(id: book.id) }
                 )
             }
             .padding(.horizontal, 20)
@@ -148,7 +155,8 @@ struct AdminInboxView: View {
                             book: b,
                             isSelected: ready.selectedBookIds.contains(b.id),
                             isSelecting: ready.hasSelection,
-                            onTap: { observer.toggleBookSelection(bookId: b.id) }
+                            onTap: { observer.toggleBookSelection(bookId: b.id) },
+                            onEdit: { editingBook = InboxEditTarget(id: b.id) }
                         )
                     }
                 }
@@ -356,51 +364,80 @@ struct AdminInboxView: View {
 
 // MARK: - Book row
 
+/// Identifiable wrapper so the BookEdit sheet can be driven by `.sheet(item:)` off the selected id.
+private struct InboxEditTarget: Identifiable {
+    let id: String
+}
+
 private struct InboxBookRow: View {
     let book: InboxBookRowModel
     let isSelected: Bool
     let isSelecting: Bool
     let onTap: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            HStack(spacing: 13) {
-                if isSelecting {
-                    selectionIndicator
-                }
-                BookCoverImage(
-                    bookId: book.id,
-                    coverPath: book.coverPath,
-                    coverHash: book.coverHash,
-                    accessibilityLabel: nil
-                )
-                .frame(width: 52, height: 52)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(book.title)
-                        .font(.system(size: 15.5, weight: .semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                    if let author = book.author {
-                        Text(author)
-                            .font(.footnote)
-                            .foregroundStyle(Color.luLabel2)
+        // Two independent hit targets: the main content toggles select-for-release, the trailing
+        // pencil opens BookEdit. A single row-spanning Button can't host a nested Button, so the two
+        // sit side by side. A long-press context menu offers the same Edit for discoverability.
+        HStack(spacing: 8) {
+            Button(action: onTap) {
+                HStack(spacing: 13) {
+                    if isSelecting {
+                        selectionIndicator
                     }
-                    Text(book.formattedDuration)
-                        .font(.caption)
-                        .foregroundStyle(Color.luLabel3)
+                    BookCoverImage(
+                        bookId: book.id,
+                        coverPath: book.coverPath,
+                        coverHash: book.coverHash,
+                        accessibilityLabel: nil
+                    )
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(book.title)
+                            .font(.system(size: 15.5, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if let author = book.author {
+                            Text(author)
+                                .font(.footnote)
+                                .foregroundStyle(Color.luLabel2)
+                        }
+                        Text(book.formattedDuration)
+                            .font(.caption)
+                            .foregroundStyle(Color.luLabel3)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .contentShape(Rectangle())
-            .background(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
-            .animation(.easeInOut(duration: 0.15), value: isSelected)
+            .buttonStyle(.plain)
+            .accessibilityLabel(book.title)
+            .accessibilityAddTraits(isSelected ? .isSelected : [])
+
+            editButton
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(isSelected ? Color.luTint.opacity(0.08) : Color.clear)
+        .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .contextMenu {
+            Button(String(localized: "common.edit"), systemImage: "square.and.pencil", action: onEdit)
+        }
+    }
+
+    /// Visible per-row affordance to review/edit the book (metadata + collections) before release.
+    private var editButton: some View {
+        Button(action: onEdit) {
+            Image(systemName: "square.and.pencil")
+                .font(.body)
+                .foregroundStyle(Color.luTint)
+                .frame(width: 44, height: 44)   // HIG minimum tap target
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(book.title)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityLabel(String(format: String(localized: "admin.inbox_edit_book"), book.title))
     }
 
     private var selectionIndicator: some View {

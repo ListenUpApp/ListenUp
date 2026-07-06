@@ -701,6 +701,16 @@
         }
       }
     },
+    "admin.inbox_edit_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit %@"
+          }
+        }
+      }
+    },
     "admin.inbox_empty": {
       "localizations": {
         "en": {
@@ -3511,6 +3521,16 @@
         }
       }
     },
+    "book.edit_add_collection": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add collection…"
+          }
+        }
+      }
+    },
     "book.edit_add_genre": {
       "localizations": {
         "en": {
@@ -3641,6 +3661,16 @@
         }
       }
     },
+    "book.edit_collections": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collections"
+          }
+        }
+      }
+    },
     "book.edit_date_added": {
       "localizations": {
         "en": {
@@ -3747,6 +3777,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No authors yet."
+          }
+        }
+      }
+    },
+    "book.edit_no_collections": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No collections yet."
           }
         }
       }
