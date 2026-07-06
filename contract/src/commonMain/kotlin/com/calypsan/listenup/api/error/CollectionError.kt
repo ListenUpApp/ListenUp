@@ -54,10 +54,11 @@ sealed interface CollectionError : AppError {
     }
 
     /**
-     * The caller attempted to rename or delete a system collection.
+     * The caller attempted to rename, delete, or change the sharing of a system collection.
      *
      * `ALL_BOOKS` and `INBOX` are server-managed system collections (created automatically
-     * per library, owned by the `"system"` sentinel) and may not be renamed or deleted.
+     * per library, owned by the `"system"` sentinel) and may not be renamed, deleted, or
+     * re-shared — their grants are managed exclusively by the server.
      */
     @Serializable
     @SerialName("CollectionError.SystemCollectionReadOnly")
@@ -65,7 +66,7 @@ sealed interface CollectionError : AppError {
         override val correlationId: String? = null,
         override val debugInfo: String? = null,
     ) : CollectionError {
-        override val message: String = "System collections can't be renamed or deleted."
+        override val message: String = "System collections can't be modified."
         override val code: String = "COLLECTION_SYSTEM_READ_ONLY"
         override val isRetryable: Boolean = false
     }

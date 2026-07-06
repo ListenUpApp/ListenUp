@@ -82,9 +82,11 @@ internal fun accessScopeFor(
  * the Koin singleton carries an unscoped placeholder that yields no principal.
  *
  * Sharing ([shareCollection], [updateShare], [revokeShare], [listShares]) is owner-only —
- * gated through [ownerGate] like rename/delete. The per-user `AccessChanged` reconcile
- * signal on share/unshare is Collections-1b (it depends on the book-visibility layer);
- * 1a just persists the share rows and emits the normal sync events.
+ * gated through [ownerGate] like rename/delete. System collections (ALL_BOOKS, INBOX) reject
+ * all three share mutations with [CollectionError.SystemCollectionReadOnly]; the default
+ * ALL_BOOKS grants are managed exclusively by [DefaultAllBooksGrantIssuer]. The per-user
+ * `AccessChanged` reconcile signal on share/unshare is Collections-1b (it depends on the
+ * book-visibility layer); 1a just persists the share rows and emits the normal sync events.
  */
 internal class CollectionServiceImpl(
     private val collectionRepo: CollectionRepository,
@@ -368,6 +370,8 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
         // canShare is an ADDITIONAL gate beyond ownership: a member must hold canShare AND own
         // (or admin-bypass) the collection to share it. ROOT/ADMIN pass the flag implicitly.
         permissionPolicy
@@ -416,6 +420,8 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
         val existing =
             grantRepo.findActiveGrant(id.value, sharedWithUserId)
@@ -446,6 +452,8 @@ internal class CollectionServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val decision = accessPolicy.decide(caller.userId, caller.role, id.value)
         ownerGate(decision, caller.role)?.let { return AppResult.Failure(it) }
+        val systemIds = collectionRepo.systemCollectionIds()
+        if (id.value in systemIds) return AppResult.Failure(CollectionError.SystemCollectionReadOnly())
 
         // softDeleteGrant returns Failure(NotFound) when no live grant exists; revoke is
         // idempotent — a no-op revoke satisfies the caller's intent. Only nudge the ex-target
