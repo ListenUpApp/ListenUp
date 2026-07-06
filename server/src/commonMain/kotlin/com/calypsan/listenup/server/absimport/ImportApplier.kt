@@ -98,14 +98,15 @@ class ImportApplier internal constructor(
                         ImportError.ApplyFailed(debugInfo = "No confirmed mapping for import ${importId.value}."),
                     )
 
-            // Record that writing is about to start — after the guards (so a never-analyzed /
-            // never-mapped import can never be flagged interrupted) and before any DB write or the
-            // backup read (so even a read crash is re-driven at boot). The marker persists across a
-            // crash or failure and is only cleared by markApplied, so ".applying without .applied"
-            // is the durable signature of an interrupted apply.
-            store.markApplying(importId)
-
             try {
+                // Record that writing is about to start — after the guards (so a never-analyzed /
+                // never-mapped import can never be flagged interrupted) and before any DB write or the
+                // backup read (so even a read crash is re-driven at boot). Inside the try so a
+                // marker-write failure surfaces as a typed ApplyFailed, not an escaping throwable. The
+                // marker persists across a crash or failure and is only cleared by markApplied, so
+                // ".applying without .applied" is the durable signature of an interrupted apply.
+                store.markApplying(importId)
+
                 val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
                 val (progress, sessions) =
                     reader
