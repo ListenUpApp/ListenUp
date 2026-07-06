@@ -6,7 +6,8 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
-import com.calypsan.listenup.client.data.remote.SyncApiContract
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
@@ -70,7 +71,7 @@ class PlaybackManagerFallbackFetchAtomicityTest :
 
         fun preparer(
             db: com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
-            syncApi: SyncApiContract,
+            bookRpcFactory: BookRpcFactory,
             handler: SyncDomainHandler<BookSyncPayload>,
         ): PlaybackPreparer =
             PlaybackPreparer(
@@ -85,7 +86,7 @@ class PlaybackManagerFallbackFetchAtomicityTest :
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = mock(),
                 playbackRpcFactory = testPlaybackRpcFactory("af-1"),
-                syncApi = syncApi,
+                bookRpcFactory = bookRpcFactory,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = handler,
             )
@@ -94,12 +95,14 @@ class PlaybackManagerFallbackFetchAtomicityTest :
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val syncApi: SyncApiContract = mock()
+                    val bookService: BookService = mock()
+                    val bookRpcFactory: BookRpcFactory = mock()
+                    everySuspend { bookRpcFactory.bookService() } returns bookService
                     val handler = mock<SyncDomainHandler<BookSyncPayload>>()
                     everySuspend { handler.onCatchUpItem(any(), any()) } returns AppResult.Success(Unit)
-                    everySuspend { syncApi.getBook(any()) } returns AppResult.Success(bookPayload("book-1"))
+                    everySuspend { bookService.getBook(any()) } returns AppResult.Success(bookPayload("book-1"))
 
-                    val result = preparer(db, syncApi, handler).fetchBookFromServer(BookId("book-1"))
+                    val result = preparer(db, bookRpcFactory, handler).fetchBookFromServer(BookId("book-1"))
 
                     withClue("fetchBookFromServer should return true on success") { result shouldBe true }
                     verifySuspend(VerifyMode.exactly(1)) {
@@ -115,12 +118,14 @@ class PlaybackManagerFallbackFetchAtomicityTest :
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val syncApi: SyncApiContract = mock()
+                    val bookService: BookService = mock()
+                    val bookRpcFactory: BookRpcFactory = mock()
+                    everySuspend { bookRpcFactory.bookService() } returns bookService
                     val handler = mock<SyncDomainHandler<BookSyncPayload>>()
                     everySuspend { handler.onCatchUpItem(any(), any()) } returns failureOf("persistence error")
-                    everySuspend { syncApi.getBook(any()) } returns AppResult.Success(bookPayload("book-fail"))
+                    everySuspend { bookService.getBook(any()) } returns AppResult.Success(bookPayload("book-fail"))
 
-                    val result = preparer(db, syncApi, handler).fetchBookFromServer(BookId("book-fail"))
+                    val result = preparer(db, bookRpcFactory, handler).fetchBookFromServer(BookId("book-fail"))
 
                     withClue("fetchBookFromServer should return false when persistence fails") { result shouldBe false }
                     verifySuspend(VerifyMode.exactly(1)) {

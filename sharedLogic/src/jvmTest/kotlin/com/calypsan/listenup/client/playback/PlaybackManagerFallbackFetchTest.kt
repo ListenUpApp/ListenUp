@@ -15,7 +15,8 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
-import com.calypsan.listenup.client.data.remote.SyncApiContract
+import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -38,7 +39,7 @@ import kotlinx.coroutines.test.runTest
 
 /**
  * Verifies the playback REST fallback persists a complete book aggregate when local data is
- * missing. Seeds a book with NO audio files in the junction; stubs `syncApi.getBook` to return the
+ * missing. Seeds a book with NO audio files in the junction; stubs `bookService.getBook` to return the
  * contract [BookSyncPayload] the Kotlin server actually emits; calls `prepareForPlayback`; asserts
  * the junction is populated — INCLUDING the audio-stream fields (`codecProfile`/`spatial`/`bitrate`/
  * `sampleRate`/`channels`) that were dropped on the stale `SingleBookResponse` path.
@@ -112,7 +113,7 @@ class PlaybackManagerFallbackFetchTest :
 
         fun createPlaybackManager(
             db: ListenUpDatabase,
-            syncApi: SyncApiContract,
+            bookRpcFactory: BookRpcFactory,
         ): PlaybackManager {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -158,7 +159,7 @@ class PlaybackManagerFallbackFetchTest :
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
                 playbackRpcFactory = testPlaybackRpcFactory("af-1", "af-2"),
-                syncApi = syncApi,
+                bookRpcFactory = bookRpcFactory,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = bookSyncDomainHandler,
             )
@@ -168,11 +169,13 @@ class PlaybackManagerFallbackFetchTest :
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val syncApi: SyncApiContract = mock()
+                    val bookService: BookService = mock()
+                    val bookRpcFactory: BookRpcFactory = mock()
+                    everySuspend { bookRpcFactory.bookService() } returns bookService
 
                     seedBookWithoutAudioFiles(db)
 
-                    everySuspend { syncApi.getBook(any()) } returns
+                    everySuspend { bookService.getBook(any()) } returns
                         AppResult.Success(
                             bookPayloadWithAudioFiles(
                                 id = "book-1",
@@ -205,7 +208,7 @@ class PlaybackManagerFallbackFetchTest :
                             ),
                         )
 
-                    val playbackManager = createPlaybackManager(db = db, syncApi = syncApi)
+                    val playbackManager = createPlaybackManager(db = db, bookRpcFactory = bookRpcFactory)
 
                     playbackManager.prepareForPlayback(BookId("book-1"))
 

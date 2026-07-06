@@ -42,7 +42,7 @@ val desktopPlaybackModule: Module =
                 deviceContext = get(),
                 downloadService = get(),
                 playbackRpcFactory = get(),
-                syncApi = get(),
+                bookRpcFactory = get(),
                 scope = get(qualifier = named("playbackScope")),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )

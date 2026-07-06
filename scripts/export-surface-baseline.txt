@@ -7,7 +7,6 @@ AbsUserMatch
 AccessMode
 AccessToken
 ActiveSession
-ActiveSessionApiResponse
 ActiveSessionRepository
 Activity
 ActivityFeedUiState
@@ -31,7 +30,6 @@ AdminSettingsViewModel
 AdminUiState
 AdminUserInfo
 AdminViewModel
-AllProgressResponse
 ApiResponse
 AppError
 AppleDownloadService
@@ -126,7 +124,6 @@ CollectionShareItem
 ConnectionCoordinator
 ContinueListeningBook
 ContinueListeningItem
-ContinueListeningItemResponse
 Contributor
 ContributorBooksUiState
 ContributorBooksViewModel
@@ -290,12 +287,8 @@ LibraryUiEvent
 LibraryUiState
 LibraryViewModel
 ListeningEvent
-ListeningEventApiResponse
 ListeningEventRecorder
 ListeningEventRepository
-ListeningEventRequest
-ListeningEventsApiResponse
-ListeningEventsResponse
 LocalPreferences
 LoginErrorType
 LoginField
@@ -347,7 +340,6 @@ PlaybackPreferences
 PlaybackPreparer
 PlaybackProgress
 PlaybackProgressReporter
-PlaybackProgressResponse
 PlaybackRpcFactory
 PlaybackService
 PlaybackState
@@ -361,7 +353,6 @@ PreviewLoadState
 ProfileEditRepository
 ProfileRecentBook
 ProfileShelfSummary
-ProgressSyncItem
 Reachability
 Reader
 ReaderLine
@@ -476,8 +467,6 @@ StorageUiState
 StorageViewModel
 StreamedRegistrationStatus
 SurfaceMetadata
-SyncActiveSessionsResponse
-SyncApiContract
 SyncBooksResponse
 SyncContributorsResponse
 SyncIndicatorUiEvent
@@ -485,8 +474,6 @@ SyncIndicatorUiState
 SyncIndicatorViewModel
 SyncManifestResponse
 SyncPhase
-SyncReadingSessionReaderResponse
-SyncReadingSessionsResponse
 SyncRepository
 SyncSeriesResponse
 SyncState

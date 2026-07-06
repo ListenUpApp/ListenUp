@@ -3,8 +3,6 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.remote.KtorScannerRpcFactory
 import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorUserPreferencesRpcFactory
-import com.calypsan.listenup.client.data.remote.SyncApi
-import com.calypsan.listenup.client.data.remote.SyncApiContract
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl
@@ -54,12 +52,6 @@ private const val APP_SCOPE = "appScope"
  */
 internal val libraryModule: Module =
     module {
-        // Sync API uses ApiClientFactory to get authenticated HttpClient at call time
-        // This avoids runBlocking during DI initialization (structured concurrency)
-        single<SyncApiContract> {
-            SyncApi(clientFactory = get())
-        }
-
         // UserPreferencesRpcFactory — kotlinx.rpc proxy for UserPreferencesService.
         single<UserPreferencesRpcFactory> {
             KtorUserPreferencesRpcFactory(

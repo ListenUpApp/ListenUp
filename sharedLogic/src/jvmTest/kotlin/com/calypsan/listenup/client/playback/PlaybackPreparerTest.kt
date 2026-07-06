@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.client.data.local.db.AudioFileEntity
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
@@ -156,7 +157,7 @@ class PlaybackPreparerTest :
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
                 playbackRpcFactory = playbackRpcFactory,
-                syncApi = null,
+                bookRpcFactory = mock<BookRpcFactory>(),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
             )

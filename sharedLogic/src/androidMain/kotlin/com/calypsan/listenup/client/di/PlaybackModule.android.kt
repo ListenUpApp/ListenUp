@@ -43,7 +43,7 @@ val androidPlaybackModule: Module =
                 deviceContext = get(),
                 downloadService = get(),
                 playbackRpcFactory = get(),
-                syncApi = get(),
+                bookRpcFactory = get(),
                 scope = get(),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )
