@@ -13,4 +13,17 @@ import com.calypsan.listenup.core.BookId
  */
 interface BookRevisionTouch {
     suspend fun touchRevision(id: BookId): AppResult<Unit>
+
+    /**
+     * Bumps every book in [ids] in a single transaction, assigning each row its own revision from the
+     * global counter — never one shared revision, because `pullSince` pages by `revision > cursor` and
+     * equal revisions straddling a page boundary would be skipped (silent client divergence). Missing
+     * ids are skipped (mirrors [BookRepository.reviveByIds]); an empty list is a no-op success. The
+     * default implementation loops [touchRevision] so existing implementations and fakes stay
+     * source-compatible; [BookRepository] overrides it with the batched, single-transaction form.
+     */
+    suspend fun touchRevisions(ids: List<BookId>): AppResult<Unit> {
+        for (id in ids) touchRevision(id)
+        return AppResult.Success(Unit)
+    }
 }

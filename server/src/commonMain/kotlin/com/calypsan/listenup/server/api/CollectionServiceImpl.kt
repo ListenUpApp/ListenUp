@@ -222,10 +222,14 @@ internal class CollectionServiceImpl(
         // Every affected book's revision is touched regardless, so a member whose access just changed
         // re-derives visibility on their incremental `revision > cursor` pull (a book that stays in
         // other collections isn't reconciled but must still drop for this collection's lost audience).
+        val lookups = SystemMembershipLookups()
         for (bookId in affectedBookIds) {
-            reconcileSystemMembership(bookId)
-            bookRevisionTouch.touchRevision(BookId(bookId))
+            reconcileSystemMembership(bookId, lookups)
         }
+        // One batched revision bump for every affected book (one transaction, per-book revisions) —
+        // the reconcile above already bumps any book whose ALL_BOOKS membership flipped; this ensures
+        // every affected book advances so a member whose access just changed re-derives on their pull.
+        bookRevisionTouch.touchRevisions(affectedBookIds.map(::BookId))
         for (grant in grantRepo.listActiveGrantsForCollection(id.value)) {
             grantRepo.softDelete(grant.id)
         }
@@ -666,17 +670,61 @@ internal class CollectionServiceImpl(
         notifyAccessChanged(explicitTargetIds + listOfNotNull(allBooksId), assignments.keys)
         // Bump each released book's revision so members' incremental `revision > cursor` pull
         // re-evaluates its now-changed visibility — the access nudge alone never carries the row.
-        for (bookId in assignments.keys) {
-            bookRevisionTouch.touchRevision(BookId(bookId))
-        }
+        // One transaction, per-book revisions (never one shared revision — see touchRevisions).
+        bookRevisionTouch.touchRevisions(assignments.keys.map(::BookId))
         // Maintain exclusivity from the post-release set: a book released into explicit targets must
         // not linger in ALL_BOOKS (defensive tombstone of any stale junction); one released unsorted
-        // stays in ALL_BOOKS (the fallback added above). reconcile derives both.
+        // stays in ALL_BOOKS (the fallback added above). reconcile derives both. One memo hoists the
+        // loop-invariant system-collection lookups across the whole release.
+        val lookups = SystemMembershipLookups()
         for (bookId in assignments.keys) {
-            reconcileSystemMembership(bookId)
+            reconcileSystemMembership(bookId, lookups)
         }
         return AppResult.Success(Unit)
     }
+
+    /**
+     * Loop-invariant lookups for [reconcileSystemMembership], resolved at most once per bulk operation
+     * instead of once per book. The global system-id set and the per-library inbox id are stable for
+     * the duration of one operation; the ALL_BOOKS id is memoized only once FOUND, so the lazy-create
+     * fallback inside the reconcile still fires for the first book that materialises it —
+     * [noteAllBooksCreated] registers the fresh id (and adds it to the system-id set) so later books in
+     * the same loop see it exactly as a fresh per-book lookup would.
+     */
+    private inner class SystemMembershipLookups {
+        private var systemIds: MutableSet<String>? = null
+        private val inboxIdByLibrary = mutableMapOf<String, String?>()
+        private val allBooksIdByLibrary = mutableMapOf<String, String>()
+
+        suspend fun systemIds(): Set<String> =
+            systemIds ?: collectionRepo.systemCollectionIds().toMutableSet().also { systemIds = it }
+
+        suspend fun inboxId(libraryId: String): String? {
+            if (libraryId !in inboxIdByLibrary) {
+                inboxIdByLibrary[libraryId] = collectionRepo.findInboxForLibrary(libraryId)?.id
+            }
+            return inboxIdByLibrary[libraryId]
+        }
+
+        suspend fun allBooksId(libraryId: String): String? =
+            allBooksIdByLibrary[libraryId]
+                ?: collectionRepo
+                    .findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS)
+                    ?.id
+                    ?.also { allBooksIdByLibrary[libraryId] = it }
+
+        fun noteAllBooksCreated(
+            libraryId: String,
+            id: String,
+        ) {
+            allBooksIdByLibrary[libraryId] = id
+            systemIds?.add(id)
+        }
+    }
+
+    /** Single-book entry point: reconciles [bookId] through a fresh one-shot [SystemMembershipLookups]. */
+    private suspend fun reconcileSystemMembership(bookId: String) =
+        reconcileSystemMembership(bookId, SystemMembershipLookups())
 
     /**
      * Enforces the exclusivity invariant between the everyone-visible ALL_BOOKS substrate and
@@ -693,15 +741,23 @@ internal class CollectionServiceImpl(
      * (every member holds a default ALL_BOOKS grant) and bump the book's revision, so each member
      * re-derives their view and the visibility delta converges. Idempotent: a no-op flip emits
      * nothing.
+     *
+     * [lookups] memoizes the loop-invariant lookups (system-id set, per-library inbox/ALL_BOOKS ids) so
+     * a bulk caller (deleteCollection / releaseBooks) resolves them once per operation rather than once
+     * per book; single-book callers delegate with a fresh memo. A mid-loop lazy-create of ALL_BOOKS is
+     * recorded via [SystemMembershipLookups.noteAllBooksCreated] so later books observe it.
      */
-    private suspend fun reconcileSystemMembership(bookId: String) {
+    private suspend fun reconcileSystemMembership(
+        bookId: String,
+        lookups: SystemMembershipLookups,
+    ) {
         val libraryId = bookLibraryId(bookId) ?: return
-        val systemIds = collectionRepo.systemCollectionIds()
+        val systemIds = lookups.systemIds()
         val liveMemberships = collectionBookRepo.findCollectionIdsForBook(bookId).toSet()
         val real = liveMemberships - systemIds
-        val inboxId = collectionRepo.findInboxForLibrary(libraryId)?.id
+        val inboxId = lookups.inboxId(libraryId)
         val held = inboxId != null && inboxId in liveMemberships
-        val allBooksId = collectionRepo.findSystemCollection(libraryId, SYSTEM_TYPE_ALL_BOOKS)?.id
+        val allBooksId = lookups.allBooksId(libraryId)
         val allBooksLive = allBooksId != null && allBooksId in liveMemberships
 
         if (real.isEmpty() && !held) {
@@ -711,6 +767,7 @@ internal class CollectionServiceImpl(
                     ?: getOrCreateSystemCollection(libraryId, SystemCollectionType.ALL_BOOKS)
                         .getOrElse { return }
                         .id.value
+                        .also { lookups.noteAllBooksCreated(libraryId, it) }
             collectionBookRepo.upsert(
                 CollectionBookSyncPayload(
                     collectionId = id,

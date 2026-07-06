@@ -1407,6 +1407,29 @@ class BookRepository(
     }
 
     /**
+     * Batched [touchRevision]: bumps every book in [ids] in ONE transaction, assigning each row its
+     * own revision from the global counter — never one shared revision, because `pullSince` pages by
+     * `revision > cursor`, so equal revisions straddling a page boundary would be skipped. Missing ids
+     * are skipped (mirrors [reviveByIds]); an empty list is a no-op success. The bulk collection paths
+     * call this instead of looping [touchRevision] to collapse N transactions into one.
+     */
+    override suspend fun touchRevisions(ids: List<BookId>): AppResult<Unit> {
+        if (ids.isEmpty()) return AppResult.Success(Unit)
+        return suspendTransaction(db) {
+            for (id in ids) {
+                val idStr = idAsString(id)
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                db.booksQueries.touchRevision(revision = rev, updated_at = now, id = idStr)
+                if (db.booksQueries.changes().executeAsOne() != 0L) {
+                    publishUpdatedAfterCommit(idStr, rev, now)
+                }
+            }
+            AppResult.Success(Unit)
+        }
+    }
+
+    /**
      * Resolves where [id]'s cover image lives for the cover-serving route. Delegates to
      * [ManagedCoverFiles.coverInfo]. Returns null when the book is absent or has no cover.
      */
