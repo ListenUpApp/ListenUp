@@ -52,11 +52,15 @@ import com.calypsan.listenup.server.io.hashBytesSha256
  *   gate regardless of the subquery — the member needs to learn what to remove even for a row it
  *   can no longer "access" (a deleted row is never accessible: `accessibleBookIdsSql` requires
  *   `deleted_at IS NULL`). This mirrors the firehose's tombstone-ungated rule (`isBookEventHidden`
- *   lets every `SyncEvent.Deleted` through) so catch-up and the live tail agree, and it leaks no
- *   content — a tombstone carries only id/revision/deleted_at. Set true on the pull path (catch-up
- *   must deliver deletions), false on the digest path (the digest counts only LIVE accessible rows,
- *   symmetric with the tombstone-excluding client digest). Only meaningful when [extraWhere] is
- *   non-null; with no access clause, every matched row already returns.
+ *   lets every `SyncEvent.Deleted` through) so catch-up and the live tail agree. This is an
+ *   *id-selection* rule: it lets the tombstoned row through ungated, and it leaks no content —
+ *   content safety is guaranteed downstream by [SqlSyncableRepository.minimizeTombstone], which
+ *   projects every tombstoned payload to identity + sync-discipline fields (id/revision/deleted_at
+ *   + timestamps) before it leaves [SqlSyncableRepository.pullSince] /
+ *   [SqlSyncableRepository.pullByIds]. Set true on the pull path
+ *   (catch-up must deliver deletions), false on the digest path (the digest counts only LIVE
+ *   accessible rows, symmetric with the tombstone-excluding client digest). Only meaningful when
+ *   [extraWhere] is non-null; with no access clause, every matched row already returns.
  */
 internal fun SqlDriver.selectIdRevAccessFiltered(
     table: String,

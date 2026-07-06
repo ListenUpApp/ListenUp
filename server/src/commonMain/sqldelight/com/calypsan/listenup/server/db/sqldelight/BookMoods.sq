@@ -90,6 +90,13 @@ SELECT id FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
 countLiveForMood:
 SELECT COUNT(*) FROM book_moods WHERE mood_id = :mood_id AND deleted_at IS NULL;
 
+-- Distinct mood ids ever linked to a book, tombstoned junctions included — the orphan-purge
+-- capture set. Tombstone-inclusive so a resume run (re-invoked softDelete after a crash that
+-- already tombstoned the junctions) still nominates the moods; liveBookCountForMood remains the
+-- sole purge decision-maker, so a mood with any live junction-book pair always survives.
+moodIdsForBook:
+SELECT DISTINCT mood_id FROM book_moods WHERE book_id = :book_id;
+
 -- Count of LIVE books linked to a mood via a LIVE junction — the orphan-purge decision for moods.
 liveBookCountForMood:
 SELECT COUNT(*) FROM book_moods bm

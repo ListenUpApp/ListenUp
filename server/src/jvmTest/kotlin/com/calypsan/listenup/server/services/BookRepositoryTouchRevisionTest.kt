@@ -63,6 +63,75 @@ class BookRepositoryTouchRevisionTest :
                 }
             }
         }
+
+        test("touchRevisions bumps every book in one call with distinct revisions") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook(bookId = "b1")
+                sql.seedTestBook(bookId = "b2")
+                sql.seedTestBook(bookId = "b3")
+                val repo = buildBookRepository(sql, driver)
+                runTest {
+                    val ids = listOf("b1", "b2", "b3")
+
+                    fun revOf(id: String): Long =
+                        sql.booksQueries
+                            .selectById(id)
+                            .executeAsOneOrNull()
+                            ?.revision
+                            ?: error("book $id not found")
+                    // Seed revisions don't track the global counter — establish a counter baseline first.
+                    ids.forEach { repo.touchRevision(BookId(it)) }
+                    val before = ids.associateWith { revOf(it) }
+
+                    val result = repo.touchRevisions(ids.map(::BookId))
+
+                    result shouldBe AppResult.Success(Unit)
+                    val after = ids.associateWith { revOf(it) }
+                    // Each row advanced past its pre-call revision.
+                    ids.forEach { after.getValue(it) shouldBeGreaterThan before.getValue(it) }
+                    // Every row got its OWN revision — the pagination-safety property (never one shared).
+                    after.values.toSet().size shouldBe after.values.size
+                }
+            }
+        }
+
+        test("touchRevisions skips missing ids and still bumps the rest") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook(bookId = "b1")
+                sql.seedTestBook(bookId = "b2")
+                val repo = buildBookRepository(sql, driver)
+                runTest {
+                    fun revOf(id: String): Long =
+                        sql.booksQueries
+                            .selectById(id)
+                            .executeAsOneOrNull()
+                            ?.revision
+                            ?: error("book $id not found")
+                    repo.touchRevision(BookId("b1"))
+                    repo.touchRevision(BookId("b2"))
+                    val b1Before = revOf("b1")
+                    val b2Before = revOf("b2")
+
+                    val result = repo.touchRevisions(listOf(BookId("b1"), BookId("nope"), BookId("b2")))
+
+                    result shouldBe AppResult.Success(Unit)
+                    revOf("b1") shouldBeGreaterThan b1Before
+                    revOf("b2") shouldBeGreaterThan b2Before
+                }
+            }
+        }
+
+        test("touchRevisions on an empty list is a no-op success") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val repo = buildBookRepository(sql, driver)
+                runTest {
+                    repo.touchRevisions(emptyList()) shouldBe AppResult.Success(Unit)
+                }
+            }
+        }
     })
 
 /**

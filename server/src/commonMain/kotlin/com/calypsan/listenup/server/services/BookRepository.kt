@@ -244,6 +244,38 @@ class BookRepository(
     /** Batched hydration: fetches each child table once per id-chunk and assembles in input-id order. */
     override fun readPayloads(idStrs: List<String>): List<BookSyncPayload> = db.readBookPayloads(idStrs)
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: BookSyncPayload): BookSyncPayload =
+        payload.copy(
+            // libraryId/folderId are @JvmInline value classes with isNotBlank() init guards
+            // AND opaque UUIDs, not content — they stay. Everything content-bearing goes.
+            title = "",
+            sortTitle = null,
+            subtitle = null,
+            description = null,
+            publishYear = null,
+            publisher = null,
+            language = null,
+            isbn = null,
+            asin = null,
+            abridged = false,
+            explicit = false,
+            hasScanWarning = false,
+            totalDuration = 0L,
+            cover = null,
+            rootRelPath = "",
+            inode = null,
+            scannedAt = 0L,
+            contributors = emptyList(),
+            series = emptyList(),
+            genres = emptyList(),
+            audioFiles = emptyList(),
+            documents = emptyList(),
+            chapters = emptyList(),
+            chapterSource = ChapterSource.EMBEDDED,
+            userEditedFields = emptySet(),
+        )
+
     /**
      * Writes the full book aggregate inside the substrate's open SQLDelight transaction.
      *
@@ -921,8 +953,19 @@ class BookRepository(
      *
      * Finally, the orphan-purge cascade ([orphanParentPurger]) tombstones any contributor / series /
      * genre / tag / mood the removal left with zero live book children, so an orphaned parent stops
-     * appearing. The linked parents are captured BEFORE the removal (the tag/mood junctions are
-     * tombstoned by the cascade), then re-evaluated after it.
+     * appearing. The linked parents are captured BEFORE the removal (tombstone-inclusively, so the
+     * capture survives a resume run), then re-evaluated after it.
+     *
+     * **Crash-resume.** Each step above commits in its own transaction, so a crash mid-cascade leaves a
+     * half-cascaded book (tombstoned book, some live junctions, unpurged parents). Re-invoking
+     * `softDelete` on an already-tombstoned book is safe and completes any unfinished cascade: the base
+     * `softDelete` has no already-deleted early return, so it re-stamps the tombstone (bumping the
+     * revision and re-emitting a convergent [SyncEvent]); the junction cascades are live-select
+     * idempotent (already-tombstoned rows are skipped); and [OrphanParentPurger.captureParents] is
+     * tombstone-inclusive, so the orphan purge still fires even when the junctions are already dead.
+     * Caveat: nothing re-invokes this automatically today — the scan sweeps ([softDeleteAbsent] /
+     * [softDeleteAbsentByPaths]) select LIVE books only — so an interrupted cascade heals only on an
+     * explicit re-delete (a bulk folder-removal pass or a manual removal), never on its own.
      */
     override suspend fun softDelete(
         id: BookId,
@@ -1371,6 +1414,29 @@ class BookRepository(
                 publishUpdatedAfterCommit(idStr, rev, now)
                 AppResult.Success(Unit)
             }
+        }
+    }
+
+    /**
+     * Batched [touchRevision]: bumps every book in [ids] in ONE transaction, assigning each row its
+     * own revision from the global counter — never one shared revision, because `pullSince` pages by
+     * `revision > cursor`, so equal revisions straddling a page boundary would be skipped. Missing ids
+     * are skipped (mirrors [reviveByIds]); an empty list is a no-op success. The bulk collection paths
+     * call this instead of looping [touchRevision] to collapse N transactions into one.
+     */
+    override suspend fun touchRevisions(ids: List<BookId>): AppResult<Unit> {
+        if (ids.isEmpty()) return AppResult.Success(Unit)
+        return suspendTransaction(db) {
+            for (id in ids) {
+                val idStr = idAsString(id)
+                val rev = nextRevision()
+                val now = clock.now().toEpochMilliseconds()
+                db.booksQueries.touchRevision(revision = rev, updated_at = now, id = idStr)
+                if (db.booksQueries.changes().executeAsOne() != 0L) {
+                    publishUpdatedAfterCommit(idStr, rev, now)
+                }
+            }
+            AppResult.Success(Unit)
         }
     }
 

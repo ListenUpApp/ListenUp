@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -237,6 +238,72 @@ class SeriesRepositoryTest :
                 runTest {
                     repo.resolveOrCreateAll(emptyList()) shouldBe emptyMap()
                     repo.listLiveIds() shouldBe emptySet()
+                }
+            }
+        }
+
+        // ── revive on tombstoned dedup hit (plan 088) ─────────────────────────────
+
+        test("resolveOrCreate revives a tombstoned dedup hit — same id, live, revision bumped, Updated published") {
+            withSqlDatabase {
+                val bus = ChangeBus()
+                val repo = SeriesRepository(db = sql, bus = bus, registry = SyncRegistry())
+                runTest {
+                    val id = repo.resolveOrCreate("Purged Saga")
+                    repo.softDelete(id)
+                    val revisionAfterDelete =
+                        sql.seriesQueries
+                            .selectById(id.value)
+                            .executeAsOne()
+                            .revision
+
+                    // The bus replays the earlier Created/Deleted; the revive is the only Updated,
+                    // so filter for it rather than taking the replayed head.
+                    val deferred = async { bus.subscribe().first { it.event is SyncEvent.Updated<*> } }
+                    advanceUntilIdle()
+
+                    val resolved = repo.resolveOrCreate("Purged Saga")
+
+                    resolved shouldBe id // id stays stable — no re-mint
+                    val row = sql.seriesQueries.selectById(id.value).executeAsOne()
+                    row.deleted_at.shouldBeNull() // FAILS before the fix: still tombstoned
+                    (row.revision > revisionAfterDelete) shouldBe true
+
+                    val busEvent = deferred.await()
+                    busEvent.event.shouldBeInstanceOf<SyncEvent.Updated<SeriesSyncPayload>>()
+                    busEvent.event.id shouldBe id.value
+                }
+            }
+        }
+
+        test("resolveOrCreateAll revives tombstoned hits and leaves live hits untouched") {
+            withSqlDatabase {
+                val repo = SeriesRepository(db = sql, bus = ChangeBus(), registry = SyncRegistry())
+                runTest {
+                    val purged = repo.resolveOrCreate("Purged Saga")
+                    val live = repo.resolveOrCreate("Live Saga")
+                    repo.softDelete(purged)
+                    val liveRevisionBefore =
+                        sql.seriesQueries
+                            .selectById(live.value)
+                            .executeAsOne()
+                            .revision
+
+                    val resolved =
+                        repo.resolveOrCreateAll(listOf("Purged Saga", "Live Saga", "Brand New Saga"))
+
+                    resolved.values.toSet().size shouldBe 3
+                    resolved.values shouldContain purged // same id — no re-mint
+                    sql.seriesQueries
+                        .selectById(purged.value)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull() // FAILS before the fix
+                    // Live hit stays a pure read — no gratuitous revision bump.
+                    sql.seriesQueries
+                        .selectById(live.value)
+                        .executeAsOne()
+                        .revision shouldBe liveRevisionBefore
                 }
             }
         }

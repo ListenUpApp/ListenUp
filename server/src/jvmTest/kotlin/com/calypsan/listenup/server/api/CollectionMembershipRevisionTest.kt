@@ -27,6 +27,7 @@ import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import kotlin.time.Instant
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -226,6 +227,38 @@ class CollectionMembershipRevisionTest :
                     }
 
                     touch.touched shouldContainExactly listOf("b1")
+                }
+            }
+        }
+
+        test("deleteCollection touches every affected book's revision") {
+            withSqlDatabase {
+                val db = this
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestBook(bookId = "b1")
+                sql.seedTestBook(bookId = "b2")
+                sql.seedTestBook(bookId = "b3")
+                runTest(UnconfinedTestDispatcher()) {
+                    val touch = FakeBookRevisionTouch()
+                    val service = makeCollectionService(db, bookRevisionTouch = touch)
+                    val owner = service.actAs("u1")
+                    val created = owner.createCollection("test-library", "Shelf")
+                    require(created is AppResult.Success)
+                    listOf("b1", "b2", "b3").forEach { bookId ->
+                        owner.addBookToCollection(created.data.id, BookId(bookId)).let {
+                            require(it is AppResult.Success)
+                        }
+                    }
+                    touch.touched.clear()
+
+                    owner.deleteCollection(created.data.id).let {
+                        require(it is AppResult.Success)
+                    }
+
+                    // Deleting the collection returns each book to ALL_BOOKS and bumps its revision;
+                    // reconcile can legitimately double-bump a flipped book, so distinct() first.
+                    touch.touched.distinct() shouldContainExactlyInAnyOrder listOf("b1", "b2", "b3")
                 }
             }
         }

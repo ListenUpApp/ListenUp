@@ -598,12 +598,28 @@ internal class SyncEngine(
         if (!leader) return
 
         try {
+            // One retry budget per leader activation: a failed scope is re-folded into the
+            // accumulator exactly once; if the retry fails too, the reconnect / next
+            // AccessChanged edge is the backstop (AccessReconciler KDoc). A fresh frame
+            // later starts a fresh leader with a fresh budget.
+            var requeueGranted = true
             while (true) {
                 val work = accessChangedMutex.withLock { drainAccumulatedAccessChange() }
-                when (work) {
-                    PendingAccessChange.None -> break
-                    PendingAccessChange.Coarse -> accessReconciler.reconcile(null)
-                    is PendingAccessChange.Delta -> accessReconciler.reconcile(work.scope)
+                val outcome =
+                    when (work) {
+                        PendingAccessChange.None -> break
+                        PendingAccessChange.Coarse -> accessReconciler.reconcile(null)
+                        is PendingAccessChange.Delta -> accessReconciler.reconcile(work.scope)
+                    }
+                if (outcome is AccessReconcileOutcome.Requeue) {
+                    if (requeueGranted) {
+                        requeueGranted = false
+                        accessChangedMutex.withLock { accumulateAccessChange(outcome.retryScope) }
+                    } else {
+                        logger.warn {
+                            "AccessChanged reconcile failed after retry — deferring to reconnect/coarse backstop"
+                        }
+                    }
                 }
             }
         } finally {

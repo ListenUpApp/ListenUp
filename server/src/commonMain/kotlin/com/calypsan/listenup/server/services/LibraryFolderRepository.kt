@@ -124,6 +124,10 @@ class LibraryFolderRepository(
         return idStrs.mapNotNull { byId[it]?.toSyncPayload() }
     }
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: LibraryFolderSyncPayload): LibraryFolderSyncPayload =
+        payload.copy(libraryId = "", rootPath = "")
+
     override fun writePayload(
         value: LibraryFolderSyncPayload,
         rev: Long,

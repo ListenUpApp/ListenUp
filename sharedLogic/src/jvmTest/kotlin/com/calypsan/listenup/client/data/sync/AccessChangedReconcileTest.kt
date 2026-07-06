@@ -20,6 +20,7 @@ import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
+import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.core.BookId
@@ -450,6 +451,89 @@ class AccessChangedReconcileTest :
                 harness.fakeCatchUp.fetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("bb"))
             }
         }
+
+        // ---- Transient-failure re-queue (plan 101) --------------------------------------------------
+
+        test("delta requeue: a failed scoped fetch is retried on the next drain and the prune completes") {
+            withReconcileEngine { harness, db, _ ->
+                val handler =
+                    booksDomain(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+                handler.onCatchUpItem(bookPayload("b1"), isTombstone = false)
+                handler.onCatchUpItem(bookPayload("b2"), isTombstone = false)
+
+                // First books fetch fails (transient); the retry succeeds returning only b1.
+                harness.fakeCatchUp.failNextByDomain["books"] = 1
+                harness.fakeCatchUp.returnedByDomain["books"] = setOf("b1")
+                harness.engine.handleAccessChanged(AccessScope(collectionIds = emptyList(), bookIds = listOf("b1", "b2")))
+
+                // Two attempts were made over the same scope...
+                harness.fakeCatchUp.fetches shouldHaveSize 2
+                (harness.fakeCatchUp.fetches[1].fetch as TargetedFetch.ByIds).ids.toSet() shouldBe setOf("b1", "b2")
+                // ...and the retry's prune actually evicted the revoked book.
+                db.bookDao().getById(BookId("b1"))!!.deletedAt shouldBe null
+                db.bookDao().getById(BookId("b2"))!!.deletedAt shouldNotBe null
+            }
+        }
+
+        test("coarse requeue: a failed coarse domain triggers ONE follow-up coarse pass that prunes") {
+            withReconcileEngine { harness, db, _ ->
+                val handler = collectionsDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
+                handler.onCatchUpItem(collectionPayload("c1"), isTombstone = false)
+                handler.onCatchUpItem(collectionPayload("c2"), isTombstone = false)
+
+                harness.fakeCatchUp.failNextByDomain["collections"] = 1
+                harness.fakeCatchUp.accessibleByDomain["collections"] = setOf("c1")
+                harness.engine.handleAccessChanged(null)
+
+                // The coarse sweep ran twice for collections (failed pass + retry pass).
+                harness.fakeCatchUp.coarseCalls.count { it == "collections" } shouldBe 2
+                db.collectionDao().getById("c1").shouldNotBeNull()
+                db.collectionDao().getById("c2") shouldBe null
+            }
+        }
+
+        test("delta requeue is bounded: persistent failure stops after ONE retry and a later frame still leads") {
+            withReconcileEngine { harness, db, _ ->
+                val handler =
+                    booksDomain(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
+                handler.onCatchUpItem(bookPayload("b1"), isTombstone = false)
+
+                // Every attempt fails: leader + exactly one retry, then give up (reconnect backstop owns it).
+                harness.fakeCatchUp.failNextByDomain["books"] = 10
+                harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b1")))
+                harness.fakeCatchUp.fetches shouldHaveSize 2
+
+                // A fresh frame gets a fresh leader with a fresh retry budget — nothing is wedged.
+                harness.fakeCatchUp.fetches.clear()
+                harness.fakeCatchUp.failNextByDomain.clear()
+                harness.fakeCatchUp.returnedByDomain["books"] = setOf("b1")
+                harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b1")))
+                harness.fakeCatchUp.fetches shouldHaveSize 1
+            }
+        }
+
+        test("delta requeue: only the FAILED domain's ids are refetched — the succeeded domain is not") {
+            withReconcileEngine { harness, _, _ ->
+                // collections succeeds; books fails once then succeeds.
+                harness.fakeCatchUp.returnedByDomain["collections"] = setOf("c1")
+                harness.fakeCatchUp.returnedByDomain["books"] = setOf("b1")
+                harness.fakeCatchUp.failNextByDomain["books"] = 1
+
+                harness.engine.handleAccessChanged(AccessScope(collectionIds = listOf("c1"), bookIds = listOf("b1")))
+
+                // Pass 1: collections + collection_books + books(FAILED). Pass 2 (requeue): books only.
+                harness.fakeCatchUp.fetches.map { it.domain } shouldBe
+                    listOf("collections", "collection_books", "books", "books")
+            }
+        }
     })
 
 /** A targeted fetch the fake observed, for assertions. */
@@ -476,6 +560,16 @@ private class FakeReconcileCatchUp : CatchUp {
     @Volatile
     var gate: CompletableDeferred<Unit>? = null
 
+    /** Domains whose next N calls (targeted or coarse) fail with a retryable SyncError. Decremented per call. */
+    val failNextByDomain: MutableMap<String, Int> = mutableMapOf()
+
+    private fun consumeFailure(domain: String): Boolean {
+        val remaining = failNextByDomain[domain] ?: return false
+        if (remaining <= 0) return false
+        failNextByDomain[domain] = remaining - 1
+        return true
+    }
+
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
@@ -484,6 +578,7 @@ private class FakeReconcileCatchUp : CatchUp {
 
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> {
         coarseCalls += handler.domainName
+        if (consumeFailure(handler.domainName)) return AppResult.Failure(SyncError.SyncFailed())
         val ids = accessibleByDomain[handler.domainName] ?: emptySet()
         return AppResult.Success(ids)
     }
@@ -497,6 +592,7 @@ private class FakeReconcileCatchUp : CatchUp {
             gate = null
             it.await()
         }
+        if (consumeFailure(handler.domainName)) return AppResult.Failure(SyncError.SyncFailed())
         val returned = returnedByDomain[handler.domainName] ?: accessibleByDomain[handler.domainName] ?: emptySet()
         return AppResult.Success(returned)
     }

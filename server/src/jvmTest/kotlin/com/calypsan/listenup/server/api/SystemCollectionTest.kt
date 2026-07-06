@@ -3,11 +3,14 @@
 package com.calypsan.listenup.server.api
 
 import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.server.auth.UserPrincipal
@@ -20,10 +23,16 @@ import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FakeBookRevisionTouch
 import com.calypsan.listenup.server.testing.FixedClock
+import com.calypsan.listenup.server.testing.collectionAccessHarness
+import com.calypsan.listenup.server.testing.grantAllBooks
+import com.calypsan.listenup.server.testing.seedTestBook
 import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.booleans.shouldBeTrue
+import io.kotest.matchers.nulls.shouldBeNull
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlin.time.Instant
@@ -226,6 +235,83 @@ class SystemCollectionTest :
                     val result = service.actAs("admin").deleteCollection(allBooks.data.id)
                     require(result is AppResult.Failure)
                     result.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
+                }
+            }
+        }
+
+        // ── System collection share guards (plan 090) ────────────────────────
+
+        test("revokeShare on ALL_BOOKS returns SystemCollectionReadOnly and preserves the member's default grant") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m")
+                sql.seedTestBook("B")
+                runTest {
+                    val h = collectionAccessHarness()
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksId = allBooks.data.id.value
+                    admin.addBookToCollection(CollectionId(allBooksId), BookId("B"))
+                    h.grantAllBooks(allBooksId, "m")
+                    h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeTrue()
+
+                    val result = admin.revokeShare(CollectionId(allBooksId), "m")
+
+                    require(result is AppResult.Failure) {
+                        "expected SystemCollectionReadOnly but revoke returned $result — the default grant was deleted"
+                    }
+                    result.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
+                    // The member's default grant and their library visibility survive.
+                    h.grantRepo.findActiveGrant(allBooksId, "m").shouldNotBeNull()
+                    h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, "B").shouldBeTrue()
+                }
+            }
+        }
+
+        test("shareCollection on INBOX returns SystemCollectionReadOnly and creates no grant") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m")
+                runTest {
+                    val h = collectionAccessHarness()
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val inbox = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.INBOX)
+                    require(inbox is AppResult.Success)
+                    val inboxId = inbox.data.id.value
+
+                    val result = admin.shareCollection(CollectionId(inboxId), "m", SharePermission.Read)
+
+                    require(result is AppResult.Failure)
+                    result.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
+                    h.grantRepo.findActiveGrant(inboxId, "m").shouldBeNull()
+                }
+            }
+        }
+
+        test("updateShare on ALL_BOOKS returns SystemCollectionReadOnly and keeps the grant at Read") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m")
+                runTest {
+                    val h = collectionAccessHarness()
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksId = allBooks.data.id.value
+                    h.grantAllBooks(allBooksId, "m")
+
+                    val result = admin.updateShare(CollectionId(allBooksId), "m", SharePermission.Write)
+
+                    require(result is AppResult.Failure)
+                    result.error.shouldBeInstanceOf<CollectionError.SystemCollectionReadOnly>()
+                    h.grantRepo.findActiveGrant(allBooksId, "m")!!.permission shouldBe SharePermission.Read
                 }
             }
         }

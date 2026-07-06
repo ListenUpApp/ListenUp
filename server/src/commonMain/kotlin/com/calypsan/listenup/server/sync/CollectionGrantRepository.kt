@@ -117,6 +117,15 @@ class CollectionGrantRepository(
         return idStrs.mapNotNull { byId[it]?.toSharePayload() }
     }
 
+    /** Tombstone projection — see [SqlSyncableRepository.minimizeTombstone]. */
+    override fun minimizeTombstone(payload: CollectionShareSyncPayload): CollectionShareSyncPayload =
+        payload.copy(
+            collectionId = "",
+            sharedWithUserId = "",
+            sharedByUserId = "",
+            permission = SharePermission.Read, // non-null enum: neutral placeholder
+        )
+
     override fun writePayload(
         value: CollectionShareSyncPayload,
         rev: Long,

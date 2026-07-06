@@ -243,4 +243,42 @@ class CollectionAccessModelExclusivityTest :
                 }
             }
         }
+
+        test("deleteCollection with multiple books returns each to a public ALL_BOOKS member") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("admin", UserRoleColumn.ADMIN)
+                sql.seedTestUser("m")
+                sql.seedTestBook("b1")
+                sql.seedTestBook("b2")
+                sql.seedTestBook("b3")
+                runTest {
+                    val h = collectionAccessHarness()
+                    val admin = h.service.actAs("admin", UserRole.ADMIN)
+
+                    val allBooks = admin.getOrCreateSystemCollection("test-library", SystemCollectionType.ALL_BOOKS)
+                    require(allBooks is AppResult.Success)
+                    val allBooksId = allBooks.data.id.value
+                    val books = listOf("b1", "b2", "b3")
+                    books.forEach { admin.addBookToCollection(CollectionId(allBooksId), BookId(it)) }
+                    h.grantAllBooks(allBooksId, "m")
+
+                    // Curate all three into one private collection C (m is not a member) → each leaves ALL_BOOKS.
+                    val c = admin.createCollection("test-library", "C")
+                    require(c is AppResult.Success)
+                    books.forEach { admin.addBookToCollection(c.data.id, BookId(it)) }
+                    books.forEach { h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, it).shouldBeFalse() }
+
+                    // C is their only home → deleting it returns all three to ALL_BOOKS → public access returns.
+                    admin.deleteCollection(c.data.id) shouldBe AppResult.Success(Unit)
+                    books.forEach { book ->
+                        h.bookAccessPolicy.canAccess("m", UserRole.MEMBER, book).shouldBeTrue()
+                        h.junctionDiagnostic(book).let { j ->
+                            j shouldContain allBooksId
+                            j shouldNotContain c.data.id.value
+                        }
+                    }
+                }
+            }
+        }
     })

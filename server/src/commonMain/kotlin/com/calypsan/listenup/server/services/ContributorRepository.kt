@@ -204,6 +204,11 @@ class ContributorRepository(
      * Idempotent: a rescan of unchanged books re-resolves existing contributors with no event and
      * no revision bump.
      *
+     * A dedup hit on a TOMBSTONED row (a parent purged by [OrphanParentPurger] after its last
+     * live book was removed) is revived in place — `deleted_at` cleared, revision bumped,
+     * `SyncEvent.Updated` published — so re-ingesting the same name resurrects the parent under
+     * its original id. Live hits remain pure reads: no event, no revision bump.
+     *
      * The find-miss → create window is a benign race only under SQLite's single-writer model; the
      * single-threaded scan never triggers it.
      */
@@ -218,9 +223,11 @@ class ContributorRepository(
                 db.contributorsQueries
                     .selectByNormalizedName(normalized)
                     .executeAsOneOrNull()
-                    ?.id
             }
-        if (existing != null) return ContributorId(existing)
+        if (existing != null) {
+            if (existing.deleted_at != null) reviveTombstonedHit(existing.id)
+            return ContributorId(existing.id)
+        }
 
         val id = ContributorId(Uuid.random().toString())
         upsert(
@@ -257,6 +264,8 @@ class ContributorRepository(
      * @return a `Map<dedupKey, ContributorId>` keyed by [contributorDedupKey] — callers look an
      *   id up by recomputing that key for each book's contributors. Every supplied identity's key
      *   is present in the result.
+     *
+     * Tombstoned hits are revived; see [resolveOrCreate].
      */
     suspend fun resolveOrCreateAll(identities: Collection<Pair<String, String?>>): Map<String, ContributorId> {
         if (identities.isEmpty()) return emptyMap()
@@ -270,13 +279,19 @@ class ContributorRepository(
         }
 
         // One bulk SELECT for the existing rows — the bulk of the work, collapsed from N per-book reads.
-        val existing =
+        val existingRows =
             suspendTransaction(db) {
                 byKey.keys
                     .chunked(SQLITE_IN_CHUNK)
                     .flatMap { chunk -> db.contributorsQueries.selectByNormalizedNames(chunk).executeAsList() }
-                    .associate { it.normalized_name to ContributorId(it.id) }
             }
+        // Revive tombstoned dedup hits before handing their ids back: a purged parent returned by
+        // the dedup lookup must come back live (see reviveTombstonedHit). Rare — only ever after an
+        // orphan purge — so per-id upserts are fine here.
+        for (row in existingRows) {
+            if (row.deleted_at != null) reviveTombstonedHit(row.id)
+        }
+        val existing = existingRows.associate { it.normalized_name to ContributorId(it.id) }
 
         val resolved = LinkedHashMap<String, ContributorId>(byKey.size)
         for ((key, identity) in byKey) {
@@ -284,6 +299,20 @@ class ContributorRepository(
             resolved[key] = id
         }
         return resolved
+    }
+
+    /**
+     * Revives a tombstoned dedup hit in place: re-upserts the row's own read-back payload with
+     * `deletedAt = null`. The base `upsert` bumps the domain revision and publishes
+     * [com.calypsan.listenup.api.sync.SyncEvent.Updated]; [writePayload]'s update branch always
+     * clears `deleted_at`. The id stays stable, so junction rows written against it resolve again —
+     * the same revive semantics as [BookRepository.reviveById] (clear deleted_at + bump revision +
+     * publish Updated), composed from the existing substrate instead of a dedicated query.
+     * Enrichment columns survive because the payload is the row's own current content.
+     */
+    private suspend fun reviveTombstonedHit(idStr: String) {
+        val payload = findById(idStr) ?: return
+        upsert(payload.copy(deletedAt = null), clientOpId = null)
     }
 
     /** Reads a contributor by raw id outside substrate orchestration — test/diagnostic use. */

@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncEvent
+import com.calypsan.listenup.api.sync.Tombstoned
 import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.TransactionWithReturn
 import app.cash.sqldelight.db.SqlDriver
@@ -121,6 +122,30 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * transaction opened by [pullSince].
      */
     protected open fun readPayloads(idStrs: List<String>): List<T> = idStrs.mapNotNull { readPayload(it) }
+
+    /**
+     * Projects a soft-deleted aggregate to its wire-safe tombstone form: identity and
+     * sync-discipline fields (id, revision, deletedAt, timestamps — and, for junction
+     * domains, the composite-key components) preserved; every content field blanked.
+     *
+     * The pull path ([pullSince]/[pullByIds]) delivers tombstones ungated so every client
+     * can converge on deletions — including callers whose access filter would exclude the
+     * row were it live. A tombstone must therefore carry NO content: the live firehose's
+     * [SyncEvent.Deleted] already carries none, and clients apply catch-up tombstones by
+     * identity + revision + deletedAt alone. Applied to every pulled item whose `deletedAt`
+     * is non-null, for every caller (admins included — deleted content is useless by
+     * design and one rule is safer than a per-caller branch).
+     *
+     * Default is identity: an ungated domain, or one whose payload is already minimal
+     * (e.g. collection_books — pure junction identity), needs no override. Every domain
+     * registered with an access filter in SyncRoutes' ACCESS_FILTERS map MUST override
+     * this unless its payload provably carries no content beyond identity.
+     */
+    protected open fun minimizeTombstone(payload: T): T = payload
+
+    /** [minimizeTombstone] applied iff [payload] is a tombstone; identity otherwise. */
+    private fun minimizedIfTombstoned(payload: T): T =
+        if ((payload as? Tombstoned)?.deletedAt != null) minimizeTombstone(payload) else payload
 
     /**
      * Write the full aggregate (root row + children) inside the open transaction.
@@ -456,7 +481,10 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * Returns up to [limit] aggregates whose root row has `revision > cursor`,
      * ordered by revision ascending, each hydrated via [readPayloads] (child rows
      * included). Soft-deleted aggregates are returned so clients can apply
-     * tombstones. [Page.hasMore] is true when the result hit the limit.
+     * tombstones — in minimized form: content fields are blanked by
+     * [minimizeTombstone] before they leave this method, so a tombstone crosses the
+     * wire with identity + sync-discipline fields only. [Page.hasMore] is true when
+     * the result hit the limit.
      *
      * `nextCursor` advances using the queried revision (the last id/rev pair's
      * revision) rather than `items.last().revisionOf()` — a hard delete between the
@@ -508,7 +536,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                         substrate.selectIdsAboveRevision(cursor, limit.toLong())
                     }
                 }
-            val items = readPayloads(idsWithRev.map { it.id })
+            val items = readPayloads(idsWithRev.map { it.id }).map(::minimizedIfTombstoned)
             Page(
                 items = items,
                 nextCursor = idsWithRev.lastOrNull()?.revision,
@@ -557,7 +585,7 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
                     limit = null,
                     includeTombstones = true,
                 )
-            val items = readPayloads(idsWithRev.map { it.id })
+            val items = readPayloads(idsWithRev.map { it.id }).map(::minimizedIfTombstoned)
             Page(items = items, nextCursor = null, hasMore = false)
         }
     }
