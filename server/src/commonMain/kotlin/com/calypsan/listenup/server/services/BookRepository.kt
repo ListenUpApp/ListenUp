@@ -953,8 +953,19 @@ class BookRepository(
      *
      * Finally, the orphan-purge cascade ([orphanParentPurger]) tombstones any contributor / series /
      * genre / tag / mood the removal left with zero live book children, so an orphaned parent stops
-     * appearing. The linked parents are captured BEFORE the removal (the tag/mood junctions are
-     * tombstoned by the cascade), then re-evaluated after it.
+     * appearing. The linked parents are captured BEFORE the removal (tombstone-inclusively, so the
+     * capture survives a resume run), then re-evaluated after it.
+     *
+     * **Crash-resume.** Each step above commits in its own transaction, so a crash mid-cascade leaves a
+     * half-cascaded book (tombstoned book, some live junctions, unpurged parents). Re-invoking
+     * `softDelete` on an already-tombstoned book is safe and completes any unfinished cascade: the base
+     * `softDelete` has no already-deleted early return, so it re-stamps the tombstone (bumping the
+     * revision and re-emitting a convergent [SyncEvent]); the junction cascades are live-select
+     * idempotent (already-tombstoned rows are skipped); and [OrphanParentPurger.captureParents] is
+     * tombstone-inclusive, so the orphan purge still fires even when the junctions are already dead.
+     * Caveat: nothing re-invokes this automatically today — the scan sweeps ([softDeleteAbsent] /
+     * [softDeleteAbsentByPaths]) select LIVE books only — so an interrupted cascade heals only on an
+     * explicit re-delete (a bulk folder-removal pass or a manual removal), never on its own.
      */
     override suspend fun softDelete(
         id: BookId,
