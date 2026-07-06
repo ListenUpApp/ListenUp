@@ -1,10 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.ActivityDao
 import com.calypsan.listenup.client.data.local.db.ActivityWithProfile
 import com.calypsan.listenup.client.domain.model.Activity
 import com.calypsan.listenup.client.domain.repository.ActivityRepository
-import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

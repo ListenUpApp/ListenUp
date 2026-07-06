@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.social.CurrentlyListeningSession
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.stableAvatarColorHex
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookSummary
 import com.calypsan.listenup.client.data.local.db.CachedActiveSessionDao
@@ -14,7 +15,6 @@ import com.calypsan.listenup.client.data.sync.refreshTriggers
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.presentation.profile.stableAvatarColorHex
 import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
