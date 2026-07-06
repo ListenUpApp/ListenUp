@@ -108,4 +108,5 @@ final class BookSelectionObserver {
     func addToShelf(shelfId: String) { viewModel.addSelectedToShelf(shelfId: shelfId) }
     func createShelfAndAdd(name: String) { viewModel.createShelfAndAddBooks(name: name) }
     func addToCollection(collectionId: String) { viewModel.addSelectedToCollection(collectionId: collectionId) }
+    func createCollectionAndAdd(name: String) { viewModel.createCollectionAndAddBooks(name: name) }
 }
