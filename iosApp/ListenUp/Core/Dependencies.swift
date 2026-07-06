@@ -124,6 +124,11 @@ final class Dependencies {
     func createCreateInviteViewModel() -> CreateInviteViewModel { KoinHelper.shared.getCreateInviteViewModel() }
     func createABSImportHubViewModel() -> ABSImportHubViewModel { KoinHelper.shared.getABSImportHubViewModel() }
     func createImportFlowViewModel() -> ImportFlowViewModel { KoinHelper.shared.getImportFlowViewModel() }
+    func createAdminBackupViewModel() -> AdminBackupViewModel { KoinHelper.shared.getAdminBackupViewModel() }
+    func createRestoreFromFileViewModel() -> RestoreFromFileViewModel { KoinHelper.shared.getRestoreFromFileViewModel() }
+    func createRestoreBackupViewModel(backupId: String) -> RestoreBackupViewModel {
+        KoinHelper.shared.getRestoreBackupViewModel(backupId: backupId)
+    }
     func createAdminCollectionsViewModel() -> AdminCollectionsViewModel { KoinHelper.shared.getAdminCollectionsViewModel() }
     func createAdminCollectionDetailViewModel(collectionId: String) -> AdminCollectionDetailViewModel {
         KoinHelper.shared.getAdminCollectionDetailViewModel(collectionId: collectionId)

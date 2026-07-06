@@ -131,3 +131,12 @@ struct AdminCollectionDetailDestination: Hashable {
 /// The Library Settings screen (admin / root users only), reached from Administration ›
 /// Management. Manages the single library's scan folders and triggers a rescan.
 struct LibrarySettingsDestination: Hashable {}
+
+/// The admin Backups screen (admin / root users only), reached from Administration › Management.
+/// Lists server backups; creates, deletes, restores, and restores-from-file.
+struct AdminBackupsDestination: Hashable {}
+
+/// The destructive restore-confirmation flow for one staged backup.
+struct RestoreBackupDestination: Hashable {
+    let backupId: String
+}

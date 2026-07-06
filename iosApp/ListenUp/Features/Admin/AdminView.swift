@@ -274,6 +274,16 @@ struct AdminView: View {
                 }
                 .buttonStyle(.plain)
                 rowSeparator
+                NavigationLink(value: AdminBackupsDestination()) {
+                    NavigationActionRow(
+                        systemImage: "archivebox.fill",
+                        tint: .luTint,
+                        title: String(localized: "admin.backup_restore"),
+                        subtitle: String(localized: "admin.create_backups_and_restore_server")
+                    )
+                }
+                .buttonStyle(.plain)
+                rowSeparator
                 NavigationActionRow(
                     systemImage: "person.2.fill",
                     tint: .luTint,

@@ -242,6 +242,12 @@ private extension View {
             .navigationDestination(for: LibrarySettingsDestination.self) { _ in
                 LibrarySettingsView()
             }
+            .navigationDestination(for: AdminBackupsDestination.self) { _ in
+                AdminBackupsView()
+            }
+            .navigationDestination(for: RestoreBackupDestination.self) { destination in
+                RestoreBackupView(backupId: destination.backupId)
+            }
     }
 }
 
