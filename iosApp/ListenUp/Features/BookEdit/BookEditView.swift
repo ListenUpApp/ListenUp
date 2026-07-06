@@ -1,9 +1,9 @@
 import SwiftUI
 import Shared
 
-/// Presented sheet for editing a book: cover, the core metadata fields, and the
-/// relational sections (authors, narrators, series, genres, tags, moods) with display,
-/// remove, and inline search-and-add pickers. Bound to `BookEditViewModel` via
+/// Presented sheet for editing a book: cover, the core metadata fields, and the relational
+/// sections (authors, narrators, series, genres, tags, moods, and — for admins — collections)
+/// with display, remove, and inline search-and-add pickers. Bound to `BookEditViewModel` via
 /// `BookEditObserver`.
 struct BookEditView: View {
     let bookId: String

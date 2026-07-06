@@ -5,8 +5,8 @@ import Shared
 /// properties and dispatching edits as `BookEditUiEvent`s. `NavigateBack` flips
 /// `didFinish` so the sheet dismisses.
 ///
-/// The relational lists (contributors, series, genres, tags, moods) are mapped to native
-/// `EditableRelation` chips and `RelationSearchResult` rows at the observer boundary — no
+/// The relational lists (contributors, series, genres, tags, moods, collections) are mapped to
+/// native `EditableRelation` chips and `RelationSearchResult` rows at the observer boundary — no
 /// Swift Export-bridged Kotlin object ever reaches a `ForEach`. Both display+remove and the
 /// search-and-add pickers are wired here.
 @Observable
@@ -308,7 +308,7 @@ final class BookEditObserver {
         // Collections (select-only — no loading flag in shared state, filtered locally like genres).
         collectionQuery = state.collectionSearchQuery
         rawCollectionResults = state.collectionSearchResults
-        collectionResults = rawCollectionResults.map { RelationSearchResult(id: $0.id, name: $0.name, subtitle: nil) }
+        collectionResults = rawCollectionResults.map(Self.collectionResult)
     }
 
     // MARK: - Result projections (pure, off the diff path)
@@ -332,6 +332,9 @@ final class BookEditObserver {
     }
     private static func slugResult(id: String, slug: String) -> RelationSearchResult {
         RelationSearchResult(id: id, name: BookEditFormatting.tagLabel(slug: slug), subtitle: nil)
+    }
+    private static func collectionResult(_ collection: EditableCollection) -> RelationSearchResult {
+        RelationSearchResult(id: collection.id, name: collection.name, subtitle: nil)
     }
 
     private func applyNav(_ action: BookEditNavAction) {
