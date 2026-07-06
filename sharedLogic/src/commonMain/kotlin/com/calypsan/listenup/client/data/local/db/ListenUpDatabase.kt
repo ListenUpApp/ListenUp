@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v48. Migrations live in the `data/local/migrations/` package
+ * Schema is at v49. Migrations live in the `data/local/migrations/` package
  * (e.g. `Migration14To15`, `Migration19To20`) and are registered via `.addMigrations(...)`
  * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
  * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
@@ -26,6 +26,10 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  * `users.avatarType`/`avatarValue`/`avatarColor` columns. Avatar state now lives solely in the
  * synced `public_profiles` row. No hand-written migration — the pre-launch destructive fallback
  * recreates the schema (beta DBs re-sync from the server), which is acceptable pre-release.
+ *
+ * v48 → v49: adds the covering index `index_activities_deletedAt_revision_id` on `activities`
+ * (digest/liveIds become index-only scans on the append-forever table). Hand-written migration:
+ * `Migration48To49`.
  */
 @Database(
     entities = [
@@ -67,7 +71,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 48,
+    version = 49,
     exportSchema = true,
 )
 @TypeConverters(

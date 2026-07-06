@@ -343,12 +343,17 @@ internal data class GenreEntity(
  *
  * [revision] is the monotonic server revision (0 until confirmed); [deletedAt] is the soft-delete
  * tombstone (null while live) — activities is append-only, so tombstones are rare.
+ *
+ * The `(deletedAt, revision, id)` composite is a COVERING index: on this append-forever table it lets
+ * the digest scan (`ActivityDao.digestRows`) and the access-gate live-set read (`ActivityDao.liveIds`)
+ * run as index-only scans instead of full scans of the wide row.
  */
 @Entity(
     tableName = "activities",
     indices = [
         Index(value = ["userId"]),
         Index(value = ["occurredAt"]),
+        Index(value = ["deletedAt", "revision", "id"]),
     ],
 )
 internal data class ActivityEntity(
