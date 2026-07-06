@@ -315,4 +315,9 @@ tasks
             it.name.startsWith("generateActualResourceCollectors")
     }.configureEach {
         dependsOn("generateStrings")
+        // `exportLibraryDefinitions` also writes into composeResources (aboutlibraries.json) but is kept
+        // out of the normal build graph (comment above — only runs when explicitly invoked / via
+        // `verifyLicenses`). Order the resource copy *after* it when both are scheduled so Gradle's
+        // producer→consumer validation passes, without forcing the export into every build.
+        mustRunAfter("exportLibraryDefinitions")
     }
