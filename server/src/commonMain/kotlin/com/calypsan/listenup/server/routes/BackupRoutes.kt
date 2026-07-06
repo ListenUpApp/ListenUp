@@ -10,6 +10,7 @@ import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.server.backup.BackupArchive
 import com.calypsan.listenup.server.backup.BackupManifest
 import com.calypsan.listenup.server.backup.BackupPaths
+import com.calypsan.listenup.server.backup.isSafeBackupId
 import com.calypsan.listenup.server.io.createTempFileIn
 import com.calypsan.listenup.server.io.respondSeekable
 import com.calypsan.listenup.server.io.streamFirstFilePartTo
@@ -76,7 +77,7 @@ fun Route.backupRoutes(
 
         val rawId = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
         // Reject ids containing path separators or traversal sequences before doing any I/O.
-        if (!rawId.isSafeBackupId()) {
+        if (!isSafeBackupId(rawId)) {
             return@get call.respond(HttpStatusCode.BadRequest, "invalid backup id")
         }
 
@@ -166,18 +167,6 @@ private suspend fun ApplicationCall.validateUpload(
         respondBareAppError(BackupError.CorruptArchive(debugInfo = e.message))
         null
     }
-
-/**
- * Returns true if [this] string is safe to use as a backup archive filename stem: no path
- * separators, no `..` traversal sequences, and non-blank. This is checked before any file
- * I/O to rule out path-traversal attacks at the earliest possible point.
- */
-private fun String.isSafeBackupId(): Boolean {
-    if (isBlank()) return false
-    if (contains('/') || contains('\\')) return false
-    if (contains("..")) return false
-    return true
-}
 
 /**
  * Derives a filesystem-safe backup id from the manifest's [BackupManifest.createdAt] epoch-

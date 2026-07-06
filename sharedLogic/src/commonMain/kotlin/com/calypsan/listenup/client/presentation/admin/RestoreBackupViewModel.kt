@@ -93,10 +93,11 @@ class RestoreBackupViewModel(
         viewModelScope.launch {
             when (val result = backupRepository.restoreBackup(BackupId(backupId))) {
                 is AppResult.Success -> {
-                    // The server swapped its entire DB in-process and does NOT publish to the
-                    // cross-domain sync firehose, so the client's Room is now stale and a delta
-                    // sync can't reconcile a wholesale swap. Force a full resync before showing
-                    // success, so the UI reflects the restored server data.
+                    // The server swapped its entire DB in-process. It broadcasts
+                    // SyncControl.LibraryDataChanged to all connected devices (digest reconcile),
+                    // but this initiating device also resyncs explicitly so the success state is
+                    // only shown once local data is fresh — and so the FTS index is rebuilt,
+                    // which the broadcast-triggered reconcile does not do.
                     when (val resync = syncRepository.forceFullResync()) {
                         is AppResult.Success -> {
                             state.value = RestoreBackupUiState.Completed(result.data)

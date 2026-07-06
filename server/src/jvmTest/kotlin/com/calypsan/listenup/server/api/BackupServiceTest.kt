@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.BackupSummary
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.backup.BackupTestFixture
@@ -16,6 +18,7 @@ import com.calypsan.listenup.server.backup.RestoreOrchestrator
 import com.calypsan.listenup.server.backup.backupTestFixture
 import com.calypsan.listenup.server.backup.execSql
 import com.calypsan.listenup.server.backup.queryScalarInt
+import com.calypsan.listenup.server.sync.ChangeBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -25,6 +28,8 @@ import app.cash.turbine.test
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.io.buffered
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * Happy-path tests for [BackupServiceImpl].
@@ -61,6 +66,7 @@ class BackupServiceTest :
                     dbHandle = fixture.handle,
                     maintenance = maintenance,
                     eventBus = eventBus,
+                    changeBus = ChangeBus(),
                 )
             return BackupServiceImpl(
                 paths = fixture.paths,
@@ -177,6 +183,7 @@ class BackupServiceTest :
                             dbHandle = fixture.handle,
                             maintenance = maintenance,
                             eventBus = eventBus,
+                            changeBus = ChangeBus(),
                         )
                     val svc =
                         BackupServiceImpl(
@@ -210,6 +217,7 @@ class BackupServiceTest :
                             dbHandle = fixture.handle,
                             maintenance = maintenance,
                             eventBus = eventBus,
+                            changeBus = ChangeBus(),
                         )
                     val svc =
                         BackupServiceImpl(
@@ -223,6 +231,43 @@ class BackupServiceTest :
                     // emptyFlow() completes immediately — toList() returns [] without blocking
                     val events = svc.observeProgress().toList()
                     events.shouldBeEmpty()
+                }
+            }
+        }
+
+        test("deleteBackup rejects a path-traversal id and does not delete files outside backupsDir") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    val svc = buildService(fixture, rootPrincipalProvider())
+
+                    // A traversal id `../secret` resolves via archiveFor to
+                    // <homeDir>/backups/../secret.listenup.zip == <homeDir>/secret.listenup.zip,
+                    // i.e. OUTSIDE backupsDir. Plant a sentinel there.
+                    val sentinel = fixture.paths.archiveFor("../secret")
+                    SystemFileSystem.createDirectories(fixture.paths.backupsDir)
+                    SystemFileSystem.sink(sentinel).buffered().use { it.write(byteArrayOf(1, 2, 3)) }
+
+                    val result = svc.deleteBackup(BackupId("../secret"))
+
+                    // Secure behaviour: typed failure, and the sentinel survives.
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.BackupNotFound>()
+                    SystemFileSystem.exists(sentinel) shouldBe true
+                }
+            }
+        }
+
+        test("getBackup rejects a path-traversal id with BackupNotFound") {
+            runTest {
+                backupTestFixture(withImages = false).use { fixture ->
+                    val svc = buildService(fixture, rootPrincipalProvider())
+                    svc
+                        .getBackup(BackupId("../secret"))
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<BackupError.BackupNotFound>()
                 }
             }
         }

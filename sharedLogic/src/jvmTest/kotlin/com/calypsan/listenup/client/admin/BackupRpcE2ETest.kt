@@ -24,6 +24,7 @@ import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.plugins.JWT_PROVIDER
 import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.rpcguard.guard
+import com.calypsan.listenup.server.sync.ChangeBus
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContain
@@ -112,6 +113,7 @@ class BackupRpcE2ETest :
                     dbHandle = handle,
                     maintenance = MaintenanceState(),
                     eventBus = eventBus,
+                    changeBus = ChangeBus(),
                 )
             val service =
                 BackupServiceImpl(

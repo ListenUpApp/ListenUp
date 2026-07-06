@@ -4,12 +4,14 @@ import com.calypsan.listenup.api.dto.backup.BackupEvent
 import com.calypsan.listenup.api.dto.backup.RestoreResult
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.core.BackupId
 import com.calypsan.listenup.server.db.DatabaseHandle
 import com.calypsan.listenup.server.io.copyDirectoryRecursively
 import com.calypsan.listenup.server.io.deleteRecursively
 import com.calypsan.listenup.server.io.fileIoDispatcher
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.sync.ChangeBus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -34,6 +36,7 @@ class RestoreOrchestrator(
     private val dbHandle: DatabaseHandle,
     private val maintenance: MaintenanceState,
     private val eventBus: MutableSharedFlow<BackupEvent>,
+    private val changeBus: ChangeBus,
 ) {
     suspend fun restore(id: BackupId): AppResult<RestoreResult> =
         withContext(fileIoDispatcher) {
@@ -101,6 +104,13 @@ class RestoreOrchestrator(
                         val migratedTo = dbHandle.migrate() ?: manifest.schemaVersion
 
                         eventBus.tryEmit(BackupEvent.RestoreComplete(manifest.includesImages))
+
+                        // The DB was swapped wholesale; connected devices' cursors are AHEAD of the
+                        // restored revision counter, so neither forward catch-up nor CursorStale can
+                        // see the change. Broadcast the digest-reconcile accelerator so every
+                        // connected client re-derives, exactly like ImportApplier's bulk path.
+                        changeBus.broadcastControl(SyncControl.LibraryDataChanged)
+
                         deleteRecursively(paths.rollbackDir)
                         deleteRecursively(paths.stagingDir)
 

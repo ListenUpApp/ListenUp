@@ -57,6 +57,11 @@ private val logger = loggerFor<ImportApplier>()
  * history). Re-applying the same import therefore produces no duplicate events and leaves stats
  * unchanged.
  *
+ * **Interrupted applies self-heal.** Apply persists an `.applying` marker before writing any row;
+ * a crash or failure mid-burst leaves that marker without the completion `.applied` marker. At
+ * server boot [InterruptedImportResumer] re-runs every such import — idempotency makes the re-run
+ * converge the partial state (rows complete, stats recompute, clients get the owed nudge).
+ *
  * Unmapped users and unresolved items are **skipped, not errored** — a partial library overlap is
  * the normal case, not a failure. A mapped user's books that aren't in this library are surfaced
  * as [ImportResult.booksNotInLibrary]; unmapped-user history is excluded by the admin, not counted.
@@ -94,6 +99,14 @@ class ImportApplier internal constructor(
                     )
 
             try {
+                // Record that writing is about to start — after the guards (so a never-analyzed /
+                // never-mapped import can never be flagged interrupted) and before any DB write or the
+                // backup read (so even a read crash is re-driven at boot). Inside the try so a
+                // marker-write failure surfaces as a typed ApplyFailed, not an escaping throwable. The
+                // marker persists across a crash or failure and is only cleared by markApplied, so
+                // ".applying without .applied" is the durable signature of an interrupted apply.
+                store.markApplying(importId)
+
                 val effectiveBooks = effectiveBookMap(resolved.itemMatches, mapping.bookOverrides)
                 val (progress, sessions) =
                     reader

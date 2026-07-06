@@ -50,3 +50,17 @@ class BackupPaths(
         }
     }
 }
+
+/**
+ * True when [id] is safe to use as a backup archive filename stem: non-blank, and free of
+ * path separators (`/`, `\`) and `..` traversal sequences. Checked before any filesystem
+ * access so a caller-supplied backup id cannot escape the backups directory. Shared by the
+ * REST download route and the RPC [com.calypsan.listenup.server.api.BackupServiceImpl] methods
+ * so both surfaces reject identical input.
+ */
+fun isSafeBackupId(id: String): Boolean {
+    if (id.isBlank()) return false
+    if (id.contains('/') || id.contains('\\')) return false
+    if (id.contains("..")) return false
+    return true
+}
