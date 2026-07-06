@@ -19,6 +19,10 @@ struct LibraryView: View {
 
     private var user: User? { userObserver.user }
 
+    /// True while the Books tab is in multi-select mode — drives the inline title, the tab-bar hide,
+    /// and the action bar. Only the Books tab is selectable (Series/Authors/Narrators aren't).
+    private var isSelecting: Bool { selection?.isSelecting == true && selectedTab == .books }
+
     var body: some View {
         Group {
             if let observer, let selection {
@@ -28,8 +32,12 @@ struct LibraryView: View {
             }
         }
         .navigationTitle(String(localized: "common.library"))
-        .navigationBarTitleDisplayMode(.large)
+        // While selecting, collapse the large "Library" title so the toolbar's principal item shows
+        // the live "N selected" count (Photos idiom); the tab bar hides so the bottom action bar owns
+        // the bottom strip instead of colliding with the floating Library/Search tab pills.
+        .navigationBarTitleDisplayMode(isSelecting ? .inline : .large)
         .toolbar { libraryToolbar }
+        .toolbar(isSelecting ? .hidden : .automatic, for: .tabBar)
         .modifier(SelectionSheets(selection: selection))
         .onAppear {
             if observer == nil {
@@ -60,38 +68,11 @@ struct LibraryView: View {
         // Multi-select on the Books tab is entered by long-pressing a cover (see BooksContent),
         // so the toolbar surfaces only a "Done" exit + the action bar once selecting — no idle
         // "Select" button cluttering the nav bar beside the profile avatar.
-        if let selection, selectedTab == .books, selection.isSelecting {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button(String(localized: "common.done")) { selection.exit() }
-            }
-            ToolbarItemGroup(placement: .bottomBar) {
-                Button {
-                    selection.showShelfPicker = true
-                } label: {
-                    Label(String(localized: "book.detail_add_to_shelf"),
-                          systemImage: "rectangle.stack.badge.plus")
-                }
-                .disabled(selection.selectedBookIds.isEmpty)
-
-                Spacer()
-
-                Text(String(format: String(localized: "selection.n_selected"),
-                            selection.selectedBookIds.count))
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                Spacer()
-
-                if selection.isAdmin {
-                    Button {
-                        selection.showCollectionPicker = true
-                    } label: {
-                        Label(String(localized: "book.detail_add_to_collection"),
-                              systemImage: "folder.badge.plus")
-                    }
-                    .disabled(selection.selectedBookIds.isEmpty)
-                }
-            }
+        if let selection, isSelecting {
+            // The Books-tab selection surface reuses the same toolbar as the Home/Discover chrome
+            // (BookSelectionToolbar) so the two never drift; the inline-title switch below keeps the
+            // principal "N selected" count from sitting under the large "Library" title.
+            BookSelectionToolbar(selection: selection)
         }
     }
 
