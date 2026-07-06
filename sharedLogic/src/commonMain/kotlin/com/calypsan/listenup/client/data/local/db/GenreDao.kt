@@ -31,8 +31,11 @@ internal interface GenreDao {
 
     /**
      * Observe all live genres alongside their JOIN-derived bookCount. The count
-     * comes from the live `book_genres` junction at read time — there is no
-     * denormalized column. UI surfaces that want a per-genre count (Admin
+     * comes from the `book_genres` junction restricted to live (non-tombstoned)
+     * books — there is no denormalized column. Junction rows are retained when a
+     * book is tombstoned (so a revived book gets its genres back without a full
+     * aggregate re-send), so the `INNER JOIN books … deletedAt IS NULL` is what
+     * keeps the count honest. UI surfaces that want a per-genre count (Admin
      * Categories, Browse Genres) consume this projection.
      *
      * @return Flow emitting `(GenreEntity, bookCount)` rows ordered by path.
@@ -42,7 +45,10 @@ internal interface GenreDao {
         SELECT g.*, COALESCE(c.cnt, 0) AS bookCount
         FROM genres g
         LEFT JOIN (
-            SELECT genreId, COUNT(*) AS cnt FROM book_genres GROUP BY genreId
+            SELECT bg.genreId, COUNT(*) AS cnt
+            FROM book_genres bg
+            INNER JOIN books b ON b.id = bg.bookId AND b.deletedAt IS NULL
+            GROUP BY bg.genreId
         ) c ON c.genreId = g.id
         WHERE g.deletedAt IS NULL
         ORDER BY g.path ASC, g.sortOrder ASC
