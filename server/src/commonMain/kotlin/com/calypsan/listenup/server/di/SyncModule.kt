@@ -62,8 +62,6 @@ fun syncModule(): Module =
                 genreRepository = get<GenreRepository>(),
                 tagRepository = getOrNull<TagRepository>(),
                 moodRepository = getOrNull<MoodRepository>(),
-                bookTagRepository = getOrNull<BookTagRepository>(),
-                bookMoodRepository = getOrNull<BookMoodRepository>(),
             )
         }
         // Collection aggregate — fully SQLDelight. The access-filtered catch-up/digest raw reads

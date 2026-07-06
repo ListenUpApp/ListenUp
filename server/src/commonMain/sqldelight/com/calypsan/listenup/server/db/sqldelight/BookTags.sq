@@ -92,6 +92,13 @@ SELECT id FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 countLiveForTag:
 SELECT COUNT(*) FROM book_tags WHERE tag_id = :tag_id AND deleted_at IS NULL;
 
+-- Distinct tag ids ever linked to a book, tombstoned junctions included — the orphan-purge
+-- capture set. Tombstone-inclusive so a resume run (re-invoked softDelete after a crash that
+-- already tombstoned the junctions) still nominates the tags; liveBookCountForTag remains the
+-- sole purge decision-maker, so a tag with any live junction-book pair always survives.
+tagIdsForBook:
+SELECT DISTINCT tag_id FROM book_tags WHERE book_id = :book_id;
+
 -- Count of LIVE books linked to a tag via a LIVE junction — the orphan-purge decision for tags.
 -- Both the junction and the book must be live; zero ⇒ orphaned tag → tombstone.
 liveBookCountForTag:

@@ -5,14 +5,13 @@ import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
-import com.calypsan.listenup.server.sync.BookMoodRepository
-import com.calypsan.listenup.server.sync.BookTagRepository
 import com.calypsan.listenup.server.sync.MoodRepository
 import com.calypsan.listenup.server.sync.TagRepository
 
 /**
- * The parent ids a book was linked to at the moment of its removal — captured while the book and
- * its junctions are still live so the post-cascade orphan check knows which parents to re-evaluate.
+ * The parent ids a book was ever linked to — captured tombstone-inclusively before its removal so the
+ * post-cascade orphan check knows which parents to re-evaluate, even on a crash-resume run where the
+ * junctions are already tombstoned.
  */
 class LinkedParents(
     val contributorIds: List<String>,
@@ -30,13 +29,17 @@ class LinkedParents(
  * appearing in browse lists with a phantom "0 books". This purger tombstones each such orphan so it
  * stops appearing; the parents are mirrored sync domains, so the tombstone propagates to clients.
  *
- * **Two-phase, by design.** [captureParents] reads the linked parent ids BEFORE the removal (the
- * `book_tags` / `book_moods` junctions are tombstoned by the book cascade, so their ids must be read
- * while still live; `book_contributors` / `book_series_memberships` / `book_genres` are hard-replace
- * child tables whose rows persist, but capturing all five together keeps the contract uniform).
- * [purgeOrphaned] runs AFTER the book + junction cascade and tombstones every captured parent whose
- * live-book count has dropped to zero. Each count joins live books, so a lingering junction to the
- * now-dead book never keeps a parent alive.
+ * **Two-phase, by design.** [captureParents] reads the linked parent ids BEFORE the removal, and reads
+ * them tombstone-inclusively — every parent EVER linked to the book, whether or not its junction is
+ * still live. All five parent tables are read the same way: `book_contributors` /
+ * `book_series_memberships` / `book_genres` are hard-replace child tables whose rows persist across the
+ * book tombstone, and `book_tags` / `book_moods` are read via `tagIdsForBook` / `moodIdsForBook`, which
+ * omit the `deleted_at IS NULL` guard. This makes capture resume-safe: a re-invoked `softDelete` after a
+ * crash that already tombstoned the junctions still nominates the tags and moods. [purgeOrphaned] runs
+ * AFTER the book + junction cascade and tombstones every captured parent whose live-book count has
+ * dropped to zero — the live-book-count query (joining live books through live junctions) is the SOLE
+ * decision-maker, so widening the capture can never wrongly purge a parent that still has any live
+ * junction-book pair.
  *
  * **Revival note.** A remove-then-rescan resurrects purged parents: contributors and series are
  * revived IN PLACE by `resolveOrCreate` (a dedup hit on a tombstoned row clears `deleted_at`,
@@ -51,24 +54,22 @@ class OrphanParentPurger(
     private val genreRepository: GenreRepository,
     private val tagRepository: TagRepository?,
     private val moodRepository: MoodRepository?,
-    private val bookTagRepository: BookTagRepository?,
-    private val bookMoodRepository: BookMoodRepository?,
 ) {
-    /** Reads the parent ids linked to [bookId] while it is still live — the orphan-check candidate set. */
-    suspend fun captureParents(bookId: String): LinkedParents {
-        val (contributorIds, seriesIds, genreIds) =
-            suspendTransaction(db) {
-                Triple(
-                    db.bookContributorsQueries.contributorIdsForBook(bookId).executeAsList(),
-                    db.bookSeriesMembershipsQueries.seriesIdsForBook(bookId).executeAsList(),
-                    db.bookGenresQueries.genreIdsForBook(bookId).executeAsList(),
-                )
-            }
-        // Tag/mood ids come from the junction repos' live reads (their `id` column is synthetic).
-        val tagIds = bookTagRepository?.findAllForBook(bookId)?.map { it.tagId }.orEmpty()
-        val moodIds = bookMoodRepository?.findAllForBook(bookId)?.map { it.moodId }.orEmpty()
-        return LinkedParents(contributorIds, seriesIds, genreIds, tagIds, moodIds)
-    }
+    /**
+     * Reads the parent ids ever linked to [bookId] — the orphan-check candidate set. Tombstone-inclusive
+     * across all five parent tables so a resume run (after a crash that already tombstoned the junctions)
+     * still nominates every parent; the live-book-count query in [purgeOrphaned] is the purge decision.
+     */
+    suspend fun captureParents(bookId: String): LinkedParents =
+        suspendTransaction(db) {
+            LinkedParents(
+                contributorIds = db.bookContributorsQueries.contributorIdsForBook(bookId).executeAsList(),
+                seriesIds = db.bookSeriesMembershipsQueries.seriesIdsForBook(bookId).executeAsList(),
+                genreIds = db.bookGenresQueries.genreIdsForBook(bookId).executeAsList(),
+                tagIds = db.bookTagsQueries.tagIdsForBook(bookId).executeAsList(),
+                moodIds = db.bookMoodsQueries.moodIdsForBook(bookId).executeAsList(),
+            )
+        }
 
     /** Tombstones every parent in [parents] that has zero live book children after the removal. */
     suspend fun purgeOrphaned(parents: LinkedParents) {

@@ -69,8 +69,6 @@ class BookSoftDeleteCascadeResumeTest :
                     genreRepository = genreRepo,
                     tagRepository = tagRepo,
                     moodRepository = moodRepo,
-                    bookTagRepository = bookTagRepo,
-                    bookMoodRepository = bookMoodRepo,
                 )
 
             // Each BookRepository registers its 'books' domain in the registry on construction, so the
@@ -139,15 +137,27 @@ class BookSoftDeleteCascadeResumeTest :
                     sql.bookContributorsQueries.insert("book1", soleAuthor, "author", null, 0)
 
                     // No junction repos and no purger wired → every cascade step is a committed-nothing.
-                    graph.bookRepo(wireTags = false, wireMoods = false, wireCollections = false, wirePurger = false)
+                    graph
+                        .bookRepo(wireTags = false, wireMoods = false, wireCollections = false, wirePurger = false)
                         .softDelete(BookId("book1"), clientOpId = null)
 
                     // Book is tombstoned, but nothing downstream ran.
-                    sql.booksQueries.selectById("book1").executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.booksQueries
+                        .selectById("book1")
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
                     graph.bookTagRepo.findAllForBook("book1").shouldHaveSize(1)
                     graph.bookMoodRepo.findAllForBook("book1").shouldHaveSize(1)
-                    sql.collectionBooksQueries.liveCollectionIdsForBook("book1").executeAsList().shouldContainExactly("c1")
-                    sql.contributorsQueries.selectById(soleAuthor).executeAsOne().deleted_at.shouldBeNull()
+                    sql.collectionBooksQueries
+                        .liveCollectionIdsForBook("book1")
+                        .executeAsList()
+                        .shouldContainExactly("c1")
+                    sql.contributorsQueries
+                        .selectById(soleAuthor)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
                 }
             }
         }
@@ -161,14 +171,22 @@ class BookSoftDeleteCascadeResumeTest :
                     graph.attachTagMoodCollection("book1", "t1", "m1", "c1")
 
                     // Tag+mood repos wired, collections + purger not → cascade stops at collection_books.
-                    graph.bookRepo(wireTags = true, wireMoods = true, wireCollections = false, wirePurger = false)
+                    graph
+                        .bookRepo(wireTags = true, wireMoods = true, wireCollections = false, wirePurger = false)
                         .softDelete(BookId("book1"), clientOpId = null)
 
-                    sql.booksQueries.selectById("book1").executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.booksQueries
+                        .selectById("book1")
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
                     graph.bookTagRepo.findAllForBook("book1").shouldBeEmpty()
                     graph.bookMoodRepo.findAllForBook("book1").shouldBeEmpty()
                     // The uncascaded step: the book still sits in its collection.
-                    sql.collectionBooksQueries.liveCollectionIdsForBook("book1").executeAsList().shouldContainExactly("c1")
+                    sql.collectionBooksQueries
+                        .liveCollectionIdsForBook("book1")
+                        .executeAsList()
+                        .shouldContainExactly("c1")
                 }
             }
         }
@@ -194,9 +212,14 @@ class BookSoftDeleteCascadeResumeTest :
                     sql.bookSeriesMembershipsQueries.insert("book2", sharedSeries, null, 0)
 
                     // Partial: book tombstoned, nothing else (boundary 2).
-                    graph.bookRepo(wireTags = false, wireMoods = false, wireCollections = false, wirePurger = false)
+                    graph
+                        .bookRepo(wireTags = false, wireMoods = false, wireCollections = false, wirePurger = false)
                         .softDelete(BookId("book1"), clientOpId = null)
-                    val revisionAfterPartial = sql.booksQueries.selectById("book1").executeAsOne().revision
+                    val revisionAfterPartial =
+                        sql.booksQueries
+                            .selectById("book1")
+                            .executeAsOne()
+                            .revision
 
                     // Resume on the fully-wired repo.
                     val result = graph.bookRepo().softDelete(BookId("book1"), clientOpId = null)
@@ -205,14 +228,37 @@ class BookSoftDeleteCascadeResumeTest :
                     // Junctions now tombstoned.
                     graph.bookTagRepo.findAllForBook("book1").shouldBeEmpty()
                     graph.bookMoodRepo.findAllForBook("book1").shouldBeEmpty()
-                    sql.collectionBooksQueries.liveCollectionIdsForBook("book1").executeAsList().shouldBeEmpty()
+                    sql.collectionBooksQueries
+                        .liveCollectionIdsForBook("book1")
+                        .executeAsList()
+                        .shouldBeEmpty()
                     // Sole parents purged; shared parents (book2 still live) survive.
-                    sql.contributorsQueries.selectById(soleAuthor).executeAsOne().deleted_at.shouldNotBeNull()
-                    sql.contributorsQueries.selectById(sharedAuthor).executeAsOne().deleted_at.shouldBeNull()
-                    sql.seriesQueries.selectById(soleSeries).executeAsOne().deleted_at.shouldNotBeNull()
-                    sql.seriesQueries.selectById(sharedSeries).executeAsOne().deleted_at.shouldBeNull()
+                    sql.contributorsQueries
+                        .selectById(soleAuthor)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                    sql.contributorsQueries
+                        .selectById(sharedAuthor)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
+                    sql.seriesQueries
+                        .selectById(soleSeries)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                    sql.seriesQueries
+                        .selectById(sharedSeries)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
                     // The re-stamp bumped the revision.
-                    sql.booksQueries.selectById("book1").executeAsOne().revision.shouldBeGreaterThan(revisionAfterPartial)
+                    sql.booksQueries
+                        .selectById("book1")
+                        .executeAsOne()
+                        .revision
+                        .shouldBeGreaterThan(revisionAfterPartial)
                 }
             }
         }
@@ -228,15 +274,26 @@ class BookSoftDeleteCascadeResumeTest :
                     sql.bookContributorsQueries.insert("book1", soleAuthor, "author", null, 0)
 
                     // Partial: tags+moods cascaded, collections + purge did not (boundary 4).
-                    graph.bookRepo(wireTags = true, wireMoods = true, wireCollections = false, wirePurger = false)
+                    graph
+                        .bookRepo(wireTags = true, wireMoods = true, wireCollections = false, wirePurger = false)
                         .softDelete(BookId("book1"), clientOpId = null)
-                    sql.collectionBooksQueries.liveCollectionIdsForBook("book1").executeAsList().shouldContainExactly("c1")
+                    sql.collectionBooksQueries
+                        .liveCollectionIdsForBook("book1")
+                        .executeAsList()
+                        .shouldContainExactly("c1")
 
                     // Resume completes the collection cascade and the hard-replace-parent purge.
                     val result = graph.bookRepo().softDelete(BookId("book1"), clientOpId = null)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    sql.collectionBooksQueries.liveCollectionIdsForBook("book1").executeAsList().shouldBeEmpty()
-                    sql.contributorsQueries.selectById(soleAuthor).executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.collectionBooksQueries
+                        .liveCollectionIdsForBook("book1")
+                        .executeAsList()
+                        .shouldBeEmpty()
+                    sql.contributorsQueries
+                        .selectById(soleAuthor)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
                 }
             }
         }
@@ -259,17 +316,89 @@ class BookSoftDeleteCascadeResumeTest :
                     shouldThrowAny { bookRepo.softDelete(BookId("book1"), clientOpId = null) }
 
                     // Committed prefix: book + tags + moods tombstoned; purge did NOT run (contributor live).
-                    sql.booksQueries.selectById("book1").executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.booksQueries
+                        .selectById("book1")
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
                     graph.bookTagRepo.findAllForBook("book1").shouldBeEmpty()
                     graph.bookMoodRepo.findAllForBook("book1").shouldBeEmpty()
-                    sql.contributorsQueries.selectById(soleAuthor).executeAsOne().deleted_at.shouldBeNull()
+                    sql.contributorsQueries
+                        .selectById(soleAuthor)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
 
                     // Repair and resume → completes the collection cascade and the hard-replace-parent purge.
                     driver.execute(null, "ALTER TABLE collection_books_bak RENAME TO collection_books", 0)
                     val result = bookRepo.softDelete(BookId("book1"), clientOpId = null)
                     result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-                    sql.collectionBooksQueries.liveCollectionIdsForBook("book1").executeAsList().shouldBeEmpty()
-                    sql.contributorsQueries.selectById(soleAuthor).executeAsOne().deleted_at.shouldNotBeNull()
+                    sql.collectionBooksQueries
+                        .liveCollectionIdsForBook("book1")
+                        .executeAsList()
+                        .shouldBeEmpty()
+                    sql.contributorsQueries
+                        .selectById(soleAuthor)
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                }
+            }
+        }
+
+        test("resume purges a tag and mood orphaned by a crash before the purge ran (boundary 5)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                runTest {
+                    val graph = CascadeGraph(sql, driver)
+                    graph.attachTagMoodCollection("book1", "t1", "m1", "c1")
+
+                    // Boundary 5: junction cascades ran, the purge did NOT (junctions tombstoned, parents live).
+                    graph.bookRepo(wirePurger = false).softDelete(BookId("book1"), clientOpId = null)
+                    graph.bookTagRepo.findAllForBook("book1").shouldBeEmpty()
+                    graph.bookMoodRepo.findAllForBook("book1").shouldBeEmpty()
+
+                    // Resume on the fully-wired repo must still purge the now-orphaned tag and mood — the
+                    // capture has to nominate them even though their junctions are already tombstoned.
+                    graph.bookRepo().softDelete(BookId("book1"), clientOpId = null)
+                    sql.tagsQueries
+                        .selectById("t1")
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                    sql.moodsQueries
+                        .selectById("m1")
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldNotBeNull()
+                }
+            }
+        }
+
+        test("a tag still linked to another live book survives even when this book's junction was pre-tombstoned") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestBook("book1")
+                sql.seedTestBook("book2")
+                runTest {
+                    val graph = CascadeGraph(sql, driver)
+                    // t1 linked to book1 AND book2 (both live).
+                    graph.tagRepo.upsert(Tag(id = "t1", name = "t1", slug = "t1", revision = 0, updatedAt = 0))
+                    graph.bookTagRepo.upsert(BookTagSyncPayload(bookId = "book1", tagId = "t1", createdAt = 1000L, revision = 0L))
+                    graph.bookTagRepo.upsert(BookTagSyncPayload(bookId = "book2", tagId = "t1", createdAt = 1000L, revision = 0L))
+                    // The user detached t1 from book1 earlier: book1's junction is tombstoned BEFORE the removal.
+                    graph.bookTagRepo.softDeleteAllForBook("book1")
+                    graph.bookTagRepo.findAllForBook("book1").shouldBeEmpty()
+
+                    // Removing book1: the tombstone-inclusive capture nominates t1, but liveBookCountForTag > 0
+                    // (book2 still holds a live junction), so the purge decision-maker spares it.
+                    graph.bookRepo().softDelete(BookId("book1"), clientOpId = null)
+                    sql.tagsQueries
+                        .selectById("t1")
+                        .executeAsOne()
+                        .deleted_at
+                        .shouldBeNull()
                 }
             }
         }

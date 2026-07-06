@@ -49,8 +49,6 @@ class BookRemovalOrphanPurgeTest :
                     genreRepository = genreRepo,
                     tagRepository = tagRepo,
                     moodRepository = moodRepo,
-                    bookTagRepository = bookTagRepo,
-                    bookMoodRepository = bookMoodRepo,
                 )
             val bookRepo =
                 BookRepository(
