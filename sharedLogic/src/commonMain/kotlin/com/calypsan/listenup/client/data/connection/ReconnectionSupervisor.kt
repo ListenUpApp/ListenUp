@@ -111,7 +111,13 @@ internal class ReconnectionSupervisor(
     }
 
     private companion object {
-        const val DEFAULT_PROBE_INTERVAL_MS = 5_000L
+        /**
+         * Probe floor: how soon after the firehose drops we first re-check reachability, and the
+         * cadence we snap back to the moment the server answers again. Kept tight so recovery feels
+         * near-instant while the app is open; the interval escalates to [MAX_PROBE_INTERVAL_MS] on
+         * sustained failure so a long outage doesn't sweep mDNS every couple of seconds.
+         */
+        const val DEFAULT_PROBE_INTERVAL_MS = 2_000L
         const val MAX_PROBE_INTERVAL_MS = 60_000L
     }
 }

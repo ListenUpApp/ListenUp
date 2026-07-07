@@ -8,6 +8,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.ResponseException
 import io.ktor.client.request.header
 import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.HttpStatement
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.HttpHeaders
 import io.ktor.utils.io.readLine
@@ -15,10 +17,13 @@ import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.pow
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -31,6 +36,13 @@ private val logger = KotlinLogging.logger {}
 internal const val INITIAL_RECONNECT_DELAY_MS = 1_000L
 internal const val MAX_RECONNECT_DELAY_MS = 60_000L
 internal const val RECONNECT_BACKOFF_MULTIPLIER = 2.0
+
+/**
+ * Upper bound on the connection-establishment phase. A connect that hasn't produced a response
+ * within this window is abandoned and retried, so a down/unreachable server can't wedge the loop on
+ * engines with no finite connect timeout (Darwin/URLSession). The streaming read stays unbounded.
+ */
+internal const val DEFAULT_CONNECT_TIMEOUT_MS = 5_000L
 private const val SSE_ENDPOINT = "/api/v1/sync/events"
 private const val HTTP_UNAUTHORIZED = 401
 private const val HTTP_FORBIDDEN = 403
@@ -107,6 +119,7 @@ internal class SyncSseClient(
     private val state: SyncEngineState,
     private val scope: CoroutineScope,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
 ) : SseClient {
     private val frameBus =
         MutableSharedFlow<ParsedSseFrame>(
@@ -222,33 +235,11 @@ internal class SyncSseClient(
     private suspend fun runOnce(): ConnectAttempt {
         val serverUrl = serverUrlProvider() ?: return ConnectAttempt.GracefulClose
         return try {
-            val httpClient = streamingClientProvider()
-            httpClient
-                .prepareGet("$serverUrl$SSE_ENDPOINT") {
+            val request =
+                streamingClientProvider().prepareGet("$serverUrl$SSE_ENDPOINT") {
                     lastEventId?.let { header(HttpHeaders.LastEventID, it.toString()) }
-                }.execute { response ->
-                    state.setConnection(ConnectionState.Connected(lastEventId))
-                    state.recordSuccess(nowMillis())
-                    val channel = response.bodyAsChannel()
-                    val buffer = StringBuilder()
-                    while (!channel.isClosedForRead) {
-                        val line = channel.readLine() ?: break
-                        if (line.isEmpty()) {
-                            // Append an empty trailing line so parseSseStream commits the frame.
-                            val parsed = parseSseStream(buffer.lineSequence().plus(""))
-                            for (frame in parsed) {
-                                frame.id?.let { lastEventId = it }
-                                frameBus.emit(frame)
-                                state.setConnection(ConnectionState.Connected(lastEventId))
-                            }
-                            buffer.clear()
-                        } else {
-                            if (buffer.isNotEmpty()) buffer.append('\n')
-                            buffer.append(line)
-                        }
-                    }
-                    ConnectAttempt.Connected
                 }
+            connectBounded(request)
         } catch (e: CancellationException) {
             throw e
         } catch (e: ResponseException) {
@@ -262,6 +253,60 @@ internal class SyncSseClient(
             logger.warn(e) { "SSE connection error" }
             ConnectAttempt.Reconnect
         }
+    }
+
+    /**
+     * Runs one connection attempt, bounding only the *connect* phase: if the server hasn't produced
+     * a response within [connectTimeoutMillis], the attempt is abandoned and mapped to
+     * [ConnectAttempt.Reconnect] so the outer loop can back off and retry. Once connected, the
+     * streaming read ([streamFrames]) runs unbounded — a live-but-idle SSE stream must never be torn
+     * down, and both servers heartbeat well within any read window.
+     *
+     * Without this bound, a connect against a down/unreachable server hangs forever on engines with
+     * no finite connect timeout (Darwin/URLSession): [runOnce] never returns, the state never leaves
+     * `Connecting`, and every downstream recovery mechanism stays wedged.
+     */
+    private suspend fun connectBounded(request: HttpStatement): ConnectAttempt =
+        coroutineScope {
+            val connected = CompletableDeferred<Unit>()
+            val reader =
+                async {
+                    request.execute { response ->
+                        connected.complete(Unit)
+                        streamFrames(response)
+                    }
+                }
+            if (withTimeoutOrNull(connectTimeoutMillis) { connected.await() } == null) {
+                reader.cancel()
+                ConnectAttempt.Reconnect
+            } else {
+                reader.await()
+            }
+        }
+
+    /** Read and dispatch SSE frames until the stream closes. Returns [ConnectAttempt.Connected] on EOF. */
+    private suspend fun streamFrames(response: HttpResponse): ConnectAttempt {
+        state.setConnection(ConnectionState.Connected(lastEventId))
+        state.recordSuccess(nowMillis())
+        val channel = response.bodyAsChannel()
+        val buffer = StringBuilder()
+        while (!channel.isClosedForRead) {
+            val line = channel.readLine() ?: break
+            if (line.isEmpty()) {
+                // Append an empty trailing line so parseSseStream commits the frame.
+                val parsed = parseSseStream(buffer.lineSequence().plus(""))
+                for (frame in parsed) {
+                    frame.id?.let { lastEventId = it }
+                    frameBus.emit(frame)
+                    state.setConnection(ConnectionState.Connected(lastEventId))
+                }
+                buffer.clear()
+            } else {
+                if (buffer.isNotEmpty()) buffer.append('\n')
+                buffer.append(line)
+            }
+        }
+        return ConnectAttempt.Connected
     }
 
     private enum class ConnectAttempt { Connected, Reconnect, AuthFailed, GracefulClose }
