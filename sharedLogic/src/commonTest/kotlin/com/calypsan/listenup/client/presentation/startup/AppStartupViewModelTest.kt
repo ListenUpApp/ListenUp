@@ -29,6 +29,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 
@@ -303,8 +304,11 @@ class AppStartupViewModelTest :
 
         test("setup-check failure does NOT swallow CancellationException into setupCheckFailed") {
             runTest {
-                // Given - admin user, setup-status fails, and the local-library probe is cancelled
-                // mid-flight (the coroutine scope is being torn down).
+                // Given - admin user, no local library so the check flows to the server path; setup-status
+                // fails, and resolveOfflineOrFail's local-library re-probe is cancelled mid-flight (the
+                // coroutine scope is being torn down). The sequential stub makes the first probe (the
+                // local-first top check) report "no library" and the second (inside resolveOfflineOrFail)
+                // throw — so this exercises that resolveOfflineOrFail suspendRunCatching CE guard directly.
                 val userRepository = createMockUserRepository()
                 val service = mock<LibraryAdminService>()
                 val factory = createMockLibraryAdminRpcFactory(service)
@@ -314,7 +318,15 @@ class AppStartupViewModelTest :
                 everySuspend { service.getSetupStatus() } returns
                     AppResult.Failure(TransportError.NetworkUnavailable())
                 val sync = createMockSyncRepository()
-                everySuspend { sync.hasLocalLibrary() } throws CancellationException("scope cancelled")
+                var probed = false
+                everySuspend { sync.hasLocalLibrary() } calls {
+                    if (!probed) {
+                        probed = true
+                        false
+                    } else {
+                        throw CancellationException("scope cancelled")
+                    }
+                }
 
                 // When
                 val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), sync)
@@ -517,6 +529,38 @@ class AppStartupViewModelTest :
                 viewModel.state.value.isChecking shouldBe false
                 viewModel.state.value.checkResolved shouldBe true
                 viewModel.readiness.value shouldBe LibraryReadiness.CheckFailed
+            }
+        }
+
+        // Offline-first responsiveness: a returning user already has the library in Room, so the app
+        // is Ready the instant we can read local state — the splash must NOT wait on any server
+        // round-trip. Server work (user refresh, setup-status, delta sync) is background reconciliation
+        // that can only ever upgrade the experience, never gate it.
+        test("resolves Ready instantly from a local library without any server round-trip") {
+            runTest {
+                // Given - admin with a cached local library; the setup-status RPC would hang forever if
+                // the local-first path ever consulted it.
+                val userRepository = createMockUserRepository()
+                val service = mock<LibraryAdminService>()
+                val factory = createMockLibraryAdminRpcFactory(service)
+                val adminUser = createTestUser(isAdmin = true)
+                everySuspend { userRepository.refreshCurrentUser() } returns adminUser
+                everySuspend { userRepository.getCurrentUser() } returns adminUser
+                everySuspend { service.getSetupStatus() } calls { awaitCancellation() }
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = true)
+
+                // When - run only the work scheduled at the current instant; do NOT advance virtual time
+                // past any timeout.
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), syncRepository)
+                runCurrent()
+
+                // Then - Ready is resolved synchronously from local content, before (and without) the
+                // hanging server call. Pre-change the check would call getSetupStatus, hang, and stay
+                // Checking here — only reaching Ready after the full timeout.
+                viewModel.state.value.checkResolved shouldBe true
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.needsLibrarySetup shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.Ready
             }
         }
     })
