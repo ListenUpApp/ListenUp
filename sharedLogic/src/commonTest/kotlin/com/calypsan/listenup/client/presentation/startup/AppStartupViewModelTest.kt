@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.model.User
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.every
@@ -22,6 +23,7 @@ import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -487,6 +489,33 @@ class AppStartupViewModelTest :
                 viewModel.state.value.isChecking shouldBe false
                 viewModel.state.value.setupCheckFailed shouldBe true
                 viewModel.state.value.needsLibrarySetup shouldBe false
+                viewModel.readiness.value shouldBe LibraryReadiness.CheckFailed
+            }
+        }
+
+        // Regression: when the server is unreachable at cold start, the setup check's RPC calls
+        // (refreshCurrentUser / getSetupStatus over the /api/rpc/authed WebSocket) can hang forever —
+        // Ktor's HttpTimeout does not bound a post-WebSocket-upgrade RPC stall on Darwin/URLSession.
+        // Without an overall timeout the check never resolves, readiness stays Checking, and iOS shows
+        // the splash screen indefinitely. The check must bound itself and fall through to the offline
+        // resolution so the app is never stranded on the splash.
+        test("setup check that hangs against an unreachable server times out and resolves, not an infinite splash") {
+            runTest {
+                // Given - the current-user RPC never returns (the unreachable-server stall)
+                val userRepository = createMockUserRepository()
+                val factory = createMockLibraryAdminRpcFactory()
+                everySuspend { userRepository.refreshCurrentUser() } calls { awaitCancellation() }
+                everySuspend { userRepository.getCurrentUser() } returns null
+                val syncRepository = createMockSyncRepository(hasLocalLibrary = false)
+
+                // When
+                val viewModel = AppStartupViewModel(userRepository, factory, createMockAuthSession(), syncRepository)
+                advanceUntilIdle()
+
+                // Then - the check timed out and resolved offline instead of hanging on Checking. With
+                // no local library the honest CheckFailed wall shows (→ MainTabView), dismissing splash.
+                viewModel.state.value.isChecking shouldBe false
+                viewModel.state.value.checkResolved shouldBe true
                 viewModel.readiness.value shouldBe LibraryReadiness.CheckFailed
             }
         }

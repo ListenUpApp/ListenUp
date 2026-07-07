@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 private val logger = KotlinLogging.logger {}
 
@@ -159,6 +160,16 @@ class AppStartupViewModel(
         const val BACKGROUND_THRESHOLD_MS = 30 * 60 * 1000L // 30 minutes
 
         /**
+         * Overall bound on the startup library-setup check. Its RPC calls ride the `/api/rpc/authed`
+         * WebSocket, and Ktor's `HttpTimeout` does not catch a post-upgrade RPC stall on
+         * Darwin/URLSession (documented on `InstanceRpcFactory`) — so an unreachable server would
+         * otherwise hang the check forever, leaving `readiness` on `Checking` and the app stranded on
+         * the splash screen. On timeout the check falls through to the offline resolution. 12s mirrors
+         * the `InstanceRpcFactory` server-probe bound for the same transport.
+         */
+        const val SETUP_CHECK_TIMEOUT_MS = 12_000L
+
+        /**
          * How long the "Building your library" gate may go without scan progress advancing before it
          * is marked stalled and offers the never-stranded "Continue" escape. A healthy scan advances
          * progress far more often than this; only a stuck or crashed server scan reaches it.
@@ -257,25 +268,42 @@ class AppStartupViewModel(
     private fun runLibrarySetupCheck() {
         viewModelScope.launch {
             try {
-                val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
-                logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
+                // Bound the whole server-hitting check: its RPC calls can stall indefinitely against an
+                // unreachable server (HttpTimeout doesn't catch a post-upgrade RPC stall on Darwin), which
+                // would leave readiness on Checking and strand the app on the splash. withTimeoutOrNull —
+                // not withTimeout — so a timeout returns null and falls through to the offline resolution
+                // rather than throwing a TimeoutCancellationException that the CancellationException guard
+                // below would re-raise.
+                val completed =
+                    withTimeoutOrNull(SETUP_CHECK_TIMEOUT_MS) {
+                        val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
+                        logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
 
-                if (user?.isAdmin == true) {
-                    applyAdminSetupCheckResult(
-                        libraryAdminRpcFactory.get().getSetupStatus(),
-                    )
-                } else {
-                    logger.info {
-                        "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
-                            "skipping library-setup check"
+                        if (user?.isAdmin == true) {
+                            applyAdminSetupCheckResult(
+                                libraryAdminRpcFactory.get().getSetupStatus(),
+                            )
+                        } else {
+                            logger.info {
+                                "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
+                                    "skipping library-setup check"
+                            }
+                            state.value =
+                                state.value.copy(
+                                    isChecking = false,
+                                    needsLibrarySetup = false,
+                                    setupCheckFailed = false,
+                                    checkResolved = true,
+                                )
+                        }
                     }
-                    state.value =
-                        state.value.copy(
-                            isChecking = false,
-                            needsLibrarySetup = false,
-                            setupCheckFailed = false,
-                            checkResolved = true,
-                        )
+
+                if (completed == null) {
+                    logger.warn {
+                        "AppStartupViewModel: setup check did not complete within ${SETUP_CHECK_TIMEOUT_MS}ms " +
+                            "(server unreachable) — resolving offline"
+                    }
+                    resolveOfflineOrFail()
                 }
             } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                 throw e
