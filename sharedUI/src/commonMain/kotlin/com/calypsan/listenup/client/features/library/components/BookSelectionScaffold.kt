@@ -159,6 +159,16 @@ private fun BookSelectionFeedback(
                     val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
                     scope.launch { snackbarHostState.showSnackbar("Created \"${event.shelfName}\" with $bookText") }
                 }
+
+                is BookMultiSelectEvent.CollectionCreatedAndBooksAdded -> {
+                    onCollectionActionHandled()
+                    val bookText = if (event.bookCount == 1) "1 book" else "${event.bookCount} books"
+                    scope.launch {
+                        snackbarHostState.showSnackbar(
+                            "Created \"${event.collectionName}\" with $bookText",
+                        )
+                    }
+                }
             }
         }
     }

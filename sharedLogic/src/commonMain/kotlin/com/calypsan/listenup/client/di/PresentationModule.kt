@@ -261,6 +261,7 @@ internal val libraryPresentationModule =
                 addBooksToShelfUseCase = get(),
                 addBooksToCollectionUseCase = get(),
                 createShelfUseCase = get(),
+                createCollectionUseCase = get(),
                 errorBus = get(),
             )
         }

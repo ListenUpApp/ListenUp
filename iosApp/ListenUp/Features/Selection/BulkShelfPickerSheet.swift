@@ -29,6 +29,7 @@ struct BulkShelfPickerSheet: View {
                 shelvesSection
                 newShelfSection
             }
+            .scrollContentBackground(.hidden)
             .navigationTitle(String(localized: "book.detail_add_to_shelf"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -42,6 +43,7 @@ struct BulkShelfPickerSheet: View {
                 }
             }
             .presentationDetents([.medium, .large])
+            .presentationBackground(.thickMaterial)
         }
     }
 

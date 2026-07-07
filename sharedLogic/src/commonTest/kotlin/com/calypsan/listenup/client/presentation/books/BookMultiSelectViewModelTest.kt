@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
+import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.core.error.ErrorBus
@@ -57,6 +58,7 @@ class BookMultiSelectViewModelTest :
             val addBooksToShelfUseCase: AddBooksToShelfUseCase = mock()
             val addBooksToCollectionUseCase: AddBooksToCollectionUseCase = mock()
             val createShelfUseCase: CreateShelfUseCase = mock()
+            val createCollectionUseCase: CreateCollectionUseCase = mock()
             val errorBus = ErrorBus()
 
             val userFlow = MutableStateFlow<User?>(null)
@@ -71,6 +73,7 @@ class BookMultiSelectViewModelTest :
                     addBooksToShelfUseCase = addBooksToShelfUseCase,
                     addBooksToCollectionUseCase = addBooksToCollectionUseCase,
                     createShelfUseCase = createShelfUseCase,
+                    createCollectionUseCase = createCollectionUseCase,
                     errorBus = errorBus,
                 )
         }
@@ -413,6 +416,109 @@ class BookMultiSelectViewModelTest :
 
                 fixture.errorBus.errors.test {
                     viewModel.createShelfAndAddBooks("My New Shelf")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe error
+                }
+
+                events.shouldBeEmpty()
+                viewModel.selectionMode.value.shouldBeInstanceOf<SelectionMode.Active>()
+            }
+        }
+
+        // ========== createCollectionAndAddBooks ==========
+
+        fun createCollection(
+            id: String = "collection-1",
+            name: String = "My Collection",
+        ): Collection =
+            Collection(
+                id = id,
+                name = name,
+                ownerId = "user-1",
+                isInbox = false,
+                isSystem = false,
+                bookCount = 0,
+                callerPermission = SharePermission.Write,
+                isOwner = true,
+            )
+
+        test("createCollectionAndAddBooks does nothing when no books selected") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.createCollectionAndAddBooks("New Collection")
+                advanceUntilIdle()
+
+                viewModel.isAddingToCollection.value shouldBe false
+                verifySuspend(mode = VerifyMode.not) { fixture.createCollectionUseCase(any()) }
+                verifySuspend(mode = VerifyMode.not) { fixture.addBooksToCollectionUseCase(any(), any()) }
+            }
+        }
+
+        test("createCollectionAndAddBooks creates the collection, adds the books, emits event, clears selection") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                viewModel.enterSelectionMode("book-1")
+                val newCollection = createCollection(id = "new-collection", name = "My New Collection")
+                everySuspend { fixture.createCollectionUseCase(any()) } returns AppResult.Success(newCollection)
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Success(Unit)
+                advanceUntilIdle()
+
+                viewModel.events.test {
+                    viewModel.createCollectionAndAddBooks("My New Collection")
+                    advanceUntilIdle()
+                    awaitItem().shouldBeInstanceOf<BookMultiSelectEvent.CollectionCreatedAndBooksAdded>()
+                }
+
+                verifySuspend { fixture.createCollectionUseCase("My New Collection") }
+                verifySuspend { fixture.addBooksToCollectionUseCase("new-collection", listOf("book-1")) }
+                viewModel.selectionMode.value shouldBe SelectionMode.None
+            }
+        }
+
+        test("createCollectionAndAddBooks creation failure surfaces on errorBus, no event, keeps selection, never adds") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                viewModel.enterSelectionMode("book-1")
+                val error = ValidationError(message = "Failed to create collection")
+                everySuspend { fixture.createCollectionUseCase(any()) } returns AppResult.Failure(error)
+
+                // Capture the success-only events channel to prove no event fires on failure.
+                val events = mutableListOf<BookMultiSelectEvent>()
+                backgroundScope.launch { viewModel.events.collect { events += it } }
+
+                fixture.errorBus.errors.test {
+                    viewModel.createCollectionAndAddBooks("New Collection")
+                    advanceUntilIdle()
+                    awaitItem() shouldBe error
+                }
+
+                events.shouldBeEmpty()
+                viewModel.selectionMode.value.shouldBeInstanceOf<SelectionMode.Active>()
+                verifySuspend(mode = VerifyMode.not) { fixture.addBooksToCollectionUseCase(any(), any()) }
+            }
+        }
+
+        test("createCollectionAndAddBooks add-books failure surfaces on errorBus, no event, keeps selection") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                viewModel.enterSelectionMode("book-1")
+                val newCollection = createCollection(id = "new-collection", name = "My New Collection")
+                val error = ValidationError(message = "Failed to add books")
+                everySuspend { fixture.createCollectionUseCase(any()) } returns AppResult.Success(newCollection)
+                everySuspend { fixture.addBooksToCollectionUseCase(any(), any()) } returns AppResult.Failure(error)
+
+                // Capture the success-only events channel to prove no event fires on failure.
+                val events = mutableListOf<BookMultiSelectEvent>()
+                backgroundScope.launch { viewModel.events.collect { events += it } }
+
+                fixture.errorBus.errors.test {
+                    viewModel.createCollectionAndAddBooks("My New Collection")
                     advanceUntilIdle()
                     awaitItem() shouldBe error
                 }

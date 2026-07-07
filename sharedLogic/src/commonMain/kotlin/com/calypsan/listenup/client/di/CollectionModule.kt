@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.repository.InboxRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.InboxRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
+import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
 import org.koin.core.module.Module
 import org.koin.dsl.bind
 import org.koin.dsl.binds
@@ -57,4 +58,7 @@ internal val collectionModule: Module =
 
         // AddBooksToCollectionUseCase — bulk add for multi-select flows
         factory { AddBooksToCollectionUseCase(get()) }
+
+        // CreateCollectionUseCase — create-and-add for the multi-select collection picker
+        factory { CreateCollectionUseCase(get(), get()) }
     }

@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.SyncStatusRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
+import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.core.error.ErrorBus
@@ -41,6 +42,7 @@ import org.koin.test.verify.verify
  *  - [AddBooksToShelfUseCase] — owned by `shelfModule`.
  *  - [AddBooksToCollectionUseCase] — owned by `collectionModule`.
  *  - [CreateShelfUseCase] — owned by `shelfModule`.
+ *  - [CreateCollectionUseCase] — owned by `collectionModule`.
  *  - [ErrorBus] — owned by `appCoreModule`.
  *  - [SearchRepository] — owned by `searchModule`.
  */
@@ -66,6 +68,7 @@ class LibraryPresentationModuleVerifyTest :
                         AddBooksToShelfUseCase::class,
                         AddBooksToCollectionUseCase::class,
                         CreateShelfUseCase::class,
+                        CreateCollectionUseCase::class,
                         ErrorBus::class,
                         SearchRepository::class,
                     ),

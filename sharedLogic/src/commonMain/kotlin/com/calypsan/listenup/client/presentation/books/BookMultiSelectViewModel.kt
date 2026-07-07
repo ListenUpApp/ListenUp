@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.domain.usecase.collection.AddBooksToCollectionUseCase
+import com.calypsan.listenup.client.domain.usecase.collection.CreateCollectionUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.AddBooksToShelfUseCase
 import com.calypsan.listenup.client.domain.usecase.shelf.CreateShelfUseCase
 import com.calypsan.listenup.core.BookId
@@ -50,6 +51,7 @@ class BookMultiSelectViewModel(
     private val addBooksToShelfUseCase: AddBooksToShelfUseCase,
     private val addBooksToCollectionUseCase: AddBooksToCollectionUseCase,
     private val createShelfUseCase: CreateShelfUseCase,
+    private val createCollectionUseCase: CreateCollectionUseCase,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
     // ═══════════════════════════════════════════════════════════════════════
@@ -228,6 +230,52 @@ class BookMultiSelectViewModel(
         }
     }
 
+    /**
+     * Create a new collection and add all selected books to it. Creates the collection, then adds
+     * the books. Clears the selection on success; surfaces the error on the [errorBus] and keeps
+     * the selection on any failure. Admin only (the collection picker is admin-gated).
+     *
+     * @param name The name for the new collection.
+     */
+    fun createCollectionAndAddBooks(name: String) {
+        val selectedIds = currentSelectedIds()
+        if (selectedIds.isEmpty()) return
+
+        viewModelScope.launch {
+            isAddingToCollection.value = true
+            val bookIds = selectedIds.toList()
+
+            when (val createResult = createCollectionUseCase(name)) {
+                is AppResult.Success -> {
+                    val newCollection = createResult.data
+                    logger.info { "Created collection '${newCollection.name}' with id ${newCollection.id}" }
+
+                    when (val addResult = addBooksToCollectionUseCase(newCollection.id, bookIds)) {
+                        is AppResult.Success -> {
+                            logger.info { "Added ${bookIds.size} books to new collection ${newCollection.id}" }
+                            eventsChannel.send(
+                                BookMultiSelectEvent.CollectionCreatedAndBooksAdded(newCollection.name, bookIds.size),
+                            )
+                            clearSelection()
+                        }
+
+                        is AppResult.Failure -> {
+                            logger.error { "Failed to add books to new collection: ${addResult.message}" }
+                            errorBus.emit(addResult.error)
+                        }
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    logger.error { "Failed to create collection: ${createResult.message}" }
+                    errorBus.emit(createResult.error)
+                }
+            }
+
+            isAddingToCollection.value = false
+        }
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // SHELF ACTIONS (all users)
     // ═══════════════════════════════════════════════════════════════════════
@@ -357,6 +405,12 @@ sealed interface BookMultiSelectEvent {
     /** A new shelf was created and books were added to it. */
     data class ShelfCreatedAndBooksAdded(
         val shelfName: String,
+        val bookCount: Int,
+    ) : BookMultiSelectEvent
+
+    /** A new collection was created and books were added to it. */
+    data class CollectionCreatedAndBooksAdded(
+        val collectionName: String,
         val bookCount: Int,
     ) : BookMultiSelectEvent
 }

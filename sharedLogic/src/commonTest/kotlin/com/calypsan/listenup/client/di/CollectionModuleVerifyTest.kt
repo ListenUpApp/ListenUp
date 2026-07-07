@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
+import com.calypsan.listenup.client.domain.repository.LibraryRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
@@ -19,6 +20,7 @@ import org.koin.test.verify.verify
  *  - [CollectionDao] — owned by `persistenceModule`.
  *  - [CollectionBookDao] — owned by `persistenceModule`.
  *  - [CollectionShareDao] — owned by `persistenceModule`.
+ *  - [LibraryRepository] — owned by `libraryModule` (CreateCollectionUseCase resolves the library id).
  */
 @OptIn(KoinExperimentalAPI::class)
 class CollectionModuleVerifyTest :
@@ -33,6 +35,7 @@ class CollectionModuleVerifyTest :
                         CollectionShareDao::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
+                        LibraryRepository::class,
                     ),
             )
         }
