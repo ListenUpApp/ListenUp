@@ -83,10 +83,15 @@ class LibraryReadinessTest :
         fun syncRepo(
             scanning: MutableStateFlow<Boolean>,
             progress: MutableStateFlow<ScanProgressState?> = MutableStateFlow(null),
+            hasLocalLibrary: Boolean = false,
         ): SyncRepository {
             val sync = mock<SyncRepository>()
             every { sync.isBuildingInitialLibrary } returns scanning
             every { sync.scanProgress } returns progress
+            // Local-first startup reads this before any server round-trip. Default false: a fresh admin
+            // and an in-progress initial population have no complete local library yet, so the setup
+            // check flows through the server path these specs drive. The relaunch-existing spec overrides.
+            everySuspend { sync.hasLocalLibrary() } returns hasLocalLibrary
             return sync
         }
 
@@ -161,7 +166,9 @@ class LibraryReadinessTest :
                         userRepoReturning(adminUser()),
                         adminFactory(service),
                         authSession(MutableStateFlow(authenticated)),
-                        syncRepo(MutableStateFlow(false)),
+                        // Existing library present in Room → local-first resolves Ready without the
+                        // server round-trip (the getSetupStatus stub above is intentionally unreached).
+                        syncRepo(MutableStateFlow(false), hasLocalLibrary = true),
                     )
 
                 vm.readiness.test {

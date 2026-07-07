@@ -268,15 +268,35 @@ class AppStartupViewModel(
     private fun runLibrarySetupCheck() {
         viewModelScope.launch {
             try {
-                // Bound the whole server-hitting check: its RPC calls can stall indefinitely against an
-                // unreachable server (HttpTimeout doesn't catch a post-upgrade RPC stall on Darwin), which
-                // would leave readiness on Checking and strand the app on the splash. withTimeoutOrNull —
-                // not withTimeout — so a timeout returns null and falls through to the offline resolution
-                // rather than throwing a TimeoutCancellationException that the CancellationException guard
-                // below would re-raise.
+                // Offline-first: if the library is already in Room, the app is Ready the instant we can
+                // read local state — never block the splash on the network when there is content to show.
+                // Server work (user refresh, setup-status, and the delta sync driven separately by
+                // connectRealtime) is background reconciliation that can only upgrade the experience.
+                if (syncRepository.hasLocalLibrary()) {
+                    markReady()
+                    launchBackgroundUserRefresh()
+                    return@launch
+                }
+
+                // No local library. A non-admin has nothing to set up, so go straight to the (empty)
+                // shell that incremental sync fills — still no network on the critical path. isAdmin is
+                // read from the locally-cached user; only a not-yet-cached user needs the server for it.
+                val localUser = userRepository.getCurrentUser()
+                if (localUser != null && !localUser.isAdmin) {
+                    markReady()
+                    launchBackgroundUserRefresh()
+                    return@launch
+                }
+
+                // Genuine cold start: no local library and a (possibly) admin user. This is the only case
+                // that must consult the server to decide wizard-vs-shell — and the only case where there
+                // is nothing local to show anyway. Bound it so an unreachable server can't strand the
+                // splash (HttpTimeout doesn't catch a post-upgrade RPC stall on Darwin). withTimeoutOrNull
+                // — not withTimeout — so a timeout returns null and falls through to the offline
+                // resolution rather than throwing a TimeoutCancellationException that the guard re-raises.
                 val completed =
                     withTimeoutOrNull(SETUP_CHECK_TIMEOUT_MS) {
-                        val user = userRepository.refreshCurrentUser() ?: userRepository.getCurrentUser()
+                        val user = userRepository.refreshCurrentUser() ?: localUser
                         logger.info { "AppStartupViewModel: resolved user=${user?.displayName}, isAdmin=${user?.isAdmin}" }
 
                         if (user?.isAdmin == true) {
@@ -288,13 +308,7 @@ class AppStartupViewModel(
                                 "AppStartupViewModel: not an admin (user=${user?.displayName}, isAdmin=${user?.isAdmin}) — " +
                                     "skipping library-setup check"
                             }
-                            state.value =
-                                state.value.copy(
-                                    isChecking = false,
-                                    needsLibrarySetup = false,
-                                    setupCheckFailed = false,
-                                    checkResolved = true,
-                                )
+                            markReady()
                         }
                     }
 
@@ -312,6 +326,27 @@ class AppStartupViewModel(
                 resolveOfflineOrFail()
             }
         }
+    }
+
+    /** Resolve the gate to Ready — library present or nothing to set up — so the shell mounts now. */
+    private fun markReady() {
+        state.value =
+            state.value.copy(
+                isChecking = false,
+                needsLibrarySetup = false,
+                setupCheckFailed = false,
+                checkResolved = true,
+            )
+    }
+
+    /**
+     * Best-effort background refresh of the current user after a local-first [markReady]. Keeps isAdmin
+     * / profile current without gating the splash: [UserRepository.refreshCurrentUser] already swallows
+     * transport failures to null (offline is fine) and re-raises CancellationException. It never touches
+     * [readiness] — a user with local content is already Ready.
+     */
+    private fun launchBackgroundUserRefresh() {
+        viewModelScope.launch { userRepository.refreshCurrentUser() }
     }
 
     /**
@@ -353,13 +388,7 @@ class AppStartupViewModel(
         val hasLocal = suspendRunCatching { syncRepository.hasLocalLibrary() }.getOrDefault { false }
         if (hasLocal) {
             logger.info { "library check failed but a local library exists — opening offline" }
-            state.value =
-                state.value.copy(
-                    isChecking = false,
-                    needsLibrarySetup = false,
-                    setupCheckFailed = false,
-                    checkResolved = true,
-                )
+            markReady()
         } else {
             logger.warn { "library check failed and no local library — surfacing retryable error" }
             state.value =
