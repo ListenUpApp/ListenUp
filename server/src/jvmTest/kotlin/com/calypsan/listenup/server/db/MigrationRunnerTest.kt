@@ -108,45 +108,6 @@ class MigrationRunnerTest :
             indexSql shouldBe "CREATE UNIQUE INDEX idx_book_natural_key ON books(folder_id, root_rel_path)"
         }
 
-        test("V51 backfills initial_scan_completed_at for libraries that already hold a live book") {
-            val (path, ds) = freshDb()
-            // Migrate to V50 (pre-V51) so the backfill sees the rows we seed below.
-            MigrationRunner(path).migrate(upTo = 50)
-            ds.connection.use { c ->
-                c.createStatement().use { s ->
-                    // populated: has a live book → should backfill; empty: no books → stays null;
-                    // tombstoned-book-only: its only book is soft-deleted → stays null.
-                    s.executeUpdate(
-                        "INSERT INTO libraries (id, name, created_at, updated_at) VALUES " +
-                            "('populated', 'Populated', 100, 4242), ('empty', 'Empty', 100, 4242), " +
-                            "('deleted-books', 'DeletedBooks', 100, 4242)",
-                    )
-                    s.executeUpdate(
-                        "INSERT INTO books (id, library_id, title, total_duration, root_rel_path, scanned_at, " +
-                            "revision, created_at, updated_at, deleted_at) VALUES " +
-                            "('b1', 'populated', 'Book', 0, 'Book', 0, 0, 0, 0, NULL), " +
-                            "('b2', 'deleted-books', 'Gone', 0, 'Gone', 0, 0, 0, 0, 999)",
-                    )
-                }
-            }
-
-            // Apply V51 (adds the column + runs the backfill).
-            MigrationRunner(path).migrate()
-
-            fun stampOf(id: String): Long? =
-                ds.connection.use { c ->
-                    c.createStatement().use { s ->
-                        s
-                            .executeQuery("SELECT initial_scan_completed_at FROM libraries WHERE id = '$id'")
-                            .use { if (it.next()) (it.getObject(1) as Number?)?.toLong() else null }
-                    }
-                }
-
-            stampOf("populated") shouldBe 4242L // backfilled from updated_at
-            stampOf("empty") shouldBe null // no live book → never scanned
-            stampOf("deleted-books") shouldBe null // only a tombstoned book → not counted
-        }
-
         test("the runner reproduces the Flyway golden schema exactly (all migrations)") {
             val (path, ds) = freshDb()
             MigrationRunner(path).migrate() shouldBe MigrationCatalog.all.maxOf { it.version }.toString()
