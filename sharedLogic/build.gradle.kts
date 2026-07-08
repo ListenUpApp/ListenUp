@@ -41,9 +41,6 @@ kotlin {
         }
     }
 
-    // macOS targets
-    macosArm64()
-
     applyDefaultHierarchyTemplate()
 
     // Native Swift Export — the shipping iOS interop surface (SKIE is gone). The Xcode build
@@ -316,9 +313,6 @@ dependencies {
     // iOS targets
     add("kspIosArm64", libs.androidx.room.compiler)
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
-
-    // macOS target
-    add("kspMacosArm64", libs.androidx.room.compiler)
 
     // JVM target (desktop)
     add("kspJvm", libs.androidx.room.compiler)
