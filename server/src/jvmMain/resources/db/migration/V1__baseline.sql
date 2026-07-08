@@ -1,0 +1,748 @@
+-- V1__baseline.sql — squashed baseline collapsing migrations V1..V52.
+-- Generated from the fully-migrated schema; the golden equivalence test proves it
+-- reproduces golden/schema-current.txt byte-for-byte. fts5 shadow tables are
+-- omitted (SQLite recreates them from CREATE VIRTUAL TABLE).
+
+CREATE VIRTUAL TABLE book_search USING fts5(
+    title,
+    subtitle,
+    description,
+    contributor_names,
+    series_names,
+    tags,
+    genres,
+    content='',
+    contentless_delete=1,
+    tokenize='unicode61 remove_diacritics 2'
+);
+
+CREATE VIRTUAL TABLE contributor_search USING fts5(
+    name,
+    sort_name,
+    description,
+    aliases,
+    content='',
+    contentless_delete=1,
+    tokenize='unicode61 remove_diacritics 2'
+);
+
+CREATE VIRTUAL TABLE series_search USING fts5(
+    name,
+    sort_name,
+    description,
+    content='book_series',
+    content_rowid='rowid',
+    tokenize='unicode61 remove_diacritics 2'
+);
+
+CREATE VIRTUAL TABLE tag_search USING fts5(
+    name,
+    slug,
+    content='tags',
+    content_rowid='rowid',
+    tokenize='unicode61 remove_diacritics 2'
+);
+
+CREATE TABLE users (
+    id                  TEXT PRIMARY KEY,
+    email               TEXT NOT NULL,
+    email_normalized    TEXT NOT NULL UNIQUE,
+    password_hash       TEXT NOT NULL,
+    role                TEXT NOT NULL CHECK (role IN ('ROOT', 'ADMIN', 'MEMBER')),
+    display_name        TEXT NOT NULL,
+    status              TEXT NOT NULL CHECK (status IN ('ACTIVE', 'PENDING_APPROVAL', 'DENIED')),
+    created_at          INTEGER NOT NULL,
+    updated_at          INTEGER NOT NULL,
+    last_login_at       INTEGER
+, can_edit INTEGER NOT NULL DEFAULT 1, can_share INTEGER NOT NULL DEFAULT 1, approved_by TEXT, approved_at INTEGER, deleted_at INTEGER, invited_by TEXT, tagline TEXT, avatar_type TEXT NOT NULL DEFAULT 'auto', timezone TEXT NOT NULL DEFAULT 'UTC', avatar_updated_at INTEGER NOT NULL DEFAULT 0);
+
+CREATE TABLE sessions (
+    id                  TEXT PRIMARY KEY,
+    user_id             TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    refresh_token_hash  TEXT NOT NULL,
+    family_id           TEXT NOT NULL,
+    previous_hash       TEXT,
+    label               TEXT,
+    user_agent          TEXT,
+    created_at          INTEGER NOT NULL,
+    expires_at          INTEGER NOT NULL,
+    last_used_at        INTEGER NOT NULL,
+    revoked_at          INTEGER
+, device_type TEXT, platform TEXT, platform_version TEXT, client_name TEXT, client_version TEXT, device_name TEXT, device_model TEXT);
+
+CREATE TABLE sync_meta (
+    key TEXT NOT NULL PRIMARY KEY,
+    value INTEGER NOT NULL
+);
+
+CREATE TABLE tags (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted_at INTEGER,
+    client_op_id TEXT
+, slug TEXT NOT NULL DEFAULT '');
+
+CREATE TABLE libraries (
+    id                  VARCHAR(36)  NOT NULL PRIMARY KEY,
+    name                VARCHAR(256) NOT NULL,
+    metadata_precedence VARCHAR(256) NOT NULL DEFAULT 'embedded,abs,sidecar',
+    access_mode         VARCHAR(16)  NOT NULL DEFAULT 'shared',
+    created_by_user_id  VARCHAR(36),
+    created_at          INTEGER      NOT NULL,
+    revision            INTEGER      NOT NULL DEFAULT 0,
+    updated_at          INTEGER      NOT NULL DEFAULT 0,
+    deleted_at          INTEGER,
+    client_op_id        TEXT
+, inbox_enabled INTEGER NOT NULL DEFAULT 0, initial_scan_completed_at INTEGER);
+
+CREATE TABLE books (
+    id             VARCHAR(36) NOT NULL PRIMARY KEY,
+    library_id     VARCHAR(36) NOT NULL REFERENCES libraries(id),
+    title          VARCHAR(1024) NOT NULL,
+    sort_title     VARCHAR(1024),
+    subtitle       VARCHAR(1024),
+    description    TEXT,
+    publish_year   INTEGER,
+    publisher      VARCHAR(512),
+    language       VARCHAR(16),
+    isbn           VARCHAR(32),
+    asin           VARCHAR(32),
+    abridged       BOOLEAN NOT NULL DEFAULT 0,
+    explicit       BOOLEAN NOT NULL DEFAULT 0,
+    total_duration BIGINT NOT NULL,
+    cover_source   VARCHAR(32),
+    cover_path     VARCHAR(1024),
+    cover_hash     VARCHAR(64),
+    root_rel_path  VARCHAR(1024) NOT NULL,
+    inode          BIGINT,
+    scanned_at     BIGINT NOT NULL,
+    -- SyncableTable inherited:
+    revision       BIGINT NOT NULL,
+    created_at     BIGINT NOT NULL,
+    updated_at     BIGINT NOT NULL,
+    deleted_at     BIGINT,
+    client_op_id   VARCHAR(64)
+, has_scan_warning INTEGER NOT NULL DEFAULT 0, folder_id VARCHAR(36) DEFAULT 'PENDING-LIB-C', chapter_source TEXT NOT NULL DEFAULT 'embedded', user_edited_fields TEXT NOT NULL DEFAULT '');
+
+CREATE TABLE contributors (
+    id              VARCHAR(36) NOT NULL PRIMARY KEY,
+    normalized_name VARCHAR(512) NOT NULL,
+    name            VARCHAR(512) NOT NULL,
+    sort_name       VARCHAR(512)
+, revision      INTEGER, created_at    INTEGER NOT NULL DEFAULT 0, updated_at    INTEGER NOT NULL DEFAULT 0, deleted_at    INTEGER, client_op_id  TEXT, asin         TEXT NULL, description  TEXT NULL, image_path   TEXT NULL, image_blur_hash TEXT NULL, birth_date   TEXT NULL, death_date   TEXT NULL, website      TEXT NULL);
+
+CREATE TABLE book_contributors (
+    book_id        VARCHAR(36) NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    contributor_id VARCHAR(36) NOT NULL REFERENCES contributors(id),
+    role           VARCHAR(64) NOT NULL,
+    credited_as    VARCHAR(512),
+    ordinal        INTEGER NOT NULL,
+    PRIMARY KEY (book_id, contributor_id, role)
+);
+
+CREATE TABLE book_series (
+    id        VARCHAR(36) NOT NULL PRIMARY KEY,
+    name      VARCHAR(512) NOT NULL,
+    sort_name VARCHAR(512)
+, normalized_name VARCHAR(512) NOT NULL DEFAULT '', revision      INTEGER, created_at    INTEGER NOT NULL DEFAULT 0, updated_at    INTEGER NOT NULL DEFAULT 0, deleted_at    INTEGER, client_op_id  TEXT, asin          TEXT NULL, description   TEXT NULL, cover_path    TEXT NULL, cover_blur_hash TEXT NULL);
+
+CREATE TABLE book_series_memberships (
+    book_id   VARCHAR(36) NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    series_id VARCHAR(36) NOT NULL REFERENCES book_series(id),
+    sequence  VARCHAR(64),
+    ordinal   INTEGER NOT NULL,
+    PRIMARY KEY (book_id, series_id)
+);
+
+CREATE TABLE book_chapters (
+    book_id    VARCHAR(36) NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    ordinal    INTEGER NOT NULL,
+    id         VARCHAR(36) NOT NULL,
+    title      VARCHAR(1024) NOT NULL,
+    duration   BIGINT NOT NULL,
+    start_time BIGINT NOT NULL,
+    PRIMARY KEY (book_id, ordinal)
+);
+
+CREATE TABLE book_audio_files (
+    book_id  VARCHAR(36) NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    ordinal  INTEGER NOT NULL,
+    id       VARCHAR(36) NOT NULL,
+    filename VARCHAR(1024) NOT NULL,
+    format   VARCHAR(32) NOT NULL,
+    codec    VARCHAR(32) NOT NULL,
+    duration BIGINT NOT NULL,
+    size     BIGINT NOT NULL, codecProfile TEXT, spatial TEXT, bitrate INTEGER, sampleRate INTEGER, channels INTEGER,
+    PRIMARY KEY (book_id, ordinal)
+);
+
+CREATE TABLE book_search_map (
+    book_id VARCHAR(36) NOT NULL PRIMARY KEY,
+    rowid   INTEGER NOT NULL
+);
+
+CREATE TABLE playback_positions (
+    id               TEXT    NOT NULL,
+    user_id          TEXT    NOT NULL,
+    book_id          TEXT    NOT NULL,
+    position_ms      INTEGER NOT NULL,
+    last_played_at   INTEGER NOT NULL,
+    finished         INTEGER NOT NULL DEFAULT 0,
+    playback_speed   REAL    NOT NULL DEFAULT 1.0,
+    current_chapter_id TEXT  NULL,
+    revision         INTEGER NOT NULL DEFAULT 0,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL,
+    deleted_at       INTEGER NULL,
+    client_op_id     TEXT    NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE listening_events (
+    id                  TEXT    NOT NULL,
+    user_id             TEXT    NOT NULL,
+    book_id             TEXT    NOT NULL,
+    start_position_ms   INTEGER NOT NULL,
+    end_position_ms     INTEGER NOT NULL,
+    started_at          INTEGER NOT NULL,
+    ended_at            INTEGER NOT NULL,
+    playback_speed      REAL    NOT NULL,
+    tz                  TEXT    NOT NULL,
+    device_label        TEXT    NULL,
+    revision            INTEGER NOT NULL DEFAULT 0,
+    created_at          INTEGER NOT NULL,
+    updated_at          INTEGER NOT NULL,
+    deleted_at          INTEGER NULL,
+    client_op_id        TEXT    NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE user_stats (
+    id                          TEXT    NOT NULL,
+    user_id                     TEXT    NOT NULL,
+    total_seconds_all_time      INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_7_days   INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_30_days  INTEGER NOT NULL DEFAULT 0,
+    books_started               INTEGER NOT NULL DEFAULT 0,
+    books_finished              INTEGER NOT NULL DEFAULT 0,
+    current_streak_days         INTEGER NOT NULL DEFAULT 0,
+    longest_streak_days         INTEGER NOT NULL DEFAULT 0,
+    last_event_date             TEXT    NULL,
+    revision                    INTEGER NOT NULL DEFAULT 0,
+    created_at                  INTEGER NOT NULL,
+    updated_at                  INTEGER NOT NULL,
+    deleted_at                  INTEGER NULL,
+    client_op_id                TEXT    NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE active_sessions (
+    session_id   TEXT    NOT NULL,
+    user_id      TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    started_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER NULL,
+    client_op_id TEXT    NULL,
+    PRIMARY KEY (session_id)
+);
+
+CREATE TABLE metadata_cache (
+    cache_key    TEXT    NOT NULL PRIMARY KEY,
+    region       TEXT    NOT NULL,
+    payload_json TEXT    NOT NULL,
+    fetched_at   INTEGER NOT NULL,
+    expires_at   INTEGER NOT NULL
+);
+
+CREATE TABLE library_folders (
+    id          VARCHAR(36)   NOT NULL PRIMARY KEY,
+    library_id  VARCHAR(36)   NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    root_path   VARCHAR(1024) NOT NULL,
+    created_at  INTEGER       NOT NULL,
+    revision    INTEGER       NOT NULL DEFAULT 0,
+    updated_at  INTEGER       NOT NULL DEFAULT 0,
+    deleted_at  INTEGER,
+    client_op_id TEXT
+);
+
+CREATE TABLE book_tags (
+    id           TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    tag_id       TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (book_id, tag_id),
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+);
+
+CREATE TABLE contributor_aliases (
+    contributor_id TEXT NOT NULL,
+    alias          TEXT NOT NULL,
+    PRIMARY KEY (contributor_id, alias),
+    FOREIGN KEY (contributor_id) REFERENCES contributors(id) ON DELETE CASCADE
+);
+
+CREATE TABLE genres (
+    id           TEXT    PRIMARY KEY,
+    name         TEXT    NOT NULL,
+    slug         TEXT    NOT NULL,
+    path         TEXT    NOT NULL,
+    parent_id    TEXT,
+    depth        INTEGER NOT NULL DEFAULT 0,
+    sort_order   INTEGER NOT NULL DEFAULT 0,
+    color        TEXT,
+    description  TEXT,
+    -- SyncableTable substrate columns
+    revision     INTEGER NOT NULL DEFAULT 0,
+    updated_at   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL DEFAULT 0,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    FOREIGN KEY (parent_id) REFERENCES genres(id) ON DELETE SET NULL
+);
+
+CREATE TABLE book_genres (
+    book_id  TEXT NOT NULL,
+    genre_id TEXT NOT NULL,
+    PRIMARY KEY (book_id, genre_id),
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+    FOREIGN KEY (genre_id) REFERENCES genres(id) ON DELETE CASCADE
+);
+
+CREATE TABLE genre_aliases (
+    raw_string TEXT PRIMARY KEY COLLATE NOCASE,
+    genre_id   TEXT NOT NULL,
+    FOREIGN KEY (genre_id) REFERENCES genres(id) ON DELETE CASCADE
+);
+
+CREATE TABLE pending_book_genres (
+    book_id       TEXT    NOT NULL,
+    raw_string    TEXT    NOT NULL COLLATE NOCASE,
+    first_seen_at INTEGER NOT NULL,
+    PRIMARY KEY (book_id, raw_string),
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+);
+
+CREATE TABLE collections (
+    id                TEXT    NOT NULL,
+    library_id        TEXT    NOT NULL,
+    owner_id          TEXT    NOT NULL,
+    name              TEXT    NOT NULL,
+    created_at        INTEGER NOT NULL,
+    updated_at        INTEGER NOT NULL,
+    revision          INTEGER NOT NULL,
+    deleted_at        INTEGER,
+    client_op_id      TEXT, type TEXT NOT NULL DEFAULT 'NORMAL',
+    PRIMARY KEY (id),
+    FOREIGN KEY (library_id) REFERENCES libraries(id) ON DELETE CASCADE
+);
+
+CREATE TABLE collection_books (
+    id            TEXT    NOT NULL,
+    collection_id TEXT    NOT NULL,
+    book_id       TEXT    NOT NULL,
+    created_at    INTEGER NOT NULL,
+    updated_at    INTEGER NOT NULL,
+    revision      INTEGER NOT NULL,
+    deleted_at    INTEGER,
+    client_op_id  TEXT,
+    PRIMARY KEY (collection_id, book_id),
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+);
+
+CREATE TABLE "collection_grants" (
+    id                  TEXT    NOT NULL,
+    collection_id       TEXT    NOT NULL,
+    principal_id TEXT    NOT NULL,
+    granted_by_user_id   TEXT    NOT NULL,
+    permission          TEXT    NOT NULL DEFAULT 'read',
+    created_at          INTEGER NOT NULL,
+    updated_at          INTEGER NOT NULL,
+    revision            INTEGER NOT NULL,
+    deleted_at          INTEGER,
+    client_op_id        TEXT, principal_type TEXT NOT NULL DEFAULT 'USER',
+    PRIMARY KEY (id),
+    FOREIGN KEY (collection_id) REFERENCES collections(id) ON DELETE CASCADE,
+    FOREIGN KEY (principal_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE server_settings (
+    key   TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (key)
+);
+
+CREATE TABLE invites (
+    id           TEXT    NOT NULL,
+    code         TEXT    NOT NULL UNIQUE,
+    email        TEXT    NOT NULL,
+    display_name TEXT    NOT NULL,
+    role         TEXT    NOT NULL,
+    created_by   TEXT    NOT NULL,
+    expires_at   INTEGER NOT NULL,
+    claimed_at   INTEGER,
+    claimed_by   TEXT,
+    created_at   INTEGER NOT NULL,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE shelves (
+    id           TEXT    NOT NULL,
+    user_id      TEXT    NOT NULL,
+    name         TEXT    NOT NULL,
+    description  TEXT    NOT NULL DEFAULT '',
+    is_private   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE shelf_books (
+    id           TEXT    NOT NULL,
+    user_id      TEXT    NOT NULL,
+    shelf_id     TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    sort_order   INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (shelf_id, book_id),
+    FOREIGN KEY (shelf_id) REFERENCES shelves(id) ON DELETE CASCADE,
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE
+);
+
+CREATE TABLE public_profiles (
+    id                          TEXT    NOT NULL,
+    display_name                TEXT    NOT NULL,
+    avatar_type                 TEXT    NOT NULL DEFAULT 'auto',
+    total_seconds_all_time      INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_7_days   INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_30_days  INTEGER NOT NULL DEFAULT 0,
+    total_seconds_last_365_days INTEGER NOT NULL DEFAULT 0,
+    books_finished              INTEGER NOT NULL DEFAULT 0,
+    current_streak_days         INTEGER NOT NULL DEFAULT 0,
+    longest_streak_days         INTEGER NOT NULL DEFAULT 0,
+    created_at                  INTEGER NOT NULL,
+    updated_at                  INTEGER NOT NULL,
+    revision                    INTEGER NOT NULL,
+    deleted_at                  INTEGER,
+    client_op_id                TEXT, tagline TEXT, books_finished_last_7_days   INTEGER NOT NULL DEFAULT 0, books_finished_last_30_days  INTEGER NOT NULL DEFAULT 0, books_finished_last_365_days INTEGER NOT NULL DEFAULT 0, longest_streak_last_7_days   INTEGER NOT NULL DEFAULT 0, longest_streak_last_30_days  INTEGER NOT NULL DEFAULT 0, longest_streak_last_365_days INTEGER NOT NULL DEFAULT 0, avatar_updated_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE activities (
+    id             TEXT    NOT NULL,
+    user_id        TEXT    NOT NULL,
+    type           TEXT    NOT NULL,
+    created_at     INTEGER NOT NULL,
+    book_id        TEXT,
+    is_reread      INTEGER NOT NULL DEFAULT 0,
+    duration_ms    INTEGER NOT NULL DEFAULT 0,
+    milestone_value INTEGER NOT NULL DEFAULT 0,
+    milestone_unit TEXT,
+    shelf_id       TEXT,
+    shelf_name     TEXT, occurred_at INTEGER NOT NULL DEFAULT 0, revision      INTEGER, updated_at    INTEGER NOT NULL DEFAULT 0, deleted_at    INTEGER, client_op_id  TEXT,
+    PRIMARY KEY (id)
+);
+
+CREATE TABLE book_reads (
+    id          TEXT    NOT NULL PRIMARY KEY,
+    user_id     TEXT    NOT NULL,
+    book_id     TEXT    NOT NULL,
+    finished_at INTEGER NOT NULL,
+    source      TEXT    NOT NULL,
+    created_at  INTEGER NOT NULL
+);
+
+CREATE TABLE moods (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    name         TEXT    NOT NULL,
+    slug         TEXT    NOT NULL,
+    revision     INTEGER NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT
+);
+
+CREATE TABLE book_moods (
+    id           TEXT    NOT NULL,
+    book_id      TEXT    NOT NULL,
+    mood_id      TEXT    NOT NULL,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT,
+    PRIMARY KEY (book_id, mood_id),
+    FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE,
+    FOREIGN KEY (mood_id) REFERENCES moods(id) ON DELETE CASCADE
+);
+
+CREATE TABLE user_settings (
+    user_id                     TEXT NOT NULL PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    default_playback_speed      REAL NOT NULL DEFAULT 1.0,
+    default_skip_forward_sec    INTEGER NOT NULL DEFAULT 30,
+    default_skip_backward_sec   INTEGER NOT NULL DEFAULT 10,
+    default_sleep_timer_min     INTEGER,
+    shake_to_reset_sleep_timer  INTEGER NOT NULL DEFAULT 0,
+    updated_at                  TEXT NOT NULL
+);
+
+CREATE TABLE book_documents (
+    book_id  VARCHAR(36)   NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+    ordinal  INTEGER       NOT NULL,
+    id       VARCHAR(36)   NOT NULL,
+    filename VARCHAR(1024) NOT NULL,
+    format   VARCHAR(32)   NOT NULL,
+    size     BIGINT        NOT NULL,
+    hash     VARCHAR(64)   NOT NULL,
+    PRIMARY KEY (book_id, ordinal)
+);
+
+CREATE TABLE admin_user_roster (
+    id                 TEXT    NOT NULL,
+    email              TEXT    NOT NULL,
+    display_name       TEXT    NOT NULL,
+    role               TEXT    NOT NULL,
+    status             TEXT    NOT NULL,
+    can_share          INTEGER NOT NULL,
+    account_created_at INTEGER NOT NULL,
+    created_at         INTEGER NOT NULL,
+    updated_at         INTEGER NOT NULL,
+    revision           INTEGER NOT NULL,
+    deleted_at         INTEGER,
+    client_op_id       TEXT,
+    PRIMARY KEY (id)
+);
+
+CREATE UNIQUE INDEX idx_sessions_token_hash ON sessions(refresh_token_hash);
+
+CREATE INDEX idx_sessions_previous_hash ON sessions(previous_hash);
+
+CREATE INDEX idx_sessions_user_active ON sessions(user_id, revoked_at);
+
+CREATE INDEX idx_sessions_family      ON sessions(family_id);
+
+CREATE INDEX idx_sessions_expires     ON sessions(expires_at);
+
+CREATE INDEX idx_tags_revision ON tags (revision);
+
+CREATE INDEX idx_tags_name ON tags (name);
+
+CREATE INDEX idx_libraries_revision ON libraries(revision);
+
+CREATE UNIQUE INDEX idx_book_natural_key ON books(folder_id, root_rel_path);
+
+CREATE INDEX idx_book_inode ON books(folder_id, inode);
+
+CREATE INDEX idx_book_sort_title ON books(library_id, sort_title);
+
+CREATE INDEX idx_book_revision ON books(revision);
+
+CREATE INDEX idx_book_updated_at ON books(updated_at);
+
+CREATE UNIQUE INDEX idx_contributor_normalized ON contributors(normalized_name);
+
+CREATE INDEX idx_bc_contributor_role ON book_contributors(contributor_id, role);
+
+CREATE UNIQUE INDEX idx_series_normalized ON book_series(normalized_name);
+
+CREATE INDEX idx_bsm_series ON book_series_memberships(series_id);
+
+CREATE UNIQUE INDEX idx_book_search_map_rowid ON book_search_map(rowid);
+
+CREATE INDEX idx_contributors_revision ON contributors(revision);
+
+CREATE INDEX idx_book_series_revision ON book_series(revision);
+
+CREATE UNIQUE INDEX idx_playback_position_user_book ON playback_positions(user_id, book_id);
+
+CREATE INDEX idx_playback_position_user_id   ON playback_positions(user_id);
+
+CREATE INDEX idx_playback_position_revision  ON playback_positions(revision);
+
+CREATE INDEX idx_playback_position_user_rev  ON playback_positions(user_id, revision);
+
+CREATE INDEX idx_listening_events_user_revision ON listening_events(user_id, revision);
+
+CREATE INDEX idx_listening_events_user_ended_at ON listening_events(user_id, ended_at);
+
+CREATE INDEX idx_listening_events_user_book     ON listening_events(user_id, book_id);
+
+CREATE UNIQUE INDEX idx_user_stats_user          ON user_stats(user_id);
+
+CREATE INDEX idx_user_stats_user_revision ON user_stats(user_id, revision);
+
+CREATE INDEX idx_active_sessions_user_id   ON active_sessions(user_id);
+
+CREATE INDEX idx_active_sessions_revision  ON active_sessions(revision);
+
+CREATE INDEX idx_active_sessions_user_rev  ON active_sessions(user_id, revision);
+
+CREATE INDEX idx_active_sessions_updated   ON active_sessions(updated_at);
+
+CREATE INDEX idx_metadata_cache_expires ON metadata_cache(expires_at);
+
+CREATE UNIQUE INDEX idx_library_folders_root_path ON library_folders(root_path) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_library_folders_library_id ON library_folders(library_id);
+
+CREATE INDEX idx_library_folders_revision ON library_folders(revision);
+
+CREATE INDEX idx_books_library_id ON books(library_id);
+
+CREATE INDEX idx_books_folder_id ON books(folder_id);
+
+CREATE UNIQUE INDEX idx_tags_slug ON tags(slug) WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX idx_book_tags_id ON book_tags(id);
+
+CREATE INDEX idx_book_tags_tag_id ON book_tags(tag_id, book_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_book_tags_revision ON book_tags(revision);
+
+CREATE INDEX idx_contributor_aliases_contributor_id ON contributor_aliases(contributor_id);
+
+CREATE UNIQUE INDEX idx_genres_slug_live ON genres(slug) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_genres_path ON genres(path);
+
+CREATE INDEX idx_genres_parent ON genres(parent_id);
+
+CREATE INDEX idx_genres_revision ON genres(revision);
+
+CREATE INDEX idx_book_genres_genre ON book_genres(genre_id);
+
+CREATE INDEX idx_genre_aliases_genre ON genre_aliases(genre_id);
+
+CREATE INDEX idx_pending_book_genres_raw ON pending_book_genres(raw_string);
+
+CREATE INDEX idx_collections_owner ON collections(owner_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_collections_library ON collections(library_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_collections_revision ON collections(revision);
+
+CREATE UNIQUE INDEX idx_collections_inbox ON collections(library_id) WHERE type = 'INBOX' AND deleted_at IS NULL;
+
+CREATE UNIQUE INDEX idx_collection_books_id ON collection_books(id);
+
+CREATE INDEX idx_collection_books_book ON collection_books(book_id, collection_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_collection_books_revision ON collection_books(revision);
+
+CREATE INDEX idx_collection_grants_revision ON collection_grants(revision);
+
+CREATE UNIQUE INDEX idx_collection_grants_active ON collection_grants(collection_id, principal_type, principal_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_collection_grants_principal ON collection_grants(principal_type, principal_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_shelves_user ON shelves(user_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_shelves_revision ON shelves(revision);
+
+CREATE UNIQUE INDEX idx_shelf_books_id ON shelf_books(id);
+
+CREATE INDEX idx_shelf_books_shelf ON shelf_books(shelf_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_shelf_books_book ON shelf_books(book_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_shelf_books_user ON shelf_books(user_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_shelf_books_revision ON shelf_books(revision);
+
+CREATE INDEX idx_public_profiles_revision ON public_profiles(revision);
+
+CREATE INDEX idx_activities_created_at ON activities(created_at);
+
+CREATE INDEX idx_book_reads_book ON book_reads (book_id);
+
+CREATE INDEX idx_book_reads_user_book ON book_reads (user_id, book_id);
+
+CREATE INDEX idx_activities_occurred_at ON activities(occurred_at);
+
+CREATE INDEX idx_moods_revision ON moods (revision);
+
+CREATE INDEX idx_moods_name ON moods (name);
+
+CREATE UNIQUE INDEX idx_moods_slug ON moods(slug) WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX idx_book_moods_id ON book_moods(id);
+
+CREATE INDEX idx_book_moods_mood_id ON book_moods(mood_id, book_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_book_moods_revision ON book_moods(revision);
+
+CREATE INDEX idx_collections_type ON collections(type);
+
+CREATE UNIQUE INDEX idx_collections_all_books ON collections(library_id) WHERE type = 'ALL_BOOKS' AND deleted_at IS NULL;
+
+CREATE INDEX idx_admin_user_roster_revision ON admin_user_roster(revision);
+
+CREATE INDEX idx_activities_revision ON activities(revision);
+
+CREATE TRIGGER contributors_ad AFTER DELETE ON contributors BEGIN
+    DELETE FROM contributor_search WHERE rowid = old.rowid;
+END;
+
+CREATE TRIGGER contributors_ai AFTER INSERT ON contributors BEGIN
+    INSERT INTO contributor_search(rowid, name, sort_name, description, aliases)
+    VALUES (new.rowid, new.name, new.sort_name, new.description, '');
+END;
+
+CREATE TRIGGER contributors_au AFTER UPDATE ON contributors BEGIN
+    DELETE FROM contributor_search WHERE rowid = old.rowid;
+    INSERT INTO contributor_search(rowid, name, sort_name, description, aliases)
+    VALUES (new.rowid, new.name, new.sort_name, new.description,
+        (SELECT COALESCE(GROUP_CONCAT(alias, ' '), '') FROM contributor_aliases WHERE contributor_id = new.id));
+END;
+
+CREATE TRIGGER series_ad AFTER DELETE ON book_series BEGIN
+    INSERT INTO series_search(series_search, rowid, name, sort_name, description)
+    VALUES ('delete', old.rowid, old.name, old.sort_name, old.description);
+END;
+
+CREATE TRIGGER series_ai AFTER INSERT ON book_series BEGIN
+    INSERT INTO series_search(rowid, name, sort_name, description)
+    VALUES (new.rowid, new.name, new.sort_name, new.description);
+END;
+
+CREATE TRIGGER series_au AFTER UPDATE ON book_series BEGIN
+    INSERT INTO series_search(series_search, rowid, name, sort_name, description)
+    VALUES ('delete', old.rowid, old.name, old.sort_name, old.description);
+    INSERT INTO series_search(rowid, name, sort_name, description)
+    VALUES (new.rowid, new.name, new.sort_name, new.description);
+END;
+
+CREATE TRIGGER tags_ad AFTER DELETE ON tags BEGIN
+    INSERT INTO tag_search(tag_search, rowid, name, slug) VALUES ('delete', old.rowid, old.name, old.slug);
+END;
+
+CREATE TRIGGER tags_ai AFTER INSERT ON tags BEGIN
+    INSERT INTO tag_search(rowid, name, slug) VALUES (new.rowid, new.name, new.slug);
+END;
+
+CREATE TRIGGER tags_au AFTER UPDATE ON tags BEGIN
+    INSERT INTO tag_search(tag_search, rowid, name, slug) VALUES ('delete', old.rowid, old.name, old.slug);
+    INSERT INTO tag_search(rowid, name, slug) VALUES (new.rowid, new.name, new.slug);
+END;
+
+-- Seed rows (unconditional inserts carried by the original chain).
+INSERT INTO sync_meta (key, value) VALUES ('revision_counter', 0);

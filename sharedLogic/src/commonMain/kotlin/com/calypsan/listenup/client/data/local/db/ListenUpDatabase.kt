@@ -15,21 +15,13 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at v49. Migrations live in the `data/local/migrations/` package
- * (e.g. `Migration14To15`, `Migration19To20`) and are registered via `.addMigrations(...)`
- * in each platform `DatabaseModule`. Pre-launch policy: `fallbackToDestructiveMigration(true)`
- * is set on each `DatabaseModule`; before launch, flip the fallback to `false` and
- * verify the full migration chain is registered. The `@Database.exportSchema`
- * on-disk JSON for each version is the authoritative source for writing migrations.
- *
- * v47 → v48 (avatar single-source): dropped the `user_profiles` table and the
- * `users.avatarType`/`avatarValue`/`avatarColor` columns. Avatar state now lives solely in the
- * synced `public_profiles` row. No hand-written migration — the pre-launch destructive fallback
- * recreates the schema (beta DBs re-sync from the server), which is acceptable pre-release.
- *
- * v48 → v49: adds the covering index `index_activities_deletedAt_revision_id` on `activities`
- * (digest/liveIds become index-only scans on the append-forever table). Hand-written migration:
- * `Migration48To49`.
+ * Schema is at **v1** — a pre-1.0 baseline that squashed the accumulated migration chain
+ * (no beta DBs existed to migrate, so the collapse is purely mechanical). There is no
+ * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each
+ * platform `DatabaseModule` nukes and recreates the local DB on any schema change (data
+ * re-syncs from the server), which is acceptable pre-release. Before launch, flip the
+ * fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/1.json`) is the authoritative baseline.
  */
 @Database(
     entities = [
@@ -71,7 +63,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 49,
+    version = 1,
     exportSchema = true,
 )
 @TypeConverters(

@@ -40,12 +40,6 @@ class SqlStatementSplitterTest :
             out[1] shouldContain "CREATE TABLE after"
         }
 
-        test("the real V19 migration splits into its 10 statements") {
-            val v19 = checkNotNull(this::class.java.getResource("/db/migration/V19__contributor_series_search.sql")).readText()
-            val out = SqlStatementSplitter.split(v19)
-            out shouldHaveSize 10
-        }
-
         test("a doubled single-quote is an escape, and a semicolon inside the literal is not a terminator") {
             val out = SqlStatementSplitter.split("INSERT INTO t VALUES ('it''s; ok'); SELECT 1;")
             out shouldHaveSize 2
