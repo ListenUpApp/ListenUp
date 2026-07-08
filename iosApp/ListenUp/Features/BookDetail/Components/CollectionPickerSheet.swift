@@ -99,6 +99,11 @@ struct CollectionPickerSheet: View {
                         .foregroundStyle(Color.listenUpOrange)
                         .disabled(trimmedName.isEmpty || observer.isAddingToCollection)
                 }
+                // Give each button its own hit target. Without .borderless, two default
+                // buttons in a List row make the whole row tappable for BOTH: a tap anywhere
+                // outside the tiny "Create" text fires Cancel (clearing the name) then Create,
+                // which no-ops on the empty-name guard — a silent create failure.
+                .buttonStyle(.borderless)
             } else {
                 Button { isCreatingCollection = true } label: {
                     Label(String(localized: "book.detail_new_collection"), systemImage: "plus")

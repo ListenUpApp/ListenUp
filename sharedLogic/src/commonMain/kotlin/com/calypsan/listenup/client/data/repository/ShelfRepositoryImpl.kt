@@ -3,10 +3,12 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.ShelfDao
+import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
@@ -16,12 +18,18 @@ import com.calypsan.listenup.client.domain.model.ShelfDetail
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeout
 
 private val logger = KotlinLogging.logger {}
+
+/** Upper bound on a single shelf RPC. Guards against a black-holed WebSocket that never resolves. */
+private const val RPC_TIMEOUT_MS = 15_000L
 
 /**
  * Shelf repository — substrate-Room-backed reads, [com.calypsan.listenup.api.ShelfService]
@@ -105,7 +113,8 @@ internal class ShelfRepositoryImpl(
                 description = description ?: "",
                 isPrivate = isPrivate,
             )
-        }.map { it.toDomain() }
+        }.also { if (it is AppResult.Success) mirrorCreatedShelf(it.data) }
+            .map { it.toDomain() }
 
     override suspend fun updateShelf(
         shelfId: ShelfId,
@@ -193,13 +202,38 @@ internal class ShelfRepositoryImpl(
      */
     private suspend fun <T> rpcCall(block: suspend () -> AppResult<T>): AppResult<T> =
         try {
-            block()
+            withTimeout(RPC_TIMEOUT_MS) { block() }
+        } catch (e: TimeoutCancellationException) {
+            logger.warn(e) { "Shelf RPC timed out after ${RPC_TIMEOUT_MS}ms" }
+            AppResult.Failure(TransportError.Timeout())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "Shelf RPC failed" }
             AppResult.Failure(ErrorMapper.map(e))
         }
+
+    /**
+     * Optimistically mirror a just-created shelf into Room so it appears immediately, without waiting
+     * for the SSE echo (offline-first / never-stranded). Insert-if-absent at revision 0: the
+     * authoritative echo (revision >= 1) always wins via the domain's ServerWins/RevisionGuard, and a
+     * digest reconcile self-heals if the echo landed first — so this never overwrites an echoed row.
+     */
+    private suspend fun mirrorCreatedShelf(shelf: com.calypsan.listenup.api.dto.shelf.Shelf) {
+        if (dao.revisionOf(shelf.id.value) != null) return
+        dao.upsert(
+            ShelfEntity(
+                id = shelf.id.value,
+                name = shelf.name,
+                description = shelf.description,
+                isPrivate = shelf.isPrivate,
+                revision = 0,
+                deletedAt = null,
+                updatedAt = shelf.updatedAt,
+                createdAt = shelf.updatedAt,
+            ),
+        )
+    }
 }
 
 private fun com.calypsan.listenup.api.dto.shelf.Shelf.toDomain(): Shelf =

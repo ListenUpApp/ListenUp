@@ -3,8 +3,10 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
 import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
+import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.CollectionWithBookCount
@@ -16,14 +18,20 @@ import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.api.result.map
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withTimeout
 
 private val logger = KotlinLogging.logger {}
+
+/** Upper bound on a single collection RPC. Guards against a black-holed WebSocket that never resolves. */
+private const val RPC_TIMEOUT_MS = 15_000L
 
 /**
  * Collection repository — Room-backed reads, RPC-dispatched mutations.
@@ -63,7 +71,10 @@ internal class CollectionRepositoryImpl(
     override suspend fun create(
         libraryId: String,
         name: String,
-    ): AppResult<Collection> = rpcCall { rpcFactory.get().createCollection(libraryId, name) }.map { it.toDomain() }
+    ): AppResult<Collection> =
+        rpcCall { rpcFactory.get().createCollection(libraryId, name) }
+            .also { if (it is AppResult.Success) mirrorCreatedCollection(libraryId, it.data) }
+            .map { it.toDomain() }
 
     override suspend fun rename(
         id: String,
@@ -119,16 +130,45 @@ internal class CollectionRepositoryImpl(
      */
     private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
         try {
-            when (val result = block()) {
+            when (val result = withTimeout(RPC_TIMEOUT_MS) { block() }) {
                 is WireAppResult.Success -> AppResult.Success(result.data)
                 is WireAppResult.Failure -> AppResult.Failure(result.error)
             }
+        } catch (e: TimeoutCancellationException) {
+            logger.warn(e) { "Collection RPC timed out after ${RPC_TIMEOUT_MS}ms" }
+            AppResult.Failure(TransportError.Timeout())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Throwable) {
             logger.warn(e) { "Collection RPC failed" }
             AppResult.Failure(ErrorMapper.map(e))
         }
+
+    /**
+     * Optimistically mirror a just-created collection into Room so it appears immediately, without
+     * waiting for the SSE echo (offline-first / never-stranded). Insert-if-absent at revision 0: the
+     * authoritative echo (revision >= 1) always wins via the domain's ServerWins/RevisionGuard, and a
+     * digest reconcile self-heals if the echo landed first — so this never overwrites an echoed row.
+     */
+    private suspend fun mirrorCreatedCollection(
+        libraryId: String,
+        summary: CollectionSummary,
+    ) {
+        if (collectionDao.revisionOf(summary.id.value) != null) return
+        collectionDao.upsert(
+            CollectionEntity(
+                id = summary.id.value,
+                libraryId = libraryId,
+                ownerId = summary.ownerId.value,
+                name = summary.name,
+                isInbox = summary.isInbox,
+                isSystem = summary.isSystem,
+                revision = 0,
+                deletedAt = null,
+                updatedAt = currentEpochMilliseconds(),
+            ),
+        )
+    }
 }
 
 private fun CollectionWithBookCount.toDomain(): Collection =

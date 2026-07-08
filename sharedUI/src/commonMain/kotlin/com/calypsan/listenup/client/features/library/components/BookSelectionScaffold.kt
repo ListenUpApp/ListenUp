@@ -86,8 +86,7 @@ fun BookSelectionScaffold(
     }
 
     // Collection picker sheet. Collections are admin-managed — gate the picker
-    // presentation on isAdmin as defense-in-depth. The multi-select flow adds existing
-    // collections only; inline create lives on the Book Detail picker (canCreate = false here).
+    // presentation (and the inline-create affordance) on isAdmin as defense-in-depth.
     if (showCollectionPicker && isAdmin) {
         CollectionPickerSheet(
             collections = collections,
@@ -95,7 +94,10 @@ fun BookSelectionScaffold(
             onCollectionSelected = { collectionId ->
                 multiSelect.addSelectedToCollection(collectionId)
             },
-            onCreateAndAddToCollection = {},
+            onCreateAndAddToCollection = { name ->
+                multiSelect.createCollectionAndAddBooks(name)
+            },
+            canCreate = isAdmin,
             onDismiss = { showCollectionPicker = false },
             isLoading = isAddingToCollection,
         )

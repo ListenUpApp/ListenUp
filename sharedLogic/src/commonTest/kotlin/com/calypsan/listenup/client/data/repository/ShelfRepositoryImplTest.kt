@@ -18,11 +18,14 @@ import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.Timestamp
+import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.answering.throws
 import dev.mokkery.every
 import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -57,7 +60,8 @@ class ShelfRepositoryImplTest :
             )
 
         fun repo(
-            shelfDao: ShelfDao = mock(),
+            // autofill: createShelf() now reads revisionOf() and calls upsert() for the optimistic mirror.
+            shelfDao: ShelfDao = mock(MockMode.autofill),
             userDao: UserDao = mock { everySuspend { getCurrentUser() } returns user() },
             service: ShelfService = mock(),
         ): ShelfRepositoryImpl {
@@ -141,6 +145,41 @@ class ShelfRepositoryImplTest :
                     }
                 val result = repo(service = service).createShelf("Dup", null, isPrivate = false)
                 result.shouldBeInstanceOf<AppResult.Failure>()
+            }
+        }
+
+        // Offline-first visibility: a created shelf is written to Room immediately so it shows in the
+        // list without waiting for the SSE echo.
+        test("createShelf optimistically mirrors the new shelf into Room before the SSE echo") {
+            runTest {
+                val dao = mock<ShelfDao>(MockMode.autofill)
+                everySuspend { dao.revisionOf("s-new") } returns null // not yet echoed
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { createShelf("New", "", false) } returns
+                            AppResult.Success(summary("s-new", "New"))
+                    }
+
+                repo(shelfDao = dao, service = service).createShelf("New", null, isPrivate = false)
+
+                verifySuspend { dao.upsert(any()) }
+            }
+        }
+
+        // Idempotency: insert-if-absent must never clobber a row the SSE echo already applied.
+        test("createShelf does not overwrite an already-echoed shelf row") {
+            runTest {
+                val dao = mock<ShelfDao>(MockMode.autofill)
+                everySuspend { dao.revisionOf("s-new") } returns 9L // echo already applied
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { createShelf("New", "", false) } returns
+                            AppResult.Success(summary("s-new", "New"))
+                    }
+
+                repo(shelfDao = dao, service = service).createShelf("New", null, isPrivate = false)
+
+                verifySuspend(mode = VerifyMode.not) { dao.upsert(any()) }
             }
         }
 

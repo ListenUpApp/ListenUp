@@ -122,8 +122,38 @@ class BookDetailViewModel(
             bookIdFlow
                 .filterNotNull()
                 .flatMapLatest { id -> loadBookFlow(id) }
-                .collect { state.value = it }
+                .collect { built -> state.value = built.preservingTransientOverlays(state.value) }
         }
+    }
+
+    /**
+     * Carry user-driven transient overlay state (open pickers, in-flight action flags, inline
+     * errors) forward when [loadBookFlow] rebuilds [BookDetailUiState.Ready] from Room/availability.
+     *
+     * Those flows re-emit on every table invalidation (an SSE firehose frame the sync engine
+     * applies, a download progress tick, a reachability flip) — each rebuild resets these overlay
+     * fields to their defaults. Without preserving them, any background emission would silently close
+     * an open shelf/collection picker (and its create dialog) mid-interaction — the create-from-book-
+     * detail bug. Only carried between two [Ready]s for the *same* load; a book switch emits [Loading]
+     * first (breaking the chain), so overlays never leak across books.
+     *
+     * NOTE: when adding a new user-transient field to [Ready], add it here too.
+     */
+    private fun BookDetailUiState.preservingTransientOverlays(previous: BookDetailUiState): BookDetailUiState {
+        if (this !is BookDetailUiState.Ready || previous !is BookDetailUiState.Ready) return this
+        return copy(
+            isMarkingComplete = previous.isMarkingComplete,
+            isDiscardingProgress = previous.isDiscardingProgress,
+            isRestarting = previous.isRestarting,
+            isLoadingTags = previous.isLoadingTags,
+            showTagPicker = previous.showTagPicker,
+            showShelfPicker = previous.showShelfPicker,
+            isAddingToShelf = previous.isAddingToShelf,
+            shelfError = previous.shelfError,
+            showCollectionPicker = previous.showCollectionPicker,
+            isAddingToCollection = previous.isAddingToCollection,
+            collectionError = previous.collectionError,
+        )
     }
 
     /**

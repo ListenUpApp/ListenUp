@@ -15,10 +15,14 @@ import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.CollectionId
+import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -39,7 +43,8 @@ class CollectionRepositoryImplTest :
     FunSpec({
 
         fun repo(
-            collectionDao: CollectionDao = mock(),
+            // autofill: create() now reads revisionOf() and calls upsert() for the optimistic mirror.
+            collectionDao: CollectionDao = mock(MockMode.autofill),
             bookDao: CollectionBookDao = mock(),
             shareDao: CollectionShareDao = mock(),
             service: CollectionService = mock(),
@@ -146,6 +151,38 @@ class CollectionRepositoryImplTest :
                 val service = mock<CollectionService>()
                 everySuspend { service.deleteCollection(CollectionId("c1")) } returns WireAppResult.Success(Unit)
                 repo(service = service).delete("c1").shouldBeInstanceOf<AppResult.Success<*>>()
+            }
+        }
+
+        // Offline-first visibility: a created collection is written to Room immediately so it shows in
+        // the list without waiting for the SSE echo (which may be delayed or offline).
+        test("create optimistically mirrors the new collection into Room before the SSE echo") {
+            runTest {
+                val dao = mock<CollectionDao>(MockMode.autofill)
+                everySuspend { dao.revisionOf("c-new") } returns null // not yet echoed
+                val service = mock<CollectionService>()
+                everySuspend { service.createCollection("lib1", "New") } returns
+                    WireAppResult.Success(summary("c-new", "New"))
+
+                repo(collectionDao = dao, service = service).create("lib1", "New")
+
+                verifySuspend { dao.upsert(any()) }
+            }
+        }
+
+        // Idempotency: the optimistic write is insert-if-absent — it must never clobber a row the
+        // authoritative SSE echo already applied (which carries the real, higher revision).
+        test("create does not overwrite an already-echoed collection row") {
+            runTest {
+                val dao = mock<CollectionDao>(MockMode.autofill)
+                everySuspend { dao.revisionOf("c-new") } returns 9L // echo already applied
+                val service = mock<CollectionService>()
+                everySuspend { service.createCollection("lib1", "New") } returns
+                    WireAppResult.Success(summary("c-new", "New"))
+
+                repo(collectionDao = dao, service = service).create("lib1", "New")
+
+                verifySuspend(mode = VerifyMode.not) { dao.upsert(any()) }
             }
         }
     })
