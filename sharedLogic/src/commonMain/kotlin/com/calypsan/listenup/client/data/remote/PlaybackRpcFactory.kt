@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.withService
@@ -20,6 +21,17 @@ interface PlaybackRpcFactory {
     /** Returns the cached [PlaybackService] proxy, connecting on first use. */
     suspend fun playbackService(): PlaybackService
 
+    /**
+     * Run [block] against the [PlaybackService] proxy through the bounded, self-healing recovery
+     * engine, folding the outcome into an [AppResult].
+     *
+     * The default here only provides the boundary (throw → typed [AppResult.Failure]); the
+     * production [KtorPlaybackRpcFactory] overrides it to add the bounded reconnect + retry.
+     * Test doubles inherit the default and get faithful throw→Failure semantics without a socket.
+     */
+    suspend fun <T> callResult(block: suspend (PlaybackService) -> AppResult<T>): AppResult<T> =
+        catchingRpcResult { block(playbackService()) }
+
     /** Drop the cached proxy and the RPC-flavored HttpClient. */
     suspend fun invalidate()
 }
@@ -32,14 +44,18 @@ interface PlaybackRpcFactory {
 internal class KtorPlaybackRpcFactory(
     apiClientFactory: ApiClientFactory,
     serverConfig: ServerConfig,
+    authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
 ) : PlaybackRpcFactory,
     RemoteCache {
     private val cache =
-        RpcProxyCache(apiClientFactory, serverConfig) { client, baseUrl ->
+        RpcProxyCache(apiClientFactory, serverConfig, authRecovery) { client, baseUrl ->
             client.rpc("$baseUrl/api/rpc/authed").withService<PlaybackService>()
         }
 
     override suspend fun playbackService(): PlaybackService = cache.get()
+
+    override suspend fun <T> callResult(block: suspend (PlaybackService) -> AppResult<T>): AppResult<T> =
+        cache.rpcCall(block)
 
     override suspend fun invalidate() = cache.invalidate()
 }
