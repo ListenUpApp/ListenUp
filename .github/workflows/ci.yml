@@ -42,11 +42,8 @@ jobs:
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Check formatting (Spotless)
-        run: ./gradlew spotlessCheck --no-daemon
-
-      - name: Run static analysis (Detekt)
-        run: ./gradlew detekt --no-daemon
+      - name: Lint (Spotless + Detekt)
+        run: ./gradlew spotlessCheck detekt --no-daemon
 
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
       # container, pinned (0.63.3 — keep CLAUDE.md's local-commands row in sync when bumping).
