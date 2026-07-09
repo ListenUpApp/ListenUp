@@ -3,8 +3,6 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.CollectionShareDto
 import com.calypsan.listenup.api.dto.CollectionSummary
 import com.calypsan.listenup.api.dto.SharePermission
-import com.calypsan.listenup.api.error.TransportError
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
@@ -19,19 +17,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.currentEpochMilliseconds
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.api.result.map
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withTimeout
-
-private val logger = KotlinLogging.logger {}
-
-/** Upper bound on a single collection RPC. Guards against a black-holed WebSocket that never resolves. */
-private const val RPC_TIMEOUT_MS = 15_000L
 
 /**
  * Collection repository — Room-backed reads, RPC-dispatched mutations.
@@ -72,7 +60,7 @@ internal class CollectionRepositoryImpl(
         libraryId: String,
         name: String,
     ): AppResult<Collection> =
-        rpcCall { rpcFactory.get().createCollection(libraryId, name) }
+        rpcFactory.callResult { it.createCollection(libraryId, name) }
             .also { if (it is AppResult.Success) mirrorCreatedCollection(libraryId, it.data) }
             .map { it.toDomain() }
 
@@ -80,31 +68,32 @@ internal class CollectionRepositoryImpl(
         id: String,
         name: String,
     ): AppResult<Collection> =
-        rpcCall { rpcFactory.get().renameCollection(CollectionId(id), name) }.map { it.toDomain() }
+        rpcFactory.callResult { it.renameCollection(CollectionId(id), name) }.map { it.toDomain() }
 
     override suspend fun delete(id: String): AppResult<Unit> =
-        rpcCall {
-            rpcFactory.get().deleteCollection(CollectionId(id))
+        rpcFactory.callResult {
+            it.deleteCollection(CollectionId(id))
         }
 
     override suspend fun addBook(
         collectionId: String,
         bookId: String,
-    ): AppResult<Unit> = rpcCall { rpcFactory.get().addBookToCollection(CollectionId(collectionId), BookId(bookId)) }
+    ): AppResult<Unit> =
+        rpcFactory.callResult { it.addBookToCollection(CollectionId(collectionId), BookId(bookId)) }
 
     override suspend fun removeBook(
         collectionId: String,
         bookId: String,
     ): AppResult<Unit> =
-        rpcCall { rpcFactory.get().removeBookFromCollection(CollectionId(collectionId), BookId(bookId)) }
+        rpcFactory.callResult { it.removeBookFromCollection(CollectionId(collectionId), BookId(bookId)) }
 
     override suspend fun share(
         collectionId: String,
         sharedWithUserId: String,
         permission: SharePermission,
     ): AppResult<CollectionShare> =
-        rpcCall {
-            rpcFactory.get().shareCollection(CollectionId(collectionId), sharedWithUserId, permission)
+        rpcFactory.callResult {
+            it.shareCollection(CollectionId(collectionId), sharedWithUserId, permission)
         }.map { it.toDomain() }
 
     override suspend fun updateShare(
@@ -112,37 +101,16 @@ internal class CollectionRepositoryImpl(
         sharedWithUserId: String,
         permission: SharePermission,
     ): AppResult<CollectionShare> =
-        rpcCall {
-            rpcFactory.get().updateShare(CollectionId(collectionId), sharedWithUserId, permission)
+        rpcFactory.callResult {
+            it.updateShare(CollectionId(collectionId), sharedWithUserId, permission)
         }.map { it.toDomain() }
 
     override suspend fun revokeShare(
         collectionId: String,
         sharedWithUserId: String,
-    ): AppResult<Unit> = rpcCall { rpcFactory.get().revokeShare(CollectionId(collectionId), sharedWithUserId) }
+    ): AppResult<Unit> = rpcFactory.callResult { it.revokeShare(CollectionId(collectionId), sharedWithUserId) }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────
-
-    /**
-     * Run an RPC call, converting the contract-layer [WireAppResult] into the
-     * client [AppResult]. Re-throws [CancellationException]; all other throwables
-     * become [AppResult.Failure] via [ErrorMapper].
-     */
-    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
-        try {
-            when (val result = withTimeout(RPC_TIMEOUT_MS) { block() }) {
-                is WireAppResult.Success -> AppResult.Success(result.data)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: TimeoutCancellationException) {
-            logger.warn(e) { "Collection RPC timed out after ${RPC_TIMEOUT_MS}ms" }
-            AppResult.Failure(TransportError.Timeout())
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            logger.warn(e) { "Collection RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
-        }
 
     /**
      * Optimistically mirror a just-created collection into Room so it appears immediately, without

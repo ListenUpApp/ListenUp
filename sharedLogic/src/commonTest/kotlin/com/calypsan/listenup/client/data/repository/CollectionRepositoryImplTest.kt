@@ -13,6 +13,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.CollectionWithBookCount
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.CollectionId
 import dev.mokkery.MockMode
@@ -39,6 +40,22 @@ import kotlinx.coroutines.test.runTest
  * `WireAppResult` to the client [AppResult]. No optimistic Room writes — Room updates
  * arrive via the sync handler on SSE.
  */
+/**
+ * Fake [CollectionRpcFactory] routing [callResult] through the REAL boundary [catchingRpcResult],
+ * so repository tests exercise the same throw→Failure semantics the production
+ * [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a live socket.
+ */
+private class FakeCollectionRpcFactory(
+    private val service: CollectionService,
+) : CollectionRpcFactory {
+    override suspend fun get(): CollectionService = service
+
+    override suspend fun <T> callResult(block: suspend (CollectionService) -> AppResult<T>): AppResult<T> =
+        catchingRpcResult { block(service) }
+
+    override suspend fun invalidate() {}
+}
+
 class CollectionRepositoryImplTest :
     FunSpec({
 
@@ -48,11 +65,8 @@ class CollectionRepositoryImplTest :
             bookDao: CollectionBookDao = mock(),
             shareDao: CollectionShareDao = mock(),
             service: CollectionService = mock(),
-        ): CollectionRepositoryImpl {
-            val factory: CollectionRpcFactory = mock()
-            everySuspend { factory.get() } returns service
-            return CollectionRepositoryImpl(collectionDao, bookDao, shareDao, factory)
-        }
+        ): CollectionRepositoryImpl =
+            CollectionRepositoryImpl(collectionDao, bookDao, shareDao, FakeCollectionRpcFactory(service))
 
         fun entity(
             id: String,
