@@ -254,6 +254,12 @@ CI is organized into three stages — **Lint / Test / Build** — across a Linux
 
 `./gradlew verifyLocal --no-daemon` runs the Linux-lane `Lint` + `Test (JVM)` gates above in a single invocation (the native and iOS lanes stay separate).
 
+> **Never pipe a gate command.** `./gradlew … | tee build.log` (or `| tail`, `| grep`)
+> makes the shell report the pipe's last stage, not Gradle — a failing gate exits 0 and
+> looks green. Run gates bare and read the final `BUILD SUCCESSFUL` / `BUILD FAILED`
+> line. If you must capture output, use `set -o pipefail` first (zsh/bash) or check
+> `$pipestatus[1]` / `${PIPESTATUS[0]}` afterwards.
+
 **†iOS** = requires a Mac with Xcode 26. On an iOS-capable machine, run these before pushing. **On a non-iOS dev machine (e.g. Linux), the iOS gates can't run locally — push and rely on remote CI to run them** (the `Test (iOS)` / `Build (iOS)` / Swift-lint jobs gate the PR regardless).
 
 > **iOS local gate:** `Build (iOS)` (`xcodebuild build`) does **not** compile `ListenUpTests`. Before pushing iOS changes from a Mac, also run `xcodebuild build-for-testing` (or the full `Test (iOS)` command) so test-target drift can't slip to CI.
@@ -306,7 +312,7 @@ client/
 │       └── desktopMain/        # Desktop-specific UI
 ├── contract/                   # Client↔server contract: @Rpc service interfaces,
 │                               #   @Serializable DTOs, the error hierarchy
-├── server/                     # Ktor JVM server
+├── server/                     # Ktor server (KMP: JVM + linuxX64 native)
 ├── androidApp/                 # Android entry point (thin wrapper)
 ├── desktopApp/                 # Desktop entry point (thin wrapper)
 ├── build-logic/                # Gradle convention plugins + detekt-rules
