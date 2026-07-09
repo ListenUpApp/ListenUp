@@ -46,8 +46,17 @@ internal class MirroredDomain<T : SyncPayload>(
  * The self-heal is derived, not declared: the lifecycle-reconcile edge re-runs every
  * refreshed domain's [refresh] through [RefreshedDomainRouter.refreshAll], so a dropped
  * trigger heals on the next foreground/reconnect with no per-domain recovery wiring.
+ *
+ * [refreshOnAccessChanged] is the second, orthogonal recovery edge: when `true`, the engine also
+ * re-runs this domain's [refresh] at the end of an `AccessChanged` reconcile (via
+ * [RefreshedDomainRouter.refreshAccessSensitive]). It declares "this refresh reads an ACL-filtered
+ * surface, so a change to what the caller can access is a change to what this refresh returns."
+ * The refresh runs after the reconcile's leader guard is released, so a flagged [refresh] must be
+ * idempotent and concurrency-safe — presence's `Ping` is; a `Refetch` would need its own single-flight.
+ * Defaults `false` — most refreshed domains (server info, preferences) are access-insensitive.
  */
 internal class RefreshedDomain(
     val trigger: KClass<out SyncControl>,
     val refresh: RefreshStrategy,
+    val refreshOnAccessChanged: Boolean = false,
 )

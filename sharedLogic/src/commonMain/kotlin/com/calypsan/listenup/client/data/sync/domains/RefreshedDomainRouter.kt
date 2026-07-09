@@ -42,6 +42,17 @@ internal class RefreshedDomainRouter(
         refreshed.forEach { runStrategy(it.refresh) }
     }
 
+    /**
+     * Re-run the declared refresh of every domain flagged [RefreshedDomain.refreshOnAccessChanged].
+     * The engine funnels every `AccessChanged` reconcile here (after the reconcile's own fetches
+     * complete) so a domain whose refresh reads an ACL-filtered RPC re-fetches the instant the caller's
+     * accessible set changes. Derived, not declared: a new access-sensitive domain heals the moment it
+     * sets the flag (see [RefreshedDomain.refreshOnAccessChanged] for the idempotency contract).
+     */
+    suspend fun refreshAccessSensitive() {
+        refreshed.filter { it.refreshOnAccessChanged }.forEach { runStrategy(it.refresh) }
+    }
+
     private suspend fun runStrategy(strategy: RefreshStrategy) {
         when (strategy) {
             is RefreshStrategy.Ping -> strategy.ping()

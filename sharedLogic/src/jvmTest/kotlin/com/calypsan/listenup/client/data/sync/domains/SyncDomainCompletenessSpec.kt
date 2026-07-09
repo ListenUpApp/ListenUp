@@ -217,6 +217,35 @@ class SyncDomainCompletenessSpec :
             }
         }
 
+        test("presence is the only access-sensitive refreshed domain (refreshOnAccessChanged frozen to presence)") {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+
+                // The presence RPCs (currently-listening / book-readers) are ACL-filtered at read time,
+                // so an access change is a presence-visibility change — presence is the one refreshed
+                // domain the engine re-fires at the end of an AccessChanged reconcile. Server-info and
+                // preferences are access-insensitive. Adding/removing an access-sensitive refresh domain
+                // must be a conscious edit here, not a silent side effect.
+                catalog.refreshed
+                    .filter { it.refreshOnAccessChanged }
+                    .map { it.trigger }
+                    .toSet() shouldBe setOf(SyncControl.ActiveSessionsChanged::class)
+            } finally {
+                db.close()
+            }
+        }
+
         test("declared delete and digest postures match the frozen rulebook") {
             val db = createInMemoryTestDatabase()
             try {
