@@ -25,7 +25,7 @@ interface PlaybackRpcFactory {
      * Run [block] against the [PlaybackService] proxy through the bounded, self-healing recovery
      * engine, folding the outcome into an [AppResult].
      *
-     * The default here only provides the boundary (throw → typed [AppResult.Failure]); the
+     * The default here only provides the boundary (a thrown fault becomes a typed [AppResult.Failure]); the
      * production [KtorPlaybackRpcFactory] overrides it to add the bounded reconnect + retry.
      * Test doubles inherit the default and get faithful throw→Failure semantics without a socket.
      */

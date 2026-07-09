@@ -24,8 +24,7 @@ internal object RpcFailureClassifier {
      * an [com.calypsan.listenup.api.error.AppError] (the "never substring-match on message" rubric
      * rule governs AppError bodies, not third-party exceptions).
      */
-    fun isWsHandshake401(t: Throwable): Boolean =
-        t is WebSocketException && (t.message?.contains("401") == true)
+    fun isWsHandshake401(t: Throwable): Boolean = t is WebSocketException && t.message?.contains("401") == true
 
     /**
      * A transport failure that proves the RPC frame was never delivered — the WebSocket handshake
@@ -34,8 +33,7 @@ internal object RpcFailureClassifier {
      * Deliberately excludes post-connect socket timeouts, our own request-timeout, serialization, and
      * business `ResponseException`s — those could have reached a handler.
      */
-    fun isPreDeliveryTransportFailure(t: Throwable): Boolean =
-        t is WebSocketException || t is ConnectTimeoutException
+    fun isPreDeliveryTransportFailure(t: Throwable): Boolean = t is WebSocketException || t is ConnectTimeoutException
 
     /**
      * The cached `RpcClient` (its WebSocket) died — the server restarted, the socket dropped, or the

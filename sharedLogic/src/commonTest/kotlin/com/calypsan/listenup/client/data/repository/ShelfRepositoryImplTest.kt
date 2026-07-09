@@ -39,15 +39,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Unit tests for [ShelfRepositoryImpl] — substrate-Room reads + RPC-dispatched writes.
- *
- * Observation maps Room projections to the domain model (owner fields from the current
- * user, JOIN-derived `bookCount`, surfaced `isPrivate`); writes dispatch to a faked
- * [ShelfService] and surface the typed [AppResult] directly (no throwing bridge). No
- * optimistic Room writes — Room updates arrive via the sync handler on SSE. Cancellation
- * is re-raised.
- */
-/**
  * Fake [ShelfRpcFactory] that routes [callResult] through the REAL boundary [catchingRpcResult],
  * so repository tests exercise the same throw→Failure / cancellation-rethrow semantics the
  * production [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a
@@ -58,12 +49,20 @@ private class FakeShelfRpcFactory(
 ) : ShelfRpcFactory {
     override suspend fun get(): ShelfService = provide()
 
-    override suspend fun <T> callResult(block: suspend (ShelfService) -> AppResult<T>): AppResult<T> =
-        catchingRpcResult { block(provide()) }
+    override suspend fun <T> callResult(block: suspend (ShelfService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(provide()) }
 
     override suspend fun invalidate() {}
 }
 
+/**
+ * Unit tests for [ShelfRepositoryImpl] — substrate-Room reads + RPC-dispatched writes.
+ *
+ * Observation maps Room projections to the domain model (owner fields from the current
+ * user, JOIN-derived `bookCount`, surfaced `isPrivate`); writes dispatch to a faked
+ * [ShelfService] and surface the typed [AppResult] directly (no throwing bridge). No
+ * optimistic Room writes — Room updates arrive via the sync handler on SSE. Cancellation
+ * is re-raised.
+ */
 class ShelfRepositoryImplTest :
     FunSpec({
 

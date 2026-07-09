@@ -73,17 +73,20 @@ internal class ShelfRepositoryImpl(
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
 
     override suspend fun getUserShelves(userId: String): AppResult<List<Shelf>> =
-        rpcFactory.callResult { it.getUserShelves(UserId(userId)) }
+        rpcFactory
+            .callResult { it.getUserShelves(UserId(userId)) }
             .map { shelves -> shelves.map { it.toDomain() } }
 
     override suspend fun discoverShelves(): AppResult<List<Shelf>> =
-        rpcFactory.callResult { it.discoverShelves() }
+        rpcFactory
+            .callResult { it.discoverShelves() }
             .map { discovered -> discovered.map { it.toDomain() } }
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
     override suspend fun getShelfDetail(shelfId: ShelfId): AppResult<ShelfDetail> =
-        rpcFactory.callResult { it.getShelf(shelfId) }
+        rpcFactory
+            .callResult { it.getShelf(shelfId) }
             .map { detail ->
                 val coverHashByBook = dao.coverHashesByBookFor(shelfId.value).associate { it.bookId to it.coverHash }
                 detail.toDomain(coverHashByBook)
@@ -96,13 +99,14 @@ internal class ShelfRepositoryImpl(
         description: String?,
         isPrivate: Boolean,
     ): AppResult<Shelf> =
-        rpcFactory.callResult {
-            it.createShelf(
-                name = name,
-                description = description ?: "",
-                isPrivate = isPrivate,
-            )
-        }.also { if (it is AppResult.Success) mirrorCreatedShelf(it.data) }
+        rpcFactory
+            .callResult {
+                it.createShelf(
+                    name = name,
+                    description = description ?: "",
+                    isPrivate = isPrivate,
+                )
+            }.also { if (it is AppResult.Success) mirrorCreatedShelf(it.data) }
             .map { it.toDomain() }
 
     override suspend fun updateShelf(
@@ -111,14 +115,15 @@ internal class ShelfRepositoryImpl(
         description: String?,
         isPrivate: Boolean,
     ): AppResult<Shelf> =
-        rpcFactory.callResult {
-            it.updateShelf(
-                shelfId = shelfId,
-                name = name,
-                description = description ?: "",
-                isPrivate = isPrivate,
-            )
-        }.map { it.toDomain() }
+        rpcFactory
+            .callResult {
+                it.updateShelf(
+                    shelfId = shelfId,
+                    name = name,
+                    description = description ?: "",
+                    isPrivate = isPrivate,
+                )
+            }.map { it.toDomain() }
 
     override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> =
         rpcFactory.callResult { it.deleteShelf(shelfId) }

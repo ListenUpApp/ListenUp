@@ -64,8 +64,7 @@ class RpcProxyCacheCallTest :
                 everySuspend { getClient() } calls { HttpClient(MockEngine { respond("") }) { install(WebSockets) } }
             }
 
-        fun mockServerConfig(): ServerConfig =
-            mock { everySuspend { getActiveUrl() } returns ServerUrl("http://localhost") }
+        fun mockServerConfig(): ServerConfig = mock { everySuspend { getActiveUrl() } returns ServerUrl("http://localhost") }
 
         /**
          * Build a cache whose [connect] pops the next scripted behavior and counts invocations.
@@ -224,7 +223,9 @@ class RpcProxyCacheCallTest :
 
                 val result: AppResult<String> = cache.rpcCall { AppResult.Success(it.work()) }
 
-                result.shouldBeInstanceOf<AppResult.Failure>().error
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
                     .shouldBeInstanceOf<AuthError.SessionExpired>()
                 recovery.count shouldBe 1 // refreshed exactly once (not again on the retry)
                 connects() shouldBe 2

@@ -60,7 +60,8 @@ internal class CollectionRepositoryImpl(
         libraryId: String,
         name: String,
     ): AppResult<Collection> =
-        rpcFactory.callResult { it.createCollection(libraryId, name) }
+        rpcFactory
+            .callResult { it.createCollection(libraryId, name) }
             .also { if (it is AppResult.Success) mirrorCreatedCollection(libraryId, it.data) }
             .map { it.toDomain() }
 
@@ -78,8 +79,7 @@ internal class CollectionRepositoryImpl(
     override suspend fun addBook(
         collectionId: String,
         bookId: String,
-    ): AppResult<Unit> =
-        rpcFactory.callResult { it.addBookToCollection(CollectionId(collectionId), BookId(bookId)) }
+    ): AppResult<Unit> = rpcFactory.callResult { it.addBookToCollection(CollectionId(collectionId), BookId(bookId)) }
 
     override suspend fun removeBook(
         collectionId: String,
@@ -92,18 +92,20 @@ internal class CollectionRepositoryImpl(
         sharedWithUserId: String,
         permission: SharePermission,
     ): AppResult<CollectionShare> =
-        rpcFactory.callResult {
-            it.shareCollection(CollectionId(collectionId), sharedWithUserId, permission)
-        }.map { it.toDomain() }
+        rpcFactory
+            .callResult {
+                it.shareCollection(CollectionId(collectionId), sharedWithUserId, permission)
+            }.map { it.toDomain() }
 
     override suspend fun updateShare(
         collectionId: String,
         sharedWithUserId: String,
         permission: SharePermission,
     ): AppResult<CollectionShare> =
-        rpcFactory.callResult {
-            it.updateShare(CollectionId(collectionId), sharedWithUserId, permission)
-        }.map { it.toDomain() }
+        rpcFactory
+            .callResult {
+                it.updateShare(CollectionId(collectionId), sharedWithUserId, permission)
+            }.map { it.toDomain() }
 
     override suspend fun revokeShare(
         collectionId: String,

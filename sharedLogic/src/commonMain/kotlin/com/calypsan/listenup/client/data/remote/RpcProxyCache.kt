@@ -102,37 +102,47 @@ internal class RpcProxyCache<T : Any>(
             // The request may be in flight — heal for the NEXT attempt, but never auto-retry here.
             invalidate(lease.generation)
             throw e
-        } catch (e: CancellationException) {
-            if (currentCoroutineContext().isActive) {
-                // The caller wasn't cancelled, yet a CancellationException escaped: the cancel came
-                // from below — a dead RpcClient rejecting the frame before delivery. Heal and retry once.
-                invalidate(lease.generation)
-                retryOnce(timeout, block)
-            } else {
-                throw e
-            }
         } catch (e: Throwable) {
-            when {
-                isWsHandshake401(e) -> {
-                    authRecovery.refreshAndRebuild()
-                    invalidate(lease.generation)
-                    retryOnce(timeout, block)
-                }
-
-                isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> {
-                    invalidate(lease.generation)
-                    retryOnce(timeout, block)
-                }
-
-                else -> throw e
-            }
+            recoverOrRethrow(e, lease.generation, timeout, block)
         }
+    }
+
+    /**
+     * Decide whether [e] is a recoverable transport death and, if so, invalidate the dead proxy and
+     * retry once on a fresh connection. Anything that could have reached a handler — a cancelled
+     * caller, or an unknown failure — re-raises unchanged.
+     */
+    private suspend fun <R> recoverOrRethrow(
+        e: Throwable,
+        leasedGeneration: Int,
+        timeout: Duration,
+        block: suspend (T) -> R,
+    ): R {
+        when {
+            // A CancellationException with a still-active caller is the dead-RpcClient signal: the
+            // cancel came from below, rejecting the frame before delivery — recoverable.
+            e is CancellationException && currentCoroutineContext().isActive -> Unit
+
+            // The caller's own context was cancelled — genuine cancellation, re-raise.
+            e is CancellationException -> throw e
+
+            // Stale-session handshake 401 — refresh the token + rebuild, then retry once.
+            isWsHandshake401(e) -> authRecovery.refreshAndRebuild()
+
+            // Any other pre-delivery transport death (handshake, connect, dead client) — retry once.
+            isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> Unit
+
+            // Reached a handler, or an unknown fault — propagate.
+            else -> throw e
+        }
+        invalidate(leasedGeneration)
+        return retryOnce(timeout, block)
     }
 
     /**
      * The single at-most-once retry. Takes a FRESH lease so a herd converges on the one
      * reconnected proxy. A second failure surfaces: invalidate (unless the caller was cancelled)
-     * and rethrow so the boundary maps it to a typed failure.
+     * and re-raise so the boundary maps it to a typed failure.
      */
     private suspend fun <R> retryOnce(
         timeout: Duration,

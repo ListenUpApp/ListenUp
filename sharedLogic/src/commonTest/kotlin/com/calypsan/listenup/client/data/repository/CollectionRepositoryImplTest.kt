@@ -33,14 +33,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Unit tests for [CollectionRepositoryImpl] — Room reads + RPC-dispatched writes.
- *
- * Observation maps Room projections to domain (including JOIN-derived `bookCount`);
- * writes dispatch to a faked [CollectionService] and bridge the contract-layer
- * `WireAppResult` to the client [AppResult]. No optimistic Room writes — Room updates
- * arrive via the sync handler on SSE.
- */
-/**
  * Fake [CollectionRpcFactory] routing [callResult] through the REAL boundary [catchingRpcResult],
  * so repository tests exercise the same throw→Failure semantics the production
  * [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a live socket.
@@ -50,12 +42,19 @@ private class FakeCollectionRpcFactory(
 ) : CollectionRpcFactory {
     override suspend fun get(): CollectionService = service
 
-    override suspend fun <T> callResult(block: suspend (CollectionService) -> AppResult<T>): AppResult<T> =
-        catchingRpcResult { block(service) }
+    override suspend fun <T> callResult(block: suspend (CollectionService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
 
     override suspend fun invalidate() {}
 }
 
+/**
+ * Unit tests for [CollectionRepositoryImpl] — Room reads + RPC-dispatched writes.
+ *
+ * Observation maps Room projections to domain (including JOIN-derived `bookCount`);
+ * writes dispatch to a faked [CollectionService] and bridge the contract-layer
+ * `WireAppResult` to the client [AppResult]. No optimistic Room writes — Room updates
+ * arrive via the sync handler on SSE.
+ */
 class CollectionRepositoryImplTest :
     FunSpec({
 

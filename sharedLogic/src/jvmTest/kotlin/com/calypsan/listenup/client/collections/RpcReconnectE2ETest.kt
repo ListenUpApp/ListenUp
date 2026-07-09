@@ -170,7 +170,11 @@ class RpcReconnectE2ETest :
 
                 var server = buildServer(0, service)
                 server.start(wait = false)
-                val port = server.engine.resolvedConnectors().first().port
+                val port =
+                    server.engine
+                        .resolvedConnectors()
+                        .first()
+                        .port
                 val baseUrl = "http://127.0.0.1:$port"
 
                 val factory =
@@ -223,7 +227,11 @@ class RpcReconnectE2ETest :
 
                 val server = buildServer(0, service, wrap = stalling)
                 server.start(wait = false)
-                val port = server.engine.resolvedConnectors().first().port
+                val port =
+                    server.engine
+                        .resolvedConnectors()
+                        .first()
+                        .port
                 val baseUrl = "http://127.0.0.1:$port"
 
                 val cache =

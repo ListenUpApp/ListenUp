@@ -1002,7 +1002,8 @@ internal class TestCollectionRpcFactory(
     override suspend fun <T> callResult(
         block: suspend (CollectionService) -> com.calypsan.listenup.api.result.AppResult<T>,
     ): com.calypsan.listenup.api.result.AppResult<T> =
-        com.calypsan.listenup.client.data.remote.catchingRpcResult { block(get()) }
+        com.calypsan.listenup.client.data.remote
+            .catchingRpcResult { block(get()) }
 
     override suspend fun invalidate() {
         mutex.withLock { cachedService = null }
