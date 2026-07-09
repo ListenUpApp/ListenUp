@@ -173,6 +173,7 @@ internal class SyncCatchUpClient(
                 when (fetch) {
                     is TargetedFetch.ByIds -> "ids" to fetch.ids
                     is TargetedFetch.ByCollectionIds -> "collectionIds" to fetch.collectionIds
+                    is TargetedFetch.ByBookIds -> "bookIds" to fetch.bookIds
                 }
             val returnedIds = mutableSetOf<String>()
             for (chunk in values.distinct().chunked(TARGETED_FETCH_LIMIT)) {

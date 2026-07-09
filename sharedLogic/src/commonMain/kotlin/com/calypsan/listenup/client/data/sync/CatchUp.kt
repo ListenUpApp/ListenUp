@@ -65,4 +65,15 @@ internal sealed interface TargetedFetch {
     data class ByCollectionIds(
         val collectionIds: List<String>,
     ) : TargetedFetch
+
+    /**
+     * Match rows by their `book_id` — activities, to pull the activity rows gating on a set of books.
+     *
+     * Version skew: a new client sending `?bookIds=` to an OLD server (no `book_id` branch) hits the
+     * server's `else`/`400` path, which surfaces as an [AppResult.Failure] → one bounded delta requeue
+     * → the digest backstop. Same eventual convergence as before this fetch existed; acceptable.
+     */
+    data class ByBookIds(
+        val bookIds: List<String>,
+    ) : TargetedFetch
 }

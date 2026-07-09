@@ -85,6 +85,40 @@ class ActivityCatchUpAccessTest :
             }
         }
 
+        test("activities pullByIds(book_id) returns the accessible book's activity, never the private-book row") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("member")
+                sql.seedTestBook("public-book")
+                sql.seedTestBook("private-book")
+                val f = fixture()
+                runTest {
+                    f.makePublic("public-book", memberId = "member")
+                    f.collectionRepo.upsert(aclCollection("private-col", owner = "stranger"))
+                    f.collectionBookRepo.upsert(aclMembership("private-col", "private-book"))
+
+                    f.recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "public-book")
+                    f.recorder.record(userId = "alice", type = ActivityType.FINISHED_BOOK, bookId = "private-book")
+
+                    // The scoped AccessChanged delta fetches activities by book_id; the same access
+                    // filter the route applies must still hide the private-book row.
+                    val extra = activitiesAccessFilter(f.policy, "member", UserRole.MEMBER)
+                    val bookIds =
+                        f.activityRepo
+                            .pullByIds(
+                                "member",
+                                matchColumn = "book_id",
+                                matchValues = listOf("public-book", "private-book"),
+                                extraWhere = extra,
+                            ).items
+                            .map { it.bookId }
+
+                    bookIds shouldContain "public-book"
+                    bookIds shouldNotContain "private-book"
+                }
+            }
+        }
+
         test("activities digest is access-scoped per user (member sees 2, admin sees all 3)") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
