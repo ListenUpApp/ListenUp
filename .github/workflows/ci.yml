@@ -38,15 +38,12 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
-      - name: Check formatting (Spotless)
-        run: ./gradlew spotlessCheck --no-daemon
-
-      - name: Run static analysis (Detekt)
-        run: ./gradlew detekt --no-daemon
+      - name: Lint (Spotless + Detekt)
+        run: ./gradlew spotlessCheck detekt --no-daemon
 
       # SwiftLint runs on Linux against .swift source (no Xcode needed) via the official
       # container, pinned (0.63.3 — keep CLAUDE.md's local-commands row in sync when bumping).
@@ -65,6 +62,43 @@ jobs:
           name: detekt-report
           path: build/reports/detekt/
           retention-days: 7
+
+  # ── Supply chain ─────────────────────────────────────────────────────────────
+  dependency-graph:
+    name: Submit dependency graph
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      # Overrides the workflow-level `contents: read` — the dependency-graph
+      # submission API writes the resolved graph back to the repository.
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Review new dependencies
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
 
   # ── Test ─────────────────────────────────────────────────────────────────────
   test-jvm:
@@ -87,7 +121,7 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
@@ -205,7 +239,7 @@ jobs:
         run: brew install openjdk@21
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
@@ -288,7 +322,7 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
@@ -327,7 +361,7 @@ jobs:
           java-version: '21'
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
@@ -371,7 +405,7 @@ jobs:
         run: brew install openjdk@21
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
         with:
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 

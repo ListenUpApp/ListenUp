@@ -1,18 +1,15 @@
 package com.calypsan.listenup.server.routes
 
+import com.calypsan.listenup.server.io.MultipartPartTooLargeException
 import com.calypsan.listenup.server.io.hashBytesSha256
+import com.calypsan.listenup.server.io.receiveFirstFilePartBytes
 import com.calypsan.listenup.server.metadata.ImageStorage
-import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.content.PartData
-import io.ktor.http.content.forEachPart
 import io.ktor.server.application.ApplicationCall
-import io.ktor.server.request.receiveMultipart
-import io.ktor.utils.io.toByteArray
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 
-/** Maximum accepted image size for the pre-buffer Content-Length check (10 MiB). Mirrors the book cover cap. */
+/** Maximum accepted image size, enforced during the multipart read (10 MiB). Mirrors the book cover cap. */
 private const val IMAGE_MAX_BYTES = 10L * 1024 * 1024
 
 /**
@@ -35,13 +32,14 @@ internal sealed interface ImageUploadOutcome {
 }
 
 /**
- * Reads the first file part of a multipart upload, enforces the [IMAGE_MAX_BYTES] cap BEFORE buffering
- * (via the declared `Content-Length`), validates the bytes carry a recognised image magic number, and
+ * Reads the first file part of a multipart upload, enforces the [IMAGE_MAX_BYTES] cap DURING the read
+ * (the streaming primitive aborts before an oversize part fully lands in memory — regardless of whether
+ * the part declares a `Content-Length`), validates the bytes carry a recognised image magic number, and
  * writes them content-addressed to `<imageHome>/<subdir>/<sha256>.jpg` via [imageStorage].
  *
  * Content-addressing is deliberate: a replacement image yields a new relative path, which is exactly
- * what clients key their image cache on (the path is the version). Returns 413 for an oversize declared
- * part, 400 when no file part is present, 422 when the bytes fail the image magic-number check, and
+ * what clients key their image cache on (the path is the version). Returns 413 for an oversize part,
+ * 400 when no file part is present, 422 when the bytes fail the image magic-number check, and
  * [ImageUploadOutcome.Stored] with the relative path on success.
  *
  * The caller persists the path through the principal-scoped service so its internal `requireCanEdit`
@@ -52,29 +50,12 @@ internal suspend fun ApplicationCall.storeMultipartImage(
     imageHome: Path,
     imageStorage: ImageStorage,
 ): ImageUploadOutcome {
-    var bytes: ByteArray? = null
-    var oversized = false
-    receiveMultipart().forEachPart { part ->
-        if (part is PartData.FileItem && bytes == null) {
-            val declaredLength = part.headers[HttpHeaders.ContentLength]?.toLongOrNull()
-            if (declaredLength != null && declaredLength > IMAGE_MAX_BYTES) {
-                part.release()
-                oversized = true
-                return@forEachPart
-            }
-            bytes = part.provider().toByteArray()
-        }
-        part.release()
-    }
-
-    if (oversized) return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "file too large")
-    val data = bytes ?: return ImageUploadOutcome.Rejected(HttpStatusCode.BadRequest, "missing file part")
-    // A part without a declared Content-Length still can't exceed the cap once buffered.
-    if (data.size >
-        IMAGE_MAX_BYTES
-    ) {
-        return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "file too large")
-    }
+    val data =
+        try {
+            receiveFirstFilePartBytes(IMAGE_MAX_BYTES)
+        } catch (e: MultipartPartTooLargeException) {
+            return ImageUploadOutcome.Rejected(HttpStatusCode.PayloadTooLarge, "file exceeds ${e.limit} bytes")
+        } ?: return ImageUploadOutcome.Rejected(HttpStatusCode.BadRequest, "missing file part")
     if (!isRecognisedImage(data)) {
         return ImageUploadOutcome.Rejected(HttpStatusCode.UnprocessableEntity, "invalid image")
     }

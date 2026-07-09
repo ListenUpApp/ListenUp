@@ -316,7 +316,7 @@ class ImportApplierTest :
             }
         }
 
-        test("Applying events carry currentItem and a growing sessionsWritten tally") {
+        test("Applying events throttle to a final frame per pass carrying currentItem and the sessionsWritten tally") {
             withSqlDatabase {
                 val dbs = this
                 runTest {
@@ -329,16 +329,19 @@ class ImportApplierTest :
 
                     val applyingEvents =
                         events.filterIsInstance<com.calypsan.listenup.api.dto.imports.ImportEvent.Applying>()
-                    // The fixture has 2 progress rows + 4 book sessions (podcast excluded) = 6 Applying events total.
-                    applyingEvents.size shouldBe 6
+                    // Throttled to N=50: the fixture's 2 progress rows and 4 book sessions (podcast
+                    // excluded) each emit only their final frame — one per pass.
+                    applyingEvents.size shouldBe 2
 
-                    // Every Applying event must carry a non-null currentItem.
-                    applyingEvents.forEach { it.currentItem.shouldNotBeNull() }
+                    // Every emitted frame is a final frame: done == total for its pass, currentItem non-null.
+                    applyingEvents.forEach {
+                        it.currentItem.shouldNotBeNull()
+                        it.done shouldBe it.total
+                    }
 
-                    // The final Applying event emitted during the sessions pass reflects the
-                    // cumulative sessionsWritten count (3 resolvable sessions in the fixture).
-                    val lastApplying = applyingEvents.last()
-                    lastApplying.sessionsWritten shouldBe 3
+                    // The final Applying event of the sessions pass reflects the cumulative
+                    // sessionsWritten count (3 resolvable sessions in the fixture).
+                    applyingEvents.last().sessionsWritten shouldBe 3
                 }
             }
         }

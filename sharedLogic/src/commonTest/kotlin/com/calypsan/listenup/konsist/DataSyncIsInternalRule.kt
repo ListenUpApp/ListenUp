@@ -10,9 +10,10 @@ import io.kotest.matchers.collections.shouldBeEmpty
  * it from every client export path (iOS framework, Swift Export, JS, R8). A new public
  * declaration here would silently re-bloat the export, so make it a build failure.
  *
- * Gates top-level classes, interfaces, objects, properties, and functions. Top-level
- * typealiases are not gated: Konsist 0.17.3's `KoTypeAliasDeclaration` lacks `isTopLevel`,
- * so it cannot be filtered with the same predicate as the other declaration kinds.
+ * Gates top-level classes, interfaces, objects, properties, functions, and typealiases.
+ * Typealiases are top-level-only by Kotlin language rule, so a path + visibility predicate
+ * gates them completely — the `isTopLevel` filter the other kinds use is unnecessary (and
+ * Konsist 0.17.3's `KoTypeAliasDeclaration` lacks it anyway).
  */
 class DataSyncIsInternalRule :
     FunSpec({
@@ -51,10 +52,18 @@ class DataSyncIsInternalRule :
                     .functions()
                     .filter { "/data/sync/" in it.path && it.isTopLevel && it.hasPublicOrDefaultModifier }
                     .map { it.name }
-            // Top-level typealiases are not gated here: Konsist 0.17.3's KoTypeAliasDeclaration
-            // lacks `isTopLevel`, so it can't share the predicate above.
+            // Typealiases are top-level-only by Kotlin language rule, so no isTopLevel filter is
+            // needed — path + visibility is the complete predicate (Konsist 0.17.3's
+            // KoTypeAliasDeclaration lacks isTopLevel, which is why the shared predicate above
+            // can't be reused verbatim).
+            val typealiases =
+                scope
+                    .typeAliases
+                    .filter { "/data/sync/" in it.path && it.hasPublicOrDefaultModifier }
+                    .map { it.name }
             val offenders =
-                (classes + interfaces + objects + properties + functions).filterNot { it in allowList }
+                (classes + interfaces + objects + properties + functions + typealiases)
+                    .filterNot { it in allowList }
             offenders.shouldBeEmpty()
         }
     })

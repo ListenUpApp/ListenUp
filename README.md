@@ -106,6 +106,7 @@ For contributors who want to build the apps and server locally.
 - **JDK 21** (the build pins `jvmToolchain(21)`; Gradle auto-provisions a matching JDK via the Foojay toolchain resolver if you don't have one)
 - **Android SDK** with API 33+ (for Android builds) — Android Studio Otter or later recommended
 - **Xcode 26** (for iOS builds, macOS only)
+- **Native link headers** (only for the server's Linux-native lane, `./gradlew :server:linuxX64Test`): Debian/Ubuntu `libargon2-dev libsqlite3-dev libcurl4-openssl-dev`; Arch `argon2 sqlite curl`. Not needed for the JVM server or the Android app.
 
 ### Build & Run
 
@@ -119,9 +120,6 @@ cd ListenUp
 
 # Server
 ./gradlew :server:runJvm
-
-# Desktop (JVM, in progress)
-./gradlew :desktopApp:run
 ```
 
 For iOS, open `iosApp/ListenUp.xcodeproj` in Xcode and run the `ListenUp` scheme against a simulator or device.

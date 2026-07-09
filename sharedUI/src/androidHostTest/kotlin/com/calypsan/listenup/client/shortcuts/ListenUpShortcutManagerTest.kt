@@ -19,7 +19,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
 
 /**
  * Tests for [ListenUpShortcutManager.calculateSampleSize] and
@@ -36,7 +35,6 @@ import org.robolectric.annotation.Config
  * their "Visible for testing" KDoc marks the intent.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class ListenUpShortcutManagerTest {
     private val manager: ListenUpShortcutManager by lazy {
         ListenUpShortcutManager(

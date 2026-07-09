@@ -28,6 +28,7 @@ import io.ktor.server.resources.put
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 /**
  * REST surface for [SeriesService]. Five endpoints:
@@ -106,8 +107,16 @@ fun Route.seriesRoutes(
                             .scoped(seriesService)
                             .updateSeries(SeriesId(res.id), SeriesUpdate(coverPath = outcome.relPath))
                 ) {
-                    is AppResult.Success -> call.respond(HttpStatusCode.NoContent)
-                    is AppResult.Failure -> call.respondBareAppError(result.error)
+                    is AppResult.Success -> {
+                        call.respond(HttpStatusCode.NoContent)
+                    }
+
+                    is AppResult.Failure -> {
+                        // The scoped update rejected (no canEdit / unknown id) — remove the file this
+                        // request just wrote so rejected uploads can't accumulate on disk.
+                        SystemFileSystem.delete(Path(imageHome.toString(), outcome.relPath), mustExist = false)
+                        call.respondBareAppError(result.error)
+                    }
                 }
             }
         }

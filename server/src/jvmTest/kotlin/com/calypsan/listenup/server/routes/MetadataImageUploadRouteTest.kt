@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.auth.RegisterRequest
 import com.calypsan.listenup.api.dto.auth.RegisterResult
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.module
 import com.calypsan.listenup.server.services.ContributorRepository
 import com.calypsan.listenup.server.services.SeriesRepository
@@ -20,6 +21,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.forms.ChannelProvider
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
@@ -35,6 +37,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.testing.testApplication
+import io.ktor.utils.io.ByteReadChannel
 import java.nio.file.Files
 import org.koin.ktor.ext.inject
 
@@ -232,6 +235,113 @@ class MetadataImageUploadRouteTest :
                             )
                         }
                     response.status shouldBe HttpStatusCode.PayloadTooLarge
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("PUT /api/v1/series/{id}/cover oversize part without a declared Content-Length → 413") {
+            val libraryRoot = Files.createTempDirectory("listenup-img-upload-413-nolen-")
+            val homeDir = Files.createTempDirectory("listenup-img-upload-413-nolen-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintRootToken()
+
+                    val seriesRepo by application.inject<SeriesRepository>()
+                    val id = seriesRepo.resolveOrCreate("Oversize Streaming Series")
+
+                    // ChannelProvider with a null size emits the part with NO per-part Content-Length
+                    // header, so the cap must fire during the streaming read, not via the declared length.
+                    val oversize = ByteArray((IMAGE_MAX_BYTES_TEST + 1).toInt()) { 0 }
+                    val response =
+                        client.put("/api/v1/series/${id.value}/cover") {
+                            bearerAuth(token)
+                            setBody(
+                                MultiPartFormDataContent(
+                                    formData {
+                                        append(
+                                            "file",
+                                            ChannelProvider(size = null) { ByteReadChannel(oversize) },
+                                            Headers.build {
+                                                append(HttpHeaders.ContentType, "image/jpeg")
+                                                append(HttpHeaders.ContentDisposition, "filename=\"big.jpg\"")
+                                            },
+                                        )
+                                    },
+                                ),
+                            )
+                        }
+                    response.status shouldBe HttpStatusCode.PayloadTooLarge
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("PUT /api/v1/contributors/{id}/image rejected for a MEMBER → the stored file is cleaned up") {
+            val libraryRoot = Files.createTempDirectory("listenup-img-upload-orphan-contrib-")
+            val homeDir = Files.createTempDirectory("listenup-img-upload-orphan-contrib-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val rootToken = client.mintRootToken()
+                    val (memberToken, memberId) = client.registerMember("orphan-member@x")
+                    client.patch("/api/v1/admin/users/$memberId") {
+                        bearerAuth(rootToken)
+                        contentType(ContentType.Application.Json)
+                        setBody(AdminUserPatch(permissions = UserPermissions(canEdit = false, canShare = true)))
+                    }
+
+                    val contributorRepo by application.inject<ContributorRepository>()
+                    val id = contributorRepo.resolveOrCreate("Orphan Author", sortName = null)
+
+                    val response =
+                        client.put("/api/v1/contributors/${id.value}/image") {
+                            bearerAuth(memberToken)
+                            setBody(jpegPart())
+                        }
+                    response.status shouldBe HttpStatusCode.Forbidden
+
+                    // The upload stores content-addressed BEFORE the canEdit gate rejects; on rejection the
+                    // helper must delete the file so distinct rejected payloads can't accumulate on disk.
+                    val orphan = homeDir.resolve("contributors/${hashBytesSha256(jpeg)}.jpg")
+                    Files.exists(orphan) shouldBe false
+                }
+            } finally {
+                libraryRoot.toFile().deleteRecursively()
+                homeDir.toFile().deleteRecursively()
+            }
+        }
+
+        test("PUT /api/v1/series/{id}/cover for an unknown series → the stored file is cleaned up") {
+            val libraryRoot = Files.createTempDirectory("listenup-img-upload-orphan-series-")
+            val homeDir = Files.createTempDirectory("listenup-img-upload-orphan-series-home-")
+            try {
+                testApplication {
+                    useIsolatedTestConfig(libraryPath = libraryRoot.toString(), homeDir = homeDir.toString())
+                    application { module() }
+                    val client = createClient { install(ContentNegotiation) { json(contractJson) } }
+                    val token = client.mintRootToken()
+
+                    val response =
+                        client.put("/api/v1/series/nonexistent-series-id/cover") {
+                            bearerAuth(token)
+                            setBody(jpegPart())
+                        }
+                    response.status shouldNotBe HttpStatusCode.NoContent
+
+                    // The unknown-id update returns Failure after the file is stored; the helper must
+                    // delete the file rather than leave it orphaned.
+                    val orphan = homeDir.resolve("series/${hashBytesSha256(jpeg)}.jpg")
+                    Files.exists(orphan) shouldBe false
                 }
             } finally {
                 libraryRoot.toFile().deleteRecursively()

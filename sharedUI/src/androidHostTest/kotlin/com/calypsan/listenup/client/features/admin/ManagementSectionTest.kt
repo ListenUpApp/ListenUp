@@ -10,7 +10,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
  * Verifies the admin Management section surfaces a Library Settings tile and that
@@ -18,13 +17,11 @@ import org.robolectric.annotation.Config
  * makes the (previously unreachable) [LibrarySettingsScreen] reachable.
  *
  * JUnit4 + Robolectric — the canonical shape for Compose UI tests in this module
- * (a `createComposeRule()` rule requires JUnit4). `@Config(sdk = [35])` pins
- * Robolectric to the highest SDK its release ships, and supplies the real Android
- * resource environment so `stringResource` resolves the packaged English strings
- * (per [com.calypsan.listenup.client.presentation.error.AppErrorLocalizationTest]).
+ * (a `createComposeRule()` rule requires JUnit4). Robolectric supplies the real
+ * Android resource environment so `stringResource` resolves the packaged English
+ * strings (per [com.calypsan.listenup.client.presentation.error.AppErrorLocalizationTest]).
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class ManagementSectionTest {
     @get:Rule
     val composeRule = createComposeRule()
