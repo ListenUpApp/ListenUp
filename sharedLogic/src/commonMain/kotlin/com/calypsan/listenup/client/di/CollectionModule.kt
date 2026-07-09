@@ -33,6 +33,7 @@ internal val collectionModule: Module =
             KtorCollectionRpcFactory(
                 apiClientFactory = get(),
                 serverConfig = get(),
+                authRecovery = get(),
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 

@@ -33,6 +33,7 @@ class ShelfModuleVerifyTest :
                         ImageRepository::class,
                         ApiClientFactory::class,
                         ServerConfig::class,
+                        com.calypsan.listenup.client.data.remote.RpcAuthRecovery::class,
                     ),
             )
         }

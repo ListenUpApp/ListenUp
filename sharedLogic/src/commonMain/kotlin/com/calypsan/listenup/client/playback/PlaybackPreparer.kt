@@ -326,7 +326,10 @@ class PlaybackPreparer internal constructor(
             if (localPaths.values.all { it != null }) {
                 emptyMap() // fully downloaded — never touch the server (offline-first)
             } else {
-                when (val result = playbackRpcFactory.playbackService().prepare(bookId)) {
+                // Routed through the bounded, self-healing engine so a dead-socket transport throw
+                // becomes a typed, time-bounded AppResult.Failure instead of an unguarded exception
+                // crossing the Swift Export seam as an opaque KotlinError.
+                when (val result = playbackRpcFactory.callResult { it.prepare(bookId) }) {
                     is AppResult.Success -> {
                         result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
                     }

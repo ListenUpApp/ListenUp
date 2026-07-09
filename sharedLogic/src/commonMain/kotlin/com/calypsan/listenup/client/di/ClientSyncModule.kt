@@ -93,6 +93,7 @@ internal val clientSyncModule =
             KtorPlaybackRpcFactory(
                 apiClientFactory = get(),
                 serverConfig = get(),
+                authRecovery = get(),
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 

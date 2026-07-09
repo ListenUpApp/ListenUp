@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
+import com.calypsan.listenup.client.data.remote.RpcFailureClassifier
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
@@ -24,15 +25,23 @@ import kotlinx.serialization.SerializationException
  */
 internal object ErrorMapper {
     fun map(exception: Throwable): AppError =
-        when (exception) {
-            is ConnectTimeoutException,
-            is SocketTimeoutException,
-            is HttpRequestTimeoutException,
-            -> {
+        when {
+            // A handshake-401 WebSocketException is a stale-session signal from the `/api/rpc/authed`
+            // upgrade. After RpcProxyCache's one bounded token-refresh + retry, a SECOND 401 reaches
+            // here — surface it typed as SessionExpired so the global auth observer drives to login,
+            // instead of a generic InternalError. Checked first: it is a WebSocketException, which the
+            // arms below would otherwise fold into the InternalError catch-all.
+            RpcFailureClassifier.isWsHandshake401(exception) -> {
+                AuthError.SessionExpired(debugInfo = exception.message)
+            }
+
+            exception is ConnectTimeoutException ||
+                exception is SocketTimeoutException ||
+                exception is HttpRequestTimeoutException -> {
                 TransportError.Timeout(debugInfo = exception.message)
             }
 
-            is ResponseException -> {
+            exception is ResponseException -> {
                 val status = exception.response.status.value
                 when {
                     // 401 means the session is stale/invalid — type it as an auth error at the
@@ -53,25 +62,25 @@ internal object ErrorMapper {
                 }
             }
 
-            is SerializationException -> {
+            exception is SerializationException -> {
                 TransportError.DataMalformed(
                     detail = exception.message ?: "deserialization failed",
                     debugInfo = exception.message,
                 )
             }
 
-            is IOException -> {
+            exception is IOException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
 
             // "No server configured yet" is an expected pre-connection state (fresh / signed-out
             // install), not a fault — type it as a transport-unavailable so the boundary folds it
             // quietly instead of surfacing a generic InternalError "server error".
-            is ServerUrlNotConfiguredException -> {
+            exception is ServerUrlNotConfiguredException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
 
-            is IllegalArgumentException -> {
+            exception is IllegalArgumentException -> {
                 ValidationError(
                     message = exception.message ?: "Invalid input.",
                     debugInfo = exception.message,
