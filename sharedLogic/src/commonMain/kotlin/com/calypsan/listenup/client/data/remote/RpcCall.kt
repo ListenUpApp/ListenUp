@@ -5,6 +5,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Run [run] and fold its outcome into an [AppResult] at the RPC boundary.
@@ -38,5 +40,7 @@ internal suspend fun <T> catchingRpcResult(run: suspend () -> AppResult<T>): App
  * failure returned by the service passes through untouched — a `ValidationError` never triggers a
  * reconnect.
  */
-internal suspend fun <S : Any, T> RpcProxyCache<S>.rpcCall(block: suspend (S) -> AppResult<T>): AppResult<T> =
-    catchingRpcResult { call { block(it) } }
+internal suspend fun <S : Any, T> RpcProxyCache<S>.rpcCall(
+    timeout: Duration = 15.seconds,
+    block: suspend (S) -> AppResult<T>,
+): AppResult<T> = catchingRpcResult { call(timeout) { block(it) } }

@@ -55,7 +55,7 @@ internal class KtorPlaybackRpcFactory(
     override suspend fun playbackService(): PlaybackService = cache.get()
 
     override suspend fun <T> callResult(block: suspend (PlaybackService) -> AppResult<T>): AppResult<T> =
-        cache.rpcCall(block)
+        cache.rpcCall(block = block)
 
     override suspend fun invalidate() = cache.invalidate()
 }

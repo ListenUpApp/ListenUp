@@ -36,4 +36,19 @@ internal object RpcFailureClassifier {
      */
     fun isPreDeliveryTransportFailure(t: Throwable): Boolean =
         t is WebSocketException || t is ConnectTimeoutException
+
+    /**
+     * The cached `RpcClient` (its WebSocket) died — the server restarted, the socket dropped, or the
+     * client was otherwise torn down — so kotlinx.rpc refuses the next call, throwing "RpcClient was
+     * cancelled". In this kotlinx.rpc version that surfaces as a plain [IllegalStateException] (NOT a
+     * [kotlin.coroutines.cancellation.CancellationException]), so the caller-cancellation heuristic
+     * can't catch it. The frame was rejected before delivery — invalidate the dead proxy and retry
+     * once is safe even for a non-idempotent mutation.
+     *
+     * Matching on the message is legitimate: this is a kotlinx.rpc transport exception, not an
+     * [com.calypsan.listenup.api.error.AppError] (the "never substring-match on message" rule governs
+     * AppError bodies, not third-party exceptions).
+     */
+    fun isDeadRpcClient(t: Throwable): Boolean =
+        t.message?.contains("RpcClient was cancelled", ignoreCase = true) == true
 }

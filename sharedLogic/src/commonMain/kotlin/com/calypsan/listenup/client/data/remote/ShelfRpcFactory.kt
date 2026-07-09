@@ -49,7 +49,7 @@ internal class KtorShelfRpcFactory(
     override suspend fun get(): ShelfService = cache.get()
 
     override suspend fun <T> callResult(block: suspend (ShelfService) -> AppResult<T>): AppResult<T> =
-        cache.rpcCall(block)
+        cache.rpcCall(block = block)
 
     override suspend fun invalidate() = cache.invalidate()
 }

@@ -29,4 +29,13 @@ class RpcFailureClassifierTest :
             RpcFailureClassifier.isPreDeliveryTransportFailure(RuntimeException("boom")) shouldBe false
             RpcFailureClassifier.isWsHandshake401(RuntimeException("nope")) shouldBe false
         }
+
+        test("a dead RpcClient IllegalStateException is recognized regardless of exception type") {
+            // Real kotlinx.rpc surfaces a torn-down client as a plain IllegalStateException, not a
+            // CancellationException — the message is the only reliable signal.
+            RpcFailureClassifier.isDeadRpcClient(IllegalStateException("RpcClient was cancelled")) shouldBe true
+            RpcFailureClassifier.isDeadRpcClient(RuntimeException("rpcclient was cancelled")) shouldBe true
+            RpcFailureClassifier.isDeadRpcClient(IllegalStateException("something else entirely")) shouldBe false
+            RpcFailureClassifier.isDeadRpcClient(RuntimeException()) shouldBe false
+        }
     })

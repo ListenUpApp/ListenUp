@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isDeadRpcClient
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isPreDeliveryTransportFailure
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isWsHandshake401
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -118,7 +119,7 @@ internal class RpcProxyCache<T : Any>(
                     retryOnce(timeout, block)
                 }
 
-                isPreDeliveryTransportFailure(e) -> {
+                isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> {
                     invalidate(lease.generation)
                     retryOnce(timeout, block)
                 }

@@ -49,7 +49,7 @@ internal class KtorCollectionRpcFactory(
     override suspend fun get(): CollectionService = cache.get()
 
     override suspend fun <T> callResult(block: suspend (CollectionService) -> AppResult<T>): AppResult<T> =
-        cache.rpcCall(block)
+        cache.rpcCall(block = block)
 
     override suspend fun invalidate() = cache.invalidate()
 }

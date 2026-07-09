@@ -103,6 +103,23 @@ class RpcProxyCacheCallTest :
             }
         }
 
+        test("a dead-RpcClient IllegalStateException reconnects and returns the retry result") {
+            runTest {
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw IllegalStateException("RpcClient was cancelled") },
+                                { "healed" },
+                            ),
+                        ),
+                    )
+
+                cache.call { it.work() } shouldBe "healed"
+                connects() shouldBe 2 // 1 original (dead) + 1 reconnect
+            }
+        }
+
         test("a genuinely cancelled caller context re-raises without invalidating") {
             runTest {
                 val (cache, connects) = scriptedCache(ArrayDeque(listOf({ awaitCancellation() })))
