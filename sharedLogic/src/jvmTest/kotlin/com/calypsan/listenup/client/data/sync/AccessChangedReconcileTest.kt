@@ -12,11 +12,13 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.activitiesDomain
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionBooksDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionSharesDomain
 import com.calypsan.listenup.client.data.sync.domains.collectionsDomain
+import com.calypsan.listenup.client.data.sync.domains.presenceDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.stubImageStorage
@@ -26,6 +28,7 @@ import com.calypsan.listenup.api.sync.AccessScope
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
+import app.cash.turbine.test
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
@@ -381,6 +384,55 @@ class AccessChangedReconcileTest :
             }
         }
 
+        // ---- Presence refresh on AccessChanged (the revoke-latency fix) --------------------------
+
+        test("presence refreshes exactly once, AFTER the access reconcile's domain fetches complete") {
+            withReconcileEngine { harness, _, _ ->
+                harness.presence.signal.test {
+                    // A direct (non-launched) call: when it returns, the reconcile loop AND the
+                    // end-of-loop presence refresh have both run.
+                    harness.engine.handleAccessChanged(null)
+
+                    // Exactly one presence refresh for the single leader activation.
+                    awaitItem()
+                    expectNoEvents()
+
+                    // Ordering proof: the refresh captured the FULL 5-domain coarse sweep already in the
+                    // recorded trail. If the refresh were placed before the reconcile (top of
+                    // handleAccessChanged), this snapshot would be empty and the assertion would fail.
+                    harness.coarseCallsAtPresenceRefresh.single().toSet() shouldBe
+                        setOf("books", "collections", "collection_books", "collection_shares", "activities")
+                }
+            }
+        }
+
+        test("presence refresh coalesces: two AccessChanged frames fold into one leader activation, one refresh") {
+            withReconcileEngine { harness, _, _ ->
+                harness.fakeCatchUp.returnedByDomain["books"] = setOf("ba", "bb", "bc")
+                val gate = CompletableDeferred<Unit>()
+                harness.fakeCatchUp.gate = gate
+
+                harness.presence.signal.test {
+                    coroutineScope {
+                        // Leader reconciles [ba] and parks on the gate at its books fetch.
+                        val leader = launch { harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("ba"))) }
+                        while (harness.fakeCatchUp.fetches.isEmpty()) yield()
+                        // Two more frames land while the leader is parked → they fold into its follow-up pass,
+                        // NOT their own leader activation (and NOT their own presence refresh).
+                        harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("bb")))
+                        harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("bc")))
+                        gate.complete(Unit)
+                        leader.join()
+                    }
+
+                    // One leader activation drained [ba] then the unioned {bb, bc} follow-up; the presence
+                    // refresh fired once at the END of that single activation — coalesced, not once-per-frame.
+                    awaitItem()
+                    expectNoEvents()
+                }
+            }
+        }
+
         test("coalesce: two deltas arriving mid-reconcile fold into ONE unioned follow-up fetch") {
             withReconcileEngine { harness, _, _ ->
                 harness.fakeCatchUp.returnedByDomain["books"] = setOf("ba", "bb", "bc")
@@ -621,6 +673,14 @@ private class FakeReconcileSse : SseClient {
 private data class ReconcileHarness(
     val engine: SyncEngine,
     val fakeCatchUp: FakeReconcileCatchUp,
+    /** The presence signal the access-sensitive router pings — subscribe with Turbine to observe refreshes. */
+    val presence: PresenceRefreshSignal,
+    /**
+     * Snapshot of [FakeReconcileCatchUp.coarseCalls] captured at the instant each presence refresh fires.
+     * Because the refresh runs at the END of the reconcile loop, a snapshot here proves the reconcile's
+     * fetches already ran before the refresh — an empty snapshot would mean the refresh fired too early.
+     */
+    val coarseCallsAtPresenceRefresh: List<List<String>>,
 )
 
 private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDatabase, SyncCursorStore) -> Unit) =
@@ -656,6 +716,10 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                 )
             val fakeCatchUp = FakeReconcileCatchUp()
+            val presence = PresenceRefreshSignal()
+            // Snapshot the coarse reconcile trail at the moment presence refreshes, so ordering
+            // (refresh AFTER the reconcile's fetches) is provable from the recorded sequence.
+            val coarseCallsAtPresenceRefresh = mutableListOf<List<String>>()
             val engine =
                 SyncEngine(
                     registry = registry,
@@ -666,10 +730,28 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                     sseClient = FakeReconcileSse(),
                     reconciler = noopSyncReconciler(registry, store, fakeCatchUp),
                     dispatcher = dispatcher,
-                    presenceRefreshSignal = PresenceRefreshSignal(),
+                    presenceRefreshSignal = presence,
                     scope = scope,
+                    // Presence is the access-sensitive refreshed domain: the engine re-fires it at the end
+                    // of an AccessChanged reconcile via refreshAccessSensitive(). Wire it so the test can
+                    // observe the refresh (via the signal) and the reconcile state at refresh time.
+                    refreshedRouter =
+                        RefreshedDomainRouter(
+                            listOf(
+                                presenceDomain(
+                                    ping = {
+                                        coarseCallsAtPresenceRefresh += fakeCatchUp.coarseCalls.toList()
+                                        presence.ping()
+                                    },
+                                ),
+                            ),
+                        ),
                 )
-            block(ReconcileHarness(engine, fakeCatchUp), db, store)
+            block(
+                ReconcileHarness(engine, fakeCatchUp, presence, coarseCallsAtPresenceRefresh),
+                db,
+                store,
+            )
         } finally {
             scope.cancel()
             db.close()

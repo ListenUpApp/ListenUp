@@ -622,6 +622,14 @@ internal class SyncEngine(
                     }
                 }
             }
+            // End of this leader activation: re-fire every access-sensitive refreshed domain against the
+            // caller's NEW accessible set. Deliberately AFTER the loop, never before it: on GRANT, a
+            // refetch before the books delta landed would see a roster whose newly-granted row is dropped
+            // at the local enrichment join (presence does not re-emit when the books mirror later fills),
+            // leaving it stale until the poll. The leader single-flight flag is already cleared here (drain
+            // → None), so an access-sensitive refresh must be idempotent and concurrency-safe (a future
+            // Refetch domain would need its own single-flight). Fires once per leader activation.
+            refreshedRouter.refreshAccessSensitive()
         } finally {
             // Normal exit already cleared the flag under the lock (via drain → None). This fires only
             // on a thrown/cancelled reconcile, and — like the CursorStale cleanup — runs

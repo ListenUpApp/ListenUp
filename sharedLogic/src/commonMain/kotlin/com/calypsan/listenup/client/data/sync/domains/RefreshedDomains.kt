@@ -9,11 +9,18 @@ import com.calypsan.listenup.api.sync.SyncControl
  * `UserDeleted`, `LibraryDataChanged`) are NOT here — they stay engine callbacks.
  */
 
-/** Presence changed: ping the signal the social repos (currently-listening, book-readers) collect. */
+/**
+ * Presence changed: ping the signal the social repos (currently-listening, book-readers) collect.
+ *
+ * [refreshOnAccessChanged] is `true` because those RPCs are ACL-filtered at read time — an access
+ * change (a collection share granted or revoked) changes which sessions the caller may see, so it is
+ * a presence-visibility change that must re-fire this ping.
+ */
 internal fun presenceDomain(ping: () -> Unit): RefreshedDomain =
     RefreshedDomain(
         trigger = SyncControl.ActiveSessionsChanged::class,
         refresh = RefreshStrategy.Ping(ping),
+        refreshOnAccessChanged = true,
     )
 
 /** Server info changed (admin edited name / remote URL): re-fetch getServerInfo (persists the remote-URL fallback). */
