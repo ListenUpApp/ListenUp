@@ -297,7 +297,9 @@ class AccessChangedReconcileTest :
 
                 harness.engine.handleAccessChanged(AccessScope(collectionIds = listOf("c1"), bookIds = listOf("b1")))
 
-                harness.fakeCatchUp.fetches.map { it.domain }.toSet() shouldBe expected
+                harness.fakeCatchUp.fetches
+                    .map { it.domain }
+                    .toSet() shouldBe expected
             }
         }
 

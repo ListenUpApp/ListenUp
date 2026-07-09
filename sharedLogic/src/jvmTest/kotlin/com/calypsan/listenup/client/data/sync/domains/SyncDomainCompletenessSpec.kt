@@ -277,7 +277,9 @@ class SyncDomainCompletenessSpec :
             }
         }
 
-        test("access-gated delta participation is frozen: Targeted domains ordered, only collection_shares is LiveTailOnly") {
+        test(
+            "access-gated delta participation is frozen: Targeted domains ordered, only collection_shares is LiveTailOnly",
+        ) {
             val db = createInMemoryTestDatabase()
             try {
                 val catalog =
