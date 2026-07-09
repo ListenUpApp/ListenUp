@@ -555,8 +555,10 @@ abstract class SqlSyncableRepository<T : Any, ID : Any>(
      * result is therefore ⊆ what an unbounded `since = 0` catch-up would return — no new surface.
      *
      * [matchColumn] is a closed, code-controlled column name (`"id"` for the books/collections
-     * targeted fetch, `"collection_id"` for the collection-books-by-collection fetch), never user
-     * input — the same trust level as [rootTableName]. [matchValues] are bound positionally.
+     * targeted fetch, `"collection_id"` for the collection-books-by-collection fetch, `"book_id"` for
+     * the activities-by-book fetch), never user input — the same trust level as [rootTableName]. The
+     * sync route allowlists `book_id` to domains that actually have that column. [matchValues] are
+     * bound positionally.
      *
      * Tombstones are included ([selectIdRevAccessFiltered]'s `includeTombstones = true`), matching
      * the filtered [pullSince] catch-up contract: a deletion the client missed is delivered so it

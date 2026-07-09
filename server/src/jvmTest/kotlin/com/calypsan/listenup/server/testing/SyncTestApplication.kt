@@ -239,6 +239,10 @@ internal fun withTestApplication(
                         single { sqlDb }
                         single { bus }
                         single { registry }
+                        // The sync route lazily injects BookAccessPolicy to access-filter gated domains
+                        // (books/activities/collections). Ungated tag tests never resolve it; a request to
+                        // a gated domain (e.g. activities ?bookIds=) does, so provide it here.
+                        single { BookAccessPolicy(sqlDb, driver) }
                         single(createdAtStart = true) { tagRepo }
                         if (userScopedRepo != null) single(createdAtStart = true) { userScopedRepo }
                         if (playbackPositionRepo != null) single(createdAtStart = true) { playbackPositionRepo }

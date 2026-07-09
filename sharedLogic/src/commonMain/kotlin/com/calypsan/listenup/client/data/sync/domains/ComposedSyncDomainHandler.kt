@@ -155,6 +155,8 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
     registry: ClientSyncDomainRegistry,
 ) : ComposedSyncDomainHandler<T>(domain, transactionRunner, registry),
     AccessFilteredSyncHandler {
+    override val deltaPolicy: AccessDeltaPolicy = gate.delta
+
     override suspend fun localLiveIds(): Set<String> = gate.liveIds().toSet()
 
     override suspend fun pruneTo(
@@ -182,10 +184,6 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
         val doomed = (candidateIds intersect gate.liveIds().toSet()) - accessibleIds
         doomed.chunked(SQLITE_IN_CHUNK).forEach { chunk -> gate.tombstoneByIds(chunk, now) }
         gate.afterPrune()
-        // Scoped-only: cascade to dependents that ARE their own access-gated domain (activities). The
-        // coarse path re-derives them via their own prune, but a delta never fetches them — so this
-        // fires here, not in pruneTo, to keep the activities digest converging after a scoped delta.
-        gate.afterScopedPrune(now)
     }
 }
 

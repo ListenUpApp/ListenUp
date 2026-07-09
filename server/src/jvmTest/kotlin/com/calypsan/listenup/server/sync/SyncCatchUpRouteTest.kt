@@ -56,4 +56,22 @@ class SyncCatchUpRouteTest :
                 response.status shouldBe HttpStatusCode.BadRequest
             }
         }
+
+        test("a ?bookIds= fetch on a domain without a book_id column returns 400 (allowlist keeps matchColumn sound)") {
+            withTestApplication {
+                // `tags` has no `book_id` column, so honoring the fetch would be a SQL error — the
+                // per-domain allowlist rejects it before the repo read.
+                val response = client.get("/api/v1/sync/tags?bookIds=b1,b2")
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
+
+        test("a ?bookIds= fetch over the 100-id cap returns 400 on activities") {
+            withTestApplication(playbackEvents = true) {
+                // activities is on the allowlist, so this reaches the id-cap guard.
+                val ids = (1..101).joinToString(",") { "book-$it" }
+                val response = client.get("/api/v1/sync/activities?bookIds=$ids")
+                response.status shouldBe HttpStatusCode.BadRequest
+            }
+        }
     })

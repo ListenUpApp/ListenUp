@@ -1,5 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
+
 /**
  * Capability marker for sync handlers whose domain is access-gated on the server.
  *
@@ -15,6 +17,13 @@ package com.calypsan.listenup.client.data.sync
  * [com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry.accessFilteredHandlers].
  */
 internal interface AccessFilteredSyncHandler {
+    /**
+     * This domain's declared participation in the scoped `AccessChanged` delta, plumbed from its
+     * [com.calypsan.listenup.client.data.sync.domains.AccessGate]. The reconciler reads it to decide
+     * whether — and how — to fetch and prune this domain for a targeted change.
+     */
+    val deltaPolicy: AccessDeltaPolicy
+
     /**
      * The ids of every live (non-tombstoned) local row in this domain. For composite-key
      * domains (e.g. `collection_books`) the id is the synthetic `"$collectionId:$bookId"`

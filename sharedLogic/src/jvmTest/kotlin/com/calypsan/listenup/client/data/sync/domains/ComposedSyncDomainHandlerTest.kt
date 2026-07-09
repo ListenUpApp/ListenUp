@@ -259,7 +259,12 @@ class ComposedSyncDomainHandlerTest :
             val gated =
                 domain(
                     RecordingApply(),
-                    accessGate = AccessGate(liveIds = { listOf("a") }, tombstoneByIds = { _, _ -> }),
+                    accessGate =
+                        AccessGate(
+                            liveIds = { listOf("a") },
+                            tombstoneByIds = { _, _ -> },
+                            delta = AccessDeltaPolicy.LiveTailOnly("test gate: delta participation is irrelevant here"),
+                        ),
                 ).toHandler(runner, ClientSyncDomainRegistry())
             gated.shouldBeInstanceOf<AccessFilteredSyncHandler>()
             (gated as AccessFilteredSyncHandler).localLiveIds() shouldBe setOf("a")

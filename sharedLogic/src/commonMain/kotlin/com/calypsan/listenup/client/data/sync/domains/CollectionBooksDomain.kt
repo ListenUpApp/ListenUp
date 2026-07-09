@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.CollectionBookEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.sync.TargetedFetch
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val logger = KotlinLogging.logger {}
@@ -46,6 +47,23 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
             AccessGate(
                 liveIds = database.collectionBookDao()::liveSyntheticIds,
                 tombstoneByIds = database.collectionBookDao()::tombstoneByIds,
+                // Fetched by the scope's collection ids. The candidate set is the local live
+                // membership rows whose collection is in scope — derived from the synthetic
+                // `"$collectionId:$bookId"` wire id — so a membership in a collection the delta never
+                // named can never be tombstoned.
+                delta =
+                    AccessDeltaPolicy.Targeted(
+                        order = 1,
+                        axis = ScopeAxis.Collections,
+                        fetchFor = { TargetedFetch.ByCollectionIds(it) },
+                        candidatesFor = { collectionIds ->
+                            val scopeCols = collectionIds.toSet()
+                            database
+                                .collectionBookDao()
+                                .liveSyntheticIds()
+                                .filterTo(mutableSetOf()) { it.substringBefore(':') in scopeCols }
+                        },
+                    ),
             ),
     )
 }

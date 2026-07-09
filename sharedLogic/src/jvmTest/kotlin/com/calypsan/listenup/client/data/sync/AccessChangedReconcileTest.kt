@@ -12,6 +12,9 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.api.sync.SyncPayload
+import com.calypsan.listenup.api.sync.Tombstoned
+import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.data.sync.domains.activitiesDomain
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
@@ -259,7 +262,7 @@ class AccessChangedReconcileTest :
 
         // ---- Scoped delta path -------------------------------------------------------------------
 
-        test("delta: fetches exactly the scoped ids — collections + collection_books + books, in dependency order") {
+        test("delta: fetches exactly the scoped ids — collections → collection_books → books → activities, in dependency order") {
             withReconcileEngine { harness, _, _ ->
                 // A returned set per domain so the prune step is a no-op; we assert only the fetch shape.
                 harness.fakeCatchUp.returnedByDomain["collections"] = setOf("c1")
@@ -272,9 +275,51 @@ class AccessChangedReconcileTest :
                         RecordedFetch("collections", TargetedFetch.ByIds(listOf("c1"))),
                         RecordedFetch("collection_books", TargetedFetch.ByCollectionIds(listOf("c1"))),
                         RecordedFetch("books", TargetedFetch.ByIds(listOf("b1"))),
+                        RecordedFetch("activities", TargetedFetch.ByBookIds(listOf("b1"))),
                     )
                 // A scoped delta never re-derives the whole library — the coarse sweep must not run.
                 harness.fakeCatchUp.coarseCalls.shouldBeEmpty()
+            }
+        }
+
+        test("delta drift-killer: the fetched domains equal the registry's Targeted set — a new gated domain auto-enters") {
+            withReconcileEngine { harness, _, _ ->
+                // The expectation is DERIVED from the registry, not hand-copied: every access-gated
+                // handler whose declared delta policy is Targeted must be fetched by a full-scope delta.
+                // A future gated domain declaring Targeted therefore auto-enters this assertion — the
+                // delta path can never silently forget it.
+                val expected =
+                    harness.registry
+                        .accessFilteredHandlers()
+                        .filter { (it as AccessFilteredSyncHandler).deltaPolicy is AccessDeltaPolicy.Targeted }
+                        .map { it.domainName }
+                        .toSet()
+
+                harness.engine.handleAccessChanged(AccessScope(collectionIds = listOf("c1"), bookIds = listOf("b1")))
+
+                harness.fakeCatchUp.fetches
+                    .map { it.domain }
+                    .toSet() shouldBe expected
+            }
+        }
+
+        test("delta GRANT convergence: a newly-accessible activity goes LIVE within the delta pass (the bug)") {
+            withReconcileEngine { harness, db, _ ->
+                // No local activity is seeded — the grant is brand new to this client.
+                db.activityDao().liveIds().shouldBeEmpty()
+
+                // The book was just granted; the server's access-filtered fetch returns its activity row.
+                // The fake applies these payloads through the real handler (exactly like the production
+                // fetchTransient), so a returned-and-applied row lands LIVE in Room.
+                harness.fakeCatchUp.fetchPayloadsByDomain["activities"] =
+                    listOf(activityPayload("aGranted", bookId = "bGranted"))
+
+                harness.engine.handleAccessChanged(AccessScope(collectionIds = emptyList(), bookIds = listOf("bGranted")))
+
+                // Convergence happened in the delta pass itself — no digest/coarse backstop was needed.
+                harness.fakeCatchUp.coarseCalls.shouldBeEmpty()
+                db.activityDao().getById("aGranted")!!.deletedAt shouldBe null
+                db.activityDao().liveIds() shouldBe listOf("aGranted")
             }
         }
 
@@ -348,28 +393,25 @@ class AccessChangedReconcileTest :
             }
         }
 
-        test("delta: revoking a scoped book cascades to activities — its activity is tombstoned, a book-less one survives") {
+        test("delta: revoking a scoped book self-prunes its activity via pruneWithin — book-less + out-of-scope survive") {
             withReconcileEngine { harness, db, _ ->
-                val books =
-                    booksDomain(
-                        database = db,
-                        mapper = BookEntityMapper(),
-                        imageStorage = stubImageStorage(),
-                    ).toHandler(transactionRunner = RoomTransactionRunner(db), registry = ClientSyncDomainRegistry())
                 val activities = activitiesDomain(db).toHandler(RoomTransactionRunner(db), ClientSyncDomainRegistry())
-                books.onCatchUpItem(bookPayload("b2"), isTombstone = false)
                 activities.onCatchUpItem(activityPayload("a2", bookId = "b2"), isTombstone = false)
-                // A book-less activity has no gating book, so the cascade must leave it live.
+                // A book-less activity has no gating book, so it is never a prune candidate.
                 activities.onCatchUpItem(activityPayload("aNoBook", bookId = null), isTombstone = false)
+                // An activity on a book OUTSIDE the delta scope must never be a candidate either.
+                activities.onCatchUpItem(activityPayload("aOther", bookId = "bOther"), isTombstone = false)
 
-                // b2 revoked → the delta only touches books, but the books afterPrune cascade must
-                // tombstone a2 so the access-filtered activities digest converges (the delta never
-                // fetches the activities domain).
-                harness.fakeCatchUp.returnedByDomain["books"] = emptySet()
+                // b2 revoked → the delta fetches activities by book_id and gets nothing back for b2, so
+                // the requested-but-not-returned a2 is tombstoned by pruneWithin against the b2-scoped
+                // candidate set. This is the new mechanism — no books afterPrune cascade is involved.
+                harness.fakeCatchUp.returnedByDomain["activities"] = emptySet()
                 harness.engine.handleAccessChanged(AccessScope(collectionIds = emptyList(), bookIds = listOf("b2")))
 
                 db.activityDao().getById("a2")!!.deletedAt shouldNotBe null
                 db.activityDao().getById("aNoBook")!!.deletedAt shouldBe null
+                // The load-bearing substrate assertion: an out-of-scope book's activity is untouched.
+                db.activityDao().getById("aOther")!!.deletedAt shouldBe null
             }
         }
 
@@ -450,10 +492,13 @@ class AccessChangedReconcileTest :
                     leader.join()
                 }
 
-                // Exactly two passes: the leader's [ba], then ONE follow-up over the union {bb, bc}.
-                harness.fakeCatchUp.fetches shouldHaveSize 2
-                harness.fakeCatchUp.fetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("ba"))
-                (harness.fakeCatchUp.fetches[1].fetch as TargetedFetch.ByIds).ids.toSet() shouldBe setOf("bb", "bc")
+                // Exactly two books passes (the coalescer's unit of work): the leader's [ba], then ONE
+                // follow-up over the union {bb, bc}. Activities rides the same Books axis, so it is
+                // filtered out here — the coalescing invariant is about the axis, not the domain count.
+                val bookFetches = harness.fakeCatchUp.fetches.filter { it.domain == "books" }
+                bookFetches shouldHaveSize 2
+                bookFetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("ba"))
+                (bookFetches[1].fetch as TargetedFetch.ByIds).ids.toSet() shouldBe setOf("bb", "bc")
             }
         }
 
@@ -473,10 +518,11 @@ class AccessChangedReconcileTest :
                     leader.join()
                 }
 
-                // Only the leader's single delta fetch ran; the follow-up was a coarse 5-domain sweep,
-                // NOT a targeted fetch of bb.
-                harness.fakeCatchUp.fetches shouldHaveSize 1
-                harness.fakeCatchUp.fetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("ba"))
+                // Only the leader's single delta books fetch ran; the follow-up was a coarse 5-domain
+                // sweep, NOT a targeted fetch of bb. (Activities shares the Books axis; filter to books.)
+                val bookFetches = harness.fakeCatchUp.fetches.filter { it.domain == "books" }
+                bookFetches shouldHaveSize 1
+                bookFetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("ba"))
                 harness.fakeCatchUp.coarseCalls shouldHaveSize 5
             }
         }
@@ -499,8 +545,9 @@ class AccessChangedReconcileTest :
                 harness.fakeCatchUp.fetches.clear()
                 harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("bb")))
 
-                harness.fakeCatchUp.fetches shouldHaveSize 1
-                harness.fakeCatchUp.fetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("bb"))
+                val bookFetches = harness.fakeCatchUp.fetches.filter { it.domain == "books" }
+                bookFetches shouldHaveSize 1
+                bookFetches[0].fetch shouldBe TargetedFetch.ByIds(listOf("bb"))
             }
         }
 
@@ -522,9 +569,10 @@ class AccessChangedReconcileTest :
                 harness.fakeCatchUp.returnedByDomain["books"] = setOf("b1")
                 harness.engine.handleAccessChanged(AccessScope(collectionIds = emptyList(), bookIds = listOf("b1", "b2")))
 
-                // Two attempts were made over the same scope...
-                harness.fakeCatchUp.fetches shouldHaveSize 2
-                (harness.fakeCatchUp.fetches[1].fetch as TargetedFetch.ByIds).ids.toSet() shouldBe setOf("b1", "b2")
+                // Two books attempts were made over the same scope (activities rides the same axis)...
+                val bookFetches = harness.fakeCatchUp.fetches.filter { it.domain == "books" }
+                bookFetches shouldHaveSize 2
+                (bookFetches[1].fetch as TargetedFetch.ByIds).ids.toSet() shouldBe setOf("b1", "b2")
                 // ...and the retry's prune actually evicted the revoked book.
                 db.bookDao().getById(BookId("b1"))!!.deletedAt shouldBe null
                 db.bookDao().getById(BookId("b2"))!!.deletedAt shouldNotBe null
@@ -561,29 +609,32 @@ class AccessChangedReconcileTest :
                 // Every attempt fails: leader + exactly one retry, then give up (reconnect backstop owns it).
                 harness.fakeCatchUp.failNextByDomain["books"] = 10
                 harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b1")))
-                harness.fakeCatchUp.fetches shouldHaveSize 2
+                harness.fakeCatchUp.fetches.count { it.domain == "books" } shouldBe 2
 
                 // A fresh frame gets a fresh leader with a fresh retry budget — nothing is wedged.
                 harness.fakeCatchUp.fetches.clear()
                 harness.fakeCatchUp.failNextByDomain.clear()
                 harness.fakeCatchUp.returnedByDomain["books"] = setOf("b1")
                 harness.engine.handleAccessChanged(AccessScope(emptyList(), listOf("b1")))
-                harness.fakeCatchUp.fetches shouldHaveSize 1
+                harness.fakeCatchUp.fetches.count { it.domain == "books" } shouldBe 1
             }
         }
 
-        test("delta requeue: only the FAILED domain's ids are refetched — the succeeded domain is not") {
+        test("delta requeue: only the FAILED axis's ids are refetched — the succeeded axis is not") {
             withReconcileEngine { harness, _, _ ->
-                // collections succeeds; books fails once then succeeds.
+                // The Collections axis (collections + collection_books) succeeds; the Books axis fails
+                // once via books then succeeds. The remainder is folded per AXIS, so only the Books-axis
+                // ids requeue — the succeeded Collections axis is never refetched.
                 harness.fakeCatchUp.returnedByDomain["collections"] = setOf("c1")
                 harness.fakeCatchUp.returnedByDomain["books"] = setOf("b1")
                 harness.fakeCatchUp.failNextByDomain["books"] = 1
 
                 harness.engine.handleAccessChanged(AccessScope(collectionIds = listOf("c1"), bookIds = listOf("b1")))
 
-                // Pass 1: collections + collection_books + books(FAILED). Pass 2 (requeue): books only.
+                // Pass 1: collections + collection_books + books(FAILED) + activities. Pass 2 (Books-axis
+                // requeue): books + activities only — collections/collection_books do not run again.
                 harness.fakeCatchUp.fetches.map { it.domain } shouldBe
-                    listOf("collections", "collection_books", "books", "books")
+                    listOf("collections", "collection_books", "books", "activities", "books", "activities")
             }
         }
     })
@@ -603,6 +654,13 @@ private data class RecordedFetch(
 private class FakeReconcileCatchUp : CatchUp {
     val accessibleByDomain: MutableMap<String, Set<String>> = mutableMapOf()
     val returnedByDomain: MutableMap<String, Set<String>> = mutableMapOf()
+
+    /**
+     * Payloads a targeted fetch "returns" per domain. When set, [fetchTransient] APPLIES them through
+     * the real handler (exactly like the production client) and derives the returned id set from them
+     * — so a granted row actually lands live in Room. Domains without an entry use [returnedByDomain].
+     */
+    val fetchPayloadsByDomain: MutableMap<String, List<SyncPayload>> = mutableMapOf()
     val fetches: MutableList<RecordedFetch> = mutableListOf()
 
     /** The domain names the coarse pass ([catchUpTransient]) re-derived, in order — for the 5-domain sweep assertion. */
@@ -645,6 +703,19 @@ private class FakeReconcileCatchUp : CatchUp {
             it.await()
         }
         if (consumeFailure(handler.domainName)) return AppResult.Failure(SyncError.SyncFailed())
+        fetchPayloadsByDomain[handler.domainName]?.let { payloads ->
+            // Faithful to production fetchTransient: apply each returned payload through the handler
+            // and collect the non-tombstone ids as the "still-accessible returned" set.
+            @Suppress("UNCHECKED_CAST")
+            val typed = handler as SyncDomainHandler<Any>
+            val returnedIds = mutableSetOf<String>()
+            for (payload in payloads) {
+                val isTomb = (payload as? Tombstoned)?.deletedAt != null
+                typed.onCatchUpItem(payload, isTomb)
+                if (!isTomb) returnedIds += typed.syncId(payload)
+            }
+            return AppResult.Success(returnedIds)
+        }
         val returned = returnedByDomain[handler.domainName] ?: accessibleByDomain[handler.domainName] ?: emptySet()
         return AppResult.Success(returned)
     }
@@ -673,6 +744,8 @@ private class FakeReconcileSse : SseClient {
 private data class ReconcileHarness(
     val engine: SyncEngine,
     val fakeCatchUp: FakeReconcileCatchUp,
+    /** The shared registry the five access-gated handlers registered under — the drift-killer derives its expectation from it. */
+    val registry: ClientSyncDomainRegistry,
     /** The presence signal the access-sensitive router pings — subscribe with Turbine to observe refreshes. */
     val presence: PresenceRefreshSignal,
     /**
@@ -748,7 +821,7 @@ private fun withReconcileEngine(block: suspend (ReconcileHarness, ListenUpDataba
                         ),
                 )
             block(
-                ReconcileHarness(engine, fakeCatchUp, presence, coarseCallsAtPresenceRefresh),
+                ReconcileHarness(engine, fakeCatchUp, registry, presence, coarseCallsAtPresenceRefresh),
                 db,
                 store,
             )

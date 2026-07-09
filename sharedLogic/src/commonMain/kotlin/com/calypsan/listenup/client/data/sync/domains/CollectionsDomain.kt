@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.sync.TargetedFetch
 
 /**
  * The `collections` domain (Collections — Room v24): server-wins apply, soft-delete
@@ -31,6 +32,14 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
             AccessGate(
                 liveIds = database.collectionDao()::liveIds,
                 tombstoneByIds = database.collectionDao()::tombstoneByIds,
+                // A collection is fetched by its own id; every requested id is a prune candidate.
+                delta =
+                    AccessDeltaPolicy.Targeted(
+                        order = 0,
+                        axis = ScopeAxis.Collections,
+                        fetchFor = { TargetedFetch.ByIds(it) },
+                        candidatesFor = { it.toSet() },
+                    ),
             ),
     )
 }

@@ -54,11 +54,17 @@ private const val ACTIVITIES_DOMAIN = "activities"
 private const val COLLECTION_SHARES_DOMAIN = "collection_shares"
 private const val COLLECTION_BOOKS_DOMAIN = "collection_books"
 
-// Cap on a single targeted `?ids=` / `?collectionIds=` fetch (the scoped AccessChanged delta).
-// The client chunks larger scopes into ≤ this many ids per request; the server rejects an
+// Cap on a single targeted `?ids=` / `?collectionIds=` / `?bookIds=` fetch (the scoped AccessChanged
+// delta). The client chunks larger scopes into ≤ this many ids per request; the server rejects an
 // over-cap request rather than silently truncating — a truncated response would look to the
 // client like "these ids are no longer accessible" and wrongly tombstone them.
 private const val MAX_TARGETED_IDS = 100
+
+// Domains whose rows carry a `book_id` column, so a targeted `?bookIds=` fetch (the activities half
+// of the scoped AccessChanged delta) can match on it. `matchColumn` is code-controlled, never user
+// input — and honoring `?bookIds=` for a domain WITHOUT a `book_id` column would be a SQL error — so
+// a `?bookIds=` request naming any other domain is a 400, not a query against a phantom column.
+private val BOOK_ID_MATCH_DOMAINS = setOf(ACTIVITIES_DOMAIN)
 
 // Admin-only domain: a row carries an absolute server filesystem path (operator disk
 // topology), which members must never see. Unlike the per-row book/collection gates, this
@@ -270,10 +276,12 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
         val typedRepo = repo as SyncableRepo<Any>
 
         // Targeted scoped-delta fetch: `?ids=` matches the row's own id (books, collections),
-        // `?collectionIds=` matches its `collection_id` (collection_books). Both are access-
-        // filtered, capped, and un-paged. Absent both, fall back to the `?since=` catch-up page.
+        // `?collectionIds=` matches its `collection_id` (collection_books), `?bookIds=` matches its
+        // `book_id` (activities only — the allowlist keeps `matchColumn` sound). All three are access-
+        // filtered, capped, and un-paged. Absent all three, fall back to the `?since=` catch-up page.
         val idsParam = call.request.queryParameters["ids"]
         val collectionIdsParam = call.request.queryParameters["collectionIds"]
+        val bookIdsParam = call.request.queryParameters["bookIds"]
 
         val page: Page<Any> =
             when {
@@ -288,6 +296,23 @@ fun Route.syncRoutes(heartbeatIntervalMillis: Long = 25_000L) {
                         typedRepo.pullByIds(
                             userId,
                             matchColumn = "collection_id",
+                            matchValues = ids,
+                            extraWhere = extraWhere,
+                        )
+                    } ?: return@get call.respond(HttpStatusCode.BadRequest, "too many ids (max $MAX_TARGETED_IDS)")
+                }
+
+                bookIdsParam != null -> {
+                    if (domainName !in BOOK_ID_MATCH_DOMAINS) {
+                        return@get call.respond(
+                            HttpStatusCode.BadRequest,
+                            "bookIds fetch not supported for domain: $domainName",
+                        )
+                    }
+                    parseTargetedIds(bookIdsParam)?.let { ids ->
+                        typedRepo.pullByIds(
+                            userId,
+                            matchColumn = "book_id",
                             matchValues = ids,
                             extraWhere = extraWhere,
                         )
