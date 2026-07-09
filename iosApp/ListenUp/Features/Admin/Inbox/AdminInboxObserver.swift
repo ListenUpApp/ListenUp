@@ -40,23 +40,29 @@ final class AdminInboxObserver {
     // MARK: - State mapping
 
     private func apply(_ state: AdminInboxUiState) {
+        phase = Self.phase(from: state)
+    }
+
+    /// Pure: project the sealed `AdminInboxUiState` onto the flattened phase.
+    /// `nonisolated` so tests can exercise it off the main actor (mirrors the backup observers).
+    nonisolated static func phase(from state: AdminInboxUiState) -> AdminInboxPhase {
         switch onEnum(of: state) {
         case .loading:
-            phase = .loading
+            return .loading
         case .ready(let ready):
-            phase = .ready(AdminInboxReadyModel(from: ready))
+            return .ready(AdminInboxReadyModel(from: ready))
         case .error(let error):
-            phase = .error(error.message)
+            return .error(error.message)
         case .unknown:
             Log.error("Unexpected AdminInboxUiState case")
-            phase = .error(String(localized: "common.something_went_wrong"))
+            return .error(String(localized: "common.something_went_wrong"))
         }
     }
 }
 
 // MARK: - Phase
 
-enum AdminInboxPhase {
+enum AdminInboxPhase: Equatable {
     case loading
     case ready(AdminInboxReadyModel)
     case error(String)
@@ -64,7 +70,7 @@ enum AdminInboxPhase {
 
 // MARK: - Ready model
 
-struct AdminInboxReadyModel {
+struct AdminInboxReadyModel: Equatable {
     let books: [InboxBookRowModel]
     let selectedBookIds: Set<String>
     let isReleasing: Bool
@@ -92,7 +98,7 @@ struct AdminInboxReadyModel {
 
 // MARK: - Row model
 
-struct InboxBookRowModel: Identifiable {
+struct InboxBookRowModel: Identifiable, Equatable {
     let id: String
     let title: String
     let author: String?
