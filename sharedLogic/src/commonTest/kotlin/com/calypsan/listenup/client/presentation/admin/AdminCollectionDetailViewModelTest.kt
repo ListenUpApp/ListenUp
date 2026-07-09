@@ -13,6 +13,8 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.SearchRepository
+import com.calypsan.listenup.client.domain.model.CachedUserProfile
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -114,6 +116,7 @@ class AdminCollectionDetailViewModelTest :
             val repo: CollectionRepository = mock()
             val adminRepo: AdminRepository = mock()
             val userRepo: UserRepository = mock()
+            val userProfileRepo: UserProfileRepository = mock()
             val bookDao: BookDao = mock()
             val searchRepo: SearchRepository = mock()
             val imageStorage: ImageStorage = mock()
@@ -126,6 +129,8 @@ class AdminCollectionDetailViewModelTest :
                 every { bookDao.observeByIdsWithContributors(any()) } returns flowOf(emptyList())
                 every { imageStorage.exists(any()) } returns false
                 every { imageStorage.getCoverPath(any()) } returns ""
+                // Default: no cached profile → share-name resolution falls back to the user id.
+                every { userProfileRepo.observeProfile(any()) } returns flowOf(null)
             }
 
             fun build(): AdminCollectionDetailViewModel {
@@ -137,6 +142,7 @@ class AdminCollectionDetailViewModelTest :
                     repo,
                     adminRepo,
                     userRepo,
+                    userProfileRepo,
                     bookDao,
                     searchRepo,
                     imageStorage,
@@ -164,6 +170,39 @@ class AdminCollectionDetailViewModelTest :
                 ready.collection.id shouldBe "c1"
                 ready.books.map { it.id } shouldBe listOf("b1", "b2")
                 ready.shares.map { it.userId } shouldBe listOf("u1")
+            }
+        }
+
+        // Regression: a collection member must show their name, not their UUID. A share record carries
+        // only the user id; the VM resolves the display name from the public_profiles mirror.
+        test("share row shows the member's resolved display name, not the raw user id") {
+            runTest(dispatcher) {
+                val f = Fixture()
+                every { f.userProfileRepo.observeProfile("u1") } returns
+                    flowOf(CachedUserProfile(id = "u1", displayName = "Alice Reader", avatarType = "initials", updatedAt = 0L))
+                f.sharesFlow.value = listOf(CollectionShare("s1", "c1", "u1", SharePermission.Read))
+
+                val vm = f.build()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.shares.first().displayName shouldBe "Alice Reader"
+                ready.shares.first().userId shouldBe "u1"
+            }
+        }
+
+        // Never-stranded fallback: before the profile row has synced (or if the name is blank), the id
+        // is shown rather than nothing — but the resolution path still runs.
+        test("share row falls back to the user id when no cached profile exists yet") {
+            runTest(dispatcher) {
+                val f = Fixture() // default stub: observeProfile → null
+                f.sharesFlow.value = listOf(CollectionShare("s1", "c1", "u-unsynced", SharePermission.Read))
+
+                val vm = f.build()
+                advanceUntilIdle()
+
+                val ready = vm.state.value.shouldBeInstanceOf<AdminCollectionDetailUiState.Ready>()
+                ready.shares.first().displayName shouldBe "u-unsynced"
             }
         }
 

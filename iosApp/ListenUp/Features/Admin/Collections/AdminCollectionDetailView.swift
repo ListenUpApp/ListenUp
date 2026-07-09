@@ -280,10 +280,10 @@ struct AdminCollectionDetailView: View {
         isRevoking: Bool
     ) -> some View {
         HStack(spacing: 12) {
-            InitialsAvatar(initials: initials(for: share.userId), size: 36)
+            InitialsAvatar(initials: initials(for: share.displayName), size: 36)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(share.userId)
+                Text(share.displayName)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
                 Text(share.permission.capitalized)

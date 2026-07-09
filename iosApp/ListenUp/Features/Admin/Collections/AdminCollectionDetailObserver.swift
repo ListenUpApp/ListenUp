@@ -127,11 +127,14 @@ struct CollectionBookRowModel: Identifiable {
 struct CollectionShareRowModel: Identifiable {
     let id: String
     let userId: String
+    let displayName: String
     let permission: String
 
     init(from share: CollectionShareItem) {
         self.id = share.id
         self.userId = share.userId
+        // Resolved in the shared VM from the public_profiles mirror; falls back to the id until synced.
+        self.displayName = share.displayName
         self.permission = share.permission
     }
 }
