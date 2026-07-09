@@ -117,8 +117,12 @@ suspend fun deriveUserStats(
     // 5. Streak day-set: union the listening_events days with the days the user advanced progress
     //    (playback_positions.last_played_at) or finished a book (book_reads.finished_at). ABS imports
     //    write mediaProgress → positions + completions but keep session rows (→ listening_events)
-    //    sparsely, so events alone leave false gaps that collapse the streak. Both engines (this and
-    //    the client's StatsRepositoryImpl) union the same primitives so their streaks agree.
+    //    sparsely, so events alone leave false gaps that collapse the streak. The client's
+    //    StatsRepositoryImpl unions the primitives it has locally (positions' last-played + latest
+    //    finishedAt); this derivation additionally counts every historical `book_reads` finish day, so
+    //    the two streaks match except for re-read finish days the client's last-write-wins position
+    //    cannot see. That divergence is accepted: Home shows the locally-derived streak, leaderboards
+    //    show this one (pinned by UserStatsDerivationStreakDivergenceTest).
     val streakDays = ArrayList(listeningDays)
     suspendTransaction(sql) {
         sql.playbackPositionsQueries.selectLastPlayedAtForUser(userId).executeAsList().forEach { ms ->

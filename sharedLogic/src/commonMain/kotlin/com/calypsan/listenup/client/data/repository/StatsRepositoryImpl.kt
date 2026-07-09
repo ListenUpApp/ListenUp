@@ -43,8 +43,11 @@ private const val MIDNIGHT_PULSE_DELAY_MS = 60_000L
  * finish day) in the device timezone — real-time, tz-correct, and self-correcting on idle days via
  * the [midnightPulse] ticker. Including the playback days is what makes imported listening visible:
  * ABS mediaProgress lands as playback_positions with no matching listening_events session, so an
- * events-only streak shows false gaps (Finding #20). The server's [StatsRepositoryImpl] twin unions
- * the same primitives so the two engines agree. This deliberately diverges from the old
+ * events-only streak shows false gaps (Finding #20). The server's twin derivation unions the same
+ * local primitives this one does AND additionally counts every historical finish day from its
+ * append-only `book_reads` log, so the two streaks match except for re-read finish days: this client
+ * only holds the latest finish in its last-write-wins position, so earlier re-read finishes are
+ * invisible here. That divergence is accepted. This deliberately diverges from the old
  * server-authoritative streak math: the server's `user_stats` still drives the cross-user
  * leaderboard (a different consumer); the Home display derives locally for immediate reactivity.
  *

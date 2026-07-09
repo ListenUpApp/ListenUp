@@ -168,7 +168,9 @@ internal interface PlaybackPositionDao {
      * time (falling back to [PlaybackPositionEntity.updatedAt] for legacy rows with no
      * [PlaybackPositionEntity.lastPlayedAt]) unioned with its finish time. Feeds the client streak so
      * imported mediaProgress — which advances a position without ever producing a listening_events
-     * session — still counts as a listening day, matching the server's streak day-set (Finding #20).
+     * session — still counts as a listening day, approximating the server's streak day-set
+     * (Finding #20) — the server additionally counts historical re-read finish days from its
+     * append-only book_reads log, which this last-write-wins position view cannot reconstruct.
      */
     @Query(
         "SELECT COALESCE(lastPlayedAt, updatedAt) FROM playback_positions WHERE deletedAt IS NULL " +
