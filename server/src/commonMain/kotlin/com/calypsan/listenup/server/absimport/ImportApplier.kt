@@ -12,6 +12,8 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ImportId
 import com.calypsan.listenup.server.io.canonicalize
 import com.calypsan.listenup.server.io.fileIoDispatcher
+import com.calypsan.listenup.server.services.ImportListeningEventWrite
+import com.calypsan.listenup.server.services.ImportPositionWrite
 import com.calypsan.listenup.server.services.ListeningEventRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.services.StatsCascadeDeferred
@@ -219,12 +221,18 @@ class ImportApplier internal constructor(
     }
 
     /**
-     * Records every resolvable progress row, counting imports per user, and adds each imported user
-     * to [affectedUsers] so their stats are backfilled (a finished position refreshes `booksFinished`
-     * even when the user has no imported sessions). Returns the per-user written-position counts.
+     * Records every resolvable progress row through the batched
+     * [PlaybackPositionRepository.recordAllForImport] write, counting imports per user and adding each
+     * imported user to [affectedUsers] so their stats are backfilled (a finished position refreshes
+     * `booksFinished` even when the user has no imported sessions). Returns the per-user
+     * written-position counts.
      *
      * [earliestSessionStartMs] (keyed on raw `(ABS user, ABS item)`) dates each imported
      * `STARTED_BOOK` activity strictly before that book's earliest imported session.
+     *
+     * Progress frames are throttled: one every [APPLY_EVENT_INTERVAL] rows during the resolve scan,
+     * plus an always-emitted final frame reporting `done == total`. A full history import used to emit
+     * one SSE frame per row (including skipped rows); the batched write makes that frequency pointless.
      */
     private suspend fun recordAll(
         progress: List<AbsProgress>,
@@ -236,32 +244,55 @@ class ImportApplier internal constructor(
     ): Map<UserId, Int> {
         val total = progress.size
         val perUser = mutableMapOf<UserId, Int>()
+        val writes = mutableListOf<ImportPositionWrite>()
+        var lastItem: String? = null
 
         progress.forEachIndexed { index, row ->
             val targetUser = userMappings[AbsUserId(row.userId)]
             val targetBook = effectiveBooks[AbsItemId(row.itemId)]
+            lastItem = targetBook?.value ?: row.itemId
             if (targetUser != null && targetBook != null) {
-                recordPosition(targetUser, targetBook, row, earliestSessionStartMs)
+                writes +=
+                    ImportPositionWrite(
+                        userId = targetUser.value,
+                        bookId = targetBook.value,
+                        positionMs = (row.currentTimeSeconds * MILLIS_PER_SECOND).toLong(),
+                        lastPlayedAt = row.lastUpdateMs,
+                        finished = row.isFinished || row.progress >= FINISHED_THRESHOLD,
+                        playbackSpeed = DEFAULT_PLAYBACK_SPEED,
+                        currentChapterId = null,
+                        // Date the imported start strictly before this book's earliest session, and never
+                        // later than the un-fixed value. Null when the book has no imported sessions →
+                        // live behavior (lastPlayedAt).
+                        startedBookOccurredAt =
+                            earliestSessionStartMs[row.userId to row.itemId]
+                                ?.let { minOf(row.lastUpdateMs, it - 1) },
+                    )
                 perUser[targetUser] = (perUser[targetUser] ?: 0) + 1
                 affectedUsers += targetUser.value
             }
-            onEvent(
-                ImportEvent.Applying(
-                    done = index + 1,
-                    total = total,
-                    currentItem = targetBook?.value ?: row.itemId,
-                ),
-            )
+            if ((index + 1) % APPLY_EVENT_INTERVAL == 0) {
+                onEvent(ImportEvent.Applying(done = index + 1, total = total, currentItem = lastItem ?: row.itemId))
+            }
         }
 
+        playbackPositionRepository.recordAllForImport(writes)
+
+        if (total > 0) {
+            onEvent(ImportEvent.Applying(done = total, total = total, currentItem = lastItem ?: ""))
+        }
         return perUser
     }
 
     /**
-     * Imports every resolvable playback session as a listening event (stable `abs:<id>`) and adds
-     * each imported user to [affectedUsers]. The per-event stats hook fires idempotently inside
-     * [ListeningEventRepository.upsert]; the final per-user backfill is the authority. Returns the
-     * number of sessions written.
+     * Imports every resolvable playback session as a listening event (stable `abs:<id>`) through the
+     * batched [ListeningEventRepository.upsertAllForImport] write, and adds each imported user to
+     * [affectedUsers]. The per-event `ListeningSessionClosed` stats hook fires idempotently on first
+     * insert; the final per-user backfill is the authority. Returns the number of sessions written.
+     *
+     * Progress frames are throttled like [recordAll]: one every [APPLY_EVENT_INTERVAL] rows during the
+     * resolve scan, plus an always-emitted final frame reporting `done == total` and the cumulative
+     * `sessionsWritten` tally.
      */
     private suspend fun recordSessions(
         sessions: List<AbsSession>,
@@ -271,54 +302,47 @@ class ImportApplier internal constructor(
         onEvent: (ImportEvent) -> Unit,
     ): Int {
         val total = sessions.size
-        var imported = 0
+        val writes = mutableListOf<ImportListeningEventWrite>()
+        var lastItem: String? = null
 
         sessions.forEachIndexed { index, session ->
             val targetUser = userMappings[AbsUserId(session.userId)]
             val targetBook = effectiveBooks[AbsItemId(session.itemId)]
+            lastItem = targetBook?.value ?: session.itemId
             if (targetUser != null && targetBook != null) {
-                listeningEventRepository.upsert(
-                    value = sessionConverter.toEvent(session, targetBook.value),
-                    clientOpId = null,
-                    userId = targetUser.value,
-                )
-                imported++
+                writes +=
+                    ImportListeningEventWrite(
+                        userId = targetUser.value,
+                        event = sessionConverter.toEvent(session, targetBook.value),
+                    )
                 affectedUsers += targetUser.value
             }
+            if ((index + 1) % APPLY_EVENT_INTERVAL == 0) {
+                onEvent(
+                    ImportEvent.Applying(
+                        done = index + 1,
+                        total = total,
+                        currentItem = lastItem ?: session.itemId,
+                        sessionsWritten = writes.size,
+                    ),
+                )
+            }
+        }
+
+        listeningEventRepository.upsertAllForImport(writes)
+
+        val imported = writes.size
+        if (total > 0) {
             onEvent(
                 ImportEvent.Applying(
-                    done = index + 1,
+                    done = total,
                     total = total,
-                    currentItem = targetBook?.value ?: session.itemId,
+                    currentItem = lastItem ?: "",
                     sessionsWritten = imported,
                 ),
             )
         }
-
         return imported
-    }
-
-    private suspend fun recordPosition(
-        targetUser: UserId,
-        targetBook: BookId,
-        row: AbsProgress,
-        earliestSessionStartMs: Map<Pair<String, String>, Long>,
-    ) {
-        playbackPositionRepository.recordPosition(
-            userId = targetUser.value,
-            bookId = targetBook.value,
-            positionMs = (row.currentTimeSeconds * MILLIS_PER_SECOND).toLong(),
-            lastPlayedAt = row.lastUpdateMs,
-            finished = row.isFinished || row.progress >= FINISHED_THRESHOLD,
-            playbackSpeed = DEFAULT_PLAYBACK_SPEED,
-            currentChapterId = null,
-            // Date the imported start strictly before this book's earliest session, and never
-            // later than the un-fixed value (so progress that already predates the sessions is
-            // unchanged). Null when the book has no imported sessions → live behavior (lastPlayedAt).
-            startedBookOccurredAt =
-                earliestSessionStartMs[row.userId to row.itemId]
-                    ?.let { minOf(row.lastUpdateMs, it - 1) },
-        )
     }
 
     private companion object {
@@ -326,5 +350,8 @@ class ImportApplier internal constructor(
         const val FINISHED_THRESHOLD = 0.99
         const val MILLIS_PER_SECOND = 1_000.0
         const val DEFAULT_PLAYBACK_SPEED = 1.0f
+
+        /** Emit one [ImportEvent.Applying] progress frame per this many resolved rows, plus a final frame. */
+        const val APPLY_EVENT_INTERVAL = 50
     }
 }
