@@ -17,6 +17,7 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.SearchRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -143,6 +144,7 @@ class AdminCollectionDetailViewModelSearchTest :
             val repo: CollectionRepository = mock()
             val adminRepo: AdminRepository = mock()
             val userRepo: UserRepository = mock()
+            val userProfileRepo: UserProfileRepository = mock()
             val bookDao: BookDao = mock()
             val searchRepo: SearchRepository = mock()
             val imageStorage: ImageStorage = mock()
@@ -155,6 +157,7 @@ class AdminCollectionDetailViewModelSearchTest :
                 every { bookDao.observeByIdsWithContributors(any()) } returns flowOf(emptyList())
                 every { imageStorage.exists(any()) } returns false
                 every { imageStorage.getCoverPath(any()) } returns ""
+                every { userProfileRepo.observeProfile(any()) } returns flowOf(null)
             }
 
             fun build(): AdminCollectionDetailViewModel {
@@ -166,6 +169,7 @@ class AdminCollectionDetailViewModelSearchTest :
                     repo,
                     adminRepo,
                     userRepo,
+                    userProfileRepo,
                     bookDao,
                     searchRepo,
                     imageStorage,

@@ -162,6 +162,7 @@ internal val adminPresentationModule =
                 collectionRepository = get(),
                 adminRepository = get(),
                 userRepository = get(),
+                userProfileRepository = get(),
                 bookDao = get(),
                 searchRepository = get(),
                 imageStorage = get(),

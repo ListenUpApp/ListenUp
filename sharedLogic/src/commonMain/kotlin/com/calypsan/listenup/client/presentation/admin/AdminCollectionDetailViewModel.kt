@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.SearchRepository
+import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -26,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -52,6 +54,7 @@ class AdminCollectionDetailViewModel internal constructor(
     private val collectionRepository: CollectionRepository,
     private val adminRepository: AdminRepository,
     private val userRepository: UserRepository,
+    private val userProfileRepository: UserProfileRepository,
     private val bookDao: BookDao,
     private val searchRepository: SearchRepository,
     private val imageStorage: ImageStorage,
@@ -96,17 +99,18 @@ class AdminCollectionDetailViewModel internal constructor(
                         }
                         return@collect
                     }
+                    val shareItems = shares.map { it.toShareItem(resolveShareName(it.sharedWithUserId)) }
                     state.update { current ->
                         if (current is AdminCollectionDetailUiState.Ready) {
                             current.copy(
                                 collection = collection,
-                                shares = shares.map { it.toShareItem() },
+                                shares = shareItems,
                             )
                         } else {
                             AdminCollectionDetailUiState.Ready(
                                 collection = collection,
                                 editedName = collection.name,
-                                shares = shares.map { it.toShareItem() },
+                                shares = shareItems,
                             )
                         }
                     }
@@ -380,12 +384,26 @@ class AdminCollectionDetailViewModel internal constructor(
         }
     }
 
-    private fun CollectionShare.toShareItem() =
+    private fun CollectionShare.toShareItem(displayName: String) =
         CollectionShareItem(
             id = id,
             userId = sharedWithUserId,
+            displayName = displayName,
             permission = permission.name.lowercase(),
         )
+
+    /**
+     * Resolve a shared-with user's display name from the globally-synced `public_profiles` mirror,
+     * falling back to the raw user id only until that row syncs (or if the name is blank). A share
+     * record carries only the user id — names live in the separate `public_profiles` domain — so this
+     * resolution is what stops the UI from showing a bare UUID for a collection member.
+     */
+    private suspend fun resolveShareName(userId: String): String =
+        userProfileRepository
+            .observeProfile(userId)
+            .first()
+            ?.displayName
+            ?.ifBlank { null } ?: userId
 }
 
 /**
@@ -444,5 +462,7 @@ sealed interface AdminCollectionDetailUiState {
 data class CollectionShareItem(
     val id: String,
     val userId: String,
+    /** Resolved display name of the shared-with user; falls back to [userId] until the profile syncs. */
+    val displayName: String,
     val permission: String,
 )

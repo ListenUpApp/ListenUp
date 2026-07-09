@@ -105,7 +105,22 @@ class PlaybackPreparer internal constructor(
      *
      * @return a [PreparedPlayback] value, or `null` on any failure (logged).
      */
-    suspend fun prepare(bookId: BookId): PreparedPlayback? {
+    suspend fun prepare(bookId: BookId): PreparedPlayback? =
+        try {
+            prepareInternal(bookId)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Contract (see KDoc): "null on any failure (logged)". An escaping throw — e.g. a
+            // transport exception from the streaming-prepare RPC when the book isn't downloaded
+            // (buildTimeline's `playbackService().prepare` is the one unguarded RPC) — otherwise
+            // crosses the Swift Export seam as an opaque `KotlinError`, and the player shows
+            // "Couldn't start playback" with no cause. Fold to null and log the real exception.
+            logger.error(e) { "Playback prepare failed for ${bookId.value}" }
+            null
+        }
+
+    private suspend fun prepareInternal(bookId: BookId): PreparedPlayback? {
         logger.info { "Preparing playback for book: ${bookId.value}" }
 
         // 1. Ensure fresh auth token

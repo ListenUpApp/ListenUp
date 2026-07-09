@@ -302,6 +302,33 @@ class PlaybackPreparerTest :
                 fakePlaybackService.prepareCallCount shouldBe 1
             }
         }
+
+        // ── test 4: streaming-prepare RPC THROWS + not downloaded → null (never propagate) ──────
+        test("prepare RPC throws and files not downloaded — prepare() returns null, does not propagate") {
+            runTest {
+                val fakePlaybackService =
+                    FakePlaybackService(
+                        prepareResult = AppResult.Failure(InternalError(debugInfo = "unused")),
+                        prepareThrows = RuntimeException("RPC transport failure (e.g. dead WebSocket)"),
+                    )
+                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+
+                val downloadService: DownloadService = mock()
+                everySuspend { downloadService.getLocalPath(any()) } returns null
+                everySuspend { downloadService.wasExplicitlyDeleted(any()) } returns false
+
+                val preparer = buildPreparer(downloadService, fakeFactory)
+
+                // The streaming-prepare RPC throws a transport-level exception (not an AppResult.Failure)
+                // — exactly the "started book A (downloaded), played book B (streaming), it failed" case.
+                // prepare() must fold it to null per its contract, NOT let it escape across the Swift
+                // Export seam as an opaque KotlinError. Pre-fix this line threw; post-fix it returns null.
+                val result = preparer.prepare(bookId)
+
+                result.shouldBeNull()
+                fakePlaybackService.prepareCallCount shouldBe 1
+            }
+        }
     })
 
 // ── Test doubles ──────────────────────────────────────────────────────────────────────────────
@@ -314,12 +341,14 @@ private val stubFailure = AppResult.Failure(InternalError(debugInfo = "stub"))
  */
 private class FakePlaybackService(
     private val prepareResult: AppResult<ContractPreparedPlayback>,
+    private val prepareThrows: Throwable? = null,
 ) : PlaybackService {
     var prepareCallCount = 0
         private set
 
     override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> {
         prepareCallCount++
+        prepareThrows?.let { throw it }
         return prepareResult
     }
 
