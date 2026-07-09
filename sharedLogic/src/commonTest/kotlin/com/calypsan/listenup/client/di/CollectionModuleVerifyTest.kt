@@ -36,6 +36,7 @@ class CollectionModuleVerifyTest :
                         ApiClientFactory::class,
                         ServerConfig::class,
                         LibraryRepository::class,
+                        com.calypsan.listenup.client.data.remote.RpcAuthRecovery::class,
                     ),
             )
         }

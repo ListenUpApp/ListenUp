@@ -78,6 +78,7 @@ class ClientSyncModuleVerifyTest :
                         ImageStorage::class,
                         DocumentStorage::class,
                         MirroredDomain::class,
+                        com.calypsan.listenup.client.data.remote.RpcAuthRecovery::class,
                     ),
             )
         }

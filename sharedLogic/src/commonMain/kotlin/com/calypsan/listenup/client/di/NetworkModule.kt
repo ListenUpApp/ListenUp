@@ -5,6 +5,8 @@ import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.KtorApiClientFactory
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
+import com.calypsan.listenup.client.data.remote.RpcAuthRecovery
+import com.calypsan.listenup.client.data.remote.RpcAuthRecoveryImpl
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.api.ListenUpApi
 import com.calypsan.listenup.client.domain.repository.AuthRepository
@@ -37,6 +39,17 @@ internal val networkModule: Module =
                 refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // RpcAuthRecovery — single-flight token refresh + request-client rebuild for the authed RPC
+        // factories (Shelf/Collection/Playback). Injected into their RpcProxyCache so a handshake-401
+        // heals with one refresh + one retry. Same lazy AuthRepository seam as ApiClientFactory above.
+        single<RpcAuthRecovery> {
+            RpcAuthRecoveryImpl(
+                authSession = get(),
+                refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
+                apiClientFactory = get(),
+            )
+        }
 
         // AuthRpcFactory is provided by clientAuthModule. It still needs to be
         // invalidated alongside ApiClientFactory whenever the underlying HttpClient
