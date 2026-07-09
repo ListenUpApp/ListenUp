@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isDeadRpcCl
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isPreDeliveryTransportFailure
 import com.calypsan.listenup.client.data.remote.RpcFailureClassifier.isWsHandshake401
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -21,6 +22,8 @@ import kotlin.time.Duration.Companion.seconds
 /** Upper bound on a single RPC. Guards against a black-holed WebSocket that never resolves. */
 private val DEFAULT_RPC_TIMEOUT = 15.seconds
 
+private val logger = KotlinLogging.logger {}
+
 /**
  * The shared stateful body of every post-login RPC factory: a Mutex-guarded,
  * invalidate-able, **self-healing** cache of one kotlinx.rpc service proxy plus the
@@ -28,13 +31,21 @@ private val DEFAULT_RPC_TIMEOUT = 15.seconds
  *
  * `rpc(url)` returns a cold [kotlinx.rpc.krpc.ktor.client.KtorRpcClient] that opens
  * its WebSocket on the first message, so the proxy is cached and reused. When that
- * socket later dies (server restart, token expiry, network blip) kotlinx.rpc rejects
- * the next call — with a `CancellationException("RpcClient was cancelled")`, a
- * handshake [io.ktor.client.plugins.websocket.WebSocketException], or a connect
- * timeout. [call] centralizes bounded, single-flight recovery for exactly those
- * cases: it invalidates the dead proxy and retries **at most once** on a freshly
- * reconnected proxy, so a transient death heals invisibly instead of surfacing as a
- * silent no-op or an unbounded hang.
+ * socket later dies, [call] centralizes bounded, single-flight recovery — but only for
+ * failures it can prove are **pre-delivery** (the frame was never sent), so a retry can
+ * never double-apply a non-idempotent mutation:
+ *
+ * - **Retry once** on a provably pre-delivery signal: an [io.ktor.client.plugins.websocket.WebSocketException]
+ *   (handshake), a [io.ktor.client.network.sockets.ConnectTimeoutException], a dead-client
+ *   [IllegalStateException] ("RpcClient was cancelled", thrown BEFORE send), or a handshake 401
+ *   (after a token refresh).
+ * - **Never retry — surface as outcome-unknown** a bare `CancellationException` thrown from below
+ *   with a still-active caller ("Client cancelled"): kotlinx.rpc throws this when it closes a
+ *   *pending* (already-SENT) request channel, so the mutation may have committed. The engine
+ *   converts it to a typed [RpcOutcomeUnknownException] rather than retrying (would double-apply) or
+ *   re-raising the raw cancellation (would silently kill the caller's job).
+ * - **Re-raise** a bare `CancellationException` with a cancelled caller context — genuine caller
+ *   cancellation. Our own [TimeoutCancellationException] heals for the next call but never retries.
  *
  * [invalidate] drops both the cached proxy and the derived [HttpClient] — they are
  * principal-bound and must not survive a logout, re-login, or server-URL change
@@ -79,17 +90,9 @@ internal class RpcProxyCache<T : Any>(
     suspend fun get(): T = lease().proxy
 
     /**
-     * Run [block] against the cached proxy with bounded, self-healing recovery.
-     *
-     * - A [TimeoutCancellationException] (our [timeout] tripped) invalidates the proxy so the
-     *   NEXT call reconnects, but never auto-retries — the frame may have reached a handler, so
-     *   a non-idempotent mutation must not double-apply.
-     * - A [CancellationException] with a still-active caller context is the dead-`RpcClient`
-     *   signal (the cancel came from below, not from the caller): invalidate and retry once —
-     *   the frame was never delivered, so retry is safe. A cancelled caller context re-raises.
-     * - A handshake 401 refreshes the token, rebuilds, and retries once. Any other pre-delivery
-     *   transport failure (handshake / connect) invalidates and retries once. Everything else
-     *   propagates — it could have reached a handler.
+     * Run [block] against the cached proxy with bounded, single-flight, self-healing recovery.
+     * See the class KDoc for the full retry/surface policy — the load-bearing invariant is that
+     * only **provably pre-delivery** failures retry, so a non-idempotent mutation never double-applies.
      */
     suspend fun <R> call(
         timeout: Duration = DEFAULT_RPC_TIMEOUT,
@@ -99,50 +102,75 @@ internal class RpcProxyCache<T : Any>(
         return try {
             withTimeout(timeout) { block(lease.proxy) }
         } catch (e: TimeoutCancellationException) {
-            // The request may be in flight — heal for the NEXT attempt, but never auto-retry here.
+            // Our own bound tripped; the frame may be in flight — heal for the NEXT call, never retry.
+            logger.warn { "RPC timed out after $timeout; invalidating for the next attempt (no retry)" }
             invalidate(lease.generation)
             throw e
         } catch (e: Throwable) {
-            recoverOrRethrow(e, lease.generation, timeout, block)
+            recover(e, lease.generation, timeout, block)
         }
     }
 
     /**
-     * Decide whether [e] is a recoverable transport death and, if so, invalidate the dead proxy and
-     * retry once on a fresh connection. Anything that could have reached a handler — a cancelled
-     * caller, or an unknown failure — re-raises unchanged.
+     * Retry ONLY on provably pre-delivery signals; otherwise [surface] the failure. Kept separate
+     * from [call] so the timeout branch stays first (a [TimeoutCancellationException] must never be
+     * mistaken for a from-below cancellation).
      */
-    private suspend fun <R> recoverOrRethrow(
+    private suspend fun <R> recover(
         e: Throwable,
         leasedGeneration: Int,
         timeout: Duration,
         block: suspend (T) -> R,
     ): R {
         when {
-            // A CancellationException with a still-active caller is the dead-RpcClient signal: the
-            // cancel came from below, rejecting the frame before delivery — recoverable.
-            e is CancellationException && currentCoroutineContext().isActive -> Unit
+            // Stale-session handshake 401 — refresh + rebuild, then retry once (or surface if refresh fails).
+            isWsHandshake401(e) -> {
+                return retryAfterAuthRefresh(e, leasedGeneration, timeout, block)
+            }
 
-            // The caller's own context was cancelled — genuine cancellation, re-raise.
-            e is CancellationException -> throw e
+            // Provably pre-delivery: handshake, connect, or a dead-client ISE ("RpcClient was cancelled",
+            // thrown BEFORE send). The frame never left — retry cannot double-apply.
+            isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> {
+                logger.info {
+                    "RPC pre-delivery transport failure (${e::class.simpleName}); reconnecting + retrying once"
+                }
+                invalidate(leasedGeneration)
+                return retryOnce(timeout, block)
+            }
 
-            // Stale-session handshake 401 — refresh the token + rebuild, then retry once.
-            isWsHandshake401(e) -> authRecovery.refreshAndRebuild()
-
-            // Any other pre-delivery transport death (handshake, connect, dead client) — retry once.
-            isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> Unit
-
-            // Reached a handler, or an unknown fault — propagate.
-            else -> throw e
+            // Everything else — a from-below (post-delivery) cancellation, a cancelled caller, or an
+            // unknown fault — is NOT safe to retry. Surface it.
+            else -> {
+                surface(e, leasedGeneration)
+            }
         }
+    }
+
+    /**
+     * Refresh the bearer token for a handshake 401, then retry once on a rebuilt connection. If the
+     * refresh fails (tokens cleared), re-raise the original 401 instead of firing a doomed retry —
+     * [com.calypsan.listenup.client.core.error.ErrorMapper] maps it to a typed `SessionExpired`.
+     */
+    private suspend fun <R> retryAfterAuthRefresh(
+        e: Throwable,
+        leasedGeneration: Int,
+        timeout: Duration,
+        block: suspend (T) -> R,
+    ): R {
+        logger.info { "RPC handshake 401; refreshing token before retry" }
+        val refreshed = authRecovery.refreshAndRebuild()
         invalidate(leasedGeneration)
+        if (!refreshed) {
+            logger.warn { "Token refresh failed; surfacing the 401 instead of retrying" }
+            throw e
+        }
         return retryOnce(timeout, block)
     }
 
     /**
-     * The single at-most-once retry. Takes a FRESH lease so a herd converges on the one
-     * reconnected proxy. A second failure surfaces: invalidate (unless the caller was cancelled)
-     * and re-raise so the boundary maps it to a typed failure.
+     * The single at-most-once retry, on a FRESH lease so a herd converges on the one reconnected
+     * proxy. Whatever the retry produces is final — its own failures go through [surface], so a
+     * second post-delivery drop becomes an outcome-unknown value, never a re-fired mutation.
      */
     private suspend fun <R> retryOnce(
         timeout: Duration,
@@ -151,13 +179,31 @@ internal class RpcProxyCache<T : Any>(
         val lease = lease()
         return try {
             withTimeout(timeout) { block(lease.proxy) }
-        } catch (e: CancellationException) {
-            if (currentCoroutineContext().isActive) invalidate(lease.generation)
-            throw e
         } catch (e: Throwable) {
-            invalidate(lease.generation)
-            throw e
+            surface(e, lease.generation)
         }
+    }
+
+    /**
+     * Turn a non-retryable failure into the right thrown signal — always throws.
+     *
+     * A from-below cancellation (still-active caller, incl. our own timeout on a retry) means the
+     * frame was SENT and its outcome is unknown: heal the connection and raise the typed
+     * [RpcOutcomeUnknownException] so the boundary folds it to a value (never a re-raised
+     * cancellation that would silently kill the caller's job). A genuinely cancelled caller
+     * re-raises untouched; any other fault invalidates and re-raises for the boundary to map.
+     */
+    private suspend fun surface(
+        e: Throwable,
+        leasedGeneration: Int,
+    ): Nothing {
+        val callerCancelled = e is CancellationException && !currentCoroutineContext().isActive
+        if (!callerCancelled) invalidate(leasedGeneration)
+        if (e is CancellationException && !callerCancelled) {
+            logger.warn { "RPC frame sent but outcome unknown (${e.message}); surfacing as a typed failure (no retry)" }
+            throw RpcOutcomeUnknownException(e)
+        }
+        throw e
     }
 
     private suspend fun lease(): Lease<T> =

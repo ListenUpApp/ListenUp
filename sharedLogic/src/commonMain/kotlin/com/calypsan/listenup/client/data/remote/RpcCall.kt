@@ -25,6 +25,10 @@ internal suspend fun <T> catchingRpcResult(run: suspend () -> AppResult<T>): App
         run()
     } catch (e: TimeoutCancellationException) {
         AppResult.Failure(TransportError.Timeout(debugInfo = e.message))
+    } catch (e: RpcOutcomeUnknownException) {
+        // The frame was sent but the response was lost — outcome unknown. Surface as a typed transport
+        // failure (not a re-raised cancellation) so the caller can honestly report it and decide.
+        AppResult.Failure(TransportError.Timeout(debugInfo = e.message))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {

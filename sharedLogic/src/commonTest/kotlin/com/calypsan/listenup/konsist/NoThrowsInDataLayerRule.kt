@@ -108,6 +108,11 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // not-connected guard: RPC-proxy factories throw this typed exception when no server
             // URL is configured (an expected pre-connection state). ErrorMapper folds it to a
             // transient NetworkUnavailable; it is a configuration guard, not a swallowed failure.
-            !line.contains("throw ServerUrlNotConfiguredException(")
+            !line.contains("throw ServerUrlNotConfiguredException(") &&
+            // outcome-unknown transport signal: RpcProxyCache throws this when an RPC frame was sent
+            // but the response was lost, so it can't be retried. catchingRpcResult immediately folds
+            // it to a typed AppResult.Failure(TransportError.Timeout) — a transport signal, not a
+            // propagated/swallowed failure (same rationale as ServerUrlNotConfiguredException).
+            !line.contains("throw RpcOutcomeUnknownException(")
     }
 }

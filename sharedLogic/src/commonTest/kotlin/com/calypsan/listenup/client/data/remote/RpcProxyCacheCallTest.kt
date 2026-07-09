@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -83,22 +84,28 @@ class RpcProxyCacheCallTest :
             return cache to { connectCount }
         }
 
-        test("dead-proxy CancellationException with a live caller reconnects and returns the retry result") {
+        test("a from-below CancellationException (post-delivery) is surfaced outcome-unknown, NOT retried") {
+            // kotlinx.rpc throws a bare CancellationException("Client cancelled") from below when it
+            // closes a PENDING (already-sent) request channel — the frame was delivered and may have
+            // committed. Retrying would double-apply the mutation. The engine must surface, not retry.
             runTest {
                 val (cache, connects) =
                     scriptedCache(
                         ArrayDeque(
                             listOf(
-                                { throw CancellationException("RpcClient was cancelled") },
-                                { "healed" },
+                                { throw CancellationException("Client cancelled") },
+                                { "must-not-run" },
                             ),
                         ),
                     )
 
-                val result = cache.call { it.work() }
+                val result: AppResult<String> = cache.rpcCall { AppResult.Success(it.work()) }
 
-                result shouldBe "healed"
-                connects() shouldBe 2 // 1 original (dead) + 1 reconnect
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<TransportError.Timeout>()
+                connects() shouldBe 1 // NO retry — the second scripted behavior is never reached
             }
         }
 
@@ -191,7 +198,7 @@ class RpcProxyCacheCallTest :
                             listOf(
                                 {
                                     barrier.await()
-                                    throw CancellationException("RpcClient was cancelled")
+                                    throw IllegalStateException("RpcClient was cancelled")
                                 },
                                 { "healed" },
                             ),
@@ -229,6 +236,40 @@ class RpcProxyCacheCallTest :
                     .shouldBeInstanceOf<AuthError.SessionExpired>()
                 recovery.count shouldBe 1 // refreshed exactly once (not again on the retry)
                 connects() shouldBe 2
+            }
+        }
+
+        test("a handshake 401 whose token refresh fails surfaces SessionExpired without a doomed retry") {
+            runTest {
+                // Refresh fails (tokens cleared) → retrying the handshake would just 401 again.
+                val failingRecovery =
+                    object : RpcAuthRecovery {
+                        var count = 0
+
+                        override suspend fun refreshAndRebuild(): Boolean {
+                            count++
+                            return false
+                        }
+                    }
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw WebSocketException("expected status code 101 but was 401") },
+                                { "must-not-run" },
+                            ),
+                        ),
+                        authRecovery = failingRecovery,
+                    )
+
+                val result: AppResult<String> = cache.rpcCall { AppResult.Success(it.work()) }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<AuthError.SessionExpired>()
+                failingRecovery.count shouldBe 1
+                connects() shouldBe 1 // no retry — the second behavior is never reached
             }
         }
     })

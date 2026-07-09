@@ -50,6 +50,8 @@ import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.routing.routing
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.rpc.krpc.ktor.client.rpc
@@ -58,7 +60,13 @@ import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.registerService
 import kotlinx.rpc.withService
+import java.io.Closeable
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
 import java.nio.file.Files
+import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.concurrent.thread
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -251,7 +259,151 @@ class RpcReconnectE2ETest :
                 server.stop(gracePeriodMillis = 100, timeoutMillis = 500)
             }
         }
+
+        // THE regression guard for the reviewer's blocker: a mutation whose frame is DELIVERED and
+        // committed, then loses its response to a mid-flight connection drop, must surface a Failure
+        // and NOT be retried (which would double-commit). A TCP relay severs the live socket after the
+        // server commits — no server restart — reproducing kotlinx.rpc's bare "Client cancelled" CE.
+        test("a delivered-then-dropped create surfaces Failure with exactly one commit (no double-apply)") {
+            runBlocking {
+                val (_, driver, service) = seedServer()
+
+                val committed = CompletableDeferred<Unit>()
+                val invocations =
+                    java.util.concurrent.atomic
+                        .AtomicInteger(0)
+                val severAfterCommit: (CollectionService) -> CollectionService = { scoped ->
+                    object : CollectionService by scoped {
+                        override suspend fun createCollection(
+                            libraryId: String,
+                            name: String,
+                        ): AppResult<CollectionSummary> {
+                            val n = invocations.incrementAndGet()
+                            val result = scoped.createCollection(libraryId, name) // COMMITS the row
+                            if (n == 1) {
+                                // Hold ONLY the first response so the test can sever it mid-flight. A
+                                // (buggy) retry would arrive as a 2nd invocation, commit again, and
+                                // return immediately — proving the double-apply.
+                                committed.complete(Unit)
+                                delay(30_000)
+                            }
+                            return result
+                        }
+                    }
+                }
+
+                val server = buildServer(0, service, wrap = severAfterCommit)
+                server.start(wait = false)
+                val serverPort =
+                    server.engine
+                        .resolvedConnectors()
+                        .first()
+                        .port
+
+                // Client talks to the relay, which forwards to the real server until we cut it.
+                val relay = TcpRelay.start("127.0.0.1", serverPort)
+                val baseUrl = "http://127.0.0.1:${relay.port}"
+
+                val factory =
+                    KtorCollectionRpcFactory(
+                        apiClientFactory = StubApiClientFactory(stubClient()),
+                        serverConfig = TestServerConfig(baseUrl),
+                    )
+                val repo =
+                    CollectionRepositoryImpl(
+                        collectionDao = mock<CollectionDao>(MockMode.autofill),
+                        collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
+                        collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
+                        rpcFactory = factory,
+                    )
+
+                val pending = async { repo.create("test-library", "Staff Picks") }
+                committed.await() // the server has COMMITTED; the client is now awaiting the response
+                delay(200) // let the client park on the pending response
+                // Drop the in-flight connection but keep the relay ACCEPTING — so a (buggy) retry can
+                // reconnect and reach the server, exposing a double-commit. The fix must not retry.
+                relay.cut()
+
+                val result = pending.await()
+
+                // Surfaced honestly (not a phantom Success carrying a retried row's id)...
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                // ...and committed EXACTLY once — a retry here would have double-applied the mutation.
+                normalCollectionCount(driver) shouldBe 1L
+
+                relay.shutdown()
+                server.stop(gracePeriodMillis = 100, timeoutMillis = 500)
+            }
+        }
     })
+
+/**
+ * A dead-simple bidirectional TCP relay. Forwards bytes between a client and [targetPort].
+ *
+ * [cut] drops every CURRENTLY-open connection (severing a live request mid-flight) but keeps the
+ * listener accepting, so a reconnect still reaches the server — the crucial detail that lets a
+ * *buggy* retry expose a double-commit. [shutdown] tears the whole relay down.
+ */
+private class TcpRelay private constructor(
+    private val listener: ServerSocket,
+    private val targetHost: String,
+    private val targetPort: Int,
+) {
+    val port: Int get() = listener.localPort
+    private val liveConnections = CopyOnWriteArrayList<Closeable>()
+
+    @Volatile private var accepting = true
+
+    init {
+        thread(isDaemon = true, name = "relay-accept") {
+            while (accepting) {
+                val downstream = runCatching { listener.accept() }.getOrNull() ?: break
+                val upstream = runCatching { Socket(targetHost, targetPort) }.getOrNull()
+                if (upstream == null) {
+                    runCatching { downstream.close() }
+                    continue
+                }
+                liveConnections.add(downstream)
+                liveConnections.add(upstream)
+                pump(downstream, upstream)
+                pump(upstream, downstream)
+            }
+        }
+    }
+
+    private fun pump(
+        from: Socket,
+        to: Socket,
+    ) {
+        thread(isDaemon = true, name = "relay-pump") {
+            runCatching {
+                from.getInputStream().copyTo(to.getOutputStream())
+                to.getOutputStream().flush()
+            }
+        }
+    }
+
+    /** Sever all in-flight connections; the listener stays open so a reconnect can still get through. */
+    fun cut() {
+        val snapshot = liveConnections.toList()
+        liveConnections.clear()
+        snapshot.forEach { runCatching { it.close() } }
+    }
+
+    /** Full teardown — stop accepting and close everything. */
+    fun shutdown() {
+        accepting = false
+        cut()
+        runCatching { listener.close() }
+    }
+
+    companion object {
+        fun start(
+            targetHost: String,
+            targetPort: Int,
+        ): TcpRelay = TcpRelay(ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")), targetHost, targetPort)
+    }
+}
 
 /** Minimal [ApiClientFactory] serving one WebSocket-capable client; only [getClient] is exercised. */
 private class StubApiClientFactory(

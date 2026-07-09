@@ -10,7 +10,10 @@ import kotlinx.coroutines.sync.withLock
  * [RefreshAccessToken] seam and rebuilds the request client so its Bearer provider re-reads the new
  * token (the streaming/SSE client is deliberately spared via [ApiClientFactory.invalidateRequestClientOnly]).
  *
- * Single-flighted, so a burst of 401s across many cached proxies triggers exactly ONE refresh.
+ * A [Mutex] serializes concurrent refreshes so they don't race the token store or stampede the
+ * refresh endpoint; it does not deduplicate them into a single call across factories (each 401
+ * still enters, and a later one may refresh an already-fresh token). That is acceptable — refresh
+ * is idempotent and cheap relative to the failure it recovers.
  */
 internal interface RpcAuthRecovery {
     /** @return true if a fresh token is now in place (retry the handshake); false if re-auth is required. */
