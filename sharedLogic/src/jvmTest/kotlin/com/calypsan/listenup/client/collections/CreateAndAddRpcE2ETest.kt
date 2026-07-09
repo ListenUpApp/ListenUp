@@ -36,7 +36,7 @@ import io.ktor.server.auth.authenticate
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import java.nio.file.Files
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
 import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
@@ -138,7 +138,10 @@ class CreateAndAddRpcE2ETest :
                         rpcFactory = TestCollectionRpcFactory(rpcClient),
                     )
 
-                runTest {
+                // runBlocking (real wall-clock), not runTest: the repo's rpcCall now bounds each call
+                // with withTimeout, whose clock is virtual under runTest — runTest would auto-advance
+                // past the 15s bound before the real WebSocket I/O completes and spuriously time out.
+                runBlocking {
                     // The decisive probe: does the create RPC (complex `CollectionSummary` return)
                     // round-trip over the real transport and map to a Success? A silent no-op on the
                     // client would surface here as a Failure.

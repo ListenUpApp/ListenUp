@@ -86,6 +86,11 @@ struct BulkShelfPickerSheet: View {
                         .foregroundStyle(Color.listenUpOrange)
                         .disabled(trimmedName.isEmpty || observer.isAddingToShelf)
                 }
+                // Give each button its own hit target. Without .borderless, two default
+                // buttons in a List row make the whole row tappable for BOTH: a tap anywhere
+                // outside the tiny "Create" text fires Cancel (clearing the name) then Create,
+                // which no-ops on the empty-name guard — a silent create failure.
+                .buttonStyle(.borderless)
             } else {
                 Button { isCreatingShelf = true } label: {
                     Label(String(localized: "book.detail_new_shelf"), systemImage: "plus")
