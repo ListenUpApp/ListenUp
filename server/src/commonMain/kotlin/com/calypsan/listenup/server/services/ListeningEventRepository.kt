@@ -8,12 +8,26 @@ import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.Listening_events
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.FirehoseSuppressed
 import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
 import com.calypsan.listenup.server.util.KeyedMutex
 import kotlin.time.Clock
+import kotlinx.coroutines.currentCoroutineContext
+
+/**
+ * One resolved playback session an ABS import intends to persist as a listening event — the batch
+ * counterpart to a single [ListeningEventRepository.upsert] call. [event] carries the stable
+ * `abs:<sessionId>` id, so a re-applied import re-upserts idempotently (append-only). The importer
+ * collects these and hands the whole list to [ListeningEventRepository.upsertAllForImport] so the
+ * writes commit in chunked transactions instead of an existence-read + write commit pair per row.
+ */
+data class ImportListeningEventWrite(
+    val userId: String,
+    val event: ListeningEventSyncPayload,
+)
 
 /**
  * SQLDelight syncable repository for per-user listening events (Playback P2).
@@ -101,6 +115,74 @@ class ListeningEventRepository(
             statsRecorder?.record(StatsEvent.ListeningSessionClosed(userId = userId, span = value))
         }
         return result
+    }
+
+    /**
+     * Batch-upsert [events] for an ABS import — the chunked-transaction counterpart to [upsert]. A
+     * per-session [upsert] loop costs two commits per row (an existence-read transaction plus the
+     * write transaction); a full history import runs tens of thousands. This collapses the burst the
+     * same way [BookRepository.resolveOrInsertAll] does — prepare, then chunked writes — while
+     * preserving [upsert]'s idempotency and first-insert stats-hook semantics exactly:
+     *
+     *  1. **PREPARE (per user, under [firstInsertLock]).** Batch-read which of that user's event ids
+     *     already exist (chunked `IN (…)`), then decide the first-insert flag per row in memory. A
+     *     running seen-set folds intra-batch duplicate ids so the second occurrence is treated as
+     *     already-inserted — matching the single-row loop's read-your-writes.
+     *  2. **WRITE (chunked synchronous transactions).** Process the rows in chunks of
+     *     [PERSIST_CHUNK_SIZE]; each chunk is ONE [suspendTransaction] whose body calls
+     *     [upsertInOpenTransaction] per row — O(chunks) write transactions, not O(rows). [suppressed]
+     *     is read ONCE in the suspend context and threaded in, exactly as the batched book path does.
+     *  3. **HOOKS (post-commit, outside the lock).** Fire `StatsEvent.ListeningSessionClosed` for each
+     *     id that did NOT previously exist — the same choke-point [upsert] fires on first insert.
+     *
+     * **Idempotency / lock choice.** The existence-read and the write for a user's whole batch are
+     * held together under [firstInsertLock] for that user. The import job is single-threaded, but an
+     * imported event uses a stable `abs:<id>` that a *concurrent live sync* could theoretically also
+     * deliver; widening the single-row lock to cover the batch window preserves the exact property
+     * [upsert] guarantees — two deliverers of the same id can never both observe "not yet inserted"
+     * and both fire the stats hook. The lock is released BEFORE the hooks run ([KeyedMutex] is not
+     * reentrant and [StatsRecorder] serializes itself). A no-op on an empty [events].
+     */
+    suspend fun upsertAllForImport(events: List<ImportListeningEventWrite>) {
+        if (events.isEmpty()) return
+        val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
+
+        events.groupBy { it.userId }.forEach { (userId, userEvents) ->
+            val newlyInserted =
+                firstInsertLock.withLock(userId) {
+                    val existingIds = existingIds(userEvents.map { it.event.id })
+                    val seen = HashSet<String>(userEvents.size)
+                    val firstInserts = ArrayList<ListeningEventSyncPayload>()
+                    for (write in userEvents) {
+                        val existedBefore = write.event.id in existingIds || write.event.id in seen
+                        seen += write.event.id
+                        if (!existedBefore) firstInserts += write.event
+                    }
+                    for (chunk in userEvents.chunked(PERSIST_CHUNK_SIZE)) {
+                        suspendTransaction<Unit>(db) {
+                            chunk.forEach {
+                                upsertInOpenTransaction(it.event, suppressed, clientOpId = null, userId = userId)
+                            }
+                        }
+                    }
+                    firstInserts
+                }
+            newlyInserted.forEach {
+                statsRecorder?.record(StatsEvent.ListeningSessionClosed(userId = userId, span = it))
+            }
+        }
+    }
+
+    /** The subset of [ids] whose listening-event row already exists, read in chunked `IN (…)` batches. */
+    private suspend fun existingIds(ids: List<String>): Set<String> {
+        if (ids.isEmpty()) return emptySet()
+        return suspendTransaction(db) {
+            ids
+                .chunked(SQLITE_IN_CHUNK)
+                .flatMap { chunk -> db.listeningEventsQueries.selectByIds(chunk).executeAsList() }
+                .map { it.id }
+                .toSet()
+        }
     }
 
     override fun idAsString(id: ListeningEventId): String = id.value
@@ -248,5 +330,8 @@ class ListeningEventRepository(
          * `SQLITE_MAX_VARIABLE_NUMBER` (999) with headroom for any fixed bind params.
          */
         const val SQLITE_IN_CHUNK = 900
+
+        /** Import rows per write transaction — one [suspendTransaction] commits a whole chunk. */
+        const val PERSIST_CHUNK_SIZE = 200
     }
 }
