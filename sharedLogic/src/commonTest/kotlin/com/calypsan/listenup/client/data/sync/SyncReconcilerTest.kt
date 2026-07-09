@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.SyncCursorDao
+import com.calypsan.listenup.client.data.sync.domains.AccessDeltaPolicy
 import com.calypsan.listenup.client.data.local.db.SyncCursorEntity
 import com.calypsan.listenup.api.result.AppResult
 import dev.mokkery.answering.returns
@@ -253,6 +254,7 @@ private fun accessGatedHandler(
     object : SyncDomainHandler<Tag>, AccessFilteredSyncHandler {
         override val domainName = name
         override val payloadSerializer: KSerializer<Tag> = Tag.serializer()
+        override val deltaPolicy: AccessDeltaPolicy = AccessDeltaPolicy.LiveTailOnly("test fake: delta path unused here")
 
         override fun syncId(item: Tag): String = item.id
 

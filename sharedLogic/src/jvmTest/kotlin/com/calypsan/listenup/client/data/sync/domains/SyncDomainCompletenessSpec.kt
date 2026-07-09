@@ -277,6 +277,46 @@ class SyncDomainCompletenessSpec :
             }
         }
 
+        test("access-gated delta participation is frozen: Targeted domains ordered, only collection_shares is LiveTailOnly") {
+            val db = createInMemoryTestDatabase()
+            try {
+                val catalog =
+                    syncDomainCatalog(
+                        database = db,
+                        mapper = BookEntityMapper(),
+                        imageStorage = stubImageStorage(),
+                        authSession = FakeAuthSession(userId = "spec-user"),
+                        avatarDownloadRepository = StubAvatarDownloadRepository(),
+                        pingPresence = {},
+                        refetchServerInfo = {},
+                        refetchPreferences = {},
+                    )
+                val gated = catalog.mirrored.filter { it.accessGate != null }
+
+                // The five access-gated domains — the same set AccessGateParitySpec pins to the server.
+                gated.map { it.key.name }.toSet() shouldBe
+                    setOf("books", "activities", "collections", "collection_books", "collection_shares")
+
+                // The Targeted domains, in their declared dependency order. Changing an order or moving a
+                // domain between Targeted and LiveTailOnly is a product decision — update this spec
+                // consciously alongside the gate. (The compile-time no-default on AccessGate.delta is the
+                // stronger lock; this freezes the resulting shape.)
+                gated
+                    .mapNotNull { domain ->
+                        (domain.accessGate!!.delta as? AccessDeltaPolicy.Targeted)?.let { domain.key.name to it.order }
+                    }.sortedBy { it.second }
+                    .map { it.first } shouldBe
+                    listOf("collections", "collection_books", "books", "activities")
+
+                // The one LiveTailOnly domain — deliberately NOT fetched in the delta.
+                gated
+                    .filter { it.accessGate!!.delta is AccessDeltaPolicy.LiveTailOnly }
+                    .map { it.key.name } shouldBe listOf("collection_shares")
+            } finally {
+                db.close()
+            }
+        }
+
         test("server registrations mirror SyncDomains.all exactly (1:1, both directions)") {
             val homeDir = Files.createTempDirectory("listenup-completeness-home-")
             val tmpDb =

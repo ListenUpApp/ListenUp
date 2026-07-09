@@ -35,6 +35,11 @@ internal fun collectionSharesDomain(database: ListenUpDatabase): MirroredDomain<
             AccessGate(
                 liveIds = database.collectionShareDao()::liveIds,
                 tombstoneByIds = database.collectionShareDao()::tombstoneByIds,
+                delta =
+                    AccessDeltaPolicy.LiveTailOnly(
+                        "share rows are revision-cursored and ride the live tail; " +
+                            "the coarse anchor backstops frame loss",
+                    ),
             ),
     )
 }

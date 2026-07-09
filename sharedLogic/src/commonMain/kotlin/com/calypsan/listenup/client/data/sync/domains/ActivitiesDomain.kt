@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.sync.ActivitySyncPayload
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ActivityEntity
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.sync.TargetedFetch
 
 /**
  * The `activities` domain: the social activity feed as a cursored mirror. Server-authored and
@@ -22,9 +23,14 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
  * **Access-gated** (like `books`): the server filters catch-up/digest to the caller's accessible set
  * (a row is visible iff its book is accessible or it has no book). The [AccessGate] makes the composed
  * handler an `AccessFilteredSyncHandler`, so a book deletion / share revocation — which drops the
- * activity out of the member's accessible set — prunes it locally via `AccessChanged` (and via the
- * Phase-0 digest-drift backstop for a dropped frame) instead of stranding it visible and re-pulling
- * the whole table on every reconcile edge.
+ * activity out of the member's accessible set — prunes it locally via `AccessChanged`.
+ *
+ * **Delta participation:** the domain is fetched on the `books` axis by the changed books' ids
+ * ([TargetedFetch.ByBookIds]) — a GRANT re-delivers the now-accessible activity live in the same
+ * delta pass, and a REVOKE tombstones the requested-but-not-returned rows via `pruneWithin`. The
+ * candidate set is exactly the local live activities gating on the scoped books, so an activity on a
+ * book outside the scope is never a prune candidate. The coarse anchor and digest backstop cover any
+ * dropped frame.
  */
 internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<ActivitySyncPayload> =
     MirroredDomain(
@@ -41,6 +47,19 @@ internal fun activitiesDomain(database: ListenUpDatabase): MirroredDomain<Activi
             AccessGate(
                 liveIds = database.activityDao()::liveIds,
                 tombstoneByIds = database.activityDao()::tombstoneByIds,
+                delta =
+                    AccessDeltaPolicy.Targeted(
+                        order = 3,
+                        axis = ScopeAxis.Books,
+                        fetchFor = { TargetedFetch.ByBookIds(it) },
+                        // The local live activities gating on the scoped books — chunked under the
+                        // bind-variable ceiling because a scope can name more books than SQLite holds.
+                        candidatesFor = { bookIds ->
+                            bookIds
+                                .chunked(SQLITE_IN_CHUNK)
+                                .flatMapTo(mutableSetOf()) { database.activityDao().liveIdsForBooks(it) }
+                        },
+                    ),
             ),
     )
 

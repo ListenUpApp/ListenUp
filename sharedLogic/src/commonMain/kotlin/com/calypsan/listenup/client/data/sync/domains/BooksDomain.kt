@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
+import com.calypsan.listenup.client.data.sync.TargetedFetch
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.Timestamp
@@ -78,6 +79,14 @@ internal fun booksDomain(
             AccessGate(
                 liveIds = database.bookDao()::liveIds,
                 tombstoneByIds = database.bookDao()::tombstoneByIds,
+                // A book is fetched by its own id; every requested id is a prune candidate.
+                delta =
+                    AccessDeltaPolicy.Targeted(
+                        order = 2,
+                        axis = ScopeAxis.Books,
+                        fetchFor = { TargetedFetch.ByIds(it) },
+                        candidatesFor = { it.toSet() },
+                    ),
                 // Readership rows AND Continue-Listening positions follow their book's liveness:
                 // once the prune tombstones the revoked/removed books, drop the reader rows and the
                 // playback_positions that now point at a non-live book (so the book leaves Continue
@@ -86,11 +95,6 @@ internal fun booksDomain(
                     database.bookReadershipDao().deleteWhereBookNotLive()
                     database.playbackPositionDao().deleteWhereBookNotLive()
                 },
-                // Delta-only: a scoped AccessChanged never fetches the activities domain, so an
-                // activity gating on a now-revoked book must be tombstoned here for the access-filtered
-                // activities digest to converge. Soft-delete — activities is a cursored domain. The
-                // coarse path re-derives activities via their own prune, so this must NOT run there.
-                afterScopedPrune = { now -> database.activityDao().tombstoneWhereBookNotLive(now) },
             ),
     )
 }
