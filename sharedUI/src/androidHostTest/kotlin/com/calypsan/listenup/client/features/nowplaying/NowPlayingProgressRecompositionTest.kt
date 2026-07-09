@@ -13,7 +13,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
  * Proves the structural fix for the 4 Hz now-playing recomposition storm: the fast-changing
@@ -33,7 +32,6 @@ import org.robolectric.annotation.Config
  * JUnit4 + Robolectric (consistent with [WavySeekBarTest]).
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class NowPlayingProgressRecompositionTest {
     @get:Rule
     val composeRule = createComposeRule()

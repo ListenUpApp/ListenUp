@@ -6,7 +6,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
  * Verifies the book-detail scan-warning advisory banner appears only when the
@@ -20,7 +19,6 @@ import org.robolectric.annotation.Config
  * JUnit4 + Robolectric (consistent with [com.calypsan.listenup.client.features.nowplaying.WavySeekBarTest]).
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class BookDetailScanWarningTest {
     @get:Rule
     val composeRule = createComposeRule()

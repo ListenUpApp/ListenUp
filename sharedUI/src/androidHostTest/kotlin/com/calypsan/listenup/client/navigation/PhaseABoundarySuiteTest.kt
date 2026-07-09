@@ -13,7 +13,6 @@ import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import io.kotest.assertions.withClue
 import io.kotest.matchers.shouldBe
 import java.util.concurrent.atomic.AtomicReference
@@ -25,13 +24,8 @@ import java.util.concurrent.atomic.AtomicReference
  *  - process-death back-stack survival via `rememberNavBackStack`.
  *  - every `NavDisplay` invocation site installs both standard entry decorators.
  *  - per-entry ViewModel scoping (VM-per-entry + cleared-on-pop).
- *
- * `@Config(sdk = [35])` pins Robolectric to the highest SDK its 4.15.1 release
- * supports; the project's compileSdk = 37 outpaces Robolectric's currently-shipped
- * SDK shadows. Bump in lockstep when Robolectric ships an SDK 37 build.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class PhaseABoundarySuiteTest {
     @get:Rule val composeRule = createComposeRule()
 

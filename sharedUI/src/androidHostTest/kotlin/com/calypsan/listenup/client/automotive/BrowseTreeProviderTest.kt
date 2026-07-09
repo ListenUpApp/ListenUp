@@ -36,7 +36,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
  * Tests for [BrowseTreeProvider.getChildren].
@@ -52,7 +51,6 @@ import org.robolectric.annotation.Config
  * of [BrowseTreeProvider.getChildren] without naming any `:shared` DAO or `@Entity` type.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class BrowseTreeProviderTest {
     // ──────────────────────────────────────────────────────────────────────────────
     // ROOT branch

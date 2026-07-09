@@ -10,7 +10,6 @@ import listenup.composeapp.generated.resources.error_not_found
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 
@@ -23,11 +22,9 @@ import io.kotest.matchers.shouldNotBe
  * Robolectric supplies a real Android resource environment (default locale `en`), so `getString`
  * reads the packaged `error_*` strings exactly as production code does. JUnit4 +
  * [RobolectricTestRunner] follows the precedent set by
- * [com.calypsan.listenup.client.deeplink.DeepLinkParserTest]. `@Config(sdk = [35])` pins
- * Robolectric to the highest SDK its 4.15.1 release ships, since the module's compileSdk is newer.
+ * [com.calypsan.listenup.client.deeplink.DeepLinkParserTest].
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class AppErrorLocalizationTest {
     @Test
     fun `resourceKey lowercases the error code with the error_ prefix`() {

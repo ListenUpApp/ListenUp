@@ -61,7 +61,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import io.kotest.assertions.withClue
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -91,7 +90,6 @@ import io.kotest.matchers.types.shouldBeInstanceOf
  * as a gap in the coverage report.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 @OptIn(UnstableApi::class)
 class PlaybackErrorHandlerTest {
     // ── classify — Network ────────────────────────────────────────────────────

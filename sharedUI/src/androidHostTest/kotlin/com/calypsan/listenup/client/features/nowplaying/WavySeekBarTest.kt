@@ -15,7 +15,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import io.kotest.assertions.withClue
 import io.kotest.matchers.shouldBe
 import kotlin.math.abs
@@ -36,7 +35,6 @@ import kotlin.math.abs
  * JUnit4 + Robolectric (consistent with [PhaseABoundarySuiteTest]).
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
 class WavySeekBarTest {
     @get:Rule
     val composeRule = createComposeRule()
