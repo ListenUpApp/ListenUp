@@ -40,8 +40,17 @@ internal class AuthFailureObserver(
                 // Re-throw CancellationException so structured cancellation still works.
                 try {
                     if (error.invalidatesSession() && authSession.authState.value is AuthState.Authenticated) {
-                        logger.info { "Session-invalidating auth error (${error.code}); soft-logout → login" }
-                        authSession.clearAuthTokens()
+                        if (error is AuthError.ServerInstanceChanged) {
+                            // A DIFFERENT server ⇒ the cached library's provenance is broken —
+                            // full sign-out wall is correct (spec §14/Q2).
+                            logger.info { "Server instance changed (${error.code}); full sign-out → login" }
+                            authSession.clearAuthTokens()
+                        } else {
+                            // Same-server expiry/refresh-death: soft-lapse. Local content stays
+                            // usable; the shell banner offers sign-in (M2/M3).
+                            logger.info { "Session-invalidating auth error (${error.code}); soft-lapse → SessionLapsed" }
+                            authSession.clearSessionCredentials()
+                        }
                     }
                 } catch (e: kotlin.coroutines.cancellation.CancellationException) {
                     throw e
@@ -58,7 +67,7 @@ internal class AuthFailureObserver(
  * the user must sign in again. Permission-style auth errors (e.g. [AuthError.PermissionDenied])
  * are deliberately excluded — they mean "not allowed", not "logged out".
  */
-private fun AppError.invalidatesSession(): Boolean =
+internal fun AppError.invalidatesSession(): Boolean =
     when (this) {
         is AuthError.SessionExpired,
         is AuthError.SessionNotFound,

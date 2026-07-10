@@ -43,8 +43,11 @@ class AuthFailureObserverTest :
             val storage = mock<SecureStorage>()
             everySuspend { storage.save(any(), any()) } returns Unit
             everySuspend { storage.delete(any()) } returns Unit
-            // clearAuthTokens reads KEY_OPEN_REGISTRATION when routing to NeedsLogin.
+            // clearAuthTokens reads KEY_OPEN_REGISTRATION when routing to NeedsLogin;
+            // clearSessionCredentials reads user_id to lapse into SessionLapsed.
+            // Mokkery's last matching stub wins, so the specific stub goes second.
             everySuspend { storage.read(any()) } returns null
+            everySuspend { storage.read("user_id") } returns "user"
             val silentPolicyStream =
                 object : RegistrationPolicyStream {
                     override fun streamPolicy() = emptyFlow<com.calypsan.listenup.api.dto.auth.RegistrationPolicy>()
@@ -58,7 +61,7 @@ class AuthFailureObserverTest :
             )
         }
 
-        test("session-invalidating error while Authenticated drives state to NeedsLogin") {
+        test("SessionExpired while Authenticated lands in SessionLapsed — never the login wall") {
             runTest {
                 val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
                 try {
@@ -70,7 +73,47 @@ class AuthFailureObserverTest :
                     AuthFailureObserver(errorBus, store, scope)
                     errorBus.emit(AuthError.SessionExpired())
 
+                    store.authState.value shouldBe AuthState.SessionLapsed(UserId("user"))
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("ServerInstanceChanged while Authenticated keeps the full sign-out wall (NeedsLogin)") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    val store = authenticatedStore()
+                    store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "session", "user")
+
+                    AuthFailureObserver(errorBus, store, scope)
+                    errorBus.emit(AuthError.ServerInstanceChanged())
+
                     store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
+        test("a repeat auth error while already SessionLapsed is a no-op (natural dedup at the reactor)") {
+            runTest {
+                val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
+                try {
+                    val errorBus = ErrorBus()
+                    var softClears = 0
+                    val session =
+                        FakeAuthSession(
+                            authState = AuthState.SessionLapsed(UserId("u1")),
+                            onClearSessionCredentials = { softClears++ },
+                        )
+
+                    AuthFailureObserver(errorBus, session, scope)
+                    errorBus.emit(AuthError.SessionExpired())
+
+                    softClears shouldBe 0
                 } finally {
                     scope.cancel()
                 }
@@ -114,10 +157,10 @@ class AuthFailureObserverTest :
             }
         }
 
-        // Regression: a throwing clearAuthTokens (e.g. a locked Keychain) must not kill the
+        // Regression: a throwing clearSessionCredentials (e.g. a locked Keychain) must not kill the
         // collector. Before the guard, the first throw terminated the collector (soft-logout
         // permanently broke) and, on Kotlin/Native, the unhandled exception killed the process.
-        test("a throwing clearAuthTokens does not kill the observer; a later error still logs out") {
+        test("a throwing clearSessionCredentials does not kill the observer; a later error still soft-clears") {
             runTest {
                 val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler))
                 try {
@@ -126,14 +169,14 @@ class AuthFailureObserverTest :
                     val session =
                         FakeAuthSession(
                             authState = AuthState.Authenticated(UserId("u1"), SessionId("session")),
-                            onClearAuthTokens = {
+                            onClearSessionCredentials = {
                                 clearCalls++
                                 if (clearCalls == 1) throw RuntimeException("Keychain locked on first attempt")
                             },
                         )
 
                     AuthFailureObserver(errorBus, session, scope)
-                    errorBus.emit(AuthError.SessionExpired()) // 1st: clearAuthTokens throws → guard must absorb
+                    errorBus.emit(AuthError.SessionExpired()) // 1st: clearSessionCredentials throws → guard must absorb
                     errorBus.emit(AuthError.SessionExpired()) // 2nd: only reached if the collector survived
 
                     // Reaching the second clear proves the collector kept running past the first throw.
