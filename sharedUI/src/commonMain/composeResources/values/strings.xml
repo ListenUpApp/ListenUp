@@ -1357,6 +1357,8 @@ One beautiful library.</string>
     <string name="shell_library_changed">Library Changed</string>
     <string name="shell_logout">Logout</string>
     <string name="shell_no_pending_changes">No pending changes</string>
+    <string name="shell_offline_body">Downloads still play. We\'ll reconnect automatically.</string>
+    <string name="shell_offline_title">Offline</string>
     <string name="shell_pendingcount_pending">%1$s pending</string>
     <string name="shell_retry_all">Retry all</string>
     <string name="shell_search_audiobooks">Search audiobooks...</string>
@@ -1368,6 +1370,8 @@ One beautiful library.</string>
     <string name="shell_sync_status">Sync Status</string>
     <string name="shell_syncing">Syncing...</string>
     <string name="shell_the_servers_library_has_changed">The server\'s library has changed. You have unsaved changes that will be lost. </string>
+    <string name="shell_update_available_body">App %1$s / server %2$s. Some features may not sync.</string>
+    <string name="shell_update_available_title">Update available</string>
     <string name="shell_your_library_is_up_to">Your library is up to date</string>
     <string name="startup_setup_check_failed_message">We couldn\'t reach your server to check your library setup. Check your connection and try again.</string>
     <string name="startup_setup_check_failed_title">Couldn\'t check library setup</string>
