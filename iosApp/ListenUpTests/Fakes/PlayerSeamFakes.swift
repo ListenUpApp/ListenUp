@@ -52,9 +52,17 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Toggle whether `play()` auto-emits `.ready` (actor-isolated state needs a setter).
     func setAutoReadyOnPlay(_ auto: Bool) { autoReadyOnPlay = auto }
 
+    /// When true, `load` signals entry then suspends until `releaseLoad()` — lets a test hold a
+    /// load open and observe the coordinator's intermediate (buffering) state while it's in flight.
+    private var shouldBlockLoad = false
+    private var loadBlocker: CheckedContinuation<Void, Never>?
+    func setBlockLoad(_ block: Bool) { shouldBlockLoad = block }
+    func releaseLoad() { loadBlocker?.resume(); loadBlocker = nil }
+
     func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
         didLoad = true; lastLoadStartMs = startPositionMs; commandLog.append("load")
         gate.fire("load")
+        if shouldBlockLoad { await withCheckedContinuation { loadBlocker = $0 } }
         return !loadShouldFail
     }
     func play() async {
@@ -83,6 +91,9 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Suspend until `play()` has executed for the `count`-th time. Keyed, because a
     /// predicate closure can't read this actor's state (see AsyncGate lines 46–59).
     func waitForPlayCount(_ count: Int) async { await gate.wait(forKey: "play-\(count)") }
+
+    /// Suspend until `load` has been entered (before it returns / while blocked).
+    func waitForLoadEntered() async { await gate.wait(forKey: "load") }
 }
 
 // MARK: - Task 2 seam fakes

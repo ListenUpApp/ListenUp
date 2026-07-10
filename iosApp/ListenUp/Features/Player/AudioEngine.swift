@@ -102,15 +102,32 @@ actor AudioEngine: PlaybackEngine {
         observeTimeControlStatus()
         observeCurrentItemTransitions()
 
-        // Wait for the first item to be playable, then seek precisely — so there is
-        // never a playable position-0 state for `play()` to start from.
-        guard await awaitCurrentItemReady() else { return false }
+        // Preroll: a paused `AVQueuePlayer` will NOT advance a fresh item — especially a
+        // streaming one — to `.readyToPlay` on its own; it only loads once told to play. So
+        // pump it (rate > 0) to drive readiness, but MUTED, so the user never hears the
+        // position-0 (chapter 1) audio before the resume seek lands. Without this the wait
+        // below never resolves and `load` times out at 20 s (the "stuck preparing → quits"
+        // regression). We restore mute and re-pause before returning; the caller starts
+        // audible playback from the correct position.
+        player.isMuted = true
+        player.rate = rate
+        let ready = await awaitCurrentItemReady()
+        guard ready else {
+            player.pause()
+            player.isMuted = false
+            Log.error("load: item never reached ready (timeout/failed); aborting")
+            return false
+        }
+        // Ready and playable — seek precisely, then hand back a silent, paused, correctly
+        // positioned player for the caller's `play()` to resume audibly.
         if withinSegmentMs > 0 {
             _ = await player.seek(
                 to: CMTime(value: withinSegmentMs, timescale: 1000),
                 toleranceBefore: .zero, toleranceAfter: .zero
             )
         }
+        player.pause()
+        player.isMuted = false
         return true
     }
 

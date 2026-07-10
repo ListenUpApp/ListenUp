@@ -316,12 +316,20 @@ struct FullScreenPlayerView: View {
                         .fill(Color.listenUpOrange)
                         .frame(width: 76, height: 76)
                         .shadow(color: Color.listenUpOrange.opacity(0.45), radius: 12, x: 0, y: 8)
-                    // `isPlaybackActive` (playing OR buffering) so the control reads "pause"
-                    // during the startup buffer — it shows a pause affordance because the user's
-                    // intent is active, matching what a tap does (pause, not resume).
-                    Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
-                        .font(.title)
-                        .foregroundStyle(.white)
+                    if observer.isBuffering {
+                        // Honest buffering: a spinner while the stream loads, not a pause glyph
+                        // that implies audio is flowing when it isn't yet.
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .controlSize(.large)
+                            .tint(.white)
+                    } else {
+                        // `isPlaybackActive` here means "playing" (buffering handled above); it
+                        // reads "pause" while playing because a tap pauses.
+                        Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
+                            .font(.title)
+                            .foregroundStyle(.white)
+                    }
                 }
             }
             .accessibilityLabel(String(localized: observer.isPlaybackActive ? "player.pause" : "player.play"))

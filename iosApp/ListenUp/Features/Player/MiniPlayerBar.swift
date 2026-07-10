@@ -121,13 +121,23 @@ struct MiniPlayerBar: View {
             playPauseTapCount += 1
             observer.togglePlayback()
         } label: {
-            // `isPlaybackActive` (playing OR buffering) so the glyph reads "pause" during the
-            // startup buffer, matching what a tap does and the transport's own state.
-            Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
-                .font(.title3)
-                .foregroundStyle(Color.listenUpOrange)
-                .contentTransition(.symbolEffect(.replace.downUp))
-                .frame(width: 44, height: 44)
+            Group {
+                if observer.isBuffering {
+                    // Honest buffering: a spinner while the stream loads, matching the full player
+                    // and Android — not a pause glyph implying audio is already flowing.
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(Color.listenUpOrange)
+                } else {
+                    // `isPlaybackActive` here means "playing" (buffering handled above); reads
+                    // "pause" while playing because a tap pauses.
+                    Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
+                        .font(.title3)
+                        .foregroundStyle(Color.listenUpOrange)
+                        .contentTransition(.symbolEffect(.replace.downUp))
+                }
+            }
+            .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(observer.isPlaybackActive

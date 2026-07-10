@@ -74,6 +74,26 @@ struct PlayerSwitchPathTests {
         #expect(coordinator.currentBookId == "book2")
     }
 
+    /// Honest buffering UI: the instant prepare resolves, the player shows the real book — its
+    /// real duration and a buffering state — instead of sitting at "0m / preparing" for the whole
+    /// (possibly slow, streaming) load. So while the engine's load is still in flight, phase is
+    /// already `.buffering` carrying the duration, and the mini-player is visible with it.
+    @Test func showsRealDurationAndBuffersWhileLoadInFlight() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        await engine.setBlockLoad(true)   // hold the load open to observe the intermediate state
+
+        coordinator.play(bookId: "book1")
+        await engine.waitForLoadEntered()  // prepare done, engine.load called and now suspended
+
+        // Mid-load the UI is already honest — real duration, buffering, visible — not 0m/paused.
+        #expect(coordinator.bookDurationMs == 60000)
+        #expect(coordinator.isBuffering)
+        #expect(coordinator.isVisible)
+
+        await engine.releaseLoad()
+        await progress.waitForStarted(bookId: "book1")
+    }
+
     /// RC-3: a fresh load enters `.buffering` and is promoted to `.playing` only by the engine's
     /// first real "playing" status event — never optimistically. With the fake's auto-ready
     /// suppressed, the coordinator must sit in `.buffering` after start and only reach `.playing`
@@ -92,6 +112,26 @@ struct PlayerSwitchPathTests {
         await awaitUntil { coordinator.isPlaying }
         #expect(coordinator.isPlaying)
         #expect(!coordinator.isBuffering)
+    }
+
+    /// `stop()` mid-load must supersede the in-flight load so it can't resurrect playback on a
+    /// released engine — no phantom `onPlaybackStarted`, no `.playing` after teardown. (`Task.cancel()`
+    /// alone doesn't interrupt the load's non-cancellation-checking awaits, so `stop()` bumps the epoch.)
+    @Test func stopDuringLoadDoesNotResurrectPlayback() async {
+        let (coordinator, engine, progress) = makeCoordinator()
+        await engine.setBlockLoad(true)
+
+        coordinator.play(bookId: "book1")
+        await engine.waitForLoadEntered()   // load is in flight, blocked
+
+        await coordinator.stop()            // teardown must supersede the in-flight load
+        await engine.releaseLoad()          // let the (now superseded) load resolve
+        await Task.yield()                  // give the superseded continuation a chance to (wrongly) start
+
+        #expect(!progress.startedCalls.contains { $0.0 == "book1" })
+        if case .playing = coordinator.phase {
+            Issue.record("phase resurrected to .playing after stop()")
+        }
     }
 
     /// RC-5: a load failure surfaces `.error`; toggling the errored book retries it rather than
