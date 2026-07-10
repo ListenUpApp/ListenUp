@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
@@ -23,9 +24,12 @@ private val logger = KotlinLogging.logger {}
 
 /**
  * Thin adapter over [AuthRpcFactory]. Each method picks the right proxy
- * (public vs authed) and forwards. Network/transport failures (unreachable
- * server, deserialization blowups) collapse to `AppResult.Failure(InternalError)`
- * so callers never see a raw exception across the wire.
+ * (public vs authed) and forwards. Thrown transport failures are routed
+ * through [com.calypsan.listenup.client.core.error.ErrorMapper] via [Failure],
+ * so a transport-level 401 or WS-handshake-401 surfaces as a typed
+ * [AuthError.SessionExpired] (driving the session-lapse chain) instead of a
+ * generic InternalError, while IO/deserialization failures keep their own
+ * typed shapes.
  *
  * Per kotlinx.coroutines convention, `CancellationException` is re-thrown.
  */
@@ -99,6 +103,6 @@ internal class AuthRepositoryImpl(
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "auth $op failed at the transport boundary" }
-            AppResult.Failure(InternalError())
+            Failure(e)
         }
 }
