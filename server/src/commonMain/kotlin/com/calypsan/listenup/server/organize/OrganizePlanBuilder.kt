@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.organize
 
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
@@ -85,6 +86,61 @@ class OrganizePlanBuilder(
             }
             MovePlan(entries)
         }
+
+    /**
+     * Plans a single book's relocation — the metadata-edit hook's replan. Returns null when the
+     * book is missing/tombstoned or already at its canonical path. Collisions resolve against the
+     * DB's natural-key index (another live book already at the target path gets the mover a
+     * deterministic ` (n)` suffix), mirroring [build]'s in-memory occupied-set logic.
+     */
+    suspend fun buildForBook(
+        bookId: BookId,
+        settings: OrganizerSettings,
+    ): MovePlanEntry? =
+        suspendTransaction(sql) {
+            val book = sql.booksQueries.selectById(bookId.value).executeAsOneOrNull() ?: return@suspendTransaction null
+            if (book.deleted_at != null) return@suspendTransaction null
+            val payload =
+                sql.readBookPayloads(listOf(bookId.value)).firstOrNull() ?: return@suspendTransaction null
+            val folderRoot =
+                sql.libraryFoldersQueries
+                    .selectById(book.folder_id)
+                    .executeAsOneOrNull()
+                    ?.root_path ?: return@suspendTransaction null
+
+            val planned = OrganizerPathPlanner.planFor(payload.toOrganizeFacts(), settings)
+            if (planned == book.root_rel_path) return@suspendTransaction null
+
+            var candidate = planned
+            var collisionResolved = false
+            var suffix = 2
+            while (occupiedByOtherBook(book.folder_id, candidate, bookId.value)) {
+                collisionResolved = true
+                candidate = withCollisionSuffix(planned, suffix++)
+            }
+
+            val fromDir = Path(folderRoot, book.root_rel_path)
+            val toDir = Path(folderRoot, candidate)
+            MovePlanEntry(
+                bookId = bookId.value,
+                fromDir = fromDir,
+                toDir = toDir,
+                toRootRelPath = candidate,
+                files = filesToMove(fromDir, toDir),
+                collisionResolved = collisionResolved,
+            )
+        }
+
+    /** True when a DIFFERENT live book already occupies `(folderId, relPath)` as its natural key. */
+    private fun occupiedByOtherBook(
+        folderId: String,
+        relPath: String,
+        selfBookId: String,
+    ): Boolean =
+        sql.booksQueries
+            .selectIdByNaturalKey(folder_id = folderId, root_rel_path = relPath)
+            .executeAsOneOrNull()
+            ?.let { it != selfBookId } == true
 
     /** Every file found under [fromDir] (recursive), paired with its mirrored destination under [toDir]. */
     private fun filesToMove(

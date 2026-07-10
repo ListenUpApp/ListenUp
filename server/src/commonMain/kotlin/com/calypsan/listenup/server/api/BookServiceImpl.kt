@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.sync.BookSeriesPayload
 import com.calypsan.listenup.api.sync.ChapterSource
 import com.calypsan.listenup.api.error.CoverError
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.organize.OrganizeOnEditRelocator
 import com.calypsan.listenup.server.auth.UserPermissionPolicy
 import com.calypsan.listenup.api.sync.CoverSource
 import com.calypsan.listenup.api.sync.UserEditedField
@@ -93,6 +94,7 @@ internal class BookServiceImpl(
     private val permissionPolicy: UserPermissionPolicy,
     private val principal: PrincipalProvider,
     private val coverImageStore: CoverImageStore? = null,
+    private val organizeRelocator: OrganizeOnEditRelocator? = null,
 ) : BookService {
     override suspend fun getBook(id: BookId): AppResult<BookSyncPayload> {
         val p =
@@ -128,6 +130,7 @@ internal class BookServiceImpl(
             permissionPolicy = permissionPolicy,
             principal = principal,
             coverImageStore = coverImageStore,
+            organizeRelocator = organizeRelocator,
         )
 
     override suspend fun searchBooks(
@@ -174,8 +177,16 @@ internal class BookServiceImpl(
                 repo.upsert(patched)
             }
         return when (upsertResult) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            is AppResult.Success -> {
+                // A title edit may change the book's canonical folder — let the organizer replan
+                // (debounced no-op when disabled or when the path is unchanged).
+                organizeRelocator?.onBookEdited(id)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(upsertResult.error)
+            }
         }
     }
 
@@ -220,8 +231,15 @@ internal class BookServiceImpl(
                 userEditedFields = current.userEditedFields + UserEditedField.CONTRIBUTORS,
             )
         return when (val upsertResult = repo.upsert(patched)) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            is AppResult.Success -> {
+                // The primary author is a canonical-path segment — organizer replan (see updateBook).
+                organizeRelocator?.onBookEdited(id)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(upsertResult.error)
+            }
         }
     }
 
@@ -315,8 +333,15 @@ internal class BookServiceImpl(
                 userEditedFields = current.userEditedFields + UserEditedField.SERIES,
             )
         return when (val upsertResult = repo.upsert(patched)) {
-            is AppResult.Success -> AppResult.Success(Unit)
-            is AppResult.Failure -> AppResult.Failure(upsertResult.error)
+            is AppResult.Success -> {
+                // Series name/sequence are canonical-path segments — organizer replan (see updateBook).
+                organizeRelocator?.onBookEdited(id)
+                AppResult.Success(Unit)
+            }
+
+            is AppResult.Failure -> {
+                AppResult.Failure(upsertResult.error)
+            }
         }
     }
 

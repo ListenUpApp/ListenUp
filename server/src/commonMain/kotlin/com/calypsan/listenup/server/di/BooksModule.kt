@@ -158,6 +158,8 @@ fun booksModule(
                 permissionPolicy = get<UserPermissionPolicy>(),
                 principal = unscopedPlaceholder("BookService"),
                 coverImageStore = get<CoverImageStore>(),
+                // Nullable — the organize module may not be loaded in minimal test containers.
+                organizeRelocator = getOrNull(),
             )
         }
         single<ContributorService> {
