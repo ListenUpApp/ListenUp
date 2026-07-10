@@ -1441,5 +1441,14 @@
     "version_prefix": "v%1$s",
     "not_found": "Library not found.",
     "view_project": "View project"
+  },
+  "push": {
+    "test_title": "Test notification",
+    "test_body": "Push notifications are working.",
+    "campfire_invite_title": "%1$s invited you to listen together",
+    "campfire_invite_title_unknown": "You have an invite to listen together",
+    "campfire_invite_body": "%1$s",
+    "generic_title": "ListenUp",
+    "generic_body": "Something happened on your server."
   }
 }

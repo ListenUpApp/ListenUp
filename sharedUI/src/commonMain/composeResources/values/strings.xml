@@ -1202,6 +1202,13 @@ One beautiful library.</string>
     <string name="profile_tagline_description">A short bio that appears on your profile</string>
     <string name="profile_tagline_placeholder">What are you listening to?</string>
     <string name="profile_upload_photo">Upload Photo</string>
+    <string name="push_campfire_invite_body">%1$s</string>
+    <string name="push_campfire_invite_title">%1$s invited you to listen together</string>
+    <string name="push_campfire_invite_title_unknown">You have an invite to listen together</string>
+    <string name="push_generic_body">Something happened on your server.</string>
+    <string name="push_generic_title">ListenUp</string>
+    <string name="push_test_body">Push notifications are working.</string>
+    <string name="push_test_title">Test notification</string>
     <string name="scan_building_subtitle">Building your library.</string>
     <string name="scan_files_total">/ %1$d files</string>
     <string name="scan_recently_matched">Recently matched</string>
