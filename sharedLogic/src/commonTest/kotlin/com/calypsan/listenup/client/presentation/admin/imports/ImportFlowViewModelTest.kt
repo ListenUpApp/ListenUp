@@ -1082,6 +1082,7 @@ private class FakeAdminRepository(
         serverName: String?,
         remoteUrl: String?,
         inboxEnabled: Boolean?,
+        pushNotificationsEnabled: Boolean?,
     ): AppResult<ServerSettings> = AppResult.Success(ServerSettings(serverName = serverName ?: "Test", remoteUrl = remoteUrl))
 
     override suspend fun getLibrary(): AppResult<Library> = AppResult.Failure(TransportError.NetworkUnavailable())

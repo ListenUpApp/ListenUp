@@ -64,6 +64,22 @@ class AdminRepositoryImplSettingsTest :
             svc.lastPatch?.serverName shouldBe "Renamed"
         }
 
+        test("getServerSettings maps pushNotificationsEnabled through to the domain model") {
+            val svc =
+                FakeAdminSettingsService().apply {
+                    stored = AdminServerSettings("Lib", null, inboxEnabled = false, pushNotificationsEnabled = false)
+                }
+            (repo(svc).getServerSettings() as AppResult.Success).data.pushNotificationsEnabled shouldBe false
+        }
+
+        test("updateServerSettings forwards pushNotificationsEnabled and returns the new settings") {
+            val svc = FakeAdminSettingsService()
+            (
+                repo(svc).updateServerSettings(pushNotificationsEnabled = false) as AppResult.Success
+            ).data.pushNotificationsEnabled shouldBe false
+            svc.lastPatch?.pushNotificationsEnabled shouldBe false
+        }
+
         test("a transport throw becomes Failure, not a throw") {
             val throwing =
                 object : AdminSettingsRpcFactory {

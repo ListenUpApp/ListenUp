@@ -111,6 +111,8 @@
     <string name="admin_pending_invites">Pending Invites</string>
     <string name="admin_pending_registrations">Pending Registrations</string>
     <string name="admin_protected_user">Protected User</string>
+    <string name="admin_push_setting_subtitle">Deliver invites to devices via the ListenUp relay.</string>
+    <string name="admin_push_setting_title">Push notifications</string>
     <string name="admin_recommended_for_full_restore_capability">Recommended for full restore capability</string>
     <string name="admin_registration_approval_desc">New sign-ups need an admin\'s approval before they can join.</string>
     <string name="admin_registration_closed_desc">Self-registration is off — people join by invite only.</string>
@@ -1298,6 +1300,8 @@ One beautiful library.</string>
     <string name="settings_open_source_licenses">Open Source Licenses</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_rewind_a_few_seconds_when">Rewind a few seconds when resuming playback</string>
+    <string name="settings_send_test_notification">Send test notification</string>
+    <string name="settings_send_test_notification_subtitle">Arrives when the app is in the background.</string>
     <string name="settings_server_version">Server version</string>
     <string name="settings_shake_to_reset_timer">Shake to Reset Timer</string>
     <string name="settings_sign_out_confirm_title">Sign Out</string>

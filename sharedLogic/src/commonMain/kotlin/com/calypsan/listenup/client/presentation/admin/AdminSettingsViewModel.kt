@@ -35,6 +35,7 @@ class AdminSettingsViewModel(
     private var savedServerName: String = ""
     private var savedRemoteUrl: String = ""
     private var savedInboxEnabled: Boolean = false
+    private var savedPushNotificationsEnabled: Boolean = true
 
     init {
         loadSettings()
@@ -47,12 +48,14 @@ class AdminSettingsViewModel(
                     savedServerName = result.data.serverName
                     savedRemoteUrl = result.data.remoteUrl ?: ""
                     savedInboxEnabled = result.data.inboxEnabled
+                    savedPushNotificationsEnabled = result.data.pushNotificationsEnabled
                     state.update { current ->
                         if (current is AdminSettingsUiState.Ready) {
                             current.copy(
                                 serverName = result.data.serverName,
                                 remoteUrl = result.data.remoteUrl ?: "",
                                 inboxEnabled = result.data.inboxEnabled,
+                                pushNotificationsEnabled = result.data.pushNotificationsEnabled,
                                 error = null,
                             )
                         } else {
@@ -60,6 +63,7 @@ class AdminSettingsViewModel(
                                 serverName = result.data.serverName,
                                 remoteUrl = result.data.remoteUrl ?: "",
                                 inboxEnabled = result.data.inboxEnabled,
+                                pushNotificationsEnabled = result.data.pushNotificationsEnabled,
                             )
                         }
                     }
@@ -113,6 +117,33 @@ class AdminSettingsViewModel(
                     logger.error { "Failed to save inbox setting: ${result.error}" }
                     // Revert the optimistic flip to the last server-confirmed value.
                     updateReady { it.copy(inboxEnabled = savedInboxEnabled, error = result.error).withDirty() }
+                }
+            }
+        }
+    }
+
+    /**
+     * Toggle server-wide push notifications. Like [setInboxEnabled], a switch applies on tap:
+     * this optimistically reflects the flip, persists it immediately, and reverts to the last
+     * server-confirmed value if the save fails.
+     */
+    fun setPushNotificationsEnabled(enabled: Boolean) {
+        // Optimistically reflect the flip so the switch tracks the tap.
+        updateReady { it.copy(pushNotificationsEnabled = enabled).withDirty() }
+        viewModelScope.launch {
+            when (val result = updateServerSettingsUseCase.updatePushNotificationsEnabled(enabled)) {
+                is AppResult.Success -> {
+                    savedPushNotificationsEnabled = enabled
+                    logger.info { "Push notifications setting saved: $enabled" }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.error { "Failed to save push notifications setting: ${result.error}" }
+                    // Revert the optimistic flip to the last server-confirmed value.
+                    updateReady {
+                        it.copy(pushNotificationsEnabled = savedPushNotificationsEnabled, error = result.error).withDirty()
+                    }
                 }
             }
         }
@@ -234,6 +265,7 @@ sealed interface AdminSettingsUiState {
         val serverName: String = "",
         val remoteUrl: String = "",
         val inboxEnabled: Boolean = false,
+        val pushNotificationsEnabled: Boolean = true,
         val isDirty: Boolean = false,
         val isSaving: Boolean = false,
         val error: AppError? = null,

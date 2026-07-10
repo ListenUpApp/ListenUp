@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.PlayCircle
@@ -97,6 +98,8 @@ import listenup.composeapp.generated.resources.settings_ignore_articles_when_sor
 import listenup.composeapp.generated.resources.settings_manage_storage
 import listenup.composeapp.generated.resources.settings_open_source_licenses
 import listenup.composeapp.generated.resources.settings_rewind_a_few_seconds_when
+import listenup.composeapp.generated.resources.settings_send_test_notification
+import listenup.composeapp.generated.resources.settings_send_test_notification_subtitle
 import listenup.composeapp.generated.resources.settings_server_version
 import listenup.composeapp.generated.resources.settings_skip_backward
 import listenup.composeapp.generated.resources.settings_skip_forward
@@ -281,6 +284,7 @@ fun SettingsScreen(
                     state = state,
                     onNavigateToDevices = onNavigateToDevices,
                     onSignOutClick = { showSignOutDialog = true },
+                    onSendTestNotificationClick = viewModel::sendTestNotification,
                 )
 
                 if (onNavigateToStorage != null) {
@@ -459,6 +463,7 @@ private fun AccountSection(
     state: SettingsUiState,
     onNavigateToDevices: (() -> Unit)?,
     onSignOutClick: () -> Unit,
+    onSendTestNotificationClick: () -> Unit,
 ) {
     val accent = MaterialTheme.colorScheme.primary
     SectionGroup(
@@ -483,6 +488,18 @@ private fun AccountSection(
                 subtitle = stringResource(Res.string.devices_manage_active_sessions),
                 onClick = onNavigateToDevices,
                 showDivider = hasServerRow,
+            )
+        }
+        // Server advertises push (admin toggle AND relay configured) — the arriving notification
+        // is the only feedback, so this row carries no result state of its own.
+        if (state.pushEnabled) {
+            SettingRow(
+                icon = Icons.Default.Notifications,
+                accent = accent,
+                title = stringResource(Res.string.settings_send_test_notification),
+                subtitle = stringResource(Res.string.settings_send_test_notification_subtitle),
+                showDivider = hasServerRow || onNavigateToDevices != null,
+                onClick = onSendTestNotificationClick,
             )
         }
     }

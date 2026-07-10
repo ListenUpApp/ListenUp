@@ -232,6 +232,7 @@ internal class AdminRepositoryImpl(
                     it.serverName,
                     it.remoteUrl,
                     it.inboxEnabled,
+                    it.pushNotificationsEnabled,
                 )
             }
         }
@@ -240,6 +241,7 @@ internal class AdminRepositoryImpl(
         serverName: String?,
         remoteUrl: String?,
         inboxEnabled: Boolean?,
+        pushNotificationsEnabled: Boolean?,
     ): AppResult<ServerSettings> =
         catching("updateServerSettings") {
             adminSettingsRpc
@@ -249,8 +251,9 @@ internal class AdminRepositoryImpl(
                         serverName = serverName,
                         remoteUrl = remoteUrl,
                         inboxEnabled = inboxEnabled,
+                        pushNotificationsEnabled = pushNotificationsEnabled,
                     ),
-                ).map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
+                ).map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled, it.pushNotificationsEnabled) }
         }
 
     // ═══════════════════════════════════════════════════════════════════════
