@@ -11,34 +11,13 @@ import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
-import java.nio.file.Files
-import java.nio.file.attribute.PosixFilePermission
-
-private fun tempLibraryDir(): Path {
-    val dir = Files.createTempDirectory("library-write-broker-")
-    return Path(dir.toString())
-}
-
-private fun testBroker(
-    dir: Path,
-    registry: SelfWriteRegistry = SelfWriteRegistry { 0L },
-): LibraryWriteBroker = LibraryWriteBroker(registry)
-
-private fun makeReadOnly(dir: Path) {
-    Files.setPosixFilePermissions(
-        java.nio.file.Path.of(dir.toString()),
-        setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE),
-    )
-}
-
-private fun isPosix(): Boolean = !System.getProperty("os.name").lowercase().contains("windows")
 
 class LibraryWriteBrokerFileTest :
     FunSpec({
         test("writeFile lands atomically with exact bytes and returns the content hash") {
             runTest {
                 val dir = tempLibraryDir()
-                val broker = testBroker(dir)
+                val broker = testBroker()
                 val target = Path(Path(dir, "Book"), "listenup.json")
                 val bytes = "{\"schemaVersion\":1}".encodeToByteArray()
 
@@ -58,7 +37,7 @@ class LibraryWriteBrokerFileTest :
             runTest {
                 val dir = tempLibraryDir()
                 val registry = SelfWriteRegistry { 0L }
-                val broker = testBroker(dir, registry)
+                val broker = testBroker(registry)
                 val target = Path(Path(dir, "Book"), "listenup.json")
 
                 val result = broker.writeFile(target, byteArrayOf(1))
@@ -73,7 +52,7 @@ class LibraryWriteBrokerFileTest :
             runTest {
                 val dir = tempLibraryDir()
                 makeReadOnly(dir)
-                val broker = testBroker(dir)
+                val broker = testBroker()
 
                 val result = broker.writeFile(Path(dir, "x.json"), byteArrayOf(1))
 

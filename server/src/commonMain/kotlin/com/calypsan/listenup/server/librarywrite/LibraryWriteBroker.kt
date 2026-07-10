@@ -63,4 +63,26 @@ class LibraryWriteBroker(
             failure(LibraryWriteError.Unavailable(debugInfo = "$target: ${e.message}"))
         }
     }
+
+    /**
+     * Probes whether [root] is currently writable: creates a marker file and immediately deletes
+     * it, reporting [LibraryWriteStatus.Available] on success. The marker is registered with
+     * [registry] before it's created, so the create+delete pair is swallowed as a self-write.
+     * Never throws — an I/O failure at any step reports [LibraryWriteStatus.Unavailable].
+     */
+    suspend fun probe(root: Path): LibraryWriteStatus {
+        val marker = Path(root, ".listenup-probe-${Uuid.random()}")
+        return try {
+            SystemFileSystem.createDirectories(root)
+            registry.register(marker, suppressionTtlMs)
+            SystemFileSystem.sink(marker).buffered().use { it.write(ByteArray(0)) }
+            SystemFileSystem.delete(marker, mustExist = false)
+            LibraryWriteStatus.Available
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            registry.release(marker)
+            LibraryWriteStatus.Unavailable(reason = "$root: ${e.message}")
+        }
+    }
 }
