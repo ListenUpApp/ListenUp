@@ -1,0 +1,23 @@
+-- sidecar_write_state: the round-trip discriminator for the listenup.json sidecar writer.
+-- Schema matches V2__sidecar_write_state.sql exactly. One row per book that has ever had a
+-- listenup.json written by this server, holding the SHA-256 content hash of the bytes last
+-- written — the reader compares this against the on-disk file's hash to distinguish a
+-- self-written file (skip re-ingestion) from an externally-edited one (ingest).
+CREATE TABLE sidecar_write_state (
+    book_id      TEXT NOT NULL PRIMARY KEY REFERENCES books(id) ON DELETE CASCADE,
+    content_hash TEXT NOT NULL,
+    written_at   INTEGER NOT NULL
+);
+
+-- The recorded write state for a book, if one exists.
+selectByBookId:
+SELECT * FROM sidecar_write_state WHERE book_id = :book_id;
+
+-- Records (or replaces) the last-written content hash for a book.
+upsert:
+INSERT OR REPLACE INTO sidecar_write_state (book_id, content_hash, written_at)
+VALUES (:book_id, :content_hash, :written_at);
+
+-- Clears a book's recorded write state (called when a book is deleted or unenrolled).
+deleteForBook:
+DELETE FROM sidecar_write_state WHERE book_id = :book_id;
