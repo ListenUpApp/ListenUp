@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.test.stubImageStorage
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -162,7 +163,7 @@ class PlaybackManagerFallbackFetchTest :
                 bookRpcFactory = bookRpcFactory,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = bookSyncDomainHandler,
-                playbackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
+                playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }
 
