@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.test.fake.FakePlayer
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -51,7 +52,7 @@ class PlaybackManagerBufferingStateTest :
             db: ListenUpDatabase,
             scope: CoroutineScope = CoroutineScope(Job()),
             progressTracker: ProgressTracker = buildProgressTracker(scope = scope),
-            bandwidthCoordinator: PlaybackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
+            bandwidthCoordinator: PlaybackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
         ): PlaybackManager {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -152,7 +153,7 @@ class PlaybackManagerBufferingStateTest :
             val db = createInMemoryTestDatabase()
             try {
                 runTest {
-                    val recorder = RecordingBandwidthCoordinator()
+                    val recorder = FakePlaybackBandwidthCoordinator()
                     val sut = createPlaybackManager(db, bandwidthCoordinator = recorder)
 
                     // No fully-downloaded timeline in scope → a buffering book is treated as a
@@ -473,14 +474,3 @@ class PlaybackManagerBufferingStateTest :
             }
         }
     })
-
-/** Records every `setStreamingBuffering` value so a test can assert the producer wiring. */
-private class RecordingBandwidthCoordinator : PlaybackBandwidthCoordinator {
-    val calls = mutableListOf<Boolean>()
-    override val shouldYield = kotlinx.coroutines.flow.MutableStateFlow(false)
-
-    override fun setStreamingBuffering(active: Boolean) {
-        calls += active
-        shouldYield.value = active
-    }
-}
