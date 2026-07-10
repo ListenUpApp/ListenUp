@@ -1418,6 +1418,38 @@ class BookRepository(
     }
 
     /**
+     * Rewrites [id]'s `root_rel_path` alone — the organizer's DB-side move step (see
+     * `com.calypsan.listenup.server.organize.MoveManifestExecutor`). Called only AFTER the
+     * corresponding files have already landed at their new on-disk location via the
+     * `LibraryWriteBroker` — this never touches the filesystem itself, and never touches any
+     * content column, so a rescan's tombstone sweep and the book's identity are otherwise
+     * untouched. Bumps revision and publishes [SyncEvent.Updated] like [touchRevision], since
+     * `rootRelPath` is part of the syncable [BookSyncPayload].
+     */
+    suspend fun moveRootRelPath(
+        id: BookId,
+        newRootRelPath: String,
+    ): AppResult<Unit> {
+        val idStr = idAsString(id)
+        return suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.booksQueries.updateRootRelPath(
+                root_rel_path = newRootRelPath,
+                revision = rev,
+                updated_at = now,
+                id = idStr,
+            )
+            if (db.booksQueries.changes().executeAsOne() == 0L) {
+                AppResult.Failure(SyncError.NotFound(domain = domainName, entityId = idStr))
+            } else {
+                publishUpdatedAfterCommit(idStr, rev, now)
+                AppResult.Success(Unit)
+            }
+        }
+    }
+
+    /**
      * Batched [touchRevision]: bumps every book in [ids] in ONE transaction, assigning each row its
      * own revision from the global counter — never one shared revision, because `pullSince` pages by
      * `revision > cursor`, so equal revisions straddling a page boundary would be skipped. Missing ids
