@@ -155,11 +155,13 @@ internal val clientSyncModule =
         single<CatchUp> {
             val apiClientFactory: ApiClientFactory = get()
             val serverConfig: ServerConfig = get()
+            val reporter: ConnectionIssueReporter = get()
             SyncCatchUpClient(
                 httpClientProvider = { apiClientFactory.getClient() },
                 serverUrlProvider = { serverConfig.getActiveUrl()?.value },
                 store = get(),
                 transactionRunner = get(),
+                reportConnectionIssue = reporter::report,
             )
         }
 
@@ -178,6 +180,7 @@ internal val clientSyncModule =
                 store = get(),
                 digestClient = get(),
                 catchUp = get(),
+                reportConnectionIssue = get<ConnectionIssueReporter>()::report,
             )
         }
 
@@ -287,6 +290,7 @@ internal val clientSyncModule =
                 // domain's refresh through it so a dropped refresh trigger self-heals on the next
                 // foreground/reconnect edge (Plan §6a).
                 refreshedRouter = get(),
+                reportConnectionIssue = get<ConnectionIssueReporter>()::report,
             )
         }
 

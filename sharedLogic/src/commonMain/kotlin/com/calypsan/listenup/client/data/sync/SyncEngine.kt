@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -71,6 +72,10 @@ internal class SyncEngine(
     // declared refresh through it, so a dropped refresh trigger self-heals on the next foreground/reconnect
     // edge — derived from the catalog, no per-domain recovery wiring (Plan §6a).
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
+    // Typed-failure forward to the connection-issue seam (spec §6.4): pass-level catch-up
+    // failures surface once, typed, instead of dying in logger.warn. Defaults to a no-op so
+    // existing test fixtures need no change; production wires ConnectionIssueReporter.
+    private val reportConnectionIssue: (AppError) -> Unit = {},
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
     private val lifecycleReconcileMinIntervalMs: Long = LIFECYCLE_RECONCILE_MIN_INTERVAL_MS,
 ) {
@@ -448,6 +453,7 @@ internal class SyncEngine(
                 logger.warn {
                     "Lifecycle catch-up failed: ${result.error.code}; continuing to digest reconcile"
                 }
+                reportConnectionIssue(result.error)
             }
         }
         // reconcileAll is non-throwing; the router guards each refresh individually.
@@ -558,6 +564,7 @@ internal class SyncEngine(
                 logger.warn {
                     "Catch-up failed during CursorStale recovery: ${result.error.code}; continuing to reconnect"
                 }
+                reportConnectionIssue(result.error)
             }
         }
         val newCursor = store.highestCursor()

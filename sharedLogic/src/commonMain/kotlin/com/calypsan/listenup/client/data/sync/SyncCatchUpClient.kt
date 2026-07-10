@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.Tombstoned
@@ -51,6 +52,9 @@ internal class SyncCatchUpClient(
     private val serverUrlProvider: suspend () -> String?,
     private val store: SyncCursorStore,
     private val transactionRunner: TransactionRunner,
+    // Typed-failure forward to the connection-issue seam (spec §6.4). Defaults to a no-op so
+    // fixtures that don't observe reporting need no change; production wires ConnectionIssueReporter.
+    private val reportConnectionIssue: (AppError) -> Unit = {},
 ) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
     override suspend fun <T : Any> catchUp(handler: SyncDomainHandler<T>): AppResult<Unit> =
@@ -213,6 +217,7 @@ internal class SyncCatchUpClient(
                 val result = catchUp(typed)
                 if (result is AppResult.Failure) {
                     logger.warn { "catchUp($domainName) failed: ${result.error.code}" }
+                    reportConnectionIssue(result.error)
                 }
             }
         }
