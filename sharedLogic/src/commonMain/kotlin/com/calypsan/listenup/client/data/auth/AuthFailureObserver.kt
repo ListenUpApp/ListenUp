@@ -48,7 +48,9 @@ internal class AuthFailureObserver(
                         } else {
                             // Same-server expiry/refresh-death: soft-lapse. Local content stays
                             // usable; the shell banner offers sign-in (M2/M3).
-                            logger.info { "Session-invalidating auth error (${error.code}); soft-lapse → SessionLapsed" }
+                            logger.info {
+                                "Session-invalidating auth error (${error.code}); soft-lapse → SessionLapsed"
+                            }
                             authSession.clearSessionCredentials()
                         }
                     }

@@ -148,7 +148,8 @@ class SyncEngineAuthGateTest :
                     engine.stopAndJoin()
                 } finally {
                     scope.cancel()
-                    scope.coroutineContext.job.children.forEach { it.join() }
+                    scope.coroutineContext.job.children
+                        .forEach { it.join() }
                     db.close()
                 }
             }

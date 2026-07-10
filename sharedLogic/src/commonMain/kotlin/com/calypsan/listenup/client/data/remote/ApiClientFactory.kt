@@ -529,7 +529,9 @@ internal suspend fun refreshAuthTokens(
                     is AuthError.SessionExpired,
                     is AuthError.InvalidRefreshToken,
                     -> {
-                        logger.warn { "Token refresh rejected (${result.error}), lapsing session (credentials cleared, user id kept)" }
+                        logger.warn {
+                            "Token refresh rejected (${result.error}), lapsing session (credentials cleared, user id kept)"
+                        }
                         authSession.clearSessionCredentials()
                     }
 

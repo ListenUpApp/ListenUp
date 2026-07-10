@@ -18,8 +18,7 @@ private class FailingCatchUp : CatchUp {
 
     override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> =
-        AppResult.Failure(AuthError.SessionExpired(debugInfo = "test"))
+    override suspend fun catchUpAll(registry: ClientSyncDomainRegistry): AppResult<Unit> = AppResult.Failure(AuthError.SessionExpired())
 
     override suspend fun <T : Any> catchUpTransient(handler: SyncDomainHandler<T>): AppResult<Set<String>> = AppResult.Success(emptySet())
 
