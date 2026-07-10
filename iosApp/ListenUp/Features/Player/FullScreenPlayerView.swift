@@ -316,12 +316,15 @@ struct FullScreenPlayerView: View {
                         .fill(Color.listenUpOrange)
                         .frame(width: 76, height: 76)
                         .shadow(color: Color.listenUpOrange.opacity(0.45), radius: 12, x: 0, y: 8)
-                    Image(systemName: observer.isPlaying ? "pause.fill" : "play.fill")
+                    // `isPlaybackActive` (playing OR buffering) so the control reads "pause"
+                    // during the startup buffer — it shows a pause affordance because the user's
+                    // intent is active, matching what a tap does (pause, not resume).
+                    Image(systemName: observer.isPlaybackActive ? "pause.fill" : "play.fill")
                         .font(.title)
                         .foregroundStyle(.white)
                 }
             }
-            .accessibilityLabel(String(localized: observer.isPlaying ? "player.pause" : "player.play"))
+            .accessibilityLabel(String(localized: observer.isPlaybackActive ? "player.pause" : "player.play"))
 
             Spacer()
 

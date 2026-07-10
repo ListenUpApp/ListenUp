@@ -45,7 +45,15 @@ actor AudioEngine: PlaybackEngine {
     private var errorLogObserver: NSObjectProtocol?
     private var currentItemObservation: NSKeyValueObservation?
     private var statusObservation: NSKeyValueObservation?
-    private var keepUpObservation: NSKeyValueObservation?
+    /// Player-level "is audio actually advancing" signal. Authoritative for the
+    /// buffering↔playing distinction — `isPlaybackLikelyToKeepUp` reports "enough
+    /// buffered to be playable", which flips to true *before* audio starts and would
+    /// make the UI claim "playing" during the startup buffer (the RC-3 lie).
+    private var timeControlObservation: NSKeyValueObservation?
+    /// Resumed when the current item reaches `.readyToPlay` (true) or `.failed`/timeout
+    /// (false). Lets `load` seek precisely *before* any rate is set, so playback never
+    /// starts from a playable position-0 sample and then jumps (RC-2).
+    private var readyContinuation: CheckedContinuation<Bool, Never>?
 
     init() {
         var capturedContinuation: AsyncStream<AudioEngineEvent>.Continuation!
@@ -53,26 +61,79 @@ actor AudioEngine: PlaybackEngine {
         continuation = capturedContinuation
     }
 
-    /// Configure the audio session and enqueue `segments`, positioned at
-    /// `startPositionMs`. Does not start playback — the caller follows with `play()`.
-    func load(segments: [AudioSegment], startPositionMs: Int64) {
+    /// Configure the audio session, enqueue `segments`, and seek to `startPositionMs`
+    /// *before returning*. Does not start playback — the caller follows with `play()`.
+    ///
+    /// Returns `true` once the queue's first item is ready and positioned; `false` on a
+    /// configuration/queue failure or a readiness timeout (a `.failed` event is emitted
+    /// on the failure paths so the coordinator can surface an error state).
+    ///
+    /// The resume seek happens here — after awaiting readiness, before any rate is set —
+    /// rather than being deferred to a KVO callback that fires *after* `play()` has already
+    /// begun playing position 0. That deferred seek was the "starts at chapter 1, then
+    /// jumps" bug (RC-2).
+    func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
         guard !segments.isEmpty else {
             continuation.yield(.failed(message: "This book has no audio."))
-            return
+            return false
         }
         self.segments = segments
-        configureAudioSession()
+        guard configureAudioSession() else { return false }
         let startIndex = SegmentMath.segmentIndex(forPositionMs: startPositionMs, in: segments) ?? 0
-        let withinSegmentMs = startPositionMs - segments[startIndex].offsetMs
-        pendingSeekWithinSegmentMs = withinSegmentMs > 0 ? withinSegmentMs : nil
+        let withinSegmentMs = max(0, startPositionMs - segments[startIndex].offsetMs)
+        // The initial position is applied by the explicit seek below, not the deferred
+        // `.readyToPlay` path — clear any stale pending seek so it can't double-fire.
+        pendingSeekWithinSegmentMs = nil
         // Order matters: `rebuildQueue` must populate the queue before
         // `observeCurrentItemTransitions` registers its `.initial` KVO, so the
-        // first item gets its status observers (and thus the deferred resume seek).
-        rebuildQueue(fromSegment: startIndex)
+        // first item gets its status observers (and thus the readiness signal).
+        guard rebuildQueue(fromSegment: startIndex) else { return false }
         installTimeObserver()
         observeEnd()
         observeErrorLog()
+        observeTimeControlStatus()
         observeCurrentItemTransitions()
+
+        // Wait for the first item to be playable, then seek precisely — so there is
+        // never a playable position-0 state for `play()` to start from.
+        guard await awaitCurrentItemReady() else { return false }
+        if withinSegmentMs > 0 {
+            _ = await player.seek(
+                to: CMTime(value: withinSegmentMs, timescale: 1000),
+                toleranceBefore: .zero, toleranceAfter: .zero
+            )
+        }
+        return true
+    }
+
+    /// Await the current item reaching `.readyToPlay` (`true`) or `.failed`/timeout
+    /// (`false`). The status KVO installed by `observeCurrentItemTransitions` drives the
+    /// resume via `resumeReadyIfWaiting`; the timeout guards against a stream that never
+    /// becomes ready and never fails (the classic ATS/TLS "just never starts" hang).
+    private func awaitCurrentItemReady(timeout: Duration = .seconds(20)) async -> Bool {
+        guard let item = player.currentItem else { return false }
+        switch item.status {
+        case .readyToPlay: return true
+        case .failed: return false
+        default: break
+        }
+        // Only one waiter at a time; a fresh `load` supersedes any prior wait.
+        resumeReadyIfWaiting(false)
+        return await withCheckedContinuation { continuation in
+            readyContinuation = continuation
+            Task { [weak self] in
+                try? await Task.sleep(for: timeout)
+                await self?.resumeReadyIfWaiting(false)
+            }
+        }
+    }
+
+    /// Resume a pending readiness waiter, if any. Idempotent: a second call (timeout after
+    /// success, or `.failed` after `.readyToPlay`) is a no-op.
+    private func resumeReadyIfWaiting(_ ready: Bool) {
+        guard let continuation = readyContinuation else { return }
+        readyContinuation = nil
+        continuation.resume(returning: ready)
     }
 
     /// Begin (or resume) playback at the current rate.
@@ -157,7 +218,9 @@ actor AudioEngine: PlaybackEngine {
         }
         currentItemObservation = nil
         statusObservation = nil
-        keepUpObservation = nil
+        timeControlObservation = nil
+        // Unblock any load still awaiting readiness so it doesn't leak a suspended task.
+        resumeReadyIfWaiting(false)
         player.removeAllItems()
         queue = []
         continuation.finish()
@@ -172,22 +235,26 @@ actor AudioEngine: PlaybackEngine {
         return queue.first { $0.item === current }?.segmentIndex
     }
 
-    private func configureAudioSession() {
+    /// Configure the shared session for spoken-audio playback. Returns `false` (and emits
+    /// a `.failed` event) when the session can't be configured — playback would otherwise
+    /// start into dead silence.
+    private func configureAudioSession() -> Bool {
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playback, mode: .spokenAudio)
             try session.setActive(true)
+            return true
         } catch {
-            // If the session can't be configured, playback would start into dead silence.
-            // Surface it as a playback failure (the coordinator maps `.failed` → error state)
-            // rather than leaving the user staring at a player that makes no sound.
             Log.error("Failed to configure audio session", error: error)
             continuation.yield(.failed(message: "Couldn't start audio playback."))
+            return false
         }
     }
 
     /// Replace the queue with fresh `AVPlayerItem`s for segments `[startIndex...]`.
-    private func rebuildQueue(fromSegment startIndex: Int) {
+    /// Returns `false` (and emits `.failed`) if a segment is rejected.
+    @discardableResult
+    private func rebuildQueue(fromSegment startIndex: Int) -> Bool {
         player.removeAllItems()
         queue = (startIndex..<segments.count).map { index in
             (item: AVPlayerItem(url: segments[index].url), segmentIndex: index)
@@ -198,9 +265,41 @@ actor AudioEngine: PlaybackEngine {
                 // Surface it as a playback failure rather than dropping it without a trace.
                 Log.error("AVQueuePlayer rejected segment \(entry.segmentIndex); aborting queue build")
                 continuation.yield(.failed(message: "Couldn't start audio playback."))
-                return
+                return false
             }
             player.insert(entry.item, after: nil)
+        }
+        return true
+    }
+
+    /// Observe the player-level `timeControlStatus` — the authoritative "is audio advancing?"
+    /// signal. Registered per `load` (like the other observers); `timeControlStatus` is a
+    /// property of the player, not the item, so it survives queue rebuilds within a load.
+    private func observeTimeControlStatus() {
+        timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+            guard let self else { return }
+            let status = player.timeControlStatus
+            // TODO(rule 7): fold this and the other KVO/notification callbacks into a single
+            // ordered AsyncStream the actor drains, so currentItem/status/timeControl events
+            // can't reorder relative to each other during a queue rebuild.
+            Task { await self.handleTimeControlStatus(status) }
+        }
+    }
+
+    /// Map `timeControlStatus` onto the engine's `buffering`/`ready` status.
+    /// `.waitingToPlayAtSpecifiedRate` means the player wants to play but is stalled buffering;
+    /// `.playing` means samples are actually flowing. `.paused` emits nothing — a paused
+    /// player's status is owned by the coordinator's phase, not the engine.
+    private func handleTimeControlStatus(_ status: AVPlayer.TimeControlStatus) {
+        switch status {
+        case .waitingToPlayAtSpecifiedRate:
+            continuation.yield(.statusChanged(.buffering))
+        case .playing:
+            continuation.yield(.statusChanged(.ready))
+        case .paused:
+            break
+        @unknown default:
+            break
         }
     }
 
@@ -291,7 +390,6 @@ actor AudioEngine: PlaybackEngine {
 
     private func attachItemObservers(to item: AVPlayerItem?) {
         statusObservation = nil
-        keepUpObservation = nil
         guard let item else { return }
         statusObservation = item.observe(\.status, options: [.initial, .new]) { [weak self] item, _ in
             guard let self else { return }
@@ -302,20 +400,14 @@ actor AudioEngine: PlaybackEngine {
             let detail = (item.error as NSError?).map { " [\($0.domain) \($0.code)]" } ?? ""
             Task { await self.handleItemStatus(status, errorMessage: errorMessage, errorDetail: detail) }
         }
-        keepUpObservation = item.observe(\.isPlaybackLikelyToKeepUp, options: [.new]) { [weak self] item, _ in
-            guard let self else { return }
-            let likelyToKeepUp = item.isPlaybackLikelyToKeepUp
-            Task { await self.handleKeepUp(likelyToKeepUp) }
-        }
-    }
-
-    private func handleKeepUp(_ likelyToKeepUp: Bool) {
-        continuation.yield(.statusChanged(likelyToKeepUp ? .ready : .buffering))
     }
 
     private func handleItemStatus(_ status: AVPlayerItem.Status, errorMessage: String?, errorDetail: String) {
         switch status {
         case .readyToPlay:
+            // A deferred cross-segment seek (set by `seek(toMs:)`, which rebuilds the queue and
+            // can't seek an unprepared item). The initial resume seek is done inline in `load`,
+            // which clears `pendingSeekWithinSegmentMs`, so this only fires for later seeks.
             if let pending = pendingSeekWithinSegmentMs {
                 pendingSeekWithinSegmentMs = nil
                 player.seek(
@@ -323,9 +415,13 @@ actor AudioEngine: PlaybackEngine {
                     toleranceBefore: .zero, toleranceAfter: .zero
                 )
             }
-            continuation.yield(.statusChanged(.ready))
+            // Readiness unblocks `load`'s seek-before-play. The buffering↔playing signal is NOT
+            // emitted here — `isReadyToPlay` means "playable", not "playing"; `timeControlStatus`
+            // owns that distinction so the UI can't claim "playing" during the startup buffer.
+            resumeReadyIfWaiting(true)
         case .failed:
             Log.error("AVPlayerItem failed: \(errorMessage ?? "unknown error")\(errorDetail)")
+            resumeReadyIfWaiting(false)
             continuation.yield(.failed(message: errorMessage ?? "Playback failed."))
         case .unknown:
             break

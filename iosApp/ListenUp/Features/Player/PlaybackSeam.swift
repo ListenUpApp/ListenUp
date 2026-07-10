@@ -6,7 +6,11 @@ import Foundation
 protocol PlaybackEngine: Sendable {
     /// The engine's event stream. Created once at init; consumed once.
     nonisolated var events: AsyncStream<AudioEngineEvent> { get }
-    func load(segments: [AudioSegment], startPositionMs: Int64) async
+    /// Configure the session, enqueue `segments`, and seek to `startPositionMs` before
+    /// returning. Returns `true` once the first item is ready and positioned; `false` on a
+    /// configuration/queue failure or readiness timeout (a `.failed` event is emitted on
+    /// those paths). The caller starts playback with `play()` only after a `true` result.
+    func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool
     func play() async
     func pause() async
     func seek(toMs positionMs: Int64) async

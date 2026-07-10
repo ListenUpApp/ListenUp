@@ -9,10 +9,15 @@ actor FakePlaybackEngine: PlaybackEngine {
 
     private(set) var didPlay = false
     private(set) var didPause = false
+    private(set) var didLoad = false
+    private(set) var lastLoadStartMs: Int64?
     private(set) var lastSeekMs: Int64?
     private(set) var lastRate: Float?
     private(set) var lastVolume: Float?
     private(set) var didRelease = false
+    /// When true, `load` reports failure (returns `false`) so tests can exercise the
+    /// coordinator's load-failure → `.error` path without a live `AVPlayer`.
+    var loadShouldFail = false
     private(set) var didDeactivateSession = false
     private(set) var didActivateSession = false
     private(set) var playCount = 0
@@ -36,9 +41,19 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Push an event into the coordinator's bound stream from a test.
     nonisolated func emit(_ event: AudioEngineEvent) { continuation.yield(event) }
 
-    func load(segments: [AudioSegment], startPositionMs: Int64) async {}
+    /// Toggle the load-failure simulation (actor-isolated state needs a setter).
+    func setLoadShouldFail(_ shouldFail: Bool) { loadShouldFail = shouldFail }
+
+    func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
+        didLoad = true; lastLoadStartMs = startPositionMs; commandLog.append("load")
+        gate.fire("load")
+        return !loadShouldFail
+    }
     func play() async {
         didPlay = true; playCount += 1; commandLog.append("play")
+        // Mirror a real player reaching `timeControlStatus == .playing`: emit `.ready` so the
+        // coordinator promotes its optimistic `.buffering` phase to `.playing`.
+        continuation.yield(.statusChanged(.ready))
         gate.fire("play"); gate.fire("play-\(playCount)")
     }
     func pause() async { didPause = true; commandLog.append("pause"); gate.fire("pause") }

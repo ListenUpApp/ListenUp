@@ -19,7 +19,7 @@ enum CoverImageRequest {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
 
         if let coverPath, !coverPath.isEmpty {
-            let cacheKey = coverCacheKey(identity: bookId ?? coverPath, coverHash: coverHash)
+            let cacheKey = localFileCacheKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
         }
 
@@ -37,6 +37,20 @@ enum CoverImageRequest {
 
         let cacheKey = coverCacheKey(identity: bookId, coverHash: coverHash)
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
+    }
+
+    /// Cache key for a **local cover file**. A `bookId`-scoped key is only content-safe when it
+    /// folds in the content hash: during a book switch, `bookId` advances to book B while
+    /// `coverPath` can still point at book A's file, so a `"B:cover"` key (bookId, no hash) would
+    /// stamp book B's identity onto book A's bytes and poison the shared memory+disk cache — the
+    /// "cover never changes" bug (RC-1). Without a hash we key by the **file path** instead, which
+    /// is unique per file and can't be mis-associated. With a hash we keep the bookId-scoped key
+    /// (mirrors the server-URL branch and Android's `"$bookId:$coverHash"`).
+    static func localFileCacheKey(bookId: String?, coverPath: String, coverHash: String?) -> String {
+        if let coverHash, !coverHash.isEmpty {
+            return coverCacheKey(identity: bookId ?? coverPath, coverHash: coverHash)
+        }
+        return coverPath
     }
 
     /// Fold the cover content hash into Nuke's cache identity so a new cover at the same stable
