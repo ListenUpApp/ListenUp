@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.VersionHeaders
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.version.FakeClientIdentity
@@ -52,6 +53,11 @@ class ApiClientFactoryHeaderTest :
 
                 factory.getClient().get("/ping")
 
+                // Asserted against the concrete wire values (not just the constants) as a
+                // belt-and-suspenders contract check: the send side uses VersionHeaders, so this
+                // pins that "X-Client-Version"/"X-Client-Api" is what actually lands on the wire.
+                captured?.headers?.get(VersionHeaders.CLIENT_VERSION) shouldBe "0.6.0"
+                captured?.headers?.get(VersionHeaders.CLIENT_API) shouldBe "v1"
                 captured?.headers?.get("X-Client-Version") shouldBe "0.6.0"
                 captured?.headers?.get("X-Client-Api") shouldBe "v1"
             }

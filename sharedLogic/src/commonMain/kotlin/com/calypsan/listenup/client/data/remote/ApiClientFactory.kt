@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.VersionHeaders
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ServerUrl
@@ -340,8 +341,8 @@ internal class KtorApiClientFactory(
             defaultRequest {
                 url(initialUrl.value)
                 contentType(ContentType.Application.Json)
-                header("X-Client-Version", clientIdentity.version)
-                header("X-Client-Api", clientIdentity.apiVersion)
+                header(VersionHeaders.CLIENT_VERSION, clientIdentity.version)
+                header(VersionHeaders.CLIENT_API, clientIdentity.apiVersion)
             }
         }
         val client = engine?.let { HttpClient(it, config) } ?: HttpClient(config)

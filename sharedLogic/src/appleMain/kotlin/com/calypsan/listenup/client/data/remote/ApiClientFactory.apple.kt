@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.VersionHeaders
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -79,8 +80,8 @@ internal actual suspend fun createStreamingHttpClient(
         defaultRequest {
             url(serverUrl.value)
             contentType(ContentType.Application.Json)
-            header("X-Client-Version", clientIdentity.version)
-            header("X-Client-Api", clientIdentity.apiVersion)
+            header(VersionHeaders.CLIENT_VERSION, clientIdentity.version)
+            header(VersionHeaders.CLIENT_API, clientIdentity.apiVersion)
         }
     }
 
@@ -121,7 +122,7 @@ internal actual fun createUnauthenticatedStreamingHttpClient(
         defaultRequest {
             url(serverUrl.value)
             contentType(ContentType.Application.Json)
-            header("X-Client-Version", clientIdentity.version)
-            header("X-Client-Api", clientIdentity.apiVersion)
+            header(VersionHeaders.CLIENT_VERSION, clientIdentity.version)
+            header(VersionHeaders.CLIENT_API, clientIdentity.apiVersion)
         }
     }
