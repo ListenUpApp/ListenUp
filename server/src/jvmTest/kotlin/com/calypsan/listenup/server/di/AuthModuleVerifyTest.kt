@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.SwappableSqlDriver
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
@@ -40,6 +41,10 @@ class AuthModuleVerifyTest :
             // constructed inside the DatabaseFactory.init() closure, not injected from the Koin graph.
             // LibraryRegistry, LibraryRepository: AdminSettingsServiceImpl deps resolved from
             // booksModule/libraryModule, both loaded at application startup but absent here.
+            // PrincipalProvider: PushServiceImpl's Koin singleton carries an inline unscoped
+            // placeholder literal (`PrincipalProvider { error(...) }`) constructed directly inside
+            // the factory lambda, not resolved via `get()` — verify() reflects on the constructor
+            // signature and can't see that, so it asks for a binding this module never declares.
             authModule(config, "https://push.example.com").verify(
                 extraTypes =
                     listOf(
@@ -53,6 +58,7 @@ class AuthModuleVerifyTest :
                         // (both loaded at application startup but absent here):
                         CollectionGrantRepository::class,
                         CollectionRepository::class,
+                        PrincipalProvider::class,
                     ),
             )
         }

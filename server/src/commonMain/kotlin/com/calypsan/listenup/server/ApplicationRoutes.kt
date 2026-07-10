@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
@@ -64,6 +65,7 @@ import com.calypsan.listenup.server.routes.playbackProgressRoutes
 import com.calypsan.listenup.server.routes.playbackRoutes
 import com.calypsan.listenup.server.routes.profileRoutes
 import com.calypsan.listenup.server.routes.publicInviteRoutes
+import com.calypsan.listenup.server.routes.pushRoutes
 import com.calypsan.listenup.server.routes.registrationPolicyRoutes
 import com.calypsan.listenup.server.routes.registrationStatusRoutes
 import com.calypsan.listenup.server.routes.rpcRoutes
@@ -135,6 +137,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val userPreferencesService by inject<UserPreferencesService>()
     val backupService by inject<BackupService>()
     val importService by inject<ImportService>()
+    val pushService by inject<PushService>()
     val backupPaths by inject<com.calypsan.listenup.server.backup.BackupPaths>()
     val backupArchive by inject<com.calypsan.listenup.server.backup.BackupArchive>()
     val importPaths by inject<com.calypsan.listenup.server.absimport.ImportPaths>()
@@ -190,6 +193,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
             backupRoutes(backupPaths, backupArchive)
             importRoutes(importPaths)
             scannerRoutes(scannerService, eventBus)
+            pushRoutes(pushService)
         }
         audioRoutes(audioFileLocator, audioUrlSigner, audioRoleLookup, bookAccessPolicy)
         coverCastRoutes(coverResponder, coverUrlSigner, audioRoleLookup, bookAccessPolicy)
@@ -228,4 +232,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         userPreferencesService = koinGet<UserPreferencesService>(),
         backupService = koinGet<BackupService>(),
         importService = koinGet<ImportService>(),
+        pushService = koinGet<PushService>(),
     )

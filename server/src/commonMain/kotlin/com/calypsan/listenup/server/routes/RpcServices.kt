@@ -16,6 +16,7 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
@@ -56,4 +57,5 @@ data class RpcServices(
     val userPreferencesService: UserPreferencesService,
     val backupService: BackupService,
     val importService: ImportService,
+    val pushService: PushService,
 )
