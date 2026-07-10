@@ -317,6 +317,7 @@ internal val clientSyncModule =
                 errorBus = get(),
                 reevaluate = { coordinator.reevaluate() },
                 scope = get(qualifier = named(APP_SCOPE)),
+                reportProbe = get<ConnectionHealthStore>()::reportProbe,
             ).apply { start() }
         }
     }
