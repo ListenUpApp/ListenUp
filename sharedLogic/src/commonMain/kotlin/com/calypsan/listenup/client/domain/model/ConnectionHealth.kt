@@ -7,7 +7,7 @@ package com.calypsan.listenup.client.domain.model
  * `@Serializable`. The single source of truth is [com.calypsan.listenup.client.data.connection.ConnectionHealthStore];
  * UI and gating logic observe its derived state.
  */
-sealed interface ConnectionHealth {
+internal sealed interface ConnectionHealth {
     /** Server reachable, session usable, contract parsing cleanly. Nothing is surfaced. */
     data object Healthy : ConnectionHealth
 
