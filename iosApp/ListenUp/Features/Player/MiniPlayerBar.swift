@@ -54,25 +54,68 @@ struct MiniPlayerBar: View {
 
     // MARK: - Content
 
+    @ViewBuilder
     private var contentRow: some View {
-        HStack(spacing: 12) {
-            cover
+        if observer.isErrored {
+            errorRow
+        } else {
+            HStack(spacing: 12) {
+                cover
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(observer.bookTitle)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(observer.bookTitle)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                        .lineLimit(1)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 12)
+
+                playPauseButton
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+    }
+
+    /// Never-stranded failure surface: instead of the player vanishing on `.error`, the bar shows
+    /// the failure message and a Retry that re-drives the errored book (`togglePlayback` → replay).
+    private var errorRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.title3)
+                .foregroundStyle(Color.listenUpOrange)
+                .frame(width: 40, height: 40)
+
+            Text(observer.errorMessage ?? String(localized: "common.something_went_wrong"))
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
 
             Spacer(minLength: 12)
 
-            playPauseButton
+            Button { observer.togglePlayback() } label: {
+                Text("book.detail_retry")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.listenUpOrange)
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "book.detail_retry"))
+
+            Button { observer.dismissError() } label: {
+                Image(systemName: "xmark")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "common.dismiss"))
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

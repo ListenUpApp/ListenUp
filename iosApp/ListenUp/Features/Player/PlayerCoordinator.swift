@@ -76,11 +76,12 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Preserved UI surface — visibility & playback flags (derived from phase)
 
-    /// A book is loaded — drives the mini player's visibility.
+    /// A book is loaded (or a load failed) — drives the mini player's visibility. `.error` stays
+    /// visible so the inline error+retry is reachable (never stranded); only `.idle` hides it.
     var isVisible: Bool {
         switch phase {
-        case .idle, .error: return false
-        case .preparing, .playing, .paused, .buffering: return true
+        case .idle: return false
+        case .preparing, .playing, .paused, .buffering, .error: return true
         }
     }
 
@@ -89,6 +90,19 @@ final class PlayerCoordinator: RemoteCommandHandler {
     var isBuffering: Bool {
         if case .buffering = phase { return true }
         return false
+    }
+
+    /// True when playback failed to start/continue — drives the inline error+retry surface so the
+    /// user is never stranded on a vanished player.
+    var isErrored: Bool {
+        if case .error = phase { return true }
+        return false
+    }
+
+    /// The user-facing failure message when `isErrored`, else nil.
+    var errorMessage: String? {
+        if case .error(let state) = phase { return state.message }
+        return nil
     }
 
     /// Playback intent is "advancing": the audio is playing OR buffering toward playing.
@@ -459,6 +473,14 @@ final class PlayerCoordinator: RemoteCommandHandler {
         updateNowPlaying()
     }
 
+    /// Dismiss an errored player back to `.idle` — the user's escape so a failed load (e.g. offline)
+    /// doesn't leave an undismissable error bar reserving space over every tab. No-op unless errored.
+    func dismissError() {
+        guard isErrored else { return }
+        phase = .idle
+        updateNowPlaying()
+    }
+
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
         Task { await engine.seek(toMs: positionMs) }
@@ -746,7 +768,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - System integration
 
     private func updateNowPlaying() {
-        guard isVisible else {
+        // `.error` keeps the in-app player visible (for the inline retry) but has no now-playing
+        // content — clear the lock-screen controls; the retry lives in the app.
+        guard isVisible, !isErrored else {
             system.clear()
             return
         }

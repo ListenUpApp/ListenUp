@@ -61,6 +61,7 @@ final class Dependencies {
     var imageRepository: ImageRepository { resolve { KoinHelper.shared.getImageRepository() } }
     var userProfileRepository: UserProfileRepository { resolve { KoinHelper.shared.getUserProfileRepository() } }
     var downloadService: DownloadService { resolve { KoinHelper.shared.getDownloadService() } }
+    var serverReachability: ServerReachability { resolve { KoinHelper.shared.getServerReachability() } }
 
     // MARK: - Player coordinator (app-wide Swift singleton)
 
@@ -73,6 +74,19 @@ final class Dependencies {
         let coordinator = PlayerCoordinator(deps: self)
         cachedPlayerCoordinator = coordinator
         return coordinator
+    }
+
+    // MARK: - Server reachability observer (app-wide Swift singleton)
+
+    @MainActor private var cachedServerReachabilityObserver: ServerReachabilityObserver?
+
+    /// The single app-wide server-reachability observer — drives offline indicators + Retry across
+    /// screens off the shared `ServerReachability` firehose signal.
+    @MainActor var serverReachabilityObserver: ServerReachabilityObserver {
+        if let cachedServerReachabilityObserver { return cachedServerReachabilityObserver }
+        let observer = ServerReachabilityObserver(deps: self)
+        cachedServerReachabilityObserver = observer
+        return observer
     }
 
     // MARK: - Detail ViewModels (fresh instance per screen)

@@ -41,6 +41,9 @@ struct FullScreenPlayerView: View {
         layout
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frostedBackground)
+        // Never stranded: if a load fails while the full player is open, show an inline
+        // error + Retry over the (now empty) transport rather than a dead screen.
+        .overlay { if observer.isErrored { errorOverlay } }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: tint)
         .task(id: observer.currentBookId) { resolveTint() }
         .statusBarHidden(false)
@@ -101,6 +104,40 @@ struct FullScreenPlayerView: View {
                 .glassControl(in: Rectangle())
         }
         .ignoresSafeArea()
+    }
+
+    /// Inline failure surface for the full player — a centered card with the failure message and a
+    /// Retry that re-drives the errored book, so a failed load never leaves a dead screen.
+    private var errorOverlay: some View {
+        ZStack {
+            Color(.systemBackground).opacity(0.85).ignoresSafeArea()
+            VStack(spacing: 16) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.largeTitle)
+                    .foregroundStyle(tint)
+                Text(observer.errorMessage ?? String(localized: "common.something_went_wrong"))
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.primary)
+                Button { observer.togglePlayback() } label: {
+                    Text("book.detail_retry")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 28)
+                        .frame(minHeight: 44)
+                        .background(Capsule().fill(tint))
+                }
+                .buttonStyle(.plain)
+                Button { observer.dismissError() } label: {
+                    Text("common.dismiss")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(32)
+        }
     }
 
     // MARK: - Layout

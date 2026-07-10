@@ -44,6 +44,7 @@ struct DiscoverView: View {
             }
         }
         .background(Color(.systemBackground))
+        .offlineTopBanner()
         .navigationTitle(String(localized: "common.discover"))
         // Collapse the large title while selecting so the selection toolbar's principal "N selected"
         // count doesn't render alongside a large "Discover" title (Home is already .inline).

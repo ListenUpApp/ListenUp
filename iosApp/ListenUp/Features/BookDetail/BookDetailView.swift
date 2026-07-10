@@ -140,6 +140,7 @@ struct BookDetailView: View {
             )
 
             VStack(spacing: 20) {
+                serverBanner(observer)
                 resumeBar(observer)
                 actionPills(observer)
 
@@ -197,6 +198,7 @@ struct BookDetailView: View {
                     onOpenCast: { showCast = true }
                 )
 
+                serverBanner(observer)
                 resumeBar(observer)
                 actionPills(observer)
             }
@@ -244,11 +246,23 @@ struct BookDetailView: View {
             currentChapterLabel: currentChapterLabel(observer),
             downloadState: observer.downloadState,
             downloadProgress: observer.downloadProgress,
+            canPlay: observer.canPlay,
+            canDownload: observer.canDownload,
             onResume: { observer.play() },
             onDownload: { observer.downloadBook() },
             onCancelDownload: { observer.cancelDownload() },
             onDeleteDownload: { observer.deleteDownload() }
         )
+    }
+
+    /// The "server unreachable" banner — shown only when the book can't be reached AND isn't
+    /// downloaded (`showServerWarning`), explaining why Play/Download are disabled and offering a
+    /// Retry. Rendered above the resume bar on both the phone and wide layouts.
+    @ViewBuilder
+    private func serverBanner(_ observer: BookDetailObserver) -> some View {
+        if observer.showServerWarning {
+            ServerUnreachableBanner(onRetry: { observer.retryConnection() })
+        }
     }
 
     private func actionPills(_ observer: BookDetailObserver) -> some View {

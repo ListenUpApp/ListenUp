@@ -9,7 +9,9 @@ struct NowPlayingStrip: View {
 
     var body: some View {
         let player = dependencies.playerCoordinator
-        if player.isVisible {
+        // `.error` is "visible" (so the main mini-player shows the inline error+retry), but the
+        // reader's strip has no honest content then — hide it rather than render a blank "0s" card.
+        if player.isVisible, !player.isErrored {
             content(player)
         }
     }
