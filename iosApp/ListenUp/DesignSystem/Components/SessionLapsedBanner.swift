@@ -16,10 +16,10 @@ struct SessionLapsedBanner: View {
                     .foregroundStyle(Color.listenUpOrange)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("connection.signed_out_title")
+                    Text("shell.session_lapsed_title")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
-                    Text("connection.signed_out_body")
+                    Text("shell.session_lapsed_body")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -28,13 +28,13 @@ struct SessionLapsedBanner: View {
                 Spacer(minLength: 8)
 
                 Button(action: onSignIn) {
-                    Text("auth.sign_in")
+                    Text("shell.session_lapsed_sign_in")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.listenUpOrange)
                         .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "auth.sign_in"))
+                .accessibilityLabel(String(localized: "shell.session_lapsed_sign_in"))
 
                 Button {
                     dismissed = true

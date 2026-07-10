@@ -5661,26 +5661,6 @@
         }
       }
     },
-    "connection.signed_out_body": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sign in to sync — your library and downloads still work."
-          }
-        }
-      }
-    },
-    "connection.signed_out_title": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Signed out"
-          }
-        }
-      }
-    },
     "contributor.aka": {
       "localizations": {
         "en": {
