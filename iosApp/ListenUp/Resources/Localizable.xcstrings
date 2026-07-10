@@ -1071,12 +1071,272 @@
         }
       }
     },
+    "admin.organize": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "File Organization"
+          }
+        }
+      }
+    },
+    "admin.organize_author_first_last": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "First Last"
+          }
+        }
+      }
+    },
+    "admin.organize_author_form": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author name style"
+          }
+        }
+      }
+    },
+    "admin.organize_author_last_first": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last, First"
+          }
+        }
+      }
+    },
     "admin.organize_books_into_collections_for": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Organize books into collections for access control"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_more_rows": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "…and %1$d more"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_run": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize now"
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moves %1$d files across %2$d folders; %3$d collisions resolved."
+          }
+        }
+      }
+    },
+    "admin.organize_confirm_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize library?"
+          }
+        }
+      }
+    },
+    "admin.organize_enable_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrange files into a consistent folder structure"
+          }
+        }
+      }
+    },
+    "admin.organize_enable_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organize library files"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_book_n_dash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Book 1 - Title"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_bracket_n": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "[1] Title"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_n_dash": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 - Title"
+          }
+        }
+      }
+    },
+    "admin.organize_prefix_none": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No number"
+          }
+        }
+      }
+    },
+    "admin.organize_preset_author_series_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author / Series / Title"
+          }
+        }
+      }
+    },
+    "admin.organize_preset_author_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Author / Title"
+          }
+        }
+      }
+    },
+    "admin.organize_preset_flat_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Title only"
+          }
+        }
+      }
+    },
+    "admin.organize_progress_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d of %2$d books"
+          }
+        }
+      }
+    },
+    "admin.organize_progress_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organizing library…"
+          }
+        }
+      }
+    },
+    "admin.organize_report_done": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library organized"
+          }
+        }
+      }
+    },
+    "admin.organize_report_resume": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resume"
+          }
+        }
+      }
+    },
+    "admin.organize_report_summary": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d books moved, %2$d failed."
+          }
+        }
+      }
+    },
+    "admin.organize_saved": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organization settings saved."
+          }
+        }
+      }
+    },
+    "admin.organize_series_prefix": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Series number style"
+          }
+        }
+      }
+    },
+    "admin.organize_structure": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Folder structure"
+          }
+        }
+      }
+    },
+    "admin.organize_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep library folders tidy and consistent"
           }
         }
       }

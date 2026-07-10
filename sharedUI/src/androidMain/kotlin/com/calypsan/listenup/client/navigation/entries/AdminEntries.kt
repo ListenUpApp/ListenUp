@@ -19,6 +19,7 @@ import com.calypsan.listenup.client.navigation.AdminCategories
 import com.calypsan.listenup.client.navigation.AdminCollectionDetail
 import com.calypsan.listenup.client.navigation.AdminCollections
 import com.calypsan.listenup.client.navigation.AdminLibrarySettings
+import com.calypsan.listenup.client.navigation.AdminOrganizeSettings
 import com.calypsan.listenup.client.navigation.AdminUserDetail
 import com.calypsan.listenup.client.navigation.BookEdit
 import com.calypsan.listenup.client.navigation.BrowseGenre
@@ -68,6 +69,9 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             },
             onLibrarySettingsClick = {
                 backStack.add(AdminLibrarySettings)
+            },
+            onOrganizeClick = {
+                backStack.add(AdminOrganizeSettings)
             },
             onUserClick = { userId ->
                 backStack.add(AdminUserDetail(userId))
@@ -183,6 +187,16 @@ internal fun EntryProviderScope<NavKey>.adminDetailEntries(backStack: NavBackSta
         val viewModel: com.calypsan.listenup.client.presentation.admin.LibrarySettingsViewModel =
             koinViewModel()
         com.calypsan.listenup.client.features.admin.LibrarySettingsScreen(
+            viewModel = viewModel,
+            onBackClick = {
+                backStack.removeAt(backStack.lastIndex)
+            },
+        )
+    }
+    entry<AdminOrganizeSettings> {
+        val viewModel: com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel =
+            koinViewModel()
+        com.calypsan.listenup.client.features.admin.organize.OrganizeSettingsScreen(
             viewModel = viewModel,
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
