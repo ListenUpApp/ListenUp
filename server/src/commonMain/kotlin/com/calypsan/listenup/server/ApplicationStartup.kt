@@ -90,13 +90,10 @@ internal fun Application.startBackgroundTasks(
         // SelfWriteRegistry, so ordering it first guarantees no watcher can observe a
         // recovery write as an external change and churn a rescan. Sequential in this
         // coroutine — the ordering is structural, not timing-based.
-        runCatching {
+        runNeverFatal("write-journal recovery failed") {
             libraryWriteBroker.recoverJournal()
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            logger.error(e) { "write-journal recovery failed — server keeps running" }
         }
-        runCatching {
+        runNeverFatal("library bootstrap failed") {
             bootstrapLibraries(
                 libraryAdminService = libraryAdminService,
                 scanOrchestrator = orchestrator,
@@ -104,18 +101,12 @@ internal fun Application.startBackgroundTasks(
                 libraryPaths = libraryPaths,
                 rescanOnStartup = rescanOnStartup,
             )
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            logger.error(e) { "library bootstrap failed — server keeps running" }
         }
         // Writability probe — after folders load, so every live folder root gets a status
         // line in the boot log. Purely informational at this phase (the admin surface that
         // exposes LibraryWriteStatus to clients ships in a later phase).
-        runCatching {
+        runNeverFatal("library writability probe failed") {
             probeLibraryFolders(libraryWriteBroker, libraryRegistry, libraryFolderRepository)
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            logger.warn(e) { "library writability probe failed — server keeps running" }
         }
     }
 
@@ -155,19 +146,25 @@ internal fun Application.startBackgroundTasks(
 }
 
 /**
- * Launches [task] as a fire-and-forget startup job that must never break server boot: any
- * non-cancellation failure is logged (prefixed with [description]) and swallowed.
+ * Runs [task] as a startup step that must never break server boot: any non-cancellation
+ * failure is logged (prefixed with [description]) and swallowed.
  * [kotlinx.coroutines.CancellationException] is re-raised to honor structured concurrency.
  */
-private fun CoroutineScope.launchNeverFatal(
+private suspend fun runNeverFatal(
     description: String,
     task: suspend () -> Unit,
-) = launch {
+) {
     runCatching { task() }.onFailure { e ->
         if (e is kotlinx.coroutines.CancellationException) throw e
         logger.error(e) { "$description — server keeps running" }
     }
 }
+
+/** Fire-and-forget variant of [runNeverFatal] for independent startup jobs. */
+private fun CoroutineScope.launchNeverFatal(
+    description: String,
+    task: suspend () -> Unit,
+) = launch { runNeverFatal(description, task) }
 
 /**
  * Probes every live library folder root for writability at boot and logs the outcome —
