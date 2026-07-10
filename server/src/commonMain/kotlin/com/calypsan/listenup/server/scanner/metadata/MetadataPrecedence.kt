@@ -20,6 +20,8 @@ fun resolveLibraryPrecedence(
 enum class MetadataPrecedenceSource(
     val token: String,
 ) {
+    /** ListenUp's own `listenup.json` curation sidecar — the highest-precedence source. */
+    LISTENUP("listenup.json"),
     ABS_METADATA("metadata.json"),
     EMBEDDED("embedded"),
     SIDECAR("sidecar"),

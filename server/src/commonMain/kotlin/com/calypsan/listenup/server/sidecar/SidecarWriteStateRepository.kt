@@ -48,6 +48,16 @@ class SidecarWriteStateRepository(
             db.sidecarWriteStateQueries.deleteForBook(bookId)
         }
     }
+
+    /**
+     * True iff some book's last self-written sidecar had exactly [contentHashHex] — the
+     * read-side skip check. Content-keyed rather than book-keyed because the scanner reads
+     * sidecars before it has resolved which book row (if any) the folder belongs to.
+     */
+    suspend fun isSelfWrittenHash(contentHashHex: String): Boolean =
+        suspendTransaction(db) {
+            db.sidecarWriteStateQueries.existsByContentHash(contentHashHex).executeAsOne()
+        }
 }
 
 /** One recorded `listenup.json` write for a book: the content hash and when it landed. */

@@ -9,9 +9,12 @@ import com.calypsan.listenup.api.dto.scanner.FileType
 import com.calypsan.listenup.api.dto.scanner.MetadataSource
 import com.calypsan.listenup.api.dto.scanner.MetadataStatus
 import com.calypsan.listenup.api.dto.scanner.SeriesEntry
+import com.calypsan.listenup.api.dto.scanner.SidecarCuration
+import com.calypsan.listenup.api.dto.scanner.SidecarCurationChapter
 import com.calypsan.listenup.api.dto.scanner.TrackEntry
 import com.calypsan.listenup.api.dto.scanner.TrackNumberSource
 import com.calypsan.listenup.api.error.AudioMetadataError
+import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.external.abs.AbsChapter
 import com.calypsan.listenup.api.external.abs.AbsMetadata
 import com.calypsan.listenup.api.result.AppResult
@@ -29,8 +32,11 @@ import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedenceSource
 import com.calypsan.listenup.server.scanner.document.DocumentCollector
+import com.calypsan.listenup.server.scanner.sidecar.ListenUpSidecarReader
 import com.calypsan.listenup.server.scanner.sidecar.SidecarMetadata
 import com.calypsan.listenup.server.scanner.sidecar.SidecarParser
+import com.calypsan.listenup.server.scanner.sidecar.SidecarReadResult
+import com.calypsan.listenup.server.sidecar.ListenUpSidecar
 import com.calypsan.listenup.server.logging.loggerFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
@@ -85,6 +91,7 @@ internal class Analyzer(
     private val sidecarParsers: List<SidecarParser> = emptyList(),
     private val precedence: MetadataPrecedence = MetadataPrecedence.DEFAULT,
     private val documentCollector: DocumentCollector = DocumentCollector(),
+    private val listenUpSidecarReader: ListenUpSidecarReader? = null,
 ) {
     fun analyze(candidates: Flow<CandidateBook>): Flow<Result<AnalyzedBook>> =
         flow {
@@ -116,6 +123,12 @@ internal class Analyzer(
             val cover = resolveCover(candidate.files, embedded)
             val metadata = readMetadata(candidate)
             val sidecar = parseSidecars(candidate)
+            // The ListenUp curation sidecar — consulted at the top precedence slot. A SelfWritten
+            // file (hash-matches our own last write) is skipped entirely: re-ingesting our own
+            // output would be a no-op echo at best and a write loop at worst.
+            val listenUp =
+                (listenUpSidecarReader?.read(Path(rootPath, candidate.rootRelPath)) as? SidecarReadResult.External)
+                    ?.sidecar
             // Reuse the per-track parses already done in buildTracks for ordering.
             // Multi-track books are already parsed once there; synthesis reuses that
             // map instead of re-parsing every file. Single-track books and books
@@ -136,6 +149,7 @@ internal class Analyzer(
                 embeddedStatus,
                 metadata,
                 sidecar,
+                listenUp,
                 perTrackMetadata,
             )
         }
@@ -338,13 +352,20 @@ internal class Analyzer(
         embeddedStatus: MetadataStatus?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar)
-        val (abridgedStripped, titleAbridged) = parseAbridgedFromTitle(rawTitle)
+        val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
+        // A title sourced from the ListenUp curation sidecar is the user's exact words —
+        // it bypasses the abridged-parse / series-suffix-strip / subtitle-split cleanup
+        // chain that exists to de-junk scanner-derived titles.
+        val curatedTitleWins = rawTitle == listenUp?.metadata?.title?.takeUnless { it.isBlank() }
+        val (abridgedStripped, titleAbridged) =
+            if (curatedTitleWins) rawTitle to false else parseAbridgedFromTitle(rawTitle)
         // Strip a strict trailing series suffix the tag/album baked into the title (", Book 6",
         // "(Series, Book Two)", ": Series, Book 3"). Conservative — leaves prose series names alone.
-        val cleanedTitle = SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
+        val cleanedTitle =
+            if (curatedTitleWins) abridgedStripped else SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
 
         // An explicit subtitle (metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the
         // gated folder " - " split) always wins; only when none exists do we derive one from the
@@ -352,17 +373,21 @@ internal class Analyzer(
         // Discard an explicit subtitle that is really the series (a mistagged SUBTITLE/TIT3), so the
         // real subtitle can be split out of the title below.
         val explicitSubtitle =
-            (
-                metadata?.subtitle
-                    ?: embedded?.tags?.subtitle
-                    ?: sidecar?.subtitle
-                    ?: parsed.subtitle
-            )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it) }
+            listenUp?.metadata?.subtitle
+                ?: (
+                    metadata?.subtitle
+                        ?: embedded?.tags?.subtitle
+                        ?: sidecar?.subtitle
+                        ?: parsed.subtitle
+                )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it) }
         val (title, subtitle) =
-            if (explicitSubtitle != null) {
-                cleanedTitle to explicitSubtitle
-            } else {
-                TitleSubtitleSplitter.split(cleanedTitle)
+            when {
+                explicitSubtitle != null -> cleanedTitle to explicitSubtitle
+
+                curatedTitleWins -> cleanedTitle to null
+
+                // never split a user-curated title
+                else -> TitleSubtitleSplitter.split(cleanedTitle)
             }
 
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
@@ -370,9 +395,9 @@ internal class Analyzer(
             candidate = candidate,
             title = title,
             subtitle = subtitle,
-            authors = pickAuthors(shape, embedded, metadata, sidecar),
-            narrators = pickNarrators(parsed, embedded, metadata, sidecar),
-            series = pickSeries(shape, parsed, embedded, metadata, sidecar),
+            authors = pickAuthors(shape, embedded, metadata, sidecar, listenUp),
+            narrators = pickNarrators(parsed, embedded, metadata, sidecar, listenUp),
+            series = pickSeries(shape, parsed, embedded, metadata, sidecar, listenUp),
             publishedYear =
                 metadata?.publishedYear
                     ?: embedded?.tags?.publishedYear
@@ -382,7 +407,8 @@ internal class Analyzer(
             isbn = metadata?.isbn ?: embedded?.tags?.isbn,
             description =
                 (
-                    metadata?.description
+                    listenUp?.metadata?.description
+                        ?: metadata?.description
                         ?: embedded?.tags?.description
                         ?: embedded?.tags?.custom?.get(AudioTags.COMMENT_KEY)
                         ?: sidecar?.description
@@ -391,8 +417,8 @@ internal class Analyzer(
             language =
                 (metadata?.language ?: embedded?.tags?.language ?: sidecar?.language)
                     ?.let { LanguageNormalizer.normalize(it) },
-            genres = pickGenres(embedded, metadata),
-            tags = metadata?.tags.orEmpty(),
+            genres = pickGenres(embedded, metadata, listenUp),
+            tags = listenUp?.metadata?.tags?.takeIf { it.isNotEmpty() } ?: metadata?.tags.orEmpty(),
             abridged = metadata?.abridged ?: titleAbridged,
             explicit = metadata?.explicit,
             cover = cover,
@@ -407,6 +433,7 @@ internal class Analyzer(
             // file, or a clean parse) are not warnings.
             hasScanWarning = embeddedStatus.isParseFailure(),
             documents = documentCollector.collect(rootPath, Path(rootPath, candidate.rootRelPath), candidate.files),
+            sidecarCuration = listenUp?.toCuration(),
         )
     }
 
@@ -464,10 +491,12 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): String {
         val multiFile = candidate.files.count { it.fileType == FileType.AUDIO } > 1
         return precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> listenUp?.metadata?.title?.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.ABS_METADATA -> metadata?.title?.takeUnless { it.isBlank() }
                 MetadataPrecedenceSource.EMBEDDED -> embeddedBookTitle(embedded, multiFile)
                 MetadataPrecedenceSource.SIDECAR -> sidecar?.title?.takeUnless { it.isBlank() }
@@ -502,14 +531,36 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): List<String> =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
-                MetadataPrecedenceSource.ABS_METADATA -> metadata?.authors?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.SIDECAR -> sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
-                MetadataPrecedenceSource.FILENAME -> null
-                MetadataPrecedenceSource.FOLDER -> shape.authorFolder?.let { listOf(it) }
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp
+                        .contributorNames(
+                            role = "author",
+                        ).takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.ABS_METADATA -> {
+                    metadata?.authors?.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.EMBEDDED -> {
+                    embedded?.tags?.authors?.takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.SIDECAR -> {
+                    sidecar.contributorNames(role = "author").takeIf { it.isNotEmpty() }
+                }
+
+                MetadataPrecedenceSource.FILENAME -> {
+                    null
+                }
+
+                MetadataPrecedenceSource.FOLDER -> {
+                    shape.authorFolder?.let { listOf(it) }
+                }
             }
         } ?: emptyList()
 
@@ -518,9 +569,14 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): List<String> =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp.contributorNames(role = "narrator").takeIf { it.isNotEmpty() }
+                }
+
                 MetadataPrecedenceSource.ABS_METADATA -> {
                     metadata?.narrators?.takeIf { it.isNotEmpty() }
                 }
@@ -552,9 +608,19 @@ internal class Analyzer(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
         sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
     ): List<SeriesEntry> =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> {
+                    listenUp
+                        ?.metadata
+                        ?.series
+                        .orEmpty()
+                        .map { SeriesEntry(name = it.name, sequence = it.sequence) }
+                        .takeIf { it.isNotEmpty() }
+                }
+
                 MetadataPrecedenceSource.ABS_METADATA -> {
                     metadataReader.parseSeriesEntries(metadata?.series.orEmpty()).takeIf { it.isNotEmpty() }
                 }
@@ -585,9 +651,11 @@ internal class Analyzer(
     private fun pickGenres(
         embedded: EmbeddedAudioMetadata?,
         metadata: AbsMetadata?,
+        listenUp: ListenUpSidecar?,
     ): List<String> =
         precedence.order.firstNotNullOfOrNull { source ->
             when (source) {
+                MetadataPrecedenceSource.LISTENUP -> listenUp?.metadata?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.ABS_METADATA -> metadata?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.EMBEDDED -> embedded?.tags?.genres?.takeIf { it.isNotEmpty() }
                 MetadataPrecedenceSource.SIDECAR -> null
@@ -639,6 +707,31 @@ private fun SidecarMetadata.mergedWith(other: SidecarMetadata): SidecarMetadata 
         series = series.ifEmpty { other.series },
         contributors = contributors + other.contributors,
     )
+
+/**
+ * The scanner→persist curation payload from an External ListenUp sidecar: user-edit
+ * provenance (unknown field names dropped for forward compat) plus USER chapters.
+ */
+private fun ListenUpSidecar.toCuration(): SidecarCuration =
+    SidecarCuration(
+        userEditedFields =
+            userEditedFields
+                .mapNotNullTo(mutableSetOf()) { name -> UserEditedField.entries.firstOrNull { it.name == name } },
+        userChapters =
+            chapters
+                ?.takeIf { it.source.equals("USER", ignoreCase = true) }
+                ?.entries
+                ?.map { SidecarCurationChapter(title = it.title, startMs = it.startMs) },
+    )
+
+/** Names of ListenUp-sidecar contributors with the given [role] (case-insensitive). */
+private fun ListenUpSidecar?.contributorNames(role: String): List<String> =
+    this
+        ?.metadata
+        ?.contributors
+        .orEmpty()
+        .filter { it.role.equals(role, ignoreCase = true) }
+        .map { it.name }
 
 /** Names of sidecar contributors with the given [role] (case-insensitive). */
 private fun SidecarMetadata?.contributorNames(role: String): List<String> =

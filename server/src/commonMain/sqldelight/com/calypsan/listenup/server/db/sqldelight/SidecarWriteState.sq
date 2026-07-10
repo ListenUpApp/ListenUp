@@ -21,3 +21,9 @@ VALUES (:book_id, :content_hash, :written_at);
 -- Clears a book's recorded write state (called when a book is deleted or unenrolled).
 deleteForBook:
 DELETE FROM sidecar_write_state WHERE book_id = :book_id;
+
+-- True iff some book's last self-written sidecar had exactly this content hash — the
+-- read-side skip check. Content-keyed (not book-keyed) because the scanner reads sidecars
+-- before it knows which book row a folder resolves to (or on a fresh DB, before any exists).
+existsByContentHash:
+SELECT EXISTS(SELECT 1 FROM sidecar_write_state WHERE content_hash = :content_hash);
