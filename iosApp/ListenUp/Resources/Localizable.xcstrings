@@ -1111,6 +1111,26 @@
         }
       }
     },
+    "admin.push_setting_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deliver invites to devices via the ListenUp relay."
+          }
+        }
+      }
+    },
+    "admin.push_setting_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push notifications"
+          }
+        }
+      }
+    },
     "admin.recommended_for_full_restore_capability": {
       "localizations": {
         "en": {
@@ -12967,6 +12987,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rewind a few seconds when resuming playback"
+          }
+        }
+      }
+    },
+    "settings.send_test_notification": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send test notification"
+          }
+        }
+      }
+    },
+    "settings.send_test_notification_subtitle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrives when the app is in the background."
           }
         }
       }

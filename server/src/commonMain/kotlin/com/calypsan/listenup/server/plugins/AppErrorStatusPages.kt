@@ -19,6 +19,7 @@ import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ProfileError
+import com.calypsan.listenup.api.error.PushError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -149,6 +150,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is BackupError -> toHttpStatus()
 
+        is PushError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         // InternalError, TransportError, and PlaybackError are all server-bug / client-local paths;
@@ -255,6 +258,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is BackupError -> {
+            withCorrelationId(id)
+        }
+
+        is PushError -> {
             withCorrelationId(id)
         }
 
@@ -738,4 +745,14 @@ private fun BackupError.withCorrelationId(id: String?): BackupError =
         is BackupError.BackupNotFound -> copy(correlationId = id)
         is BackupError.RestoreInProgress -> copy(correlationId = id)
         is BackupError.RestoreFailed -> copy(correlationId = id)
+    }
+
+private fun PushError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is PushError.PushDisabled -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun PushError.withCorrelationId(id: String?): PushError =
+    when (this) {
+        is PushError.PushDisabled -> copy(correlationId = id)
     }

@@ -63,6 +63,8 @@ CREATE UNIQUE INDEX idx_playback_position_user_book ON playback_positions(user_i
 CREATE INDEX idx_playback_position_user_id ON playback_positions(user_id)
 CREATE INDEX idx_playback_position_user_rev ON playback_positions(user_id, revision)
 CREATE INDEX idx_public_profiles_revision ON public_profiles(revision)
+CREATE INDEX idx_push_tokens_session ON push_tokens(session_id)
+CREATE INDEX idx_push_tokens_user ON push_tokens(user_id)
 CREATE UNIQUE INDEX idx_series_normalized ON book_series(normalized_name)
 CREATE INDEX idx_sessions_expires ON sessions(expires_at)
 CREATE INDEX idx_sessions_family ON sessions(family_id)
@@ -122,6 +124,7 @@ CREATE TABLE moods ( id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, slug TEXT
 CREATE TABLE pending_book_genres ( book_id TEXT NOT NULL, raw_string TEXT NOT NULL COLLATE NOCASE, first_seen_at INTEGER NOT NULL, PRIMARY KEY (book_id, raw_string), FOREIGN KEY (book_id) REFERENCES books(id) ON DELETE CASCADE )
 CREATE TABLE playback_positions ( id TEXT NOT NULL, user_id TEXT NOT NULL, book_id TEXT NOT NULL, position_ms INTEGER NOT NULL, last_played_at INTEGER NOT NULL, finished INTEGER NOT NULL DEFAULT 0, playback_speed REAL NOT NULL DEFAULT 1.0, current_chapter_id TEXT NULL, revision INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER NULL, client_op_id TEXT NULL, PRIMARY KEY (id) )
 CREATE TABLE public_profiles ( id TEXT NOT NULL, display_name TEXT NOT NULL, avatar_type TEXT NOT NULL DEFAULT 'auto', total_seconds_all_time INTEGER NOT NULL DEFAULT 0, total_seconds_last_7_days INTEGER NOT NULL DEFAULT 0, total_seconds_last_30_days INTEGER NOT NULL DEFAULT 0, total_seconds_last_365_days INTEGER NOT NULL DEFAULT 0, books_finished INTEGER NOT NULL DEFAULT 0, current_streak_days INTEGER NOT NULL DEFAULT 0, longest_streak_days INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, revision INTEGER NOT NULL, deleted_at INTEGER, client_op_id TEXT, tagline TEXT, books_finished_last_7_days INTEGER NOT NULL DEFAULT 0, books_finished_last_30_days INTEGER NOT NULL DEFAULT 0, books_finished_last_365_days INTEGER NOT NULL DEFAULT 0, longest_streak_last_7_days INTEGER NOT NULL DEFAULT 0, longest_streak_last_30_days INTEGER NOT NULL DEFAULT 0, longest_streak_last_365_days INTEGER NOT NULL DEFAULT 0, avatar_updated_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id) )
+CREATE TABLE push_tokens ( token TEXT NOT NULL PRIMARY KEY, platform TEXT NOT NULL, session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, user_id TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL )
 CREATE VIRTUAL TABLE series_search USING fts5( name, sort_name, description, content='book_series', content_rowid='rowid', tokenize='unicode61 remove_diacritics 2' )
 CREATE TABLE 'series_search_config'(k PRIMARY KEY, v) WITHOUT ROWID
 CREATE TABLE 'series_search_data'(id INTEGER PRIMARY KEY, block BLOB)

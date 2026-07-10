@@ -65,9 +65,18 @@ class ServerSettingsRepository(
     /** Replaces the remote URL; an empty/blank [url] clears it. */
     suspend fun setRemoteUrl(url: String) = setValue(KEY_REMOTE_URL, url.trim())
 
+    /** Whether push notifications are enabled for this instance, defaulting to `true` when unset/unrecognised. */
+    suspend fun pushNotificationsEnabled(): Boolean =
+        getValue(KEY_PUSH_NOTIFICATIONS_ENABLED)?.toBooleanStrictOrNull() ?: true
+
+    /** Replaces the push-notifications admin toggle. */
+    suspend fun setPushNotificationsEnabled(enabled: Boolean) =
+        setValue(KEY_PUSH_NOTIFICATIONS_ENABLED, enabled.toString())
+
     private companion object {
         const val KEY_REGISTRATION_POLICY = "registration_policy"
         const val KEY_SERVER_NAME = "server_name"
         const val KEY_REMOTE_URL = "remote_url"
+        const val KEY_PUSH_NOTIFICATIONS_ENABLED = "push_notifications_enabled"
     }
 }

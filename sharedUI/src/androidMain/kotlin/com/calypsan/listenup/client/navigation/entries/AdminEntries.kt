@@ -78,6 +78,8 @@ internal fun EntryProviderScope<NavKey>.adminEntries(backStack: NavBackStack<Nav
             onRemoteUrlChange = { settingsViewModel.setRemoteUrl(it) },
             inboxEnabled = readySettings?.inboxEnabled ?: false,
             onInboxEnabledChange = { settingsViewModel.setInboxEnabled(it) },
+            pushNotificationsEnabled = readySettings?.pushNotificationsEnabled ?: true,
+            onPushNotificationsEnabledChange = { settingsViewModel.setPushNotificationsEnabled(it) },
             isDirty = readySettings?.isDirty == true,
             onSave = { settingsViewModel.saveAll() },
             settingsError =

@@ -1,0 +1,54 @@
+-- push_tokens: device push-registration rows (#604). PLAIN (non-syncable) server-owned table.
+--
+-- Lifecycle model: liveness comes from the `selectLiveForUser` JOIN — a revoked/expired
+-- session makes its tokens unreachable immediately, with no trigger required. Physical
+-- cleanup is the `deleteOrphaned` sweep, run after `sessions.deleteExpired` in the same
+-- transaction (see SessionService.deleteExpired). The session_id → sessions(id) ON DELETE
+-- CASCADE foreign key (declared in the migration DDL, omitted here per the cross-.sq FK
+-- convention) is documentation/defense, not relied upon — FK enforcement is not guaranteed
+-- on for every deployment.
+--
+-- The `sessions` table is described in Sessions.sq (co-located in this dir) so the JOIN in
+-- selectLiveForUser resolves at SQLDelight compile time.
+CREATE TABLE push_tokens (
+    token      TEXT    NOT NULL PRIMARY KEY,
+    platform   TEXT    NOT NULL,
+    session_id TEXT    NOT NULL,
+    user_id    TEXT    NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_push_tokens_user    ON push_tokens(user_id);
+CREATE INDEX idx_push_tokens_session ON push_tokens(session_id);
+
+-- Register or refresh a device's push token. token is the primary key, so INSERT OR REPLACE
+-- atomically replaces an existing row on conflict — the repo's established upsert idiom
+-- (see ServerSettings.sq, MetadataCache.sq); this project's SQLDelight dialect (sqlite_3_18,
+-- no dialect module configured) predates SQLite's ON CONFLICT ... DO UPDATE syntax.
+upsert:
+INSERT OR REPLACE INTO push_tokens (token, platform, session_id, user_id, created_at, updated_at)
+VALUES (:token, :platform, :session_id, :user_id, :now, :now);
+
+-- Unregister a token, scoped to the owning user (prevents one user unregistering another's).
+deleteByTokenForUser:
+DELETE FROM push_tokens WHERE token = :token AND user_id = :user_id;
+
+-- Unregister a token unconditionally (e.g. RelayPushNotifier reacting to a provider-reported
+-- invalid/unregistered token).
+deleteByToken:
+DELETE FROM push_tokens WHERE token = :token;
+
+-- Tokens still reachable for a user: bound to a session that is neither revoked nor expired.
+selectLiveForUser:
+SELECT pt.token, pt.platform FROM push_tokens pt
+JOIN sessions s ON s.id = pt.session_id
+WHERE pt.user_id = :user_id AND s.revoked_at IS NULL AND s.expires_at > :now;
+
+-- Physical cleanup sweep: tokens whose session row no longer exists (hard-deleted by
+-- sessions.deleteExpired). Run in the same transaction, right after that delete.
+deleteOrphaned:
+DELETE FROM push_tokens WHERE session_id NOT IN (SELECT id FROM sessions);
+
+countAll:
+SELECT COUNT(*) FROM push_tokens;

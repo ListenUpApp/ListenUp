@@ -31,4 +31,16 @@ class ServerSettingsRepositoryTest :
                 }
             }
         }
+        test("pushNotificationsEnabled defaults to true when unset, then round-trips") {
+            withSqlDatabase {
+                val repo = ServerSettingsRepository(sql, default = RegistrationPolicy.OPEN)
+                runTest {
+                    repo.pushNotificationsEnabled() shouldBe true
+                    repo.setPushNotificationsEnabled(false)
+                    repo.pushNotificationsEnabled() shouldBe false
+                    repo.setPushNotificationsEnabled(true)
+                    repo.pushNotificationsEnabled() shouldBe true
+                }
+            }
+        }
     })

@@ -90,11 +90,11 @@ class ClientKoinGraphE2ETest :
             val invalidator = koin.get<RpcCacheInvalidator>()
             val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
 
-            // getAll<RemoteCache>() must return exactly 23: ApiClientFactory + 22 KtorXRpcFactory
+            // getAll<RemoteCache>() must return exactly 24: ApiClientFactory + 23 KtorXRpcFactory
             // implementations. This pins the count so a silently-dropped `binds arrayOf(RemoteCache::class)`
             // declaration causes an immediate test failure before production code ever misses an invalidation.
-            // Note: 23 is the sharedModules count (no platform-only RemoteCache impls on JVM).
-            defaultInvalidator.caches shouldHaveSize 23
+            // Note: 24 is the sharedModules count (no platform-only RemoteCache impls on JVM).
+            defaultInvalidator.caches shouldHaveSize 24
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

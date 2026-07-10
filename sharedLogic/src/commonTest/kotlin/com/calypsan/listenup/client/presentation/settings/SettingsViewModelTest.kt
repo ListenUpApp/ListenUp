@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.presentation.settings
 
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.ServerInfo
+import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -8,10 +11,12 @@ import com.calypsan.listenup.client.domain.repository.LibraryPreferences
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
+import com.calypsan.listenup.client.domain.repository.PushRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferences
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
+import com.calypsan.listenup.core.error.ErrorBus
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
@@ -57,6 +62,8 @@ class SettingsViewModelTest :
             val authSession: AuthSession = mock()
             val syncRepository: SyncRepository = mock()
             val rpcCacheInvalidator: RpcCacheInvalidator = mock()
+            val pushRepository: PushRepository = mock()
+            val errorBus: ErrorBus = ErrorBus()
 
             // StateFlows for local preferences (mocked as MutableStateFlow)
             val themeModeFlow = MutableStateFlow(ThemeMode.SYSTEM)
@@ -90,6 +97,8 @@ class SettingsViewModelTest :
                     authSession = authSession,
                     syncRepository = syncRepository,
                     rpcCacheInvalidator = rpcCacheInvalidator,
+                    pushRepository = pushRepository,
+                    errorBus = errorBus,
                 )
         }
 
@@ -142,6 +151,7 @@ class SettingsViewModelTest :
             everySuspend { fixture.authSession.clearAuthTokens() } returns Unit
             everySuspend { fixture.syncRepository.disconnect() } returns Unit
             everySuspend { fixture.rpcCacheInvalidator.invalidateAll() } returns Unit
+            everySuspend { fixture.pushRepository.sendTestNotification() } returns AppResult.Success(Unit)
 
             return fixture
         }
@@ -339,6 +349,62 @@ class SettingsViewModelTest :
 
                 // Then
                 viewModel.state.value.hideSingleBookSeries shouldBe true
+            }
+        }
+
+        // ========== Push Notifications ==========
+
+        test("loads pushEnabled from server info") {
+            runTest {
+                val fixture = createFixture()
+                everySuspend { fixture.instanceRepository.getServerInfo() } returns
+                    AppResult.Success(
+                        ServerInfo(
+                            name = "ListenUp",
+                            version = "1.0.0",
+                            apiVersion = "v1",
+                            setupRequired = false,
+                            registrationPolicy = RegistrationPolicy.CLOSED,
+                            pushEnabled = true,
+                            instanceId = "instance-1",
+                        ),
+                    )
+
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.state.value.pushEnabled shouldBe true
+            }
+        }
+
+        test("sendTestNotification delegates to PushRepository") {
+            runTest {
+                val fixture = createFixture()
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                viewModel.sendTestNotification()
+                advanceUntilIdle()
+
+                verifySuspend { fixture.pushRepository.sendTestNotification() }
+            }
+        }
+
+        test("sendTestNotification failure emits to the error bus") {
+            runTest {
+                val fixture = createFixture()
+                val error =
+                    com.calypsan.listenup.api.error
+                        .ValidationError(message = "Push notifications are not enabled on this server.")
+                everySuspend { fixture.pushRepository.sendTestNotification() } returns AppResult.Failure(error)
+                val viewModel = fixture.build()
+                advanceUntilIdle()
+
+                fixture.errorBus.errors.test {
+                    viewModel.sendTestNotification()
+                    advanceUntilIdle()
+                    awaitItem() shouldBe error
+                }
             }
         }
 

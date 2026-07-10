@@ -196,14 +196,21 @@ class SessionService(
      * Hard-deletes all session rows whose `expires_at` timestamp is strictly less than [beforeMs]
      * (epoch milliseconds). Returns the count of deleted rows. Called by
      * [com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask] on a periodic schedule.
+     *
+     * Sweeps `push_tokens` orphaned by the delete in the same transaction — a token's liveness
+     * already comes from its session JOIN (see PushTokens.sq), so this is physical cleanup, not
+     * a correctness dependency.
      */
     suspend fun deleteExpired(beforeMs: Long): Int =
         suspendTransaction(db) {
             db.sessionsQueries.deleteExpired(before_ms = beforeMs)
-            db.sessionsQueries
-                .changes()
-                .executeAsOne()
-                .toInt()
+            val removed =
+                db.sessionsQueries
+                    .changes()
+                    .executeAsOne()
+                    .toInt()
+            db.pushTokensQueries.deleteOrphaned()
+            removed
         }
 
     private fun newSessionId(): String = Uuid.random().toString()

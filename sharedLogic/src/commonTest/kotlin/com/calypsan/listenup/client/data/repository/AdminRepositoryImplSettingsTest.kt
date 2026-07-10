@@ -10,14 +10,20 @@ import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 
 private class FakeAdminSettingsService : AdminSettingsService {
-    var stored = AdminServerSettings("ListenUp", null, inboxEnabled = false)
+    var stored = AdminServerSettings("ListenUp", null, inboxEnabled = false, pushNotificationsEnabled = true)
     var lastPatch: AdminServerSettingsPatch? = null
 
     override suspend fun getServerSettings() = AppResult.Success(stored)
 
     override suspend fun updateServerSettings(patch: AdminServerSettingsPatch): AppResult<AdminServerSettings> {
         lastPatch = patch
-        stored = AdminServerSettings(patch.serverName ?: stored.serverName, patch.remoteUrl ?: stored.remoteUrl, inboxEnabled = patch.inboxEnabled ?: stored.inboxEnabled)
+        stored =
+            AdminServerSettings(
+                patch.serverName ?: stored.serverName,
+                patch.remoteUrl ?: stored.remoteUrl,
+                inboxEnabled = patch.inboxEnabled ?: stored.inboxEnabled,
+                pushNotificationsEnabled = patch.pushNotificationsEnabled ?: stored.pushNotificationsEnabled,
+            )
         return AppResult.Success(stored)
     }
 }
@@ -43,7 +49,10 @@ class AdminRepositoryImplSettingsTest :
             )
 
         test("getServerSettings maps the RPC DTO to the domain model") {
-            val svc = FakeAdminSettingsService().apply { stored = AdminServerSettings("My Lib", "https://x", inboxEnabled = true) }
+            val svc =
+                FakeAdminSettingsService().apply {
+                    stored = AdminServerSettings("My Lib", "https://x", inboxEnabled = true, pushNotificationsEnabled = true)
+                }
             (repo(svc).getServerSettings() as AppResult.Success).data shouldBe
                 com.calypsan.listenup.client.domain.model
                     .ServerSettings("My Lib", "https://x", inboxEnabled = true)
@@ -53,6 +62,22 @@ class AdminRepositoryImplSettingsTest :
             val svc = FakeAdminSettingsService()
             (repo(svc).updateServerSettings(serverName = "Renamed") as AppResult.Success).data.serverName shouldBe "Renamed"
             svc.lastPatch?.serverName shouldBe "Renamed"
+        }
+
+        test("getServerSettings maps pushNotificationsEnabled through to the domain model") {
+            val svc =
+                FakeAdminSettingsService().apply {
+                    stored = AdminServerSettings("Lib", null, inboxEnabled = false, pushNotificationsEnabled = false)
+                }
+            (repo(svc).getServerSettings() as AppResult.Success).data.pushNotificationsEnabled shouldBe false
+        }
+
+        test("updateServerSettings forwards pushNotificationsEnabled and returns the new settings") {
+            val svc = FakeAdminSettingsService()
+            (
+                repo(svc).updateServerSettings(pushNotificationsEnabled = false) as AppResult.Success
+            ).data.pushNotificationsEnabled shouldBe false
+            svc.lastPatch?.pushNotificationsEnabled shouldBe false
         }
 
         test("a transport throw becomes Failure, not a throw") {
