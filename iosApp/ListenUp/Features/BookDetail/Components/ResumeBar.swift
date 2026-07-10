@@ -20,6 +20,11 @@ struct ResumeBar: View {
     let currentChapterLabel: String?
     let downloadState: DownloadUIState
     let downloadProgress: Float
+    /// Play is possible (downloaded or server reachable). When false the Resume/Play control is
+    /// disabled and relabeled "Unavailable offline". Defaults true.
+    var canPlay: Bool = true
+    /// Download is possible (server reachable). When false the download control is disabled.
+    var canDownload: Bool = true
     let onResume: () -> Void
     let onDownload: () -> Void
     let onCancelDownload: () -> Void
@@ -52,12 +57,14 @@ struct ResumeBar: View {
     // MARK: - Resume button
 
     private var resumeButton: some View {
-        PrimaryButton(title: resumeTitle, icon: "play.fill", action: onResume)
+        PrimaryButton(title: resumeTitle, icon: canPlay ? "play.fill" : "cloud.slash.fill", action: onResume)
+            .disabled(!canPlay)
             .accessibilityLabel(resumeAccessibilityLabel)
     }
 
     private var resumeTitle: String {
-        isInProgress
+        if !canPlay { return String(localized: "book.detail_unavailable_offline") }
+        return isInProgress
             ? String(localized: "book.detail_resume")
             : String(localized: "book.detail_play")
     }
@@ -81,6 +88,9 @@ struct ResumeBar: View {
             onDelete: onDeleteDownload
         )
         .frame(width: controlHeight, height: controlHeight)
+        // Only the ability to START a new download is gated on reachability; an in-flight or
+        // completed download stays interactive (cancel / delete work offline).
+        .disabled(!canDownload && downloadState == .notDownloaded)
     }
 
     // MARK: - Progress detail line

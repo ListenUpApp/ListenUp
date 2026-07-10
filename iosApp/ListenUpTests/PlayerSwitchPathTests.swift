@@ -134,6 +134,38 @@ struct PlayerSwitchPathTests {
         }
     }
 
+    /// Never stranded: a load failure keeps the player VISIBLE with the error message, so the
+    /// existing `.error`-retry (`togglePlayback`) is actually reachable rather than hidden behind
+    /// a vanished player.
+    @Test func errorStateKeepsPlayerVisibleWithMessage() async {
+        let (coordinator, engine, _) = makeCoordinator()
+        await engine.setLoadShouldFail(true)
+        coordinator.play(bookId: "book1")
+        await awaitUntil { if case .error = coordinator.phase { return true }; return false }
+
+        #expect(coordinator.isVisible)
+        #expect(coordinator.isErrored)
+        #expect(coordinator.errorMessage != nil)
+    }
+
+    /// The user can DISMISS an errored player back to idle (hidden) — otherwise a failed offline
+    /// load would leave an undismissable error bar reserving space over every tab.
+    @Test func dismissErrorReturnsToIdleAndHides() async {
+        let (coordinator, engine, _) = makeCoordinator()
+        await engine.setLoadShouldFail(true)
+        coordinator.play(bookId: "book1")
+        await awaitUntil { if case .error = coordinator.phase { return true }; return false }
+        #expect(coordinator.isVisible)   // errored → still visible (for the inline retry)
+
+        coordinator.dismissError()
+        #expect(!coordinator.isVisible)  // dismissed → hidden
+        #expect(!coordinator.isErrored)
+        guard case .idle = coordinator.phase else {
+            Issue.record("expected .idle after dismissError, got \(coordinator.phase)")
+            return
+        }
+    }
+
     /// RC-5: a load failure surfaces `.error`; toggling the errored book retries it rather than
     /// no-oping, so the user is never stranded on a dead player.
     @Test func errorStateIsRecoverableByToggle() async {

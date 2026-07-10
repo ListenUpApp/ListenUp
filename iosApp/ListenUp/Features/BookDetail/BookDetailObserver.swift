@@ -88,6 +88,16 @@ final class BookDetailObserver {
     private(set) var isDownloaded: Bool = false
     private(set) var downloadError: String?
 
+    // MARK: - Connectivity (from the shared `BookAvailability`, on `.ready`)
+
+    /// Play is possible — the book is downloaded OR the server is reachable to stream. Defaults
+    /// true so the button is never spuriously disabled before the first state arrives.
+    private(set) var canPlay: Bool = true
+    /// Download is possible — the server is reachable. Defaults true (see `canPlay`).
+    private(set) var canDownload: Bool = true
+    /// The server is unreachable AND the book isn't downloaded — drives the offline banner.
+    private(set) var showServerWarning: Bool = false
+
     // MARK: - Documents
 
     private(set) var documents: [DocumentRow] = []
@@ -174,6 +184,12 @@ final class BookDetailObserver {
     func play() {
         guard let book else { return }
         playerCoordinator.play(bookId: book.idString)
+    }
+
+    /// Retry the server connection (re-opens the SSE firehose) — the offline banner's Retry.
+    /// The shared `retryConnection` folds failures itself; reachability recovers via the firehose.
+    func retryConnection() {
+        viewModel.retryConnection()
     }
 
     func downloadBook() {
@@ -286,6 +302,9 @@ final class BookDetailObserver {
             isMarkingComplete = r.isMarkingComplete
             isDiscardingProgress = r.isDiscardingProgress
             isRestarting = r.isRestarting
+            canPlay = r.canPlay
+            canDownload = r.canDownload
+            showServerWarning = r.showServerWarning
         case .error(let e):
             isLoading = false
             error = e.message

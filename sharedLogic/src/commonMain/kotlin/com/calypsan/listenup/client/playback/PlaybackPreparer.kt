@@ -326,6 +326,16 @@ class PlaybackPreparer internal constructor(
             if (localPaths.values.all { it != null }) {
                 emptyMap() // fully downloaded — never touch the server (offline-first)
             } else {
+                // Diagnostic for the "downloaded but won't play offline" corruption edge: if SOME
+                // files are local but not all, a book the UI shows as downloaded still falls to the
+                // streaming path here and fails when offline. Surface it so it isn't a silent mystery.
+                if (localPaths.values.any { it != null }) {
+                    val missing = localPaths.values.count { it == null }
+                    logger.warn {
+                        "Book ${bookId.value}: $missing of ${localPaths.size} audio file(s) have no local path " +
+                            "despite others being downloaded — using streaming (will fail offline). Possible partial/corrupt download."
+                    }
+                }
                 // Routed through the bounded, self-healing engine so a dead-socket transport throw
                 // becomes a typed, time-bounded AppResult.Failure instead of an unguarded exception
                 // crossing the Swift Export seam as an opaque KotlinError.
