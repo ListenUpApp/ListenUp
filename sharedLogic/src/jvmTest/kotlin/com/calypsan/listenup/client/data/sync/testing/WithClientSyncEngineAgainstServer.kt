@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
@@ -1027,14 +1028,17 @@ internal class TestGenreRpcFactory(
     private val mutex = Mutex()
     private var cachedService: GenreService? = null
 
-    override suspend fun genreService(): GenreService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
+    override suspend fun <T> callResult(block: suspend (GenreService) -> AppResult<T>): AppResult<T> =
+        catchingRpcResult { block(genreService()) }
 
     override suspend fun invalidate() {
         mutex.withLock { cachedService = null }
     }
+
+    private suspend fun genreService(): GenreService =
+        mutex.withLock {
+            cachedService ?: connect().also { cachedService = it }
+        }
 
     private suspend fun connect(): GenreService =
         httpClient

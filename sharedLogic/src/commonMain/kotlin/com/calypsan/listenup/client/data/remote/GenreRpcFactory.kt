@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.api.GenreService
+import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.rpc.krpc.ktor.client.rpc
 import kotlinx.rpc.withService
@@ -17,8 +18,13 @@ import kotlinx.rpc.withService
  * [KtorGenreRpcFactory] is the production implementation over WebSocket RPC.
  */
 internal interface GenreRpcFactory {
-    /** Returns the cached [GenreService] proxy, connecting on first use. */
-    suspend fun genreService(): GenreService
+    /**
+     * Dispatch [block] against the cached [GenreService] through the bounded, self-healing
+     * [RpcProxyCache.rpcCall] engine: transport deaths heal invisibly (one bounded reconnect +
+     * retry), a surviving fault surfaces as a typed [AppResult.Failure], and a business failure
+     * returned by the service passes through untouched.
+     */
+    suspend fun <T> callResult(block: suspend (GenreService) -> AppResult<T>): AppResult<T>
 
     /** Drop the cached proxy and the RPC-flavored HttpClient. */
     suspend fun invalidate()
@@ -39,7 +45,8 @@ internal class KtorGenreRpcFactory(
             client.rpc("$baseUrl/api/rpc/authed").withService<GenreService>()
         }
 
-    override suspend fun genreService(): GenreService = cache.get()
+    override suspend fun <T> callResult(block: suspend (GenreService) -> AppResult<T>): AppResult<T> =
+        cache.rpcCall(block = block)
 
     override suspend fun invalidate() = cache.invalidate()
 }
