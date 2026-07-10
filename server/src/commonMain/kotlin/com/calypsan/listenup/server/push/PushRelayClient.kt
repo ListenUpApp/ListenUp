@@ -55,14 +55,15 @@ class PushRelayClient(
         payloadJson: JsonElement,
         collapseKey: String?,
     ): RelayResponse =
-        http.post("$relayUrl/v1/send") {
-            contentType(ContentType.Application.Json)
-            setBody(
-                buildJsonObject {
-                    put("tokens", Json.encodeToJsonElement(ListSerializer(RelayToken.serializer()), tokens))
-                    put("payload", payloadJson)
-                    collapseKey?.let { put("collapseKey", JsonPrimitive(it)) }
-                },
-            )
-        }.body()
+        http
+            .post("$relayUrl/v1/send") {
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("tokens", Json.encodeToJsonElement(ListSerializer(RelayToken.serializer()), tokens))
+                        put("payload", payloadJson)
+                        collapseKey?.let { put("collapseKey", JsonPrimitive(it)) }
+                    },
+                )
+            }.body()
 }

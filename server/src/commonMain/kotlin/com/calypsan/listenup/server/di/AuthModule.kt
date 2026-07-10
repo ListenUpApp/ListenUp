@@ -4,14 +4,12 @@ package com.calypsan.listenup.server.di
 
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.InstanceService
-import com.calypsan.listenup.api.PushService
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.DefaultAllBooksGrantIssuer
 import com.calypsan.listenup.server.api.InviteServiceImpl
 import com.calypsan.listenup.server.api.InstanceServiceImpl
-import com.calypsan.listenup.server.api.PushServiceImpl
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
@@ -19,7 +17,6 @@ import com.calypsan.listenup.server.auth.AuthServiceImpl
 import com.calypsan.listenup.server.auth.InviteCodeGenerator
 import com.calypsan.listenup.server.auth.JwtConfiguration
 import com.calypsan.listenup.server.auth.PasswordHasher
-import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.RefreshTokenGenerator
 import com.calypsan.listenup.server.auth.RefreshTokenHasher
 import com.calypsan.listenup.server.auth.RegistrationBroadcaster
@@ -36,9 +33,7 @@ import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
-import com.calypsan.listenup.server.push.NoOpPushNotifier
 import com.calypsan.listenup.server.push.PushConfig
-import com.calypsan.listenup.server.push.PushNotifier
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -113,25 +108,6 @@ fun authModule(
         single { ServerSettingsRepository(sql = get(), default = config.registrationPolicy()) }
 
         single { PushConfig(relayUrl = pushRelayUrl) }
-
-        // NoOpPushNotifier: a placeholder binding until the relay-aware PushNotifier selection
-        // (config.configured → RelayPushNotifier, else NoOpPushNotifier) lands as its own PushModule.
-        single<PushNotifier> { NoOpPushNotifier() }
-
-        single {
-            PushServiceImpl(
-                db = get<ListenUpDatabase>(),
-                pushConfig = get(),
-                settings = get(),
-                notifier = get(),
-                clock = get(),
-                principal =
-                    PrincipalProvider {
-                        error("Unscoped PushService — call copyWith(PrincipalProvider) at the route")
-                    },
-            )
-        }
-        single<PushService> { get<PushServiceImpl>() }
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 

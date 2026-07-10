@@ -12,10 +12,16 @@ import com.calypsan.listenup.api.push.PushPayload
  */
 interface PushNotifier {
     /** Fire-and-forget: resolves the user's live device tokens and sends [payload] to each. */
-    suspend fun notify(userId: String, payload: PushPayload)
+    suspend fun notify(
+        userId: String,
+        payload: PushPayload,
+    )
 }
 
 /** Bound when no relay URL is configured at all (forks without a relay). */
 class NoOpPushNotifier : PushNotifier {
-    override suspend fun notify(userId: String, payload: PushPayload) = Unit
+    override suspend fun notify(
+        userId: String,
+        payload: PushPayload,
+    ) = Unit
 }

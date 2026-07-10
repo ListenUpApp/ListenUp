@@ -12,7 +12,10 @@ import kotlinx.rpc.annotations.Rpc
 @Rpc
 interface PushService {
     /** Registers (or re-binds, after FCM rotation) this device's push token. Typed failure when push is disabled. */
-    suspend fun registerToken(token: String, platform: PushPlatform): AppResult<Unit>
+    suspend fun registerToken(
+        token: String,
+        platform: PushPlatform,
+    ): AppResult<Unit>
 
     /** Removes a token — best-effort logout hygiene; session eviction is the backstop. */
     suspend fun unregisterToken(token: String): AppResult<Unit>

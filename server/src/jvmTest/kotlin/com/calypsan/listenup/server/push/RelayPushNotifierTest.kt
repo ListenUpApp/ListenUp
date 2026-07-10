@@ -92,10 +92,15 @@ class RelayPushNotifierTest :
         }
 
         fun enabledSettings(sql: ListenUpDatabase): ServerSettingsRepository =
-            ServerSettingsRepository(sql = sql, default = RegistrationPolicy.APPROVAL_QUEUE)
+            ServerSettingsRepository(
+                sql = sql,
+                default = RegistrationPolicy.APPROVAL_QUEUE,
+            )
 
         /** Recorded requests + a canned response queue, backing a [MockEngine]. */
-        class RecordingEngine(private val responses: MutableList<suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData>) {
+        class RecordingEngine(
+            private val responses: MutableList<suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData>,
+        ) {
             val requests = mutableListOf<HttpRequestData>()
 
             fun bodyJson(request: HttpRequestData): JsonObject {
@@ -120,8 +125,7 @@ class RelayPushNotifierTest :
                 )
             }
 
-        fun failure(): suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData =
-            { throw IOException("relay unreachable") }
+        fun failure(): suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { throw IOException("relay unreachable") }
 
         fun relayClientFor(engine: MockEngine): PushRelayClient {
             val http = HttpClient(engine) { install(ContentNegotiation) { json(contractJson) } }
@@ -164,7 +168,11 @@ class RelayPushNotifierTest :
                 val tokens = body["tokens"]!!.jsonArray
                 tokens shouldHaveSize 2
                 val sentTokens =
-                    tokens.map { it.jsonObject["token"]!!.jsonPrimitive.content to it.jsonObject["platform"]!!.jsonPrimitive.content }.toSet()
+                    tokens
+                        .map {
+                            it.jsonObject["token"]!!.jsonPrimitive.content to
+                                it.jsonObject["platform"]!!.jsonPrimitive.content
+                        }.toSet()
                 sentTokens shouldBe setOf("token-android" to "ANDROID", "token-ios" to "IOS")
                 body["payload"] shouldBe contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
             }
