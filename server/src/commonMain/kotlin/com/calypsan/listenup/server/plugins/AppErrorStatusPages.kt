@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
+import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -118,6 +119,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is LibraryError -> toHttpStatus()
 
+        is LibraryWriteError -> toHttpStatus()
+
         is MetadataError -> toHttpStatus()
 
         // TagError + MoodError share one branch (delegating to an exhaustive helper) to keep
@@ -199,6 +202,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is LibraryError -> {
+            withCorrelationId(id)
+        }
+
+        is LibraryWriteError -> {
             withCorrelationId(id)
         }
 
@@ -342,6 +349,16 @@ private fun ScanError.withCorrelationId(id: String?): ScanError =
         is ScanError.FileUnreadable -> copy(correlationId = id)
         is ScanError.MetadataParseError -> copy(correlationId = id)
         is ScanError.TitleInferenceError -> copy(correlationId = id)
+    }
+
+private fun LibraryWriteError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryWriteError.Unavailable -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun LibraryWriteError.withCorrelationId(id: String?): LibraryWriteError =
+    when (this) {
+        is LibraryWriteError.Unavailable -> copy(correlationId = id)
     }
 
 private fun TransportError.withCorrelationId(id: String?): TransportError =
