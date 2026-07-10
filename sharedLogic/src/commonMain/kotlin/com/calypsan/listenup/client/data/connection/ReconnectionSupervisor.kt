@@ -42,6 +42,8 @@ private val logger = KotlinLogging.logger {}
  *
  * @param reevaluate re-points the active URL at a reachable address (wired to
  *   `ConnectionCoordinator.reevaluate`); a lambda so this stays unit-testable.
+ * @param reportProbe reports probe reachability into the health store's oracle; a lambda to stay
+ *   unit-testable.
  */
 internal class ReconnectionSupervisor(
     private val engineState: SyncEngineState,
@@ -53,6 +55,7 @@ internal class ReconnectionSupervisor(
     private val reevaluate: suspend () -> Unit,
     private val scope: CoroutineScope,
     private val probeIntervalMillis: Long = DEFAULT_PROBE_INTERVAL_MS,
+    private val reportProbe: (Boolean) -> Unit = {},
 ) {
     /** Start observing connection state. Call once at app start. */
     fun start() {
@@ -87,6 +90,7 @@ internal class ReconnectionSupervisor(
 
             when (val probe = instanceRepository.verifyServer(active.value)) {
                 is AppResult.Success -> {
+                    reportProbe(true)
                     val connectedId = serverConfig.getConnectedServerId()
                     val serverId = probe.data.serverInfo.instanceId
                     if (connectedId != null && serverId != connectedId) {
@@ -111,6 +115,7 @@ internal class ReconnectionSupervisor(
                 }
 
                 is AppResult.Failure -> {
+                    reportProbe(false)
                     logger.debug { "Reconnect probe failed: ${probe.error.code}" }
                     interval = (interval * 2).coerceAtMost(MAX_PROBE_INTERVAL_MS) // back off while down
                 }

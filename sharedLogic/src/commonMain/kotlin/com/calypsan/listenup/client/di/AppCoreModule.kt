@@ -1,10 +1,11 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.EXPECTED_API_VERSION
 import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.auth.AuthFailureObserver
-import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
+import com.calypsan.listenup.client.domain.version.ClientIdentity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -63,13 +64,12 @@ internal val appCoreModule: Module =
             )
         }
 
-        // Edge-triggered fold for headless-seam auth reports (SSE, digest, catch-up): a burst of
-        // session-invalidating failures collapses to ONE ErrorBus emission per lapse.
-        single {
-            ConnectionIssueReporter(
-                errorBus = get(),
-                authSession = get(),
-                scope = get(qualifier = named(APP_SCOPE)),
-            )
+        // Interim stub — the real platform actual (reading the app's build version) lands in a
+        // later task. Announces version/API identity to ConnectionHealthStore's compat check.
+        single<ClientIdentity> {
+            object : ClientIdentity {
+                override val version: String = "0.6.0"
+                override val apiVersion: String = EXPECTED_API_VERSION
+            }
         }
     }

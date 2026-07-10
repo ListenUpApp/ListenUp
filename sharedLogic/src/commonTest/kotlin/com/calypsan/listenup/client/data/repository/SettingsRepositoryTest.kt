@@ -336,4 +336,83 @@ class SettingsRepositoryTest :
                 }
             }
         }
+
+        // ========== Connection-health persistence (peer version + outdated dismissal) ==========
+        //
+        // The join/split round-trip, the malformed-value guard, and the delete-on-null branch are
+        // real persistence code that mocks can't exercise — these use a stateful in-memory
+        // SecureStorage so a fresh instance genuinely re-hydrates what a prior one wrote.
+
+        test("setPeerServerVersion round-trips through storage on re-hydrate") {
+            runTest {
+                val storage = InMemorySecureStorage()
+                createRepository(storage = storage).setPeerServerVersion("0.7.0", "v1")
+
+                val rehydrated = createRepository(storage = storage)
+                rehydrated.initializeLocalPreferences()
+
+                rehydrated.peerServerVersion.value shouldBe "0.7.0"
+                rehydrated.peerServerApi.value shouldBe "v1"
+            }
+        }
+
+        test("setOutdatedDismissedFor round-trips the pair through storage on re-hydrate") {
+            runTest {
+                val storage = InMemorySecureStorage()
+                createRepository(storage = storage).setOutdatedDismissedFor("0.6.0" to "0.7.0")
+
+                val rehydrated = createRepository(storage = storage)
+                rehydrated.initializeLocalPreferences()
+
+                rehydrated.outdatedDismissedFor.value shouldBe ("0.6.0" to "0.7.0")
+            }
+        }
+
+        test("setOutdatedDismissedFor(null) clears the persisted pair (delete branch)") {
+            runTest {
+                val storage = InMemorySecureStorage()
+                val repository = createRepository(storage = storage)
+                repository.setOutdatedDismissedFor("0.6.0" to "0.7.0")
+                repository.setOutdatedDismissedFor(null)
+
+                val rehydrated = createRepository(storage = storage)
+                rehydrated.initializeLocalPreferences()
+
+                rehydrated.outdatedDismissedFor.value shouldBe null
+            }
+        }
+
+        test("a malformed persisted dismissal value hydrates to null (guard)") {
+            runTest {
+                val storage = InMemorySecureStorage()
+                storage.save("outdated_dismissed", "garbage")
+
+                val repository = createRepository(storage = storage)
+                repository.initializeLocalPreferences()
+
+                repository.outdatedDismissedFor.value shouldBe null
+            }
+        }
     })
+
+/** Stateful in-memory [SecureStorage] so persistence round-trips are exercised, not mocked. */
+private class InMemorySecureStorage : SecureStorage {
+    private val store = mutableMapOf<String, String>()
+
+    override suspend fun save(
+        key: String,
+        value: String,
+    ) {
+        store[key] = value
+    }
+
+    override suspend fun read(key: String): String? = store[key]
+
+    override suspend fun delete(key: String) {
+        store.remove(key)
+    }
+
+    override suspend fun clear() {
+        store.clear()
+    }
+}
