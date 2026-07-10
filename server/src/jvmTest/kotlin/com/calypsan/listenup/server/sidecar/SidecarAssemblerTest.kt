@@ -139,6 +139,22 @@ class SidecarAssemblerTest :
             sidecar.metadata.series shouldBe listOf(SidecarSeriesEntry(name = "The Stormlight Archive", sequence = "1"))
         }
 
+        test("tag names are emitted in stable sorted order") {
+            val book = bookPayloadFixture(id = "book1", title = "Book")
+
+            val sidecar = assembler.assemble(book, tagNames = listOf("zeta", "alpha", "Favorites"))
+
+            sidecar.metadata.tags shouldBe listOf("Favorites", "alpha", "zeta")
+        }
+
+        test("no tags — metadata.tags is empty") {
+            val book = bookPayloadFixture(id = "book1", title = "Book")
+
+            val sidecar = assembler.assemble(book)
+
+            sidecar.metadata.tags.shouldBeEmpty()
+        }
+
         test("no authors — titleAuthor falls back to the title alone") {
             val book = bookPayloadFixture(id = "book1", title = "Book With No Author")
 

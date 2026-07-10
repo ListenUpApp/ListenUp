@@ -21,6 +21,7 @@ import com.calypsan.listenup.server.di.readingOrderModule
 import com.calypsan.listenup.server.di.scannerModule
 import com.calypsan.listenup.server.di.seedModule
 import com.calypsan.listenup.server.di.shelfModule
+import com.calypsan.listenup.server.di.sidecarModule
 import com.calypsan.listenup.server.di.syncModule
 import com.calypsan.listenup.server.di.userPreferencesModule
 import com.calypsan.listenup.server.embeddedmeta.embeddedmetaModule
@@ -102,6 +103,7 @@ internal fun Application.installDependencies(
         modules += libraryModule()
         modules += libraryWriteModule(homeDir)
         modules += organizeModule()
+        modules += sidecarModule(applicationScope)
         modules += embeddedmetaModule
         modules += syncModule()
         modules += publicProfileModule()

@@ -14,15 +14,18 @@ private const val FINGERPRINT_DURATION_BUCKET_MS = 5_000L
  * no database. [SidecarWriter] fetches the aggregate (and resolves the on-disk target path)
  * and calls [assemble] to build the bytes it writes.
  *
- * Tags are deliberately NOT populated in this phase: they live in a separate junction
- * (`BookTagRepository`) resolved by tag id, not by name, on the [BookSyncPayload] aggregate,
- * and are outside the user-edit-protection model this phase restores. The schema field exists
- * for forward compatibility (a human can hand-author it) but the assembler always emits an
- * empty list here.
+ * Tags don't ride on the [BookSyncPayload] aggregate (they live in their own junction,
+ * resolved by tag id), so the caller resolves the book's tag *names* and passes them in —
+ * the projection stays pure while the sidecar still carries the full curation surface.
+ * They're emitted sorted so identical curation always produces byte-identical JSON (the
+ * round-trip hash discriminator depends on that stability).
  */
 class SidecarAssembler {
-    /** Builds the [ListenUpSidecar] snapshot for [book]. */
-    fun assemble(book: BookSyncPayload): ListenUpSidecar =
+    /** Builds the [ListenUpSidecar] snapshot for [book], with the tag [tagNames] resolved by the caller. */
+    fun assemble(
+        book: BookSyncPayload,
+        tagNames: List<String> = emptyList(),
+    ): ListenUpSidecar =
         ListenUpSidecar(
             identity =
                 SidecarIdentity(
@@ -38,6 +41,7 @@ class SidecarAssembler {
                     contributors = book.contributors.map { SidecarContributor(name = it.name, role = it.role) },
                     series = book.series.map { SidecarSeriesEntry(name = it.name, sequence = it.sequence) },
                     genres = book.genres.map { it.name },
+                    tags = tagNames.sorted(),
                 ),
             userEditedFields = UserEditedField.entries.filter { it in book.userEditedFields }.map { it.name },
             chapters = userChaptersOrNull(book),

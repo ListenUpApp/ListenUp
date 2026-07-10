@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.scheduler.CampfireReaperTask
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
+import com.calypsan.listenup.server.scheduler.SidecarRetryTask
 import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.BookPersister
 import com.calypsan.listenup.server.services.LibraryFolderRepository
@@ -76,6 +77,8 @@ internal fun Application.startBackgroundTasks(
     statsFreshnessSweepTask.start(scope)
     val campfireReaperTask by inject<CampfireReaperTask>()
     campfireReaperTask.start(scope)
+    val sidecarRetryTask by inject<SidecarRetryTask>()
+    sidecarRetryTask.start(scope)
 
     // Heal any ABS import whose apply was interrupted by a crash: re-running is idempotent and
     // restores stats + the client nudge. A path-less boot is a no-op (the imports dir is absent).
