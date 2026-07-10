@@ -27,8 +27,7 @@ private class FakePushRpcFactory(
 ) : PushRpcFactory {
     override suspend fun get(): PushService = provide()
 
-    override suspend fun <T> callResult(block: suspend (PushService) -> AppResult<T>): AppResult<T> =
-        catchingRpcResult { block(provide()) }
+    override suspend fun <T> callResult(block: suspend (PushService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(provide()) }
 
     override suspend fun invalidate() {}
 }

@@ -142,7 +142,11 @@ class AdminSettingsViewModel(
                     logger.error { "Failed to save push notifications setting: ${result.error}" }
                     // Revert the optimistic flip to the last server-confirmed value.
                     updateReady {
-                        it.copy(pushNotificationsEnabled = savedPushNotificationsEnabled, error = result.error).withDirty()
+                        it
+                            .copy(
+                                pushNotificationsEnabled = savedPushNotificationsEnabled,
+                                error = result.error,
+                            ).withDirty()
                     }
                 }
             }

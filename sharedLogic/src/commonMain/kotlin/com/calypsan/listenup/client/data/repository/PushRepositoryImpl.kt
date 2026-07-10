@@ -24,7 +24,10 @@ internal class PushRepositoryImpl(
     override suspend fun registerToken(token: String): AppResult<Unit> =
         rpcFactory.callResult { it.registerToken(token, platform) }
 
-    override suspend fun unregisterToken(token: String): AppResult<Unit> = rpcFactory.callResult { it.unregisterToken(token) }
+    override suspend fun unregisterToken(token: String): AppResult<Unit> =
+        rpcFactory.callResult {
+            it.unregisterToken(token)
+        }
 
     override suspend fun sendTestNotification(): AppResult<Unit> = rpcFactory.callResult { it.sendTestNotification() }
 }
