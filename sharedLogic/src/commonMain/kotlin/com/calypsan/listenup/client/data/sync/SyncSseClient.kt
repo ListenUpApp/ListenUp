@@ -38,6 +38,16 @@ internal const val MAX_RECONNECT_DELAY_MS = 60_000L
 internal const val RECONNECT_BACKOFF_MULTIPLIER = 2.0
 
 /**
+ * Consecutive [SyncSseClient]-internal auth-failed connects that prove the streaming client's
+ * in-band bearer refresh cannot mint a working token (the plugin performs one refresh per
+ * attempt, so two failures = refresh token is dead). Spec §6.3 / §14-Q1.
+ */
+internal const val AUTH_EXHAUSTED_THRESHOLD = 2
+
+/** Slow heartbeat cadence while auth-parked — still wakeable instantly by [SyncSseClient.reconnectNow]. */
+internal const val AUTH_PARKED_DELAY_MS = 300_000L
+
+/**
  * Upper bound on the connection-establishment phase. A connect that hasn't produced a response
  * within this window is abandoned and retried, so a down/unreachable server can't wedge the loop on
  * engines with no finite connect timeout (Darwin/URLSession). The streaming read stays unbounded.
@@ -112,6 +122,9 @@ internal fun parseSseStream(lines: Sequence<String>): List<ParsedSseFrame> {
  * / `ServerConfig` so production wiring (D1) passes method references and
  * tests (Tier 3 e2e) pass any [HttpClient] + base URL. Avoids dragging full
  * auth wiring into the test fixture.
+ *
+ * [onAuthExhausted] fires once per auth-failure streak when the in-band refresh is proven dead
+ * (see AUTH_EXHAUSTED_THRESHOLD).
  */
 internal class SyncSseClient(
     private val serverUrlProvider: suspend () -> String?,
@@ -120,6 +133,7 @@ internal class SyncSseClient(
     private val scope: CoroutineScope,
     private val nowMillis: () -> Long = { Clock.System.now().toEpochMilliseconds() },
     private val connectTimeoutMillis: Long = DEFAULT_CONNECT_TIMEOUT_MS,
+    private val onAuthExhausted: suspend () -> Unit = {},
 ) : SseClient {
     private val frameBus =
         MutableSharedFlow<ParsedSseFrame>(
@@ -143,6 +157,13 @@ internal class SyncSseClient(
      * thread-safe — don't add a lock here.
      */
     private var reconnectAttempt = 0
+
+    /**
+     * Consecutive [ConnectAttempt.AuthFailed] counter driving auth-exhaustion detection and the
+     * parked heartbeat. Reset by a successful connect and by [reconnectNow]. Same deliberately
+     * unsynchronized best-effort discipline as [reconnectAttempt] — don't add a lock.
+     */
+    private var authFailureStreak = 0
 
     /** Conflated wake signal: [reconnectNow] sends; the backoff wait races it against the delay. */
     private val wakeSignal = Channel<Unit>(Channel.CONFLATED)
@@ -180,16 +201,19 @@ internal class SyncSseClient(
                         }
 
                         ConnectAttempt.AuthFailed -> {
-                            // Treat 401/403 as transient: the Bearer Auth plugin refreshes
-                            // the token on the next outbound request, but it only gets to
-                            // try if we issue one. The pre-fix branch (return@launch) left
-                            // production users stranded every 15min (access-token TTL)
-                            // until app restart. Surface the disconnect with a distinct
-                            // reason so logs/state reflect what happened, then fall
-                            // through to the same backoff+retry as Reconnect.
-                            state.setConnection(ConnectionState.Disconnected("auth-transient"))
+                            // The FIRST 401/403 stays transient: the streaming client's bearer
+                            // plugin refreshes the token in-band on the next attempt. Reaching
+                            // AUTH_EXHAUSTED_THRESHOLD consecutive failures proves the refresh
+                            // cannot mint a working token — report ONCE (typed, via
+                            // onAuthExhausted → ErrorBus → SessionLapsed; the engine gate then
+                            // parks this loop entirely) and fall back to a slow heartbeat as the
+                            // defense-in-depth backstop. reconnectNow() wakes the park instantly
+                            // and resets the streak (never stranded).
+                            authFailureStreak++
+                            state.setConnection(ConnectionState.Disconnected("auth"))
                             state.recordError(SyncError.RealtimeDisconnected())
-                            backoffWait()
+                            if (authFailureStreak == AUTH_EXHAUSTED_THRESHOLD) onAuthExhausted()
+                            if (authFailureStreak >= AUTH_EXHAUSTED_THRESHOLD) parkedWait() else backoffWait()
                         }
 
                         ConnectAttempt.Reconnect -> {
@@ -200,6 +224,7 @@ internal class SyncSseClient(
 
                         ConnectAttempt.Connected -> {
                             reconnectAttempt = 0
+                            authFailureStreak = 0
                             state.recordSuccess(nowMillis())
                         }
                     }
@@ -219,6 +244,12 @@ internal class SyncSseClient(
         withTimeoutOrNull(delayMs) { wakeSignal.receive() }
     }
 
+    /** Auth-parked heartbeat: wait [AUTH_PARKED_DELAY_MS], returning early if [reconnectNow] signals. */
+    private suspend fun parkedWait() {
+        logger.debug { "SSE auth-parked; next probe in ${AUTH_PARKED_DELAY_MS}ms" }
+        withTimeoutOrNull(AUTH_PARKED_DELAY_MS) { wakeSignal.receive() }
+    }
+
     /** Close the SSE connection and stop the reconnect loop. */
     override fun disconnect() {
         connectionJob?.cancel()
@@ -228,6 +259,7 @@ internal class SyncSseClient(
 
     override fun reconnectNow() {
         reconnectAttempt = 0
+        authFailureStreak = 0
         wakeSignal.trySend(Unit)
     }
 

@@ -54,4 +54,13 @@ sealed interface AuthState {
         val userId: UserId,
         val sessionId: SessionId,
     ) : AuthState
+
+    /**
+     * Session credentials are dead (access token expired and refresh failed) but the user's
+     * local data is intact. The shell stays mounted; sync is parked; a non-blocking
+     * "Sign in to sync" affordance is the only path to the login screen — never a forced wall.
+     */
+    data class SessionLapsed(
+        val userId: UserId,
+    ) : AuthState
 }

@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.Icon
@@ -75,8 +78,10 @@ import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.ShellDestination
+import com.calypsan.listenup.client.features.shell.components.ConnectionHealthBanner
 import com.calypsan.listenup.client.features.shell.shellDestinationSaver
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
+import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -185,7 +190,10 @@ fun ListenUpNavigation(
             )
         }
 
-        is AuthState.Authenticated -> {
+        is AuthState.Authenticated, is AuthState.SessionLapsed -> {
+            // SessionLapsed renders the SAME shell (M2/M3): library, downloads, playback of
+            // downloaded content all work. Sharing one branch keeps the composition call site —
+            // and therefore the back stack — stable across the lapse/re-auth transition.
             AuthenticatedNavigation(authSession)
         }
     }
@@ -572,6 +580,15 @@ private fun AuthenticatedNavigation(
     // preventing navigation position from being lost on app resume.
     val backStack = rememberNavBackStack(Shell)
 
+    // Pop the banner-pushed re-auth Login entry the moment the session is restored,
+    // landing the user back on the shell exactly where they left off.
+    val currentAuthState by authSession.authState.collectAsStateWithLifecycle()
+    LaunchedEffect(currentAuthState) {
+        if (currentAuthState is AuthState.Authenticated && backStack.lastOrNull() == Login) {
+            backStack.removeAt(backStack.lastIndex)
+        }
+    }
+
     // Track shell tab state here so it survives navigation to detail screens
     var currentShellDestination by rememberSaveable(stateSaver = shellDestinationSaver) {
         mutableStateOf<ShellDestination>(ShellDestination.Home)
@@ -686,6 +703,7 @@ private fun AuthenticatedNavigation(
                             startupViewModel = startupViewModel,
                             scope = scope,
                             syncRepository = syncRepository,
+                            serverConfig = serverConfig,
                             profileRefreshKey = profileRefreshKey,
                             onProfileRefreshed = { profileRefreshKey++ },
                         ),
@@ -723,6 +741,7 @@ private fun authenticatedNavEntries(
     startupViewModel: AppStartupViewModel,
     scope: CoroutineScope,
     syncRepository: SyncRepository,
+    serverConfig: ServerConfig,
     profileRefreshKey: Int,
     onProfileRefreshed: () -> Unit,
 ) = entryProvider {
@@ -750,6 +769,17 @@ private fun authenticatedNavEntries(
         backStack = backStack,
         onSignOut = onSignOut,
     )
+    // Re-auth entry pushed by the shell banner's "Sign in" action while SessionLapsed.
+    // Back returns to the shell — sign-in is never forced (M3). On success, AuthState flips
+    // to Authenticated and AuthenticatedNavigation pops this entry automatically.
+    entry<Login> {
+        com.calypsan.listenup.client.features.auth.LoginScreen(
+            openRegistration = false,
+            onChangeServer = {
+                scope.launch { serverConfig.disconnectFromServer() }
+            },
+        )
+    }
 }
 
 /**
@@ -798,6 +828,21 @@ private fun BoxScope.AuthenticatedNavOverlays(
             Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp),
+    )
+
+    // Shell-level connection-health banner (Phase 1: session lapse only).
+    val connectionHealthViewModel: ConnectionHealthViewModel = koinViewModel()
+    val connectionHealth by connectionHealthViewModel.state.collectAsStateWithLifecycle()
+    ConnectionHealthBanner(
+        state = connectionHealth,
+        onSignIn = {
+            if (backStack.lastOrNull() != Login) backStack.add(Login)
+        },
+        modifier =
+            Modifier
+                .align(Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
     )
 
     // Single readiness gate for the non-shell startup states. Populating is handled inside the

@@ -128,9 +128,10 @@ internal class AuthSessionStore(
     }
 
     /**
-     * Soft logout: drops the four token keys and routes to NeedsLogin without
-     * making a network call. Server reachability is implied by the 401 that
-     * triggered this; another HTTP call would fight with the auth failure.
+     * Full credential wipe (tokens AND user id) routing to NeedsLogin, without a network call.
+     * This is the deliberate-wall path: explicit sign-out, account deletion, and server-instance
+     * change (a different server ⇒ broken data provenance). Same-server session expiry goes
+     * through [clearSessionCredentials] instead, which keeps the user id and never walls.
      */
     override suspend fun clearAuthTokens() {
         secureStorage.delete(KEY_ACCESS_TOKEN)
@@ -139,6 +140,21 @@ internal class AuthSessionStore(
         secureStorage.delete(KEY_USER_ID)
 
         authState.value = DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+    }
+
+    override suspend fun clearSessionCredentials() {
+        val userId = getUserId()
+        if (userId == null) {
+            // No persisted identity to lapse into (fresh install / already signed out) —
+            // fall back to the full clear rather than invent a SessionLapsed without a user.
+            clearAuthTokens()
+            return
+        }
+        secureStorage.delete(KEY_ACCESS_TOKEN)
+        secureStorage.delete(KEY_REFRESH_TOKEN)
+        secureStorage.delete(KEY_SESSION_ID)
+
+        authState.value = DomainAuthState.SessionLapsed(UserId(userId))
     }
 
     override suspend fun isAuthenticated(): Boolean = getAccessToken() != null
@@ -170,6 +186,14 @@ internal class AuthSessionStore(
         if (hasToken) {
             clearAuthTokens()
             return DomainAuthState.NeedsLogin(openRegistration = getCachedOpenRegistration())
+        }
+
+        // Persisted identity without an access token = a lapsed session: the user was signed in
+        // on this device and their local data is intact. Shell stays mounted; sync parks; the
+        // banner offers sign-in (M2/M3). A fresh install has no userId and falls through to the
+        // login screen — the one locked cold-start exception.
+        if (userId != null) {
+            return DomainAuthState.SessionLapsed(UserId(userId))
         }
 
         val pendingRegistration = getPendingRegistration()

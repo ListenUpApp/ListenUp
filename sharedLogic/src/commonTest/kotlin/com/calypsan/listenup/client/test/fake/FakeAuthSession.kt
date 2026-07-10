@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Minimal [AuthSession] test fake.
@@ -32,8 +31,9 @@ class FakeAuthSession(
     userId: String? = "u1",
     authState: AuthState = AuthState.Authenticated(UserId(userId ?: "u1"), SessionId("session")),
     private val onClearAuthTokens: () -> Unit = {},
+    private val onClearSessionCredentials: () -> Unit = {},
 ) : AuthSession {
-    override val authState: StateFlow<AuthState> = MutableStateFlow(authState)
+    override val authState: MutableStateFlow<AuthState> = MutableStateFlow(authState)
 
     private val getUserIdResult: String? = userId
 
@@ -55,6 +55,8 @@ class FakeAuthSession(
     override suspend fun updateAccessToken(token: AccessToken) = Unit
 
     override suspend fun clearAuthTokens() = onClearAuthTokens()
+
+    override suspend fun clearSessionCredentials() = onClearSessionCredentials()
 
     override suspend fun isAuthenticated(): Boolean = true
 

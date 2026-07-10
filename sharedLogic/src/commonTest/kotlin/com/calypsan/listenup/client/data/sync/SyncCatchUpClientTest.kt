@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.client.test.db.passThroughTransactionRunner
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.sync.DomainList
 import com.calypsan.listenup.api.sync.Page
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -252,6 +253,53 @@ class SyncCatchUpClientTest :
 
                 // Registry sorts domain names alphabetically.
                 seenDomains shouldContainExactly listOf("books", "tags")
+            }
+        }
+
+        test("catchUpAll forwards each domain's typed failure to the report seam and completes every domain") {
+            runTest {
+                val unauthorized401Client =
+                    HttpClient(MockEngine { respond("unauthorized", status = HttpStatusCode.Unauthorized) }) {
+                        expectSuccess = true
+                    }
+
+                fun minimalHandler(name: String): SyncDomainHandler<Tag> =
+                    object : SyncDomainHandler<Tag> {
+                        override val domainName = name
+                        override val payloadSerializer = Tag.serializer()
+
+                        override fun syncId(item: Tag): String = item.id
+
+                        override suspend fun onEvent(
+                            event: SyncEvent<Tag>,
+                            isOwnEcho: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun onCatchUpItem(
+                            item: Tag,
+                            isTombstone: Boolean,
+                        ): AppResult<Unit> = AppResult.Success(Unit)
+
+                        override suspend fun localDigestRows(maxRevision: Long): List<Pair<String, Long>>? = null
+                    }
+
+                val registry = ClientSyncDomainRegistry()
+                registry.register(minimalHandler("tags"))
+                registry.register(minimalHandler("genres"))
+                val reported = mutableListOf<AppError>()
+                val client =
+                    SyncCatchUpClient(
+                        httpClientProvider = { unauthorized401Client },
+                        serverUrlProvider = { "http://test" },
+                        store = SyncCursorStore(InMemorySyncCursorDao()),
+                        transactionRunner = passThroughTransactionRunner(),
+                        reportConnectionIssue = { reported += it },
+                    )
+
+                client.catchUpAll(registry)
+
+                // Both domains were attempted (loop never aborts) and both failures surfaced typed.
+                reported.map { it.code } shouldContainExactly listOf("AUTH_SESSION_EXPIRED", "AUTH_SESSION_EXPIRED")
             }
         }
     })

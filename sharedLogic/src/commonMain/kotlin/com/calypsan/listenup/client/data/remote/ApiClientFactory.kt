@@ -495,8 +495,9 @@ internal expect fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUr
  *
  *  - Success → persist the rotated pair into [AuthSession] (so the next `loadTokens`
  *    sees the fresh values) and return them as [BearerTokens] for the immediate retry.
- *  - `Failure(InvalidRefreshToken)` → the refresh token is dead; clear the auth state
- *    so the user lands on login.
+ *  - `Failure(SessionExpired | InvalidRefreshToken)` → the refresh token is dead; soft-clear the
+ *    session credentials so state lands in `AuthState.SessionLapsed` (shell stays mounted,
+ *    banner offers sign-in) instead of the login wall.
  *  - Any other `Failure` (transport, server unreachable, validation, internal) →
  *    preserve the auth state; returning null lets the original 401 propagate so the
  *    caller can decide how to surface the failure.
@@ -528,8 +529,10 @@ internal suspend fun refreshAuthTokens(
                     is AuthError.SessionExpired,
                     is AuthError.InvalidRefreshToken,
                     -> {
-                        logger.warn { "Token refresh rejected (${result.error}), clearing auth state" }
-                        authSession.clearAuthTokens()
+                        logger.warn {
+                            "Token refresh rejected (${result.error}), lapsing session (credentials cleared, user id kept)"
+                        }
+                        authSession.clearSessionCredentials()
                     }
 
                     else -> {

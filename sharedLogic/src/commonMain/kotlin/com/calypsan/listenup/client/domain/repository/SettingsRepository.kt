@@ -82,6 +82,16 @@ interface AuthSession {
     /** Clear authentication tokens (soft logout). */
     suspend fun clearAuthTokens()
 
+    /**
+     * Soft-expire the session: drop access token, refresh token, and session id but KEEP the
+     * persisted user id, landing in [AuthState.SessionLapsed]. Used when the same server rejected
+     * our credentials (expiry / dead refresh token) — the cached library's provenance is intact,
+     * so the user must never be walled. Falls back to [clearAuthTokens] when no user id is
+     * persisted. Contrast with [clearAuthTokens], the full wipe for deliberate sign-out,
+     * account deletion, and server-instance change.
+     */
+    suspend fun clearSessionCredentials()
+
     /** Check if user has stored authentication tokens. */
     suspend fun isAuthenticated(): Boolean
 

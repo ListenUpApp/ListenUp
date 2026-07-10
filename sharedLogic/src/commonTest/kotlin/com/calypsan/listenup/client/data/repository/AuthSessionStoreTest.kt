@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.dto.auth.AccessToken
 import com.calypsan.listenup.api.dto.auth.RefreshToken
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.core.ServerUrl
@@ -17,6 +18,7 @@ import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -409,6 +411,91 @@ class AuthSessionStoreTest :
 
                 verifySuspend { storage.delete("access_token") }
                 verifySuspend { storage.delete("refresh_token") }
+            }
+        }
+
+        // ── Session lapse (spec §6.2) ────────────────────────────────────────────────
+
+        test("clearSessionCredentials drops tokens, KEEPS the user id, and lands in SessionLapsed") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { storage.read(any()) } returns null
+                everySuspend { storage.read("user_id") } returns "user-1"
+                val store = createStore(storage = storage)
+                store.saveAuthTokens(AccessToken("a"), RefreshToken("r"), "s1", "user-1")
+
+                store.clearSessionCredentials()
+
+                store.authState.value shouldBe AuthState.SessionLapsed(UserId("user-1"))
+                verifySuspend { storage.delete("access_token") }
+                verifySuspend { storage.delete("refresh_token") }
+                verifySuspend { storage.delete("session_id") }
+                verifySuspend(VerifyMode.exactly(0)) { storage.delete("user_id") }
+            }
+        }
+
+        test("clearSessionCredentials with no persisted user id falls back to the full clear") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.save(any(), any()) } returns Unit
+                everySuspend { storage.delete(any()) } returns Unit
+                everySuspend { storage.read(any()) } returns null
+
+                val store = createStore(storage = storage)
+                store.clearSessionCredentials()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                verifySuspend { storage.delete("user_id") }
+            }
+        }
+
+        // ── Cold-start derivation matrix (spec T15, offline-first — no network call) ──
+
+        test("deriveAuthState: persisted userId WITHOUT an access token derives SessionLapsed") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read(any()) } returns null
+                everySuspend { storage.read("user_id") } returns "user-1"
+                val serverConfig = createMockServerConfig()
+                everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")
+                val store = createStore(storage = storage, serverConfig = serverConfig)
+
+                store.initializeAuthState()
+
+                store.authState.value shouldBe AuthState.SessionLapsed(UserId("user-1"))
+            }
+        }
+
+        test("deriveAuthState: fresh install (no userId, no tokens) still derives NeedsLogin — the locked cold-start exception") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read(any()) } returns null
+                val serverConfig = createMockServerConfig()
+                everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")
+                val store = createStore(storage = storage, serverConfig = serverConfig)
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+            }
+        }
+
+        test("deriveAuthState: token WITHOUT userId still triggers the corruption clear to NeedsLogin") {
+            runTest {
+                val storage = createMockStorage()
+                everySuspend { storage.read(any()) } returns null
+                everySuspend { storage.read("access_token") } returns "orphan-token"
+                everySuspend { storage.delete(any()) } returns Unit
+                val serverConfig = createMockServerConfig()
+                everySuspend { serverConfig.getServerUrl() } returns ServerUrl("http://test:8080")
+                val store = createStore(storage = storage, serverConfig = serverConfig)
+
+                store.initializeAuthState()
+
+                store.authState.value.shouldBeInstanceOf<AuthState.NeedsLogin>()
+                verifySuspend { storage.delete("access_token") }
             }
         }
     })

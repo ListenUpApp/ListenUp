@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.core.appCoroutineExceptionHandler
 import com.calypsan.listenup.client.data.auth.AuthFailureObserver
+import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
 import com.calypsan.listenup.client.data.repository.DeepLinkManager
 import com.calypsan.listenup.client.data.repository.ShortcutActionManager
 import kotlinx.coroutines.CoroutineScope
@@ -56,6 +57,16 @@ internal val appCoreModule: Module =
         // any auth error can be emitted.
         single(createdAtStart = true) {
             AuthFailureObserver(
+                errorBus = get(),
+                authSession = get(),
+                scope = get(qualifier = named(APP_SCOPE)),
+            )
+        }
+
+        // Edge-triggered fold for headless-seam auth reports (SSE, digest, catch-up): a burst of
+        // session-invalidating failures collapses to ONE ErrorBus emission per lapse.
+        single {
+            ConnectionIssueReporter(
                 errorBus = get(),
                 authSession = get(),
                 scope = get(qualifier = named(APP_SCOPE)),

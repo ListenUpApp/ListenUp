@@ -84,10 +84,10 @@ class RefreshAuthTokensTest :
             }
         }
 
-        test("Failure(InvalidRefreshToken) clears auth state and returns null") {
+        test("Failure(InvalidRefreshToken) soft-clears session credentials and returns null") {
             runTest {
                 val authSession = mock<AuthSession>()
-                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.clearSessionCredentials() } returns Unit
 
                 val tokens =
                     refreshAuthTokens(authSession) {
@@ -95,14 +95,14 @@ class RefreshAuthTokensTest :
                     }
 
                 tokens.shouldBeNull()
-                verifySuspend { authSession.clearAuthTokens() }
+                verifySuspend { authSession.clearSessionCredentials() }
             }
         }
 
-        test("Failure(SessionExpired) — no stored refresh token — clears auth state") {
+        test("Failure(SessionExpired) — no stored refresh token — soft-clears session credentials") {
             runTest {
                 val authSession = mock<AuthSession>()
-                everySuspend { authSession.clearAuthTokens() } returns Unit
+                everySuspend { authSession.clearSessionCredentials() } returns Unit
 
                 val tokens =
                     refreshAuthTokens(authSession) {
@@ -110,7 +110,7 @@ class RefreshAuthTokensTest :
                     }
 
                 tokens.shouldBeNull()
-                verifySuspend { authSession.clearAuthTokens() }
+                verifySuspend { authSession.clearSessionCredentials() }
             }
         }
 

@@ -4,12 +4,15 @@ package com.calypsan.listenup.client.data.connection
 
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncEngineState
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -29,6 +32,7 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -72,6 +76,8 @@ class ReconnectionSupervisorTest :
                 }
             val authSession =
                 mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.Authenticated(UserId("u1"), SessionId("s1")))
                     everySuspend { clearAuthTokens() } returns Unit
                 }
             var reevaluateCount = 0
@@ -324,5 +330,50 @@ class ReconnectionSupervisorTest :
                 "expected no further probes after Connected, but probeCount grew from " +
                     "$countAtConnect to $probeCount"
             }
+        }
+
+        test("probe success while SessionLapsed does NOT kick reconnectNow (the spam amplifier)") {
+            val scope = TestScope(StandardTestDispatcher())
+            val engineState = SyncEngineState() // Disconnected — recovery loop runs
+            val instance =
+                mock<InstanceRepository> {
+                    everySuspend { verifyServer(any()) } returns AppResult.Success(verified("inst-1"))
+                }
+            val serverConfig =
+                mock<ServerConfig> {
+                    everySuspend { getActiveUrl() } returns ServerUrl(activeUrl)
+                    everySuspend { getConnectedServerId() } returns "inst-1"
+                }
+            val sseClient =
+                mock<SseClient> {
+                    every { reconnectNow() } returns Unit
+                }
+            val authSession =
+                mock<AuthSession> {
+                    every { authState } returns
+                        MutableStateFlow<AuthState>(AuthState.SessionLapsed(UserId("u1")))
+                    everySuspend { clearAuthTokens() } returns Unit
+                }
+            val supervisor =
+                ReconnectionSupervisor(
+                    engineState = engineState,
+                    instanceRepository = instance,
+                    serverConfig = serverConfig,
+                    sseClient = sseClient,
+                    authSession = authSession,
+                    errorBus = ErrorBus(),
+                    reevaluate = { },
+                    scope = scope,
+                    probeIntervalMillis = interval,
+                )
+
+            supervisor.start()
+            scope.testScheduler.runCurrent() // one probe succeeds
+            engineState.setConnection(ConnectionState.Connected(lastEventId = 1L)) // end the loop
+            scope.testScheduler.advanceUntilIdle()
+
+            verifySuspend { instance.verifyServer(any()) } // it DID probe (reachability oracle)
+            verify(exactly(0)) { sseClient.reconnectNow() } // but never amplified the 401 loop
+            verifySuspend(exactly(0)) { authSession.clearAuthTokens() } // same instance — no wall
         }
     })

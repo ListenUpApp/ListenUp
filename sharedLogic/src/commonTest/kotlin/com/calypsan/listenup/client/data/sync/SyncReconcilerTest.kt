@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
@@ -21,6 +22,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
@@ -237,6 +239,37 @@ class SyncReconcilerTest :
                 // The transient re-derive drove a prune to exactly the accessible set.
                 verifySuspend { catchUp.catchUpTransient(handler) }
                 prunedTo shouldContainExactly listOf(accessibleFromServer)
+            }
+        }
+
+        test("digest fetch failure forwards the typed error to the report seam and still completes") {
+            runTest {
+                val registry = ClientSyncDomainRegistry()
+                registry.register(fakeHandler("tags", rows = listOf("a" to 1L)))
+                // 401 + expectSuccess mirrors the production request client: the digest fetch's
+                // suspendRunCatching routes the ResponseException through ErrorMapper → SessionExpired.
+                val unauthorized401Client =
+                    HttpClient(MockEngine { respond("unauthorized", status = HttpStatusCode.Unauthorized) }) {
+                        expectSuccess = true
+                    }
+                val failingDigestClient =
+                    DomainDigestClient(
+                        httpClientProvider = { unauthorized401Client },
+                        serverUrlProvider = { "http://test" },
+                    )
+                val reported = mutableListOf<AppError>()
+                val reconciler =
+                    SyncReconciler(
+                        registry = registry,
+                        store = inMemoryStore(highestRevision = 5L),
+                        digestClient = failingDigestClient,
+                        catchUp = mock<CatchUp>(), // must never be called — drift is unknown, not detected
+                        reportConnectionIssue = { reported += it },
+                    )
+
+                reconciler.reconcileAll() // completes without throwing
+
+                reported.map { it.code } shouldContainExactly listOf("AUTH_SESSION_EXPIRED")
             }
         }
     })

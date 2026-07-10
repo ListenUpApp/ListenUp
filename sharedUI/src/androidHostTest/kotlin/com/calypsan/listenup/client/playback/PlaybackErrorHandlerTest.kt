@@ -1083,6 +1083,8 @@ private class StubAuthSession : com.calypsan.listenup.client.domain.repository.A
 
     override suspend fun clearAuthTokens() = Unit
 
+    override suspend fun clearSessionCredentials() = Unit
+
     override suspend fun isAuthenticated() = true
 
     override suspend fun initializeAuthState() = Unit

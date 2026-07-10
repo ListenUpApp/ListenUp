@@ -48,7 +48,7 @@ import kotlinx.coroutines.withTimeout
 class SyncSseClientAuthRefreshTest :
     FunSpec({
 
-        test("401 mid-stream surfaces Disconnected(\"auth-transient\") then reconnects to Connected — not permanent terminal") {
+        test("401 mid-stream surfaces Disconnected(\"auth\") then reconnects to Connected — not permanent terminal") {
             runBlocking {
                 val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
                 val attempts = AtomicInteger(0)
@@ -78,17 +78,17 @@ class SyncSseClientAuthRefreshTest :
                     sse.connect()
 
                     // Counterfactual proof we exercised the AuthFailed branch: the
-                    // state must pass through Disconnected with reason AUTH_TRANSIENT
+                    // state must pass through Disconnected with reason AUTH_REASON
                     // at some point. With the pre-fix `return@launch`, the outer loop
                     // would have exited *before* setting that reason, OR (if it set
                     // Disconnected("closed") in `disconnect()`) we'd see a different
-                    // reason — either way, AUTH_TRANSIENT only appears on the new
+                    // reason — either way, AUTH_REASON only appears on the new
                     // transient path.
                     withTimeout(AUTH_TRANSIENT_TIMEOUT) {
                         state
                             .observe()
                             .filter {
-                                (it.connection as? ConnectionState.Disconnected)?.reason == AUTH_TRANSIENT
+                                (it.connection as? ConnectionState.Disconnected)?.reason == AUTH_REASON
                             }.first()
                     }
 
@@ -149,7 +149,7 @@ class SyncSseClientAuthRefreshTest :
                         state
                             .observe()
                             .filter {
-                                (it.connection as? ConnectionState.Disconnected)?.reason == AUTH_TRANSIENT
+                                (it.connection as? ConnectionState.Disconnected)?.reason == AUTH_REASON
                             }.first()
                     }
                     withTimeout(RECONNECT_TIMEOUT) {
@@ -167,7 +167,7 @@ class SyncSseClientAuthRefreshTest :
     })
 
 private const val SSE_FRAME_ID_1 = 1L
-private const val AUTH_TRANSIENT = "auth-transient"
+private const val AUTH_REASON = "auth"
 private val AUTH_TRANSIENT_TIMEOUT = 10.seconds
 private val RECONNECT_TIMEOUT = 15.seconds
 

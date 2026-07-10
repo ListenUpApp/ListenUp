@@ -4,6 +4,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
+import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.domains.MirroredDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -69,6 +70,7 @@ class ClientSyncModuleVerifyTest :
                         AuthSession::class,
                         AvatarDownloadRepository::class,
                         ConnectionCoordinator::class,
+                        ConnectionIssueReporter::class,
                         InstanceRepository::class,
                         ErrorBus::class,
                         Function1::class,

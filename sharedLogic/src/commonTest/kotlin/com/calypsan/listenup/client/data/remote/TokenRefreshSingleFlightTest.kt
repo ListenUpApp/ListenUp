@@ -80,6 +80,8 @@ private class FakeAuthSession : AuthSession {
         refresh = null
     }
 
+    override suspend fun clearSessionCredentials() = Unit
+
     override suspend fun getSessionId(): String? = throw NotImplementedError()
 
     override suspend fun getUserId(): String? = throw NotImplementedError()

@@ -162,6 +162,8 @@ private class StubAuthSession(
 
     override suspend fun clearAuthTokens() = Unit
 
+    override suspend fun clearSessionCredentials() = Unit
+
     override suspend fun isAuthenticated(): Boolean = true
 
     override suspend fun initializeAuthState() = Unit

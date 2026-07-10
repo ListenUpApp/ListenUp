@@ -32,6 +32,7 @@ private struct RootView: View {
     @State private var hapticsSettings = HapticsSettings()
     @State private var deepLinkRouter = DeepLinkRouter()
     @State private var syncSession: SyncSessionController?
+    @State private var showReauthSheet = false
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dependencies) private var dependencies
 
@@ -62,7 +63,10 @@ private struct RootView: View {
             .animation(.smooth(duration: 0.3), value: auth.state)
             // Start realtime sync once authenticated (initial pull + SSE firehose), mirroring the
             // Compose `MainActivity`/`AppShell`. Without this the library never populates on iOS.
-            .onChange(of: auth.state, initial: true) { _, _ in
+            .onChange(of: auth.state, initial: true) { _, newState in
+                // Dismiss the re-auth sheet the moment the user is authenticated again; the engine
+                // auth gate (shared) owns resuming the firehose + forced reconcile.
+                if newState == .authenticated { showReauthSheet = false }
                 activateSyncIfAuthenticated()
             }
             .onChange(of: scenePhase) { _, newPhase in
@@ -143,6 +147,16 @@ private struct RootView: View {
             AuthFlowCoordinator(openRegistration: auth.openRegistration)
         case .pendingApproval:
             PendingApprovalView(userId: auth.pendingApprovalUserId, email: auth.pendingApprovalEmail)
+        case .sessionLapsed:
+            // Shell stays mounted (M2/M3): library, downloads, playback all work. The banner’s
+            // Sign-in presents the login flow as a dismissable sheet — never a forced wall.
+            authenticatedContent
+                .safeAreaInset(edge: .top) {
+                    SessionLapsedBanner(onSignIn: { showReauthSheet = true })
+                }
+                .sheet(isPresented: $showReauthSheet) {
+                    AuthFlowCoordinator(openRegistration: false)
+                }
         case .authenticated:
             authenticatedContent
         }

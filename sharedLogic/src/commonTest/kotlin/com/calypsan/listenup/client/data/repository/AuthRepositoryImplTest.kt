@@ -6,11 +6,13 @@ import com.calypsan.listenup.api.dto.auth.RefreshToken
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.remote.AuthRpcFactory
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
+import dev.mokkery.answering.throws
 import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
@@ -18,6 +20,7 @@ import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.plugins.websocket.WebSocketException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -140,6 +143,63 @@ class AuthRepositoryImplTest :
 
                 // Exactly one rotation, even though two callers asked concurrently.
                 refreshCalls shouldBe 1
+            }
+        }
+
+        // Regression for the trigger bug (spec §6.1): a refresh failure that surfaces as a THROW
+        // must become a typed AuthError via ErrorMapper — not collapse to InternalError, which
+        // defeats refreshAuthTokens' clear-on-typed-auth-error branch and loops forever.
+        test("a thrown WS-handshake-401 during refresh maps to AuthError.SessionExpired") {
+            runTest {
+                val public = mock<AuthServicePublic>()
+                everySuspend { public.refreshSession(any()) } throws
+                    WebSocketException("Handshake exception, expected status code 101 but was 401")
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
+                val repo =
+                    AuthRepositoryImpl(
+                        rpc =
+                            object : AuthRpcFactory {
+                                override suspend fun publicService(): AuthServicePublic = public
+
+                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
+
+                                override suspend fun invalidate() = Unit
+                            },
+                        authSession = authSession,
+                    )
+
+                val result = repo.refreshAccessToken()
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                result.error.shouldBeInstanceOf<AuthError.SessionExpired>()
+            }
+        }
+
+        test("a thrown IO failure during refresh maps to NetworkUnavailable (auth state preservable)") {
+            runTest {
+                val public = mock<AuthServicePublic>()
+                everySuspend { public.refreshSession(any()) } throws
+                    kotlinx.io.IOException("connection refused")
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
+                val repo =
+                    AuthRepositoryImpl(
+                        rpc =
+                            object : AuthRpcFactory {
+                                override suspend fun publicService(): AuthServicePublic = public
+
+                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
+
+                                override suspend fun invalidate() = Unit
+                            },
+                        authSession = authSession,
+                    )
+
+                val result = repo.refreshAccessToken()
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                result.error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
             }
         }
     })

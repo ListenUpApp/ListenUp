@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -25,6 +26,9 @@ internal class SyncReconciler(
     private val store: SyncCursorStore,
     private val digestClient: DomainDigestClient,
     private val catchUp: CatchUp,
+    // Typed-failure forward to the connection-issue seam (spec §6.4). Defaults to a no-op so
+    // fixtures that don't observe reporting need no change; production wires ConnectionIssueReporter.
+    private val reportConnectionIssue: (AppError) -> Unit = {},
 ) {
     /**
      * Reconcile all registered domains at the current [SyncCursorStore.highestCursor].
@@ -68,6 +72,7 @@ internal class SyncReconciler(
 
                     is AppResult.Failure -> {
                         logger.warn { "Digest fetch failed for ${handler.domainName}: ${r.error.code}" }
+                        reportConnectionIssue(r.error)
                         return
                     }
                 }
