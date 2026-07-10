@@ -390,10 +390,11 @@ kotlin.sourceSets.commonMain
 // metadata compiles) — match every `compile*Kotlin*` task rather than enumerate them, so future
 // targets pick up the dependency automatically. This also covers the Apple compile tasks without
 // ever invoking them: Gradle only wires the dependency edge at configuration time, and those tasks
-// simply aren't in the task graph on a Linux build. `ksp*Kotlin*` tasks (Room's KSP processor)
-// also read commonMain sources and need the same edge — Gradle's implicit-dependency validation
-// catches the gap if they're omitted.
+// simply aren't in the task graph on a Linux build. KSP tasks (Room's processor) also read
+// commonMain sources and need the same edge — but their names are inconsistent (`kspKotlinJvm`
+// contains "Kotlin", `kspAndroidMain` does not), so match ALL `ksp*` tasks, not just Kotlin-named
+// ones. Gradle's implicit-dependency validation fails the build if any consumer is omitted.
 tasks
     .matching {
-        it.name.contains("Kotlin") && (it.name.startsWith("compile") || it.name.startsWith("ksp"))
+        (it.name.startsWith("compile") && it.name.contains("Kotlin")) || it.name.startsWith("ksp")
     }.configureEach { dependsOn(generateClientVersion) }
