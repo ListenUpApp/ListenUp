@@ -32,6 +32,24 @@ func awaitUntil(
     }
 }
 
+/// Deterministically advance the main actor until `condition` holds (or `maxHops` is reached), by
+/// yielding cooperatively instead of sleeping on the wall clock. The player's state transitions are
+/// all delivered on the main actor — the `play(bookId:)` prepare task and the `FlowBridge`
+/// engine-event collector — so pumping the actor drives them with **no real-time dependency**.
+///
+/// Prefer this over `awaitUntil` for waits on main-actor-delivered coordinator state: under a
+/// starved CI executor `awaitUntil`'s real-time poll can miss its window and hang to a 25s kill
+/// (issue #1077), whereas this returns as soon as the work drains — and if the transition never
+/// happens it fails fast (the caller's `#expect`) instead of hanging.
+@MainActor
+func pumpUntil(maxHops: Int = 5000, _ condition: () -> Bool) async {
+    var hops = 0
+    while !condition(), hops < maxHops {
+        await Task.yield()
+        hops += 1
+    }
+}
+
 @Suite("ChapterMath")
 struct PlayerCoordinatorTests {
     private func chapter(_ id: String, start: Int64, duration: Int64) -> Chapter {
