@@ -396,6 +396,26 @@ interface LocalPreferences {
     /** Set whether to enable haptic feedback on controls. */
     suspend fun setHapticFeedbackEnabled(enabled: Boolean)
 
+    // Connection health (peer version + outdated-hint dismissal)
+
+    /** The peer server's version observed on a response header / ServerInfo (null until first contact). */
+    val peerServerVersion: StateFlow<String?>
+
+    /** The peer server's API contract version observed alongside [peerServerVersion]. */
+    val peerServerApi: StateFlow<String?>
+
+    /** The (clientVersion, serverVersion) pair the user dismissed the Outdated hint for, if any. */
+    val outdatedDismissedFor: StateFlow<Pair<String, String>?>
+
+    /** Persist the peer server's version + API contract version. */
+    suspend fun setPeerServerVersion(
+        version: String,
+        api: String,
+    )
+
+    /** Persist (or clear, when null) the dismissed (clientVersion, serverVersion) pair. */
+    suspend fun setOutdatedDismissedFor(pair: Pair<String, String>?)
+
     /** Initialize local preferences from storage. Call on app startup. */
     suspend fun initializeLocalPreferences()
 }
