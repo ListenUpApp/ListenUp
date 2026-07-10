@@ -24,10 +24,11 @@ import com.calypsan.listenup.server.services.BookRepository
  *
  * Crash window: if the process dies between the broker reporting success and the DB write
  * landing, the files are already at their new location but `books.root_rel_path` still points at
- * the old one. This window is narrow (a fraction of a single transaction) and self-heals on the
- * very next scan — a same-filesystem move preserves inode, and the scanner's `Differ` falls back
- * to inode-matching when a path match misses, so the book re-links to its new path automatically
- * without operator intervention.
+ * the old one. This window is narrow (a fraction of a single transaction) and **self-heals at the
+ * next scan via the Differ inode fallback**: a same-filesystem move preserves inode, so when the
+ * scanner's path match misses, the `(folder_id, inode)` lookup — the existing moved-book
+ * detection in `BookRepository.resolveOrInsert` — re-links the book to its new path under its
+ * original id, no operator intervention required.
  */
 class MoveManifestExecutor(
     private val broker: LibraryWriteBroker,
