@@ -33,6 +33,9 @@ data class ServerInfo(
     /** Operator-set remote (WAN) URL for off-LAN access; null when unset. Clients persist it as the reconnect fallback. */
     @SerialName("remoteUrl")
     val remoteUrl: String? = null,
+    /** Whether this server can send push notifications (admin toggle AND relay configured). */
+    @SerialName("pushEnabled")
+    val pushEnabled: Boolean = false,
     /**
      * Stable server-instance id (the mDNS TXT `id`), persisted server-side so it survives restarts.
      * Clients compare it on reconnect to tell a restart of the *same* server (stay signed in) from a

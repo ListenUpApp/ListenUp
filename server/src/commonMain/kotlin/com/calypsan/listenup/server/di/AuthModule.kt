@@ -33,6 +33,7 @@ import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
+import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.scheduler.ExpiredSessionCleanupTask
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 import com.calypsan.listenup.server.sync.ShelfRepository
@@ -49,9 +50,14 @@ import kotlin.time.ExperimentalTime
  *
  * Construction order is dependency order: `Database` first (everything needs
  * it); primitives (`Clock`, generators, hashers); then services that compose
- * primitives; then the top-level `AuthServiceImpl`.
+ * primitives; then the top-level `AuthServiceImpl`. [pushRelayUrl] is resolved
+ * once at startup (`Application.resolvePushRelayUrl`) and threaded through here
+ * the same way `homeDir` reaches domain modules — see `installDependencies`.
  */
-fun authModule(config: ApplicationConfig): Module {
+fun authModule(
+    config: ApplicationConfig,
+    pushRelayUrl: String,
+): Module {
     val secrets = resolveServerSecrets(config)
     return module {
         single<Clock> { Clock.System }
@@ -100,6 +106,8 @@ fun authModule(config: ApplicationConfig): Module {
         }
 
         single { ServerSettingsRepository(sql = get(), default = config.registrationPolicy()) }
+
+        single { PushConfig(relayUrl = pushRelayUrl) }
 
         single { SessionIssuer(sessions = get(), jwt = get(), clock = get()) }
 
@@ -191,6 +199,7 @@ fun authModule(config: ApplicationConfig): Module {
                 sql = get<ListenUpDatabase>(),
                 settings = get(),
                 instanceIdentity = get(),
+                pushConfig = get(),
             )
         }
 

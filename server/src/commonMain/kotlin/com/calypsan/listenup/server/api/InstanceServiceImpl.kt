@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.mdns.InstanceIdentity
+import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
 
 /**
@@ -16,12 +17,15 @@ import com.calypsan.listenup.server.settings.ServerSettingsRepository
  * [ServerSettingsRepository] so an admin's `setRegistrationPolicy` is reflected
  * on the next verification without a restart. [ServerInfo.instanceId] is the
  * stable, DB-persisted instance id (read-or-created via [InstanceIdentity], the
- * same id advertised over mDNS). The remaining fields are static server identity.
+ * same id advertised over mDNS). [ServerInfo.pushEnabled] requires both the
+ * admin toggle and a configured [PushConfig] relay. The remaining fields are
+ * static server identity.
  */
 class InstanceServiceImpl(
     private val sql: ListenUpDatabase,
     private val settings: ServerSettingsRepository,
     private val instanceIdentity: InstanceIdentity,
+    private val pushConfig: PushConfig,
 ) : InstanceService {
     override suspend fun getServerInfo(): AppResult<ServerInfo> {
         // setupRequired is derived: a fresh instance with no users needs root setup.
@@ -35,6 +39,7 @@ class InstanceServiceImpl(
                 registrationPolicy = settings.registrationPolicy(),
                 remoteUrl = settings.remoteUrl(),
                 instanceId = instanceIdentity.instanceId(),
+                pushEnabled = settings.pushNotificationsEnabled() && pushConfig.configured,
             ),
         )
     }

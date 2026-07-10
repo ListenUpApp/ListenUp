@@ -4,6 +4,7 @@ import com.calypsan.listenup.server.db.DataDirLock
 import com.calypsan.listenup.server.db.resolveListenupHome
 import com.calypsan.listenup.server.io.readEnv
 import com.calypsan.listenup.server.io.userHomeDir
+import com.calypsan.listenup.server.push.PushConfig
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationStopped
@@ -157,6 +158,17 @@ internal fun Application.resolveDemoLibraryFallback(seedProfile: String?): Path?
     }
     logger.info { "seed.profile=demo — scanning the generated synthetic library at '$candidate'" }
     return candidate
+}
+
+/**
+ * Push relay URL: `push.relayUrl` config key, else LISTENUP_PUSH_RELAY_URL env,
+ * else the ListenUp project relay. The admin setting pushNotificationsEnabled
+ * (default ON) is the on/off switch; this only picks WHICH relay.
+ */
+internal fun Application.resolvePushRelayUrl(): String {
+    val fromConfig = environment.config.propertyOrNull("push.relayUrl")?.getString()
+    val fromEnv = readEnv("LISTENUP_PUSH_RELAY_URL")
+    return (fromConfig ?: fromEnv)?.trim()?.takeIf { it.isNotEmpty() } ?: PushConfig.DEFAULT_RELAY_URL
 }
 
 internal fun ApplicationConfig.rescanOnStartup(): Boolean =
