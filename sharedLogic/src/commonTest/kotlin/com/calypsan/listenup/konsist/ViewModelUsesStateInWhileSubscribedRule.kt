@@ -61,6 +61,9 @@ class ViewModelUsesStateInWhileSubscribedRule :
                 // shape as the ABS*/AdminBackup admin VMs above. No upstream flow to project, so
                 // stateIn(WhileSubscribed) doesn't apply — MutableStateFlow is the right pattern.
                 "ImportFlowViewModel",
+                // By-design: same imperative command-pipeline shape (edit buffer -> preview ->
+                // save-and-run, driven by user actions + run progress events).
+                "OrganizeSettingsViewModel",
             )
 
         test("every UiState-exposing ViewModel uses stateIn(WhileSubscribed) (excluding legacy backlog)") {

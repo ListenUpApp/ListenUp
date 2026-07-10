@@ -134,6 +134,12 @@ internal val adminPresentationModule =
             )
         }
         factory {
+            com.calypsan.listenup.client.presentation.admin.OrganizeSettingsViewModel(
+                repository = get(),
+                errorBus = get(),
+            )
+        }
+        factory {
             com.calypsan.listenup.client.presentation.admin.AdminInboxViewModel(
                 inboxRepository = get(),
                 libraryRepository = get(),
