@@ -13,7 +13,9 @@ import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
+import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -138,11 +140,15 @@ internal val clientSyncModule =
         single<SseClient> {
             val apiClientFactory: ApiClientFactory = get()
             val serverConfig: ServerConfig = get()
+            val reporter: ConnectionIssueReporter = get()
             SyncSseClient(
                 serverUrlProvider = { serverConfig.getActiveUrl()?.value },
                 streamingClientProvider = { apiClientFactory.getStreamingClient() },
                 state = get(),
                 scope = get(qualifier = named(APP_SCOPE)),
+                onAuthExhausted = {
+                    reporter.report(AuthError.SessionExpired(debugInfo = "SSE auth exhausted after in-band refresh"))
+                },
             )
         }
 
