@@ -68,12 +68,16 @@ class LibraryWriteBroker(
      * Probes whether [root] is currently writable: creates a marker file and immediately deletes
      * it, reporting [LibraryWriteStatus.Available] on success. The marker is registered with
      * [registry] before it's created, so the create+delete pair is swallowed as a self-write.
-     * Never throws — an I/O failure at any step reports [LibraryWriteStatus.Unavailable].
+     * The probe observes and never mutates the root itself — a missing root (disconnected mount)
+     * reports [LibraryWriteStatus.Unavailable] rather than being silently created. Never throws —
+     * an I/O failure at any step also reports [LibraryWriteStatus.Unavailable].
      */
     suspend fun probe(root: Path): LibraryWriteStatus {
+        if (!SystemFileSystem.exists(root)) {
+            return LibraryWriteStatus.Unavailable(reason = "$root: does not exist")
+        }
         val marker = Path(root, ".listenup-probe-${Uuid.random()}")
         return try {
-            createDirectoriesSuppressed(root)
             registry.register(marker, suppressionTtlMs)
             SystemFileSystem.sink(marker).buffered().use { it.write(ByteArray(0)) }
             SystemFileSystem.delete(marker, mustExist = false)
