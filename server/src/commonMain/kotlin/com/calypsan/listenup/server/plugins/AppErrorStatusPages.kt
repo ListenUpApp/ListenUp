@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.CampfireError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.CoverError
@@ -158,6 +159,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is PushError -> toHttpStatus()
 
+        is CampfireError -> toHttpStatus()
+
         is ValidationError -> HttpStatusCode.BadRequest
 
         // InternalError, TransportError, and PlaybackError are all server-bug / client-local paths;
@@ -269,6 +272,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is PushError -> {
+            withCorrelationId(id)
+        }
+
+        is CampfireError -> {
             withCorrelationId(id)
         }
 
@@ -830,4 +837,22 @@ private fun PushError.toHttpStatus(): HttpStatusCode =
 private fun PushError.withCorrelationId(id: String?): PushError =
     when (this) {
         is PushError.PushDisabled -> copy(correlationId = id)
+    }
+
+private fun CampfireError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is CampfireError.CampfireNotFound -> HttpStatusCode.NotFound
+        is CampfireError.CampfireFull -> HttpStatusCode.Conflict
+        is CampfireError.NotAMember -> HttpStatusCode.Forbidden
+        is CampfireError.NotController -> HttpStatusCode.Forbidden
+        is CampfireError.BookAccessDenied -> HttpStatusCode.Forbidden
+    }
+
+private fun CampfireError.withCorrelationId(id: String?): CampfireError =
+    when (this) {
+        is CampfireError.CampfireNotFound -> copy(correlationId = id)
+        is CampfireError.CampfireFull -> copy(correlationId = id)
+        is CampfireError.NotAMember -> copy(correlationId = id)
+        is CampfireError.NotController -> copy(correlationId = id)
+        is CampfireError.BookAccessDenied -> copy(correlationId = id)
     }
