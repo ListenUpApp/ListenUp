@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncEngineState
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -94,10 +95,19 @@ internal class ReconnectionSupervisor(
                         errorBus.emit(AuthError.ServerInstanceChanged())
                         return // stop hammering a server we can't use this session against
                     }
-                    // Same instance (or no stored id to compare): server is live — kick the SSE loop
-                    // now. On success the connection flips to Connected and collectLatest cancels us.
-                    sseClient.reconnectNow()
-                    interval = probeIntervalMillis // reachable again → probe promptly until Connected
+                    if (authSession.authState.value is AuthState.SessionLapsed) {
+                        // A lapsed session can't ride reconnectNow() to recovery — the SSE connect
+                        // would only 401 again (this call was the spam amplifier, resetting the SSE
+                        // backoff on every successful unauthenticated probe). Keep probing slowly;
+                        // the engine's auth gate resumes the firehose on re-auth.
+                        interval = MAX_PROBE_INTERVAL_MS
+                    } else {
+                        // Same instance (or no stored id to compare): server is live — kick the SSE
+                        // loop now. On success the connection flips to Connected and collectLatest
+                        // cancels us.
+                        sseClient.reconnectNow()
+                        interval = probeIntervalMillis // reachable again → probe promptly until Connected
+                    }
                 }
 
                 is AppResult.Failure -> {

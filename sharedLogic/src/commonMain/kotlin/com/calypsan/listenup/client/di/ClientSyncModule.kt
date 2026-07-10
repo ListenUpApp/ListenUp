@@ -291,6 +291,8 @@ internal val clientSyncModule =
                 // foreground/reconnect edge (Plan §6a).
                 refreshedRouter = get(),
                 reportConnectionIssue = get<ConnectionIssueReporter>()::report,
+                // The §6.5 auth gate: park the firehose + outbox on SessionLapsed, resume on re-auth.
+                authState = get<AuthSession>().authState,
             )
         }
 

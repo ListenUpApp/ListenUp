@@ -1,8 +1,11 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.dto.auth.SessionId
+import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
+import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.api.sync.AccessScope
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -76,6 +79,12 @@ internal class SyncEngine(
     // failures surface once, typed, instead of dying in logger.warn. Defaults to a no-op so
     // existing test fixtures need no change; production wires ConnectionIssueReporter.
     private val reportConnectionIssue: (AppError) -> Unit = {},
+    // The live auth state driving the §6.5 gates: on SessionLapsed the firehose parks and the
+    // outbox stops draining; on the SessionLapsed→Authenticated edge the firehose resumes with a
+    // forced reconcile. Defaults to an always-authenticated flow (mirroring
+    // AlwaysOnlineNetworkMonitor) so fixtures that don't exercise lapse gating need no change;
+    // production wires the live AuthSession.authState via Koin.
+    private val authState: StateFlow<AuthState> = AlwaysAuthenticatedAuthState,
     private val retryBackoffMillis: Long = DEFAULT_RETRY_BACKOFF_MILLIS,
     private val lifecycleReconcileMinIntervalMs: Long = LIFECYCLE_RECONCILE_MIN_INTERVAL_MS,
 ) {
@@ -85,6 +94,7 @@ internal class SyncEngine(
     private var queueDepthJob: Job? = null
     private var deadLetterCountJob: Job? = null
     private var reconnectRefreshJob: Job? = null
+    private var authGateJob: Job? = null
 
     // Serializes drain waves so concurrent triggers (connection-up + enqueue +
     // retry) coalesce into one wave at a time. drain() reads from the DAO and
@@ -268,6 +278,10 @@ internal class SyncEngine(
         // this wire-up `pendingQueueDepth` / `deadLetterCount` stay stuck
         // at 0 forever even though the queue is doing work.
         ensureStateObservers()
+        // Step 6b: the auth gate — park the firehose on SessionLapsed, resume + force-reconcile
+        // on the SessionLapsed→Authenticated edge (re-login). Subscribed before connect so a
+        // lapse that races startup is never missed.
+        ensureAuthGate()
         // Step 7: connect SSE.
         sseClient.connect()
         // Step 8: digest reconciliation — compare local domain digests against the
@@ -323,6 +337,8 @@ internal class SyncEngine(
         deadLetterCountJob = null
         reconnectRefreshJob?.cancel()
         reconnectRefreshJob = null
+        authGateJob?.cancel()
+        authGateJob = null
         sseClient.disconnect()
     }
 
@@ -710,6 +726,7 @@ internal class SyncEngine(
             val depth = queueDepthJob
             val deadLetters = deadLetterCountJob
             val reconnectRefresh = reconnectRefreshJob
+            val authGate = authGateJob
             engineJob = null
             currentUser = null
             currentUserStarted = false
@@ -719,6 +736,7 @@ internal class SyncEngine(
             queueDepthJob = null
             deadLetterCountJob = null
             reconnectRefreshJob = null
+            authGateJob = null
             engine?.cancelAndJoin()
             collector?.cancelAndJoin()
             connectionUp?.cancelAndJoin()
@@ -726,6 +744,7 @@ internal class SyncEngine(
             depth?.cancelAndJoin()
             deadLetters?.cancelAndJoin()
             reconnectRefresh?.cancelAndJoin()
+            authGate?.cancelAndJoin()
             sseClient.disconnect()
         }
     }
@@ -804,14 +823,17 @@ internal class SyncEngine(
                         .observeEnqueueSignal()
                         .onSubscription { ready.complete(Unit) }
                         .drop(1) // ignore the StateFlow's replayed current value
-                        // Gate on device reachability, NOT the SSE firehose. The outbox pushes over the
-                        // RPC/request transport, which is independent of the inbound SSE stream — so a new
-                        // op must drain whenever the device is online, even while the firehose is down (its
-                        // reconnect loop, an outage, etc.). Gating on SSE-Connected silently stranded
-                        // playback progress + edits whenever the firehose wasn't up. When offline we skip
-                        // the drain so the op's retry budget isn't burned against an unreachable server;
-                        // the connection-up trigger + reconnection supervisor recover it on the next edge.
-                        .filter { networkMonitor.isOnline() }
+                        // Gate on device reachability AND a usable session, NOT the SSE firehose. The
+                        // outbox pushes over the RPC/request transport, which is independent of the
+                        // inbound SSE stream — so a new op must drain whenever the device is online, even
+                        // while the firehose is down (its reconnect loop, an outage, etc.). Gating on
+                        // SSE-Connected silently stranded playback progress + edits whenever the firehose
+                        // wasn't up. When offline we skip the drain so the op's retry budget isn't burned
+                        // against an unreachable server; the connection-up trigger + reconnection
+                        // supervisor recover it on the next edge. With a lapsed session every drain wave
+                        // would 401 and burn the op's retry budget against a server that can't accept it —
+                        // queue semantics unchanged: paused, never cleared; ops drain after re-auth.
+                        .filter { networkMonitor.isOnline() && authState.value is AuthState.Authenticated }
                         .collect { runDrain() }
                 }
             ready.await()
@@ -856,6 +878,45 @@ internal class SyncEngine(
         // presence ping re-fetches currently-listening. force = true bypasses the debounce so a
         // reconnect edge always heals.
         lifecycleReconcile(force = true)
+    }
+
+    /**
+     * Auth-state gate (spec §6.5). On [AuthState.SessionLapsed]: disconnect the SSE client —
+     * parking the reconnect loop entirely, which is the PRIMARY spam stop (the SSE client's own
+     * 5-minute heartbeat is only the backstop if this chain is wedged). On the
+     * SessionLapsed→Authenticated edge (successful re-login): reconnect and force a lifecycle
+     * reconcile so everything missed while parked heals immediately.
+     */
+    private fun ensureAuthGate() {
+        if (authGateJob?.isActive == true) return
+        authGateJob =
+            scope.launch {
+                var previous: AuthState? = null
+                authState.collect { current ->
+                    // Guard per item so a transient failure logs and the gate KEEPS COLLECTING —
+                    // an uncaught throw in an appScope collector kills the process on Kotlin/Native.
+                    try {
+                        val before = previous
+                        previous = current
+                        when {
+                            current is AuthState.SessionLapsed -> {
+                                logger.info { "Session lapsed — parking the SSE firehose" }
+                                sseClient.disconnect()
+                            }
+
+                            current is AuthState.Authenticated && before is AuthState.SessionLapsed -> {
+                                logger.info { "Session restored — resuming SSE + forced reconcile" }
+                                sseClient.connect()
+                                lifecycleReconcile(force = true)
+                            }
+                        }
+                    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.warn(e) { "Auth-gate handling failed; gate continues" }
+                    }
+                }
+            }
     }
 
     /**
@@ -1002,3 +1063,11 @@ private object AlwaysOnlineNetworkMonitor : NetworkMonitor {
 
     override val isOnUnmeteredNetworkFlow: StateFlow<Boolean> = MutableStateFlow(true)
 }
+
+/**
+ * Fallback auth-state flow pinned to [AuthState.Authenticated], keeping [SyncEngine]'s auth gate
+ * open by default. Unit tests that don't exercise session-lapse gating need no change; production
+ * always wires the live [com.calypsan.listenup.client.domain.repository.AuthSession.authState].
+ */
+private val AlwaysAuthenticatedAuthState: StateFlow<AuthState> =
+    MutableStateFlow(AuthState.Authenticated(UserId("engine-default"), SessionId("engine-default")))
