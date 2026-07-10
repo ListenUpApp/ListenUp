@@ -13591,6 +13591,36 @@
         }
       }
     },
+    "shell.session_lapsed_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in to sync — your library and downloads still work."
+          }
+        }
+      }
+    },
+    "shell.session_lapsed_sign_in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign in"
+          }
+        }
+      }
+    },
+    "shell.session_lapsed_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signed out"
+          }
+        }
+      }
+    },
     "shell.sync_details_action": {
       "localizations": {
         "en": {

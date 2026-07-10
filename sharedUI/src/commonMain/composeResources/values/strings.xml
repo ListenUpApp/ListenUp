@@ -1360,6 +1360,9 @@ One beautiful library.</string>
     <string name="shell_pendingcount_pending">%1$s pending</string>
     <string name="shell_retry_all">Retry all</string>
     <string name="shell_search_audiobooks">Search audiobooks...</string>
+    <string name="shell_session_lapsed_body">Sign in to sync — your library and downloads still work.</string>
+    <string name="shell_session_lapsed_sign_in">Sign in</string>
+    <string name="shell_session_lapsed_title">Signed out</string>
     <string name="shell_sync_details_action">Show sync details</string>
     <string name="shell_sync_error">Sync error</string>
     <string name="shell_sync_status">Sync Status</string>

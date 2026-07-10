@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.presentation.admin.CreateInviteViewModel
 import com.calypsan.listenup.client.presentation.auth.PendingApprovalViewModel
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerConnectViewModel
+import com.calypsan.listenup.client.presentation.connection.ConnectionHealthViewModel
 import com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel
 import com.calypsan.listenup.client.presentation.discover.ActivityFeedViewModel
 import com.calypsan.listenup.client.presentation.discover.LeaderboardViewModel
@@ -531,6 +532,8 @@ internal val settingsPresentationModule =
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
         factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
+        // Shell connection-health banner VM (Phase 1: session-lapse projection of AuthState).
+        factory { ConnectionHealthViewModel(authSession = get()) }
         // StorageViewModel for storage management screen
         factory<StorageSpaceProvider> { DownloadFileManagerStorageAdapter(get<DownloadFileManager>()) }
         factory {
