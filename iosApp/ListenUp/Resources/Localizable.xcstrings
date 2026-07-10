@@ -12011,6 +12011,76 @@
         }
       }
     },
+    "push.campfire_invite_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@"
+          }
+        }
+      }
+    },
+    "push.campfire_invite_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ invited you to listen together"
+          }
+        }
+      }
+    },
+    "push.campfire_invite_title_unknown": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You have an invite to listen together"
+          }
+        }
+      }
+    },
+    "push.generic_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Something happened on your server."
+          }
+        }
+      }
+    },
+    "push.generic_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ListenUp"
+          }
+        }
+      }
+    },
+    "push.test_body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Push notifications are working."
+          }
+        }
+      }
+    },
+    "push.test_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test notification"
+          }
+        }
+      }
+    },
     "scan.building_subtitle": {
       "localizations": {
         "en": {
@@ -12987,26 +13057,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rewind a few seconds when resuming playback"
-          }
-        }
-      }
-    },
-    "settings.send_test_notification": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send test notification"
-          }
-        }
-      }
-    },
-    "settings.send_test_notification_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrives when the app is in the background."
           }
         }
       }

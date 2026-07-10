@@ -526,8 +526,6 @@ internal val settingsPresentationModule =
                 authSession = get(),
                 syncRepository = get(),
                 rpcCacheInvalidator = get(),
-                pushRepository = get(),
-                errorBus = get(),
             )
         }
         // DevicesViewModel for the Devices (active sessions) screen

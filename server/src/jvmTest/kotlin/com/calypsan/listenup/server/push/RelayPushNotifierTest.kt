@@ -173,7 +173,9 @@ class RelayPushNotifierTest :
                             it.jsonObject["token"]!!.jsonPrimitive.content to
                                 it.jsonObject["platform"]!!.jsonPrimitive.content
                         }.toSet()
-                sentTokens shouldBe setOf("token-android" to "ANDROID", "token-ios" to "IOS")
+                // The relay wire protocol speaks lowercase platform tags (validate.ts:
+                // "platform must be android|ios"); rows store the PushPlatform enum name.
+                sentTokens shouldBe setOf("token-android" to "android", "token-ios" to "ios")
                 body["payload"] shouldBe contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
             }
         }

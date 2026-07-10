@@ -86,6 +86,14 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name="com.calypsan.listenup.client.push.ListenUpMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- Android Auto support -->
         <meta-data
             android:name="com.google.android.gms.car.application"

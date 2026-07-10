@@ -28,6 +28,7 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.androidx.baselineprofile)
+    alias(libs.plugins.googleServices)
 }
 
 android {

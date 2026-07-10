@@ -179,6 +179,11 @@ kotlin {
 
             // kotlinx-io: wrap a SAF OutputStream as a RawSink to stream backup downloads to disk
             implementation(libs.kotlinx.io.core)
+
+            // Firebase Cloud Messaging (push notifications) + ProcessLifecycleOwner
+            // (foreground/background observation for registration timing)
+            implementation(libs.firebase.messaging)
+            implementation(libs.androidx.lifecycle.process)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

@@ -41,7 +41,8 @@ class RelayPushNotifier(
                 db.pushTokensQueries.selectLiveForUser(userId, clock.now().toEpochMilliseconds()).executeAsList()
             }
         if (rows.isEmpty()) return
-        val tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform, token = it.token) }
+        // Rows store the PushPlatform enum name ("ANDROID"); the relay protocol speaks lowercase.
+        val tokens = rows.map { PushRelayClient.RelayToken(platform = it.platform.lowercase(), token = it.token) }
         val payloadJson = contractJson.encodeToJsonElement(PushPayload.serializer(), payload)
         val collapseKey = collapseKeyFor(payload)
 
