@@ -489,6 +489,8 @@ private class FakeAuthSession(
 
     override suspend fun clearAuthTokens() = Unit
 
+    override suspend fun clearSessionCredentials() = Unit
+
     override suspend fun isAuthenticated(): Boolean = false
 
     override suspend fun initializeAuthState() = Unit

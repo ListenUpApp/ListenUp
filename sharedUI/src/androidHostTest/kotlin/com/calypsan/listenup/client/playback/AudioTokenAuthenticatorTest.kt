@@ -127,6 +127,8 @@ private class StubAudioAuthSession : AuthSession {
 
     override suspend fun clearAuthTokens() = Unit
 
+    override suspend fun clearSessionCredentials() = Unit
+
     override suspend fun isAuthenticated() = false
 
     override suspend fun initializeAuthState() = Unit

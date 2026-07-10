@@ -128,8 +128,9 @@ fun AuthNavigation(
             )
         }
 
-        is AuthState.Authenticated -> {
-            // Auth complete, notify parent
+        is AuthState.Authenticated, is AuthState.SessionLapsed -> {
+            // Desktop treats a lapsed session like the authenticated shell (M2/M3); its
+            // dedicated re-auth affordance follows in a later phase.
             LaunchedEffect(Unit) {
                 onAuthenticated()
             }

@@ -285,6 +285,8 @@ private class FakeStorageAuthSession(
 
     override suspend fun clearAuthTokens() = throw NotImplementedError()
 
+    override suspend fun clearSessionCredentials() = throw NotImplementedError()
+
     override suspend fun isAuthenticated(): Boolean = throw NotImplementedError()
 
     override suspend fun initializeAuthState() = throw NotImplementedError()

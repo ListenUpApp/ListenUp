@@ -185,7 +185,10 @@ fun ListenUpNavigation(
             )
         }
 
-        is AuthState.Authenticated -> {
+        is AuthState.Authenticated, is AuthState.SessionLapsed -> {
+            // SessionLapsed renders the SAME shell (M2/M3): library, downloads, playback of
+            // downloaded content all work. Sharing one branch keeps the composition call site —
+            // and therefore the back stack — stable across the lapse/re-auth transition.
             AuthenticatedNavigation(authSession)
         }
     }
