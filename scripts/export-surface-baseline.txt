@@ -122,6 +122,8 @@ CollectionRepository
 CollectionShare
 CollectionShareItem
 ConnectionCoordinator
+ConnectionHealthUi
+ConnectionHealthViewModel
 ContinueListeningBook
 ContinueListeningItem
 Contributor

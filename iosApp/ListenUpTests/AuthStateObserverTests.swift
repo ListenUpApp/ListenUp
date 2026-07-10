@@ -6,12 +6,12 @@ struct AuthStateKindTests {
     // AuthStateObserver itself needs a live KMP AuthSession; its construction is
     // reviewed against the contract. AuthStateKind — the flattened enum the UI
     // switches on — is pure and verified here.
-    @Test func allSevenCasesAreDistinct() {
+    @Test func allEightCasesAreDistinct() {
         let all: [AuthStateKind] = [
             .initializing, .needsServerUrl, .checkingServer,
-            .needsSetup, .needsLogin, .pendingApproval, .authenticated
+            .needsSetup, .needsLogin, .pendingApproval, .authenticated, .sessionLapsed
         ]
-        #expect(Set(all).count == 7)
+        #expect(Set(all).count == 8)
     }
 
     @Test func equatableHoldsForMatchingCases() {

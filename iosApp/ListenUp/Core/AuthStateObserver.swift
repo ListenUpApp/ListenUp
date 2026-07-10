@@ -62,6 +62,8 @@ final class AuthStateObserver {
             pendingApprovalEmail = pending.email
         case .authenticated:
             state = .authenticated
+        case .sessionLapsed:
+            state = .sessionLapsed
         case .unknown:
             Log.error("Unexpected AuthState case")
             state = .initializing
@@ -78,4 +80,6 @@ enum AuthStateKind: Equatable {
     case needsLogin
     case pendingApproval
     case authenticated
+    /// Credentials dead, local data intact — shell stays mounted with a sign-in banner (never a wall).
+    case sessionLapsed
 }
