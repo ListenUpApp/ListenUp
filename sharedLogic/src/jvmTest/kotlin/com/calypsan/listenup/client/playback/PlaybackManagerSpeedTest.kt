@@ -21,6 +21,7 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
 import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.everySuspend
@@ -102,7 +103,7 @@ class PlaybackManagerSpeedTest :
                 bookRpcFactory = mock<BookRpcFactory>(),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
-                playbackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
+                playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }
 

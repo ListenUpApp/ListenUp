@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.fake.FakePlaybackBandwidthCoordinator
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -117,7 +118,7 @@ class PlaybackManagerPrepareTest :
                 bookRpcFactory = mock<BookRpcFactory>(),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
-                playbackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
+                playbackBandwidthCoordinator = FakePlaybackBandwidthCoordinator(),
             )
         }
 
