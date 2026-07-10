@@ -19,15 +19,15 @@ private const val DEFAULT_SUPPRESSION_TTL_MS = 30_000L
 /**
  * The only component permitted to write inside library folders (Konsist-pinned — see
  * `LibraryWritesGoThroughBrokerRule`). Guarantees: watcher self-write suppression via
- * [SelfWriteRegistry], atomic visibility (temp file + rename), and typed degradation on
- * unwritable roots. Journaled multi-op manifests ([executeManifest]) land in a later phase of
- * this component.
+ * [SelfWriteRegistry], atomic visibility (temp file + rename), journaled crash-resumable
+ * multi-op manifests via [WriteJournal], and typed degradation on unwritable roots.
  *
  * The broker has no feature knowledge — it moves bytes. Sidecar/organize/upload semantics live
  * in their own domains and call through this seam.
  */
 class LibraryWriteBroker(
     private val registry: SelfWriteRegistry,
+    private val journal: WriteJournal,
     private val suppressionTtlMs: Long = DEFAULT_SUPPRESSION_TTL_MS,
 ) {
     /**
@@ -83,6 +83,102 @@ class LibraryWriteBroker(
         } catch (e: Exception) {
             registry.release(marker)
             LibraryWriteStatus.Unavailable(reason = "$root: ${e.message}")
+        }
+    }
+
+    /**
+     * Executes [manifest]'s ops in order. The manifest is journaled *before* its first op runs,
+     * so a crash mid-manifest leaves a resumable trail for [recoverJournal] to pick up at the
+     * next boot. Stops at the first op that fails, leaving the journal in place for a retry —
+     * ops already marked done in the journal are never re-applied. On full success the journal
+     * entry is deleted.
+     */
+    suspend fun executeManifest(manifest: WriteManifest): AppResult<Unit> =
+        try {
+            journal.persist(manifest)
+            applyFrom(manifest, doneFlags = List(manifest.ops.size) { false })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "failed to journal manifest ${manifest.opId}" }
+            failure(LibraryWriteError.Unavailable(debugInfo = "journal persist failed for ${manifest.opId}: ${e.message}"))
+        }
+
+    /**
+     * Re-applies every un-done op of every manifest still in the journal — the crash-resume path,
+     * called once at boot (before the watcher starts) so an interrupted [executeManifest] finishes
+     * instead of leaving the library folder half-changed forever. Idempotent: a manifest whose ops
+     * are already all done (or whose journal entry is simply absent) is a no-op. Never throws —
+     * a manifest that still can't complete (e.g. its root is still unwritable) stays in the
+     * journal and is retried on the next boot; other pending manifests still get their turn.
+     */
+    suspend fun recoverJournal() {
+        for (pending in journal.listPending()) {
+            applyFrom(pending.manifest, pending.doneFlags)
+        }
+    }
+
+    /** Applies [manifest]'s ops from the first un-done index onward, journaling progress as it goes. */
+    private suspend fun applyFrom(
+        manifest: WriteManifest,
+        doneFlags: List<Boolean>,
+    ): AppResult<Unit> {
+        for ((index, op) in manifest.ops.withIndex()) {
+            if (doneFlags[index]) continue
+            val result = applyOp(op)
+            if (result is AppResult.Failure) return result
+            journal.markOpDone(manifest.opId, index)
+        }
+        journal.delete(manifest.opId)
+        return AppResult.Success(Unit)
+    }
+
+    /**
+     * Applies a single [WriteOp], per the idempotency rule documented on its type (see
+     * [WriteOp]'s KDoc). Never throws — any I/O failure becomes a typed
+     * [LibraryWriteError.Unavailable].
+     */
+    private suspend fun applyOp(op: WriteOp): AppResult<Unit> =
+        try {
+            when (op) {
+                is WriteOp.EnsureDir -> {
+                    SystemFileSystem.createDirectories(op.dir)
+                    AppResult.Success(Unit)
+                }
+
+                is WriteOp.MoveFile -> applyMove(op)
+
+                is WriteOp.WriteFile -> writeFile(op.target, op.bytes).let { result ->
+                    if (result is AppResult.Failure) result else AppResult.Success(Unit)
+                }
+
+                is WriteOp.DeleteFile -> {
+                    registry.register(op.target, suppressionTtlMs)
+                    SystemFileSystem.delete(op.target, mustExist = false)
+                    AppResult.Success(Unit)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failure(LibraryWriteError.Unavailable(debugInfo = "${op::class.simpleName} failed: ${e.message}"))
+        }
+
+    /** [WriteOp.MoveFile]'s idempotency rule — see its KDoc for the four-way case breakdown. */
+    private fun applyMove(op: WriteOp.MoveFile): AppResult<Unit> {
+        val fromExists = SystemFileSystem.exists(op.from)
+        val toExists = SystemFileSystem.exists(op.to)
+        return when {
+            !fromExists && toExists -> AppResult.Success(Unit) // already moved
+            fromExists && toExists ->
+                failure(LibraryWriteError.Unavailable(debugInfo = "ambiguous move: both ${op.from} and ${op.to} exist"))
+            !fromExists -> failure(LibraryWriteError.Unavailable(debugInfo = "move source missing: ${op.from}"))
+            else -> {
+                registry.register(op.from, suppressionTtlMs)
+                registry.register(op.to, suppressionTtlMs)
+                SystemFileSystem.atomicMove(op.from, op.to)
+                AppResult.Success(Unit)
+            }
         }
     }
 }
