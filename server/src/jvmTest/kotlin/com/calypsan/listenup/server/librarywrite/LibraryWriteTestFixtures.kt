@@ -13,7 +13,8 @@ internal fun tempLibraryDir(): Path {
 /** Strips write permission from [dir] (POSIX only) so broker operations against it fail typed. */
 internal fun makeReadOnly(dir: Path) {
     Files.setPosixFilePermissions(
-        java.nio.file.Path.of(dir.toString()),
+        java.nio.file.Path
+            .of(dir.toString()),
         setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE),
     )
 }

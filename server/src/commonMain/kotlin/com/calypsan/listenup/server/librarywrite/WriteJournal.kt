@@ -6,12 +6,16 @@ import com.calypsan.listenup.server.io.readBytes
 import com.calypsan.listenup.server.io.readText
 import com.calypsan.listenup.server.io.writeBytes
 import com.calypsan.listenup.server.io.writeText
+import com.calypsan.listenup.server.logging.loggerFor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+
+private val logger = loggerFor<WriteJournal>()
 
 /**
  * Crash-resumable journal for in-flight [WriteManifest]s, filesystem-truth like
@@ -38,15 +42,24 @@ class WriteJournal(
             val persistedOps =
                 manifest.ops.map { op ->
                     when (op) {
-                        is WriteOp.EnsureDir -> PersistedOp.PersistedEnsureDir(dir = op.dir.toString())
-                        is WriteOp.MoveFile -> PersistedOp.PersistedMoveFile(from = op.from.toString(), to = op.to.toString())
+                        is WriteOp.EnsureDir -> {
+                            PersistedOp.PersistedEnsureDir(dir = op.dir.toString())
+                        }
+
+                        is WriteOp.MoveFile -> {
+                            PersistedOp.PersistedMoveFile(from = op.from.toString(), to = op.to.toString())
+                        }
+
                         is WriteOp.WriteFile -> {
                             val index = dataIndex++
                             SystemFileSystem.createDirectories(dataDirFor(manifest.opId))
                             dataFileFor(manifest.opId, index).writeBytes(op.bytes)
                             PersistedOp.PersistedWriteFile(target = op.target.toString(), dataIndex = index)
                         }
-                        is WriteOp.DeleteFile -> PersistedOp.PersistedDeleteFile(target = op.target.toString())
+
+                        is WriteOp.DeleteFile -> {
+                            PersistedOp.PersistedDeleteFile(target = op.target.toString())
+                        }
                     }
                 }
             jsonFor(manifest.opId).writeText(json.encodeToString(PersistedManifest(manifest.opId, persistedOps)))
@@ -71,24 +84,39 @@ class WriteJournal(
             deleteRecursively(dataDirFor(opId))
         }
 
-    /** Every manifest still in the journal, with staged [WriteOp.WriteFile] bytes reattached, and its per-op done flags. */
+    /**
+     * Every manifest still in the journal, with staged [WriteOp.WriteFile] bytes reattached, and
+     * its per-op done flags. Per-file isolation: a journal file that fails to read or deserialize
+     * (corrupt, truncated, missing staged data) is logged, **left on disk for inspection**, and
+     * skipped — one bad file must never abort recovery of every other pending manifest, since
+     * [LibraryWriteBroker.recoverJournal] sits on the boot path.
+     */
     suspend fun listPending(): List<PendingManifest> =
         onIo {
             if (!SystemFileSystem.exists(journalDir)) return@onIo emptyList()
             SystemFileSystem
                 .list(journalDir)
                 .filter { it.name.endsWith(".json") }
-                .map { file ->
-                    val persisted = json.decodeFromString<PersistedManifest>(file.readText())
-                    PendingManifest(
-                        manifest =
-                            WriteManifest(
-                                opId = persisted.opId,
-                                ops = persisted.ops.map { it.toWriteOp(persisted.opId) },
-                            ),
-                        doneFlags = persisted.ops.map { it.done },
-                    )
-                }
+                .mapNotNull { file -> readPendingOrNull(file) }
+        }
+
+    /** Reads one journal file into a [PendingManifest], or null (with a warning) if it's unreadable. */
+    private fun readPendingOrNull(file: Path): PendingManifest? =
+        try {
+            val persisted = json.decodeFromString<PersistedManifest>(file.readText())
+            PendingManifest(
+                manifest =
+                    WriteManifest(
+                        opId = persisted.opId,
+                        ops = persisted.ops.map { it.toWriteOp(persisted.opId) },
+                    ),
+                doneFlags = persisted.ops.map { it.done },
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.warn(e) { "skipping unreadable write-journal file $file — left on disk for inspection" }
+            null
         }
 
     private fun jsonFor(opId: String) = Path(journalDir, "$opId.json")
@@ -102,10 +130,24 @@ class WriteJournal(
 
     private fun PersistedOp.toWriteOp(opId: String): WriteOp =
         when (this) {
-            is PersistedOp.PersistedEnsureDir -> WriteOp.EnsureDir(Path(dir))
-            is PersistedOp.PersistedMoveFile -> WriteOp.MoveFile(Path(from), Path(to))
-            is PersistedOp.PersistedWriteFile -> WriteOp.WriteFile(Path(target), dataFileFor(opId, dataIndex).readBytes())
-            is PersistedOp.PersistedDeleteFile -> WriteOp.DeleteFile(Path(target))
+            is PersistedOp.PersistedEnsureDir -> {
+                WriteOp.EnsureDir(Path(dir))
+            }
+
+            is PersistedOp.PersistedMoveFile -> {
+                WriteOp.MoveFile(Path(from), Path(to))
+            }
+
+            is PersistedOp.PersistedWriteFile -> {
+                WriteOp.WriteFile(
+                    Path(target),
+                    dataFileFor(opId, dataIndex).readBytes(),
+                )
+            }
+
+            is PersistedOp.PersistedDeleteFile -> {
+                WriteOp.DeleteFile(Path(target))
+            }
         }
 
     private suspend fun <T> onIo(block: () -> T): T = withContext(fileIoDispatcher) { block() }
@@ -133,8 +175,10 @@ private data class PersistedManifest(
 /** Server-internal persisted shape of a single [WriteOp], plus its completion flag. */
 @Serializable
 private sealed interface PersistedOp {
+    /** Whether this op already completed — a resumed manifest never re-applies a done op. */
     val done: Boolean
 
+    /** Persisted [WriteOp.EnsureDir]: the directory to create. Naturally idempotent to re-apply. */
     @Serializable
     @SerialName("PersistedOp.EnsureDir")
     data class PersistedEnsureDir(
@@ -144,6 +188,7 @@ private sealed interface PersistedOp {
         override val done: Boolean = false,
     ) : PersistedOp
 
+    /** Persisted [WriteOp.MoveFile]: source and destination paths. Idempotency rule on [WriteOp.MoveFile]. */
     @Serializable
     @SerialName("PersistedOp.MoveFile")
     data class PersistedMoveFile(
@@ -155,6 +200,7 @@ private sealed interface PersistedOp {
         override val done: Boolean = false,
     ) : PersistedOp
 
+    /** Persisted [WriteOp.WriteFile]: target path plus the index of its staged bytes under `<opId>.data/`. */
     @Serializable
     @SerialName("PersistedOp.WriteFile")
     data class PersistedWriteFile(
@@ -166,6 +212,7 @@ private sealed interface PersistedOp {
         override val done: Boolean = false,
     ) : PersistedOp
 
+    /** Persisted [WriteOp.DeleteFile]: the path to delete. A missing target counts as already done. */
     @Serializable
     @SerialName("PersistedOp.DeleteFile")
     data class PersistedDeleteFile(

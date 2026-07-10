@@ -101,7 +101,9 @@ class LibraryWriteBroker(
             throw e
         } catch (e: Exception) {
             logger.warn(e) { "failed to journal manifest ${manifest.opId}" }
-            failure(LibraryWriteError.Unavailable(debugInfo = "journal persist failed for ${manifest.opId}: ${e.message}"))
+            failure(
+                LibraryWriteError.Unavailable(debugInfo = "journal persist failed for ${manifest.opId}: ${e.message}"),
+            )
         }
 
     /**
@@ -146,10 +148,14 @@ class LibraryWriteBroker(
                     AppResult.Success(Unit)
                 }
 
-                is WriteOp.MoveFile -> applyMove(op)
+                is WriteOp.MoveFile -> {
+                    applyMove(op)
+                }
 
-                is WriteOp.WriteFile -> writeFile(op.target, op.bytes).let { result ->
-                    if (result is AppResult.Failure) result else AppResult.Success(Unit)
+                is WriteOp.WriteFile -> {
+                    writeFile(op.target, op.bytes).let { result ->
+                        if (result is AppResult.Failure) result else AppResult.Success(Unit)
+                    }
                 }
 
                 is WriteOp.DeleteFile -> {
@@ -169,10 +175,18 @@ class LibraryWriteBroker(
         val fromExists = SystemFileSystem.exists(op.from)
         val toExists = SystemFileSystem.exists(op.to)
         return when {
-            !fromExists && toExists -> AppResult.Success(Unit) // already moved
-            fromExists && toExists ->
+            !fromExists && toExists -> {
+                AppResult.Success(Unit) // already moved
+            }
+
+            fromExists && toExists -> {
                 failure(LibraryWriteError.Unavailable(debugInfo = "ambiguous move: both ${op.from} and ${op.to} exist"))
-            !fromExists -> failure(LibraryWriteError.Unavailable(debugInfo = "move source missing: ${op.from}"))
+            }
+
+            !fromExists -> {
+                failure(LibraryWriteError.Unavailable(debugInfo = "move source missing: ${op.from}"))
+            }
+
             else -> {
                 registry.register(op.from, suppressionTtlMs)
                 registry.register(op.to, suppressionTtlMs)

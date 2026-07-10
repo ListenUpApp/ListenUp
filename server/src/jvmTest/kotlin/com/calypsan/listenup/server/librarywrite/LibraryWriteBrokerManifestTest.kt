@@ -123,4 +123,32 @@ class LibraryWriteBrokerManifestTest :
                 recoveredJournal.listPending() shouldBe emptyList()
             }
         }
+
+        test("corrupt journal file is skipped and left on disk; valid manifests still recover") {
+            runTest {
+                val dir = tempLibraryDir()
+                val journalDir = tempJournalDir()
+                val corruptFile = Path(journalDir, "corrupt-op.json")
+                SystemFileSystem.createDirectories(journalDir)
+                SystemFileSystem.sink(corruptFile).buffered().use { it.write("{not json!".encodeToByteArray()) }
+
+                val target = Path(dir, "recovered.json")
+                WriteJournal(journalDir).persist(
+                    WriteManifest(
+                        opId = "valid-op",
+                        ops = listOf(WriteOp.WriteFile(target, byteArrayOf(7))),
+                    ),
+                )
+
+                val broker = testBroker(journal = WriteJournal(journalDir))
+                broker.recoverJournal() // must not throw
+
+                // The valid manifest recovered fully and its journal entry is gone.
+                SystemFileSystem.source(target).buffered().use { it.readByteArray() } shouldBe byteArrayOf(7)
+                // The corrupt file stays on disk for inspection and no longer aborts anything.
+                SystemFileSystem.exists(corruptFile) shouldBe true
+                WriteJournal(journalDir).listPending() shouldBe emptyList()
+            }
+        }
+
     })
