@@ -107,11 +107,13 @@ val platformModule: Module =
 
         // Structured device identity — shared source for auth login + listening history.
         single<DeviceInfoProvider> {
+            val clientVersion = get<String>(named("clientVersion"))
             DeviceInfoProvider {
                 DeviceInfo(
                     deviceType = "desktop",
                     platform = System.getProperty("os.name"),
                     clientName = "ListenUp Desktop",
+                    clientVersion = clientVersion,
                     deviceName = System.getProperty("user.name"),
                 )
             }
