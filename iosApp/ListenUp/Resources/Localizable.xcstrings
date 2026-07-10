@@ -1131,6 +1131,16 @@
         }
       }
     },
+    "admin.organize_confirm_row": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ → %2$@"
+          }
+        }
+      }
+    },
     "admin.organize_confirm_run": {
       "localizations": {
         "en": {

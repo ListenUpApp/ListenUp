@@ -52,6 +52,7 @@ import listenup.composeapp.generated.resources.admin_organize_author_first_last
 import listenup.composeapp.generated.resources.admin_organize_author_form
 import listenup.composeapp.generated.resources.admin_organize_author_last_first
 import listenup.composeapp.generated.resources.admin_organize_confirm_more_rows
+import listenup.composeapp.generated.resources.admin_organize_confirm_row
 import listenup.composeapp.generated.resources.admin_organize_confirm_run
 import listenup.composeapp.generated.resources.admin_organize_confirm_summary
 import listenup.composeapp.generated.resources.admin_organize_confirm_title
@@ -115,14 +116,17 @@ fun OrganizeSettingsScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
         when (val current = state) {
-            is OrganizeSettingsUiState.Loading -> FullScreenLoadingIndicator()
+            is OrganizeSettingsUiState.Loading -> {
+                FullScreenLoadingIndicator()
+            }
 
-            is OrganizeSettingsUiState.Error ->
+            is OrganizeSettingsUiState.Error -> {
                 Text(
                     text = current.error.localized(),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.padding(innerPadding).padding(24.dp),
                 )
+            }
 
             is OrganizeSettingsUiState.Ready -> {
                 OrganizeSettingsContent(
@@ -292,7 +296,12 @@ private fun OrganizeConfirmDialog(
                 )
                 preview.entries.take(PREVIEW_ROWS_SHOWN).forEach { entry ->
                     Text(
-                        text = "${entry.fromPath.substringAfterLast('/')} → ${entry.toPath}",
+                        text =
+                            stringResource(
+                                Res.string.admin_organize_confirm_row,
+                                entry.fromPath.substringAfterLast('/'),
+                                entry.toPath,
+                            ),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }

@@ -1096,6 +1096,7 @@
     "organize_confirm_title": "Organize library?",
     "organize_confirm_summary": "Moves %1$d files across %2$d folders; %3$d collisions resolved.",
     "organize_confirm_more_rows": "\u2026and %1$d more",
+    "organize_confirm_row": "%1$s \u2192 %2$s",
     "organize_confirm_run": "Organize now",
     "organize_progress_title": "Organizing library\u2026",
     "organize_progress_count": "%1$d of %2$d books",

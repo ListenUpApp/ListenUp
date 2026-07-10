@@ -113,6 +113,7 @@
     <string name="admin_organize_author_last_first">Last, First</string>
     <string name="admin_organize_books_into_collections_for">Organize books into collections for access control</string>
     <string name="admin_organize_confirm_more_rows">…and %1$d more</string>
+    <string name="admin_organize_confirm_row">%1$s → %2$s</string>
     <string name="admin_organize_confirm_run">Organize now</string>
     <string name="admin_organize_confirm_summary">Moves %1$d files across %2$d folders; %3$d collisions resolved.</string>
     <string name="admin_organize_confirm_title">Organize library?</string>
