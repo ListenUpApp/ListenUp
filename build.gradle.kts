@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.kotlinJvm) apply false
     alias(libs.plugins.androidx.baselineprofile) apply false
     alias(libs.plugins.aboutlibraries) apply false
+    alias(libs.plugins.googleServices) apply false
 
     // Quality Tools
     alias(libs.plugins.detekt)
