@@ -15,7 +15,7 @@ import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
-import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
+import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
 import com.calypsan.listenup.client.data.connection.ReconnectionSupervisor
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
@@ -78,6 +78,16 @@ internal val clientSyncModule =
 
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
+        single {
+            ConnectionHealthStore(
+                engineState = get(),
+                authStateFlow = get<AuthSession>().authState,
+                errorBus = get(),
+                clientIdentity = get(),
+                localPreferences = get<LocalPreferences>(),
+                scope = get(qualifier = named(APP_SCOPE)),
+            )
+        }
         single { PresenceRefreshSignal() }
         single<ServerReachability> {
             SseServerReachability(
@@ -140,7 +150,7 @@ internal val clientSyncModule =
         single<SseClient> {
             val apiClientFactory: ApiClientFactory = get()
             val serverConfig: ServerConfig = get()
-            val reporter: ConnectionIssueReporter = get()
+            val reporter: ConnectionHealthStore = get()
             SyncSseClient(
                 serverUrlProvider = { serverConfig.getActiveUrl()?.value },
                 streamingClientProvider = { apiClientFactory.getStreamingClient() },
@@ -155,7 +165,7 @@ internal val clientSyncModule =
         single<CatchUp> {
             val apiClientFactory: ApiClientFactory = get()
             val serverConfig: ServerConfig = get()
-            val reporter: ConnectionIssueReporter = get()
+            val reporter: ConnectionHealthStore = get()
             SyncCatchUpClient(
                 httpClientProvider = { apiClientFactory.getClient() },
                 serverUrlProvider = { serverConfig.getActiveUrl()?.value },
@@ -180,7 +190,7 @@ internal val clientSyncModule =
                 store = get(),
                 digestClient = get(),
                 catchUp = get(),
-                reportConnectionIssue = get<ConnectionIssueReporter>()::report,
+                reportConnectionIssue = get<ConnectionHealthStore>()::report,
             )
         }
 
@@ -290,7 +300,7 @@ internal val clientSyncModule =
                 // domain's refresh through it so a dropped refresh trigger self-heals on the next
                 // foreground/reconnect edge (Plan §6a).
                 refreshedRouter = get(),
-                reportConnectionIssue = get<ConnectionIssueReporter>()::report,
+                reportConnectionIssue = get<ConnectionHealthStore>()::report,
                 // The §6.5 auth gate: park the firehose + outbox on SessionLapsed, resume on re-auth.
                 authState = get<AuthSession>().authState,
             )

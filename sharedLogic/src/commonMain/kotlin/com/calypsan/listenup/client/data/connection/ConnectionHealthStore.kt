@@ -41,7 +41,7 @@ private val logger = KotlinLogging.logger {}
  * independently as its own condition clears, so precedence never traps a state that should have
  * healed.
  *
- * Absorbs [ConnectionIssueReporter]'s auth-edge fold (see that class's KDoc) as
+ * Absorbs the former `ConnectionIssueReporter`'s auth-edge fold as
  * `report(AppError)` — same Authenticated-guard + once-per-lapse dedup discipline, generalized to a
  * `StateFlow<AuthState>` input instead of a concrete `AuthSession`.
  */

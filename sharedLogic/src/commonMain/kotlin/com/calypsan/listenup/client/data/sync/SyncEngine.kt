@@ -77,7 +77,7 @@ internal class SyncEngine(
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
     // Typed-failure forward to the connection-issue seam (spec §6.4): pass-level catch-up
     // failures surface once, typed, instead of dying in logger.warn. Defaults to a no-op so
-    // existing test fixtures need no change; production wires ConnectionIssueReporter.
+    // existing test fixtures need no change; production wires ConnectionHealthStore.
     private val reportConnectionIssue: (AppError) -> Unit = {},
     // The live auth state driving the §6.5 gates: on SessionLapsed the firehose parks and the
     // outbox stops draining; on the SessionLapsed→Authenticated edge the firehose resumes with a

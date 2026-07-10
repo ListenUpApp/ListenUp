@@ -4,17 +4,19 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
-import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.domains.MirroredDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.AvatarDownloadRepository
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.ClientIdentity
 import com.calypsan.listenup.core.error.ErrorBus
 import io.kotest.core.spec.style.FunSpec
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.StateFlow
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
 
@@ -44,6 +46,14 @@ import org.koin.test.verify.verify
  *    sync handler reads the signed-in user id from it to stamp synced cross-device events.
  *  - [ConnectionCoordinator] — owned by the main `Koin.kt` module; [ReconnectionSupervisor]
  *    drives `reevaluate` through it to re-point the active URL during an outage.
+ *  - [ClientIdentity] — owned by `appCoreModule` (interim stub binding). Consumed by the
+ *    `ConnectionHealthStore` single declared here.
+ *  - [LocalPreferences] — owned by `SettingsModule` (bound to `SettingsRepositoryImpl`).
+ *    Consumed by the `ConnectionHealthStore` single declared here.
+ *  - [StateFlow] — Koin's verify resolves `ConnectionHealthStore`'s required `authStateFlow:
+ *    StateFlow<AuthState>` constructor param against the erased raw type (no default value to
+ *    fall back on, unlike `SyncEngine`'s optional `authState` param). The single itself passes
+ *    the real `get<AuthSession>().authState` at construction, not a Koin-resolved `StateFlow`.
  *  - [InstanceRepository] — owned by the main `Koin.kt` module; [ReconnectionSupervisor] probes
  *    the resolved URL with its unauthenticated `verifyServer` to detect instance identity changes.
  *  - [ErrorBus] — owned by the main `Koin.kt` module; [ReconnectionSupervisor] surfaces an
@@ -70,7 +80,9 @@ class ClientSyncModuleVerifyTest :
                         AuthSession::class,
                         AvatarDownloadRepository::class,
                         ConnectionCoordinator::class,
-                        ConnectionIssueReporter::class,
+                        ClientIdentity::class,
+                        LocalPreferences::class,
+                        StateFlow::class,
                         InstanceRepository::class,
                         ErrorBus::class,
                         Function1::class,

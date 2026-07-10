@@ -53,7 +53,7 @@ internal class SyncCatchUpClient(
     private val store: SyncCursorStore,
     private val transactionRunner: TransactionRunner,
     // Typed-failure forward to the connection-issue seam (spec §6.4). Defaults to a no-op so
-    // fixtures that don't observe reporting need no change; production wires ConnectionIssueReporter.
+    // fixtures that don't observe reporting need no change; production wires ConnectionHealthStore.
     private val reportConnectionIssue: (AppError) -> Unit = {},
 ) : CatchUp {
     /** Drain catch-up for [handler]. Cursor advances incrementally per page. */
