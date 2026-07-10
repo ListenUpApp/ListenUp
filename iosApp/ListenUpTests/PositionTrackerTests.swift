@@ -36,6 +36,30 @@ struct PositionTrackerTests {
     }
 }
 
+@Suite("PositionTracker reset & seed")
+@MainActor
+struct PositionTrackerResetTests {
+    /// Seeding with a paused sample (rate 0) surfaces the resume position immediately, so the
+    /// UI shows the right chapter/time before the engine's first real sample (RC-2). Rate 0 is
+    /// deliberate: it holds the value exactly, without starting the interpolating display link.
+    @Test func seedSurfacesResumePosition() {
+        let tracker = PositionTracker()
+        tracker.update(positionMs: 42_000, rate: 0)
+        #expect(tracker.positionMs == 42_000)
+        #expect(tracker.displayPositionMs == 42_000)
+    }
+
+    /// Reset zeroes the position — the switch path relies on this to clear the outgoing book's
+    /// place before the incoming book is seeded.
+    @Test func resetZeroesPosition() {
+        let tracker = PositionTracker()
+        tracker.update(positionMs: 42_000, rate: 0)
+        tracker.reset()
+        #expect(tracker.positionMs == 0)
+        #expect(tracker.displayPositionMs == 0)
+    }
+}
+
 @Suite("PositionQuantizer")
 struct PositionQuantizerTests {
     @Test func floorsToWholeSeconds() {

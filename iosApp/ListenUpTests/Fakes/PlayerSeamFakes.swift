@@ -9,10 +9,20 @@ actor FakePlaybackEngine: PlaybackEngine {
 
     private(set) var didPlay = false
     private(set) var didPause = false
+    private(set) var didLoad = false
+    private(set) var lastLoadStartMs: Int64?
     private(set) var lastSeekMs: Int64?
     private(set) var lastRate: Float?
     private(set) var lastVolume: Float?
     private(set) var didRelease = false
+    /// When true, `load` reports failure (returns `false`) so tests can exercise the
+    /// coordinator's load-failure → `.error` path without a live `AVPlayer`.
+    var loadShouldFail = false
+    /// When true (default), `play()` emits `.statusChanged(.ready)` to mirror a real player
+    /// reaching `timeControlStatus == .playing`, so the coordinator's `.buffering` phase
+    /// promotes to `.playing`. Tests that want to *observe* the buffering→playing transition
+    /// deterministically set this false and drive the promotion with an explicit `emit(.ready)`.
+    var autoReadyOnPlay = true
     private(set) var didDeactivateSession = false
     private(set) var didActivateSession = false
     private(set) var playCount = 0
@@ -36,9 +46,31 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Push an event into the coordinator's bound stream from a test.
     nonisolated func emit(_ event: AudioEngineEvent) { continuation.yield(event) }
 
-    func load(segments: [AudioSegment], startPositionMs: Int64) async {}
+    /// Toggle the load-failure simulation (actor-isolated state needs a setter).
+    func setLoadShouldFail(_ shouldFail: Bool) { loadShouldFail = shouldFail }
+
+    /// Toggle whether `play()` auto-emits `.ready` (actor-isolated state needs a setter).
+    func setAutoReadyOnPlay(_ auto: Bool) { autoReadyOnPlay = auto }
+
+    /// When true, `load` signals entry then suspends until `releaseLoad()` — lets a test hold a
+    /// load open and observe the coordinator's intermediate (buffering) state while it's in flight.
+    private var shouldBlockLoad = false
+    private var loadBlocker: CheckedContinuation<Void, Never>?
+    func setBlockLoad(_ block: Bool) { shouldBlockLoad = block }
+    func releaseLoad() { loadBlocker?.resume(); loadBlocker = nil }
+
+    func load(segments: [AudioSegment], startPositionMs: Int64) async -> Bool {
+        didLoad = true; lastLoadStartMs = startPositionMs; commandLog.append("load")
+        gate.fire("load")
+        if shouldBlockLoad { await withCheckedContinuation { loadBlocker = $0 } }
+        return !loadShouldFail
+    }
     func play() async {
         didPlay = true; playCount += 1; commandLog.append("play")
+        // Mirror a real player reaching `timeControlStatus == .playing`: emit `.ready` so the
+        // coordinator promotes its optimistic `.buffering` phase to `.playing`. Suppressed when
+        // a test wants to assert the buffering→playing transition explicitly.
+        if autoReadyOnPlay { continuation.yield(.statusChanged(.ready)) }
         gate.fire("play"); gate.fire("play-\(playCount)")
     }
     func pause() async { didPause = true; commandLog.append("pause"); gate.fire("pause") }
@@ -59,6 +91,9 @@ actor FakePlaybackEngine: PlaybackEngine {
     /// Suspend until `play()` has executed for the `count`-th time. Keyed, because a
     /// predicate closure can't read this actor's state (see AsyncGate lines 46–59).
     func waitForPlayCount(_ count: Int) async { await gate.wait(forKey: "play-\(count)") }
+
+    /// Suspend until `load` has been entered (before it returns / while blocked).
+    func waitForLoadEntered() async { await gate.wait(forKey: "load") }
 }
 
 // MARK: - Task 2 seam fakes
@@ -96,10 +131,12 @@ final class FakeProgressReporting: PlaybackProgressReporting, @unchecked Sendabl
 
     /// Suspend until playback has been reported started for `bookId`.
     ///
-    /// This is the canonical "the coordinator has finished starting" anchor: the coordinator
-    /// sets `phase = .playing` and *then* calls `onPlaybackStarted`, so once this returns the
-    /// observable surface (`isPlaying`, `isVisible`, `phase.playingState`) is already consistent.
-    /// Anchoring on `engine.play()` instead would race the coordinator's post-`play` phase write.
+    /// This is the canonical "the coordinator has issued the start" anchor: the coordinator
+    /// enters `.buffering`, calls `engine.play()`, then reports `onPlaybackStarted` — so once
+    /// this returns, `isVisible` and `phase.playingState` are consistent, but `isPlaying` is
+    /// **not yet true**. The engine's first "playing" status event (auto-emitted by
+    /// `FakePlaybackEngine.play()`) promotes `.buffering → .playing` shortly after; a test that
+    /// needs `isPlaying == true` should `await awaitUntil { coordinator.isPlaying }` after this.
     func waitForStarted(bookId: String) async {
         await gate.wait { [weak self] in self?.startedCalls.contains { $0.0 == bookId } ?? false }
     }

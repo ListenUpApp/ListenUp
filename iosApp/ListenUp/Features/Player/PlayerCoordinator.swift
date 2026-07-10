@@ -37,6 +37,17 @@ enum ScenePhasePolicy {
     }
 }
 
+/// Pure predicate for the load-generation guard — a book-switch epoch check, testable
+/// without a coordinator. Each `play(bookId:)` bumps the coordinator's generation; an
+/// in-flight prepare captures the generation it started under and bails after every
+/// `await` if a newer switch has superseded it, so a slow prepare for book A can never
+/// stomp the state of a book B the user has since switched to (RC-4).
+enum LoadGeneration {
+    static func isSuperseded(taskGeneration: Int, current: Int) -> Bool {
+        taskGeneration != current
+    }
+}
+
 /// Pure chapter math — resolves a whole-book position to a chapter index.
 /// Split out so it is testable without a coordinator.
 enum ChapterMath {
@@ -79,6 +90,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
         if case .buffering = phase { return true }
         return false
     }
+
+    /// Playback intent is "advancing": the audio is playing OR buffering toward playing.
+    /// The transport, remote commands, and toggle all treat these two as one — the user's
+    /// intent is the same, and the buffering→playing promotion is an internal engine detail.
+    var isPlaybackActive: Bool { isPlaying || isBuffering }
 
     // MARK: - Preserved UI surface — book metadata (set once on load)
 
@@ -199,6 +215,18 @@ final class PlayerCoordinator: RemoteCommandHandler {
     private var lastReportedPositionMs: Int64 = 0
     private var lastSyncedChapterIndex: Int = -1
     private var isFading = false
+    /// The in-flight prepare-and-start task for the current `play(bookId:)`, cancelled the
+    /// instant the user switches books so its post-`await` continuations bail (RC-4).
+    private var prepareTask: Task<Void, Never>?
+    /// Bumped on every `play(bookId:)`. The current epoch; an in-flight prepare compares the
+    /// generation it captured against this after each `await` and abandons if superseded.
+    private var loadGeneration = 0
+    /// True from the start of a `play(bookId:)` until its `engine.load` resolves. While set, all
+    /// engine events are dropped in `handleEngineEvent` — they belong to the outgoing book or to
+    /// the muted preroll, never to the freshly-buffering incoming book. Decoupled from the
+    /// `.preparing` phase so the UI can show the honest `.buffering(duration)` state *during* the
+    /// load while these events are still gated.
+    private var isEngineLoading = false
     /// True only while playback is paused *because of* an audio-session
     /// interruption. Gates `.ended + .shouldResume`: resume is honored only
     /// when the interruption did the pausing — a user's deliberate pause is
@@ -351,22 +379,75 @@ final class PlayerCoordinator: RemoteCommandHandler {
 
     // MARK: - Actions
 
-    /// Prepare and start playback of a book.
+    /// Prepare and start playback of a book. Safe to call while another book is playing or
+    /// still preparing: the in-flight prepare is cancelled, the outgoing book's position is
+    /// saved, the metadata surface is reset synchronously, and the engine is silenced before
+    /// the new book loads — so a switch never leaks the old book's cover/chapters/audio (RC-1, RC-4).
     func play(bookId: String) {
         pausedByInterruption = false
+
+        // Cancel any in-flight prepare and open a new epoch so its post-`await` continuations bail.
+        prepareTask?.cancel()
+        loadGeneration &+= 1
+        let generation = loadGeneration
+        // Gate engine events for the whole switch→load window (see `isEngineLoading`).
+        isEngineLoading = true
+
+        // Save the outgoing book's place before we retarget — a switch must not lose it.
+        // Only silence the engine when there *was* an outgoing loaded book: an unconditional
+        // pause on a fresh (idle) play is a no-op on the real engine, but pre-fires the test
+        // engine's pause signal and desynchronizes the interruption fixtures.
+        let hadLoadedBook = phase.playingState != nil
+        if let outgoing = phase.playingState {
+            progress.onPlaybackPaused(bookId: outgoing.bookId, positionMs: bookPositionMs, speed: playbackSpeed)
+        }
+
+        // RC-1(a): clear the metadata surface synchronously, before the async prepare, so that
+        // during `.preparing` the UI never renders book A's cover/chapters/title against book B's id.
+        resetMetadataForSwitch()
+
         phase = .preparing(PreparingState(bookId: bookId))
         currentBookId = bookId
-        Task { await prepareAndStart(bookId: bookId) }
+
+        prepareTask = Task {
+            // Silence the outgoing book immediately — before the (possibly slow) prepare —
+            // so switching never leaves the previous audio playing under the new metadata.
+            if hadLoadedBook { await engine.pause() }
+            await prepareAndStart(bookId: bookId, generation: generation)
+        }
     }
 
-    /// Toggle between play and pause.
+    /// Reset the observable metadata surface and position state for a fresh load. Keeps
+    /// `playbackSpeed` (re-derived from the prepared book) to avoid a flash back to 1.0×.
+    private func resetMetadataForSwitch() {
+        bookTitle = ""
+        authorName = ""
+        narratorName = ""
+        coverPath = nil
+        coverBlurHash = nil
+        chapters = []
+        firstPdfDocId = nil
+        documentToOpen = nil
+        positionTracker.reset()
+        lastReportedPositionMs = 0
+        lastSyncedChapterIndex = -1
+    }
+
+    /// Toggle between play and pause. In `.error`, retries the errored book so the user is
+    /// never stranded on a dead player (RC-5).
     func togglePlayback() {
         pausedByInterruption = false
+        // Recovery: a tap on an errored book starts a fresh load rather than no-oping.
+        if case .error(let errorState) = phase {
+            if let bookId = errorState.bookId { play(bookId: bookId) }
+            return
+        }
         guard let loaded = phase.playingState else { return }
         // KMP value-class `BookId` is erased at the Swift boundary — its APIs take
         // the underlying id value directly.
         let id = loaded.bookId
-        if phase.isPlaying {
+        // Buffering counts as "active" — a toggle while buffering is a pause, not a resume.
+        if isPlaybackActive {
             Task { await engine.pause() }
             phase = .paused(loaded)
             progress.onPlaybackPaused(bookId: id, positionMs: bookPositionMs, speed: playbackSpeed)
@@ -381,7 +462,9 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// Seek to a whole-book position in milliseconds.
     func seekTo(positionMs: Int64) {
         Task { await engine.seek(toMs: positionMs) }
-        if let id = currentBookId {
+        // Report against the *loaded* book only — during `.preparing` the incoming book isn't
+        // loaded yet, and reporting a seek for it would corrupt its untouched resume position.
+        if let id = phase.playingState?.bookId {
             progress.onPositionUpdate(bookId: id, positionMs: positionMs, speed: playbackSpeed)
             lastReportedPositionMs = positionMs
         }
@@ -392,7 +475,7 @@ final class PlayerCoordinator: RemoteCommandHandler {
     func setSpeed(_ speed: Float) {
         playbackSpeed = speed
         Task { await engine.setRate(speed) }
-        if let id = currentBookId {
+        if let id = phase.playingState?.bookId {
             progress.onSpeedChanged(
                 bookId: id, positionMs: bookPositionMs, newSpeed: speed
             )
@@ -438,7 +521,10 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// the app backgrounds/terminates — the periodic 5s tick is not enough to
     /// guarantee the user's place survives a kill.
     func saveCurrentPosition() async {
-        guard let id = currentBookId, isVisible else { return }
+        // Key on the *loaded* book, not `currentBookId`/`isVisible`: both are true during
+        // `.preparing` (the incoming book), and saving position 0 there would zero its
+        // untouched resume point before it ever starts.
+        guard let id = phase.playingState?.bookId else { return }
         await progress.savePositionNow(bookId: id, positionMs: bookPositionMs)
     }
 
@@ -447,6 +533,13 @@ final class PlayerCoordinator: RemoteCommandHandler {
     /// *before* the call returns.
     func stop() async {
         pausedByInterruption = false
+        // Supersede any in-flight `prepareAndStart`: `Task.cancel()` alone does not interrupt its
+        // non-cancellation-checking `await`s (prepare, engine.load), so without bumping the epoch a
+        // load that resolves after teardown would call `engine.play()` on the released engine and
+        // resurrect `.playing`. Bumping `loadGeneration` makes it bail at its next `!isSuperseded`.
+        prepareTask?.cancel()
+        loadGeneration &+= 1
+        isEngineLoading = false
         bridge.cancelAll()
         positionTracker.reset()
         await engine.deactivateSession()
@@ -456,39 +549,98 @@ final class PlayerCoordinator: RemoteCommandHandler {
     // MARK: - RemoteCommandHandler
 
     func remoteTogglePlayPause() { togglePlayback() }
-    func remotePlay() { if !isPlaying { togglePlayback() } }
-    func remotePause() { if isPlaying { togglePlayback() } }
+    // Gate on `isPlaybackActive` (playing OR buffering) so the lock-screen play/pause
+    // commands stay correct during the startup buffer — `isPlaying` alone would let a
+    // remote "play" during buffering fall through to `togglePlayback` and pause instead.
+    func remotePlay() { if !isPlaybackActive { togglePlayback() } }
+    func remotePause() { if isPlaybackActive { togglePlayback() } }
     func remoteSkipForward() { skipForward() }
     func remoteSkipBackward() { skipBackward() }
     func remoteSeek(toMs positionMs: Int64) { seekTo(positionMs: positionMs) }
 
     // MARK: - Prepare
 
-    private func prepareAndStart(bookId: String) async {
-        // Reset document state at the start of every new book load.
-        firstPdfDocId = nil
-        documentToOpen = nil
-
+    private func prepareAndStart(bookId: String, generation: Int) async {
         guard let prepared = await preparer.prepare(bookId: bookId) else {
+            guard !isSuperseded(generation) else { return }
+            isEngineLoading = false
             phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
             return
         }
+        guard !isSuperseded(generation) else { return }
+
         bookTitle = prepared.bookTitle
         authorName = prepared.bookAuthor
         narratorName = prepared.bookNarrator
         coverPath = prepared.coverPath
         chapters = prepared.chapters
         playbackSpeed = prepared.resumeSpeed
-        coverBlurHash = await coverProvider.coverBlurHash(bookId: bookId)
-        // Resolve PDF availability concurrently — does not block audio start.
-        // Guard against a stale result landing after a rapid book switch: only apply
-        // the resolved id if this book is still the current one.
+        // RC-2: seed the tracker with the resume position (paused) so the UI shows the right
+        // chapter/time immediately — before the engine's first real sample lands.
+        positionTracker.update(positionMs: prepared.resumePositionMs, rate: 0)
+        lastReportedPositionMs = prepared.resumePositionMs
+
+        let segments = Self.resolveSegments(prepared.timeline.files)
+        guard !segments.isEmpty else {
+            guard !isSuperseded(generation) else { return }
+            isEngineLoading = false
+            phase = .error(ErrorState(message: "This book has no audio.", bookId: bookId))
+            return
+        }
+
+        // Honest buffering UI: show the book with its REAL duration and a buffering state the
+        // instant we know them — before the (possibly slow, streaming) load — instead of holding
+        // the UI at "0m / preparing". Engine events stay gated by `isEngineLoading` through the
+        // load, so this early `.buffering` never absorbs the outgoing book's or the muted preroll's
+        // events. The first real `timeControlStatus == .playing` (after the gate lifts) promotes it
+        // to `.playing`.
+        phase = .buffering(PlayingState(bookId: bookId, durationMs: prepared.timeline.totalDurationMs))
+        lastSyncedChapterIndex = chapterIndex
+        updateNowPlaying()
+
+        // Blur-hash + PDF availability resolve concurrently — neither blocks the audio start, and
+        // the cover already renders from `coverPath`. Guard stale results after a rapid switch.
+        let blurHash = await coverProvider.coverBlurHash(bookId: bookId)
+        if !isSuperseded(generation) { coverBlurHash = blurHash }
         Task {
             let id = await documentProvider.firstPdfDocId(bookId: bookId)
             if bookId == currentBookId { firstPdfDocId = id }
         }
 
-        let segments = prepared.timeline.files.compactMap { file -> AudioSegment? in
+        // `load` awaits readiness and seeks to the resume position before returning, so
+        // playback starts from the right place (RC-2). A `false` result means the load failed.
+        let loaded = await engine.load(segments: segments, startPositionMs: prepared.resumePositionMs)
+        guard !isSuperseded(generation) else { return }
+        // The load is done — lift the event gate so the engine's real playing/buffering/position
+        // events drive the phase from here on.
+        isEngineLoading = false
+        guard loaded else {
+            // The incoming book's own load failure is reported here (RC-5). Its failure surfaces
+            // via `load` returning false, not via a gated engine event.
+            phase = .error(ErrorState(message: "Couldn't start playback.", bookId: bookId))
+            return
+        }
+
+        await engine.setRate(prepared.resumeSpeed)
+        guard !isSuperseded(generation) else { return }
+        await engine.play()
+        guard !isSuperseded(generation) else { return }
+
+        // Report started only after the engine has actually been told to play, and only for the
+        // book that survived the switch — so a superseded load never reports a phantom start.
+        lastReportedPositionMs = prepared.resumePositionMs
+        progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed)
+    }
+
+    /// Whether a newer `play(bookId:)` has superseded the load that captured `generation`.
+    private func isSuperseded(_ generation: Int) -> Bool {
+        LoadGeneration.isSuperseded(taskGeneration: generation, current: loadGeneration)
+    }
+
+    /// Resolve the prepared timeline's files into playable `AudioSegment`s — the local file when
+    /// downloaded, else the streaming URL; files with neither are dropped.
+    private static func resolveSegments(_ files: [PreparedFile]) -> [AudioSegment] {
+        files.compactMap { file -> AudioSegment? in
             let url: URL
             if let localPath = file.localPath {
                 url = URL(fileURLWithPath: localPath)
@@ -499,26 +651,23 @@ final class PlayerCoordinator: RemoteCommandHandler {
             }
             return AudioSegment(url: url, durationMs: file.durationMs, offsetMs: file.startOffsetMs)
         }
-        guard !segments.isEmpty else {
-            phase = .error(ErrorState(message: "This book has no audio.", bookId: bookId))
-            return
-        }
-
-        await engine.load(segments: segments, startPositionMs: prepared.resumePositionMs)
-        await engine.setRate(prepared.resumeSpeed)
-        await engine.play()
-        phase = .playing(PlayingState(bookId: bookId, durationMs: prepared.timeline.totalDurationMs))
-        lastReportedPositionMs = prepared.resumePositionMs
-        progress.onPlaybackStarted(bookId: bookId, positionMs: prepared.resumePositionMs, speed: prepared.resumeSpeed)
-        updateNowPlaying()
-        lastSyncedChapterIndex = chapterIndex
     }
 
     // MARK: - Engine events
 
     private func handleEngineEvent(_ event: AudioEngineEvent) {
+        // Drop any engine event that arrives while a book is loading (`isEngineLoading`): it
+        // predates the incoming book's `engine.load` completing and belongs to the *outgoing*
+        // book or to the muted preroll. Critically this covers `.failed` — a late failure KVO
+        // from book A must not be attributed to book B and abort its start (RC-4). The incoming
+        // book's own load failure surfaces via `engine.load` returning `false`, never via a gated
+        // event. Gated on the flag, not the `.preparing` phase, so the honest `.buffering(duration)`
+        // state can be shown *during* the load while these events stay suppressed.
+        if isEngineLoading { return }
         switch event {
         case .position(let ms, let rate):
+            // Only a loaded book has a place to report to (guards `.idle`/`.error` too).
+            guard phase.playingState != nil else { break }
             positionTracker.update(positionMs: ms, rate: rate)
             reportPositionIfNeeded(ms)
             if chapterIndex != lastSyncedChapterIndex {
@@ -530,26 +679,38 @@ final class PlayerCoordinator: RemoteCommandHandler {
         case .ended:
             handleBookEnded()
         case .failed(let message):
-            phase = .error(ErrorState(message: message, bookId: currentBookId))
+            // Attribute the failure to the phase's book, not `currentBookId` — during a switch
+            // the two can differ, and the error must name the book the engine was actually loading.
+            phase = .error(ErrorState(message: message, bookId: phase.bookId ?? currentBookId))
+            updateNowPlaying()
         }
     }
 
-    /// Collapse the engine's interleaved ready/buffering stream: only the
-    /// playing↔buffering pair transitions; a paused player ignores status churn.
+    /// Collapse the engine's interleaved ready/buffering stream into phase transitions.
+    /// `.ready` (timeControlStatus == .playing) promotes a buffering book to playing;
+    /// `.buffering` demotes a playing book. A paused player ignores status churn.
     private func applyEngineStatus(_ status: AudioEngineStatus) {
         guard let loaded = phase.playingState else { return }
         switch status {
         case .buffering:
-            if case .playing = phase { phase = .buffering(loaded) }
+            if case .playing = phase {
+                phase = .buffering(loaded)
+                updateNowPlaying()
+            }
         case .ready:
-            if case .buffering = phase { phase = .playing(loaded) }
+            if case .buffering = phase {
+                phase = .playing(loaded)
+                updateNowPlaying()
+            }
         case .idle:
             break
         }
     }
 
     private func reportPositionIfNeeded(_ positionMs: Int64) {
-        guard let id = currentBookId else { return }
+        // Report against the *loaded* book, not `currentBookId` — the latter is retargeted
+        // synchronously on switch, before the new book is loaded (RC-4).
+        guard let id = phase.playingState?.bookId else { return }
         if abs(positionMs - lastReportedPositionMs) >= Self.positionReportIntervalMs {
             lastReportedPositionMs = positionMs
             progress.onPositionUpdate(
@@ -559,8 +720,8 @@ final class PlayerCoordinator: RemoteCommandHandler {
     }
 
     private func handleBookEnded() {
-        guard let id = currentBookId, let loaded = phase.playingState else { return }
-        progress.onBookFinished(bookId: id, finalPositionMs: bookDurationMs)
+        guard let loaded = phase.playingState else { return }
+        progress.onBookFinished(bookId: loaded.bookId, finalPositionMs: bookDurationMs)
         phase = .paused(loaded)
         updateNowPlaying()
     }
@@ -594,6 +755,11 @@ final class PlayerCoordinator: RemoteCommandHandler {
             artist: authorName,
             durationMs: bookDurationMs,
             elapsedMs: bookPositionMs,
+            // Report a live rate ONLY while audio is actually advancing (`.playing`) — not while
+            // buffering. `MPNowPlayingInfoCenter` extrapolates the displayed elapsed time as
+            // `elapsed + rate·wallclock`, so a non-zero rate during the (now much longer) pre-load
+            // buffer would tick the lock-screen clock forward from the resume point and then snap
+            // it back when real playback starts. Rate 0 while buffering keeps elapsed honest.
             rate: isPlaying ? Double(playbackSpeed) : 0,
             artworkPath: coverPath
         ))

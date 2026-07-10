@@ -19,7 +19,7 @@ enum CoverImageRequest {
         let processors = AuthenticatedImageRequest.processors(targetPixels: targetPixels)
 
         if let coverPath, !coverPath.isEmpty {
-            let cacheKey = coverCacheKey(identity: bookId ?? coverPath, coverHash: coverHash)
+            let cacheKey = localFileCacheKey(bookId: bookId, coverPath: coverPath, coverHash: coverHash)
             return AuthenticatedImageRequest.localFile(coverPath, processors: processors, cacheKey: cacheKey)
         }
 
@@ -35,14 +35,32 @@ enum CoverImageRequest {
               let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
         else { return nil }
 
-        let cacheKey = coverCacheKey(identity: bookId, coverHash: coverHash)
+        // No hash → `nil` cache key → Nuke keys on the request URL (`/api/v1/covers/{bookId}`),
+        // which is already unique per book. Never the `"bookId:cover"` custom key: it is the exact
+        // poisoned key the old bug wrote, and during a switch (`coverPath == nil`, `bookId == B`)
+        // it would let book A's still-cached bytes flash on book B. Passing `nil` also orphans any
+        // stale `"<id>:cover"` disk entries. With a hash we keep the content-scoped `"<id>:<hash>"`.
+        let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
     }
 
-    /// Fold the cover content hash into Nuke's cache identity so a new cover at the same stable
-    /// path/URL busts the old entry — mirrors Android's `"$bookId:$coverHash"` Coil key. The key is
-    /// token-independent, so a cached cover still survives access-token rotation.
-    private static func coverCacheKey(identity: String, coverHash: String?) -> String {
-        "\(identity):\(coverHash ?? "cover")"
+    /// Cache key for a **local cover file**. A `bookId`-scoped key is only content-safe when it
+    /// folds in the content hash: during a book switch, `bookId` advances to book B while
+    /// `coverPath` can still point at book A's file, so a `"B:cover"` key (bookId, no hash) would
+    /// stamp book B's identity onto book A's bytes and poison the shared memory+disk cache — the
+    /// "cover never changes" bug (RC-1). Without a hash we key by the **file path** instead, which
+    /// is unique per file and can't be mis-associated. With a hash we keep the bookId-scoped key
+    /// (mirrors the server-URL branch and Android's `"$bookId:$coverHash"`).
+    static func localFileCacheKey(bookId: String?, coverPath: String, coverHash: String?) -> String {
+        contentHashKey(identity: bookId ?? coverPath, coverHash: coverHash) ?? coverPath
+    }
+
+    /// The content-scoped cache key `"<identity>:<coverHash>"`, or `nil` when there is no hash.
+    /// Returning `nil` is deliberate: a hash-less key must fall back to Nuke's natural URL/path
+    /// identity, never a bare-`bookId` key (which is not content-safe and poisons the cache).
+    /// Token-independent, so a cached cover survives access-token rotation.
+    static func contentHashKey(identity: String, coverHash: String?) -> String? {
+        guard let coverHash, !coverHash.isEmpty else { return nil }
+        return "\(identity):\(coverHash)"
     }
 }

@@ -32,12 +32,14 @@ struct NowPlayingStrip: View {
             Spacer(minLength: 8)
 
             Button { player.togglePlayback() } label: {
-                Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
+                // `isPlaybackActive` (playing OR buffering) so the glyph reads "pause" during the
+                // startup buffer, matching what a tap does.
+                Image(systemName: player.isPlaybackActive ? "pause.fill" : "play.fill")
                     .font(.title3).foregroundStyle(.white)
                     .frame(width: 38, height: 38)
                     .background(Color.listenUpOrange, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             }
-            .accessibilityLabel(String(localized: player.isPlaying ? "player.pause" : "player.play"))
+            .accessibilityLabel(String(localized: player.isPlaybackActive ? "player.pause" : "player.play"))
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))

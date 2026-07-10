@@ -648,6 +648,10 @@ struct PlaybackLifecycleTests {
         // coordinator sets `phase = .playing` *then* reports started, so awaiting the engine
         // command would race the phase write and read `isPlaying` before it flips.
         await progress.waitForStarted(bookId: "book1")
+        // The coordinator starts in `.buffering` and is promoted to `.playing` by the engine's
+        // first "playing" status event (RC-3); await that promotion rather than asserting it
+        // the instant `onPlaybackStarted` lands.
+        await awaitUntil { coordinator.isPlaying }
         #expect(coordinator.isPlaying)
         #expect(coordinator.isVisible)
 
