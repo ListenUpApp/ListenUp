@@ -48,7 +48,7 @@ class LibraryWriteBroker(
                 ?: return failure(LibraryWriteError.Unavailable(debugInfo = "no parent directory: $target"))
         val tmp = Path(parent, ".listenup-tmp-${Uuid.random()}")
         return try {
-            SystemFileSystem.createDirectories(parent)
+            createDirectoriesSuppressed(parent)
             registry.register(target, suppressionTtlMs)
             registry.register(tmp, suppressionTtlMs)
             SystemFileSystem.sink(tmp).buffered().use { it.write(bytes) }
@@ -73,7 +73,7 @@ class LibraryWriteBroker(
     suspend fun probe(root: Path): LibraryWriteStatus {
         val marker = Path(root, ".listenup-probe-${Uuid.random()}")
         return try {
-            SystemFileSystem.createDirectories(root)
+            createDirectoriesSuppressed(root)
             registry.register(marker, suppressionTtlMs)
             SystemFileSystem.sink(marker).buffered().use { it.write(ByteArray(0)) }
             SystemFileSystem.delete(marker, mustExist = false)
@@ -144,7 +144,7 @@ class LibraryWriteBroker(
         try {
             when (op) {
                 is WriteOp.EnsureDir -> {
-                    SystemFileSystem.createDirectories(op.dir)
+                    createDirectoriesSuppressed(op.dir)
                     AppResult.Success(Unit)
                 }
 
@@ -169,6 +169,21 @@ class LibraryWriteBroker(
         } catch (e: Exception) {
             failure(LibraryWriteError.Unavailable(debugInfo = "${op::class.simpleName} failed: ${e.message}"))
         }
+
+    /**
+     * Creates [dir] (and any missing ancestors), registering every directory that does not yet
+     * exist with [registry] *before* it's created. A directory-create fires its own kernel event
+     * at the watcher — proven by the WatcherSuppression integration test — so the directories the
+     * broker brings into existence need claims exactly like the files it writes.
+     */
+    private fun createDirectoriesSuppressed(dir: Path) {
+        var missing: Path? = dir
+        while (missing != null && !SystemFileSystem.exists(missing)) {
+            registry.register(missing, suppressionTtlMs)
+            missing = missing.parent
+        }
+        SystemFileSystem.createDirectories(dir)
+    }
 
     /** [WriteOp.MoveFile]'s idempotency rule — see its KDoc for the four-way case breakdown. */
     private fun applyMove(op: WriteOp.MoveFile): AppResult<Unit> {
