@@ -14,6 +14,16 @@ private const val UNKNOWN_AUTHOR = "Unknown Author"
  * result is always a safe, cross-platform relative path.
  */
 object OrganizerPathPlanner {
+    /**
+     * The uploads/new-arrival seam (spec: uploads ALWAYS land structured, consumed by the Phase-4
+     * upload flow): an enabled organizer plans with the admin's [settings]; a disabled one falls
+     * back to the default schema instead of landing files unstructured.
+     */
+    fun planForArrival(
+        facts: BookOrganizeFacts,
+        settings: OrganizerSettings,
+    ): String = planFor(facts, if (settings.enabled) settings else OrganizerSettings())
+
     /** Derives [facts]'s canonical path, relative to its library folder root, under [settings]. */
     fun planFor(
         facts: BookOrganizeFacts,
