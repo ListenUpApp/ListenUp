@@ -183,14 +183,6 @@ internal class ConnectionHealthStore(
         if (reachable) lastProbeReachableAt.value = currentEpochMilliseconds()
     }
 
-    /** Persist the peer server's observed version + API contract version. */
-    suspend fun updatePeerVersion(
-        serverVersion: String,
-        serverApi: String,
-    ) {
-        localPreferences.setPeerServerVersion(serverVersion, serverApi)
-    }
-
     /**
      * Dismiss the current Outdated hint for the peer server's currently observed version. A
      * no-op if no peer version has been observed yet.

@@ -151,7 +151,9 @@ internal fun createApiClientFactory(
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
     clientIdentity: ClientIdentity,
-): ApiClientFactory = KtorApiClientFactory(serverConfig, authSession, refreshAccessToken, clientIdentity)
+    onPeerVersion: suspend (version: String, api: String) -> Unit = { _, _ -> },
+): ApiClientFactory =
+    KtorApiClientFactory(serverConfig, authSession, refreshAccessToken, clientIdentity, onPeerVersion = onPeerVersion)
 
 /**
  * Public seam to eagerly prime the authenticated HTTP client from outside `:sharedLogic`.
@@ -184,6 +186,12 @@ internal class KtorApiClientFactory(
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,
     private val clientIdentity: ClientIdentity,
+    /**
+     * Called with a CHANGED (version, api) pair captured off the server's
+     * `X-Server-Version`/`X-Server-Api` response headers — see [installPeerVersionCapture].
+     * Defaults to a no-op so test call sites unrelated to version capture don't need updating.
+     */
+    private val onPeerVersion: suspend (version: String, api: String) -> Unit = { _, _ -> },
     /**
      * Test-only engine override. `null` (production) selects the platform-default
      * engine; tests inject a `MockEngine` so the real client configuration —
@@ -272,6 +280,7 @@ internal class KtorApiClientFactory(
 
         val config: HttpClientConfig<*>.() -> Unit = {
             installListenUpErrorHandling()
+            installPeerVersionCapture(onPeerVersion)
 
             install(ContentNegotiation) {
                 json(appJson)

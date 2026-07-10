@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.version.ClientIdentity
 import io.kotest.core.spec.style.FunSpec
@@ -26,6 +27,8 @@ import org.koin.test.verify.verify
  *    listed here so the verifier skips it.
  *  - [ClientIdentity] — owned by `appCoreModule`. Announced to the server via
  *    `X-Client-Version`/`X-Client-Api` on every request the factory builds.
+ *  - [LocalPreferences] — owned by `settingsModule`. `ApiClientFactory`'s `onPeerVersion`
+ *    callback persists the peer server's version captured off response headers there.
  */
 @OptIn(KoinExperimentalAPI::class)
 class NetworkModuleVerifyTest :
@@ -40,6 +43,7 @@ class NetworkModuleVerifyTest :
                         com.calypsan.listenup.client.domain.repository.AuthRepository::class,
                         Function1::class,
                         ClientIdentity::class,
+                        LocalPreferences::class,
                     ),
             )
         }
