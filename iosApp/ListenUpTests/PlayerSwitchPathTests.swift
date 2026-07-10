@@ -11,7 +11,7 @@ import Shared
 struct PlayerSwitchPathTests {
     private func makeCoordinator(
         coverPath: String? = "/covers/a.jpg"
-    ) -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting, FakePlaybackPreparing) {
+    ) -> (PlayerCoordinator, FakePlaybackEngine, FakeProgressReporting) {
         let engine = FakePlaybackEngine()
         let progress = FakeProgressReporting()
         let preparer = FakePlaybackPreparing()
@@ -25,13 +25,13 @@ struct PlayerSwitchPathTests {
         let coordinator = PlayerCoordinator(
             preparer: preparer, progress: progress, sleep: FakeSleepTiming(),
             engine: engine, coverProvider: FakeBookCoverProviding())
-        return (coordinator, engine, progress, preparer)
+        return (coordinator, engine, progress)
     }
 
     /// RC-1(a): switching clears the cover/chapters/title *synchronously*, before the async
     /// prepare — so the UI never renders the outgoing book's cover against the incoming book's id.
     @Test func switchingClearsMetadataSynchronously() async {
-        let (coordinator, _, progress, _) = makeCoordinator()
+        let (coordinator, _, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
         #expect(coordinator.coverPath == "/covers/a.jpg")
@@ -42,14 +42,14 @@ struct PlayerSwitchPathTests {
         // incoming book's prepare has not yet run.
         #expect(coordinator.coverPath == nil)
         #expect(coordinator.chapters.isEmpty)
-        #expect(coordinator.bookTitle == "")
+        #expect(coordinator.bookTitle.isEmpty)
         #expect(coordinator.currentBookId == "book2")
     }
 
     /// RC-4: a rapid A→B switch supersedes A's prepare before it completes; only B ends up
     /// loaded, and A never reports a phantom start.
     @Test func rapidSwitchLandsOnLastBookOnly() async {
-        let (coordinator, _, progress, _) = makeCoordinator()
+        let (coordinator, _, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
         coordinator.play(bookId: "book2")   // supersedes book1 before its prepare resolves
         await progress.waitForStarted(bookId: "book2")
@@ -62,7 +62,7 @@ struct PlayerSwitchPathTests {
 
     /// A switch away from a playing book saves the outgoing book's place first.
     @Test func switchingFromPlayingBookSavesOutgoingPosition() async {
-        let (coordinator, _, progress, _) = makeCoordinator()
+        let (coordinator, _, progress) = makeCoordinator()
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
 
@@ -75,19 +75,29 @@ struct PlayerSwitchPathTests {
     }
 
     /// RC-3: a fresh load enters `.buffering` and is promoted to `.playing` only by the engine's
-    /// first real "playing" status event — never optimistically.
+    /// first real "playing" status event — never optimistically. With the fake's auto-ready
+    /// suppressed, the coordinator must sit in `.buffering` after start and only reach `.playing`
+    /// once an explicit `.ready` arrives.
     @Test func freshLoadEntersBufferingThenPlaying() async {
-        let (coordinator, _, progress, _) = makeCoordinator()
+        let (coordinator, engine, progress) = makeCoordinator()
+        await engine.setAutoReadyOnPlay(false)
+
         coordinator.play(bookId: "book1")
         await progress.waitForStarted(bookId: "book1")
+        // Started, but not yet playing — the engine hasn't reported audio advancing.
+        #expect(coordinator.isBuffering)
+        #expect(!coordinator.isPlaying)
+
+        engine.emit(.statusChanged(.ready))   // the first real "playing" event
         await awaitUntil { coordinator.isPlaying }
         #expect(coordinator.isPlaying)
+        #expect(!coordinator.isBuffering)
     }
 
     /// RC-5: a load failure surfaces `.error`; toggling the errored book retries it rather than
     /// no-oping, so the user is never stranded on a dead player.
     @Test func errorStateIsRecoverableByToggle() async {
-        let (coordinator, engine, progress, _) = makeCoordinator()
+        let (coordinator, engine, progress) = makeCoordinator()
         await engine.setLoadShouldFail(true)
 
         coordinator.play(bookId: "book1")

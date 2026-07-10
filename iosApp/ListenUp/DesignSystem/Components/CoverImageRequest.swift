@@ -35,7 +35,12 @@ enum CoverImageRequest {
               let url = URL(string: "\(base)/api/v1/covers/\(bookId)")
         else { return nil }
 
-        let cacheKey = coverCacheKey(identity: bookId, coverHash: coverHash)
+        // No hash → `nil` cache key → Nuke keys on the request URL (`/api/v1/covers/{bookId}`),
+        // which is already unique per book. Never the `"bookId:cover"` custom key: it is the exact
+        // poisoned key the old bug wrote, and during a switch (`coverPath == nil`, `bookId == B`)
+        // it would let book A's still-cached bytes flash on book B. Passing `nil` also orphans any
+        // stale `"<id>:cover"` disk entries. With a hash we keep the content-scoped `"<id>:<hash>"`.
+        let cacheKey = contentHashKey(identity: bookId, coverHash: coverHash)
         return await AuthenticatedImageRequest.authenticated(url: url, processors: processors, cacheKey: cacheKey)
     }
 
@@ -47,16 +52,15 @@ enum CoverImageRequest {
     /// is unique per file and can't be mis-associated. With a hash we keep the bookId-scoped key
     /// (mirrors the server-URL branch and Android's `"$bookId:$coverHash"`).
     static func localFileCacheKey(bookId: String?, coverPath: String, coverHash: String?) -> String {
-        if let coverHash, !coverHash.isEmpty {
-            return coverCacheKey(identity: bookId ?? coverPath, coverHash: coverHash)
-        }
-        return coverPath
+        contentHashKey(identity: bookId ?? coverPath, coverHash: coverHash) ?? coverPath
     }
 
-    /// Fold the cover content hash into Nuke's cache identity so a new cover at the same stable
-    /// path/URL busts the old entry — mirrors Android's `"$bookId:$coverHash"` Coil key. The key is
-    /// token-independent, so a cached cover still survives access-token rotation.
-    private static func coverCacheKey(identity: String, coverHash: String?) -> String {
-        "\(identity):\(coverHash ?? "cover")"
+    /// The content-scoped cache key `"<identity>:<coverHash>"`, or `nil` when there is no hash.
+    /// Returning `nil` is deliberate: a hash-less key must fall back to Nuke's natural URL/path
+    /// identity, never a bare-`bookId` key (which is not content-safe and poisons the cache).
+    /// Token-independent, so a cached cover survives access-token rotation.
+    static func contentHashKey(identity: String, coverHash: String?) -> String? {
+        guard let coverHash, !coverHash.isEmpty else { return nil }
+        return "\(identity):\(coverHash)"
     }
 }

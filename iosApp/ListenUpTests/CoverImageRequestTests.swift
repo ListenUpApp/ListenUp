@@ -38,6 +38,19 @@ struct CoverImageRequestTests {
         #expect(key == "/covers/a.jpg:abc123")
     }
 
+    /// The **server-URL** branch keys on `contentHashKey`, which returns `nil` without a hash —
+    /// so the request falls back to Nuke's URL-derived key (`/api/v1/covers/{bookId}`, already
+    /// unique per book) and NEVER the poisoned `"bookId:cover"` key. This closes the residual
+    /// where a switch (coverPath cleared, bookId = B) would flash book A's cached bytes on B.
+    @Test func serverBranchWithoutHashIsNotBookIdKeyed() {
+        #expect(CoverImageRequest.contentHashKey(identity: "book-B", coverHash: nil) == nil)
+        #expect(CoverImageRequest.contentHashKey(identity: "book-B", coverHash: "") == nil)
+    }
+
+    @Test func serverBranchWithHashIsContentKeyed() {
+        #expect(CoverImageRequest.contentHashKey(identity: "book-B", coverHash: "abc123") == "book-B:abc123")
+    }
+
     /// End-to-end through `CoverImageRequest.book`: the player call sites pass no `coverHash`,
     /// so the resulting request must be path-keyed — never stamped with the bookId, which is
     /// what poisoned the shared cache with the previous book's bytes.

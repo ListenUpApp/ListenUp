@@ -59,9 +59,10 @@ final class SeriesDetailObserver {
         return String(localized: hasStarted ? "series.continue" : "series.start_listening")
     }
 
-    /// True when `bookId` is the actively-playing book.
+    /// True when `bookId` is the active book (playing OR buffering toward playing), so the row's
+    /// glyph shows "pause" during the startup buffer instead of a play button that pauses.
     func isPlaying(_ bookId: String) -> Bool {
-        playerCoordinator.currentBookId == bookId && playerCoordinator.isPlaying
+        playerCoordinator.currentBookId == bookId && playerCoordinator.isPlaybackActive
     }
 
     func progress(for bookId: String) -> Float? { bookProgress[bookId] }

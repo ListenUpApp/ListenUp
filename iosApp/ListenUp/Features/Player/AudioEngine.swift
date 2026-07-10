@@ -54,6 +54,14 @@ actor AudioEngine: PlaybackEngine {
     /// (false). Lets `load` seek precisely *before* any rate is set, so playback never
     /// starts from a playable position-0 sample and then jumps (RC-2).
     private var readyContinuation: CheckedContinuation<Bool, Never>?
+    /// The timeout task for the *current* readiness wait. Cancelled the instant the wait
+    /// resolves (ready / failed / superseded / release) so a stale timer from a prior `load`
+    /// can never fire against a later wait — a rapid A→B→C would otherwise stack timers that
+    /// resume whichever continuation exists 20 s later, with an effective timeout near zero.
+    private var readyTimeoutTask: Task<Void, Never>?
+    /// Epoch for the readiness wait: a timeout resume carries the generation it was armed for
+    /// and is ignored unless it still matches — belt-and-braces alongside task cancellation.
+    private var readyGeneration = 0
 
     init() {
         var capturedContinuation: AsyncStream<AudioEngineEvent>.Continuation!
@@ -117,20 +125,28 @@ actor AudioEngine: PlaybackEngine {
         case .failed: return false
         default: break
         }
-        // Only one waiter at a time; a fresh `load` supersedes any prior wait.
+        // Only one waiter at a time; a fresh `load` supersedes any prior wait (which also
+        // cancels that wait's timeout task).
         resumeReadyIfWaiting(false)
+        readyGeneration &+= 1
+        let generation = readyGeneration
         return await withCheckedContinuation { continuation in
             readyContinuation = continuation
-            Task { [weak self] in
+            readyTimeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: timeout)
-                await self?.resumeReadyIfWaiting(false)
+                await self?.resumeReadyIfWaiting(false, forGeneration: generation)
             }
         }
     }
 
-    /// Resume a pending readiness waiter, if any. Idempotent: a second call (timeout after
-    /// success, or `.failed` after `.readyToPlay`) is a no-op.
-    private func resumeReadyIfWaiting(_ ready: Bool) {
+    /// Resume a pending readiness waiter, if any, and tear down its timeout task. Idempotent:
+    /// a second call (timeout after success, `.failed` after `.readyToPlay`, or release after
+    /// either) is a no-op. `generation`, when supplied by the timeout task, gates the resume so
+    /// a stale timer whose wait already resolved (and bumped the generation) cannot fire.
+    private func resumeReadyIfWaiting(_ ready: Bool, forGeneration generation: Int? = nil) {
+        if let generation, generation != readyGeneration { return }
+        readyTimeoutTask?.cancel()
+        readyTimeoutTask = nil
         guard let continuation = readyContinuation else { return }
         readyContinuation = nil
         continuation.resume(returning: ready)
@@ -279,7 +295,7 @@ actor AudioEngine: PlaybackEngine {
         timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
             guard let self else { return }
             let status = player.timeControlStatus
-            // TODO(rule 7): fold this and the other KVO/notification callbacks into a single
+            // Deferred (rule 7): fold this and the other KVO/notification callbacks into a single
             // ordered AsyncStream the actor drains, so currentItem/status/timeControl events
             // can't reorder relative to each other during a queue rebuild.
             Task { await self.handleTimeControlStatus(status) }
