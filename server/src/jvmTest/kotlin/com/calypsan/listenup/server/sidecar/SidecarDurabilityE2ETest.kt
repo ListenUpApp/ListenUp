@@ -186,8 +186,7 @@ private suspend fun HttpClient.mintRootToken(): String =
         .data.accessToken.value
 
 /** Polls the sync-books page until exactly one book appears; returns it. */
-private suspend fun HttpClient.awaitBook(token: String): BookSyncPayload =
-    awaitBookMatching(this, token) { true }
+private suspend fun HttpClient.awaitBook(token: String): BookSyncPayload = awaitBookMatching(this, token) { true }
 
 /** Polls the sync-books page until a book matching [predicate] appears; returns it. */
 private suspend fun awaitBookMatching(

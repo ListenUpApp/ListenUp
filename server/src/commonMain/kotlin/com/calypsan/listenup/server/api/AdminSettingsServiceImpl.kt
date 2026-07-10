@@ -12,6 +12,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.services.LibraryRepository
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
+import com.calypsan.listenup.server.sidecar.SIDECAR_WRITES_ENABLED_KEY
 import com.calypsan.listenup.server.sync.ChangeBus
 
 /** Max length for the operator-set server name. */
@@ -69,6 +70,10 @@ class AdminSettingsServiceImpl(
             settings.setPushNotificationsEnabled(enabled)
             changed = true
         }
+        patch.sidecarWritesEnabled?.let { enabled ->
+            settings.setValue(SIDECAR_WRITES_ENABLED_KEY, enabled.toString())
+            changed = true
+        }
         // Nudge every connected client to re-fetch getServerInfo so an admin's new name/remote URL
         // reaches them without a cold start. Content-free broadcast — carries no per-user data.
         if (changed) changeBus.broadcastControl(SyncControl.ServerInfoChanged)
@@ -81,6 +86,8 @@ class AdminSettingsServiceImpl(
             remoteUrl = settings.remoteUrl(),
             inboxEnabled = libraryRepository.readInboxEnabled(libraryRegistry.currentLibrary()),
             pushNotificationsEnabled = settings.pushNotificationsEnabled(),
+            // Absent key = enabled (spec: sidecar writes are on by default).
+            sidecarWritesEnabled = settings.getValue(SIDECAR_WRITES_ENABLED_KEY)?.toBooleanStrictOrNull() ?: true,
         )
 
     /** null = allowed; a Failure (PermissionDenied / SessionExpired) otherwise. */
