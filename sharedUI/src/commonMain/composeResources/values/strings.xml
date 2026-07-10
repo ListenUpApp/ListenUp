@@ -1307,8 +1307,6 @@ One beautiful library.</string>
     <string name="settings_open_source_licenses">Open Source Licenses</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_rewind_a_few_seconds_when">Rewind a few seconds when resuming playback</string>
-    <string name="settings_send_test_notification">Send test notification</string>
-    <string name="settings_send_test_notification_subtitle">Arrives when the app is in the background.</string>
     <string name="settings_server_version">Server version</string>
     <string name="settings_shake_to_reset_timer">Shake to Reset Timer</string>
     <string name="settings_sign_out_confirm_title">Sign Out</string>

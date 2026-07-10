@@ -854,8 +854,6 @@
     "open_source_licenses": "Open Source Licenses",
     "playback": "Playback",
     "rewind_a_few_seconds_when": "Rewind a few seconds when resuming playback",
-    "send_test_notification": "Send test notification",
-    "send_test_notification_subtitle": "Arrives when the app is in the background.",
     "server_version": "Server version",
     "shake_to_reset_timer": "Shake to Reset Timer",
     "sign_out_confirm_title": "Sign Out",

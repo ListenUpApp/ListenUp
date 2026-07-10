@@ -8,7 +8,6 @@ import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.client.domain.model.ThemeMode
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthSession
-import com.calypsan.listenup.client.domain.repository.PushRepository
 import com.calypsan.listenup.client.domain.repository.SyncRepository
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.LibraryPreferences
@@ -16,7 +15,6 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
-import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -71,7 +69,6 @@ data class SettingsUiState(
     // Server info (read-only)
     val serverUrl: String? = null,
     val serverVersion: String? = null,
-    val pushEnabled: Boolean = false,
 )
 
 /**
@@ -94,8 +91,6 @@ class SettingsViewModel(
     private val authSession: AuthSession,
     private val syncRepository: SyncRepository,
     private val rpcCacheInvalidator: RpcCacheInvalidator,
-    private val pushRepository: PushRepository,
-    private val errorBus: ErrorBus,
 ) : ViewModel() {
     // Internal mutable state for settings that aren't reactive StateFlows
     private val internalState = MutableStateFlow(SettingsUiState())
@@ -186,7 +181,7 @@ class SettingsViewModel(
         when (val result = instanceRepository.getServerInfo()) {
             is AppResult.Success -> {
                 internalState.update {
-                    it.copy(serverVersion = result.data.version, pushEnabled = result.data.pushEnabled)
+                    it.copy(serverVersion = result.data.version)
                 }
             }
 
@@ -402,16 +397,4 @@ class SettingsViewModel(
     }
 
     // endregion
-
-    /**
-     * Sends a test push notification to this user's own registered devices. Success has no UI
-     * feedback — the arriving notification IS the feedback (and only shows while the app is
-     * backgrounded, since foreground pushes are suppressed in favor of the live SSE surface).
-     * Failure routes through the global error bus.
-     */
-    fun sendTestNotification() {
-        viewModelScope.launch {
-            pushRepository.sendTestNotification().onFailure { errorBus.emit(it) }
-        }
-    }
 }

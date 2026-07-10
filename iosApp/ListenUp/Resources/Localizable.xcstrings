@@ -13061,26 +13061,6 @@
         }
       }
     },
-    "settings.send_test_notification": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Send test notification"
-          }
-        }
-      }
-    },
-    "settings.send_test_notification_subtitle": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Arrives when the app is in the background."
-          }
-        }
-      }
-    },
     "settings.server_version": {
       "localizations": {
         "en": {
