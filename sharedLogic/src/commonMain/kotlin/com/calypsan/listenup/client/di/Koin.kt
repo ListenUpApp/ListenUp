@@ -68,6 +68,7 @@ internal val sharedModules =
         clientSyncModule,
         clientAuthModule,
         voiceModule,
+        pushClientModule,
     ) + allPresentationModules
 
 /**
