@@ -62,6 +62,9 @@ final class Dependencies {
     var userProfileRepository: UserProfileRepository { resolve { KoinHelper.shared.getUserProfileRepository() } }
     var downloadService: DownloadService { resolve { KoinHelper.shared.getDownloadService() } }
     var serverReachability: ServerReachability { resolve { KoinHelper.shared.getServerReachability() } }
+    var playbackBandwidthCoordinator: PlaybackBandwidthCoordinator {
+        resolve { KoinHelper.shared.getPlaybackBandwidthCoordinator() }
+    }
 
     // MARK: - Player coordinator (app-wide Swift singleton)
 

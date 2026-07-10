@@ -102,6 +102,7 @@ class PlaybackManagerSpeedTest :
                 bookRpcFactory = mock<BookRpcFactory>(),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                playbackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
             )
         }
 

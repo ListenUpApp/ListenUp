@@ -162,6 +162,7 @@ class PlaybackManagerFallbackFetchTest :
                 bookRpcFactory = bookRpcFactory,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = bookSyncDomainHandler,
+                playbackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
             )
         }
 

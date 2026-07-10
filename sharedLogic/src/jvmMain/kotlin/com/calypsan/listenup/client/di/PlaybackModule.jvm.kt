@@ -45,6 +45,7 @@ val desktopPlaybackModule: Module =
                 bookRpcFactory = get(),
                 scope = get(qualifier = named("playbackScope")),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
+                playbackBandwidthCoordinator = get(),
             )
         }
     }

@@ -69,6 +69,7 @@ internal suspend fun downloadAudioFile(
     playbackRpcFactory: PlaybackRpcFactory,
     isStopped: () -> Boolean = { false },
     setProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
+    yieldToPlayback: suspend () -> Unit = {},
 ): AppResult<Unit> =
     suspendRunCatching {
         withContext(IODispatcher) {
@@ -132,6 +133,10 @@ internal suspend fun downloadAudioFile(
                             if (isStopped()) {
                                 throw CancellationException("Download stopped")
                             }
+                            // Soft-pause between chunks while playback is buffering a stream, so the
+                            // stream gets the bandwidth. Keeps the connection + partial file warm
+                            // (no cancel). The caller bounds how long this can suspend.
+                            yieldToPlayback()
 
                             val read = channel.readAvailable(buffer, 0, buffer.size)
                             if (read <= 0) continue
