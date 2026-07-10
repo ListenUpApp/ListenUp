@@ -21,7 +21,8 @@ object SidecarJson {
         }
 
     /** Serializes [sidecar] to pretty-printed UTF-8 JSON bytes. */
-    fun serialize(sidecar: ListenUpSidecar): ByteArray = json.encodeToString(ListenUpSidecar.serializer(), sidecar).encodeToByteArray()
+    fun serialize(sidecar: ListenUpSidecar): ByteArray =
+        json.encodeToString(ListenUpSidecar.serializer(), sidecar).encodeToByteArray()
 
     /**
      * Parses [bytes] into a [ListenUpSidecar], or `null` on any parse failure — malformed
