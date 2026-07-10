@@ -532,8 +532,8 @@ internal val settingsPresentationModule =
         factory { DevicesViewModel(authRepository = get()) }
         // factory (NOT single) — same cancelled-viewModelScope hazard as the Library VMs above.
         factory { SyncIndicatorViewModel(pendingOperationRepository = get(), syncRepository = get()) }
-        // Shell connection-health banner VM (Phase 1: session-lapse projection of AuthState).
-        factory { ConnectionHealthViewModel(authSession = get()) }
+        // Shell connection-health banner VM, projecting ConnectionHealthStore.state.
+        factory { ConnectionHealthViewModel(healthStore = get(), serverReachability = get()) }
         // StorageViewModel for storage management screen
         factory<StorageSpaceProvider> { DownloadFileManagerStorageAdapter(get<DownloadFileManager>()) }
         factory {
