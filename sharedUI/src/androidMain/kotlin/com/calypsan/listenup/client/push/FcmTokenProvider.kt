@@ -20,7 +20,7 @@ class FcmTokenProvider : PushTokenProvider {
             }
         } catch (e: CancellationException) {
             throw e
-        } catch (e: Exception) {
+        } catch (ignored: Exception) {
             null // No Play services / Firebase not initialized: SSE-only, by design.
         }
 }
