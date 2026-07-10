@@ -37,6 +37,7 @@ internal val networkModule: Module =
                 serverConfig = get(),
                 authSession = get(),
                 refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
+                clientIdentity = get(),
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 

@@ -6,6 +6,7 @@ import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.ClientIdentity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.HttpClientConfig
@@ -22,6 +23,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.client.call.HttpClientCall
 import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.header
 import io.ktor.http.URLProtocol
 import io.ktor.http.Url
 import io.ktor.http.contentType
@@ -147,7 +149,8 @@ internal fun createApiClientFactory(
     serverConfig: ServerConfig,
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
-): ApiClientFactory = KtorApiClientFactory(serverConfig, authSession, refreshAccessToken)
+    clientIdentity: ClientIdentity,
+): ApiClientFactory = KtorApiClientFactory(serverConfig, authSession, refreshAccessToken, clientIdentity)
 
 /**
  * Public seam to eagerly prime the authenticated HTTP client from outside `:sharedLogic`.
@@ -179,6 +182,7 @@ internal class KtorApiClientFactory(
     private val serverConfig: ServerConfig,
     private val authSession: AuthSession,
     private val refreshAccessToken: RefreshAccessToken,
+    private val clientIdentity: ClientIdentity,
     /**
      * Test-only engine override. `null` (production) selects the platform-default
      * engine; tests inject a `MockEngine` so the real client configuration —
@@ -236,6 +240,7 @@ internal class KtorApiClientFactory(
                     serverUrl = serverUrl,
                     authSession = authSession,
                     refreshAccessToken = refreshAccessToken,
+                    clientIdentity = clientIdentity,
                 ).also { cachedStreamingClient = it }
             }
         }
@@ -250,7 +255,7 @@ internal class KtorApiClientFactory(
                 val serverUrl =
                     serverConfig.getActiveUrl()
                         ?: error(SERVER_URL_NOT_CONFIGURED_MESSAGE)
-                createUnauthenticatedStreamingHttpClient(serverUrl).also {
+                createUnauthenticatedStreamingHttpClient(serverUrl, clientIdentity).also {
                     cachedUnauthenticatedStreamingClient = it
                 }
             }
@@ -335,6 +340,8 @@ internal class KtorApiClientFactory(
             defaultRequest {
                 url(initialUrl.value)
                 contentType(ContentType.Application.Json)
+                header("X-Client-Version", clientIdentity.version)
+                header("X-Client-Api", clientIdentity.apiVersion)
             }
         }
         val client = engine?.let { HttpClient(it, config) } ?: HttpClient(config)
@@ -469,12 +476,14 @@ internal class KtorApiClientFactory(
  * @param serverUrl Base server URL
  * @param authSession For loading auth tokens
  * @param refreshAccessToken Functional seam over `AuthRepository.refreshAccessToken()`
+ * @param clientIdentity Announced to the server via `X-Client-Version`/`X-Client-Api`
  * @return HttpClient with streaming configuration and infinite timeouts
  */
 internal expect suspend fun createStreamingHttpClient(
     serverUrl: ServerUrl,
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
+    clientIdentity: ClientIdentity,
 ): HttpClient
 
 /**
@@ -485,9 +494,13 @@ internal expect suspend fun createStreamingHttpClient(
  * such as registration status streaming for pending users.
  *
  * @param serverUrl Base server URL
+ * @param clientIdentity Announced to the server via `X-Client-Version`/`X-Client-Api`
  * @return HttpClient with streaming configuration, no auth
  */
-internal expect fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUrl): HttpClient
+internal expect fun createUnauthenticatedStreamingHttpClient(
+    serverUrl: ServerUrl,
+    clientIdentity: ClientIdentity,
+): HttpClient
 
 /**
  * Bridges the bearer plugin's `refreshTokens { }` block to

@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.data.remote
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.version.ClientIdentity
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -11,6 +12,7 @@ import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.header
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
@@ -35,6 +37,7 @@ internal actual suspend fun createStreamingHttpClient(
     serverUrl: ServerUrl,
     authSession: AuthSession,
     refreshAccessToken: RefreshAccessToken,
+    clientIdentity: ClientIdentity,
 ): HttpClient =
     HttpClient(OkHttp) {
         installListenUpErrorHandling()
@@ -84,6 +87,8 @@ internal actual suspend fun createStreamingHttpClient(
         defaultRequest {
             url(serverUrl.value)
             contentType(ContentType.Application.Json)
+            header("X-Client-Version", clientIdentity.version)
+            header("X-Client-Api", clientIdentity.apiVersion)
         }
     }
 
@@ -94,7 +99,10 @@ internal actual suspend fun createStreamingHttpClient(
  * without authentication. Used for endpoints like registration status
  * that don't require auth tokens.
  */
-internal actual fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUrl): HttpClient =
+internal actual fun createUnauthenticatedStreamingHttpClient(
+    serverUrl: ServerUrl,
+    clientIdentity: ClientIdentity,
+): HttpClient =
     HttpClient(OkHttp) {
         installListenUpErrorHandling()
 
@@ -119,5 +127,7 @@ internal actual fun createUnauthenticatedStreamingHttpClient(serverUrl: ServerUr
         defaultRequest {
             url(serverUrl.value)
             contentType(ContentType.Application.Json)
+            header("X-Client-Version", clientIdentity.version)
+            header("X-Client-Api", clientIdentity.apiVersion)
         }
     }

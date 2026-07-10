@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.ClientIdentity
 import io.kotest.core.spec.style.FunSpec
 import org.koin.core.annotation.KoinExperimentalAPI
 import org.koin.test.verify.verify
@@ -23,6 +24,8 @@ import org.koin.test.verify.verify
  *    `ApiClientFactory`'s `refreshAccessToken: suspend () -> AppResult<AuthSession>` is
  *    compiled to a `Function1<Continuation<AppResult<AuthSession>>, Any?>` and must be
  *    listed here so the verifier skips it.
+ *  - [ClientIdentity] — owned by `appCoreModule`. Announced to the server via
+ *    `X-Client-Version`/`X-Client-Api` on every request the factory builds.
  */
 @OptIn(KoinExperimentalAPI::class)
 class NetworkModuleVerifyTest :
@@ -36,6 +39,7 @@ class NetworkModuleVerifyTest :
                         AuthSession::class,
                         com.calypsan.listenup.client.domain.repository.AuthRepository::class,
                         Function1::class,
+                        ClientIdentity::class,
                     ),
             )
         }
