@@ -151,4 +151,65 @@ class LibraryWriteBrokerManifestTest :
             }
         }
 
+        test("move whose source and destination both exist fails typed and keeps the journal") {
+            runTest {
+                val dir = tempLibraryDir()
+                val journal = WriteJournal(tempJournalDir())
+                val broker = testBroker(journal = journal)
+                val from = Path(dir, "from.json")
+                val to = Path(dir, "to.json")
+                SystemFileSystem.sink(from).buffered().use { it.write(byteArrayOf(1)) }
+                SystemFileSystem.sink(to).buffered().use { it.write(byteArrayOf(2)) }
+
+                val result =
+                    broker.executeManifest(
+                        WriteManifest(opId = "move-ambiguous", ops = listOf(WriteOp.MoveFile(from, to))),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                journal.listPending().map { it.manifest.opId } shouldBe listOf("move-ambiguous")
+                // Neither file was touched — the ambiguity is preserved for inspection.
+                SystemFileSystem.exists(from) shouldBe true
+                SystemFileSystem.exists(to) shouldBe true
+            }
+        }
+
+        test("move whose source is gone but destination exists is skipped as already done") {
+            runTest {
+                val dir = tempLibraryDir()
+                val journal = WriteJournal(tempJournalDir())
+                val broker = testBroker(journal = journal)
+                val from = Path(dir, "from.json")
+                val to = Path(dir, "to.json")
+                SystemFileSystem.sink(to).buffered().use { it.write(byteArrayOf(9)) }
+
+                val result =
+                    broker.executeManifest(
+                        WriteManifest(opId = "move-done", ops = listOf(WriteOp.MoveFile(from, to))),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
+                journal.listPending() shouldBe emptyList()
+                SystemFileSystem.source(to).buffered().use { it.readByteArray() } shouldBe byteArrayOf(9)
+            }
+        }
+
+        test("move whose source and destination are both missing fails typed and keeps the journal") {
+            runTest {
+                val dir = tempLibraryDir()
+                val journal = WriteJournal(tempJournalDir())
+                val broker = testBroker(journal = journal)
+
+                val result =
+                    broker.executeManifest(
+                        WriteManifest(
+                            opId = "move-lost",
+                            ops = listOf(WriteOp.MoveFile(Path(dir, "gone.json"), Path(dir, "never.json"))),
+                        ),
+                    )
+
+                result.shouldBeInstanceOf<AppResult.Failure>()
+                journal.listPending().map { it.manifest.opId } shouldBe listOf("move-lost")
+            }
+        }
     })

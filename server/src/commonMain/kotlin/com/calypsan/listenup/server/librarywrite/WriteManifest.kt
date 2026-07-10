@@ -25,7 +25,8 @@ sealed interface WriteOp {
      * Moves [from] to [to]. Idempotency rule: if [from] is missing and [to] exists, the move
      * already happened — skip. If both exist, the outcome is ambiguous (which one is which
      * generation of content?) — resume must fail the manifest typed and keep the journal for
-     * manual inspection rather than guess.
+     * manual inspection rather than guess. If both are missing, the content is simply gone
+     * (external interference) — also fail typed and keep the journal; never fabricate success.
      */
     data class MoveFile(
         val from: Path,
