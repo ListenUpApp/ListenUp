@@ -167,6 +167,11 @@ class LibraryWriteBroker(
                     SystemFileSystem.delete(op.target, mustExist = false)
                     AppResult.Success(Unit)
                 }
+
+                is WriteOp.DeleteDirIfEmpty -> {
+                    deleteDirIfEmpty(op.dir)
+                    AppResult.Success(Unit)
+                }
             }
         } catch (e: CancellationException) {
             throw e
@@ -187,6 +192,17 @@ class LibraryWriteBroker(
             missing = missing.parent
         }
         SystemFileSystem.createDirectories(dir)
+    }
+
+    /**
+     * [WriteOp.DeleteDirIfEmpty]'s idempotency rule — see its KDoc. A missing directory is a
+     * silent no-op; a directory with contents is left alone (best-effort cleanup only).
+     */
+    private fun deleteDirIfEmpty(dir: Path) {
+        if (!SystemFileSystem.exists(dir)) return
+        if (SystemFileSystem.list(dir).isNotEmpty()) return
+        registry.register(dir, suppressionTtlMs)
+        SystemFileSystem.delete(dir, mustExist = false)
     }
 
     /** [WriteOp.MoveFile]'s idempotency rule — see its KDoc for the four-way case breakdown. */
