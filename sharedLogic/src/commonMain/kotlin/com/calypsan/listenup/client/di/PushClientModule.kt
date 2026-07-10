@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.push.PushPlatform
+import com.calypsan.listenup.client.data.push.PushRegistrar
+import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.client.data.remote.KtorPushRpcFactory
 import com.calypsan.listenup.client.data.remote.PushRpcFactory
 import com.calypsan.listenup.client.data.remote.RemoteCache
@@ -11,19 +13,21 @@ import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
- * Push aggregate Koin wiring — RPC proxy and repository for device push-token
- * registration.
+ * Push aggregate Koin wiring — RPC proxy, repository, and registrar for device
+ * push-token registration.
  *
  * External dependencies (owned by other modules):
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
  *  - [com.calypsan.listenup.client.data.remote.RpcAuthRecovery] — `networkModule`
- *
- * The [PushPlatform] binding below is a **stopgap**: it hardcodes `ANDROID` here
- * because this task (client RPC plumbing, C2) only touches commonMain. The
- * per-platform value belongs in the platform entry point once it exists — C3/C4
- * move this binding to `androidMain` (and add the iOS `IOS` equivalent) as part
- * of wiring up the real FCM token provider.
+ *  - [com.calypsan.listenup.client.domain.repository.InstanceRepository] — `settingsModule`
+ *  - [PushPlatform] — bound `ANDROID` in the Android platform module
+ *    (`androidModule` in `ListenUp.kt`); the iOS `IOS` binding lands with the
+ *    iOS push work.
+ *  - [PushTokenProvider] — bound only where a real platform hook exists (the
+ *    Android platform module binds `FcmTokenProvider`); resolved here via
+ *    `getOrNull()` so its absence (desktop, or an Android build without Play
+ *    services) is a normal, non-crashing case.
  */
 internal val pushClientModule: Module =
     module {
@@ -36,14 +40,22 @@ internal val pushClientModule: Module =
             )
         } binds arrayOf(RemoteCache::class)
 
-        // TODO(C3/C4): relocate to a platform module once FcmTokenProvider exists; bind IOS on Apple targets.
-        single<PushPlatform> { PushPlatform.ANDROID }
-
         // PushRepository — device push-token registration (SOLID: interface in domain, impl in data)
         single<PushRepository> {
             PushRepositoryImpl(
                 rpcFactory = get(),
                 platform = get(),
+            )
+        }
+
+        // PushRegistrar — orchestrates registration post-auth, on rotation, and on toggle
+        // change. `tokenProvider` is nullable by design: no binding means no platform push
+        // hook on this build.
+        single {
+            PushRegistrar(
+                instanceRepository = get(),
+                pushRepository = get(),
+                tokenProvider = getOrNull(),
             )
         }
     }

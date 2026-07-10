@@ -5,6 +5,7 @@ import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ConnectionIssueReporter
+import com.calypsan.listenup.client.data.push.PushRegistrar
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.sync.domains.MirroredDomain
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -53,6 +54,9 @@ import org.koin.test.verify.verify
  *    `mirrored: List<MirroredDomain<*>>` is populated by literal `listOf(...)` construction
  *    inside the module, not by individual `single<MirroredDomain<*>>` bindings, so the
  *    element type is declared here instead.
+ *  - [PushRegistrar] — owned by `pushClientModule`; the catalog's `refetchServerInfo`
+ *    refresh strategy re-runs registration after every forced `ServerInfo` refetch, which
+ *    is how the admin push toggle takes effect live.
  */
 @OptIn(KoinExperimentalAPI::class)
 class ClientSyncModuleVerifyTest :
@@ -81,6 +85,7 @@ class ClientSyncModuleVerifyTest :
                         DocumentStorage::class,
                         MirroredDomain::class,
                         com.calypsan.listenup.client.data.remote.RpcAuthRecovery::class,
+                        PushRegistrar::class,
                     ),
             )
         }

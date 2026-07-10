@@ -42,6 +42,10 @@ import com.calypsan.listenup.client.playback.PlaybackStateWriter
 import com.calypsan.listenup.client.playback.ProgressTracker
 import com.calypsan.listenup.client.playback.SleepTimerManager
 import com.calypsan.listenup.client.playback.cast.CastPreparer
+import com.calypsan.listenup.client.push.FcmTokenProvider
+import com.calypsan.listenup.api.push.PushPlatform
+import com.calypsan.listenup.client.data.push.PushRegistrar
+import com.calypsan.listenup.client.data.push.PushTokenProvider
 import com.calypsan.listenup.client.sync.AndroidBackgroundSyncScheduler
 import com.calypsan.listenup.client.sync.BackgroundSyncScheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -122,6 +126,12 @@ val androidModule =
     module {
         // Background sync scheduler
         single<BackgroundSyncScheduler> { AndroidBackgroundSyncScheduler(androidContext()) }
+
+        // Push: this build's platform fact + the real FCM token hook. Both are
+        // platform-specific facts that don't belong in commonMain's pushClientModule —
+        // see that module's KDoc for the full external-dependency contract.
+        single<PushPlatform> { PushPlatform.ANDROID }
+        single<PushTokenProvider> { FcmTokenProvider() }
 
         // App shortcuts manager - handles dynamic shortcuts for recent books
         single {
@@ -344,6 +354,7 @@ class ListenUp :
             com.calypsan.listenup.client.data.remote
                 .warmUpApiClient()
             get<BackgroundSyncScheduler>().schedule()
+            get<PushRegistrar>().syncRegistration()
         }
     }
 
