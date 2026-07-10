@@ -394,6 +394,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.connect.ServerSelectUiEvent" to 6,
             "com.calypsan.listenup.client.presentation.connect.ServerSelectUiState" to 4,
             "com.calypsan.listenup.client.presentation.connect.ServerSelectViewModel.NavigationEvent" to 2,
+            "com.calypsan.listenup.client.presentation.connection.ConnectionHealthUi" to 2,
             "com.calypsan.listenup.client.presentation.contributordetail.ContributorBooksUiState" to 4,
             "com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailNavAction" to 1,
             "com.calypsan.listenup.client.presentation.contributordetail.ContributorDetailUiState" to 4,
