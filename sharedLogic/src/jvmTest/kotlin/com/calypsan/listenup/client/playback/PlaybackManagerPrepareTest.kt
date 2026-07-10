@@ -117,6 +117,7 @@ class PlaybackManagerPrepareTest :
                 bookRpcFactory = mock<BookRpcFactory>(),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                playbackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
             )
         }
 

@@ -46,6 +46,7 @@ val androidPlaybackModule: Module =
                 bookRpcFactory = get(),
                 scope = get(),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
+                playbackBandwidthCoordinator = get(),
             )
         }
     }

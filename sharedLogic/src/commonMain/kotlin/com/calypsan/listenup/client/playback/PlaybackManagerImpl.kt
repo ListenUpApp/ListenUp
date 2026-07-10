@@ -59,6 +59,7 @@ internal class PlaybackManagerImpl(
     private val bookRpcFactory: BookRpcFactory,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
+    private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
 ) : PlaybackManager {
     private val preparer =
         PlaybackPreparer(
@@ -296,6 +297,10 @@ internal class PlaybackManagerImpl(
      */
     override fun setBuffering(buffering: Boolean) {
         isBuffering.value = buffering
+        // Feed the "playback preempts downloads" signal: yield bandwidth only when a
+        // NOT-fully-downloaded book is buffering — a local book needs no help, a stream does.
+        val streaming = currentTimeline.value?.isFullyDownloaded != true
+        playbackBandwidthCoordinator.setStreamingBuffering(buffering && streaming)
     }
 
     /**
@@ -403,6 +408,10 @@ internal class PlaybackManagerImpl(
         playbackSpeed.value = 1.0f
         playbackError.value = null
         isBuffering.value = false
+        // Release the download-yield signal on teardown too — this path clears `isBuffering`
+        // directly (not via `setBuffering`), so tell the coordinator explicitly or a clear while
+        // buffering could leave downloads yielded until some later state change.
+        playbackBandwidthCoordinator.setStreamingBuffering(false)
         playbackState.value = PlaybackState.Idle
     }
 

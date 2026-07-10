@@ -83,6 +83,7 @@ internal val iosPlaybackModule: Module =
                 fileManager = get(),
                 playbackRpcFactory = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
+                playbackBandwidthCoordinator = get(),
             )
         }
 

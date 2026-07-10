@@ -12,6 +12,7 @@ import org.koin.dsl.bind
 import org.koin.dsl.module
 import org.koin.mp.KoinPlatform
 import com.calypsan.listenup.client.download.DownloadService
+import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
 import com.calypsan.listenup.client.playback.PlaybackPreparer
 import com.calypsan.listenup.client.playback.PlaybackProgressReporter
 import com.calypsan.listenup.client.playback.SleepTimerManager
@@ -310,6 +311,8 @@ object KoinHelper {
     fun getPlaybackPreparer(): PlaybackPreparer = resolve(PlaybackPreparer::class)
 
     fun getServerReachability(): ServerReachability = resolve(ServerReachability::class)
+
+    fun getPlaybackBandwidthCoordinator(): PlaybackBandwidthCoordinator = resolve(PlaybackBandwidthCoordinator::class)
 
     fun getPlaybackPreferences(): PlaybackPreferences = resolve(PlaybackPreferences::class)
 }

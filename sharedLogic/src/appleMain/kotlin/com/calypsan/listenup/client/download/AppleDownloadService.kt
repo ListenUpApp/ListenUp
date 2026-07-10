@@ -18,6 +18,7 @@ import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.playback.AudioTokenProvider
+import com.calypsan.listenup.client.playback.PlaybackBandwidthCoordinator
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -92,12 +93,21 @@ class AppleDownloadService internal constructor(
     private val fileManager: DownloadFileManager,
     private val playbackRpcFactory: PlaybackRpcFactory,
     private val scope: CoroutineScope,
+    private val playbackBandwidthCoordinator: PlaybackBandwidthCoordinator,
 ) : DownloadService {
     /**
      * Delegate handles download progress and completion.
      * Must be held as a strong reference (ObjC weak delegate pattern).
      */
     private val sessionDelegate = DownloadSessionDelegate(downloadDao, scope)
+
+    init {
+        // "Playback preempts downloads": while a stream is buffering, suspend in-flight download
+        // tasks so the stream gets the bandwidth; resume them when playback is flowing again.
+        scope.launch {
+            playbackBandwidthCoordinator.shouldYield.collect { sessionDelegate.setYielding(it) }
+        }
+    }
 
     private val urlSession: NSURLSession =
         run {
@@ -278,10 +288,11 @@ class AppleDownloadService internal constructor(
                 task.taskDescription = "$bookId|$audioFileId|$filename|$destPath"
 
                 // Register continuation so delegate can resume it
-                sessionDelegate.registerDownload(task, continuation, destPath.toString(), bookId)
-
                 continuation.invokeOnCancellation { task.cancel() }
-                task.resume()
+                // registerDownload also STARTS the task (or leaves it suspended if playback is
+                // currently yielding-bound) atomically under the delegate's lock — so a task can't
+                // slip past a concurrent setYielding(true) and run at full bandwidth mid-buffer.
+                sessionDelegate.registerDownload(task, continuation, destPath.toString(), bookId)
             }
 
         if (result) {
@@ -461,6 +472,13 @@ private class DownloadSessionDelegate(
     /** Maps taskIdentifier to its live download task so cancellation can stop it directly */
     private val taskById = mutableMapOf<ULong, NSURLSessionDownloadTask>()
 
+    /**
+     * Register and START the task atomically w.r.t. [setYielding]. Under the lock we decide to
+     * `resume()` (start) only if not currently yielding — otherwise the task stays in its initial
+     * suspended state and [setYielding]`(false)` starts it later. Doing the start inside the lock
+     * closes the race where a task registered-and-resumed *after* a concurrent `setYielding(true)`
+     * would run at full bandwidth for the whole buffer window.
+     */
     fun registerDownload(
         task: NSURLSessionDownloadTask,
         continuation: CancellableContinuation<Boolean>,
@@ -474,6 +492,7 @@ private class DownloadSessionDelegate(
             if (bookId != null) {
                 taskToBookId[taskId] = bookId
             }
+            if (!yielding) task.resume()
         }
     }
 
@@ -494,6 +513,23 @@ private class DownloadSessionDelegate(
             }
         tasks.forEach { it.cancel() }
         return tasks.size
+    }
+
+    /** True while playback is buffering a stream — new tasks start suspended (see [registerDownload]). */
+    private var yielding = false
+
+    /**
+     * The "playback preempts downloads" yield. Uses `NSURLSessionTask.suspend`/`resume` — which
+     * hold the connection + partial data (no re-download, unlike cancel) — across every in-flight
+     * task. Done under [lock] so it can't interleave with [registerDownload]'s start decision (that
+     * race would let a task escape the yield). Idempotent: suspending an already-suspended (or
+     * not-yet-started) task, or resuming a completed/removed one, is a documented no-op.
+     */
+    fun setYielding(active: Boolean) {
+        lock.withLock {
+            yielding = active
+            taskById.values.forEach { if (active) it.suspend() else it.resume() }
+        }
     }
 
     private fun removePending(taskId: ULong): PendingDownload? =

@@ -51,6 +51,7 @@ class PlaybackManagerBufferingStateTest :
             db: ListenUpDatabase,
             scope: CoroutineScope = CoroutineScope(Job()),
             progressTracker: ProgressTracker = buildProgressTracker(scope = scope),
+            bandwidthCoordinator: PlaybackBandwidthCoordinator = DefaultPlaybackBandwidthCoordinator(scope),
         ): PlaybackManager {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -85,6 +86,7 @@ class PlaybackManagerBufferingStateTest :
                 bookRpcFactory = mock<BookRpcFactory>(),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
+                playbackBandwidthCoordinator = bandwidthCoordinator,
             )
         }
 
@@ -140,6 +142,26 @@ class PlaybackManagerBufferingStateTest :
 
                     sut.setBuffering(false)
                     sut.isBuffering.value shouldBe false
+                }
+            } finally {
+                db.close()
+            }
+        }
+
+        test("setBuffering forwards streaming-buffering to the bandwidth coordinator") {
+            val db = createInMemoryTestDatabase()
+            try {
+                runTest {
+                    val recorder = RecordingBandwidthCoordinator()
+                    val sut = createPlaybackManager(db, bandwidthCoordinator = recorder)
+
+                    // No fully-downloaded timeline in scope → a buffering book is treated as a
+                    // stream, so downloads are asked to yield; clearing buffering releases them.
+                    sut.setBuffering(true)
+                    recorder.calls.last() shouldBe true
+
+                    sut.setBuffering(false)
+                    recorder.calls.last() shouldBe false
                 }
             } finally {
                 db.close()
@@ -451,3 +473,14 @@ class PlaybackManagerBufferingStateTest :
             }
         }
     })
+
+/** Records every `setStreamingBuffering` value so a test can assert the producer wiring. */
+private class RecordingBandwidthCoordinator : PlaybackBandwidthCoordinator {
+    val calls = mutableListOf<Boolean>()
+    override val shouldYield = kotlinx.coroutines.flow.MutableStateFlow(false)
+
+    override fun setStreamingBuffering(active: Boolean) {
+        calls += active
+        shouldYield.value = active
+    }
+}
