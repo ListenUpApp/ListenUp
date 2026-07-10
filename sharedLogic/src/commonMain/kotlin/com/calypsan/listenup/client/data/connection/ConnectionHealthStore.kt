@@ -42,13 +42,13 @@ private val logger = KotlinLogging.logger {}
  * healed.
  *
  * Absorbs [ConnectionIssueReporter]'s auth-edge fold (see that class's KDoc) as
- * `report(AppError)` — same dedup discipline, generalized to a `Flow<AuthState>` input instead of
- * a concrete `AuthSession`.
+ * `report(AppError)` — same Authenticated-guard + once-per-lapse dedup discipline, generalized to a
+ * `StateFlow<AuthState>` input instead of a concrete `AuthSession`.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class ConnectionHealthStore(
     engineState: SyncEngineState,
-    authStateFlow: Flow<AuthState>,
+    private val authStateFlow: StateFlow<AuthState>,
     private val errorBus: ErrorBus,
     private val clientIdentity: ClientIdentity,
     private val localPreferences: LocalPreferences,
@@ -93,8 +93,11 @@ internal class ConnectionHealthStore(
             .flatMapLatest { unreachable ->
                 if (unreachable) {
                     flow {
+                        // Timestamp the instant the condition began, not the instant it surfaces —
+                        // `sinceMillis` is documented as when the sustained-unreachable window opened.
+                        val startedAt = currentEpochMilliseconds()
                         delay(UNREACHABLE_DEBOUNCE_MS)
-                        emit(currentEpochMilliseconds())
+                        emit(startedAt)
                     }
                 } else {
                     flowOf<Long?>(null)
@@ -129,7 +132,7 @@ internal class ConnectionHealthStore(
 
     init {
         // Re-arm the auth-report dedup on every return to Authenticated — mirrors
-        // ConnectionIssueReporter's init, generalized to a plain Flow<AuthState>. A guarded
+        // ConnectionIssueReporter's init, generalized to a StateFlow<AuthState>. A guarded
         // per-item try/catch keeps the collector alive across a transient failure instead of
         // dying (which would permanently break the dedup re-arm).
         scope.launch {
@@ -148,9 +151,13 @@ internal class ConnectionHealthStore(
     /**
      * Report a typed failure observed by a headless seam. Cheap and non-suspending — safe to
      * call redundantly from every failure branch. Session-invalidating errors are forwarded to
-     * the [ErrorBus] exactly once per lapse; everything else is swallowed.
+     * the [ErrorBus] exactly once per lapse — but only while currently [AuthState.Authenticated],
+     * so a failure reported before first login (or while already lapsed) never surfaces a
+     * snackbar. Everything else is swallowed. Same guard + dedup discipline as the absorbed
+     * `ConnectionIssueReporter`.
      */
     fun report(error: AppError) {
+        if (authStateFlow.value !is AuthState.Authenticated) return
         if (!error.invalidatesSession()) return
         if (reportedSinceAuthenticated) return
         reportedSinceAuthenticated = true
