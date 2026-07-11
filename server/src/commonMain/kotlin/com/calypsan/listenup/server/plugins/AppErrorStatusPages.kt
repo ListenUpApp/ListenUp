@@ -21,6 +21,7 @@ import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
 import com.calypsan.listenup.api.error.ProfileError
 import com.calypsan.listenup.api.error.PushError
+import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.error.ScanError
 import com.calypsan.listenup.api.error.SeriesError
 import com.calypsan.listenup.api.error.ServerConnectError
@@ -137,6 +138,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         // per-variant exhaustiveness for both families.
         is ShelfError, is SocialError -> shelfOrSocialHttpStatus()
 
+        is ReadingOrderError -> toHttpStatus()
+
         is AdminError -> toHttpStatus()
 
         is InviteError -> toHttpStatus()
@@ -226,6 +229,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is ShelfError -> {
+            withCorrelationId(id)
+        }
+
+        is ReadingOrderError -> {
             withCorrelationId(id)
         }
 
@@ -712,6 +719,20 @@ private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
         is ShelfError -> toHttpStatus()
         is SocialError -> toHttpStatus()
         else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun ReadingOrderError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is ReadingOrderError.NotFound -> HttpStatusCode.NotFound
+        is ReadingOrderError.Forbidden -> HttpStatusCode.Forbidden
+        is ReadingOrderError.InvalidName -> HttpStatusCode.BadRequest
+    }
+
+private fun ReadingOrderError.withCorrelationId(id: String?): ReadingOrderError =
+    when (this) {
+        is ReadingOrderError.NotFound -> copy(correlationId = id)
+        is ReadingOrderError.Forbidden -> copy(correlationId = id)
+        is ReadingOrderError.InvalidName -> copy(correlationId = id)
     }
 
 private fun SocialError.toHttpStatus(): HttpStatusCode =
