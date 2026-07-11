@@ -6,6 +6,7 @@ import com.calypsan.listenup.server.di.adminUserRosterModule
 import com.calypsan.listenup.server.di.authModule
 import com.calypsan.listenup.server.di.backupModule
 import com.calypsan.listenup.server.di.booksModule
+import com.calypsan.listenup.server.di.campfireModule
 import com.calypsan.listenup.server.di.importModule
 import com.calypsan.listenup.server.di.libraryModule
 import com.calypsan.listenup.server.di.libraryWriteModule
@@ -108,6 +109,7 @@ internal fun Application.installDependencies(
         modules += shelfModule()
         modules += readingOrderModule()
         modules += pushModule()
+        modules += campfireModule()
         val httpPort =
             environment.config
                 .propertyOrNull("ktor.deployment.port")

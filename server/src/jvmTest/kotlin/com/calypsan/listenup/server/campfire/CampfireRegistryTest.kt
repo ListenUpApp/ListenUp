@@ -318,6 +318,64 @@ class CampfireRegistryTest :
             }
         }
 
+        // ---- Explicit host transfer + control mode (Task 3 wiring) ----
+
+        test("transferHost moves the host role and broadcasts HostChanged") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.join(roomId, "u2", "Two")
+
+                val outcome = registry.transferHost(roomId, "u2")
+
+                val transferred = outcome as TransferHostOutcome.Transferred
+                transferred.frame.userId shouldBe "u2"
+                registry.snapshot(roomId)!!.hostUserId shouldBe "u2"
+            }
+        }
+
+        test("transferHost to a non-member returns TargetNotAMember") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+
+                registry.transferHost(roomId, "ghost") shouldBe TransferHostOutcome.TargetNotAMember
+                registry.snapshot(roomId)!!.hostUserId shouldBe "host"
+            }
+        }
+
+        test("transferHost against an unknown room returns RoomNotFound") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                registry.transferHost(CampfireId("does-not-exist"), "u2") shouldBe TransferHostOutcome.RoomNotFound
+            }
+        }
+
+        test("setControlMode changes the room's control mode and broadcasts ControlModeChanged") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings) // starts EVERYONE
+
+                val outcome = registry.setControlMode(roomId, CampfireControlMode.HOST_ONLY)
+
+                val applied = outcome as SetControlModeOutcome.Applied
+                applied.frame.mode shouldBe CampfireControlMode.HOST_ONLY
+                registry.snapshot(roomId)!!.settings.controlMode shouldBe CampfireControlMode.HOST_ONLY
+            }
+        }
+
+        test("setControlMode against an unknown room returns RoomNotFound") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                registry.setControlMode(
+                    CampfireId("does-not-exist"),
+                    CampfireControlMode.HOST_ONLY,
+                ) shouldBe SetControlModeOutcome.RoomNotFound
+            }
+        }
+
         // ---- Ending (§4) ----
 
         test("endSession broadcasts CampfireEnded to every subscriber and removes the room") {

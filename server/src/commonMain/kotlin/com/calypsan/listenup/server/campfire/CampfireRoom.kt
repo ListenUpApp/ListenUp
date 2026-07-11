@@ -3,6 +3,7 @@
 package com.calypsan.listenup.server.campfire
 
 import com.calypsan.listenup.api.dto.campfire.CampfireAnchor
+import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
@@ -251,6 +252,42 @@ internal class CampfireRoom(
         lastActivityAt = now
         mutableFrames.emit(CampfireFrame.CampfireEnded(reason))
     }
+
+    /**
+     * Transfers the host role to [toUserId], unconditionally — the service layer has already
+     * confirmed the caller is the current host before calling this (see [TransferHostOutcome]).
+     * Rejects only when [toUserId] isn't a member.
+     */
+    suspend fun transferHost(
+        toUserId: String,
+        now: Instant,
+    ): TransferHostOutcome =
+        mutex.withLock {
+            if (ended) return@withLock TransferHostOutcome.RoomNotFound
+            if (toUserId !in members) return@withLock TransferHostOutcome.TargetNotAMember
+            lastActivityAt = now
+            hostUserId = toUserId
+            val frame = CampfireFrame.HostChanged(toUserId)
+            mutableFrames.emit(frame)
+            TransferHostOutcome.Transferred(frame)
+        }
+
+    /**
+     * Changes the room's control mode, unconditionally — the service layer has already confirmed
+     * the caller is the current host before calling this (see [SetControlModeOutcome]).
+     */
+    suspend fun setControlMode(
+        mode: CampfireControlMode,
+        now: Instant,
+    ): SetControlModeOutcome =
+        mutex.withLock {
+            if (ended) return@withLock SetControlModeOutcome.RoomNotFound
+            lastActivityAt = now
+            settings = settings.copy(controlMode = mode)
+            val frame = CampfireFrame.ControlModeChanged(mode)
+            mutableFrames.emit(frame)
+            SetControlModeOutcome.Applied(frame)
+        }
 
     /**
      * Applies [command] against the current anchor. Rejects a stale

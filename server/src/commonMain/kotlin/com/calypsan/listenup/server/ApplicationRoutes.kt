@@ -3,6 +3,7 @@ package com.calypsan.listenup.server
 import com.calypsan.listenup.api.ActivityService
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CampfireService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
@@ -238,4 +239,5 @@ private fun Application.rpcServiceBundle(): RpcServices =
         backupService = koinGet<BackupService>(),
         importService = koinGet<ImportService>(),
         pushService = koinGet<PushService>(),
+        campfireService = koinGet<CampfireService>(),
     )

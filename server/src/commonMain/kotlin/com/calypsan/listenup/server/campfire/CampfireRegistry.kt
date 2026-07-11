@@ -2,6 +2,7 @@
 
 package com.calypsan.listenup.server.campfire
 
+import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
@@ -101,6 +102,38 @@ sealed interface ChatOutcome {
 
     /** No such room. */
     data object RoomNotFound : ChatOutcome
+}
+
+/**
+ * Result of [CampfireRegistry.transferHost]. Host-only enforcement is the service layer's job
+ * (Task 3 reads [CampfireSnapshot.hostUserId] and maps a non-host caller to `CampfireError.NotController`
+ * before ever calling this) — the registry only validates that [toUserId] is a real member.
+ */
+sealed interface TransferHostOutcome {
+    /** The host role transferred; [frame] is what was broadcast. */
+    data class Transferred(
+        val frame: CampfireFrame.HostChanged,
+    ) : TransferHostOutcome
+
+    /** [toUserId] passed to [CampfireRegistry.transferHost] is not a member of this room. */
+    data object TargetNotAMember : TransferHostOutcome
+
+    /** No such room. */
+    data object RoomNotFound : TransferHostOutcome
+}
+
+/**
+ * Result of [CampfireRegistry.setControlMode]. Like [TransferHostOutcome], host-only enforcement
+ * is the service layer's job — this call unconditionally applies the mode change.
+ */
+sealed interface SetControlModeOutcome {
+    /** The control mode changed; [frame] is what was broadcast. */
+    data class Applied(
+        val frame: CampfireFrame.ControlModeChanged,
+    ) : SetControlModeOutcome
+
+    /** No such room. */
+    data object RoomNotFound : SetControlModeOutcome
 }
 
 /**
@@ -233,6 +266,20 @@ class CampfireRegistry(
         room.end(now, reason)
         forget(roomId)
     }
+
+    /** See [TransferHostOutcome]. */
+    suspend fun transferHost(
+        roomId: CampfireId,
+        toUserId: String,
+        now: Instant = clock.now(),
+    ): TransferHostOutcome = findRoom(roomId)?.transferHost(toUserId, now) ?: TransferHostOutcome.RoomNotFound
+
+    /** See [SetControlModeOutcome]. */
+    suspend fun setControlMode(
+        roomId: CampfireId,
+        mode: CampfireControlMode,
+        now: Instant = clock.now(),
+    ): SetControlModeOutcome = findRoom(roomId)?.setControlMode(mode, now) ?: SetControlModeOutcome.RoomNotFound
 
     /** See [CommandOutcome]. */
     suspend fun applyCommand(

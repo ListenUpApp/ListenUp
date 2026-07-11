@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CampfireService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
@@ -31,7 +32,7 @@ import com.calypsan.listenup.server.auth.AuthServiceImpl
 
 /**
  * The service implementations the kRPC mount registers, bundled so [rpcRoutes] takes a single
- * parameter instead of threading 25 services through the expect/actual boundary.
+ * parameter instead of threading 27 services through the expect/actual boundary.
  */
 data class RpcServices(
     val authService: AuthServiceImpl,
@@ -62,4 +63,5 @@ data class RpcServices(
     val backupService: BackupService,
     val importService: ImportService,
     val pushService: PushService,
+    val campfireService: CampfireService,
 )
