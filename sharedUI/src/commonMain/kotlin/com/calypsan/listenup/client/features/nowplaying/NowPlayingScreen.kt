@@ -5,11 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
@@ -21,7 +17,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
@@ -30,22 +25,11 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
-import com.calypsan.listenup.api.dto.campfire.CampfirePhase
-import com.calypsan.listenup.client.features.nowplaying.components.CampfireReactionOverlay
-import com.calypsan.listenup.client.features.nowplaying.components.CampfireSessionBar
-import com.calypsan.listenup.client.features.nowplaying.components.FloatingReaction
 import com.calypsan.listenup.client.playback.NowPlayingState
 import com.calypsan.listenup.client.playback.PlaybackProgress
-import com.calypsan.listenup.client.presentation.campfire.CampfireScreenUiState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.time.Duration
-
-// Clears the top-bar row so the floating session pill never overlaps the collapse/overflow chrome.
-private val CAMPFIRE_BAR_TOP_OFFSET = 64.dp
-
-// Sits above the transport controls, clear of both the scrubber and secondary action pills.
-private val CAMPFIRE_REACTION_BOTTOM_OFFSET = 220.dp
 
 // Predictive back gesture animation: scale shrinks 10%, alpha fades 50% at full progress
 private const val PREDICTIVE_BACK_SCALE_REDUCTION = 0.1f
@@ -88,10 +72,6 @@ fun NowPlayingScreen(
     hasPdf: Boolean = false,
     onOpenPdf: () -> Unit = {},
     isTv: Boolean = false,
-    campfireSession: CampfireScreenUiState.Active? = null,
-    onOpenCampfireChat: () -> Unit = {},
-    floatingReactions: List<FloatingReaction> = emptyList(),
-    onCampfireReactionFinished: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // Predictive back: track gesture progress to animate dismissal (scale + alpha)
@@ -265,32 +245,6 @@ fun NowPlayingScreen(
                     onOpenPdf = onOpenPdf,
                 )
             }
-
-            // Session chrome: only rendered while a Campfire session is active AND live for this
-            // book — zero visual change otherwise (campfire implementation plan, Task 10). Hidden
-            // during CampfirePhase.LOBBY; the full lobby UI (L3) replaces this gate.
-            if (campfireSession != null && campfireSession.phase == CampfirePhase.LIVE) {
-                CampfireSessionBar(
-                    members = campfireSession.members,
-                    hostUserId = campfireSession.hostUserId,
-                    controlMode = campfireSession.controlMode,
-                    onOpenChat = onOpenCampfireChat,
-                    modifier =
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .windowInsetsPadding(WindowInsets.statusBars)
-                            .padding(top = CAMPFIRE_BAR_TOP_OFFSET),
-                )
-            }
-
-            CampfireReactionOverlay(
-                reactions = floatingReactions,
-                onFinished = onCampfireReactionFinished,
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = CAMPFIRE_REACTION_BOTTOM_OFFSET),
-            )
         }
     }
 }
