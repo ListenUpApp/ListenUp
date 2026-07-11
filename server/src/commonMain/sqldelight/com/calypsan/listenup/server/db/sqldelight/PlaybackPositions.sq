@@ -3,12 +3,17 @@
 -- per-user substrate variants filter every pull/digest by that user. One row per
 -- (user_id, book_id) pair; `last_played_at`-wins conflict resolution lives in the repo.
 -- `finished` is INTEGER 0/1 (mapped to Boolean at the repo boundary).
--- Column set matches V15__playback_positions.sql exactly.
+-- Column set matches V15__playback_positions.sql + V7__position_high_water.sql.
 CREATE TABLE playback_positions (
     id                 TEXT    NOT NULL PRIMARY KEY,
     user_id            TEXT    NOT NULL,
     book_id            TEXT    NOT NULL,
     position_ms        INTEGER NOT NULL,
+    -- The furthest position ever heard in this book — the high-water mark for the
+    -- spoiler-safe frontier (Story World Stage 3). Merged by `max` everywhere it is
+    -- written, order-independent of the last_played_at staleness gate (see
+    -- PlaybackPositionRepository.recordPosition). Never decreases.
+    max_position_ms    INTEGER NOT NULL DEFAULT 0,
     last_played_at     INTEGER NOT NULL,
     finished           INTEGER NOT NULL DEFAULT 0,
     playback_speed     REAL    NOT NULL DEFAULT 1.0,
@@ -120,20 +125,30 @@ WHERE user_id = :userId AND deleted_at IS NULL;
 
 insert:
 INSERT INTO playback_positions (
-    id, user_id, book_id, position_ms, last_played_at, finished, playback_speed,
+    id, user_id, book_id, position_ms, max_position_ms, last_played_at, finished, playback_speed,
     current_chapter_id, revision, created_at, updated_at, deleted_at, client_op_id
 )
 VALUES (
-    :id, :user_id, :book_id, :position_ms, :last_played_at, :finished, :playback_speed,
+    :id, :user_id, :book_id, :position_ms, :max_position_ms, :last_played_at, :finished, :playback_speed,
     :current_chapter_id, :revision, :created_at, :updated_at, :deleted_at, :client_op_id
 );
 
 update:
 UPDATE playback_positions
-SET position_ms = :position_ms, last_played_at = :last_played_at, finished = :finished,
-    playback_speed = :playback_speed, current_chapter_id = :current_chapter_id,
+SET position_ms = :position_ms, max_position_ms = :max_position_ms, last_played_at = :last_played_at,
+    finished = :finished, playback_speed = :playback_speed, current_chapter_id = :current_chapter_id,
     revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
     client_op_id = :client_op_id
+WHERE id = :id;
+
+-- Order-independent max-merge: bumps ONLY max_position_ms (never lowering it),
+-- updated_at, and revision — every other column untouched. Used when an incoming
+-- write's lastPlayedAt is stale (would otherwise be a no-op) but its maxPositionMs
+-- is higher than what's stored, so the high-water mark still advances regardless of
+-- write order (see PlaybackPositionRepository.recordPosition).
+bumpMaxPosition:
+UPDATE playback_positions
+SET max_position_ms = MAX(max_position_ms, :max_position_ms), updated_at = :updated_at, revision = :revision
 WHERE id = :id;
 
 -- True iff the user has at least one live (non-deleted) playback-position row —

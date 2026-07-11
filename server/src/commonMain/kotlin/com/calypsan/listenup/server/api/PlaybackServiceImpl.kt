@@ -124,6 +124,7 @@ internal class PlaybackServiceImpl(
             finished = request.finished,
             playbackSpeed = request.playbackSpeed,
             currentChapterId = request.currentChapterId,
+            maxPositionMs = request.maxPositionMs,
         )
     }
 

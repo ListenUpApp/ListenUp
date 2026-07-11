@@ -90,6 +90,10 @@ class PlaybackPositionImportBatchTest :
                                 playbackSpeed = row.playbackSpeed,
                                 currentChapterId = row.currentChapterId,
                                 startedBookOccurredAt = row.startedBookOccurredAt,
+                                // An import row carries no explicit high-water mark; its positionMs IS
+                                // its frontier (backfill = positionMs) — the batch derives the max the
+                                // same way, so the equivalent single call passes it explicitly.
+                                maxPositionMs = row.positionMs,
                             )
                         }
                         batch.recordAllForImport(fixture)
@@ -118,6 +122,7 @@ private suspend fun positionSnapshot(
             listOf(
                 it.bookId,
                 it.positionMs,
+                it.maxPositionMs,
                 it.lastPlayedAt,
                 it.finished,
                 it.playbackSpeed,

@@ -15,6 +15,7 @@ import com.calypsan.listenup.server.sync.IdRev
 import com.calypsan.listenup.server.sync.SqlSyncableRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.sync.SyncableSubstrateQueries
+import kotlin.math.max
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -172,6 +173,7 @@ class PlaybackPositionRepository(
         if (existed) {
             db.playbackPositionsQueries.update(
                 position_ms = value.positionMs,
+                max_position_ms = value.maxPositionMs,
                 last_played_at = value.lastPlayedAt,
                 finished = value.finished.toDbLong(),
                 playback_speed = value.playbackSpeed.toDouble(),
@@ -188,6 +190,7 @@ class PlaybackPositionRepository(
                 user_id = userId,
                 book_id = value.bookId,
                 position_ms = value.positionMs,
+                max_position_ms = value.maxPositionMs,
                 last_played_at = value.lastPlayedAt,
                 finished = value.finished.toDbLong(),
                 playback_speed = value.playbackSpeed.toDouble(),
@@ -225,10 +228,17 @@ class PlaybackPositionRepository(
         playbackSpeed: Float,
         currentChapterId: String?,
         startedBookOccurredAt: Long? = null,
+        maxPositionMs: Long = 0,
     ): AppResult<PlaybackPositionSyncPayload> {
         val existing = getPosition(userId, bookId)
-        // lastPlayedAt-wins: a stale write is a no-op, returning the stored payload and firing no hooks.
+        // lastPlayedAt-wins: a stale write is normally a no-op — EXCEPT the high-water mark, which
+        // is merged by `max` order-independently of this gate: a stale write's higher maxPositionMs
+        // must still advance the stored max, even though every other column stays untouched and no
+        // hooks fire. See PlaybackPositionsDao.bumpMaxPosition.
         if (existing != null && existing.lastPlayedAt >= lastPlayedAt) {
+            if (maxPositionMs > existing.maxPositionMs) {
+                return bumpMaxPositionOnly(existing, maxPositionMs)
+            }
             return AppResult.Success(existing)
         }
 
@@ -247,6 +257,10 @@ class PlaybackPositionRepository(
                 updatedAt = 0L,
                 createdAt = 0L,
                 deletedAt = null,
+                // Fold in the existing max so even a fresher write with a lower incoming
+                // maxPositionMs (a rewind, or an old client that never sends the field) can
+                // never lower the stored high-water mark.
+                maxPositionMs = max(existing?.maxPositionMs ?: 0, maxPositionMs),
             )
         val result = upsert(payload, clientOpId = null, userId = userId)
         if (result !is AppResult.Success) return result
@@ -299,7 +313,8 @@ class PlaybackPositionRepository(
      *     `(userId, bookId)` (one `IN (…)` read per user via [findByBookIds]), then apply the
      *     `lastPlayedAt`-wins guard and surrogate-id reuse in memory. A running per-key view folds
      *     each row onto the one before it, so two import rows for the same `(user, book)` resolve
-     *     exactly as the single-row loop's read-your-writes would (a stale row is dropped, no write).
+     *     exactly as the single-row loop's read-your-writes would (a stale row is dropped — or, when
+     *     its position still exceeds the stored high-water mark, reduced to a max-only bump op).
      *  2. **WRITE (chunked synchronous transactions).** Process the prepared rows in chunks of
      *     [PERSIST_CHUNK_SIZE]; each chunk is ONE [suspendTransaction] whose synchronous body calls
      *     [upsertInOpenTransaction] per row — O(chunks) write transactions, not O(rows). [suppressed]
@@ -326,12 +341,22 @@ class PlaybackPositionRepository(
                 .forEach { existing -> existingByKey[userId to existing.bookId] = existing }
         }
 
-        val prepared = ArrayList<PreparedPositionWrite>(rows.size)
+        val prepared = ArrayList<PreparedImportOp>(rows.size)
         for (row in rows) {
             val key = row.userId to row.bookId
             val existing = existingByKey[key]
-            // lastPlayedAt-wins: a stale write is a no-op, exactly as recordPosition returns early.
-            if (existing != null && existing.lastPlayedAt >= row.lastPlayedAt) continue
+            // lastPlayedAt-wins: a stale write is a no-op, exactly as recordPosition returns early
+            // — except the high-water mark (backfill = positionMs, matching the migration): a stale
+            // row whose position is still above the stored max produces a max-only bump op, exactly
+            // recordPosition's bumpMaxPositionOnly path. Ops are prepared IN FIXTURE ORDER so the
+            // revision sequence stays identical to the N×single loop (the parity contract).
+            if (existing != null && existing.lastPlayedAt >= row.lastPlayedAt) {
+                if (row.positionMs > existing.maxPositionMs) {
+                    prepared += PreparedImportOp.MaxBump(id = existing.id, maxPositionMs = row.positionMs)
+                    existingByKey[key] = existing.copy(maxPositionMs = row.positionMs)
+                }
+                continue
+            }
 
             val payload =
                 PlaybackPositionSyncPayload(
@@ -346,9 +371,12 @@ class PlaybackPositionRepository(
                     updatedAt = 0L,
                     createdAt = 0L,
                     deletedAt = null,
+                    // Backfill = positionMs: fold in the existing max so a fresher-but-lower-position
+                    // import row (a rewind) can never lower the stored high-water mark.
+                    maxPositionMs = max(existing?.maxPositionMs ?: 0, row.positionMs),
                 )
             prepared +=
-                PreparedPositionWrite(
+                PreparedImportOp.Write(
                     userId = row.userId,
                     payload = payload,
                     priorFinished = existing?.finished ?: false,
@@ -358,19 +386,35 @@ class PlaybackPositionRepository(
             existingByKey[key] = payload
         }
 
-        // WRITE — one suspendTransaction per chunk; upsertInOpenTransaction per row inside it. The
-        // suspend-only FirehoseSuppressed marker is read once here and threaded into every write.
+        // WRITE — one suspendTransaction per chunk; upsertInOpenTransaction (or the max-only bump)
+        // per op inside it, in prepared order. The suspend-only FirehoseSuppressed marker is read
+        // once here and threaded into every write.
         val suppressed = currentCoroutineContext()[FirehoseSuppressed.Key] != null
         for (chunk in prepared.chunked(PERSIST_CHUNK_SIZE)) {
             suspendTransaction<Unit>(db) {
-                chunk.forEach { row ->
-                    upsertInOpenTransaction(row.payload, suppressed, clientOpId = null, userId = row.userId)
+                chunk.forEach { op ->
+                    when (op) {
+                        is PreparedImportOp.Write ->
+                            upsertInOpenTransaction(op.payload, suppressed, clientOpId = null, userId = op.userId)
+
+                        is PreparedImportOp.MaxBump -> {
+                            val rev = nextRevision()
+                            val now = clock.now().toEpochMilliseconds()
+                            db.playbackPositionsQueries.bumpMaxPosition(
+                                max_position_ms = op.maxPositionMs,
+                                updated_at = now,
+                                revision = rev,
+                                id = op.id,
+                            )
+                        }
+                    }
                 }
             }
         }
 
         // HOOKS — the same de-nested, post-commit cascade recordPosition fires, per row, in order.
-        for (row in prepared) {
+        // Max-only bumps fire no hooks (finished cannot change on that path).
+        for (row in prepared.filterIsInstance<PreparedImportOp.Write>()) {
             val finished = row.payload.finished
             val lastPlayedAt = row.payload.lastPlayedAt
             val bookId = row.payload.bookId
@@ -407,6 +451,34 @@ class PlaybackPositionRepository(
             }
         }
     }
+
+    /**
+     * The order-independent max-merge write: bumps ONLY [Playback_positions.max_position_ms]
+     * (never lowering it), `updated_at`, and `revision` — every other column, including
+     * `last_played_at`, `position_ms`, and `finished`, is left exactly as stored. No completion/
+     * start hook fires because `finished` cannot change on this path. Called by [recordPosition]
+     * when an otherwise-stale write (`existing.lastPlayedAt >= lastPlayedAt`) still carries a
+     * higher [maxPositionMs] than what's stored — the high-water mark must advance regardless of
+     * write order.
+     */
+    private suspend fun bumpMaxPositionOnly(
+        existing: PlaybackPositionSyncPayload,
+        maxPositionMs: Long,
+    ): AppResult<PlaybackPositionSyncPayload> =
+        suspendTransaction(db) {
+            val rev = nextRevision()
+            val now = clock.now().toEpochMilliseconds()
+            db.playbackPositionsQueries.bumpMaxPosition(
+                max_position_ms = maxPositionMs,
+                updated_at = now,
+                revision = rev,
+                id = existing.id,
+            )
+            val saved =
+                readPayload(existing.id)
+                    ?: error("readPayload returned null immediately after bumpMaxPosition for ${existing.id}")
+            AppResult.Success(saved)
+        }
 
     /**
      * Returns the current position for `(userId, bookId)`, or `null` if the user
@@ -514,21 +586,35 @@ class PlaybackPositionRepository(
             updatedAt = updated_at,
             createdAt = created_at,
             deletedAt = deleted_at,
+            maxPositionMs = max_position_ms,
         )
 
     /**
-     * A prepared import position write: the resolved [payload] plus the pre-write view the
-     * post-commit hooks decide on ([priorFinished], [existedBefore]) and the imported start date
-     * override. Captured in the PREPARE phase so the WRITE phase stays purely synchronous and the
-     * HOOKS phase fires the exact cascade [recordPosition] would.
+     * One prepared import operation, in fixture order — either a full position write or a
+     * max-only bump (the batch counterpart to [recordPosition]'s two write paths). Captured in
+     * the PREPARE phase so the WRITE phase stays purely synchronous and the HOOKS phase fires
+     * the exact cascade [recordPosition] would, with a revision sequence identical to the
+     * per-row loop's.
      */
-    private data class PreparedPositionWrite(
-        val userId: String,
-        val payload: PlaybackPositionSyncPayload,
-        val priorFinished: Boolean,
-        val existedBefore: Boolean,
-        val startedBookOccurredAt: Long?,
-    )
+    private sealed interface PreparedImportOp {
+        /**
+         * A full position write: the resolved [payload] plus the pre-write view the post-commit
+         * hooks decide on ([priorFinished], [existedBefore]) and the imported start date override.
+         */
+        data class Write(
+            val userId: String,
+            val payload: PlaybackPositionSyncPayload,
+            val priorFinished: Boolean,
+            val existedBefore: Boolean,
+            val startedBookOccurredAt: Long?,
+        ) : PreparedImportOp
+
+        /** An order-independent max-merge: bump [id]'s max_position_ms to at least [maxPositionMs]. */
+        data class MaxBump(
+            val id: String,
+            val maxPositionMs: Long,
+        ) : PreparedImportOp
+    }
 
     private companion object {
         /**
