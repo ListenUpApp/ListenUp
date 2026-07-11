@@ -90,6 +90,7 @@ internal class SyncEventDispatcher(
             SyncControl.ActiveSessionsChanged,
             SyncControl.ServerInfoChanged,
             SyncControl.PreferencesChanged,
+            SyncControl.CampfiresChanged,
             -> {
                 logger.warn { "Refresh control $control unclaimed by any RefreshedDomain; dropped" }
             }

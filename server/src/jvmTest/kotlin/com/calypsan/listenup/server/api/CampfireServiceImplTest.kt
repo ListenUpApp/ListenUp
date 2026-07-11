@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
 import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
 import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
 import com.calypsan.listenup.server.campfire.CampfireRegistry
@@ -34,9 +35,12 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.withSqlDatabase
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -68,8 +72,8 @@ class CampfireServiceImplTest :
             registry: CampfireRegistry,
             principal: PrincipalProvider,
             clock: kotlin.time.Clock = FixedClock(t0),
+            bus: ChangeBus = ChangeBus(),
         ): CampfireServiceImpl {
-            val bus = ChangeBus()
             val syncRegistry = SyncRegistry()
             return CampfireServiceImpl(
                 registry = registry,
@@ -77,6 +81,7 @@ class CampfireServiceImplTest :
                 playbackPositions = PlaybackPositionRepository(db = sql, bus = bus, registry = syncRegistry),
                 publicProfiles = PublicProfileRepository(db = sql, bus = bus, registry = syncRegistry),
                 db = sql,
+                bus = bus,
                 clock = clock,
                 principal = principal,
             )
@@ -445,6 +450,125 @@ class CampfireServiceImplTest :
 
                     observedFrames.filterIsInstance<CampfireFrame.MemberLeft>().any { it.member.userId == "member" } shouldBe true
                     observerJob.cancel()
+                }
+            }
+        }
+
+        // ── Discovery: ACL-filtered listOpenSessions (Task 4) ─────────────────
+
+        test("listOpenSessions returns only rooms whose book is accessible to the caller") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestUser("member")
+                sql.seedTestBook("book-a")
+                sql.seedTestBook("book-b")
+                runTest {
+                    // "member" can see book-a but not book-b.
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    makeBookAccessible(sql, driver, "book-a", "member")
+                    makeBookAccessible(sql, driver, "book-b", "host", allBooksId = "all-books-b")
+                    val registry = CampfireRegistry(clock = FixedClock(t0))
+                    val hostService = makeService(sql, driver, registry, principalFor("host"))
+                    hostService.createSession("book-a", everyoneSettings).value()
+                    hostService.createSession("book-b", everyoneSettings).value()
+
+                    val visible = makeService(sql, driver, registry, principalFor("member")).listOpenSessions().value()
+
+                    visible.map { it.bookId } shouldBe listOf("book-a")
+                }
+            }
+        }
+
+        test("listOpenSessions excludes an invite-only room from a stranger, but shows it to the invited and to members") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestUser("member")
+                sql.seedTestUser("invited")
+                sql.seedTestUser("stranger")
+                sql.seedTestBook("book-a")
+                runTest {
+                    listOf("host", "member", "invited", "stranger").forEach { makeBookAccessible(sql, driver, "book-a", it) }
+                    val registry = CampfireRegistry(clock = FixedClock(t0))
+                    val inviteOnlySettings =
+                        CampfireSettings(
+                            controlMode = CampfireControlMode.EVERYONE,
+                            inviteOnly = true,
+                            invitedUserIds = listOf("invited"),
+                        )
+                    val hostService = makeService(sql, driver, registry, principalFor("host"))
+                    val created = hostService.createSession("book-a", inviteOnlySettings).value()
+                    makeService(sql, driver, registry, principalFor("member")).joinSession(created.id).value()
+
+                    makeService(sql, driver, registry, principalFor("stranger")).listOpenSessions().value().shouldBeEmpty()
+                    makeService(sql, driver, registry, principalFor("invited")).listOpenSessions().value() shouldHaveSize 1
+                    makeService(sql, driver, registry, principalFor("member")).listOpenSessions().value() shouldHaveSize 1
+                    makeService(sql, driver, registry, principalFor("host")).listOpenSessions().value() shouldHaveSize 1
+                }
+            }
+        }
+
+        // ── Discovery: CampfiresChanged nudge (Task 4) ────────────────────────
+
+        test("createSession broadcasts CampfiresChanged") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    val bus = ChangeBus()
+                    val sub = async { bus.subscribeControl().first().control }
+                    advanceUntilIdle()
+
+                    makeService(sql, driver, CampfireRegistry(clock = FixedClock(t0)), principalFor("host"), bus = bus)
+                        .createSession("book-a", everyoneSettings)
+                        .value()
+
+                    sub.await() shouldBe SyncControl.CampfiresChanged
+                }
+            }
+        }
+
+        test("endSession broadcasts CampfiresChanged") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    val bus = ChangeBus()
+                    val registry = CampfireRegistry(clock = FixedClock(t0))
+                    val hostService = makeService(sql, driver, registry, principalFor("host"), bus = bus)
+                    val created = hostService.createSession("book-a", everyoneSettings).value()
+
+                    val sub = async { bus.subscribeControl().first { it.control == SyncControl.CampfiresChanged }.control }
+                    advanceUntilIdle()
+                    hostService.endSession(created.id).value()
+
+                    sub.await() shouldBe SyncControl.CampfiresChanged
+                }
+            }
+        }
+
+        test("leaveSession by the last member broadcasts CampfiresChanged") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    val bus = ChangeBus()
+                    val registry = CampfireRegistry(clock = FixedClock(t0))
+                    val hostService = makeService(sql, driver, registry, principalFor("host"), bus = bus)
+                    val created = hostService.createSession("book-a", everyoneSettings).value()
+
+                    val sub = async { bus.subscribeControl().first { it.control == SyncControl.CampfiresChanged }.control }
+                    advanceUntilIdle()
+                    hostService.leaveSession(created.id).value()
+
+                    sub.await() shouldBe SyncControl.CampfiresChanged
                 }
             }
         }

@@ -495,6 +495,40 @@ class CampfireRegistryTest :
 
         // ---- Snapshot assembly ----
 
+        // ---- Discovery listing surface (Task 4) ----
+
+        test("listSnapshots returns every live room's unscoped state") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.createRoom(CampfireId("room-2"), "book-2", "other-host", "Other", settings)
+
+                val snapshots = registry.listSnapshots()
+
+                snapshots.map { it.id } shouldContainExactly listOf(roomId, CampfireId("room-2"))
+                snapshots.map { it.bookId } shouldContainExactly listOf(bookId, "book-2")
+            }
+        }
+
+        test("listSnapshots omits an ended room") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+
+                registry.endSession(roomId)
+
+                registry.listSnapshots().shouldBeEmpty()
+            }
+        }
+
+        test("listSnapshots on an empty registry returns an empty list") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                registry.listSnapshots().shouldBeEmpty()
+            }
+        }
+
         test("snapshot exposes anchor, members, host, and recent chat; per-caller fields are left null/false") {
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))

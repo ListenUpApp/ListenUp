@@ -138,6 +138,21 @@ sealed interface SyncControl {
     @Serializable
     @SerialName("SyncControl.LibraryDataChanged")
     data object LibraryDataChanged : SyncControl
+
+    /**
+     * Content-free broadcast nudge: the set of discoverable campfires (co-listening sessions)
+     * changed — one was created, ended (host end, empty, idle reap, or away-grace eviction down
+     * to empty), or otherwise had its discoverability flip. The client re-fetches
+     * [com.calypsan.listenup.api.CampfireService.listOpenSessions], which re-derives the
+     * ACL-filtered, invite-aware result — the same "no payload, re-probe the source of truth"
+     * shape as [ActiveSessionsChanged]. A room merely filling to capacity does NOT broadcast
+     * this: full rooms still appear in the listing (as full), so capacity alone doesn't change
+     * what's discoverable.
+     */
+    @HiddenFromObjC
+    @Serializable
+    @SerialName("SyncControl.CampfiresChanged")
+    data object CampfiresChanged : SyncControl
 }
 
 /**

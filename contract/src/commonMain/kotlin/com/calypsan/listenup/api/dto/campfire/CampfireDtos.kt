@@ -282,8 +282,10 @@ data class CampfireSnapshot(
  * @property hostUserId The current host's user id.
  * @property memberCount Current member count (for "Simon + 2 listening now").
  * @property controlMode The room's current control mode.
- * @property inviteOnly Always `false` for entries returned by `listOpenSessions` — carried
- * for symmetry with [CampfireSettings], not because invite-only rooms are ever listed here.
+ * @property inviteOnly Usually `false`: an invite-only room's entry only appears in
+ * `listOpenSessions` at all when the caller is already a member or was explicitly invited (see
+ * [com.calypsan.listenup.api.CampfireService.listOpenSessions]), in which case this reads `true` —
+ * the client already has standing to see it, so the field is informational rather than a filter.
  */
 @Serializable
 @SerialName("OpenCampfireSummary")

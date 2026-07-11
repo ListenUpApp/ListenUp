@@ -1,7 +1,9 @@
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -29,9 +31,15 @@ private val log = loggerFor<CampfireReaperTask>()
  * application stops. The loop re-raises [kotlinx.coroutines.CancellationException] so structured
  * concurrency is respected, and suppresses all other exceptions with a warning log so a transient
  * failure does not stop the sweep permanently.
+ *
+ * A reap that ends any room changes what [com.calypsan.listenup.api.CampfireService.listOpenSessions]
+ * can return, so [runOnce] broadcasts [SyncControl.CampfiresChanged] whenever it actually ends a
+ * room — the [ActiveSessionCleanupTask] precedent (nudge only on an effectful sweep, never on an
+ * empty one).
  */
 internal class CampfireReaperTask(
     private val registry: CampfireRegistry,
+    private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val interval: Duration = 30.seconds,
 ) {
@@ -53,6 +61,7 @@ internal class CampfireReaperTask(
         val endedTotal = endedForAway.size + endedForIdle.size
         if (endedTotal > 0) {
             log.info { "CampfireReaperTask ended $endedTotal room(s) (away-grace=${endedForAway.size}, idle=${endedForIdle.size})" }
+            bus.broadcastControl(SyncControl.CampfiresChanged)
         }
     }
 }

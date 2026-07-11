@@ -37,6 +37,7 @@ class CampfireModuleVerifyTest :
                                 single<ListenUpDatabase> { sql }
                                 single<SqlDriver> { driver }
                                 single<Clock> { Clock.System }
+                                single<ChangeBus> { bus }
                                 single { BookAccessPolicy(db = get(), driver = get()) }
                                 single { PlaybackPositionRepository(db = get(), bus = bus, registry = registry, clock = get()) }
                                 single { PublicProfileRepository(db = get(), bus = bus, registry = registry) }

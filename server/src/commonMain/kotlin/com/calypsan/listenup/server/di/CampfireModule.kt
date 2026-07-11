@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.CampfireReaperTask
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -17,8 +18,9 @@ import org.koin.dsl.module
  * access-gated [CampfireService], and the [CampfireReaperTask] that periodically sweeps away-grace
  * evictions and idle rooms.
  *
- * [CampfireRegistry] is deliberately NOT wired to [com.calypsan.listenup.server.sync.ChangeBus] —
- * the `CampfiresChanged` discovery nudge is Task 4's concern.
+ * [CampfireRegistry] is deliberately NOT wired to [ChangeBus] itself (its own class KDoc) — the
+ * `CampfiresChanged` discovery nudge is broadcast by [CampfireServiceImpl] (create/end/leave-to-empty)
+ * and by [CampfireReaperTask] (reaper-driven endings) instead, both of which take a [ChangeBus] here.
  */
 fun campfireModule(): Module =
     module {
@@ -30,6 +32,7 @@ fun campfireModule(): Module =
                 playbackPositions = get<PlaybackPositionRepository>(),
                 publicProfiles = get<PublicProfileRepository>(),
                 db = get<ListenUpDatabase>(),
+                bus = get<ChangeBus>(),
                 clock = get(),
                 principal =
                     PrincipalProvider {
@@ -38,5 +41,5 @@ fun campfireModule(): Module =
             )
         }
         single<CampfireService> { get<CampfireServiceImpl>() }
-        single { CampfireReaperTask(registry = get(), clock = get()) }
+        single { CampfireReaperTask(registry = get(), bus = get<ChangeBus>(), clock = get()) }
     }

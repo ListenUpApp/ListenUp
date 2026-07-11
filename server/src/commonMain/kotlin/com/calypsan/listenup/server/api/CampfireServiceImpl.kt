@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CampfireError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.campfire.ChatOutcome
@@ -28,6 +29,7 @@ import com.calypsan.listenup.server.campfire.posAt
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
@@ -66,6 +68,17 @@ private const val SPOILER_CHAPTER_THRESHOLD = 1
  * singleton carries an unscoped placeholder [PrincipalProvider] that throws (fail-loud) if ever
  * invoked, so a route that forgets to [copyWith] surfaces as a guarded `InternalError` rather than
  * silently leaking unscoped data.
+ *
+ * **Discoverability nudges.** [CampfireRegistry] deliberately knows nothing about
+ * [ChangeBus] (its own class KDoc) — every transition that changes what
+ * [listOpenSessions] can return is nudged from here instead, via
+ * `bus.broadcastControl(SyncControl.CampfiresChanged)`: a room's [createSession] (it becomes
+ * discoverable), and a room ending via [endSession] or a [leaveSession] that empties it
+ * ([LeaveOutcome.RoomEnded]) (it stops being discoverable). Reaper-driven endings (away-grace
+ * eviction down to empty, idle sweep) nudge from [com.calypsan.listenup.server.scheduler.CampfireReaperTask]
+ * instead, since those transitions never pass through this service. A room merely filling to (or
+ * draining from) its member cap does NOT nudge — capacity doesn't change discoverability; a full
+ * room still appears in the listing (as full).
  */
 internal class CampfireServiceImpl(
     private val registry: CampfireRegistry,
@@ -73,6 +86,7 @@ internal class CampfireServiceImpl(
     private val playbackPositions: PlaybackPositionRepository,
     private val publicProfiles: PublicProfileRepository,
     private val db: ListenUpDatabase,
+    private val bus: ChangeBus,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : CampfireService {
@@ -97,6 +111,8 @@ internal class CampfireServiceImpl(
                 settings = settings,
                 startingPositionMs = startingPositionMs,
             )
+        // A new room is now discoverable (subject to listOpenSessions' own ACL/invite filtering).
+        bus.broadcastControl(SyncControl.CampfiresChanged)
         // The creator's own progress IS the anchor — never a spoiler to themselves.
         return AppResult.Success(snapshot.copy(yourPositionMs = startingPositionMs, spoilerAhead = false))
     }
@@ -120,7 +136,12 @@ internal class CampfireServiceImpl(
     override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
         return when (registry.leave(sessionId, caller.userId)) {
-            is LeaveOutcome.Left, LeaveOutcome.RoomEnded -> AppResult.Success(Unit)
+            is LeaveOutcome.Left -> AppResult.Success(Unit)
+            LeaveOutcome.RoomEnded -> {
+                // The last member leaving ended the room — it stops being discoverable.
+                bus.broadcastControl(SyncControl.CampfiresChanged)
+                AppResult.Success(Unit)
+            }
             LeaveOutcome.NotAMember -> AppResult.Failure(CampfireError.NotAMember())
             LeaveOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
         }
@@ -131,6 +152,8 @@ internal class CampfireServiceImpl(
         val snapshot = registry.snapshot(sessionId) ?: return AppResult.Failure(CampfireError.CampfireNotFound())
         if (snapshot.hostUserId != caller.userId) return AppResult.Failure(CampfireError.NotController())
         registry.endSession(sessionId)
+        // The room stops being discoverable.
+        bus.broadcastControl(SyncControl.CampfiresChanged)
         return AppResult.Success(Unit)
     }
 
@@ -251,13 +274,47 @@ internal class CampfireServiceImpl(
         }
     }
 
+    /**
+     * ACL-filtered discovery listing — the [SocialServiceImpl] precedent: read every live room off
+     * [CampfireRegistry], then keep only those the caller may see.
+     *
+     * - **Book access**: [BookAccessPolicy.accessibleBookIds] returns `null` for ROOT/ADMIN
+     *   (unconstrained — every room visible); everyone else is filtered to their accessible set.
+     * - **Invite-only exclusion**: a room with [CampfireSettings.inviteOnly] set is dropped unless
+     *   the caller is already a member or is named in [CampfireSettings.invitedUserIds] — Task 5
+     *   finishes invite semantics (accept/decline, push), but the exclusion rule lands here so an
+     *   invite-only room never leaks to a stranger via discovery.
+     * - **Capacity**: a full room is still returned (at its full [OpenCampfireSummary.memberCount])
+     *   — capacity doesn't affect discoverability, only whether [sendCommand]/[joinSession] will
+     *   accept a new member.
+     */
     override suspend fun listOpenSessions(): AppResult<List<OpenCampfireSummary>> {
-        resolveCaller() ?: return noPrincipal()
-        // ACL-filtered discovery lands with the CampfiresChanged nudge (Task 4) — the registry
-        // doesn't yet expose a room-listing surface. Returning none here is an honest "nothing to
-        // discover yet", not a silent gap: Task 4 wires this fully.
-        return AppResult.Success(emptyList())
+        val caller = resolveCaller() ?: return noPrincipal()
+        val accessibleBookIds = bookAccessPolicy.accessibleBookIds(caller.userId, caller.role)
+        val visible =
+            registry.listSnapshots().filter { room ->
+                (accessibleBookIds == null || room.bookId in accessibleBookIds) &&
+                    (!room.settings.inviteOnly || isInvitedOrMember(room, caller.userId))
+            }
+        return AppResult.Success(
+            visible.map { room ->
+                OpenCampfireSummary(
+                    id = room.id,
+                    bookId = room.bookId,
+                    hostUserId = room.hostUserId,
+                    memberCount = room.members.size,
+                    controlMode = room.settings.controlMode,
+                    inviteOnly = room.settings.inviteOnly,
+                )
+            },
+        )
     }
+
+    /** True when [userId] is already a member of [room], or was explicitly invited to it. */
+    private fun isInvitedOrMember(
+        room: CampfireSnapshot,
+        userId: String,
+    ): Boolean = userId in room.settings.invitedUserIds || room.members.any { it.userId == userId }
 
     /** Returns a copy scoped to the given [principal]. Route handlers call this per-request. */
     fun copyWith(principal: PrincipalProvider): CampfireServiceImpl =
@@ -267,6 +324,7 @@ internal class CampfireServiceImpl(
             playbackPositions = playbackPositions,
             publicProfiles = publicProfiles,
             db = db,
+            bus = bus,
             clock = clock,
             principal = principal,
         )

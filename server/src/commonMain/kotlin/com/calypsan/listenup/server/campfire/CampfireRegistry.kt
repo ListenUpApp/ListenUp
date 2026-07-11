@@ -215,6 +215,20 @@ class CampfireRegistry(
     /** The room's current state, or `null` if it doesn't exist. */
     suspend fun snapshot(roomId: CampfireId): CampfireSnapshot? = findRoom(roomId)?.snapshot()
 
+    /**
+     * Every currently live room's state, unscoped to any caller — the discovery listing surface
+     * (Task 4). `CampfireServiceImpl.listOpenSessions` is the only intended caller: it applies book
+     * access and invite-only filtering over this raw list before ever constructing an
+     * `OpenCampfireSummary` — this registry has no concept of "accessible" or "invited", only rooms.
+     *
+     * Pure read: copies the room map under [roomsLock] (the [reapAwayMembers] idiom), then reads
+     * each room's own snapshot outside that lock — unrelated rooms never contend with each other.
+     */
+    suspend fun listSnapshots(): List<CampfireSnapshot> {
+        val liveRooms = roomsLock.withLock { rooms.values.toList() }
+        return liveRooms.map { it.snapshot() }
+    }
+
     /** The room's live frame flow, or `null` if it doesn't exist. */
     suspend fun observe(roomId: CampfireId): SharedFlow<CampfireFrame>? = findRoom(roomId)?.frames
 
