@@ -31,6 +31,9 @@ internal val persistenceModule: Module =
         single { get<ListenUpDatabase>().collectionShareDao() }
         single { get<ListenUpDatabase>().shelfDao() }
         single { get<ListenUpDatabase>().shelfBookDao() }
+        single { get<ListenUpDatabase>().readingOrderDao() }
+        single { get<ListenUpDatabase>().readingOrderBookDao() }
+        single { get<ListenUpDatabase>().readingOrderFollowDao() }
         single { get<ListenUpDatabase>().tagDao() }
         single { get<ListenUpDatabase>().moodDao() }
         single { get<ListenUpDatabase>().bookMoodDao() }
