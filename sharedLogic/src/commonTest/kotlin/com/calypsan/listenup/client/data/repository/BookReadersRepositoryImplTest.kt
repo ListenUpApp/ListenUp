@@ -9,7 +9,8 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookReadershipDao
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
-import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.PRESENCE_POLL_INTERVAL_MS
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.domain.model.User
@@ -67,13 +68,6 @@ class BookReadersRepositoryImplTest :
             updatedAtMs = 0L,
         )
 
-        fun fakeRpc(service: SocialService): SocialRpcFactory =
-            object : SocialRpcFactory {
-                override suspend fun get(): SocialService = service
-
-                override suspend fun invalidate() = Unit
-            }
-
         fun fakeUsers(current: User?): UserRepository =
             object : UserRepository {
                 override fun observeCurrentUser(): Flow<User?> = flowOf(current)
@@ -90,12 +84,12 @@ class BookReadersRepositoryImplTest :
             }
 
         fun repo(
-            rpc: SocialRpcFactory,
+            channel: RpcChannel<SocialService>,
             dao: BookReadershipDao,
             presence: PresenceRefreshSignal = PresenceRefreshSignal(),
             currentUser: User? = user(),
         ) = BookReadersRepositoryImpl(
-            socialRpc = rpc,
+            channel = channel,
             presence = presence,
             userRepository = fakeUsers(currentUser),
             readershipDao = dao,
@@ -116,7 +110,7 @@ class BookReadersRepositoryImplTest :
                             )
                     }
 
-                repo(fakeRpc(service), FakeBookReadershipDao(), currentUser = user(id = "me"))
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = user(id = "me"))
                     .observeReadersFor("b1")
                     .test {
                         // First emission is the empty cache; the refresh then fills it.
@@ -144,7 +138,7 @@ class BookReadersRepositoryImplTest :
                             AppResult.Success(BookReadership(listOf(entry("u2", "Bob"), entry("u3", "Carol"))))
                     }
 
-                repo(fakeRpc(service), FakeBookReadershipDao(), currentUser = null)
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = null)
                     .observeReadersFor("b1")
                     .test {
                         val readers = awaitNonEmpty()
@@ -167,7 +161,7 @@ class BookReadersRepositoryImplTest :
                     }
                 val presence = PresenceRefreshSignal()
 
-                repo(fakeRpc(service), FakeBookReadershipDao(), presence = presence, currentUser = null)
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), presence = presence, currentUser = null)
                     .observeReadersFor("b1")
                     .test {
                         awaitNonEmpty() shouldHaveSize 1
@@ -190,7 +184,7 @@ class BookReadersRepositoryImplTest :
                             )
                     }
 
-                repo(fakeRpc(service), FakeBookReadershipDao(), currentUser = null)
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = null)
                     .observeReadersFor("b1")
                     .test {
                         awaitNonEmpty() shouldHaveSize 1
@@ -210,7 +204,7 @@ class BookReadersRepositoryImplTest :
                             AppResult.Success(BookReadership(listOf(entry("u2", "Bob"))))
                     }
 
-                repo(fakeRpc(service), FakeBookReadershipDao(), currentUser = null)
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), currentUser = null)
                     .observeReadersFor("b1")
                     .test {
                         awaitNonEmpty() shouldHaveSize 1
@@ -236,7 +230,7 @@ class BookReadersRepositoryImplTest :
                     }
                 val presence = PresenceRefreshSignal()
 
-                repo(fakeRpc(service), FakeBookReadershipDao(), presence = presence, currentUser = null)
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao(), presence = presence, currentUser = null)
                     .observeReadersFor("b1")
                     .test {
                         awaitNonEmpty().map { it.userId } shouldContainExactly listOf("u2")
@@ -260,7 +254,7 @@ class BookReadersRepositoryImplTest :
                     }
                 val presence = PresenceRefreshSignal()
 
-                repo(fakeRpc(service), ThrowOnceBookReadershipDao(), presence = presence, currentUser = null)
+                repo(RpcChannel.forTest(service), ThrowOnceBookReadershipDao(), presence = presence, currentUser = null)
                     .observeReadersFor("b1")
                     .test {
                         // First refresh's DAO write throws — the guard swallows it, cache stays empty.
@@ -280,7 +274,7 @@ class BookReadersRepositoryImplTest :
                             AppResult.Failure(TransportError.NetworkUnavailable())
                     }
 
-                repo(fakeRpc(service), FakeBookReadershipDao())
+                repo(RpcChannel.forTest(service), FakeBookReadershipDao())
                     .observeReadersFor("b1")
                     .test {
                         awaitItem().readers.shouldBeEmpty()

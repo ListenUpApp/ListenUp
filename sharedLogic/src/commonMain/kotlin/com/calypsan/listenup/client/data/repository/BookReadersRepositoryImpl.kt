@@ -2,12 +2,12 @@
 
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.api.dto.social.BookReaderEntry
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.BookReadershipDao
 import com.calypsan.listenup.client.data.local.db.BookReadershipEntity
-import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.refreshTriggers
 import com.calypsan.listenup.client.domain.readers.BookReaders
@@ -38,14 +38,14 @@ private val logger = KotlinLogging.logger {}
  * The current user is flagged via [Reader.isYou] from [UserRepository]. `finishes` timestamps are stored
  * in the mirror as a comma-joined scalar (small, always replaced together — no child table needed).
  *
- * @property socialRpc Supplies the [com.calypsan.listenup.api.SocialService] RPC proxy.
+ * @property channel Dispatches the [com.calypsan.listenup.api.SocialService] readership RPC.
  * @property presence Pings whenever presence may have changed, driving a background refresh.
  * @property userRepository Source of the current user's identity, used to flag [Reader.isYou].
  * @property readershipDao The Room mirror — the offline read source.
  * @property clock Supplies `observedAt` for each cached row; injected for tests.
  */
 internal class BookReadersRepositoryImpl(
-    private val socialRpc: SocialRpcFactory,
+    private val channel: RpcChannel<SocialService>,
     private val presence: PresenceRefreshSignal,
     private val userRepository: UserRepository,
     private val readershipDao: BookReadershipDao,
@@ -76,7 +76,7 @@ internal class BookReadersRepositoryImpl(
     /** Re-fetch the readership and replace the book's cached rows; leave the cache intact on failure. */
     private suspend fun refresh(bookId: String) {
         try {
-            when (val result = bookReadership(bookId)) {
+            when (val result = channel.call { it.bookReadership(BookId(bookId)) }) {
                 is AppResult.Success -> {
                     val observedAt = clock.now().toEpochMilliseconds()
                     readershipDao.replaceForBook(bookId, result.data.readers.map { it.toEntity(bookId, observedAt) })
@@ -93,16 +93,6 @@ internal class BookReadersRepositoryImpl(
             logger.warn(e) { "bookReadership refresh failed; keeping cached readership" }
         }
     }
-
-    private suspend fun bookReadership(bookId: String) =
-        try {
-            socialRpc.get().bookReadership(BookId(bookId))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            logger.warn(e) { "bookReadership RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
-        }
 }
 
 private fun BookReaderEntry.toEntity(

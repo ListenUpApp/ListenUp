@@ -1,11 +1,9 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.ActivityRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorActivityRpcFactory
+import com.calypsan.listenup.api.SocialService
 import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorSocialRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.SocialRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookReadersRepositoryImpl
@@ -44,18 +42,10 @@ import org.koin.dsl.module
  */
 internal val socialModule: Module =
     module {
-        // SocialRpcFactory — kotlinx.rpc proxy for SocialService (Room reads; RPC mutations).
-        single<SocialRpcFactory> {
-            KtorSocialRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
-        // ActivityRpcFactory — kotlinx.rpc proxy for ActivityService (the social activity feed).
-        single<ActivityRpcFactory> {
-            KtorActivityRpcFactory(apiClientFactory = get(), serverConfig = get())
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // SocialService RPC channel — kotlinx.rpc dispatch for SocialService (Room reads; RPC
+        // reads for presence/readership). Authed (self-healing) by default; joins the
+        // RpcCacheInvalidator sweep.
+        rpcChannel<SocialService>()
 
         // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
         single<ProfileRpcFactory> {
@@ -104,7 +94,7 @@ internal val socialModule: Module =
         // re-fetched on every PresenceRefreshSignal ping (server nudge or firehose reconnect).
         single<ActiveSessionRepository> {
             ActiveSessionRepositoryImpl(
-                socialRpc = get(),
+                channel = rpcChannel(),
                 bookDao = get(),
                 imageStorage = get(),
                 presence = get(),
@@ -117,7 +107,7 @@ internal val socialModule: Module =
         // re-fetched on every PresenceRefreshSignal ping.
         single<BookReadersRepository> {
             BookReadersRepositoryImpl(
-                socialRpc = get(),
+                channel = rpcChannel(),
                 presence = get(),
                 userRepository = get(),
                 readershipDao = get(),
