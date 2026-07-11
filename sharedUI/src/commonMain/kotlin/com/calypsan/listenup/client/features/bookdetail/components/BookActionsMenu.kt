@@ -1,10 +1,16 @@
 package com.calypsan.listenup.client.features.bookdetail.components
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Search
@@ -14,12 +20,18 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.stringResource
 import listenup.composeapp.generated.resources.Res
 import listenup.composeapp.generated.resources.book_detail_add_to_collection
 import listenup.composeapp.generated.resources.book_detail_add_to_shelf
+import listenup.composeapp.generated.resources.book_detail_campfire_this_book
+import listenup.composeapp.generated.resources.campfire_listening_now_count
 import listenup.composeapp.generated.resources.common_delete_name
 import listenup.composeapp.generated.resources.book_detail_edit_book
 import listenup.composeapp.generated.resources.book_detail_find_metadata
@@ -43,6 +55,10 @@ import listenup.composeapp.generated.resources.common_share
  * @param onMarkNotStartedClick Called when Mark as Not Started is clicked (shown when there is progress or it is complete)
  * @param onAddToShelfClick Called when Add to Shelf is clicked
  * @param onAddToCollectionClick Called when Add to Collection is clicked (admin only)
+ * @param campfireLiveCount Current number of listeners already in a Campfire session for this
+ * book. Zero renders the item with no badge; positive shows a "N listening" badge so a member
+ * knows a session is already underway before tapping in.
+ * @param onCampfireClick Called when "Campfire this book" is clicked — opens the create/join flow.
  * @param onDeleteClick Called when Delete Book is clicked (admin only)
  */
 @Suppress("LongParameterList")
@@ -60,6 +76,8 @@ fun BookActionsMenu(
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
+    campfireLiveCount: Int,
+    onCampfireClick: () -> Unit,
     onDeleteClick: () -> Unit,
 ) {
     DropdownMenu(
@@ -158,6 +176,11 @@ fun BookActionsMenu(
             onClick = onShareClick,
         )
 
+        // Campfire this book — the create/join entry point (moved off the book-detail overflow
+        // FAB, which used to cover the top bar's own three-dot menu). A trailing badge surfaces
+        // the live listener count when a session is already underway.
+        CampfireMenuItem(campfireLiveCount = campfireLiveCount, onClick = onCampfireClick)
+
         // Delete Book (admin only) — not yet implemented
         if (isAdmin) {
             HorizontalDivider()
@@ -186,4 +209,54 @@ fun BookActionsMenu(
             )
         }
     }
+}
+
+/**
+ * "Campfire this book" menu item — extracted from [BookActionsMenu] to keep that function within
+ * the length budget. Shows a "N listening" badge (reusing [Res.string.campfire_listening_now_count])
+ * when [campfireLiveCount] is positive, tinting the fire icon and badge with
+ * [MaterialTheme.colorScheme.primary] so a live session reads as active at a glance.
+ */
+@Composable
+private fun CampfireMenuItem(
+    campfireLiveCount: Int,
+    onClick: () -> Unit,
+) {
+    DropdownMenuItem(
+        text = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(Res.string.book_detail_campfire_this_book))
+                if (campfireLiveCount > 0) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Text(
+                            text = stringResource(Res.string.campfire_listening_now_count, campfireLiveCount),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+            }
+        },
+        leadingIcon = {
+            Icon(
+                imageVector = Icons.Default.LocalFireDepartment,
+                contentDescription = null,
+                tint =
+                    if (campfireLiveCount > 0) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+            )
+        },
+        onClick = onClick,
+    )
 }

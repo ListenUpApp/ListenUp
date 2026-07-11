@@ -13,9 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -60,7 +57,6 @@ import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
-import com.calypsan.listenup.client.features.bookdetail.components.CampfireEntryPoint
 import com.calypsan.listenup.client.features.campfire.CampfireCreateDraft
 import com.calypsan.listenup.client.features.campfire.CampfireCreateScreen
 import com.calypsan.listenup.client.features.campfire.CampfireFlowBook
@@ -130,6 +126,7 @@ fun BookDetailScreen(
     onSeeAllReaders: (bookId: String) -> Unit = {},
     onOpenDocumentViewer: (localPath: String) -> Unit = {},
     campfireViewModel: CampfireViewModel,
+    startWithCampfireCreate: Boolean = false,
     viewModel: BookDetailViewModel = koinViewModel(),
 ) {
     LaunchedEffect(bookId) {
@@ -182,6 +179,7 @@ fun BookDetailScreen(
                     state = s,
                     viewModel = viewModel,
                     campfireViewModel = campfireViewModel,
+                    startWithCampfireCreate = startWithCampfireCreate,
                     onBackClick = onBackClick,
                     onEditClick = onEditClick,
                     onMetadataSearchClick = onMetadataSearchClick,
@@ -231,6 +229,7 @@ private fun BookDetailReadyContent(
     state: BookDetailUiState.Ready,
     viewModel: BookDetailViewModel,
     campfireViewModel: CampfireViewModel,
+    startWithCampfireCreate: Boolean,
     onBackClick: () -> Unit,
     onEditClick: (bookId: String) -> Unit,
     onMetadataSearchClick: (bookId: String) -> Unit,
@@ -249,7 +248,14 @@ private fun BookDetailReadyContent(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
-    var campfireFlowStep by remember { mutableStateOf<CampfireFlowStep>(CampfireFlowStep.None) }
+    // Seeded from the Discover "Start a campfire" picker detour (navigates here with the create
+    // flow pre-armed) — see BookDetail route's `openCampfireCreate` KDoc.
+    var campfireFlowStep by
+        remember {
+            mutableStateOf<CampfireFlowStep>(
+                if (startWithCampfireCreate) CampfireFlowStep.Create else CampfireFlowStep.None,
+            )
+        }
 
     // Callback for opening metadata search
     val onFindMetadataClick: () -> Unit = {
@@ -260,90 +266,80 @@ private fun BookDetailReadyContent(
     val hasProgress = state.progress != null
     val liveCampfires by viewModel.liveCampfires.collectAsStateWithLifecycle()
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        BookDetailContent(
-            bookId = bookId,
-            state = state,
-            documents = documents,
-            onOpenDocument = { docId -> viewModel.onOpenDocument(docId) },
-            downloadStatus = state.downloadStatus,
-            isComplete = state.isComplete,
-            hasProgress = hasProgress,
-            isAdmin = state.isAdmin,
-            isWaitingForWifi = state.isWaitingForWifi,
-            showPlaybackActions = state.isPlaybackAvailable,
-            onBackClick = onBackClick,
-            onEditClick = { onEditClick(bookId) },
-            onFindMetadataClick = onFindMetadataClick,
-            onMarkCompleteClick = { showMarkCompleteDialog = true },
-            onMarkNotStartedClick = { viewModel.discardProgress() },
-            onAddToShelfClick = { viewModel.showShelfPicker() },
-            onAddToCollectionClick = { viewModel.showCollectionPicker() },
-            onShareClick = {
-                scope.launch {
-                    // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the
-                    // Kotlin server responds a bare (non-enveloped) body there, so decoding it as
-                    // `ApiResponse<Instance>` threw on every share. `getServerInfo` is pure RPC and
-                    // carries the `remoteUrl` + `instanceId` the share link needs. Mirrors iOS #1045.
-                    val result = instanceRepository.getServerInfo()
-                    if (result is AppResult.Success) {
-                        val info = result.data
-                        val url =
-                            ShareLinkCodec.encode(
-                                ShareTarget.Book(
-                                    bookId = book.id,
-                                    serverInstanceId = info.instanceId,
-                                    serverUrl = info.remoteUrl?.trimEnd('/'),
-                                ),
-                            )
-                        val text = "Check out ${book.title} on ListenUp!\n$url"
-                        platformActions.shareText(text, url)
-                    }
+    BookDetailContent(
+        bookId = bookId,
+        state = state,
+        documents = documents,
+        onOpenDocument = { docId -> viewModel.onOpenDocument(docId) },
+        downloadStatus = state.downloadStatus,
+        isComplete = state.isComplete,
+        hasProgress = hasProgress,
+        isAdmin = state.isAdmin,
+        isWaitingForWifi = state.isWaitingForWifi,
+        showPlaybackActions = state.isPlaybackAvailable,
+        onBackClick = onBackClick,
+        onEditClick = { onEditClick(bookId) },
+        onFindMetadataClick = onFindMetadataClick,
+        onMarkCompleteClick = { showMarkCompleteDialog = true },
+        onMarkNotStartedClick = { viewModel.discardProgress() },
+        onAddToShelfClick = { viewModel.showShelfPicker() },
+        onAddToCollectionClick = { viewModel.showCollectionPicker() },
+        onShareClick = {
+            scope.launch {
+                // Use the RPC-backed server identity, not the legacy `getInstance` REST path: the
+                // Kotlin server responds a bare (non-enveloped) body there, so decoding it as
+                // `ApiResponse<Instance>` threw on every share. `getServerInfo` is pure RPC and
+                // carries the `remoteUrl` + `instanceId` the share link needs. Mirrors iOS #1045.
+                val result = instanceRepository.getServerInfo()
+                if (result is AppResult.Success) {
+                    val info = result.data
+                    val url =
+                        ShareLinkCodec.encode(
+                            ShareTarget.Book(
+                                bookId = book.id,
+                                serverInstanceId = info.instanceId,
+                                serverUrl = info.remoteUrl?.trimEnd('/'),
+                            ),
+                        )
+                    val text = "Check out ${book.title} on ListenUp!\n$url"
+                    platformActions.shareText(text, url)
                 }
-            },
-            onDeleteBookClick = { /* TODO: Implement */ },
-            onPlayClick = { platformActions.playBook(BookId(bookId)) },
-            canPlay = state.canPlay,
-            canDownload = state.canDownload,
-            showServerWarning = state.showServerWarning,
-            onRetryConnection = { viewModel.retryConnection() },
-            onPlayDisabledClick = {
-                scope.launch {
-                    snackbarHostState.showSnackbar(
-                        "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
-                    )
-                }
-            },
-            onUserProfileClick = onUserProfileClick,
-            onDownloadClick = {
-                scope.launch {
-                    val result = platformActions.downloadBook(BookId(bookId))
-                    handleDownloadResult(result) { message -> snackbarHostState.showSnackbar(message) }
-                }
-            },
-            onCancelClick = {
-                scope.launch {
-                    platformActions.cancelDownload(BookId(bookId))
-                }
-            },
-            onDeleteClick = { showDeleteDialog = true },
-            onSeriesClick = onSeriesClick,
-            onContributorClick = onContributorClick,
-            onTagClick = onTagClick,
-            onMoodClick = onMoodClick,
-            onSeeAllReaders = onSeeAllReaders,
-        )
-
-        CampfireEntryPoint(
-            liveMemberCount = liveCampfires.sumOf { it.memberCount },
-            onClick = { campfireFlowStep = CampfireFlowStep.Create },
-            modifier =
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .windowInsetsPadding(WindowInsets.statusBars)
-                    .padding(top = 8.dp, end = 16.dp),
-        )
-    }
+            }
+        },
+        campfireLiveCount = liveCampfires.sumOf { it.memberCount },
+        onCampfireClick = { campfireFlowStep = CampfireFlowStep.Create },
+        onDeleteBookClick = { /* TODO: Implement */ },
+        onPlayClick = { platformActions.playBook(BookId(bookId)) },
+        canPlay = state.canPlay,
+        canDownload = state.canDownload,
+        showServerWarning = state.showServerWarning,
+        onRetryConnection = { viewModel.retryConnection() },
+        onPlayDisabledClick = {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    "Server is unreachable. Connect to your server to stream this book, or download it for offline playback.",
+                )
+            }
+        },
+        onUserProfileClick = onUserProfileClick,
+        onDownloadClick = {
+            scope.launch {
+                val result = platformActions.downloadBook(BookId(bookId))
+                handleDownloadResult(result) { message -> snackbarHostState.showSnackbar(message) }
+            }
+        },
+        onCancelClick = {
+            scope.launch {
+                platformActions.cancelDownload(BookId(bookId))
+            }
+        },
+        onDeleteClick = { showDeleteDialog = true },
+        onSeriesClick = onSeriesClick,
+        onContributorClick = onContributorClick,
+        onTagClick = onTagClick,
+        onMoodClick = onMoodClick,
+        onSeeAllReaders = onSeeAllReaders,
+    )
 
     when (val step = campfireFlowStep) {
         CampfireFlowStep.None -> {}
@@ -493,6 +489,8 @@ fun BookDetailContent(
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
+    campfireLiveCount: Int = 0,
+    onCampfireClick: () -> Unit = {},
     onDeleteBookClick: () -> Unit,
     onPlayClick: () -> Unit,
     canPlay: Boolean,
@@ -540,6 +538,8 @@ fun BookDetailContent(
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
+            campfireLiveCount = campfireLiveCount,
+            onCampfireClick = onCampfireClick,
             onDeleteBookClick = onDeleteBookClick,
             onPlayClick = onPlayClick,
             onDownloadClick = onDownloadClick,
@@ -577,6 +577,8 @@ fun BookDetailContent(
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
+            campfireLiveCount = campfireLiveCount,
+            onCampfireClick = onCampfireClick,
             onDeleteBookClick = onDeleteBookClick,
             onPlayClick = onPlayClick,
             canPlay = canPlay,
@@ -630,6 +632,8 @@ private fun ImmersiveBookDetail(
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
+    campfireLiveCount: Int = 0,
+    onCampfireClick: () -> Unit = {},
     onDeleteBookClick: () -> Unit,
     onPlayClick: () -> Unit,
     canPlay: Boolean,
@@ -672,6 +676,8 @@ private fun ImmersiveBookDetail(
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
+            campfireLiveCount = campfireLiveCount,
+            onCampfireClick = onCampfireClick,
             onDeleteClick = onDeleteBookClick,
         )
 

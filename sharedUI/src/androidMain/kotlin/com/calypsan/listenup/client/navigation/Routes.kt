@@ -33,10 +33,14 @@ data object Shell : Route
  * Book detail screen - displays full book info and chapters.
  *
  * @property bookId The unique ID of the book to display.
+ * @property openCampfireCreate Auto-opens the Campfire create flow on arrival — the Discover
+ * "Start a campfire" book-picker detour (there is no dedicated create surface on Discover itself,
+ * so picking a book routes here with the flow pre-armed instead of duplicating the create screen).
  */
 @Serializable
 data class BookDetail(
     val bookId: String,
+    val openCampfireCreate: Boolean = false,
 ) : Route
 
 /**

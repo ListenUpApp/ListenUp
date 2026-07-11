@@ -29,6 +29,7 @@ internal fun EntryProviderScope<NavKey>.bookEntries(
         com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
             bookId = args.bookId,
             campfireViewModel = campfireViewModel,
+            startWithCampfireCreate = args.openCampfireCreate,
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },

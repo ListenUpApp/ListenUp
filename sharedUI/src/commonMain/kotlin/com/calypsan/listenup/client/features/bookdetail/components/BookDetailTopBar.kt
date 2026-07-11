@@ -45,6 +45,8 @@ fun BookDetailTopBar(
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit,
+    campfireLiveCount: Int,
+    onCampfireClick: () -> Unit,
     onDeleteClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -101,6 +103,11 @@ fun BookDetailTopBar(
                     onShareClick = {
                         showMenu = false
                         onShareClick()
+                    },
+                    campfireLiveCount = campfireLiveCount,
+                    onCampfireClick = {
+                        showMenu = false
+                        onCampfireClick()
                     },
                     onDeleteClick = {
                         showMenu = false
