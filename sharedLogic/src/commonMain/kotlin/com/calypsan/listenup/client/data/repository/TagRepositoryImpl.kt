@@ -1,15 +1,15 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
-import com.calypsan.listenup.api.result.map as wireMap
+import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.BookTagDao
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TagEntity
-import com.calypsan.listenup.client.data.remote.TagRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.Tag
 import com.calypsan.listenup.client.domain.repository.TagRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -29,15 +29,15 @@ private val logger = KotlinLogging.logger {}
  * UI reacts without explicit network polling.
  *
  * **Mutation** (RPC-backed): `addTagToBook`, `removeTagFromBook`, `renameTag`, `deleteTag`
- * delegate to the [TagRpcFactory] WebSocket proxy. There are no optimistic Room writes —
- * the SSE echo from the server is the single write path back into Room, keeping state
- * consistent across devices.
+ * dispatch through the bounded, self-healing [RpcChannel] for [TagService]. There are no
+ * optimistic Room writes — the SSE echo from the server is the single write path back into
+ * Room, keeping state consistent across devices.
  *
- * Wire [WireAppResult] values returned by the RPC service are converted to the client-layer
- * [AppResult] at this boundary, following the same pattern as [MetadataRepositoryImpl].
+ * @property channel the [RpcChannel] the mutation surface dispatches through; the channel folds
+ *   the RPC outcome into an [AppResult] (throw → typed `Failure`, business `Failure` passthrough).
  */
 internal class TagRepositoryImpl(
-    private val tagRpcFactory: TagRpcFactory,
+    private val channel: RpcChannel<TagService>,
     private val tagDao: TagDao,
     private val bookTagDao: BookTagDao,
 ) : TagRepository {
@@ -70,49 +70,19 @@ internal class TagRepositoryImpl(
     override suspend fun addTagToBook(
         bookId: String,
         name: String,
-    ): AppResult<Tag> =
-        rpcCall {
-            tagRpcFactory.get().addTagToBook(BookId(bookId), name).wireMap { it.toDomain() }
-        }
+    ): AppResult<Tag> = channel.call { it.addTagToBook(BookId(bookId), name) }.map { it.toDomain() }
 
     override suspend fun removeTagFromBook(
         bookId: String,
         tagId: String,
-    ): AppResult<Unit> = rpcCallUnit { tagRpcFactory.get().removeTagFromBook(BookId(bookId), TagId(tagId)) }
+    ): AppResult<Unit> = channel.call { it.removeTagFromBook(BookId(bookId), TagId(tagId)) }
 
     override suspend fun renameTag(
         tagId: String,
         newName: String,
-    ): AppResult<Tag> =
-        rpcCall {
-            tagRpcFactory.get().renameTag(TagId(tagId), newName).wireMap { it.toDomain() }
-        }
+    ): AppResult<Tag> = channel.call { it.renameTag(TagId(tagId), newName) }.map { it.toDomain() }
 
-    override suspend fun deleteTag(tagId: String): AppResult<Unit> =
-        rpcCallUnit { tagRpcFactory.get().deleteTag(TagId(tagId)) }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /**
-     * Run an RPC call that returns a data value, converting [WireAppResult] → [AppResult].
-     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure].
-     */
-    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
-        try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(result.data)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            AppResult.Failure(ErrorMapper.map(e))
-        }
-
-    /**
-     * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
-     */
-    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> = rpcCall(block)
+    override suspend fun deleteTag(tagId: String): AppResult<Unit> = channel.call { it.deleteTag(TagId(tagId)) }
 }
 
 // ── Mapping ───────────────────────────────────────────────────────────────────

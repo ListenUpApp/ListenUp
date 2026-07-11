@@ -11,7 +11,7 @@ import kotlinx.rpc.withService
  *
  * An interface so repositories depend on a seam that can be faked in tests —
  * [KtorBackupRpcFactory] is the production implementation over WebSocket RPC.
- * Mirrors [TagRpcFactory] — the established RPC factory precedent.
+ * Mirrors the established RPC factory precedent.
  */
 internal interface BackupRpcFactory {
     /** Returns the cached [BackupService] proxy, connecting on first use. */

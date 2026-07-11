@@ -1,17 +1,15 @@
 package com.calypsan.listenup.client.data.repository
 
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
-import com.calypsan.listenup.api.result.map as wireMap
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
-import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.BookMoodDao
 import com.calypsan.listenup.client.data.local.db.MoodDao
-import com.calypsan.listenup.client.data.remote.MoodRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.Mood
 import com.calypsan.listenup.client.domain.repository.MoodRepository
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -24,16 +22,16 @@ import kotlinx.coroutines.flow.map
  * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain], so the
  * UI reacts without explicit network polling.
  *
- * **Mutation** (RPC-backed): `addMoodToBook`, `removeMoodFromBook` delegate to the
- * [MoodRpcFactory] WebSocket proxy. There are no optimistic Room writes — the SSE echo
+ * **Mutation** (RPC-backed): `addMoodToBook`, `removeMoodFromBook` dispatch through the bounded,
+ * self-healing [RpcChannel] for [MoodService]. There are no optimistic Room writes — the SSE echo
  * from the server is the single write path back into Room, keeping state consistent
  * across devices.
  *
- * Wire [WireAppResult] values returned by the RPC service are converted to the client-layer
- * [AppResult] at this boundary, following the same pattern as [TagRepositoryImpl].
+ * @property channel the [RpcChannel] the mutation surface dispatches through; the channel folds
+ *   the RPC outcome into an [AppResult] (throw → typed `Failure`, business `Failure` passthrough).
  */
 internal class MoodRepositoryImpl(
-    private val moodRpcFactory: MoodRpcFactory,
+    private val channel: RpcChannel<MoodService>,
     private val moodDao: MoodDao,
     private val bookMoodDao: BookMoodDao,
 ) : MoodRepository {
@@ -55,38 +53,12 @@ internal class MoodRepositoryImpl(
     override suspend fun addMoodToBook(
         bookId: String,
         name: String,
-    ): AppResult<Mood> =
-        rpcCall {
-            moodRpcFactory.get().addMoodToBook(BookId(bookId), name).wireMap { it.toDomain() }
-        }
+    ): AppResult<Mood> = channel.call { it.addMoodToBook(BookId(bookId), name) }.map { it.toDomain() }
 
     override suspend fun removeMoodFromBook(
         bookId: String,
         moodId: String,
-    ): AppResult<Unit> = rpcCallUnit { moodRpcFactory.get().removeMoodFromBook(BookId(bookId), MoodId(moodId)) }
-
-    // ── Private helpers ───────────────────────────────────────────────────────
-
-    /**
-     * Run an RPC call that returns a data value, converting [WireAppResult] → [AppResult].
-     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure].
-     */
-    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
-        try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(result.data)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            AppResult.Failure(ErrorMapper.map(e))
-        }
-
-    /**
-     * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
-     */
-    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> = rpcCall(block)
+    ): AppResult<Unit> = channel.call { it.removeMoodFromBook(BookId(bookId), MoodId(moodId)) }
 }
 
 // ── Mapping ───────────────────────────────────────────────────────────────────

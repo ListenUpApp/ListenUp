@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.Mood as WireMood
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.remote.MoodRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
@@ -78,10 +80,9 @@ private fun withTestRepo(block: suspend (BookRepositoryImpl, ListenUpDatabase) -
             val tagRepository: TagRepository = mock()
             every { tagRepository.observeTagsForBook(any()) } returns MutableStateFlow(emptyList())
 
-            val moodRpcFactory: MoodRpcFactory = mock()
             val moodRepository =
                 MoodRepositoryImpl(
-                    moodRpcFactory = moodRpcFactory,
+                    channel = RpcChannel.forTest(mock<MoodService>()),
                     moodDao = db.moodDao(),
                     bookMoodDao = db.bookMoodDao(),
                 )

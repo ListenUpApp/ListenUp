@@ -64,8 +64,6 @@ private val RESIDUAL_HANDROLLED_RPC_ALLOWLIST: Set<String> =
         "/data/repository/ContributorEditRepositoryImpl.kt",
         "/data/repository/ImportRepositoryImpl.kt",
         "/data/repository/MetadataRepositoryImpl.kt",
-        "/data/repository/MoodRepositoryImpl.kt",
         "/data/repository/ProfileEditRepositoryImpl.kt",
         "/data/repository/SeriesEditRepositoryImpl.kt",
-        "/data/repository/TagRepositoryImpl.kt",
     )

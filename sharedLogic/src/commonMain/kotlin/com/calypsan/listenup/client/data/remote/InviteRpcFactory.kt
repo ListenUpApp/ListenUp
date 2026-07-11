@@ -14,7 +14,7 @@ import kotlinx.rpc.withService
  *
  * An interface so the repository depends on a seam that can be faked in tests —
  * [KtorInviteRpcFactory] is the production implementation over WebSocket RPC.
- * Mirrors [TagRpcFactory] — the established RPC-factory-seam precedent.
+ * Mirrors the established RPC-factory-seam precedent.
  */
 internal interface InviteRpcFactory {
     /** Returns the cached [InviteServicePublic] proxy, connecting on first use. */
