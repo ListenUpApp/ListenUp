@@ -155,7 +155,10 @@ internal class RpcProxyCache<T : Any>(
      * emitted yet AND the fault is provably pre-delivery (a refreshable handshake 401, a pre-delivery
      * transport failure, or a dead-client ISE). Everything else is [surfaceStreamFailure]d.
      */
-    private suspend fun canResubscribeStream(e: Throwable, emitted: Boolean): Boolean =
+    private suspend fun canResubscribeStream(
+        e: Throwable,
+        emitted: Boolean,
+    ): Boolean =
         !emitted &&
             when {
                 isWsHandshake401(e) -> authRecovery.refreshAndRebuild()

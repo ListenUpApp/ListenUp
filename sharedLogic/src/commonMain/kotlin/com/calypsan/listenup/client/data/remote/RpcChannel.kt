@@ -118,11 +118,18 @@ internal class RpcChannel<S : Any> internal constructor(
     fun <T> stream(subscribe: suspend (S) -> Flow<RpcEvent<T>>): Flow<RpcEvent<T>> =
         dispatch.streaming(subscribe).catch { e ->
             when {
-                e is CancellationException -> throw e
+                e is CancellationException -> {
+                    throw e
+                }
+
                 // Frame sent, response lost mid-stream: honest, retryable by the consumer's re-subscribe.
-                e is RpcOutcomeUnknownException ->
+                e is RpcOutcomeUnknownException -> {
                     emit(RpcEvent.Error(TransportError.NetworkUnavailable(debugInfo = e.message)))
-                else -> emit(RpcEvent.Error(ErrorMapper.map(e)))
+                }
+
+                else -> {
+                    emit(RpcEvent.Error(ErrorMapper.map(e)))
+                }
             }
         }
 

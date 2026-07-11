@@ -21,7 +21,8 @@ import com.calypsan.listenup.api.sync.SyncDomains
 internal object OutboxChannels {
     // Update = set-fields, last-write-wins → inherently idempotent (a repeated PATCH re-applies the same snapshot).
     val Books = OutboxChannel(SyncDomains.BOOKS.name, BookUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
-    val Series = OutboxChannel(SyncDomains.SERIES.name, SeriesUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
+    val Series =
+        OutboxChannel(SyncDomains.SERIES.name, SeriesUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
     val Contributors =
         OutboxChannel(
             SyncDomains.CONTRIBUTORS.name,
