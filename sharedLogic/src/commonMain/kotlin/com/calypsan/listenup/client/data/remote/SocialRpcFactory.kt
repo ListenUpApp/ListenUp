@@ -11,7 +11,7 @@ import kotlinx.rpc.withService
  *
  * An interface so repositories and ViewModels depend on a seam that can be faked
  * in tests — [KtorSocialRpcFactory] is the production implementation over
- * WebSocket RPC. Mirrors [ShelfRpcFactory] — the established RPC factory precedent.
+ * WebSocket RPC. Mirrors the established RPC factory precedent.
  */
 internal interface SocialRpcFactory {
     /** Returns the cached [SocialService] proxy, connecting on first use. */

@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.dto.shelf.DiscoveredShelf
 import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.result.AppResult
@@ -9,7 +10,7 @@ import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
-import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.model.ShelfBook
 import com.calypsan.listenup.client.domain.model.ShelfDetail
@@ -39,12 +40,12 @@ import kotlinx.coroutines.flow.map
  *
  * @property dao Substrate shelf DAO (own-shelf reads + derived cover/duration queries).
  * @property userDao Current-user lookup for owner fields on own shelves.
- * @property rpcFactory Supplies the [com.calypsan.listenup.api.ShelfService] RPC proxy.
+ * @property channel Dispatches [com.calypsan.listenup.api.ShelfService] RPCs through the seam.
  */
 internal class ShelfRepositoryImpl(
     private val dao: ShelfDao,
     private val userDao: UserDao,
-    private val rpcFactory: ShelfRpcFactory,
+    private val channel: RpcChannel<ShelfService>,
 ) : ShelfRepository {
     // ── Own-shelf observation (Room) ──────────────────────────────────────────────
 
@@ -73,20 +74,20 @@ internal class ShelfRepositoryImpl(
     // ── Discovery (on-demand RPC) ─────────────────────────────────────────────────
 
     override suspend fun getUserShelves(userId: String): AppResult<List<Shelf>> =
-        rpcFactory
-            .callResult { it.getUserShelves(UserId(userId)) }
+        channel
+            .call { it.getUserShelves(UserId(userId)) }
             .map { shelves -> shelves.map { it.toDomain() } }
 
     override suspend fun discoverShelves(): AppResult<List<Shelf>> =
-        rpcFactory
-            .callResult { it.discoverShelves() }
+        channel
+            .call { it.discoverShelves() }
             .map { discovered -> discovered.map { it.toDomain() } }
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
     override suspend fun getShelfDetail(shelfId: ShelfId): AppResult<ShelfDetail> =
-        rpcFactory
-            .callResult { it.getShelf(shelfId) }
+        channel
+            .call { it.getShelf(shelfId) }
             .map { detail ->
                 val coverHashByBook = dao.coverHashesByBookFor(shelfId.value).associate { it.bookId to it.coverHash }
                 detail.toDomain(coverHashByBook)
@@ -99,8 +100,8 @@ internal class ShelfRepositoryImpl(
         description: String?,
         isPrivate: Boolean,
     ): AppResult<Shelf> =
-        rpcFactory
-            .callResult {
+        channel
+            .call {
                 it.createShelf(
                     name = name,
                     description = description ?: "",
@@ -115,8 +116,8 @@ internal class ShelfRepositoryImpl(
         description: String?,
         isPrivate: Boolean,
     ): AppResult<Shelf> =
-        rpcFactory
-            .callResult {
+        channel
+            .call {
                 it.updateShelf(
                     shelfId = shelfId,
                     name = name,
@@ -125,8 +126,7 @@ internal class ShelfRepositoryImpl(
                 )
             }.map { it.toDomain() }
 
-    override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> =
-        rpcFactory.callResult { it.deleteShelf(shelfId) }
+    override suspend fun deleteShelf(shelfId: ShelfId): AppResult<Unit> = channel.call { it.deleteShelf(shelfId) }
 
     override suspend fun addBooksToShelf(
         shelfId: ShelfId,
@@ -135,7 +135,7 @@ internal class ShelfRepositoryImpl(
         // The RPC surface adds one book at a time (idempotent); dispatch each and
         // fail fast on the first error. SSE echoes update Room — no optimistic write.
         bookIds.forEach { bookId ->
-            val result = rpcFactory.callResult { it.addBookToShelf(shelfId, bookId) }
+            val result = channel.call { it.addBookToShelf(shelfId, bookId) }
             if (result is AppResult.Failure) return result
         }
         return AppResult.Success(Unit)
@@ -144,13 +144,13 @@ internal class ShelfRepositoryImpl(
     override suspend fun removeBookFromShelf(
         shelfId: ShelfId,
         bookId: BookId,
-    ): AppResult<Unit> = rpcFactory.callResult { it.removeBookFromShelf(shelfId, bookId) }
+    ): AppResult<Unit> = channel.call { it.removeBookFromShelf(shelfId, bookId) }
 
     override suspend fun reorderBooks(
         shelfId: ShelfId,
         orderedBookIds: List<BookId>,
     ): AppResult<Unit> =
-        rpcFactory.callResult {
+        channel.call {
             it.reorderShelfBooks(shelfId, orderedBookIds)
         }
 

@@ -14,8 +14,8 @@ import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
-import com.calypsan.listenup.client.data.remote.ShelfRpcFactory
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.Timestamp
@@ -37,22 +37,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-
-/**
- * Fake [ShelfRpcFactory] that routes [callResult] through the REAL boundary [catchingRpcResult],
- * so repository tests exercise the same throw→Failure / cancellation-rethrow semantics the
- * production [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a
- * live WebSocket. [provide] yields the service (or throws to simulate a pre-delivery transport fault).
- */
-private class FakeShelfRpcFactory(
-    private val provide: suspend () -> ShelfService,
-) : ShelfRpcFactory {
-    override suspend fun get(): ShelfService = provide()
-
-    override suspend fun <T> callResult(block: suspend (ShelfService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(provide()) }
-
-    override suspend fun invalidate() {}
-}
 
 /**
  * Unit tests for [ShelfRepositoryImpl] — substrate-Room reads + RPC-dispatched writes.
@@ -81,7 +65,7 @@ class ShelfRepositoryImplTest :
             shelfDao: ShelfDao = mock(MockMode.autofill),
             userDao: UserDao = mock { everySuspend { getCurrentUser() } returns user() },
             service: ShelfService = mock(),
-        ): ShelfRepositoryImpl = ShelfRepositoryImpl(shelfDao, userDao, FakeShelfRpcFactory { service })
+        ): ShelfRepositoryImpl = ShelfRepositoryImpl(shelfDao, userDao, RpcChannel.forTest(service))
 
         fun shelfEntity(
             id: String,
@@ -328,9 +312,11 @@ class ShelfRepositoryImplTest :
 
         test("getUserShelves surfaces transport failure as AppResult.Failure (rpcCall boundary)") {
             runTest {
-                val factory = FakeShelfRpcFactory { throw RuntimeException("connection refused") }
-                val repo = ShelfRepositoryImpl(mock(), mock { everySuspend { getCurrentUser() } returns user() }, factory)
-                val result = repo.getUserShelves("u1")
+                val service =
+                    mock<ShelfService> {
+                        everySuspend { getUserShelves(UserId("u1")) } throws RuntimeException("connection refused")
+                    }
+                val result = repo(service = service).getUserShelves("u1")
                 result.shouldBeInstanceOf<AppResult.Failure>()
             }
         }
