@@ -87,6 +87,42 @@ class OrganizeServiceImplTest :
             }
         }
 
+        test("member observing a real run's id sees nothing — observeRun is admin-gated") {
+            withSqlDatabase {
+                val libraryRoot = Files.createTempDirectory("listenup-organize-svc-gate-")
+                sql.seedTestLibraryAndFolder(folderPath = libraryRoot.toString())
+                seedAuthor(sql)
+                val bookDir = libraryRoot.resolve("messy").also { Files.createDirectories(it) }
+                Files.writeString(bookDir.resolve("01.m4b"), "a")
+                val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+                try {
+                    runBlocking {
+                        seedBook(this@withSqlDatabase, id = "b1", rootRelPath = "messy")
+                        val adminSvc =
+                            makeOrganizeService(
+                                this@withSqlDatabase,
+                                principalFor("a1", UserRole.ADMIN),
+                                runScope = scope,
+                            )
+                        val runId =
+                            (
+                                adminSvc.saveAndExecute(
+                                    OrganizeSettingsDto(enabled = true, preset = OrganizePreset.AUTHOR_TITLE),
+                                ) as AppResult.Success
+                            ).data
+                        // Drain to terminal as admin so the run's replayed history is complete —
+                        // exactly what a member would otherwise receive through the replay.
+                        withTimeout(RUN_TIMEOUT_MS) { adminSvc.observeRun(runId).toList() }
+
+                        val memberSvc = adminSvc.copyWith(principalFor("m1", UserRole.MEMBER))
+                        memberSvc.observeRun(runId).toList() shouldBe emptyList()
+                    }
+                } finally {
+                    scope.cancel()
+                }
+            }
+        }
+
         test("getSettings returns defaults when never configured") {
             withSqlDatabase {
                 runTest {

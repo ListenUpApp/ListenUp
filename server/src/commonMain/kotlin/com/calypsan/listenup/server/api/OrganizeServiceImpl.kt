@@ -26,6 +26,7 @@ import com.calypsan.listenup.server.organize.toPlannerSettings
 import com.calypsan.listenup.server.services.LibraryRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
@@ -110,8 +111,14 @@ class OrganizeServiceImpl(
     }
 
     override fun observeRun(runId: OrganizeRunId): Flow<RpcEvent<OrganizeRunEvent>> =
-        flow {
-            runState.eventsFor(runId).collect { event -> emit(RpcEvent.Data(event)) }
+        if (principal.current()?.role?.isAdmin() == true) {
+            flow {
+                runState.eventsFor(runId).collect { event -> emit(RpcEvent.Data(event)) }
+            }
+        } else {
+            // Non-admins get an empty stream rather than a typed error — matching the
+            // BackupServiceImpl/ImportServiceImpl observe-method idiom for streaming RPCs.
+            emptyFlow()
         }
 
     override suspend fun resumeRun(): AppResult<OrganizeRunId?> {
