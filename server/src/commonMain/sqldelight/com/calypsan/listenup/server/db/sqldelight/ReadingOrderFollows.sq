@@ -1,0 +1,72 @@
+-- reading_order_follows: per-user, per-series follow-state — which reading order
+-- is the user's active spoiler clock for a series (nullable; null = per-book
+-- frontier floor). Syncable, soft-deletable, revision-tracked, userScoped.
+-- `id` is the deterministic synthetic key "<user_id>:<series_id>".
+-- Column set matches V6__reading_order_follows.sql exactly.
+CREATE TABLE reading_order_follows (
+    id                      TEXT    NOT NULL PRIMARY KEY,
+    user_id                 TEXT    NOT NULL,
+    series_id               TEXT    NOT NULL,
+    active_reading_order_id TEXT,
+    created_at              INTEGER NOT NULL,
+    updated_at              INTEGER NOT NULL,
+    revision                INTEGER NOT NULL,
+    deleted_at              INTEGER,
+    client_op_id            TEXT
+);
+
+CREATE UNIQUE INDEX idx_reading_order_follows_user_series ON reading_order_follows(user_id, series_id);
+CREATE INDEX idx_reading_order_follows_revision ON reading_order_follows(revision);
+
+-- Global substrate queries (kept for source-compatibility with the base contract;
+-- a userScoped repo routes pullSince/digest through the *ForUser variants instead).
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM reading_order_follows WHERE id = :id);
+
+softDeleteById:
+UPDATE reading_order_follows
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM reading_order_follows WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM reading_order_follows WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- User-scoped substrate variants — pull/digest filter to the authenticated user.
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM reading_order_follows
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM reading_order_follows
+WHERE user_id = :userId AND deleted_at IS NULL AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by id (pullSince/readPayloads hydrate tombstones).
+selectById:
+SELECT * FROM reading_order_follows WHERE id = :id;
+
+selectByIds:
+SELECT * FROM reading_order_follows WHERE id IN :ids;
+
+-- Live follow row for a (user, series) pair, or none.
+selectLiveByUserAndSeries:
+SELECT * FROM reading_order_follows
+WHERE user_id = :user_id AND series_id = :series_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO reading_order_follows (id, user_id, series_id, active_reading_order_id, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :user_id, :series_id, :active_reading_order_id, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+update:
+UPDATE reading_order_follows
+SET active_reading_order_id = :active_reading_order_id, revision = :revision,
+    updated_at = :updated_at, deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE id = :id;

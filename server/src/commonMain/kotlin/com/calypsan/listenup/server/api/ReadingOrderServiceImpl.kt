@@ -6,8 +6,10 @@ import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.readingorder.DiscoveredReadingOrder
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrder
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderDetail
+import com.calypsan.listenup.api.dto.readingorder.SetActiveReadingOrderRequest
 import com.calypsan.listenup.api.error.ReadingOrderError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ReadingOrderFollowSyncPayload
 import com.calypsan.listenup.api.sync.ReadingOrderSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ReadingOrderId
@@ -15,6 +17,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.OwnedReadingOrder
 import com.calypsan.listenup.server.sync.ReadingOrderBookRepository
+import com.calypsan.listenup.server.sync.ReadingOrderFollowRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -55,6 +58,7 @@ private const val DISCOVER_LIMIT_MAX = 200
 internal class ReadingOrderServiceImpl(
     private val readingOrderRepo: ReadingOrderRepository,
     private val readingOrderBookRepo: ReadingOrderBookRepository,
+    private val followRepo: ReadingOrderFollowRepository,
     private val bookAccessPolicy: BookAccessPolicy,
     private val readAssembler: ReadingOrderReadAssembler,
     private val clock: Clock = Clock.System,
@@ -185,6 +189,40 @@ internal class ReadingOrderServiceImpl(
         return readingOrderBookRepo.reorder(readingOrderId.value, orderedBookIds.map { it.value }, userId = owned.ownerId)
     }
 
+    // ── Follow-state ──────────────────────────────────────────────────────────
+
+    override suspend fun setActiveReadingOrder(request: SetActiveReadingOrderRequest): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+
+        // Following requires a reading order the caller can actually see: their own
+        // (any privacy) or another user's public order. NotFound (not Forbidden) so a
+        // private order's existence is never revealed.
+        val targetId = request.activeReadingOrderId
+        if (targetId != null) {
+            val owned = readingOrderRepo.findOwnedById(targetId) ?: return AppResult.Failure(ReadingOrderError.NotFound())
+            val visible = owned.ownerId == caller.userId || caller.isAdmin || !owned.readingOrder.isPrivate
+            if (!visible) return AppResult.Failure(ReadingOrderError.NotFound())
+        }
+
+        val now = clock.now().toEpochMilliseconds()
+        val existing = followRepo.findLive(caller.userId, request.seriesId)
+        val payload =
+            existing?.copy(activeReadingOrderId = targetId, updatedAt = now)
+                ?: ReadingOrderFollowSyncPayload(
+                    id = "${caller.userId}:${request.seriesId}",
+                    seriesId = request.seriesId,
+                    activeReadingOrderId = targetId,
+                    revision = 0L,
+                    updatedAt = now,
+                    createdAt = now,
+                    deletedAt = null,
+                )
+        return when (val result = followRepo.upsert(payload, userId = caller.userId)) {
+            is AppResult.Success -> AppResult.Success(Unit)
+            is AppResult.Failure -> AppResult.Failure(result.error)
+        }
+    }
+
     // ── Observation ──────────────────────────────────────────────────────────
 
     override suspend fun listMyReadingOrders(): AppResult<List<ReadingOrder>> {
@@ -257,6 +295,7 @@ internal class ReadingOrderServiceImpl(
         ReadingOrderServiceImpl(
             readingOrderRepo = readingOrderRepo,
             readingOrderBookRepo = readingOrderBookRepo,
+            followRepo = followRepo,
             bookAccessPolicy = bookAccessPolicy,
             readAssembler = readAssembler,
             clock = clock,

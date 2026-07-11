@@ -8,6 +8,7 @@ import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.ReadingOrderBookRepository
+import com.calypsan.listenup.server.sync.ReadingOrderFollowRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import org.koin.core.module.Module
 import org.koin.dsl.module
@@ -36,11 +37,13 @@ fun readingOrderModule(): Module =
         // [ListenUpDatabase], not the Exposed [Database] the service layer still uses.
         single(createdAtStart = true) { ReadingOrderRepository(get<ListenUpDatabase>(), get(), get()) }
         single(createdAtStart = true) { ReadingOrderBookRepository(get<ListenUpDatabase>(), get(), get()) }
+        single(createdAtStart = true) { ReadingOrderFollowRepository(get<ListenUpDatabase>(), get(), get()) }
         single { ReadingOrderReadAssembler(sql = get<ListenUpDatabase>()) }
         single {
             ReadingOrderServiceImpl(
                 readingOrderRepo = get(),
                 readingOrderBookRepo = get(),
+                followRepo = get(),
                 bookAccessPolicy = get<BookAccessPolicy>(),
                 readAssembler = get(),
                 clock = get(),

@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.readingorder.DiscoveredReadingOrder
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrder
 import com.calypsan.listenup.api.dto.readingorder.ReadingOrderDetail
+import com.calypsan.listenup.api.dto.readingorder.SetActiveReadingOrderRequest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ReadingOrderId
@@ -155,6 +156,25 @@ interface ReadingOrderService {
         readingOrderId: ReadingOrderId,
         orderedBookIds: List<BookId>,
     ): AppResult<Unit>
+
+    // ── Follow-state ──────────────────────────────────────────────────────────
+
+    /**
+     * Sets the caller's active reading order for one series — the personal
+     * follow-state (spoiler clock) of Integration Foundations §5.4.
+     *
+     * Upserts the caller's `(user, series)` follow row; a null
+     * [SetActiveReadingOrderRequest.activeReadingOrderId] resets the series to the
+     * per-book frontier floor. When non-null, the reading order must exist and be
+     * visible to the caller — otherwise
+     * [com.calypsan.listenup.api.error.ReadingOrderError.NotFound].
+     *
+     * The setting is strictly personal: the server stores and syncs it (via the
+     * `reading_order_follows` sync domain) but never interprets it.
+     *
+     * @param request The series and the reading order to follow (or null to reset).
+     */
+    suspend fun setActiveReadingOrder(request: SetActiveReadingOrderRequest): AppResult<Unit>
 
     // ── Observation ──────────────────────────────────────────────────────────
 

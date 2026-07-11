@@ -19,6 +19,7 @@ import com.calypsan.listenup.server.sync.CollectionBookRepository
 import com.calypsan.listenup.server.sync.CollectionGrantRepository
 import com.calypsan.listenup.server.sync.CollectionRepository
 import com.calypsan.listenup.server.sync.ReadingOrderBookRepository
+import com.calypsan.listenup.server.sync.ReadingOrderFollowRepository
 import com.calypsan.listenup.server.sync.ReadingOrderRepository
 import com.calypsan.listenup.server.sync.SyncRegistry
 import com.calypsan.listenup.server.testing.FixedClock
@@ -67,6 +68,7 @@ class ReadingOrderAccessTest :
             return ReadingOrderServiceImpl(
                 readingOrderRepo = ReadingOrderRepository(db = dbs.sql, bus = bus, registry = registry),
                 readingOrderBookRepo = ReadingOrderBookRepository(db = dbs.sql, bus = bus, registry = registry),
+                followRepo = ReadingOrderFollowRepository(db = dbs.sql, bus = bus, registry = registry),
                 bookAccessPolicy = BookAccessPolicy(dbs.sql, dbs.driver),
                 readAssembler = ReadingOrderReadAssembler(dbs.sql),
                 clock = fixedClock,

@@ -80,6 +80,10 @@ object SyncDomains {
     /** Book–reading-order junction rows. */
     val READING_ORDER_BOOKS = SyncDomainKey("reading_order_books", ReadingOrderBookSyncPayload.serializer())
 
+    /** Per-user, per-series follow-state: the active reading order (the spoiler clock). */
+    val READING_ORDER_FOLLOWS =
+        SyncDomainKey("reading_order_follows", ReadingOrderFollowSyncPayload.serializer())
+
     /** Server-materialized public profiles (leaderboard/social read model). */
     val PUBLIC_PROFILES = SyncDomainKey("public_profiles", PublicProfileSyncPayload.serializer())
 
@@ -114,6 +118,7 @@ object SyncDomains {
             SHELF_BOOKS,
             READING_ORDERS,
             READING_ORDER_BOOKS,
+            READING_ORDER_FOLLOWS,
             PUBLIC_PROFILES,
             ACTIVITIES,
         )
