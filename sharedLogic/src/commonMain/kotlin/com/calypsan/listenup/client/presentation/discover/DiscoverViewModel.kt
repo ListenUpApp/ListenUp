@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -126,6 +127,33 @@ class DiscoverViewModel(
             started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
             initialValue = emptyList(),
         )
+
+    /**
+     * [liveCampfiresState] enriched with each session's book (cover, title, authors) for the
+     * Discover "Live now" row — [OpenCampfireSummary] itself carries only a bare [OpenCampfireSummary.bookId]
+     * (deliberately lean, see its KDoc), so this pairs each summary with a [BookRepository]
+     * lookup. Every book here is already synced to Room (the caller has access to it, or it would
+     * not have appeared in [liveCampfiresState] at all), so the join is a pure local read — no
+     * extra network round-trip.
+     */
+    val liveCampfiresUiState: StateFlow<List<LiveCampfireUiModel>> =
+        liveCampfiresState
+            .flatMapLatest { summaries ->
+                if (summaries.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    bookRepository.observeBookListItems(summaries.map { it.bookId }).map { books ->
+                        val booksById = books.associateBy { it.id.value }
+                        summaries.mapNotNull { summary ->
+                            booksById[summary.bookId]?.let { book -> LiveCampfireUiModel(summary, book) }
+                        }
+                    }
+                }
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = emptyList(),
+            )
 
     // === Discover Books State (Random Unstarted from Room) ===
 
@@ -440,6 +468,16 @@ data class RecentlyAddedUiBook(
     val coverBlurHash: String?,
     val coverHash: String?,
     val createdAt: Long,
+)
+
+/**
+ * One entry in the Discover "Live now" row — an [OpenCampfireSummary] paired with its [book] for
+ * cover/title rendering (see [DiscoverViewModel.liveCampfiresUiState]'s KDoc for why the join
+ * happens here rather than server-side).
+ */
+data class LiveCampfireUiModel(
+    val summary: OpenCampfireSummary,
+    val book: BookListItem,
 )
 
 /**

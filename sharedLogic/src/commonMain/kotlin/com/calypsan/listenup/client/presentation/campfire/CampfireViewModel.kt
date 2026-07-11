@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -59,15 +60,30 @@ class CampfireViewModel internal constructor(
     private val transport: CampfireTransport,
     private val errorBus: ErrorBus,
 ) : ViewModel() {
-    /** Mirrors [CampfireSessionController.state], mapped to the public [CampfireScreenUiState]. */
+    /**
+     * Session id awaiting spoiler confirmation before [confirmSpoilerJoin] hands it to
+     * [controller] (see [join]'s KDoc for why the gate lives here rather than in the controller).
+     */
+    private val pendingSpoilerJoin = MutableStateFlow<CampfireId?>(null)
+
+    /**
+     * Mirrors [CampfireSessionController.state], mapped to the public [CampfireScreenUiState] —
+     * overlaid with [pendingSpoilerJoin] so a spoiler-gated join reads as
+     * [CampfireScreenUiState.ConfirmingSpoiler] instead of [controller]'s (still [CampfireUiState.Idle])
+     * state.
+     */
     val state: StateFlow<CampfireScreenUiState> =
-        controller.state
-            .map { it.toScreenState() }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
-                initialValue = CampfireScreenUiState.Idle,
-            )
+        combine(controller.state, pendingSpoilerJoin) { controllerState, pendingSessionId ->
+            if (pendingSessionId != null) {
+                CampfireScreenUiState.ConfirmingSpoiler(pendingSessionId)
+            } else {
+                controllerState.toScreenState()
+            }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = CampfireScreenUiState.Idle,
+        )
 
     /** Mirrors [CampfireSessionController.events], mapped to the public [CampfireScreenEvent]. */
     val events: Flow<CampfireScreenEvent> = controller.events.map { it.toScreenEvent() }
@@ -106,9 +122,53 @@ class CampfireViewModel internal constructor(
         }
     }
 
-    /** Joins an existing open session (Discover tap, book-detail badge, or an invite). */
+    /**
+     * Joins an existing open session (Discover tap, book-detail badge, or an invite).
+     *
+     * Peeks the snapshot via [transport] directly (the same call [controller] would make
+     * internally) so [com.calypsan.listenup.api.dto.campfire.CampfireSnapshot.spoilerAhead] can be
+     * inspected *before* [controller] applies the room's anchor to local playback — applying first
+     * and confirming after would mean the confirm dialog shows up after the audio has already
+     * jumped (and possibly started playing) to the spoiler-ahead position. When the room is not
+     * ahead, [controller] is joined immediately; [pendingSpoilerJoin] never leaves the door open to
+     * a request in flight [createCampfire] doesn't go through — the creator's own starting anchor
+     * can never be spoiler-ahead of themselves, so [controller.join] there is unconditional.
+     */
     fun join(sessionId: CampfireId) {
+        viewModelScope.launch {
+            when (val result = transport.joinSession(sessionId)) {
+                is AppResult.Success -> {
+                    if (result.data.spoilerAhead) {
+                        pendingSpoilerJoin.value = sessionId
+                    } else {
+                        controller.join(sessionId)
+                    }
+                }
+
+                is AppResult.Failure -> {
+                    errorBus.emit(result.error)
+                    logger.warn { "join failed for session $sessionId: ${result.error.code}" }
+                }
+            }
+        }
+    }
+
+    /** Confirms a [CampfireScreenUiState.ConfirmingSpoiler] prompt, applying the join for real. */
+    fun confirmSpoilerJoin() {
+        val sessionId = pendingSpoilerJoin.value ?: return
+        pendingSpoilerJoin.value = null
         viewModelScope.launch { controller.join(sessionId) }
+    }
+
+    /**
+     * Declines a [CampfireScreenUiState.ConfirmingSpoiler] prompt. The peek in [join] already made
+     * the caller a member server-side, so this leaves the session rather than lingering as a
+     * phantom member no local UI ever surfaces.
+     */
+    fun cancelSpoilerJoin() {
+        val sessionId = pendingSpoilerJoin.value ?: return
+        pendingSpoilerJoin.value = null
+        viewModelScope.launch { transport.leaveSession(sessionId) }
     }
 
     /** Re-joins the session last seen [CampfireScreenUiState.Disconnected]. */
@@ -151,7 +211,9 @@ class CampfireViewModel internal constructor(
         viewModelScope.launch {
             inviteState.value = CampfireInviteUiState.Loading
             when (val result = transport.listInvitableUsers(bookId)) {
-                is AppResult.Success -> inviteState.value = CampfireInviteUiState.Ready(result.data)
+                is AppResult.Success -> {
+                    inviteState.value = CampfireInviteUiState.Ready(result.data)
+                }
 
                 is AppResult.Failure -> {
                     errorBus.emit(result.error)
@@ -165,11 +227,15 @@ class CampfireViewModel internal constructor(
 
 private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
     when (this) {
-        CampfireUiState.Idle -> CampfireScreenUiState.Idle
+        CampfireUiState.Idle -> {
+            CampfireScreenUiState.Idle
+        }
 
-        is CampfireUiState.Joining -> CampfireScreenUiState.Joining(sessionId)
+        is CampfireUiState.Joining -> {
+            CampfireScreenUiState.Joining(sessionId)
+        }
 
-        is CampfireUiState.Active ->
+        is CampfireUiState.Active -> {
             CampfireScreenUiState.Active(
                 sessionId = sessionId,
                 bookId = bookId,
@@ -183,10 +249,15 @@ private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
                 hasControl = hasControl,
                 pendingRejoinSync = pendingRejoinSync,
             )
+        }
 
-        is CampfireUiState.Disconnected -> CampfireScreenUiState.Disconnected(sessionId, keepPlayingSolo)
+        is CampfireUiState.Disconnected -> {
+            CampfireScreenUiState.Disconnected(sessionId, keepPlayingSolo)
+        }
 
-        is CampfireUiState.Ended -> CampfireScreenUiState.Ended(sessionId, reason)
+        is CampfireUiState.Ended -> {
+            CampfireScreenUiState.Ended(sessionId, reason)
+        }
     }
 
 private fun CampfireSessionEvent.toScreenEvent(): CampfireScreenEvent =
@@ -205,6 +276,16 @@ sealed interface CampfireScreenUiState {
 
     /** A join or rejoin is in flight. */
     data class Joining(
+        val sessionId: CampfireId,
+    ) : CampfireScreenUiState
+
+    /**
+     * [join] fetched a snapshot whose room position is far enough ahead of the caller's own
+     * progress to be spoiler-inducing — the confirm dialog case. Local playback is untouched until
+     * [CampfireViewModel.confirmSpoilerJoin] applies it; [CampfireViewModel.cancelSpoilerJoin]
+     * backs out instead.
+     */
+    data class ConfirmingSpoiler(
         val sessionId: CampfireId,
     ) : CampfireScreenUiState
 

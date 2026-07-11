@@ -233,6 +233,53 @@ class CampfireViewModelTest :
             }
         }
 
+        test("join with spoilerAhead withholds apply and surfaces ConfirmingSpoiler") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot().copy(spoilerAhead = true))
+                val viewModel = fixture.build(this).also { keepStateHot(it) }
+
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                val confirming = viewModel.state.value.shouldBeInstanceOf<CampfireScreenUiState.ConfirmingSpoiler>()
+                confirming.sessionId shouldBe sessionId
+            }
+        }
+
+        test("confirmSpoilerJoin applies the join and reaches Active") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot().copy(spoilerAhead = true))
+                val viewModel = fixture.build(this).also { keepStateHot(it) }
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                viewModel.confirmSpoilerJoin()
+                advanceUntilIdle()
+
+                val active = viewModel.state.value.shouldBeInstanceOf<CampfireScreenUiState.Active>()
+                active.sessionId shouldBe sessionId
+                fixture.transport.joinCalls shouldBe listOf(sessionId, sessionId)
+            }
+        }
+
+        test("cancelSpoilerJoin leaves the session and returns to Idle") {
+            runTest {
+                val fixture = Fixture()
+                fixture.transport.joinResult = AppResult.Success(snapshot().copy(spoilerAhead = true))
+                val viewModel = fixture.build(this).also { keepStateHot(it) }
+                viewModel.join(sessionId)
+                advanceUntilIdle()
+
+                viewModel.cancelSpoilerJoin()
+                advanceUntilIdle()
+
+                viewModel.state.value.shouldBeInstanceOf<CampfireScreenUiState.Idle>()
+                fixture.transport.leaveCalls shouldBe listOf(sessionId)
+            }
+        }
+
         test("leave delegates to the controller and returns state to Idle") {
             runTest {
                 val fixture = Fixture()
@@ -309,8 +356,7 @@ private class FakeCampfireTransport : CampfireTransport {
         emoji: String,
     ): AppResult<Unit> = AppResult.Success(Unit)
 
-    override suspend fun listOpenSessions(): AppResult<List<OpenCampfireSummary>> =
-        AppResult.Success(emptyList())
+    override suspend fun listOpenSessions(): AppResult<List<OpenCampfireSummary>> = AppResult.Success(emptyList())
 
     override suspend fun listInvitableUsers(bookId: String): AppResult<List<CampfireInvitableUser>> = invitableUsersResult
 }
