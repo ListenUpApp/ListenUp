@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.core.error
 
+import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
+import io.ktor.client.plugins.websocket.WebSocketException
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -172,5 +174,40 @@ class ErrorMapperTest :
             val error = ErrorMapper.map(exception)
 
             checkIs<InternalError>(error)
+        }
+
+        // ========== Dead RPC client → TransportError.NetworkUnavailable ==========
+
+        test("map dead-client IllegalStateException returns NetworkUnavailable, not InternalError") {
+            // A cancelled/torn-down RpcClient surfaces as an IllegalStateException whose message
+            // contains "RpcClient was cancelled". By the time it reaches ErrorMapper the engine has
+            // already split out the post-delivery "outcome unknown" case, so this is a pre-delivery
+            // transport failure — type it as a retryable NetworkUnavailable, not a scary InternalError.
+            val exception = IllegalStateException("RpcClient was cancelled: connection closed")
+            val error = ErrorMapper.map(exception)
+
+            val networkUnavailable = error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+            networkUnavailable.isRetryable shouldBe true
+            (networkUnavailable.debugInfo?.contains("RpcClient was cancelled") == true) shouldBe true
+        }
+
+        // ========== Non-401 WebSocketException → TransportError.NetworkUnavailable ==========
+
+        test("map non-401 WebSocketException returns NetworkUnavailable, not InternalError") {
+            val exception = WebSocketException("Handshake exception, expected status code 101 but was 500")
+            val error = ErrorMapper.map(exception)
+
+            val networkUnavailable = error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
+            networkUnavailable.isRetryable shouldBe true
+        }
+
+        test("map handshake-401 WebSocketException still returns SessionExpired") {
+            // Regression guard: the new generic-WebSocketException arm must be ordered AFTER the
+            // existing isWsHandshake401 arm, so a 401 handshake keeps mapping to SessionExpired
+            // (drives the app back to login) rather than being folded into NetworkUnavailable.
+            val exception = WebSocketException("Handshake exception, expected status code 101 but was 401")
+            val error = ErrorMapper.map(exception)
+
+            error.shouldBeInstanceOf<AuthError.SessionExpired>()
         }
     })

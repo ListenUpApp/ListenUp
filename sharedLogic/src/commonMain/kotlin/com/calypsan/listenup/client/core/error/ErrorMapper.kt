@@ -11,6 +11,7 @@ import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.network.sockets.SocketTimeoutException
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.websocket.WebSocketException
 import io.ktor.http.HttpStatusCode
 import kotlinx.io.IOException
 import kotlinx.serialization.SerializationException
@@ -77,6 +78,17 @@ internal object ErrorMapper {
             // install), not a fault — type it as a transport-unavailable so the boundary folds it
             // quietly instead of surfacing a generic InternalError "server error".
             exception is ServerUrlNotConfiguredException -> {
+                TransportError.NetworkUnavailable(debugInfo = exception.message)
+            }
+
+            // A dead/cancelled RpcClient ("RpcClient was cancelled") or a generic non-401 WebSocket
+            // failure is a PRE-delivery transport fault: by the time it reaches here, RpcProxyCache has
+            // already split out the post-delivery "outcome unknown" case (RpcOutcomeUnknownException),
+            // so the frame never landed. Surface it as a retryable NetworkUnavailable — honest and
+            // never-stranded — instead of a scary InternalError. Ordered AFTER the isWsHandshake401 arm
+            // above so a 401 handshake still maps to SessionExpired.
+            RpcFailureClassifier.isDeadRpcClient(exception) ||
+                exception is WebSocketException -> {
                 TransportError.NetworkUnavailable(debugInfo = exception.message)
             }
 
