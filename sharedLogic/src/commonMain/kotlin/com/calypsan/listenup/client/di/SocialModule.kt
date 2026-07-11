@@ -1,8 +1,7 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SocialService
-import com.calypsan.listenup.client.data.remote.KtorProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.ActiveSessionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ActivityRepositoryImpl
@@ -20,7 +19,6 @@ import com.calypsan.listenup.client.domain.repository.ProfileEditRepository
 import com.calypsan.listenup.client.domain.repository.UserProfileRepository
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import org.koin.core.module.Module
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
@@ -47,13 +45,9 @@ internal val socialModule: Module =
         // RpcCacheInvalidator sweep.
         rpcChannel<SocialService>()
 
-        // ProfileRpcFactory — kotlinx.rpc proxy for ProfileService (RPC mutations).
-        single<ProfileRpcFactory> {
-            KtorProfileRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ProfileService RPC channel — kotlinx.rpc dispatch for ProfileService (profile
+        // read/update mutations). Authed (self-healing) by default; joins the RpcCacheInvalidator sweep.
+        rpcChannel<ProfileService>()
 
         // ProfileEditRepository for profile editing operations: name/tagline offline-first via
         // OfflineEditor, password + avatar stay online (RPC-dispatched mutations).
@@ -61,7 +55,7 @@ internal val socialModule: Module =
             ProfileEditRepositoryImpl(
                 userDao = get(),
                 publicProfileDao = get(),
-                profileRpcFactory = get(),
+                channel = rpcChannel(),
                 avatarUploader = avatarUploaderOf(get()),
                 imageStorage = get(),
                 offlineEditor = get(),

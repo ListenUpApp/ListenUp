@@ -8,7 +8,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -61,13 +62,13 @@ class ProfileEditOfflineTest :
                         authSession = FakeAuthSession(userId = "u1"),
                     )
 
-                // profileRpcFactory is a bare mock: if updateProfile tried to push inline, the
-                // unstubbed call would throw.
+                // The channel wraps a bare mock service: if updateProfile tried to push inline, the
+                // unstubbed call would fold to a Failure and the Success assertion below would fail.
                 val repo =
                     ProfileEditRepositoryImpl(
                         userDao = db.userDao(),
                         publicProfileDao = db.publicProfileDao(),
-                        profileRpcFactory = mock<ProfileRpcFactory>(),
+                        channel = RpcChannel.forTest(mock<ProfileService>()),
                         avatarUploader = mock(),
                         imageStorage = mock<ImageStorage>(),
                         offlineEditor = offlineEditor,
@@ -107,9 +108,7 @@ class ProfileEditOfflineTest :
                         authSession = FakeAuthSession(userId = "u1"),
                     )
 
-                val profileRpcFactory: ProfileRpcFactory = mock()
                 val service = mock<ProfileService>()
-                everySuspend { profileRpcFactory.get() } returns service
                 everySuspend { service.updateMyProfile(any()) } returns
                     AppResult.Success(
                         Profile(
@@ -125,7 +124,7 @@ class ProfileEditOfflineTest :
                     ProfileEditRepositoryImpl(
                         userDao = db.userDao(),
                         publicProfileDao = db.publicProfileDao(),
-                        profileRpcFactory = profileRpcFactory,
+                        channel = RpcChannel.forTest(service),
                         avatarUploader = mock(),
                         imageStorage = mock<ImageStorage>(),
                         offlineEditor = offlineEditor,

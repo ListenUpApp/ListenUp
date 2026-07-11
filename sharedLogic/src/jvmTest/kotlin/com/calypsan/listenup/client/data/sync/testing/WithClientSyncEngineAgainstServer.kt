@@ -14,9 +14,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
@@ -404,6 +402,22 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     rpcConfig { serialization { krpcJson(contractJson) } }
                 }.withService<ContributorService>()
         val contributorChannel = RpcChannel.forTest(contributorServiceProxy)
+        // Real kotlinx.rpc ProfileService / UserPreferencesService proxies over the in-process
+        // server, wrapped in no-reconnect test channels — back the profile/preferences outbox
+        // senders below. No harness test mounts these services server-side yet; the channels exist
+        // so a future e2e test's queued op has a sender to resolve against, like every other domain.
+        val profileServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<ProfileService>()
+        val profileChannel = RpcChannel.forTest(profileServiceProxy)
+        val userPreferencesServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<UserPreferencesService>()
+        val userPreferencesChannel = RpcChannel.forTest(userPreferencesServiceProxy)
         // Real kotlinx.rpc GenreService proxy over the in-process server, wrapped in a
         // no-reconnect test channel via RpcChannel.forTest — a single cached proxy over a
         // real socket to the in-process server, matching the sibling Test*RpcFactory idiom.
@@ -475,7 +489,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 // mirroring the Books/Series/Contributor registrations.
                                 OutboxChannels.Preferences.name to
                                     OutboxOpSender(OutboxChannels.Preferences) { _, patch ->
-                                        TestUserPreferencesRpcFactory(testClient).get().updateMyPreferences(patch)
+                                        userPreferencesChannel.call { it.updateMyPreferences(patch) }
                                     },
                                 // No harness test yet drains a "profile" op end-to-end (the RPC
                                 // route isn't mounted server-side above, and no ProfileEditRepository
@@ -484,7 +498,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 // Preferences registration above.
                                 OutboxChannels.Profile.name to
                                     OutboxOpSender(OutboxChannels.Profile) { _, patch ->
-                                        TestProfileRpcFactory(testClient).get().updateMyProfile(patch)
+                                        profileChannel.call { it.updateMyProfile(patch) }
                                     },
                             ),
                         ),
@@ -857,66 +871,4 @@ internal class DirectListeningEventSender(
             is com.calypsan.listenup.api.result.AppResult.Failure -> AppResult.Failure(wireResult.error)
         }
     }
-}
-
-/**
- * Test-only [UserPreferencesRpcFactory] that opens a kotlinx.rpc [UserPreferencesService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Substitutes [UserPreferencesService]. No harness test mounts the service server-side yet (see the
- * `OutboxChannels.Preferences` `byDomain` registration above) — this factory exists so a future
- * e2e test for the preferences offline-edit push can resolve a sender the same way every other
- * domain does.
- */
-internal class TestUserPreferencesRpcFactory(
-    private val httpClient: HttpClient,
-) : UserPreferencesRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: UserPreferencesService? = null
-
-    override suspend fun get(): UserPreferencesService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): UserPreferencesService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<UserPreferencesService>()
-}
-
-/**
- * Test-only [ProfileRpcFactory] that opens a kotlinx.rpc [ProfileService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestUserPreferencesRpcFactory] exactly, substituting [ProfileService]. No harness
- * test mounts the service server-side yet (see the `OutboxChannels.Profile` `byDomain`
- * registration above) — this factory exists so a future e2e test for the profile offline-edit
- * push can resolve a sender the same way every other domain does.
- */
-internal class TestProfileRpcFactory(
-    private val httpClient: HttpClient,
-) : ProfileRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: ProfileService? = null
-
-    override suspend fun get(): ProfileService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): ProfileService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<ProfileService>()
 }

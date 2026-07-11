@@ -2,7 +2,10 @@ package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.PlaybackService
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomainKey
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -11,8 +14,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
@@ -110,6 +111,11 @@ internal val clientSyncModule =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
+        // PlaybackService RPC channel — kotlinx.rpc dispatch backing the position/listening-event
+        // outbox senders below. Coexists (temporarily) with PlaybackRpcFactory above until the
+        // download/playback consumers migrate off the factory in a later wave.
+        rpcChannel<PlaybackService>()
+
         // The outbox sender map derives from OutboxChannels.all and is completeness-
         // checked at construction: a declared channel with no binding (or vice versa)
         // is an immediate require() failure, not a silent op drop.
@@ -117,13 +123,16 @@ internal val clientSyncModule =
             val bookChannel = rpcChannel<BookService>()
             val seriesChannel = rpcChannel<SeriesService>()
             val contributorChannel = rpcChannel<ContributorService>()
+            val playbackChannel = rpcChannel<PlaybackService>()
+            val profileChannel = rpcChannel<ProfileService>()
+            val userPreferencesChannel = rpcChannel<UserPreferencesService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
-                        get<PlaybackRpcFactory>().playbackService().recordPosition(request)
+                        playbackChannel.call { it.recordPosition(request) }
                     },
                     outboxBinding(OutboxChannels.ListeningEvents) { _, request ->
-                        get<PlaybackRpcFactory>().playbackService().recordListeningEvent(request)
+                        playbackChannel.call { it.recordListeningEvent(request) }
                     },
                     outboxBinding(OutboxChannels.Books) { id, patch ->
                         bookChannel.call { it.updateBook(BookId(id), patch) }
@@ -135,10 +144,10 @@ internal val clientSyncModule =
                         contributorChannel.call { it.updateContributor(ContributorId(id), patch) }
                     },
                     outboxBinding(OutboxChannels.Preferences) { _, patch ->
-                        get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
+                        userPreferencesChannel.call { it.updateMyPreferences(patch) }
                     },
                     outboxBinding(OutboxChannels.Profile) { _, patch ->
-                        get<ProfileRpcFactory>().get().updateMyProfile(patch)
+                        profileChannel.call { it.updateMyProfile(patch) }
                     },
                 ),
             )

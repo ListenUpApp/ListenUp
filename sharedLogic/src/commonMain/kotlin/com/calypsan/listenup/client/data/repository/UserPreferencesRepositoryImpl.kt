@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.preferences.UserPreferencesDto
 import com.calypsan.listenup.api.result.AppResult
@@ -7,22 +8,17 @@ import com.calypsan.listenup.api.result.map
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.UserPreferencesDao
 import com.calypsan.listenup.client.data.local.db.UserPreferencesEntity
-import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
-import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.UserPreferences
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-
-private val logger = KotlinLogging.logger {}
 
 private val DEFAULTS =
     UserPreferences(
@@ -50,7 +46,7 @@ private val DEFAULTS =
  * typed [AppResult.Failure] (the data layer never throws; cancellation is always re-raised).
  */
 internal class UserPreferencesRepositoryImpl(
-    private val rpcFactory: UserPreferencesRpcFactory,
+    private val channel: RpcChannel<UserPreferencesService>,
     private val dao: UserPreferencesDao,
     private val authSession: AuthSession,
     private val offlineEditor: OfflineEditor,
@@ -69,7 +65,8 @@ internal class UserPreferencesRepositoryImpl(
             }
 
     override suspend fun getPreferences(): AppResult<UserPreferences> =
-        rpcCall { rpcFactory.get().getMyPreferences() }
+        channel
+            .call { it.getMyPreferences() }
             .map { it.toDomain() }
             .also { result -> if (result is AppResult.Success) cache(result.data) }
 
@@ -130,26 +127,6 @@ internal class UserPreferencesRepositoryImpl(
         val userId = authSession.getUserId() ?: return
         dao.upsert(preferences.toEntity(userId))
     }
-
-    /**
-     * Run an RPC call, folding any thrown transport error into an [AppResult.Failure] via
-     * [ErrorMapper]. Re-throws [CancellationException] so structured concurrency is preserved.
-     */
-    private suspend fun <T> rpcCall(block: suspend () -> AppResult<T>): AppResult<T> =
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: ServerUrlNotConfiguredException) {
-            // Expected before the user connects to a server (fresh / signed-out install) — fold it
-            // quietly. Logging it as a warning with a stacktrace would imply a fault where there is
-            // none; ErrorMapper types it as a transient NetworkUnavailable.
-            logger.debug { "User-preferences RPC skipped — no server configured yet" }
-            AppResult.Failure(ErrorMapper.map(e))
-        } catch (e: Throwable) {
-            logger.warn(e) { "User-preferences RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
-        }
 
     private fun UserPreferencesDto.toDomain(): UserPreferences =
         UserPreferences(

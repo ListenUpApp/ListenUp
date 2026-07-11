@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.dto.profile.AvatarUploadResponse
 import com.calypsan.listenup.api.dto.profile.PasswordChange
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.IODispatcher
 import com.calypsan.listenup.core.currentEpochMilliseconds
@@ -13,7 +13,7 @@ import com.calypsan.listenup.client.data.local.db.PublicProfileEntity
 import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -108,7 +108,7 @@ internal fun avatarUploaderOf(clientFactory: ApiClientFactory): AvatarUploader =
 internal class ProfileEditRepositoryImpl(
     private val userDao: UserDao,
     private val publicProfileDao: PublicProfileDao,
-    private val profileRpcFactory: ProfileRpcFactory,
+    private val channel: RpcChannel<ProfileService>,
     private val avatarUploader: AvatarUploader,
     private val imageStorage: ImageStorage,
     private val offlineEditor: OfflineEditor,
@@ -197,40 +197,41 @@ internal class ProfileEditRepositoryImpl(
             // Build the displayName for the RPC only when a name change is requested.
             val displayName = mergedDisplayName(firstName, lastName, user)
 
-            rpcCall {
-                profileRpcFactory.get().updateMyProfile(
-                    UpdateProfileRequest(
-                        displayName = displayName,
-                        tagline = tagline,
-                        password = password,
-                    ),
-                )
-            }.also { result ->
-                if (result is AppResult.Success) {
-                    val now = currentEpochMilliseconds()
-                    if (firstName != null || lastName != null) {
-                        userDao.updateName(
-                            userId = user.id.value,
-                            firstName = firstName ?: user.firstName ?: "",
-                            lastName = lastName ?: user.lastName ?: "",
-                            displayName = displayName ?: user.displayName,
-                            updatedAt = now,
-                        )
-                        logger.info { "Name updated in local cache" }
+            channel
+                .call {
+                    it.updateMyProfile(
+                        UpdateProfileRequest(
+                            displayName = displayName,
+                            tagline = tagline,
+                            password = password,
+                        ),
+                    )
+                }.also { result ->
+                    if (result is AppResult.Success) {
+                        val now = currentEpochMilliseconds()
+                        if (firstName != null || lastName != null) {
+                            userDao.updateName(
+                                userId = user.id.value,
+                                firstName = firstName ?: user.firstName ?: "",
+                                lastName = lastName ?: user.lastName ?: "",
+                                displayName = displayName ?: user.displayName,
+                                updatedAt = now,
+                            )
+                            logger.info { "Name updated in local cache" }
+                        }
+                        if (tagline != null) {
+                            userDao.updateTagline(
+                                userId = user.id.value,
+                                tagline = tagline.ifEmpty { null },
+                                updatedAt = now,
+                            )
+                            logger.info { "Tagline updated in local cache" }
+                        }
+                        if (password != null) {
+                            logger.info { "Password changed successfully" }
+                        }
                     }
-                    if (tagline != null) {
-                        userDao.updateTagline(
-                            userId = user.id.value,
-                            tagline = tagline.ifEmpty { null },
-                            updatedAt = now,
-                        )
-                        logger.info { "Tagline updated in local cache" }
-                    }
-                    if (password != null) {
-                        logger.info { "Password changed successfully" }
-                    }
-                }
-            }.toUnit()
+                }.toUnit()
         }
 
     /**
@@ -293,7 +294,7 @@ internal class ProfileEditRepositoryImpl(
                 }
             when (
                 val result =
-                    rpcCall { profileRpcFactory.get().updateMyProfile(UpdateProfileRequest(avatarType = AUTO_VALUE)) }
+                    channel.call { it.updateMyProfile(UpdateProfileRequest(avatarType = AUTO_VALUE)) }
             ) {
                 is AppResult.Success -> {
                     writeSelfAvatar(
@@ -368,23 +369,6 @@ internal class ProfileEditRepositoryImpl(
                 .ifBlank { null }
         } else {
             null
-        }
-
-    /**
-     * Run an RPC call, converting the contract-layer [WireAppResult] to the client [AppResult].
-     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure] via [ErrorMapper].
-     */
-    private suspend fun <T> rpcCall(block: suspend () -> WireAppResult<T>): AppResult<T> =
-        try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(result.data)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            logger.warn(e) { "Profile RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
         }
 
     /** Discard the typed data from a successful result, preserving failures. */

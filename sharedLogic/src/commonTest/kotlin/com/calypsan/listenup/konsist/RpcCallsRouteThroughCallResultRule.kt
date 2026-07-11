@@ -46,11 +46,11 @@ class RpcCallsRouteThroughCallResultRule :
 
 /**
  * Repository impls that still hand-roll the `WireAppResult` fold instead of routing through the
- * factory's `callResult`. Each migrates when its domain is re-touched; removing a file from this set
- * is the explicit signal that its migration has shipped. Adding a new entry should never be
- * necessary — new repos call `factory.callResult { it.method() }` from day one.
+ * channel's `call`. This set is now **empty** — every repository RPC dispatch routes through
+ * [com.calypsan.listenup.client.data.remote.RpcChannel.call], so the migration this ratchet tracked
+ * is complete. The rule logic stays live: an empty allowlist means any NEW hand-rolled repo (one
+ * that re-introduces the `WireAppResult` alias) fails the build immediately. Adding an entry back
+ * should never be necessary.
  */
 private val RESIDUAL_HANDROLLED_RPC_ALLOWLIST: Set<String> =
-    setOf(
-        "/data/repository/ProfileEditRepositoryImpl.kt",
-    )
+    emptySet()
