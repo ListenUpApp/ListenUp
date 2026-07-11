@@ -10,6 +10,7 @@ import com.calypsan.listenup.server.scanner.ScannerBundle
 import com.calypsan.listenup.server.scanner.ScannerServiceImpl
 import com.calypsan.listenup.server.scanner.ScanOrchestrator
 import com.calypsan.listenup.server.scanner.metadata.AbsMetadataReader
+import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.scanner.metadata.MetadataPrecedence
 import com.calypsan.listenup.server.scanner.metadata.resolveLibraryPrecedence
 import com.calypsan.listenup.server.scanner.sidecar.DescTxtParser
@@ -106,6 +107,7 @@ fun scannerModule(
         single<WatcherSupervisorPort> {
             val scope: CoroutineScope = get()
             val debouncer: StableSizeDebouncer = get()
+            val selfWrites: SelfWriteRegistry = get()
             WatcherSupervisor { folder, onEvent ->
                 // Scanner-internal refs are always system-built with a real path; a null here
                 // means a member-redacted projection leaked into the scanner — fail loudly.
@@ -120,6 +122,7 @@ fun scannerModule(
                         libraryRoot = folderPath,
                         scope = scope,
                         debouncer = debouncer,
+                        selfWrites = selfWrites,
                     )
                 val job: Job =
                     scope.launch {

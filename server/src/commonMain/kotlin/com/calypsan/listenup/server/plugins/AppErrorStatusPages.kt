@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
+import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -94,10 +95,11 @@ fun Application.installAppErrorStatusPages() {
 /**
  * Status mapping for typed [AppError]. Used by both REST handlers and tests.
  *
- * This `when` is exhaustive over all direct [AppError] implementors. Two grouped branches keep its
+ * This `when` is exhaustive over all direct [AppError] implementors. Grouped branches keep its
  * cyclomatic complexity under the project threshold of 25 while preserving compile-time
  * exhaustiveness: the client-local [InternalError]/[TransportError]/[PlaybackError] share a 500
- * branch, and [ShelfError]/[SocialError] delegate to [shelfOrSocialHttpStatus]. Adding a new
+ * branch, [ShelfError]/[SocialError] delegate to [shelfOrSocialHttpStatus], and
+ * [LibraryError]/[LibraryWriteError] delegate to [libraryFamilyHttpStatus]. Adding a new
  * [AppError] sub-interface will still fail this `when` at compile time.
  */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
@@ -116,7 +118,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is AudioMetadataError -> toHttpStatus()
 
-        is LibraryError -> toHttpStatus()
+        // LibraryError + LibraryWriteError share one branch (delegating to an exhaustive helper)
+        // to keep this function's cyclomatic complexity under the project threshold while
+        // preserving per-variant exhaustiveness for both families.
+        is LibraryError, is LibraryWriteError -> libraryFamilyHttpStatus()
 
         is MetadataError -> toHttpStatus()
 
@@ -198,8 +203,11 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
             withCorrelationId(id)
         }
 
-        is LibraryError -> {
-            withCorrelationId(id)
+        // LibraryError + LibraryWriteError share one branch (delegating to an exhaustive helper)
+        // to keep this function's cyclomatic complexity under the project threshold while
+        // preserving per-variant exhaustiveness for both families.
+        is LibraryError, is LibraryWriteError -> {
+            libraryFamilyWithCorrelationId(id)
         }
 
         is MetadataError -> {
@@ -288,6 +296,35 @@ private fun AppError.leafWithCorrelationId(id: String?): AppError =
         else -> this // unreachable: only called from the grouped branch above
     }
 
+/**
+ * Status mapping for the library-folder error families, [LibraryError] and [LibraryWriteError].
+ *
+ * Split from [toHttpStatus] solely to keep that function's cyclomatic complexity under the
+ * project threshold. The `else` branch here is unreachable in practice — this function is only
+ * called from the single grouped branch in [toHttpStatus].
+ */
+private fun AppError.libraryFamilyHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryError -> toHttpStatus()
+        is LibraryWriteError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+/**
+ * Correlation-id stamping for the library-folder error families, [LibraryError] and
+ * [LibraryWriteError].
+ *
+ * Split from [withCorrelationId] solely to keep that function's cyclomatic complexity under the
+ * project threshold. The `else` branch here is unreachable in practice — this function is only
+ * called from the single grouped branch in [withCorrelationId].
+ */
+private fun AppError.libraryFamilyWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is LibraryError -> withCorrelationId(id)
+        is LibraryWriteError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch above
+    }
+
 private fun AuthError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is AuthError.InvalidCredentials -> HttpStatusCode.Unauthorized
@@ -342,6 +379,16 @@ private fun ScanError.withCorrelationId(id: String?): ScanError =
         is ScanError.FileUnreadable -> copy(correlationId = id)
         is ScanError.MetadataParseError -> copy(correlationId = id)
         is ScanError.TitleInferenceError -> copy(correlationId = id)
+    }
+
+private fun LibraryWriteError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryWriteError.Unavailable -> HttpStatusCode.ServiceUnavailable
+    }
+
+private fun LibraryWriteError.withCorrelationId(id: String?): LibraryWriteError =
+    when (this) {
+        is LibraryWriteError.Unavailable -> copy(correlationId = id)
     }
 
 private fun TransportError.withCorrelationId(id: String?): TransportError =

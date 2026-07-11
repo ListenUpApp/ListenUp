@@ -1,6 +1,7 @@
 package com.calypsan.listenup.server.scanner.watcher
 
 import com.calypsan.listenup.server.io.isSymlink
+import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.scanner.inference.MultiDiscPattern
 import com.calypsan.listenup.server.scanner.inference.SkipRules
 import com.calypsan.listenup.server.logging.loggerFor
@@ -43,6 +44,9 @@ private val logger = loggerFor<FolderWatcher>()
  *    invisible to the watcher just as they are to the Walker.
  *  - **Symlinks not followed** during initial registration (mirrors
  *    Walker behavior).
+ *  - **Self-write suppression.** Events whose path holds a live claim in the
+ *    [SelfWriteRegistry] — server-initiated writes via the LibraryWriteBroker —
+ *    are dropped at raw-event intake, before skip rules and the debouncer.
  *
  * The watcher does not start listening until [start] is called; cleanup
  * via [close] releases the inotify / FSEvents / RDC handles.
@@ -53,6 +57,7 @@ internal class FolderWatcher(
     private val debouncer: StableSizeDebouncer = StableSizeDebouncer(),
     private val skipRules: (Path) -> Boolean = { path -> SkipRules.shouldSkip(path) },
     private val watcher: LowLevelDirectoryWatcher = newLowLevelDirectoryWatcher(scope),
+    private val selfWrites: SelfWriteRegistry = SelfWriteRegistry { 0L },
 ) {
     private val emissions = MutableSharedFlow<Path>(extraBufferCapacity = 64)
     val events: Flow<Path> = emissions.asSharedFlow()
@@ -109,6 +114,14 @@ internal class FolderWatcher(
         // event.path is the absolute child path (the low-level watcher resolves it against the
         // watched directory before emitting).
         val fullPath = Path(event.path)
+
+        // Server-initiated writes (LibraryWriteBroker) are swallowed at raw-event intake, before
+        // skip rules, delete handling, and the debouncer — a self-write must not even wake the
+        // debouncer. isSelfWrite (TTL-scoped, non-consuming) rather than consume-on-first-match:
+        // one write produces several kernel events (create + modify + rename + tmp delete), and
+        // every one of them must match the single registration.
+        if (selfWrites.isSelfWrite(fullPath)) return
+
         val isDelete = event.kind == DirectoryWatchEventKind.Delete
         // Skip rules must NOT filter delete events: the deleted path no longer exists
         // on disk, so filesystem probes inside skipRules (e.g. the `.ignore` sentinel

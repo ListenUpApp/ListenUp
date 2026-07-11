@@ -8,6 +8,8 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.librarywrite.LibraryWriteStatus
 import com.calypsan.listenup.server.mdns.MdnsAdvertiser
 import com.calypsan.listenup.server.mdns.launchMdnsRefreshOnServerInfoChange
 import com.calypsan.listenup.server.scanner.RescanScheduler
@@ -18,6 +20,7 @@ import com.calypsan.listenup.server.scheduler.MetadataCacheCleanupTask
 import com.calypsan.listenup.server.scheduler.OrphanImageCleanupTask
 import com.calypsan.listenup.server.scheduler.StatsFreshnessSweepTask
 import com.calypsan.listenup.server.services.BookPersister
+import com.calypsan.listenup.server.services.LibraryFolderRepository
 import com.calypsan.listenup.server.services.LibraryRegistry
 import com.calypsan.listenup.server.sync.ChangeBus
 import io.ktor.server.application.Application
@@ -79,8 +82,18 @@ internal fun Application.startBackgroundTasks(
     }
 
     val rescanOnStartup = environment.config.rescanOnStartup()
+    val libraryWriteBroker = koinGet<LibraryWriteBroker>()
+    val libraryFolderRepository = koinGet<LibraryFolderRepository>()
     scope.launch {
-        runCatching {
+        // Write-journal recovery MUST complete before bootstrapLibraries mounts any watcher
+        // (onLibraryAdded): recovery re-registers every path it touches with the
+        // SelfWriteRegistry, so ordering it first guarantees no watcher can observe a
+        // recovery write as an external change and churn a rescan. Sequential in this
+        // coroutine — the ordering is structural, not timing-based.
+        runNeverFatal("write-journal recovery failed") {
+            libraryWriteBroker.recoverJournal()
+        }
+        runNeverFatal("library bootstrap failed") {
             bootstrapLibraries(
                 libraryAdminService = libraryAdminService,
                 scanOrchestrator = orchestrator,
@@ -88,9 +101,12 @@ internal fun Application.startBackgroundTasks(
                 libraryPaths = libraryPaths,
                 rescanOnStartup = rescanOnStartup,
             )
-        }.onFailure { e ->
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            logger.error(e) { "library bootstrap failed — server keeps running" }
+        }
+        // Writability probe — after folders load, so every live folder root gets a status
+        // line in the boot log. Purely informational at this phase (the admin surface that
+        // exposes LibraryWriteStatus to clients ships in a later phase).
+        runNeverFatal("library writability probe failed") {
+            probeLibraryFolders(libraryWriteBroker, libraryRegistry, libraryFolderRepository)
         }
     }
 
@@ -130,17 +146,48 @@ internal fun Application.startBackgroundTasks(
 }
 
 /**
- * Launches [task] as a fire-and-forget startup job that must never break server boot: any
- * non-cancellation failure is logged (prefixed with [description]) and swallowed.
+ * Runs [task] as a startup step that must never break server boot: any non-cancellation
+ * failure is logged (prefixed with [description]) and swallowed.
  * [kotlinx.coroutines.CancellationException] is re-raised to honor structured concurrency.
  */
-private fun CoroutineScope.launchNeverFatal(
+private suspend fun runNeverFatal(
     description: String,
     task: suspend () -> Unit,
-) = launch {
+) {
     runCatching { task() }.onFailure { e ->
         if (e is kotlinx.coroutines.CancellationException) throw e
         logger.error(e) { "$description — server keeps running" }
+    }
+}
+
+/** Fire-and-forget variant of [runNeverFatal] for independent startup jobs. */
+private fun CoroutineScope.launchNeverFatal(
+    description: String,
+    task: suspend () -> Unit,
+) = launch { runNeverFatal(description, task) }
+
+/**
+ * Probes every live library folder root for writability at boot and logs the outcome —
+ * `info` when writable, `warn` with the reason when not. Purely informational: an unwritable
+ * root degrades library writes to typed [com.calypsan.listenup.api.error.LibraryWriteError]
+ * failures at call time; it never blocks startup.
+ */
+internal suspend fun probeLibraryFolders(
+    broker: LibraryWriteBroker,
+    libraryRegistry: LibraryRegistry,
+    folderRepository: LibraryFolderRepository,
+) {
+    val libraryId = libraryRegistry.currentLibrary()
+    for (folder in folderRepository.listByLibrary(libraryId.value)) {
+        when (val status = broker.probe(Path(folder.rootPath))) {
+            is LibraryWriteStatus.Available -> {
+                logger.info { "library folder ${folder.rootPath} is writable" }
+            }
+
+            is LibraryWriteStatus.Unavailable -> {
+                logger.warn { "library folder ${folder.rootPath} is NOT writable — ${status.reason}" }
+            }
+        }
     }
 }
 
