@@ -5,6 +5,8 @@ package com.calypsan.listenup.server.sidecar
 import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.server.io.hashBytesSha256
 import com.calypsan.listenup.server.librarywrite.LibraryWriteBroker
+import com.calypsan.listenup.server.librarywrite.isPosix
+import com.calypsan.listenup.server.librarywrite.makeReadOnly
 import com.calypsan.listenup.server.librarywrite.SelfWriteRegistry
 import com.calypsan.listenup.server.librarywrite.WriteJournal
 import com.calypsan.listenup.server.settings.ServerSettingsRepository
@@ -151,15 +153,43 @@ class SidecarWriterTest :
             }
         }
 
+        test("a file-rooted (single-file) book skips the write entirely — no park, no retry churn") {
+            withSqlDatabase {
+                runTest {
+                    val lib = tempLibraryDir()
+                    val writer = writer(backgroundScope, lib)
+                    // A bare audio file at the library root: the Grouper sets rootRelPath to the
+                    // FILE path itself, so the resolved "book dir" is a regular file.
+                    sql.seedTestBook(bookId = "book1", rootRelPath = "book1.m4b")
+                    SystemFileSystem.sink(Path(lib, "book1.m4b")).buffered().use { it.write(byteArrayOf(1)) }
+
+                    writer.markDirty("book1")
+                    advanceTimeBy(WINDOW_MS + 1)
+                    writer.awaitQuiescent()
+
+                    // v1 posture: single-file books don't get sidecars — skip, don't park.
+                    writer.pendingBookIds().shouldBeEmpty()
+                    SidecarWriteStateRepository(sql).findByBookId("book1").shouldBeNull()
+                    SystemFileSystem.exists(Path(lib, "book1.m4b", "listenup.json")) shouldBe false
+
+                    // The retry sweep therefore has nothing to pick up — a no-op, not a loop.
+                    writer.retryPending()
+                    writer.pendingBookIds().shouldBeEmpty()
+                }
+            }
+        }
+
         test("a broker failure parks the book in the pending set; retryPending flushes it on recovery") {
+            if (!isPosix()) return@test
             withSqlDatabase {
                 runTest {
                     val lib = tempLibraryDir()
                     val writer = writer(backgroundScope, lib)
                     sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
-                    // A FILE at the book-dir path makes the broker's directory-create fail typed.
-                    val blocker = Path(lib, "MyBook")
-                    SystemFileSystem.sink(blocker).buffered().use { it.write(byteArrayOf(1)) }
+                    // A read-only book directory makes the broker's staged write fail typed.
+                    val bookDir = java.nio.file.Path.of(lib, "MyBook")
+                    Files.createDirectories(bookDir)
+                    makeReadOnly(Path(bookDir.toString()))
 
                     writer.markDirty("book1")
                     advanceTimeBy(WINDOW_MS + 1)
@@ -168,8 +198,11 @@ class SidecarWriterTest :
                     SidecarWriteStateRepository(sql).findByBookId("book1").shouldBeNull()
                     writer.pendingBookIds() shouldContainExactly setOf("book1")
 
-                    // Recovery: remove the blocking file, retry.
-                    SystemFileSystem.delete(blocker)
+                    // Recovery: restore write permission, retry.
+                    Files.setPosixFilePermissions(
+                        bookDir,
+                        java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"),
+                    )
                     writer.retryPending()
 
                     SystemFileSystem.exists(Path(lib, "MyBook", "listenup.json")) shouldBe true

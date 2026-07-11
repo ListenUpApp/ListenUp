@@ -17,6 +17,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
 
 private val logger = loggerFor<SidecarWriter>()
 
@@ -172,19 +173,32 @@ class SidecarWriter(
      * The book's absolute directory: `<library_folders.root_path>/<books.root_rel_path>` —
      * the same join [com.calypsan.listenup.server.audio.AudioFileLocator] resolves file paths
      * through. Null when the book or its folder row is gone.
+     *
+     * **v1 posture — single-file books get no sidecar.** A bare audio file at the folder root
+     * makes the Grouper set `root_rel_path` to the FILE itself, so there is no book directory
+     * to put `listenup.json` in. That case returns null (one info log) so the flush skips
+     * cleanly instead of parking the book for a retry that can never succeed. Such books gain
+     * a sidecar once the organizer (Trio Phase 3) moves them into their own folder.
      */
-    private suspend fun resolveBookDir(bookId: String): Path? =
-        suspendTransaction(db) {
-            val bookRow =
-                db.booksQueries.selectById(bookId).executeAsOneOrNull()
-                    ?: return@suspendTransaction null
-            val folderRoot =
-                db.libraryFoldersQueries
-                    .selectById(bookRow.folder_id)
-                    .executeAsOneOrNull()
-                    ?.root_path ?: return@suspendTransaction null
-            Path(folderRoot, bookRow.root_rel_path)
+    private suspend fun resolveBookDir(bookId: String): Path? {
+        val bookDir =
+            suspendTransaction<Path?>(db) {
+                val bookRow =
+                    db.booksQueries.selectById(bookId).executeAsOneOrNull()
+                        ?: return@suspendTransaction null
+                val folderRoot =
+                    db.libraryFoldersQueries
+                        .selectById(bookRow.folder_id)
+                        .executeAsOneOrNull()
+                        ?.root_path ?: return@suspendTransaction null
+                Path(folderRoot, bookRow.root_rel_path)
+            } ?: return null
+        if (SystemFileSystem.metadataOrNull(bookDir)?.isRegularFile == true) {
+            logger.info { "single-file books don't get sidecars in v1 — skipping listenup.json for book=$bookId" }
+            return null
         }
+        return bookDir
+    }
 
     companion object {
         /** The sidecar's on-disk filename, colocated with the book's audio files. */
