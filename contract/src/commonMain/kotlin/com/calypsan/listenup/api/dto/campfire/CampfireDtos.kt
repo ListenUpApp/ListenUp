@@ -110,6 +110,25 @@ enum class CampfireControlMode {
 }
 
 /**
+ * A campfire's lifecycle phase — the co-listening lobby amendment (2026-07-11). Every room is
+ * born in [LOBBY] (its anchor paused at the creator's own position) and transitions to [LIVE]
+ * exactly once, via [com.calypsan.listenup.api.CampfireService.startSession] (host-only,
+ * lobby-only). Chat and reactions work in both phases — people talk while gathering — but
+ * playback commands are rejected in [LOBBY] with
+ * [com.calypsan.listenup.api.error.CampfireError.NotStarted].
+ */
+@Serializable
+enum class CampfirePhase {
+    /** Members are gathering; the shared anchor hasn't started. */
+    @SerialName("lobby")
+    LOBBY,
+
+    /** The host started the room — the shared anchor plays (or pauses, seeks, etc.) as normal. */
+    @SerialName("live")
+    LIVE,
+}
+
+/**
  * One member of a campfire, as seen in [CampfireSnapshot.members] or a [CampfireFrame]
  * membership event.
  *
@@ -137,8 +156,14 @@ data class CampfireMember(
 
 /**
  * Creation/update settings for a campfire, chosen by the host at creation and mutable
- * afterward via [com.calypsan.listenup.api.CampfireService.setControlMode].
+ * afterward via [com.calypsan.listenup.api.CampfireService.setControlMode] and
+ * [com.calypsan.listenup.api.CampfireService.updateSettings] (the latter LOBBY-only).
  *
+ * @property name The campfire's display name. The client constructs a sensible default
+ * in code (e.g. "{Host}'s Campfire") — never via a localized string template, since
+ * apostrophes in a display name break the string-escaping pipeline (#1079). The server
+ * validates this non-blank and at most 100 characters at the `createSession`/`updateSettings`
+ * boundary.
  * @property controlMode Who may send playback commands.
  * @property inviteOnly Invite-only campfires never appear in [OpenCampfireSummary] discovery.
  * @property invitedUserIds Users explicitly invited to an invite-only campfire.
@@ -146,6 +171,7 @@ data class CampfireMember(
 @Serializable
 @SerialName("CampfireSettings")
 data class CampfireSettings(
+    val name: String,
     val controlMode: CampfireControlMode,
     val inviteOnly: Boolean,
     val invitedUserIds: List<String> = emptyList(),
@@ -176,6 +202,18 @@ data class ChatMessage(
  */
 @Serializable
 sealed interface CampfireFrame {
+    /**
+     * The host started the campfire: [CampfirePhase.LOBBY] -> [CampfirePhase.LIVE]. The shared
+     * moment every member's playback begins from — distinct from [AnchorChanged] because it also
+     * carries the phase transition, not just a new anchor.
+     */
+    @Serializable
+    @SerialName("CampfireFrame.CampfireStarted")
+    data class CampfireStarted(
+        val anchor: CampfireAnchor,
+        val byUserId: String,
+    ) : CampfireFrame
+
     /** The room's shared anchor changed (command applied, or membership/host change re-anchored it). */
     @Serializable
     @SerialName("CampfireFrame.AnchorChanged")
@@ -253,6 +291,8 @@ sealed interface CampfireFrame {
  * @property bookId The book being listened to together. Plain `String` — wire-consistent
  * with [com.calypsan.listenup.api.push.PushPayload.CampfireInvite.bookId].
  * @property settings The room's current settings.
+ * @property phase The room's lifecycle phase — [CampfirePhase.LOBBY] until the host calls
+ * [com.calypsan.listenup.api.CampfireService.startSession].
  * @property anchor The room's current shared playback state.
  * @property members Current members (including away members, excluded once evicted).
  * @property hostUserId The current host's user id.
@@ -261,6 +301,11 @@ sealed interface CampfireFrame {
  * the basis for the client-side spoiler-ahead comparison.
  * @property spoilerAhead Whether the room's position is far enough ahead of [yourPositionMs]
  * that joining would move the caller's progress forward materially.
+ * @property startedAtEpochMs Server epoch-ms when the host called
+ * [com.calypsan.listenup.api.CampfireService.startSession], or `null` while still in
+ * [CampfirePhase.LOBBY].
+ * @property invitedPending Invited-but-not-yet-joined users, enriched with display names — the
+ * lobby roster's "invited" rows (see [CampfireInvitableUser]).
  */
 @Serializable
 @SerialName("CampfireSnapshot")
@@ -268,12 +313,15 @@ data class CampfireSnapshot(
     val id: CampfireId,
     val bookId: String,
     val settings: CampfireSettings,
+    val phase: CampfirePhase,
     val anchor: CampfireAnchor,
     val members: List<CampfireMember>,
     val hostUserId: String,
     val recentChat: List<ChatMessage>,
     val yourPositionMs: Long?,
     val spoilerAhead: Boolean,
+    val startedAtEpochMs: Long? = null,
+    val invitedPending: List<CampfireInvitableUser> = emptyList(),
 )
 
 /**
@@ -283,6 +331,9 @@ data class CampfireSnapshot(
  *
  * @property id The campfire's id.
  * @property bookId The book being listened to together.
+ * @property phase The room's lifecycle phase — discovery renders "gathering" ([CampfirePhase.LOBBY])
+ * vs. "live" ([CampfirePhase.LIVE]).
+ * @property name The campfire's display name.
  * @property hostUserId The current host's user id.
  * @property memberCount Current member count (for "Simon + 2 listening now").
  * @property controlMode The room's current control mode.
@@ -296,6 +347,8 @@ data class CampfireSnapshot(
 data class OpenCampfireSummary(
     val id: CampfireId,
     val bookId: String,
+    val phase: CampfirePhase,
+    val name: String,
     val hostUserId: String,
     val memberCount: Int,
     val controlMode: CampfireControlMode,

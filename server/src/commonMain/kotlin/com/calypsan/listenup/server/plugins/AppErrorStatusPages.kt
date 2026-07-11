@@ -857,10 +857,18 @@ private fun PushError.withCorrelationId(id: String?): PushError =
 private fun CampfireError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is CampfireError.CampfireNotFound -> HttpStatusCode.NotFound
+
         is CampfireError.CampfireFull -> HttpStatusCode.Conflict
+
         is CampfireError.NotAMember -> HttpStatusCode.Forbidden
+
         is CampfireError.NotController -> HttpStatusCode.Forbidden
+
         is CampfireError.BookAccessDenied -> HttpStatusCode.Forbidden
+
+        // The room exists but is in the wrong lifecycle phase for the requested action —
+        // a conflict with current room state, not a missing-resource or permission failure.
+        is CampfireError.NotStarted -> HttpStatusCode.Conflict
     }
 
 private fun CampfireError.withCorrelationId(id: String?): CampfireError =
@@ -870,4 +878,5 @@ private fun CampfireError.withCorrelationId(id: String?): CampfireError =
         is CampfireError.NotAMember -> copy(correlationId = id)
         is CampfireError.NotController -> copy(correlationId = id)
         is CampfireError.BookAccessDenied -> copy(correlationId = id)
+        is CampfireError.NotStarted -> copy(correlationId = id)
     }

@@ -11,6 +11,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
+import com.calypsan.listenup.api.error.CampfireError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -76,6 +77,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -94,7 +96,8 @@ private const val USER_B = "user-b"
 private const val BOOK_ID = "book-1"
 private const val ALL_BOOKS_ID = "all-books"
 
-private val everyoneSettings = CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
+private val everyoneSettings =
+    CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
 
 /**
  * Task 6 of the co-listening (Campfire) implementation plan: the server soak/E2E over a REAL
@@ -179,12 +182,19 @@ class CampfireRealTransportE2ETest :
                             serviceB.joinSession(sessionId).value()
 
                             serviceB.observeSession(sessionId).test(timeout = 60.seconds) {
+                                // Chat is lobby-legal (unlike playback commands) — a safe warm-up signal
+                                // regardless of the room's phase.
                                 warmUp(serviceA, sessionId, idPrefix = "warmup")
 
-                                // The room starts paused (isPlaying = false at creation) — establish a
-                                // playing baseline first so the Pause below is a real transition, not a NoOp.
-                                serviceA.sendCommand(sessionId, PlaybackCommand.Play(commandId = "cmd-play")).value()
-                                awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "cmd-play" }
+                                // The room starts in LOBBY, paused — startSession is the lobby amendment's
+                                // way to establish a playing LIVE baseline (re-anchors playing at now),
+                                // so the Pause below is a real transition, not a NoOp.
+                                serviceA.startSession(sessionId).value()
+                                val startedFrame =
+                                    awaitFrameWhere { it is CampfireFrame.CampfireStarted }
+                                        .shouldBeInstanceOf<CampfireFrame.CampfireStarted>()
+                                startedFrame.anchor.isPlaying shouldBe true
+                                startedFrame.byUserId shouldBe USER_A
 
                                 // Scenario 1: Pause -> AnchorChanged, keyed on this command's commandId so a
                                 // stale warm-up echo can never be mistaken for it.
@@ -248,6 +258,9 @@ class CampfireRealTransportE2ETest :
 
                             val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
                             serviceB.joinSession(sessionId).value()
+                            // Establish LIVE before any SeekTo settle commands below — playback commands
+                            // are rejected while the room is still in LOBBY.
+                            serviceA.startSession(sessionId).value()
 
                             serviceA.observeSession(sessionId).test(timeout = 60.seconds) {
                                 // A subscribes fresh here (after B already joined), so replay=0 means A
@@ -314,6 +327,13 @@ class CampfireRealTransportE2ETest :
                         withCampfireClients(env) { serviceA, serviceB ->
                             val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
                             serviceB.joinSession(sessionId).value()
+                            // The soak's mixed Play/Pause/SeekTo commands need LIVE, not LOBBY.
+                            serviceA.startSession(sessionId).value()
+                            // startSession leaves the room PLAYING; the soak cycle below starts with Play
+                            // (i % 4 == 0), which would silently NoOp on a playing room and shave one frame
+                            // off the expected count. Pause first (before B subscribes — no received impact)
+                            // so every soak iteration is a real transition.
+                            serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "pre-soak-pause")).value()
 
                             val received = AtomicInteger(0)
                             val bJob =
@@ -404,6 +424,8 @@ class CampfireRealTransportE2ETest :
                         withCampfireClients(env) { serviceA, serviceB ->
                             val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
                             serviceB.joinSession(sessionId).value()
+                            // The SeekTo commands below need LIVE, not LOBBY.
+                            serviceA.startSession(sessionId).value()
 
                             val bReceivedFirst = CompletableDeferred<Unit>()
                             val bJob =
@@ -493,6 +515,83 @@ class CampfireRealTransportE2ETest :
                 }
             }
         }
+
+        test(
+            "lobby phase: commands are rejected pre-start; startSession broadcasts " +
+                "CampfireStarted to every subscribed member (lobby scenario)",
+        ) {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser(USER_A)
+                sql.seedTestUser(USER_B)
+                sql.seedTestBook(BOOK_ID)
+                runBlocking {
+                    grantAllBooksAccess(sql, driver, USER_A)
+                    grantAllBooksAccess(sql, driver, USER_B)
+                    val env = buildCampfireEnv(sql, driver)
+                    try {
+                        withCampfireClients(env) { serviceA, serviceB ->
+                            // Create (LOBBY) -> B joins.
+                            val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
+                            serviceB.joinSession(sessionId).value()
+
+                            // Commands are rejected pre-start -- nothing has started yet.
+                            val rejected = serviceB.sendCommand(sessionId, PlaybackCommand.Play(commandId = "pre-start"))
+                            rejected.shouldBeInstanceOf<AppResult.Failure>()
+                            rejected.error.shouldBeInstanceOf<CampfireError.NotStarted>()
+
+                            // Chat is lobby-legal.
+                            serviceB.sendChat(sessionId, "excited for this one").value()
+
+                            // Both A and B must observe the shared start moment -- subscribe both BEFORE
+                            // startSession (the room's SharedFlow has no replay).
+                            val aFrames = mutableListOf<CampfireFrame>()
+                            val bFrames = mutableListOf<CampfireFrame>()
+                            val aJob =
+                                launch(Dispatchers.Default) {
+                                    serviceA.observeSession(sessionId).collect { if (it is RpcEvent.Data) aFrames += it.value }
+                                }
+                            val bJob =
+                                launch(Dispatchers.Default) {
+                                    serviceB.observeSession(sessionId).collect { if (it is RpcEvent.Data) bFrames += it.value }
+                                }
+                            try {
+                                // Settle both subscriptions before starting.
+                                eventually(15.seconds) {
+                                    serviceA.sendChat(sessionId, "settle").value()
+                                    aFrames.isNotEmpty() shouldBe true
+                                    bFrames.isNotEmpty() shouldBe true
+                                }
+
+                                // A startSession -> BOTH streams receive CampfireStarted with a playing anchor.
+                                serviceA.startSession(sessionId).value()
+
+                                eventually(15.seconds) {
+                                    val aStarted = aFrames.filterIsInstance<CampfireFrame.CampfireStarted>().first()
+                                    val bStarted = bFrames.filterIsInstance<CampfireFrame.CampfireStarted>().first()
+                                    aStarted.anchor.isPlaying shouldBe true
+                                    aStarted.byUserId shouldBe USER_A
+                                    bStarted.byUserId shouldBe USER_A
+                                }
+
+                                // Subsequent commands flow normally now that the room is LIVE.
+                                serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "post-start-pause")).value()
+                                eventually(15.seconds) {
+                                    bFrames
+                                        .filterIsInstance<CampfireFrame.AnchorChanged>()
+                                        .any { it.commandId == "post-start-pause" } shouldBe true
+                                }
+                            } finally {
+                                aJob.cancel()
+                                bJob.cancel()
+                            }
+                        }
+                    } finally {
+                        env.close()
+                    }
+                }
+            }
+        }
     })
 
 private fun <T> AppResult<T>.value(): T {
@@ -537,28 +636,43 @@ private suspend fun ReceiveTurbine<RpcEvent<CampfireFrame>>.awaitFrameWhere(
 
 /**
  * Warm-up: the room's SharedFlow has no replay, so a command fired before this collector's
- * subscribe frame has actually landed server-side is silently missed. Retries a throwaway,
- * always-emitting SeekTo (through [service], keyed `"$idPrefix-N"`) on a CI-tolerant 1-second
- * poll interval until ANY frame arrives — proof the stream is live — without asserting anything
- * about its content: every real assertion downstream uses [awaitFrameWhere], which is immune to
- * whatever stale warm-up frames this leaves queued behind it. Bounded to an overall 30-second
- * budget so a genuinely dead stream fails here, loudly, instead of surfacing as a confusing
- * downstream timeout.
+ * subscribe frame has actually landed server-side is silently missed. Pumps a throwaway,
+ * always-emitting chat message (through [service], keyed `"$idPrefix-N"`) every 500ms from a
+ * concurrent coroutine until ANY frame arrives on this Turbine — proof the stream is live —
+ * without asserting anything about its content: every real assertion downstream uses
+ * [awaitFrameWhere], which is immune to whatever stale warm-up frames this leaves queued behind
+ * it. Chat (not a playback command) is used deliberately: it's legal in both the lobby and live
+ * phases (the 2026-07-11 lobby amendment rejects playback commands pre-start), so this warm-up
+ * works regardless of whether [startSession][com.calypsan.listenup.api.CampfireService.startSession]
+ * has been called yet.
+ *
+ * The single [ReceiveTurbine.awaitItem] here is deliberately NOT wrapped in a `withTimeoutOrNull`
+ * poll (the previous shape): Turbine's `awaitEvent` catches ANY [kotlinx.coroutines.TimeoutCancellationException]
+ * — including one thrown by an ENCLOSING `withTimeoutOrNull` — and rethrows it as a fatal
+ * `TurbineAssertionError`, so the poll-and-retry idiom intermittently blew up the whole test on a
+ * normal empty poll (observed locally under machine load, 2026-07-11). With one unwrapped await,
+ * the only timeout in play is Turbine's own `test(timeout = …)` budget, which fails loudly if the
+ * stream is genuinely dead.
  */
 private suspend fun ReceiveTurbine<RpcEvent<CampfireFrame>>.warmUp(
     service: CampfireService,
     sessionId: CampfireId,
     idPrefix: String,
 ) {
-    withTimeout(30.seconds) {
-        var pos = 1L
-        var warmedUp = false
-        while (!warmedUp) {
-            service
-                .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = pos, commandId = "$idPrefix-$pos"))
-                .value()
-            warmedUp = withTimeoutOrNull(1.seconds) { awaitItem() } != null
-            pos += 1
+    coroutineScope {
+        val pump =
+            launch {
+                var n = 1L
+                while (true) {
+                    service.sendChat(sessionId, "$idPrefix-$n").value()
+                    n += 1
+                    delay(500.milliseconds)
+                }
+            }
+        try {
+            awaitItem()
+        } finally {
+            pump.cancel()
         }
     }
 }

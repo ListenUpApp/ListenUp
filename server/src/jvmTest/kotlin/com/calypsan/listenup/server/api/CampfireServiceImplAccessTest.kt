@@ -120,6 +120,8 @@ class CampfireServiceImplAccessTest :
                     val registry = CampfireRegistry(clock = FixedClock(campfireTestT0))
                     val hostService = makeService(sql, driver, registry, principalFor("host"))
                     val created = hostService.createSession("book-a", campfireEveryoneSettings).value()
+                    // Rooms are born in LOBBY — go LIVE before issuing playback commands.
+                    hostService.startSession(created.id).value()
                     // Room jumps 700s ahead of position 0 — past the 600s (10-minute) threshold.
                     hostService.sendCommand(created.id, PlaybackCommand.SeekTo(positionMs = 700_000L, commandId = "c1")).value()
 
@@ -147,6 +149,8 @@ class CampfireServiceImplAccessTest :
                     val registry = CampfireRegistry(clock = FixedClock(campfireTestT0))
                     val hostService = makeService(sql, driver, registry, principalFor("host"))
                     val created = hostService.createSession("book-a", campfireEveryoneSettings).value()
+                    // Rooms are born in LOBBY — go LIVE before issuing playback commands.
+                    hostService.startSession(created.id).value()
                     // 620s → chapter 3; within the 10-minute time threshold of 50s, but 3 chapters ahead.
                     hostService.sendCommand(created.id, PlaybackCommand.SeekTo(positionMs = 620_000L, commandId = "c1")).value()
 
@@ -170,6 +174,8 @@ class CampfireServiceImplAccessTest :
                     val registry = CampfireRegistry(clock = FixedClock(campfireTestT0))
                     val hostService = makeService(sql, driver, registry, principalFor("host"))
                     val created = hostService.createSession("book-a", campfireEveryoneSettings).value()
+                    // Rooms are born in LOBBY — go LIVE before issuing playback commands.
+                    hostService.startSession(created.id).value()
                     hostService.sendCommand(created.id, PlaybackCommand.SeekTo(positionMs = 200_000L, commandId = "c1")).value()
 
                     val joined = makeService(sql, driver, registry, principalFor("member")).joinSession(created.id).value()
@@ -374,6 +380,7 @@ class CampfireServiceImplAccessTest :
                     val registry = CampfireRegistry(clock = FixedClock(campfireTestT0))
                     val inviteOnlySettings =
                         CampfireSettings(
+                            name = "Test Campfire",
                             controlMode = CampfireControlMode.EVERYONE,
                             inviteOnly = true,
                             invitedUserIds = listOf("invited"),

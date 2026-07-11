@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.CampfireError
+import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.SyncControl
@@ -30,7 +31,9 @@ import com.calypsan.listenup.server.campfire.JoinOutcome
 import com.calypsan.listenup.server.campfire.LeaveOutcome
 import com.calypsan.listenup.server.campfire.ReactionOutcome
 import com.calypsan.listenup.server.campfire.SetControlModeOutcome
+import com.calypsan.listenup.server.campfire.StartOutcome
 import com.calypsan.listenup.server.campfire.TransferHostOutcome
+import com.calypsan.listenup.server.campfire.UpdateSettingsOutcome
 import com.calypsan.listenup.server.campfire.posAt
 import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
@@ -54,6 +57,9 @@ private val SPOILER_TIME_THRESHOLD_MS = 10.minutes.inWholeMilliseconds
 /** The §7 threshold: a room more than this many chapters past the caller's own is a spoiler. */
 private const val SPOILER_CHAPTER_THRESHOLD = 1
 
+/** The lobby amendment's boundary limit on [CampfireSettings.name]. */
+private const val MAX_CAMPFIRE_NAME_LENGTH = 100
+
 /**
  * [CampfireService] implementation — the access + control gate in front of the pure, in-memory
  * [CampfireRegistry]. Every fallible method resolves the caller from [principal] (never from
@@ -66,11 +72,17 @@ private const val SPOILER_CHAPTER_THRESHOLD = 1
  * - **Membership** ([CampfireRegistry]'s own `NotAMember`/`RoomNotFound` outcomes) on
  *   [sendCommand]/[sendChat]/[sendReaction]/[leaveSession], and explicitly in [observeSession]
  *   since that method has no `AppResult` to fail through.
- * - **Host-only control** — [transferHost], [endSession], and [setControlMode] read the room's
- *   current [CampfireSnapshot.hostUserId] and reject a non-host caller with `NotController`
- *   *before* calling the registry, which performs the mutation unconditionally (the registry has
- *   no concept of "controller" — see [TransferHostOutcome]/[SetControlModeOutcome] KDoc). The same
- *   pattern gates [sendCommand] in [CampfireControlMode.HOST_ONLY] rooms.
+ * - **Host-only control** — [transferHost], [endSession], [setControlMode], [startSession], and
+ *   [updateSettings] read the room's current [CampfireSnapshot.hostUserId] and reject a non-host
+ *   caller with `NotController` *before* calling the registry, which performs the mutation
+ *   unconditionally (the registry has no concept of "controller" — see
+ *   [TransferHostOutcome]/[SetControlModeOutcome]/[StartOutcome]/[UpdateSettingsOutcome] KDoc). The
+ *   same pattern gates [sendCommand] in [CampfireControlMode.HOST_ONLY] rooms.
+ * - **Lobby-only** (the 2026-07-11 lobby amendment) — [sendCommand] rejects playback commands with
+ *   `CampfireError.NotStarted` while the room is in
+ *   [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LOBBY] ([CommandOutcome.NotStarted]); the
+ *   host transitions it to `LIVE` via [startSession]. [updateSettings] is the mirror image — valid
+ *   only while still in `LOBBY` ([UpdateSettingsOutcome.RejectedLive]).
  *
  * **Invites and the "listened together" activity (Task 5).** [createSession] push-notifies every
  * invited user who can access the book via [CampfireInviteNotifier] (best-effort; push is an
@@ -113,6 +125,7 @@ internal class CampfireServiceImpl(
         settings: CampfireSettings,
     ): AppResult<CampfireSnapshot> {
         val caller = resolveCaller() ?: return noPrincipal()
+        validateSettings(settings)?.let { return AppResult.Failure(it) }
         if (!bookAccessPolicy.canAccess(caller.userId, caller.role, bookId)) {
             return AppResult.Failure(CampfireError.BookAccessDenied())
         }
@@ -133,8 +146,21 @@ internal class CampfireServiceImpl(
         bus.broadcastControl(SyncControl.CampfiresChanged)
         notifyInvitedMembers(snapshot.id, bookId, caller.userId, settings.invitedUserIds)
         // The creator's own progress IS the anchor — never a spoiler to themselves.
-        return AppResult.Success(snapshot.copy(yourPositionMs = startingPositionMs, spoilerAhead = false))
+        val enriched = withInvitedPending(snapshot.copy(yourPositionMs = startingPositionMs, spoilerAhead = false))
+        return AppResult.Success(enriched)
     }
+
+    /**
+     * Boundary-validates [CampfireSettings.name] for [createSession] and [updateSettings] — the
+     * client constructs a sensible default in code (see [CampfireSettings] KDoc); the server only
+     * rejects a genuinely malformed name. Mirrors [PushServiceImpl.validateToken]'s idiom.
+     */
+    private fun validateSettings(settings: CampfireSettings): ValidationError? =
+        when {
+            settings.name.isBlank() -> ValidationError(message = "Campfire name must not be blank.")
+            settings.name.length > MAX_CAMPFIRE_NAME_LENGTH -> ValidationError(message = "Campfire name is too long.")
+            else -> null
+        }
 
     /**
      * Push-notifies every invited user who can actually access [bookId] — an invite to a book
@@ -174,6 +200,68 @@ internal class CampfireServiceImpl(
             is JoinOutcome.Joined -> AppResult.Success(scopedToCaller(outcome.snapshot, caller.userId))
             JoinOutcome.RoomFull -> AppResult.Failure(CampfireError.CampfireFull())
             JoinOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
+        }
+    }
+
+    /**
+     * Starts the campfire — [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LOBBY] ->
+     * [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LIVE]. Host-gated here (the
+     * [transferHost]/[endSession]/[setControlMode] pattern); [CampfireRegistry.start] performs
+     * the mutation unconditionally. Nudges [SyncControl.CampfiresChanged] only on an actual
+     * transition — starting an already-live room is idempotent and changes nothing discovery cares
+     * about.
+     */
+    override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val snapshot = registry.snapshot(sessionId) ?: return AppResult.Failure(CampfireError.CampfireNotFound())
+        if (snapshot.hostUserId != caller.userId) return AppResult.Failure(CampfireError.NotController())
+        return when (registry.start(sessionId, caller.userId)) {
+            is StartOutcome.Started -> {
+                bus.broadcastControl(SyncControl.CampfiresChanged)
+                AppResult.Success(Unit)
+            }
+
+            StartOutcome.AlreadyLive -> {
+                AppResult.Success(Unit)
+            }
+
+            StartOutcome.RoomNotFound -> {
+                AppResult.Failure(CampfireError.CampfireNotFound())
+            }
+        }
+    }
+
+    /**
+     * Updates the campfire's settings while it's still in the lobby phase. Host-gated here, same
+     * pattern as [startSession]. Diffs [settings]' invited users against the room's previous
+     * invite list (read via [existing] before the mutation) and push-notifies only the newly-added
+     * users through [notifyInvitedMembers] — already-invited users are not re-notified.
+     */
+    override suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val existing = registry.snapshot(sessionId) ?: return AppResult.Failure(CampfireError.CampfireNotFound())
+        if (existing.hostUserId != caller.userId) return AppResult.Failure(CampfireError.NotController())
+        validateSettings(settings)?.let { return AppResult.Failure(it) }
+        return when (val outcome = registry.updateSettings(sessionId, settings)) {
+            is UpdateSettingsOutcome.Applied -> {
+                // Name/privacy changes affect what listOpenSessions can show — nudge discovery,
+                // same rule as every other transition that changes discoverable presentation.
+                bus.broadcastControl(SyncControl.CampfiresChanged)
+                val newlyInvited = settings.invitedUserIds.filterNot { it in existing.settings.invitedUserIds }
+                notifyInvitedMembers(sessionId, outcome.snapshot.bookId, caller.userId, newlyInvited)
+                AppResult.Success(scopedToCaller(outcome.snapshot, caller.userId))
+            }
+
+            UpdateSettingsOutcome.RejectedLive -> {
+                AppResult.Failure(ValidationError(message = "Campfire settings can only be changed before it starts."))
+            }
+
+            UpdateSettingsOutcome.RoomNotFound -> {
+                AppResult.Failure(CampfireError.CampfireNotFound())
+            }
         }
     }
 
@@ -318,6 +406,9 @@ internal class CampfireServiceImpl(
 
             CommandOutcome.NotAMember -> AppResult.Failure(CampfireError.NotAMember())
 
+            // Nothing has started yet — see CampfireRoom.applyCommand's phase gate.
+            CommandOutcome.NotStarted -> AppResult.Failure(CampfireError.NotStarted())
+
             CommandOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
         }
     }
@@ -377,6 +468,8 @@ internal class CampfireServiceImpl(
                 OpenCampfireSummary(
                     id = room.id,
                     bookId = room.bookId,
+                    phase = room.phase,
+                    name = room.settings.name,
                     hostUserId = room.hostUserId,
                     memberCount = room.members.size,
                     controlMode = room.settings.controlMode,
@@ -424,7 +517,10 @@ internal class CampfireServiceImpl(
             principal = principal,
         )
 
-    /** [snapshot] with [CampfireSnapshot.yourPositionMs]/[CampfireSnapshot.spoilerAhead] resolved for [userId]. */
+    /**
+     * [snapshot] with [CampfireSnapshot.yourPositionMs]/[CampfireSnapshot.spoilerAhead] resolved
+     * for [userId], and [CampfireSnapshot.invitedPending] enriched via [withInvitedPending].
+     */
     private suspend fun scopedToCaller(
         snapshot: CampfireSnapshot,
         userId: String,
@@ -432,7 +528,29 @@ internal class CampfireServiceImpl(
         val yourPositionMs = playbackPositions.getPosition(userId, snapshot.bookId)?.positionMs
         val roomPositionMs = snapshot.anchor.posAt(clock.now())
         val spoiler = computeSpoilerAhead(snapshot.bookId, roomPositionMs, yourPositionMs)
-        return snapshot.copy(yourPositionMs = yourPositionMs, spoilerAhead = spoiler)
+        return withInvitedPending(snapshot.copy(yourPositionMs = yourPositionMs, spoilerAhead = spoiler))
+    }
+
+    /**
+     * [snapshot] with [CampfireSnapshot.invitedPending] resolved: every invited-but-not-yet-joined
+     * user (`settings.invitedUserIds` minus `members`), enriched with a display name via the same
+     * live-`users`-table lookup [listInvitableUsers] uses (never the [PublicProfileRepository]
+     * projection, which can lag). A pending invitee who is no longer an ACTIVE live user silently
+     * drops from the roster row — matching [listInvitableUsers]'s own filtering, never breaking
+     * the room.
+     */
+    private suspend fun withInvitedPending(snapshot: CampfireSnapshot): CampfireSnapshot {
+        val joinedIds = snapshot.members.map { it.userId }.toSet()
+        val pendingIds = snapshot.settings.invitedUserIds.filterNot { it in joinedIds }
+        if (pendingIds.isEmpty()) return snapshot
+        val liveUsersById =
+            suspendTransaction(db) { db.usersQueries.selectActiveLive().executeAsList() }
+                .associateBy { it.id }
+        val pending =
+            pendingIds.mapNotNull { id ->
+                liveUsersById[id]?.let { CampfireInvitableUser(userId = id, displayName = it.display_name) }
+            }
+        return snapshot.copy(invitedPending = pending)
     }
 
     /**

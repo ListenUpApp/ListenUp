@@ -35,7 +35,7 @@ class CampfireReaperTaskTest :
     FunSpec({
 
         val t0 = Instant.fromEpochMilliseconds(1_730_000_000_000L)
-        val settings = CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
+        val settings = CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
 
         test("a reap that ends a room (away-grace, evicted down to empty) broadcasts CampfiresChanged") {
             withSqlDatabase {

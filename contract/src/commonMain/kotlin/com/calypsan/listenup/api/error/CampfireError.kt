@@ -81,4 +81,21 @@ sealed interface CampfireError : AppError {
         override val code: String = "CAMPFIRE_BOOK_ACCESS_DENIED"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * A playback command was sent while the campfire is still in its lobby phase (the
+     * co-listening lobby amendment, 2026-07-11) — nothing has started yet, so there is no
+     * shared anchor to control. Chat and reactions are unaffected; only
+     * `CampfireService.sendCommand` returns this.
+     */
+    @Serializable
+    @SerialName("CampfireError.NotStarted")
+    data class NotStarted(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : CampfireError {
+        override val message: String = "The campfire hasn't started yet."
+        override val code: String = "CAMPFIRE_NOT_STARTED"
+        override val isRetryable: Boolean = false
+    }
 }

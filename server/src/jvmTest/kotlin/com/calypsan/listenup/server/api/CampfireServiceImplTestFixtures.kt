@@ -41,9 +41,9 @@ import kotlin.time.Instant
 internal val campfireTestT0: Instant = Instant.fromEpochMilliseconds(1_730_000_000_000L)
 
 internal val campfireEveryoneSettings =
-    CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
+    CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
 internal val campfireHostOnlySettings =
-    CampfireSettings(controlMode = CampfireControlMode.HOST_ONLY, inviteOnly = false)
+    CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.HOST_ONLY, inviteOnly = false)
 
 internal fun principalFor(userId: String): PrincipalProvider =
     PrincipalProvider { UserPrincipal(UserId(userId), SessionId("session-$userId"), UserRole.MEMBER) }

@@ -52,6 +52,7 @@ class CampfireServiceImplActivityTest :
                     val notifier = RecordingPushNotifier()
                     val inviteSettings =
                         CampfireSettings(
+                            name = "Test Campfire",
                             controlMode = CampfireControlMode.EVERYONE,
                             inviteOnly = false,
                             invitedUserIds = listOf("member", "stranger", "host"),

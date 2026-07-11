@@ -30,6 +30,13 @@ import kotlinx.rpc.annotations.Rpc
  * Every fallible method gates on `BookAccessPolicy.canAccess` for the campfire's book and
  * membership for session-scoped operations, returning [com.calypsan.listenup.api.error.CampfireError]
  * on the typed failure path.
+ *
+ * **Lobby phase (2026-07-11 amendment).** Every room is born in
+ * [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LOBBY] — chat and reactions work, but
+ * [sendCommand] rejects playback commands with `CampfireError.NotStarted` until the host calls
+ * [startSession], which transitions the room to
+ * [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LIVE] and broadcasts the shared start
+ * moment as a [CampfireFrame.CampfireStarted] frame.
  */
 @Rpc
 interface CampfireService {
@@ -48,6 +55,26 @@ interface CampfireService {
 
     /** Leaves the campfire. Broadcasts a [CampfireFrame.MemberLeft] frame to the remaining members. */
     suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit>
+
+    /**
+     * Starts the campfire — [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LOBBY] ->
+     * [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LIVE]. Re-anchors playback to now
+     * (position unchanged, playing) and broadcasts a single [CampfireFrame.CampfireStarted] frame
+     * to every member — the shared moment everyone begins from. Host only; only valid while the
+     * campfire is still in the lobby phase.
+     */
+    suspend fun startSession(sessionId: CampfireId): AppResult<Unit>
+
+    /**
+     * Updates the campfire's settings (name, control mode, privacy, invited users) while it's
+     * still in the lobby phase. Host only. Newly-added [com.calypsan.listenup.api.dto.campfire.CampfireSettings.invitedUserIds]
+     * are push-notified exactly like [createSession]'s initial invite list; users already invited
+     * are not re-notified. Returns the refreshed snapshot.
+     */
+    suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot>
 
     /** Ends the campfire for everyone. Host only. */
     suspend fun endSession(sessionId: CampfireId): AppResult<Unit>
@@ -75,6 +102,8 @@ interface CampfireService {
      * Sends a playback command. The server validates membership and control mode, applies the
      * command, and broadcasts the resulting anchor to every member including the sender (who
      * applies it idempotently by echo-matching [com.calypsan.listenup.api.dto.campfire.PlaybackCommand.commandId]).
+     * Rejected with `CampfireError.NotStarted` while the campfire is still in
+     * [com.calypsan.listenup.api.dto.campfire.CampfirePhase.LOBBY] — see [startSession].
      */
     suspend fun sendCommand(
         sessionId: CampfireId,

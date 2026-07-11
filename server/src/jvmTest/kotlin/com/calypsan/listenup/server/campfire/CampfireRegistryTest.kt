@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireAnchor
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
 import com.calypsan.listenup.server.testing.FixedClock
@@ -34,7 +35,7 @@ class CampfireRegistryTest :
         val t0 = Instant.fromEpochMilliseconds(1_730_000_000_000L)
         val roomId = CampfireId("room-1")
         val bookId = "book-1"
-        val settings = CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
+        val settings = CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
 
         // ---- Anchor math (§3.2) ----
 
@@ -75,18 +76,22 @@ class CampfireRegistryTest :
         }
 
         // ---- Command application (§3.3, §9) ----
+        // Rooms are born in LOBBY (2026-07-11 amendment): every command test below establishes the
+        // LIVE baseline via registry.start(...), which itself bumps stateVersion to 1 (playing).
 
         test("Play resumes at the current computed position and bumps stateVersion") {
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.start(roomId, "host", now = t0) // v1, playing
+                registry.applyCommand(roomId, "host", PlaybackCommand.Pause("c0"), now = t0) // v2, paused at 0
 
                 val outcome = registry.applyCommand(roomId, "host", PlaybackCommand.Play(commandId = "c1"), now = t0 + 3.seconds)
 
                 val applied = outcome as CommandOutcome.Applied
                 applied.frame.anchor.isPlaying shouldBe true
-                applied.frame.anchor.positionMs shouldBe 0L
-                applied.frame.anchor.stateVersion shouldBe 1L
+                applied.frame.anchor.positionMs shouldBe 0L // a paused room is a fixed point
+                applied.frame.anchor.stateVersion shouldBe 3L
                 applied.frame.byUserId shouldBe "host"
                 applied.frame.commandId shouldBe "c1"
             }
@@ -96,7 +101,7 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
-                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0)
+                registry.start(roomId, "host", now = t0) // v1, playing from position 0
 
                 val outcome = registry.applyCommand(roomId, "host", PlaybackCommand.Pause("c2"), now = t0 + 4.seconds)
 
@@ -111,13 +116,14 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.start(roomId, "host", now = t0) // v1
 
                 val outcome =
                     registry.applyCommand(roomId, "host", PlaybackCommand.SeekTo(positionMs = 99_000L, commandId = "c1"), now = t0)
 
                 val applied = outcome as CommandOutcome.Applied
                 applied.frame.anchor.positionMs shouldBe 99_000L
-                applied.frame.anchor.stateVersion shouldBe 1L
+                applied.frame.anchor.stateVersion shouldBe 2L
             }
         }
 
@@ -125,7 +131,7 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
-                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0)
+                registry.start(roomId, "host", now = t0) // v1, playing from position 0
 
                 val outcome =
                     registry.applyCommand(
@@ -147,9 +153,11 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.start(roomId, "host", now = t0) // v1, playing
+                registry.applyCommand(roomId, "host", PlaybackCommand.Pause("c1"), now = t0) // v2, paused
 
-                registry.applyCommand(roomId, "host", PlaybackCommand.Pause("c1"), now = t0) shouldBe CommandOutcome.NoOp
-                registry.snapshot(roomId)!!.anchor.stateVersion shouldBe 0L
+                registry.applyCommand(roomId, "host", PlaybackCommand.Pause("c2"), now = t0 + 1.seconds) shouldBe CommandOutcome.NoOp
+                registry.snapshot(roomId)!!.anchor.stateVersion shouldBe 2L
             }
         }
 
@@ -157,7 +165,7 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
-                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0)
+                registry.start(roomId, "host", now = t0) // v1, playing
 
                 registry.applyCommand(roomId, "host", PlaybackCommand.Play("c2"), now = t0 + 1.seconds) shouldBe CommandOutcome.NoOp
                 registry.snapshot(roomId)!!.anchor.stateVersion shouldBe 1L
@@ -168,7 +176,7 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
-                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0) // bumps to version 1
+                registry.start(roomId, "host", now = t0) // bumps to version 1, playing
 
                 val outcome =
                     registry.applyCommand(
@@ -188,7 +196,7 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
-                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0) // bumps to version 1
+                registry.start(roomId, "host", now = t0) // bumps to version 1, playing
 
                 val outcome =
                     registry.applyCommand(
@@ -465,7 +473,7 @@ class CampfireRegistryTest :
             runTest {
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
-                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0)
+                registry.start(roomId, "host", now = t0) // playing from position 0
 
                 val outcome = registry.sendChat(roomId, "host", "hello", now = t0 + 10.seconds)
 
@@ -652,6 +660,144 @@ class CampfireRegistryTest :
                 created.recentChat.shouldBeEmpty()
                 created.yourPositionMs shouldBe null
                 created.spoilerAhead shouldBe false
+            }
+        }
+
+        // ---- Lobby phase (2026-07-11 amendment) ----
+
+        test("a new room is born in LOBBY, paused at the starting position, with no startedAtEpochMs") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                val created =
+                    registry.createRoom(roomId, bookId, "host", "Host", settings, startingPositionMs = 500L, now = t0)
+
+                created.phase shouldBe CampfirePhase.LOBBY
+                created.anchor.isPlaying shouldBe false
+                created.anchor.positionMs shouldBe 500L
+                created.startedAtEpochMs shouldBe null
+            }
+        }
+
+        test("playback commands are rejected with NotStarted while the room is in LOBBY") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+
+                registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1")) shouldBe CommandOutcome.NotStarted
+                registry.snapshot(roomId)!!.anchor.stateVersion shouldBe 0L
+            }
+        }
+
+        test("chat is allowed in LOBBY") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+
+                val outcome = registry.sendChat(roomId, "host", "excited for this one", now = t0)
+
+                outcome.shouldBeInstanceOf<ChatOutcome.Sent>()
+                registry
+                    .snapshot(roomId)!!
+                    .recentChat
+                    .single()
+                    .text shouldBe "excited for this one"
+            }
+        }
+
+        test("reactions are allowed in LOBBY") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+
+                registry.sendReaction(roomId, "host", "🔥", now = t0) shouldBe ReactionOutcome.Sent
+            }
+        }
+
+        test("start transitions LOBBY -> LIVE, re-anchors playing at now, and broadcasts CampfireStarted") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings, startingPositionMs = 500L, now = t0)
+
+                val sub = async { registry.observe(roomId)!!.first() }
+                advanceUntilIdle()
+
+                val outcome = registry.start(roomId, "host", now = t0 + 5.seconds)
+
+                val started = outcome as StartOutcome.Started
+                started.frame.anchor.isPlaying shouldBe true
+                started.frame.anchor.positionMs shouldBe 500L // unchanged — was paused
+                started.frame.anchor.stateVersion shouldBe 1L
+                started.frame.byUserId shouldBe "host"
+                registry.snapshot(roomId)!!.phase shouldBe CampfirePhase.LIVE
+                registry.snapshot(roomId)!!.startedAtEpochMs shouldBe (t0 + 5.seconds).toEpochMilliseconds()
+                (sub.await() as CampfireFrame.CampfireStarted).byUserId shouldBe "host"
+            }
+        }
+
+        test("commands apply normally once the room is started") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.start(roomId, "host", now = t0)
+
+                val outcome = registry.applyCommand(roomId, "host", PlaybackCommand.Pause("c1"), now = t0 + 2.seconds)
+
+                val applied = outcome as CommandOutcome.Applied
+                applied.frame.anchor.isPlaying shouldBe false
+                applied.frame.anchor.stateVersion shouldBe 2L // 1 from start, 1 from this pause
+            }
+        }
+
+        test("starting an already-LIVE room is idempotent: AlreadyLive, no extra frame") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.start(roomId, "host", now = t0)
+
+                registry.start(roomId, "host", now = t0 + 1.seconds) shouldBe StartOutcome.AlreadyLive
+                registry.snapshot(roomId)!!.anchor.stateVersion shouldBe 1L
+            }
+        }
+
+        test("start against an unknown room returns RoomNotFound") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                registry.start(CampfireId("does-not-exist"), "host") shouldBe StartOutcome.RoomNotFound
+            }
+        }
+
+        test("updateSettings replaces settings while in LOBBY") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                val renamed = settings.copy(name = "Renamed Campfire", inviteOnly = true, invitedUserIds = listOf("u2"))
+
+                val outcome = registry.updateSettings(roomId, renamed)
+
+                val applied = outcome as UpdateSettingsOutcome.Applied
+                applied.snapshot.settings shouldBe renamed
+                registry.snapshot(roomId)!!.settings shouldBe renamed
+            }
+        }
+
+        test("updateSettings is rejected once the room is LIVE") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.start(roomId, "host", now = t0)
+
+                registry.updateSettings(roomId, settings.copy(name = "New Name")) shouldBe UpdateSettingsOutcome.RejectedLive
+                registry.snapshot(roomId)!!.settings shouldBe settings
+            }
+        }
+
+        test("updateSettings against an unknown room returns RoomNotFound") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                registry.updateSettings(CampfireId("does-not-exist"), settings) shouldBe UpdateSettingsOutcome.RoomNotFound
             }
         }
     })

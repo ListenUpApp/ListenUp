@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.ChatMessage
@@ -108,8 +109,60 @@ sealed interface CommandOutcome {
     /** The caller is not a member of this room. */
     data object NotAMember : CommandOutcome
 
+    /**
+     * The room is still in [CampfirePhase.LOBBY] — nothing has started yet, so there is no
+     * shared anchor to control. The service layer maps this to `CampfireError.NotStarted`.
+     */
+    data object NotStarted : CommandOutcome
+
     /** No such room. */
     data object RoomNotFound : CommandOutcome
+}
+
+/**
+ * Result of [CampfireRegistry.start] — the co-listening lobby amendment (2026-07-11). Host-only
+ * enforcement is the service layer's job (the [TransferHostOutcome]/[SetControlModeOutcome]
+ * pattern) — this call unconditionally starts the room if it's still in [CampfirePhase.LOBBY].
+ */
+sealed interface StartOutcome {
+    /**
+     * The room transitioned [CampfirePhase.LOBBY] -> [CampfirePhase.LIVE]; [frame] is the shared
+     * start moment broadcast to every member (and is also the basis for their playing anchor).
+     */
+    data class Started(
+        val frame: CampfireFrame.CampfireStarted,
+    ) : StartOutcome
+
+    /**
+     * The room was already [CampfirePhase.LIVE] — starting it again is idempotent from the
+     * caller's perspective (no error, no additional frame), the same "no conflict UI" philosophy
+     * as [CommandOutcome.NoOp].
+     */
+    data object AlreadyLive : StartOutcome
+
+    /** No such room. */
+    data object RoomNotFound : StartOutcome
+}
+
+/**
+ * Result of [CampfireRegistry.updateSettings] — the co-listening lobby amendment (2026-07-11).
+ * Host-only enforcement is the service layer's job; this call only enforces the LOBBY-only rule.
+ */
+sealed interface UpdateSettingsOutcome {
+    /**
+     * The settings were replaced; [snapshot] is the room's fresh state — the service layer diffs
+     * [CampfireSettings.invitedUserIds] against the room's previous settings to push-invite only
+     * the newly-added users, and returns this snapshot (scoped to the caller) to the caller.
+     */
+    data class Applied(
+        val snapshot: CampfireSnapshot,
+    ) : UpdateSettingsOutcome
+
+    /** The room is already [CampfirePhase.LIVE] — settings are LOBBY-only. */
+    data object RejectedLive : UpdateSettingsOutcome
+
+    /** No such room. */
+    data object RoomNotFound : UpdateSettingsOutcome
 }
 
 /** Result of [CampfireRegistry.sendChat]. */
@@ -261,6 +314,20 @@ class CampfireRegistry(
         displayName: String?,
         now: Instant = clock.now(),
     ): JoinOutcome = findRoom(roomId)?.join(userId, displayName, now) ?: JoinOutcome.RoomNotFound
+
+    /** See [StartOutcome]. */
+    suspend fun start(
+        roomId: CampfireId,
+        byUserId: String,
+        now: Instant = clock.now(),
+    ): StartOutcome = findRoom(roomId)?.start(byUserId, now) ?: StartOutcome.RoomNotFound
+
+    /** See [UpdateSettingsOutcome]. */
+    suspend fun updateSettings(
+        roomId: CampfireId,
+        settings: CampfireSettings,
+        now: Instant = clock.now(),
+    ): UpdateSettingsOutcome = findRoom(roomId)?.updateSettings(settings, now) ?: UpdateSettingsOutcome.RoomNotFound
 
     /** See [LeaveOutcome]. Removes the room from the registry when it reports [LeaveOutcome.RoomEnded]. */
     suspend fun leave(

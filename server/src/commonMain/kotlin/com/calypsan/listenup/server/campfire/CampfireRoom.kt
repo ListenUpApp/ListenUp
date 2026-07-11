@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.ChatMessage
@@ -79,6 +80,12 @@ internal class CampfireRoom(
         )
     private var hostUserId = hostUserId
     private var ended = false
+
+    /** The room's lifecycle phase — the co-listening lobby amendment (2026-07-11). Every room is born in [CampfirePhase.LOBBY]. */
+    private var phase = CampfirePhase.LOBBY
+
+    /** Server epoch-ms of [start], or `null` while still in [CampfirePhase.LOBBY]. */
+    private var startedAtEpochMs: Long? = null
     private val members = LinkedHashMap<String, MemberState>()
     private val chatRing = ArrayDeque<ChatMessage>()
     private val reactionTimestamps = mutableMapOf<String, ArrayDeque<Instant>>()
@@ -121,6 +128,7 @@ internal class CampfireRoom(
             id = id,
             bookId = bookId,
             settings = settings,
+            phase = phase,
             anchor = anchor,
             members = members.values.map { it.toDto() },
             hostUserId = hostUserId,
@@ -128,6 +136,10 @@ internal class CampfireRoom(
             // yourPositionMs / spoilerAhead are per-caller concerns computed by the service layer (Task 3).
             yourPositionMs = null,
             spoilerAhead = false,
+            startedAtEpochMs = startedAtEpochMs,
+            // invitedPending needs display-name enrichment, a service-layer (DB) concern — see
+            // CampfireServiceImpl.withInvitedPending.
+            invitedPending = emptyList(),
         )
 
     /** Current state, unscoped to a caller — [CampfireSnapshot.yourPositionMs]/[CampfireSnapshot.spoilerAhead] are always null/false here. */
@@ -309,10 +321,61 @@ internal class CampfireRoom(
         }
 
     /**
-     * Applies [command] against the current anchor. Rejects a stale
-     * [PlaybackCommand.expectedStateVersion] outright ([CommandOutcome.Rejected] — no bump, no
-     * frame — the §9 simultaneous-commands rule); no-ops a play-on-playing or pause-on-paused
-     * command ([CommandOutcome.NoOp]); otherwise re-anchors at [now] and bumps
+     * Starts the room: [CampfirePhase.LOBBY] -> [CampfirePhase.LIVE]. Re-anchors at [now] —
+     * [CampfireAnchor.positionMs] unchanged (the anchor is a fixed point while paused, so there's
+     * nothing to compute), [CampfireAnchor.capturedAtEpochMs] set to [now],
+     * [CampfireAnchor.isPlaying] set `true`, [CampfireAnchor.stateVersion] bumped — and broadcasts
+     * a single [CampfireFrame.CampfireStarted] (not [CampfireFrame.AnchorChanged]: this is the
+     * shared start moment, not an ordinary command result). Idempotent: starting an
+     * already-[CampfirePhase.LIVE] room is [StartOutcome.AlreadyLive], not an error.
+     */
+    suspend fun start(
+        byUserId: String,
+        now: Instant,
+    ): StartOutcome =
+        mutex.withLock {
+            if (ended) return@withLock StartOutcome.RoomNotFound
+            if (phase == CampfirePhase.LIVE) return@withLock StartOutcome.AlreadyLive
+            lastActivityAt = now
+            phase = CampfirePhase.LIVE
+            startedAtEpochMs = now.toEpochMilliseconds()
+            anchor =
+                anchor.copy(
+                    capturedAtEpochMs = now.toEpochMilliseconds(),
+                    isPlaying = true,
+                    stateVersion = anchor.stateVersion + 1,
+                )
+            val frame = CampfireFrame.CampfireStarted(anchor = anchor, byUserId = byUserId)
+            mutableFrames.emit(frame)
+            StartOutcome.Started(frame)
+        }
+
+    /**
+     * Replaces the room's [CampfireSettings] while still in [CampfirePhase.LOBBY]
+     * ([UpdateSettingsOutcome.RejectedLive] once [CampfirePhase.LIVE]). The service layer diffs
+     * [newSettings] against the previous settings (read via [snapshot] before calling this) to
+     * push-invite only newly-added users, and enriches the returned snapshot's
+     * [CampfireSnapshot.invitedPending] — this method only replaces the settings and returns the
+     * room's fresh unscoped snapshot.
+     */
+    suspend fun updateSettings(
+        newSettings: CampfireSettings,
+        now: Instant,
+    ): UpdateSettingsOutcome =
+        mutex.withLock {
+            if (ended) return@withLock UpdateSettingsOutcome.RoomNotFound
+            if (phase != CampfirePhase.LOBBY) return@withLock UpdateSettingsOutcome.RejectedLive
+            lastActivityAt = now
+            settings = newSettings
+            UpdateSettingsOutcome.Applied(snapshotLocked())
+        }
+
+    /**
+     * Applies [command] against the current anchor. Rejects outright while the room is still in
+     * [CampfirePhase.LOBBY] ([CommandOutcome.NotStarted] — no bump, no frame; see [start]). Rejects
+     * a stale [PlaybackCommand.expectedStateVersion] outright ([CommandOutcome.Rejected] — no
+     * bump, no frame — the §9 simultaneous-commands rule); no-ops a play-on-playing or
+     * pause-on-paused command ([CommandOutcome.NoOp]); otherwise re-anchors at [now] and bumps
      * [CampfireAnchor.stateVersion].
      */
     suspend fun applyCommand(
@@ -323,6 +386,7 @@ internal class CampfireRoom(
         mutex.withLock {
             if (ended) return@withLock CommandOutcome.RoomNotFound
             if (userId !in members) return@withLock CommandOutcome.NotAMember
+            if (phase == CampfirePhase.LOBBY) return@withLock CommandOutcome.NotStarted
             val expected = command.expectedStateVersion
             if (expected != null && expected != anchor.stateVersion) return@withLock CommandOutcome.Rejected
             lastActivityAt = now

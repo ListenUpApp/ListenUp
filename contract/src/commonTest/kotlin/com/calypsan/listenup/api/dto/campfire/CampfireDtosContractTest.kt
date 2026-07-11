@@ -42,6 +42,7 @@ class CampfireDtosContractTest :
         test("CampfireSettings round-trips") {
             val settings =
                 CampfireSettings(
+                    name = "Simon's Campfire",
                     controlMode = CampfireControlMode.HOST_ONLY,
                     inviteOnly = true,
                     invitedUserIds = listOf("user-2", "user-3"),
@@ -52,6 +53,18 @@ class CampfireDtosContractTest :
         test("CampfireControlMode serial names are wire-stable") {
             contractJson.encodeToString(CampfireControlMode.HOST_ONLY) shouldBe "\"host_only\""
             contractJson.encodeToString(CampfireControlMode.EVERYONE) shouldBe "\"everyone\""
+        }
+
+        test("CampfirePhase round-trips") {
+            contractJson.decodeFromString<CampfirePhase>(contractJson.encodeToString(CampfirePhase.LOBBY)) shouldBe
+                CampfirePhase.LOBBY
+            contractJson.decodeFromString<CampfirePhase>(contractJson.encodeToString(CampfirePhase.LIVE)) shouldBe
+                CampfirePhase.LIVE
+        }
+
+        test("CampfirePhase serial names are wire-stable") {
+            contractJson.encodeToString(CampfirePhase.LOBBY) shouldBe "\"lobby\""
+            contractJson.encodeToString(CampfirePhase.LIVE) shouldBe "\"live\""
         }
 
         test("ChatMessage round-trips") {
@@ -70,7 +83,8 @@ class CampfireDtosContractTest :
                 CampfireSnapshot(
                     id = CampfireId("cf-1"),
                     bookId = "book-1",
-                    settings = CampfireSettings(CampfireControlMode.EVERYONE, inviteOnly = false),
+                    settings = CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false),
+                    phase = CampfirePhase.LIVE,
                     anchor = CampfireAnchor(120_000, 1_752_105_600_000, 1.0f, true, 3),
                     members =
                         listOf(
@@ -84,6 +98,25 @@ class CampfireDtosContractTest :
                         ),
                     yourPositionMs = 60_000,
                     spoilerAhead = false,
+                    startedAtEpochMs = 1_752_105_600_000,
+                    invitedPending = listOf(CampfireInvitableUser(userId = "user-3", displayName = "Anna")),
+                )
+            contractJson.decodeFromString<CampfireSnapshot>(contractJson.encodeToString(snapshot)) shouldBe snapshot
+        }
+
+        test("CampfireSnapshot round-trips with default startedAtEpochMs/invitedPending (born in LOBBY)") {
+            val snapshot =
+                CampfireSnapshot(
+                    id = CampfireId("cf-1"),
+                    bookId = "book-1",
+                    settings = CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false),
+                    phase = CampfirePhase.LOBBY,
+                    anchor = CampfireAnchor(0, 1_752_105_600_000, 1.0f, false, 0),
+                    members = listOf(CampfireMember("user-1", "Simon", 1_752_105_600_000, isAway = false, invited = false)),
+                    hostUserId = "user-1",
+                    recentChat = emptyList(),
+                    yourPositionMs = 0,
+                    spoilerAhead = false,
                 )
             contractJson.decodeFromString<CampfireSnapshot>(contractJson.encodeToString(snapshot)) shouldBe snapshot
         }
@@ -93,6 +126,8 @@ class CampfireDtosContractTest :
                 OpenCampfireSummary(
                     id = CampfireId("cf-1"),
                     bookId = "book-1",
+                    phase = CampfirePhase.LOBBY,
+                    name = "Test Campfire",
                     hostUserId = "user-1",
                     memberCount = 3,
                     controlMode = CampfireControlMode.HOST_ONLY,
@@ -130,6 +165,16 @@ class CampfireDtosContractTest :
                 PlaybackCommand.SetSpeed(speed = 1.5f, commandId = "cmd-4", expectedStateVersion = 6)
             val json = contractJson.encodeToString(PlaybackCommand.serializer(), command)
             contractJson.decodeFromString(PlaybackCommand.serializer(), json) shouldBe command
+        }
+
+        test("CampfireFrame.CampfireStarted round-trips polymorphically") {
+            val frame: CampfireFrame =
+                CampfireFrame.CampfireStarted(
+                    anchor = CampfireAnchor(0, 1_752_105_600_000, 1.0f, true, 1),
+                    byUserId = "user-1",
+                )
+            val json = contractJson.encodeToString(CampfireFrame.serializer(), frame)
+            contractJson.decodeFromString(CampfireFrame.serializer(), json) shouldBe frame
         }
 
         test("CampfireFrame.AnchorChanged round-trips polymorphically") {
@@ -228,6 +273,18 @@ class CampfireDtosContractTest :
             contractJson.decodeFromString<AppResult<Unit>>(contractJson.encodeToString(result)) shouldBe result
         }
 
+        test("CampfireError.NotStarted round-trips through AppError polymorphism") {
+            val error: AppError = CampfireError.NotStarted(correlationId = "corr-1")
+            val json = contractJson.encodeToString(error)
+            val decoded = contractJson.decodeFromString<AppError>(json)
+            decoded shouldBe error
+        }
+
+        test("CampfireError.NotStarted round-trips as an AppResult.Failure") {
+            val result: AppResult<Unit> = AppResult.Failure(CampfireError.NotStarted())
+            contractJson.decodeFromString<AppResult<Unit>>(contractJson.encodeToString(result)) shouldBe result
+        }
+
         test("CampfireError discriminators are wire-stable") {
             contractJson.encodeToString<AppError>(CampfireError.CampfireNotFound()) shouldBe
                 """{"type":"CampfireError.CampfireNotFound"}"""
@@ -239,5 +296,7 @@ class CampfireDtosContractTest :
                 """{"type":"CampfireError.NotController"}"""
             contractJson.encodeToString<AppError>(CampfireError.BookAccessDenied()) shouldBe
                 """{"type":"CampfireError.BookAccessDenied"}"""
+            contractJson.encodeToString<AppError>(CampfireError.NotStarted()) shouldBe
+                """{"type":"CampfireError.NotStarted"}"""
         }
     })
