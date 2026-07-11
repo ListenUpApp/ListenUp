@@ -18,7 +18,6 @@ import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
@@ -427,7 +426,15 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // with no HTTP/RPC round-trip.
             val playbackSender = DirectPlaybackPositionSender(serverRepos.playbackPositionRepo)
             val listeningEventSender = DirectListeningEventSender(serverRepos.listeningEventRepo)
-            val testSeriesRpcFactory = TestSeriesRpcFactory(testClient)
+            // Real kotlinx.rpc SeriesService proxy over the in-process server, wrapped in a
+            // no-reconnect test channel — backs SeriesEditRepositoryImpl and the series outbox
+            // sender below (client → RPC → server → SSE → Room round trip).
+            val seriesServiceProxy =
+                testClient
+                    .rpc("ws://localhost/api/rpc/authed") {
+                        rpcConfig { serialization { krpcJson(contractJson) } }
+                    }.withService<SeriesService>()
+            val seriesChannel = RpcChannel.forTest(seriesServiceProxy)
             val queue =
                 PendingOperationQueue(
                     dao = clientDb.pendingOperationV2Dao(),
@@ -442,7 +449,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                     },
                                 OutboxChannels.Series.name to
                                     OutboxOpSender(OutboxChannels.Series) { id, patch ->
-                                        testSeriesRpcFactory.seriesService().updateSeries(SeriesId(id), patch)
+                                        seriesChannel.call { it.updateSeries(SeriesId(id), patch) }
                                     },
                                 OutboxChannels.Contributors.name to
                                     OutboxOpSender(OutboxChannels.Contributors) { id, patch ->
@@ -495,7 +502,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // server, whose SSE echo reconciles client Room via the series composed handler.
             val seriesEditRepository: SeriesEditRepository =
                 SeriesEditRepositoryImpl(
-                    seriesRpcFactory = testSeriesRpcFactory,
+                    channel = seriesChannel,
                     seriesDao = clientDb.seriesDao(),
                     offlineEditor = offlineEditor,
                 )
@@ -904,40 +911,10 @@ internal class TestContributorRpcFactory(
 }
 
 /**
- * Test-only [SeriesRpcFactory] that opens a kotlinx.rpc [SeriesService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestBookRpcFactory] / [TestContributorRpcFactory] exactly, substituting
- * [SeriesService]. Used by the Books-C2 `SeriesMergeE2ETest` to exercise the
- * client → RPC → server → SSE → Room round trip for the series merge cascade.
- */
-internal class TestSeriesRpcFactory(
-    private val httpClient: HttpClient,
-) : SeriesRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: SeriesService? = null
-
-    override suspend fun seriesService(): SeriesService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): SeriesService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<SeriesService>()
-}
-
-/**
  * Test-only [UserPreferencesRpcFactory] that opens a kotlinx.rpc [UserPreferencesService] proxy
  * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
  *
- * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly, substituting
+ * Mirrors [TestContributorRpcFactory] exactly, substituting
  * [UserPreferencesService]. No harness test mounts the service server-side yet (see the
  * `OutboxChannels.Preferences` `byDomain` registration above) — this factory exists so a future
  * e2e test for the preferences offline-edit push can resolve a sender the same way every other

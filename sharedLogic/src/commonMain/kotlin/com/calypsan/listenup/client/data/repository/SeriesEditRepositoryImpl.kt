@@ -1,19 +1,14 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.dto.SeriesUpdate
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.SeriesDao
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
-import com.calypsan.listenup.client.core.error.ErrorMapper
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Offline-first series editor.
@@ -26,13 +21,13 @@ private val logger = KotlinLogging.logger {}
  * [com.calypsan.listenup.client.data.sync.domains.seriesDomain].
  *
  * [deleteSeries] and [mergeSeries] stay pure RPC dispatchers — the SSE echo from
- * the server is their single write path back into Room. Wire [WireAppResult]
- * values returned by the RPC service are converted to the client-layer
- * [AppResult] at this boundary, following the same pattern as
+ * the server is their single write path back into Room. Both route through the
+ * [channel], which bounds the call, self-heals the transport, and folds any
+ * fault to a typed [AppResult.Failure], following the same pattern as
  * [BookEditRepositoryImpl].
  */
 internal class SeriesEditRepositoryImpl(
-    private val seriesRpcFactory: SeriesRpcFactory,
+    private val channel: RpcChannel<SeriesService>,
     private val seriesDao: SeriesDao,
     private val offlineEditor: OfflineEditor,
 ) : SeriesEditRepository {
@@ -55,29 +50,10 @@ internal class SeriesEditRepositoryImpl(
             }
         }
 
-    override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> =
-        rpcCallUnit { seriesRpcFactory.seriesService().deleteSeries(id) }
+    override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> = channel.call { it.deleteSeries(id) }
 
     override suspend fun mergeSeries(
         source: SeriesId,
         target: SeriesId,
-    ): AppResult<Unit> = rpcCallUnit { seriesRpcFactory.seriesService().mergeSeries(source, target) }
-
-    /**
-     * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
-     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure]
-     * via [ErrorMapper].
-     */
-    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> =
-        try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(Unit)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            logger.warn(e) { "Series edit RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
-        }
+    ): AppResult<Unit> = channel.call { it.mergeSeries(source, target) }
 }

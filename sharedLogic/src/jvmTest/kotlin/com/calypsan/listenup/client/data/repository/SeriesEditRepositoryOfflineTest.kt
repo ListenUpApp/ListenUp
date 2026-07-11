@@ -3,8 +3,10 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -51,7 +53,7 @@ class SeriesEditRepositoryOfflineTest :
 
                 val repo =
                     SeriesEditRepositoryImpl(
-                        seriesRpcFactory = mock<SeriesRpcFactory>(),
+                        channel = RpcChannel.forTest(mock<SeriesService>()),
                         seriesDao = db.seriesDao(),
                         offlineEditor = offlineEditor,
                     )

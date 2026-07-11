@@ -88,7 +88,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
         "/data/repository/LeaderboardRepositoryImpl.kt",
         "/data/repository/RegistrationStatusStreamImpl.kt",
         "/data/repository/SearchRepositoryImpl.kt",
-        "/data/repository/SeriesRepositoryImpl.kt",
         "/data/repository/SessionRepositoryImpl.kt",
         "/data/repository/SettingsRepositoryImpl.kt",
     )

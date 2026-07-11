@@ -17,8 +17,10 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
@@ -279,7 +281,7 @@ private fun realSeriesRepository(db: ListenUpDatabase): SeriesRepositoryImpl =
         api = mock<SeriesApiContract>(),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         imageStorage = mockImageStorage(),
-        rpcFactory = mock<SeriesRpcFactory>(),
+        channel = RpcChannel.forTest(mock<SeriesService>()),
         seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(),
     )
 

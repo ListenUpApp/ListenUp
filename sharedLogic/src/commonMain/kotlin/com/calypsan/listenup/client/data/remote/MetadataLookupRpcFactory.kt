@@ -13,7 +13,7 @@ import kotlinx.rpc.withService
  * An interface so repositories depend on a seam that fakes/mocks in tests —
  * [KtorMetadataLookupRpcFactory] is the production implementation over WebSocket RPC.
  *
- * Mirrors [ContributorRpcFactory] and [SeriesRpcFactory] from B2a-C.
+ * Mirrors [ContributorRpcFactory] from B2a-C.
  */
 internal interface MetadataLookupRpcFactory {
     /** Returns the cached [MetadataLookupService] proxy, connecting on first use. */

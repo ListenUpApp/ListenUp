@@ -12,9 +12,11 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -62,7 +64,7 @@ class SeriesRepositoryImplTest :
                 api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
-                rpcFactory = mock<SeriesRpcFactory>(MockMode.autoUnit),
+                channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -99,7 +101,7 @@ class SeriesRepositoryImplTest :
                 api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
-                rpcFactory = mock<SeriesRpcFactory>(MockMode.autoUnit),
+                channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
