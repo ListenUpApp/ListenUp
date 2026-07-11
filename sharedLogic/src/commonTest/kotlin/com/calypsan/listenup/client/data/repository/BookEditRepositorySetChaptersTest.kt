@@ -1,13 +1,15 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -45,7 +47,7 @@ class BookEditRepositorySetChaptersTest :
                 val repo =
                     BookEditRepositoryImpl(
                         bookRpcFactory = rpcFactory,
-                        collectionRpcFactory = mock<CollectionRpcFactory>(MockMode.autoUnit),
+                        collectionChannel = RpcChannel.forTest(mock<CollectionService>(MockMode.autofill)),
                         bookDao = mock<BookDao>(MockMode.autoUnit),
                         offlineEditor = offlineEditor,
                     )

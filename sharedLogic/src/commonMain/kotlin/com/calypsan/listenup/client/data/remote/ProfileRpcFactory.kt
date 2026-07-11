@@ -11,7 +11,7 @@ import kotlinx.rpc.withService
  *
  * An interface so repositories depend on a seam that can be faked in tests —
  * [KtorProfileRpcFactory] is the production implementation over WebSocket RPC.
- * Mirrors [CollectionRpcFactory] — the established authed-RPC factory precedent.
+ * Follows the established authed-RPC factory precedent.
  */
 internal interface ProfileRpcFactory {
     /** Returns the cached [ProfileService] proxy, connecting on first use. */

@@ -8,8 +8,9 @@ import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -39,7 +40,7 @@ private val logger = KotlinLogging.logger {}
  */
 internal class BookEditRepositoryImpl(
     private val bookRpcFactory: BookRpcFactory,
-    private val collectionRpcFactory: CollectionRpcFactory,
+    private val collectionChannel: RpcChannel<CollectionService>,
     private val bookDao: BookDao,
     private val offlineEditor: OfflineEditor,
 ) : BookEditRepository {
@@ -97,9 +98,7 @@ internal class BookEditRepositoryImpl(
         id: BookId,
         collectionIds: List<String>,
     ): AppResult<Unit> =
-        rpcCallUnit {
-            collectionRpcFactory.get().setBookCollections(id, collectionIds.map { CollectionId(it) })
-        }
+        collectionChannel.call { it.setBookCollections(id, collectionIds.map { c -> CollectionId(c) }) }
 
     /**
      * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].

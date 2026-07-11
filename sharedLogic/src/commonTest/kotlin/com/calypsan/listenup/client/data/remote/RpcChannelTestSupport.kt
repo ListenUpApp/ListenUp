@@ -1,9 +1,12 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.client.domain.repository.ServerConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withTimeout
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.withService
 import kotlin.time.Duration
 
 /**
@@ -70,3 +73,24 @@ internal fun <S : Any> RpcChannel.Companion.forTestScripted(
     faults: List<Throwable>,
     policy: RpcPolicy = RpcPolicy.Authed,
 ): RpcChannel<S> = RpcChannel(ScriptedRpcDispatch(service, faults), policy)
+
+/**
+ * A LIVE-ENGINE test channel: the production [RpcProxyCache] over a real (test-supplied) client,
+ * exposed through the channel API. Unlike [forTest] — which is a single fixed proxy with NO
+ * reconnect — this drives the real bounded, single-flight, self-healing engine, so a test can prove
+ * genuine transport recovery (reconnect after a dead socket, a token-refresh handshake retry, a
+ * `withTimeout` bound on a hung frame) end-to-end against a live server. Reach for it only when the
+ * behaviour under test IS the engine; use [forTest] for ordinary repository unit tests.
+ */
+internal inline fun <reified S : Any> RpcChannel.Companion.forServer(
+    apiClientFactory: ApiClientFactory,
+    serverConfig: ServerConfig,
+    policy: RpcPolicy = RpcPolicy.Authed,
+    authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
+): RpcChannel<S> =
+    RpcChannel(
+        RpcProxyCache(apiClientFactory, serverConfig, authRecovery) { client, baseUrl ->
+            client.rpc("$baseUrl${policy.mount}").withService<S>()
+        },
+        policy,
+    )

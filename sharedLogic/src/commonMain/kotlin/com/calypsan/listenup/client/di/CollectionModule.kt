@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.client.data.remote.CollectionInboxApi
 import com.calypsan.listenup.client.data.remote.CollectionInboxApiContract
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.repository.InboxRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -28,14 +28,9 @@ import org.koin.dsl.module
  */
 internal val collectionModule: Module =
     module {
-        // CollectionRpcFactory — kotlinx.rpc proxy for CollectionService (Room reads; RPC mutations).
-        single<CollectionRpcFactory> {
-            KtorCollectionRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-                authRecovery = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // CollectionService RPC channel — kotlinx.rpc dispatch for CollectionService (Room reads;
+        // RPC mutations). Authed (self-healing) by default; joins the RpcCacheInvalidator sweep.
+        rpcChannel<CollectionService>()
 
         // CollectionRepository — Room reads + CollectionService RPC writes (interface in domain, impl in data)
         single<CollectionRepository> {
@@ -43,7 +38,7 @@ internal val collectionModule: Module =
                 collectionDao = get(),
                 collectionBookDao = get(),
                 collectionShareDao = get(),
-                rpcFactory = get(),
+                channel = rpcChannel(),
             )
         }
 

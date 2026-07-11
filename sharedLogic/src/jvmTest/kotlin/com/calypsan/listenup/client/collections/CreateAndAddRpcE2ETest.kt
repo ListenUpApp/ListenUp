@@ -6,8 +6,9 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
-import com.calypsan.listenup.client.data.sync.testing.TestCollectionRpcFactory
 import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.collectionServiceScopedTo
@@ -38,10 +39,13 @@ import io.ktor.server.testing.testApplication
 import java.nio.file.Files
 import kotlinx.coroutines.runBlocking
 import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
 import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
 import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
 import kotlinx.rpc.krpc.serialization.json.json as krpcJson
 import kotlinx.rpc.registerService
+import kotlinx.rpc.withService
 
 /**
  * Cross-module E2E: the client's [CollectionRepositoryImpl] drives the real `:server`
@@ -58,8 +62,8 @@ import kotlinx.rpc.registerService
  * Wiring mirrors [com.calypsan.listenup.client.admin.BackupRpcE2ETest]: [testAuth] mints a
  * ROOT principal under [JWT_PROVIDER]; the route scopes the service per-request via
  * [collectionServiceScopedTo] and wraps it with the KSP-generated [guard] decorator, exactly
- * as production `RpcRoutes` does; [TestCollectionRpcFactory] opens the proxy against the
- * in-process `ws://localhost/api/rpc/authed`.
+ * as production `RpcRoutes` does; a real [CollectionService] proxy over the in-process
+ * `ws://localhost/api/rpc/authed`, wrapped in [RpcChannel.forTest], backs the repository.
  */
 class CreateAndAddRpcE2ETest :
     FunSpec({
@@ -130,12 +134,17 @@ class CreateAndAddRpcE2ETest :
                 }
 
                 val rpcClient = createClient { installKrpc() }
+                val collectionServiceProxy =
+                    rpcClient
+                        .rpc("ws://localhost/api/rpc/authed") {
+                            rpcConfig { serialization { krpcJson(contractJson) } }
+                        }.withService<CollectionService>()
                 val repository =
                     CollectionRepositoryImpl(
                         collectionDao = mock<CollectionDao>(MockMode.autofill),
                         collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
                         collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
-                        rpcFactory = TestCollectionRpcFactory(rpcClient),
+                        channel = RpcChannel.forTest(collectionServiceProxy),
                     )
 
                 // runBlocking (real wall-clock), not runTest: the repo's rpcCall now bounds each call

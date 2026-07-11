@@ -9,8 +9,9 @@ import com.calypsan.listenup.client.data.local.db.CollectionBookDao
 import com.calypsan.listenup.client.data.local.db.CollectionDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.KtorCollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.RpcProxyCache
+import com.calypsan.listenup.client.data.remote.forServer
 import com.calypsan.listenup.client.data.remote.rpcCall
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.sync.testing.testAuth
@@ -185,8 +186,8 @@ class RpcReconnectE2ETest :
                         .port
                 val baseUrl = "http://127.0.0.1:$port"
 
-                val factory =
-                    KtorCollectionRpcFactory(
+                val channel =
+                    RpcChannel.forServer<CollectionService>(
                         apiClientFactory = StubApiClientFactory(stubClient()),
                         serverConfig = TestServerConfig(baseUrl),
                     )
@@ -195,7 +196,7 @@ class RpcReconnectE2ETest :
                         collectionDao = mock<CollectionDao>(MockMode.autofill),
                         collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
                         collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
-                        rpcFactory = factory,
+                        channel = channel,
                     )
 
                 // First create over a live connection — caches the proxy.
@@ -304,8 +305,8 @@ class RpcReconnectE2ETest :
                 val relay = TcpRelay.start("127.0.0.1", serverPort)
                 val baseUrl = "http://127.0.0.1:${relay.port}"
 
-                val factory =
-                    KtorCollectionRpcFactory(
+                val channel =
+                    RpcChannel.forServer<CollectionService>(
                         apiClientFactory = StubApiClientFactory(stubClient()),
                         serverConfig = TestServerConfig(baseUrl),
                     )
@@ -314,7 +315,7 @@ class RpcReconnectE2ETest :
                         collectionDao = mock<CollectionDao>(MockMode.autofill),
                         collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
                         collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
-                        rpcFactory = factory,
+                        channel = channel,
                     )
 
                 val pending = async { repo.create("test-library", "Staff Picks") }

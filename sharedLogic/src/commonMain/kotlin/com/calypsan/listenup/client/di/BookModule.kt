@@ -1,9 +1,11 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
 import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BookIngestPort
@@ -38,7 +40,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.GenreRepository] — `genreTagModule`
  *  - [com.calypsan.listenup.client.domain.repository.TagRepository] — `genreTagModule`
- *  - [com.calypsan.listenup.client.data.remote.CollectionRpcFactory] — `collectionModule`
+ *  - the [com.calypsan.listenup.api.CollectionService] `RpcChannel` — `collectionModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  *  - the books [com.calypsan.listenup.client.data.sync.SyncDomainHandler] — `clientSyncModule`
@@ -96,7 +98,7 @@ internal val bookModule: Module =
         single<BookEditRepository> {
             BookEditRepositoryImpl(
                 bookRpcFactory = get(),
-                collectionRpcFactory = get(),
+                collectionChannel = rpcChannel<CollectionService>(),
                 bookDao = get(),
                 offlineEditor = get(),
             )

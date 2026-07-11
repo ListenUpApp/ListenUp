@@ -8,8 +8,9 @@ import com.calypsan.listenup.client.data.local.db.CollectionEntity
 import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.CollectionWithBookCount
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.client.data.local.db.CollectionDao
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.Collection
 import com.calypsan.listenup.client.domain.model.CollectionShare
 import com.calypsan.listenup.client.domain.repository.CollectionRepository
@@ -38,7 +39,7 @@ internal class CollectionRepositoryImpl(
     private val collectionDao: CollectionDao,
     private val collectionBookDao: CollectionBookDao,
     private val collectionShareDao: CollectionShareDao,
-    private val rpcFactory: CollectionRpcFactory,
+    private val channel: RpcChannel<CollectionService>,
 ) : CollectionRepository {
     // ── Observation ───────────────────────────────────────────────────────────
 
@@ -60,40 +61,38 @@ internal class CollectionRepositoryImpl(
         libraryId: String,
         name: String,
     ): AppResult<Collection> =
-        rpcFactory
-            .callResult { it.createCollection(libraryId, name) }
+        channel
+            .call { it.createCollection(libraryId, name) }
             .also { if (it is AppResult.Success) mirrorCreatedCollection(libraryId, it.data) }
             .map { it.toDomain() }
 
     override suspend fun rename(
         id: String,
         name: String,
-    ): AppResult<Collection> =
-        rpcFactory.callResult { it.renameCollection(CollectionId(id), name) }.map { it.toDomain() }
+    ): AppResult<Collection> = channel.call { it.renameCollection(CollectionId(id), name) }.map { it.toDomain() }
 
     override suspend fun delete(id: String): AppResult<Unit> =
-        rpcFactory.callResult {
+        channel.call {
             it.deleteCollection(CollectionId(id))
         }
 
     override suspend fun addBook(
         collectionId: String,
         bookId: String,
-    ): AppResult<Unit> = rpcFactory.callResult { it.addBookToCollection(CollectionId(collectionId), BookId(bookId)) }
+    ): AppResult<Unit> = channel.call { it.addBookToCollection(CollectionId(collectionId), BookId(bookId)) }
 
     override suspend fun removeBook(
         collectionId: String,
         bookId: String,
-    ): AppResult<Unit> =
-        rpcFactory.callResult { it.removeBookFromCollection(CollectionId(collectionId), BookId(bookId)) }
+    ): AppResult<Unit> = channel.call { it.removeBookFromCollection(CollectionId(collectionId), BookId(bookId)) }
 
     override suspend fun share(
         collectionId: String,
         sharedWithUserId: String,
         permission: SharePermission,
     ): AppResult<CollectionShare> =
-        rpcFactory
-            .callResult {
+        channel
+            .call {
                 it.shareCollection(CollectionId(collectionId), sharedWithUserId, permission)
             }.map { it.toDomain() }
 
@@ -102,15 +101,15 @@ internal class CollectionRepositoryImpl(
         sharedWithUserId: String,
         permission: SharePermission,
     ): AppResult<CollectionShare> =
-        rpcFactory
-            .callResult {
+        channel
+            .call {
                 it.updateShare(CollectionId(collectionId), sharedWithUserId, permission)
             }.map { it.toDomain() }
 
     override suspend fun revokeShare(
         collectionId: String,
         sharedWithUserId: String,
-    ): AppResult<Unit> = rpcFactory.callResult { it.revokeShare(CollectionId(collectionId), sharedWithUserId) }
+    ): AppResult<Unit> = channel.call { it.revokeShare(CollectionId(collectionId), sharedWithUserId) }
 
     // ── Plumbing ────────────────────────────────────────────────────────────────
 

@@ -9,14 +9,12 @@ import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -401,6 +399,13 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 .rpc("ws://localhost/api/rpc/authed") {
                     rpcConfig { serialization { krpcJson(contractJson) } }
                 }.withService<GenreService>()
+        // Real kotlinx.rpc CollectionService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel — backs BookEditRepositoryImpl.setBookCollections here.
+        val collectionServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<CollectionService>()
         val genreRepository: ClientGenreRepository =
             GenreRepositoryImpl(
                 dao = clientDb.genreDao(),
@@ -480,7 +485,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
                     bookRpcFactory = testBookRpcFactory,
-                    collectionRpcFactory = TestCollectionRpcFactory(testClient),
+                    collectionChannel = RpcChannel.forTest(collectionServiceProxy),
                     bookDao = clientDb.bookDao(),
                     offlineEditor = offlineEditor,
                 )
@@ -989,39 +994,4 @@ internal class TestProfileRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<ProfileService>()
-}
-
-/**
- * Test-only [CollectionRpcFactory] that opens a kotlinx.rpc [CollectionService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestBookRpcFactory] exactly, substituting [CollectionService]. Backs
- * [BookEditRepositoryImpl.setBookCollections] in the end-to-end harness.
- */
-internal class TestCollectionRpcFactory(
-    private val httpClient: HttpClient,
-) : CollectionRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: CollectionService? = null
-
-    override suspend fun get(): CollectionService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun <T> callResult(
-        block: suspend (CollectionService) -> com.calypsan.listenup.api.result.AppResult<T>,
-    ): com.calypsan.listenup.api.result.AppResult<T> =
-        com.calypsan.listenup.client.data.remote
-            .catchingRpcResult { block(get()) }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): CollectionService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<CollectionService>()
 }

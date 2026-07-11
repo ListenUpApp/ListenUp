@@ -12,8 +12,8 @@ import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.local.db.CollectionShareEntity
 import com.calypsan.listenup.client.data.local.db.CollectionWithBookCount
 import com.calypsan.listenup.client.data.local.db.CollectionDao
-import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.CollectionId
 import dev.mokkery.MockMode
@@ -33,21 +33,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Fake [CollectionRpcFactory] routing [callResult] through the REAL boundary [catchingRpcResult],
- * so repository tests exercise the same throw→Failure semantics the production
- * [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a live socket.
- */
-private class FakeCollectionRpcFactory(
-    private val service: CollectionService,
-) : CollectionRpcFactory {
-    override suspend fun get(): CollectionService = service
-
-    override suspend fun <T> callResult(block: suspend (CollectionService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
-
-    override suspend fun invalidate() {}
-}
-
-/**
  * Unit tests for [CollectionRepositoryImpl] — Room reads + RPC-dispatched writes.
  *
  * Observation maps Room projections to domain (including JOIN-derived `bookCount`);
@@ -65,7 +50,7 @@ class CollectionRepositoryImplTest :
             shareDao: CollectionShareDao = mock(),
             service: CollectionService = mock(),
         ): CollectionRepositoryImpl =
-            CollectionRepositoryImpl(collectionDao, bookDao, shareDao, FakeCollectionRpcFactory(service))
+            CollectionRepositoryImpl(collectionDao, bookDao, shareDao, RpcChannel.forTest(service))
 
         fun entity(
             id: String,
