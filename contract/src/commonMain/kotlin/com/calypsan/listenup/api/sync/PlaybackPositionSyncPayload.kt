@@ -32,4 +32,11 @@ data class PlaybackPositionSyncPayload(
     val updatedAt: Long,
     val createdAt: Long,
     override val deletedAt: Long?,
+    // The furthest position ever heard in this book — the high-water mark for the
+    // spoiler-safe frontier (Story World Stage 3). Merged by `max` everywhere it is
+    // written or synced (client hot path, client mirror-apply, server merge); it
+    // never decreases, not even on DiscardProgress/Restart, because the user still
+    // *heard* that far — only the resume point resets. Default 0 keeps old
+    // servers/clients wire-compatible: `max(0, x) = x`.
+    @SerialName("maxPositionMs") val maxPositionMs: Long = 0,
 ) : SyncPayload
