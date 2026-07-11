@@ -12,6 +12,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldNotContain
 
 /**
  * Tests for the [AppError] UI-layer error renderer.
@@ -68,5 +69,16 @@ class AppErrorLocalizationTest {
         runTest {
             val error = TransportError.Server5xx(statusCode = 500)
             error.localizedString() shouldBe error.message
+        }
+
+    @Test
+    fun `an apostrophe-bearing string renders without a leaked backslash escape`() =
+        runTest {
+            // Regression for #1079: the Android/compose-resources catalog was AAPT-escaping
+            // apostrophes (`\'`), and compose-resources' XML parser does not unescape that form,
+            // so the backslash leaked to the UI. 403 -> error_forbidden = "You don't ...".
+            val rendered = TransportError.Server4xx(statusCode = 403).localizedString()
+            rendered shouldBe "You don't have permission to do that."
+            rendered shouldNotContain "\\"
         }
 }
