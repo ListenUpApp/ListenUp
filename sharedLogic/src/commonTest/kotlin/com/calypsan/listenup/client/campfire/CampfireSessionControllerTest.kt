@@ -357,6 +357,39 @@ class CampfireSessionControllerTest :
             }
         }
 
+        test("rejoin refreshes the transport connection before re-joining and re-subscribing") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+                transport.emit(RpcEvent.Error(CampfireError.CampfireNotFound()))
+                runCurrent()
+                transport.callOrder.clear()
+
+                sut.rejoin()
+                runCurrent()
+
+                // The refresh MUST land before the re-join and the re-subscribe — a fresh
+                // connection is the whole point (see CampfireTransport.refreshConnection).
+                transport.callOrder shouldBe listOf("refreshConnection", "joinSession", "observeSession")
+            }
+        }
+
+        test("plain join does not refresh the transport connection") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+
+                sut.join(sessionId)
+                runCurrent()
+
+                transport.callOrder shouldBe listOf("joinSession", "observeSession")
+            }
+        }
+
         test("chat and reaction pass-throughs: chat accumulates into state, reactions are one-shot events") {
             runTest {
                 val clock = VirtualClock(testScheduler)
@@ -449,6 +482,9 @@ private class FakeCampfireTransport : CampfireTransport {
     val sentChat = mutableListOf<String>()
     val sentReactions = mutableListOf<String>()
 
+    /** Ordered log of connection-lifecycle calls — proves rejoin refreshes BEFORE re-joining/re-subscribing. */
+    val callOrder = mutableListOf<String>()
+
     private val frameFlow = MutableSharedFlow<RpcEvent<CampfireFrame>>(extraBufferCapacity = 64)
 
     suspend fun emit(event: RpcEvent<CampfireFrame>) = frameFlow.emit(event)
@@ -460,7 +496,12 @@ private class FakeCampfireTransport : CampfireTransport {
 
     override suspend fun joinSession(sessionId: CampfireId): AppResult<CampfireSnapshot> {
         joinCalls += sessionId
+        callOrder += "joinSession"
         return joinResult
+    }
+
+    override suspend fun refreshConnection() {
+        callOrder += "refreshConnection"
     }
 
     override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> {
@@ -480,7 +521,10 @@ private class FakeCampfireTransport : CampfireTransport {
         mode: CampfireControlMode,
     ): AppResult<Unit> = throw NotImplementedError()
 
-    override fun observeSession(sessionId: CampfireId): Flow<RpcEvent<CampfireFrame>> = frameFlow
+    override fun observeSession(sessionId: CampfireId): Flow<RpcEvent<CampfireFrame>> {
+        callOrder += "observeSession"
+        return frameFlow
+    }
 
     override suspend fun sendCommand(
         sessionId: CampfireId,

@@ -341,6 +341,8 @@ private class FakeCampfireTransport : CampfireTransport {
 
     override fun observeSession(sessionId: CampfireId): Flow<RpcEvent<CampfireFrame>> = frameFlow
 
+    override suspend fun refreshConnection() = Unit
+
     override suspend fun sendCommand(
         sessionId: CampfireId,
         command: PlaybackCommand,

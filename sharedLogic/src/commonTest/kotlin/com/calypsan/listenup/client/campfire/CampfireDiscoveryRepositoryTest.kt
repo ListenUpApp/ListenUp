@@ -149,6 +149,8 @@ private class FakeDiscoveryTransport(
 
     override fun observeSession(sessionId: CampfireId): Flow<RpcEvent<CampfireFrame>> = throw NotImplementedError()
 
+    override suspend fun refreshConnection(): Unit = throw NotImplementedError()
+
     override suspend fun sendCommand(
         sessionId: CampfireId,
         command: PlaybackCommand,

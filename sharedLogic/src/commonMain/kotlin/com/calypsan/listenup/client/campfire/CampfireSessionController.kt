@@ -163,12 +163,19 @@ internal class CampfireSessionController(
      * from where local playback currently is, in which case the anchor is withheld in
      * [CampfireUiState.Active.pendingRejoinSync] for a confirm dialog (see [confirmRejoinSync])
      * and local playback is left untouched.
+     *
+     * Refreshes the transport connection FIRST ([CampfireTransport.refreshConnection]),
+     * before re-joining and re-subscribing: under the pinned kotlinx.rpc dev-channel build
+     * (0.11.0-grpc-189), a cancelled `observeSession` stream can wedge the same connection's
+     * next subscription into silently delivering nothing. A fresh connection sidesteps that
+     * observed race and is cheap for an explicit user-facing rejoin.
      */
     suspend fun rejoin() {
         val disconnected = state.value as? CampfireUiState.Disconnected ?: return
         val sessionId = disconnected.sessionId
         state.value = CampfireUiState.Joining(sessionId)
         pendingCommandIds.value = emptySet()
+        transport.refreshConnection()
         when (val result = transport.joinSession(sessionId)) {
             is AppResult.Success -> {
                 selfUserId = userRepository.getCurrentUser()?.idString

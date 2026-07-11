@@ -67,6 +67,17 @@ internal class CampfireRpcTransport(
             emitAll(rpcFactory.get().observeSession(sessionId))
         }
 
+    /**
+     * Drops the cached RPC proxy via [CampfireRpcFactory.invalidate] — `RpcProxyCache`
+     * rebuilds it (a fresh WebSocket connection) on the next use, the codebase's
+     * established self-healing posture. Called by `CampfireSessionController.rejoin()`
+     * before re-joining/re-subscribing: under the pinned kotlinx.rpc dev-channel build
+     * (0.11.0-grpc-189), a cancelled `observeSession` stream can wedge the SAME
+     * connection's next subscription into silently delivering nothing — a fresh
+     * connection sidesteps that race, cheaply, for an explicit user-facing rejoin.
+     */
+    override suspend fun refreshConnection() = rpcFactory.invalidate()
+
     override suspend fun sendCommand(
         sessionId: CampfireId,
         command: PlaybackCommand,

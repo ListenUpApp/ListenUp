@@ -37,11 +37,15 @@ import kotlinx.coroutines.test.runTest
 private class FakeCampfireRpcFactory(
     private val service: CampfireService,
 ) : CampfireRpcFactory {
+    var invalidateCalls = 0
+
     override suspend fun get(): CampfireService = service
 
     override suspend fun <T> callResult(block: suspend (CampfireService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
 
-    override suspend fun invalidate() {}
+    override suspend fun invalidate() {
+        invalidateCalls += 1
+    }
 }
 
 /**
@@ -119,6 +123,18 @@ class CampfireRpcTransportTest :
 
                 result.shouldBeInstanceOf<AppResult.Success<List<*>>>()
                 verifySuspend { service.listOpenSessions() }
+            }
+        }
+
+        test("refreshConnection invalidates the cached RPC proxy so the next use reconnects") {
+            runTest {
+                val service = mock<CampfireService>()
+                val factory = FakeCampfireRpcFactory(service)
+                val transport = CampfireRpcTransport(factory)
+
+                transport.refreshConnection()
+
+                factory.invalidateCalls shouldBe 1
             }
         }
 

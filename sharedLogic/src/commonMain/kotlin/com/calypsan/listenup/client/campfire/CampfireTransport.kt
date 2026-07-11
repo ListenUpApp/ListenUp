@@ -75,6 +75,21 @@ internal interface CampfireTransport {
      */
     fun observeSession(sessionId: CampfireId): Flow<RpcEvent<CampfireFrame>>
 
+    /**
+     * Tears down the underlying connection so the next call — including the next
+     * [observeSession] collection — rides a fresh one.
+     *
+     * Exists for `CampfireSessionController.rejoin()`: under the pinned kotlinx.rpc
+     * dev-channel build (0.11.0-grpc-189, see the KRPC-560 note in the version catalog),
+     * cancelling a server-streaming flow collection and then re-subscribing on the SAME
+     * RPC connection intermittently stalls — the cancelled stream can wedge the
+     * connection's next subscription, which then silently delivers nothing (observed on
+     * CI in the campfire real-transport E2E). A fresh connection sidesteps the race
+     * entirely and is cheap for an explicit user-facing rejoin. Revisit when the stable
+     * kotlinx-rpc 0.11.x bump lands.
+     */
+    suspend fun refreshConnection()
+
     /** See [com.calypsan.listenup.api.CampfireService.sendCommand]. */
     suspend fun sendCommand(
         sessionId: CampfireId,
