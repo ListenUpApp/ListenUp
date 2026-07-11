@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Entity
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannel
+import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -220,7 +222,16 @@ internal class PendingOperationQueue(
                 }
 
                 is AppResult.Failure -> {
-                    val retryable = result.error.isRetryable
+                    val error = result.error
+                    val retryable =
+                        if (error is TransportError.OutcomeUnknown) {
+                            // Provably sent, response lost: re-send only if the channel is declared idempotent
+                            // (server dedupes / last-write-wins); otherwise quarantine so a non-idempotent
+                            // mutation is never blindly double-applied.
+                            OutboxChannels.isIdempotent(op.domainName)
+                        } else {
+                            error.isRetryable
+                        }
                     val newCount =
                         if (retryable) {
                             entity.failureCount + 1

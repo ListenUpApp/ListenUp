@@ -21,7 +21,7 @@ import kotlinx.serialization.builtins.serializer
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
 class SyncEventDispatcherTest :
     FunSpec({

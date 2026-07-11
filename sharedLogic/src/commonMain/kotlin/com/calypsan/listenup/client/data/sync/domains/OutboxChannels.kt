@@ -19,23 +19,49 @@ import com.calypsan.listenup.api.sync.SyncDomains
  * mirror; preferences' via the `PreferencesChanged` refreshed domain).
  */
 internal object OutboxChannels {
-    val Books = OutboxChannel(SyncDomains.BOOKS.name, BookUpdate.serializer(), setOf(OpKind.Update))
-    val Series = OutboxChannel(SyncDomains.SERIES.name, SeriesUpdate.serializer(), setOf(OpKind.Update))
+    // Update = set-fields, last-write-wins → inherently idempotent (a repeated PATCH re-applies the same snapshot).
+    val Books = OutboxChannel(SyncDomains.BOOKS.name, BookUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
+    val Series = OutboxChannel(SyncDomains.SERIES.name, SeriesUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
     val Contributors =
-        OutboxChannel(SyncDomains.CONTRIBUTORS.name, ContributorUpdate.serializer(), setOf(OpKind.Update))
+        OutboxChannel(
+            SyncDomains.CONTRIBUTORS.name,
+            ContributorUpdate.serializer(),
+            setOf(OpKind.Update),
+            idempotent = true,
+        )
+
+    // PlaybackService.recordPosition is documented "Idempotent and lastPlayedAt-wins server-side."
     val Positions =
-        OutboxChannel(SyncDomains.PLAYBACK_POSITIONS.name, RecordPositionRequest.serializer(), setOf(OpKind.Upsert))
+        OutboxChannel(
+            SyncDomains.PLAYBACK_POSITIONS.name,
+            RecordPositionRequest.serializer(),
+            setOf(OpKind.Upsert),
+            idempotent = true,
+        )
+
+    // PlaybackService.recordListeningEvent is documented "Idempotent (re-recording the same id ...)."
     val ListeningEvents =
         OutboxChannel(
             SyncDomains.LISTENING_EVENTS.name,
             RecordListeningEventRequest.serializer(),
             setOf(OpKind.Upsert),
+            idempotent = true,
         )
-    val Profile = OutboxChannel("profile", UpdateProfileRequest.serializer(), setOf(OpKind.Update))
+    val Profile =
+        OutboxChannel("profile", UpdateProfileRequest.serializer(), setOf(OpKind.Update), idempotent = true)
     val Preferences =
-        OutboxChannel("preferences", UpdateUserPreferencesRequest.serializer(), setOf(OpKind.Update))
+        OutboxChannel("preferences", UpdateUserPreferencesRequest.serializer(), setOf(OpKind.Update), idempotent = true)
 
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(Books, Series, Contributors, Positions, ListeningEvents, Profile, Preferences)
+
+    private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }
+
+    /**
+     * Whether re-firing an op on [domainName] after a provably-sent-but-unconfirmed drop
+     * (TransportError.OutcomeUnknown) is safe. Unknown domain → false: quarantine conservatively
+     * rather than risk double-applying a mutation whose idempotency was never declared.
+     */
+    fun isIdempotent(domainName: String): Boolean = byName[domainName]?.idempotent ?: false
 }

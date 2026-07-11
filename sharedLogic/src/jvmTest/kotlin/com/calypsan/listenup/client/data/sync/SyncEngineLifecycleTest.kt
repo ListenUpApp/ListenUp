@@ -29,7 +29,7 @@ private const val SECOND_REVISION = 2L
 
 // "tags" is not a real outbox channel — a minimal local fixture for a hypothetical
 // un-mirrored domain, matching the queue's payload-agnostic contract.
-private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val tagsChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 private const val FIRST_UPDATED_AT = 100L
 private const val SECOND_UPDATED_AT = 200L
 

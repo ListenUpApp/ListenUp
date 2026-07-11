@@ -19,7 +19,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.serializer
 
 // Queue is payload-agnostic (payload arrives pre-encoded); any serializer works.
-private val upsertOnlyChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val upsertOnlyChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
 class PendingOperationQueueTest :
     FunSpec({
@@ -186,6 +186,70 @@ class PendingOperationQueueTest :
                 stored shouldNotBe null
                 val maxRetryable = 5
                 ((stored?.failureCount ?: 0) > maxRetryable) shouldBe true
+                db.close()
+            }
+        }
+
+        test("OutcomeUnknown on an idempotent channel is retried, not dead-lettered") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.OutcomeUnknown()) },
+                        nowMillis = { 1_000L },
+                    )
+                // Positions ("playback_positions") is a declared idempotent channel: re-sending is safe.
+                val opId = queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
+                val outcome = queue.drain()
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored shouldNotBe null
+                val incrementedByOne = 1
+                stored?.failureCount shouldBe incrementedByOne
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
+                outcome.retryableFailures shouldBe 1
+                outcome.terminalFailures shouldBe 0
+                db.close()
+            }
+        }
+
+        test("OutcomeUnknown on a non-idempotent (undeclared) channel is dead-lettered") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.OutcomeUnknown()) },
+                        nowMillis = { 1_000L },
+                    )
+                // upsertOnlyChannel's domainName ("tags") is not a declared OutboxChannels channel,
+                // so OutboxChannels.isIdempotent("tags") is false → quarantine conservatively.
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val outcome = queue.drain()
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored shouldNotBe null
+                ((stored?.failureCount ?: 0) > MAX_RETRYABLE_ATTEMPTS) shouldBe true
+                outcome.terminalFailures shouldBe 1
+                db.close()
+            }
+        }
+
+        test("a non-OutcomeUnknown non-retryable error dead-letters even on an idempotent channel") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val notFoundStatus = 404
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.Server4xx(statusCode = notFoundStatus)) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
+                val outcome = queue.drain()
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored shouldNotBe null
+                ((stored?.failureCount ?: 0) > MAX_RETRYABLE_ATTEMPTS) shouldBe true
+                outcome.terminalFailures shouldBe 1
                 db.close()
             }
         }

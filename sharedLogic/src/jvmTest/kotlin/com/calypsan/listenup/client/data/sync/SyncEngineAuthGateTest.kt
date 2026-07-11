@@ -25,7 +25,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.builtins.serializer
 
-private val testChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert))
+private val testChannel = OutboxChannel("tags", String.serializer(), setOf(OpKind.Upsert), idempotent = true)
 
 /** CatchUp that counts pass-level invocations (start + forced lifecycle reconcile). */
 private class GateCountingCatchUp : CatchUp {
