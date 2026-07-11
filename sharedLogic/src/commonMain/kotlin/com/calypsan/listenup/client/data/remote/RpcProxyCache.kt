@@ -9,6 +9,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -17,10 +19,6 @@ import kotlinx.rpc.krpc.ktor.client.installKrpc
 import kotlinx.rpc.krpc.serialization.json.json
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
-
-/** Upper bound on a single RPC. Guards against a black-holed WebSocket that never resolves. */
-private val DEFAULT_RPC_TIMEOUT = 15.seconds
 
 private val logger = KotlinLogging.logger {}
 
@@ -67,7 +65,7 @@ internal class RpcProxyCache<T : Any>(
     private val serverConfig: ServerConfig,
     private val authRecovery: RpcAuthRecovery = RpcAuthRecovery.None,
     private val connect: suspend (rpcClient: HttpClient, wsBaseUrl: String) -> T,
-) : RemoteCache {
+) : RpcDispatch<T> {
     private val mutex = Mutex()
     private var cachedRpcClient: HttpClient? = null
     private var cachedProxy: T? = null
@@ -94,8 +92,8 @@ internal class RpcProxyCache<T : Any>(
      * See the class KDoc for the full retry/surface policy — the load-bearing invariant is that
      * only **provably pre-delivery** failures retry, so a non-idempotent mutation never double-applies.
      */
-    suspend fun <R> call(
-        timeout: Duration = DEFAULT_RPC_TIMEOUT,
+    override suspend fun <R> call(
+        timeout: Duration,
         block: suspend (T) -> R,
     ): R {
         val lease = lease()
@@ -110,6 +108,60 @@ internal class RpcProxyCache<T : Any>(
             recover(e, lease.generation, timeout, block)
         }
     }
+
+    /**
+     * Subscribe [subscribe] against the cached proxy, with subscription-time healing that mirrors
+     * [call]. The retry contract:
+     *
+     * - A failure BEFORE the first emission is a subscription failure — the server produced nothing
+     *   durable, so healing is safe: a handshake 401 refreshes the token and re-subscribes once; a
+     *   provably pre-delivery transport fault or dead client reconnects and re-subscribes once.
+     * - A failure AFTER the first emission is NEVER auto-resubscribed here — events may have been
+     *   missed and replay is domain-specific (the scanner reconciles, import re-fetches status). The
+     *   dead generation is invalidated so the consumer's next subscription reconnects fresh, and the
+     *   failure is re-raised for [RpcChannel.stream] to fold into a typed
+     *   [com.calypsan.listenup.api.streaming.RpcEvent.Error].
+     * - A from-below cancellation with a still-active collector (the WS died mid-stream, incl. an
+     *   invalidator sweep during logout) becomes [RpcOutcomeUnknownException] — a value at the
+     *   boundary, not a silent kill of the collector's job. A genuinely cancelled collector re-raises.
+     *
+     * [emitted] is flipped before each [emit], so any exception thrown by a DOWNSTREAM collector
+     * arrives with [emitted] already true and is re-raised, never mistaken for a subscription fault.
+     */
+    override fun <R> streaming(subscribe: suspend (T) -> Flow<R>): Flow<R> =
+        flow {
+            var emitted = false
+            val first = lease()
+            try {
+                subscribe(first.proxy).collect {
+                    emitted = true
+                    emit(it)
+                }
+            } catch (e: Throwable) {
+                if (e is CancellationException && !currentCoroutineContext().isActive) throw e
+                invalidate(first.generation)
+                val canResubscribe =
+                    !emitted &&
+                        when {
+                            isWsHandshake401(e) -> authRecovery.refreshAndRebuild()
+                            isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> true
+                            else -> false
+                        }
+                if (!canResubscribe) {
+                    if (e is CancellationException) throw RpcOutcomeUnknownException(e)
+                    throw e
+                }
+                val second = lease()
+                try {
+                    subscribe(second.proxy).collect { emit(it) }
+                } catch (e2: Throwable) {
+                    val callerCancelled = e2 is CancellationException && !currentCoroutineContext().isActive
+                    if (!callerCancelled) invalidate(second.generation)
+                    if (e2 is CancellationException && !callerCancelled) throw RpcOutcomeUnknownException(e2)
+                    throw e2
+                }
+            }
+        }
 
     /**
      * Retry ONLY on provably pre-delivery signals; otherwise [surface] the failure. Kept separate
