@@ -122,8 +122,7 @@ class BookDetailViewModelTest :
             /** Per-book campfire flows a test can seed via [campfiresFor]; defaults to empty for every book. */
             private val campfiresByBook = mutableMapOf<String, MutableStateFlow<List<OpenCampfireSummary>>>()
 
-            fun campfiresFor(bookId: String): MutableStateFlow<List<OpenCampfireSummary>> =
-                campfiresByBook.getOrPut(bookId) { MutableStateFlow(emptyList()) }
+            fun campfiresFor(bookId: String): MutableStateFlow<List<OpenCampfireSummary>> = campfiresByBook.getOrPut(bookId) { MutableStateFlow(emptyList()) }
 
             fun setup() {
                 everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)

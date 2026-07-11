@@ -237,10 +237,12 @@ internal class CampfireSessionController(
     fun pause() = sendCommand { commandId -> PlaybackCommand.Pause(commandId = commandId) }
 
     /** Seeks the room to [positionMs] (optimistic local apply; denied via [CampfireSessionEvent.ControlDenied] without control). */
-    fun seekTo(positionMs: Long) = sendCommand { commandId -> PlaybackCommand.SeekTo(positionMs = positionMs, commandId = commandId) }
+    fun seekTo(positionMs: Long) =
+        sendCommand { commandId -> PlaybackCommand.SeekTo(positionMs = positionMs, commandId = commandId) }
 
     /** Sets the room's shared playback [speed] (optimistic local apply; denied via [CampfireSessionEvent.ControlDenied] without control). */
-    fun setSpeed(speed: Float) = sendCommand { commandId -> PlaybackCommand.SetSpeed(speed = speed, commandId = commandId) }
+    fun setSpeed(speed: Float) =
+        sendCommand { commandId -> PlaybackCommand.SetSpeed(speed = speed, commandId = commandId) }
 
     /** Sends a chat message. Fire-and-forget pass-through — see [CampfireTransport.sendChat]. */
     suspend fun sendChat(text: String) {
@@ -335,37 +337,44 @@ internal class CampfireSessionController(
                 state.value = current.copy(anchor = frame.anchor)
             }
 
-            is CampfireFrame.MemberJoined ->
+            is CampfireFrame.MemberJoined -> {
                 state.value = current.copy(members = current.members + frame.member)
+            }
 
-            is CampfireFrame.MemberLeft ->
+            is CampfireFrame.MemberLeft -> {
                 state.value = current.copy(members = current.members.filterNot { it.userId == frame.member.userId })
+            }
 
-            is CampfireFrame.MemberAway ->
+            is CampfireFrame.MemberAway -> {
                 state.value =
                     current.copy(
                         members = current.members.map { if (it.userId == frame.member.userId) frame.member else it },
                     )
+            }
 
-            is CampfireFrame.HostChanged ->
+            is CampfireFrame.HostChanged -> {
                 state.value =
                     current.copy(
                         hostUserId = frame.userId,
                         hasControl = hasControl(current.controlMode, frame.userId),
                     )
+            }
 
-            is CampfireFrame.ControlModeChanged ->
+            is CampfireFrame.ControlModeChanged -> {
                 state.value =
                     current.copy(
                         controlMode = frame.mode,
                         hasControl = hasControl(frame.mode, current.hostUserId),
                     )
+            }
 
-            is CampfireFrame.Chat ->
+            is CampfireFrame.Chat -> {
                 state.value = current.copy(chat = current.chat + frame.message)
+            }
 
-            is CampfireFrame.Reaction ->
+            is CampfireFrame.Reaction -> {
                 eventChannel.trySend(CampfireSessionEvent.ReactionReceived(frame.userId, frame.emoji))
+            }
 
             is CampfireFrame.CampfireEnded -> {
                 driftJob?.cancel()

@@ -67,7 +67,10 @@ internal class CampfireDiscoveryRepository(
     private suspend fun refresh() {
         try {
             when (val result = transport.listOpenSessions()) {
-                is AppResult.Success -> cache.value = result.data
+                is AppResult.Success -> {
+                    cache.value = result.data
+                }
+
                 is AppResult.Failure -> {
                     logger.warn { "listOpenSessions refresh failed (${result.error.code}); keeping cached list" }
                 }

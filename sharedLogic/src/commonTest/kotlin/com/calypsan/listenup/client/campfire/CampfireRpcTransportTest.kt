@@ -39,8 +39,7 @@ private class FakeCampfireRpcFactory(
 ) : CampfireRpcFactory {
     override suspend fun get(): CampfireService = service
 
-    override suspend fun <T> callResult(block: suspend (CampfireService) -> AppResult<T>): AppResult<T> =
-        catchingRpcResult { block(service) }
+    override suspend fun <T> callResult(block: suspend (CampfireService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
 
     override suspend fun invalidate() {}
 }

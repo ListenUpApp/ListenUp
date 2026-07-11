@@ -41,9 +41,15 @@ internal class CampfireRpcTransport(
     override suspend fun joinSession(sessionId: CampfireId): AppResult<CampfireSnapshot> =
         rpcFactory.callResult { it.joinSession(sessionId) }
 
-    override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> = rpcFactory.callResult { it.leaveSession(sessionId) }
+    override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> =
+        rpcFactory.callResult {
+            it.leaveSession(sessionId)
+        }
 
-    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = rpcFactory.callResult { it.endSession(sessionId) }
+    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> =
+        rpcFactory.callResult {
+            it.endSession(sessionId)
+        }
 
     override suspend fun transferHost(
         sessionId: CampfireId,
