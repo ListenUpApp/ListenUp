@@ -6,8 +6,8 @@ import com.calypsan.listenup.api.sync.UserEditedField
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
@@ -60,7 +60,7 @@ class BookEditRepositoryOfflineTest :
 
                 val repo =
                     BookEditRepositoryImpl(
-                        bookRpcFactory = mock<BookRpcFactory>(),
+                        bookChannel = RpcChannel.forTest(mock<BookService>()),
                         collectionChannel = RpcChannel.forTest(mock<CollectionService>()),
                         bookDao = db.bookDao(),
                         offlineEditor = offlineEditor,
@@ -113,7 +113,7 @@ class BookEditRepositoryOfflineTest :
 
                 val repo =
                     BookEditRepositoryImpl(
-                        bookRpcFactory = mock<BookRpcFactory>(),
+                        bookChannel = RpcChannel.forTest(mock<BookService>()),
                         collectionChannel = RpcChannel.forTest(mock<CollectionService>()),
                         bookDao = db.bookDao(),
                         offlineEditor = offlineEditor,

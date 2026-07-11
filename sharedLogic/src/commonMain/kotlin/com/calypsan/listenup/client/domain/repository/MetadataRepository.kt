@@ -18,9 +18,11 @@ import com.calypsan.listenup.core.ContributorId
  * mirror the RPC contract method-for-method — `:contract` DTOs are exposed
  * directly to ViewModels (no parallel domain-DTO hierarchy).
  *
- * Implementation delegates to [com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory]
- * and wraps each call in a [kotlinx.coroutines.CancellationException]-preserving
- * transport-error catch.
+ * Implementation dispatches through the bounded, self-healing
+ * [com.calypsan.listenup.client.data.remote.RpcChannel] for
+ * [com.calypsan.listenup.api.MetadataLookupService], which folds each call's outcome into an
+ * [com.calypsan.listenup.api.result.AppResult] and re-raises
+ * [kotlinx.coroutines.CancellationException].
  */
 interface MetadataRepository {
     /** Searches the Audible catalog for books matching [query]. */

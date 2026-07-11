@@ -6,10 +6,9 @@ import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.sync.UserEditedField
-import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -17,11 +16,6 @@ import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
-import com.calypsan.listenup.client.core.error.ErrorMapper
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Offline-first book editor.
@@ -34,12 +28,13 @@ private val logger = KotlinLogging.logger {}
  * domain's composed handler ([com.calypsan.listenup.client.data.sync.domains.booksDomain]).
  *
  * The remaining methods stay pure RPC dispatchers — the SSE echo from the server
- * is their single write path back into Room. Wire [WireAppResult] values returned
- * by the RPC service are converted to the client-layer [AppResult] at this
- * boundary, following the same pattern as [TagRepositoryImpl].
+ * is their single write path back into Room. They dispatch through the bounded,
+ * self-healing [bookChannel], which folds the RPC outcome into an [AppResult]
+ * (throw → typed `Failure`, business `Failure` passthrough), following the same
+ * pattern as [TagRepositoryImpl].
  */
 internal class BookEditRepositoryImpl(
-    private val bookRpcFactory: BookRpcFactory,
+    private val bookChannel: RpcChannel<BookService>,
     private val collectionChannel: RpcChannel<CollectionService>,
     private val bookDao: BookDao,
     private val offlineEditor: OfflineEditor,
@@ -74,49 +69,30 @@ internal class BookEditRepositoryImpl(
     override suspend fun setBookContributors(
         id: BookId,
         contributors: List<BookContributorInput>,
-    ): AppResult<Unit> = rpcCallUnit { bookRpcFactory.bookService().setBookContributors(id, contributors) }
+    ): AppResult<Unit> = bookChannel.call { it.setBookContributors(id, contributors) }
 
     override suspend fun setBookSeries(
         id: BookId,
         series: List<BookSeriesInput>,
-    ): AppResult<Unit> = rpcCallUnit { bookRpcFactory.bookService().setBookSeries(id, series) }
+    ): AppResult<Unit> = bookChannel.call { it.setBookSeries(id, series) }
 
     override suspend fun setBookGenres(
         id: BookId,
         genres: List<BookGenreInput>,
-    ): AppResult<Unit> = rpcCallUnit { bookRpcFactory.bookService().setBookGenres(id, genres) }
+    ): AppResult<Unit> = bookChannel.call { it.setBookGenres(id, genres) }
 
     override suspend fun setBookChapters(
         id: BookId,
         chapters: List<ChapterInput>,
-    ): AppResult<Unit> = rpcCallUnit { bookRpcFactory.bookService().setBookChapters(id, chapters) }
+    ): AppResult<Unit> = bookChannel.call { it.setBookChapters(id, chapters) }
 
-    override suspend fun deleteBookCover(id: BookId): AppResult<Unit> =
-        rpcCallUnit { bookRpcFactory.bookService().deleteBookCover(id) }
+    override suspend fun deleteBookCover(id: BookId): AppResult<Unit> = bookChannel.call { it.deleteBookCover(id) }
 
     override suspend fun setBookCollections(
         id: BookId,
         collectionIds: List<String>,
     ): AppResult<Unit> =
         collectionChannel.call { it.setBookCollections(id, collectionIds.map { c -> CollectionId(c) }) }
-
-    /**
-     * Run an RPC call that returns [Unit], converting [WireAppResult] → [AppResult].
-     * Re-throws [CancellationException]; all other throwables become [AppResult.Failure]
-     * via [ErrorMapper].
-     */
-    private suspend fun rpcCallUnit(block: suspend () -> WireAppResult<Unit>): AppResult<Unit> =
-        try {
-            when (val result = block()) {
-                is WireAppResult.Success -> AppResult.Success(Unit)
-                is WireAppResult.Failure -> AppResult.Failure(result.error)
-            }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Throwable) {
-            logger.warn(e) { "Book edit RPC failed" }
-            AppResult.Failure(ErrorMapper.map(e))
-        }
 }
 
 /**

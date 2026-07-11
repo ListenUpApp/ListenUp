@@ -7,7 +7,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
@@ -28,8 +27,6 @@ class BookEditRepositorySetChaptersTest :
         test("setBookChapters dispatches to BookService over RPC") {
             runTest {
                 val service = mock<BookService>(MockMode.autoUnit)
-                val rpcFactory = mock<BookRpcFactory>(MockMode.autoUnit)
-                everySuspend { rpcFactory.bookService() } returns service
                 val chapters = listOf(ChapterInput(id = "c1", title = "A", startTime = 0, duration = 1000))
                 everySuspend { service.setBookChapters(BookId("b1"), chapters) } returns AppResult.Success(Unit)
 
@@ -46,7 +43,7 @@ class BookEditRepositorySetChaptersTest :
 
                 val repo =
                     BookEditRepositoryImpl(
-                        bookRpcFactory = rpcFactory,
+                        bookChannel = RpcChannel.forTest(service),
                         collectionChannel = RpcChannel.forTest(mock<CollectionService>(MockMode.autofill)),
                         bookDao = mock<BookDao>(MockMode.autoUnit),
                         offlineEditor = offlineEditor,

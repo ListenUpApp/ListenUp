@@ -13,8 +13,7 @@ import kotlinx.rpc.withService
  * An interface so repositories and ViewModels depend on a seam that fakes/mocks in tests —
  * [KtorLibraryAdminRpcFactory] is the production implementation over WebSocket RPC.
  *
- * Mirrors [MetadataLookupRpcFactory] from B2b — the established precedent for RPC factory
- * seams in this codebase.
+ * Follows the established RPC factory-seam precedent in this codebase.
  */
 interface LibraryAdminRpcFactory {
     /** Returns the cached [LibraryAdminService] proxy, connecting on first use. */

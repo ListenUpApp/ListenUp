@@ -14,7 +14,6 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
@@ -382,12 +381,20 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 install(ContentNegotiation) { json(contractJson) }
                 install(SSE)
                 // Tier 3 e2e: installKrpc() adds WebSockets + kotlinx.rpc plumbing
-                // so the harness's BookRpcFactory can open `.rpc("/api/rpc/authed")`
+                // so the harness's RPC channels can open `.rpc("/api/rpc/authed")`
                 // against the same in-process server. The relative-URL pattern
                 // matches the existing SSE/REST clients above.
                 installKrpc()
             }
-        val testBookRpcFactory = TestBookRpcFactory(testClient)
+        // Real kotlinx.rpc BookService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel — backs BookEditRepositoryImpl and the books outbox
+        // sender below (client → RPC → server → SSE → Room round trip).
+        val bookServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<BookService>()
+        val bookChannel = RpcChannel.forTest(bookServiceProxy)
         // Real kotlinx.rpc ContributorService proxy over the in-process server, wrapped in a
         // no-reconnect test channel — backs ContributorEditRepositoryImpl and the contributor
         // outbox sender below (client → RPC → server → SSE → Room round trip).
@@ -452,7 +459,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 OutboxChannels.ListeningEvents.name to listeningEventSender,
                                 OutboxChannels.Books.name to
                                     OutboxOpSender(OutboxChannels.Books) { id, patch ->
-                                        testBookRpcFactory.bookService().updateBook(BookId(id), patch)
+                                        bookChannel.call { it.updateBook(BookId(id), patch) }
                                     },
                                 OutboxChannels.Series.name to
                                     OutboxOpSender(OutboxChannels.Series) { id, patch ->
@@ -495,7 +502,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // server, whose SSE echo reconciles client Room via the books sync handler.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
-                    bookRpcFactory = testBookRpcFactory,
+                    bookChannel = bookChannel,
                     collectionChannel = RpcChannel.forTest(collectionServiceProxy),
                     bookDao = clientDb.bookDao(),
                     offlineEditor = offlineEditor,
@@ -853,43 +860,10 @@ internal class DirectListeningEventSender(
 }
 
 /**
- * Test-only [BookRpcFactory] that opens a kotlinx.rpc [BookService] proxy against the
- * harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors production [com.calypsan.listenup.client.data.remote.KtorBookRpcFactory]:
- * the proxy is cached after first use; the underlying [HttpClient] is the same one
- * the SSE/REST surfaces use (`installKrpc()` enables the RPC plumbing). Tests get
- * a real RPC round-trip over the testApplication's in-memory transport, exercising
- * `BookServiceImpl` and the KSP-generated `BookServiceGuarded` decorator end-to-end.
- */
-internal class TestBookRpcFactory(
-    private val httpClient: HttpClient,
-) : BookRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: BookService? = null
-
-    override suspend fun bookService(): BookService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): BookService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<BookService>()
-}
-
-/**
  * Test-only [UserPreferencesRpcFactory] that opens a kotlinx.rpc [UserPreferencesService] proxy
  * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
  *
- * Mirrors [TestBookRpcFactory] exactly, substituting
- * [UserPreferencesService]. No harness test mounts the service server-side yet (see the
+ * Substitutes [UserPreferencesService]. No harness test mounts the service server-side yet (see the
  * `OutboxChannels.Preferences` `byDomain` registration above) — this factory exists so a future
  * e2e test for the preferences offline-edit push can resolve a sender the same way every other
  * domain does.

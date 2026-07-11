@@ -1,10 +1,13 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.booksDomain
 import com.calypsan.listenup.client.data.sync.domains.toHandler
@@ -18,7 +21,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
 import dev.mokkery.answering.returns
 import dev.mokkery.every
-import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
@@ -131,8 +133,7 @@ private fun withTestRepo(
                 imageStorage = stubImageStorage(),
             ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
 
-        val rpcFactory: com.calypsan.listenup.client.data.remote.BookRpcFactory = mock()
-        everySuspend { rpcFactory.bookService() } returns mock()
+        val channel = RpcChannel.forTest(mock<BookService>())
 
         val repo =
             BookRepositoryImpl(
@@ -144,7 +145,7 @@ private fun withTestRepo(
                 imageStorage = imageStorage,
                 joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
                 networkMonitor = networkMonitor,
-                bookRpcFactory = rpcFactory,
+                channel = channel,
                 bookSyncDomainHandler = syncHandler,
             )
 

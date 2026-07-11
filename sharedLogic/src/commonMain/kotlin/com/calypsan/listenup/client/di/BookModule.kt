@@ -1,10 +1,8 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorBookRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorMetadataLookupRpcFactory
-import com.calypsan.listenup.client.data.remote.MetadataLookupRpcFactory
+import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
@@ -47,27 +45,17 @@ import org.koin.dsl.module
  */
 internal val bookModule: Module =
     module {
-        // BookRpcFactory - kotlinx.rpc proxy for BookService (on-demand fetch + search).
-        // Mirrors AuthRpcFactory; fully functional end-to-end — the server registers
-        // BookService on its bearer-gated /api/rpc/authed surface (landed in T28.5).
-        single<BookRpcFactory> {
-            KtorBookRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // BookService RPC channel — kotlinx.rpc dispatch for BookService (on-demand fetch, search,
+        // book/cover edits, and the Books outbox). Authed (self-healing) by default; joins the
+        // RpcCacheInvalidator sweep.
+        rpcChannel<BookService>()
 
-        // MetadataLookupRpcFactory — kotlinx.rpc proxy for MetadataLookupService.
-        single<MetadataLookupRpcFactory> {
-            KtorMetadataLookupRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // MetadataLookupService RPC channel — kotlinx.rpc dispatch for external metadata lookups.
+        rpcChannel<MetadataLookupService>()
 
         // MetadataRepository for metadata operations (SOLID: interface in domain, impl in data)
         single<MetadataRepository> {
-            MetadataRepositoryImpl(rpcFactory = get())
+            MetadataRepositoryImpl(channel = rpcChannel())
         }
 
         // BookRepository for UI data access. Also binds BookIngestPort so
@@ -88,7 +76,7 @@ internal val bookModule: Module =
                         moodRepository = get(),
                     ),
                 networkMonitor = get(),
-                bookRpcFactory = get(),
+                channel = rpcChannel(),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),
             )
         } binds arrayOf(BookIngestPort::class)
@@ -97,7 +85,7 @@ internal val bookModule: Module =
         // remaining edits stay RPC-only with SSE echoes writing back into Room.
         single<BookEditRepository> {
             BookEditRepositoryImpl(
-                bookRpcFactory = get(),
+                bookChannel = rpcChannel<BookService>(),
                 collectionChannel = rpcChannel<CollectionService>(),
                 bookDao = get(),
                 offlineEditor = get(),

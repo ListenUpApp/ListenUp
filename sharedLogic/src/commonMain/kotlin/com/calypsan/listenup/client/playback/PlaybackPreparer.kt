@@ -1,8 +1,8 @@
 
 package com.calypsan.listenup.client.playback
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.result.getOrNull as wireResultOrNull
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
@@ -13,8 +13,8 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.device.DeviceContext
@@ -92,7 +92,7 @@ class PlaybackPreparer internal constructor(
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
     private val playbackRpcFactory: PlaybackRpcFactory,
-    private val bookRpcFactory: BookRpcFactory,
+    private val channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
 ) {
@@ -383,12 +383,9 @@ class PlaybackPreparer internal constructor(
      * @return true if fetch + persist succeeded.
      */
     internal suspend fun fetchBookFromServer(bookId: BookId): Boolean =
-        try {
-            val payload = bookRpcFactory.bookService().getBook(bookId).wireResultOrNull()
-            if (payload == null) {
-                logger.error { "Failed to fetch book from server: ${bookId.value}" }
-                false
-            } else {
+        when (val result = channel.call { it.getBook(bookId) }) {
+            is AppResult.Success -> {
+                val payload = result.data
                 logger.info { "Fetched book from server: ${payload.title}" }
                 when (val writeResult = bookSyncDomainHandler.onCatchUpItem(payload, isTombstone = false)) {
                     is AppResult.Success -> {
@@ -404,13 +401,14 @@ class PlaybackPreparer internal constructor(
                     }
                 }
             }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // Covers ServerUrlNotConfiguredException (no server configured — the old
-            // `syncApi == null` case) and transport failures alike.
-            logger.warn(e) { "Fallback book fetch failed for ${bookId.value}" }
-            false
+
+            is AppResult.Failure -> {
+                // The channel folds a missing-server config and transport faults alike into a typed
+                // Failure (and re-raises genuine cancellation), so the on-demand fetch degrades to a
+                // logged cache miss — "Never Stranded".
+                logger.warn { "Fallback book fetch failed for ${bookId.value} (${result.error.code})" }
+                false
+            }
         }
 
     /** Load chapters for a book. */

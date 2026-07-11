@@ -53,15 +53,10 @@ class RpcCallsRouteThroughCallResultRule :
  * Legitimately-excluded shapes stay here on purpose, not as debt:
  * - **Long-running RPCs** (`BackupRepositoryImpl`, `ImportRepositoryImpl`) — backup/restore/import
  *   run far past `callResult`'s 15s bound; they need bespoke timeouts, so they own their fold.
- * - **`BookRepositoryImpl` / `MetadataRepositoryImpl`** — mixed read/write surfaces whose fold is
- *   entangled with cover/metadata handling; migrate as a deliberate slice, not a mechanical swap.
  */
 private val RESIDUAL_HANDROLLED_RPC_ALLOWLIST: Set<String> =
     setOf(
         "/data/repository/BackupRepositoryImpl.kt",
-        "/data/repository/BookEditRepositoryImpl.kt",
-        "/data/repository/BookRepositoryImpl.kt",
         "/data/repository/ImportRepositoryImpl.kt",
-        "/data/repository/MetadataRepositoryImpl.kt",
         "/data/repository/ProfileEditRepositoryImpl.kt",
     )

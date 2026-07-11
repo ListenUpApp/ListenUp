@@ -21,9 +21,8 @@ private const val CONCURRENT_CALLERS = 16
 
 /**
  * Unit tests for [RpcProxyCache] — the shared stateful body every post-login RPC
- * factory delegates to. Supersedes the two near-identical per-factory tests
- * ([KtorLibraryAdminRpcFactoryTest], [KtorMetadataLookupRpcFactoryTest]) that pinned
- * this same Mutex-caching contract before the generalization; the invariant now
+ * factory delegates to. Supersedes the earlier near-identical per-factory tests that
+ * pinned this same Mutex-caching contract before the generalization; the invariant now
  * lives in exactly one place, so the test moves with it (`test_at_invariant_layer`).
  *
  * No subclassing is needed to seam this out: the `connect` lambda supplied to the

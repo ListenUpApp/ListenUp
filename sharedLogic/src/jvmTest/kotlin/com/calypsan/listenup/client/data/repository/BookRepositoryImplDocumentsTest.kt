@@ -1,7 +1,10 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.sync.BookSyncPayload
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.local.db.BookDocumentEntity
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -113,8 +116,7 @@ private fun withTestRepoForDocuments(
                 imageStorage = stubImageStorage(),
             ).toHandler(transactionRunner = transactionRunner, registry = ClientSyncDomainRegistry())
 
-        val rpcFactory: com.calypsan.listenup.client.data.remote.BookRpcFactory = mock()
-        everySuspend { rpcFactory.bookService() } returns mock()
+        val channel = RpcChannel.forTest(mock<BookService>())
 
         val repo =
             BookRepositoryImpl(
@@ -126,7 +128,7 @@ private fun withTestRepoForDocuments(
                 imageStorage = imageStorage,
                 joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
                 networkMonitor = networkMonitor,
-                bookRpcFactory = rpcFactory,
+                channel = channel,
                 bookSyncDomainHandler = syncHandler,
             )
 

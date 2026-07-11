@@ -14,9 +14,9 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
@@ -226,7 +226,7 @@ private fun bookRepositoryWith(
         imageStorage = imageStorage,
         joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
-        bookRpcFactory = mock<BookRpcFactory>(),
+        channel = RpcChannel.forTest(mock<BookService>()),
         bookSyncDomainHandler =
             booksDomain(
                 database = db,
@@ -263,7 +263,7 @@ private fun realBookRepository(db: ListenUpDatabase): BookRepositoryImpl {
         imageStorage = mockImageStorage(),
         joinSources = BookDetailJoinSources(genreRepository, tagRepository, moodRepository),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
-        bookRpcFactory = mock<BookRpcFactory>(),
+        channel = RpcChannel.forTest(mock<BookService>()),
         bookSyncDomainHandler =
             booksDomain(
                 database = db,

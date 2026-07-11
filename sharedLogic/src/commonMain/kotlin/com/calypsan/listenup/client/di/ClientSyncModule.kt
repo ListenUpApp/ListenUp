@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -8,7 +9,6 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
@@ -114,6 +114,7 @@ internal val clientSyncModule =
         // checked at construction: a declared channel with no binding (or vice versa)
         // is an immediate require() failure, not a silent op drop.
         single<PendingOperationSender> {
+            val bookChannel = rpcChannel<BookService>()
             val seriesChannel = rpcChannel<SeriesService>()
             val contributorChannel = rpcChannel<ContributorService>()
             outboxSender(
@@ -125,7 +126,7 @@ internal val clientSyncModule =
                         get<PlaybackRpcFactory>().playbackService().recordListeningEvent(request)
                     },
                     outboxBinding(OutboxChannels.Books) { id, patch ->
-                        get<BookRpcFactory>().bookService().updateBook(BookId(id), patch)
+                        bookChannel.call { it.updateBook(BookId(id), patch) }
                     },
                     outboxBinding(OutboxChannels.Series) { id, patch ->
                         seriesChannel.call { it.updateSeries(SeriesId(id), patch) }
