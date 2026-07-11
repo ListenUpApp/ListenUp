@@ -44,10 +44,12 @@ class LocalizationGeneratorTest {
     }
 
     @Test
-    fun `android xml escapes apostrophe and angle bracket`() {
+    fun `android xml leaves apostrophes raw and entity-escapes angle brackets`() {
+        // #1079: apostrophes must NOT be AAPT-escaped (`\'`) — compose-resources parses this
+        // catalog as XML and does not unescape that form, leaking a literal backslash to the UI.
         val strings = mapOf("common.tricky" to "It's a <tag>")
         val xml = LocalizationGenerator.androidXml(strings)
-        assertTrue(xml.contains("""<string name="common_tricky">It\'s a &lt;tag></string>"""))
+        assertTrue(xml.contains("""<string name="common_tricky">It's a &lt;tag></string>"""))
     }
 
     @Test
