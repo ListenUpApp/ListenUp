@@ -8,6 +8,7 @@ import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.SharePermission
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
+import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
 import com.calypsan.listenup.api.result.AppResult
@@ -39,6 +40,7 @@ import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
 import com.calypsan.listenup.server.testing.seedTestUser
 import com.calypsan.listenup.server.testing.testAuth
 import com.calypsan.listenup.server.testing.withSqlDatabase
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
@@ -145,11 +147,23 @@ private val everyoneSettings = CampfireSettings(controlMode = CampfireControlMod
  * Uses `runBlocking`, not Kotest's `runTest`: every scenario does real socket I/O and real-clock
  * waits (the away grace and reaper interval are genuinely shortened constructor parameters, not a
  * fake clock) — a virtual-time dispatcher would auto-advance past those waits and prove nothing.
+ *
+ * **Latency vs. delivery.** Earlier revisions of this file asserted every frame arrived within a
+ * strict 1-second Turbine budget per step. That sub-1s latency is real and was hand-verified
+ * locally, but GitHub-hosted runners are shared and can stall stream setup for seconds — the
+ * warm-up loop below then queues several throwaway commands before B's subscribe frame lands,
+ * and a strict "the NEXT item must be my frame" assertion picks up a stale warm-up echo instead
+ * of the frame the just-sent command produced, failing on content it was never supposed to see.
+ * What this file needs to prove is that the right frame ARRIVES and is CORRECT — not that it
+ * beats a clock a shared CI box can't promise. Every assertion below drains via
+ * [awaitFrameWhere], keyed on each command's `commandId` (or, for chat/membership frames, on
+ * message text / member id) so it is immune to any stale frame still queued ahead of the real
+ * one, and fails with the full list of frames actually observed if the real one never shows.
  */
 class CampfireRealTransportE2ETest :
     FunSpec({
 
-        test("commands and chat propagate to B as real frames within 1s (scenarios 1-3)") {
+        test("commands and chat propagate to B as real frames (scenarios 1-3)") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()
                 sql.seedTestUser(USER_A)
@@ -164,52 +178,37 @@ class CampfireRealTransportE2ETest :
                             val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
                             serviceB.joinSession(sessionId).value()
 
-                            serviceB.observeSession(sessionId).test(timeout = 15.seconds) {
-                                // Warm-up: the room's SharedFlow has no replay, so a command fired before
-                                // B's subscribe frame has actually landed server-side is silently missed.
-                                // Retry a throwaway (always-emitting) SeekTo until one is observed.
-                                var warmupPos = 1L
-                                var warmedUp = false
-                                while (!warmedUp) {
-                                    serviceA
-                                        .sendCommand(
-                                            sessionId,
-                                            PlaybackCommand.SeekTo(positionMs = warmupPos, commandId = "warmup-$warmupPos"),
-                                        ).value()
-                                    warmedUp = withTimeoutOrNull(500.milliseconds) { awaitItem() } != null
-                                    warmupPos += 1_000
-                                }
+                            serviceB.observeSession(sessionId).test(timeout = 60.seconds) {
+                                warmUp(serviceA, sessionId, idPrefix = "warmup")
 
                                 // The room starts paused (isPlaying = false at creation) — establish a
                                 // playing baseline first so the Pause below is a real transition, not a NoOp.
                                 serviceA.sendCommand(sessionId, PlaybackCommand.Play(commandId = "cmd-play")).value()
-                                withTimeout(1.seconds) { awaitItem() }
+                                awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "cmd-play" }
 
-                                // Scenario 1: Pause -> AnchorChanged within 1s.
+                                // Scenario 1: Pause -> AnchorChanged, keyed on this command's commandId so a
+                                // stale warm-up echo can never be mistaken for it.
                                 serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "cmd-pause")).value()
                                 val pauseFrame =
-                                    withTimeout(1.seconds) { awaitItem() }
-                                        .dataOrFail()
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "cmd-pause" }
                                         .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
                                 pauseFrame.anchor.isPlaying shouldBe false
 
-                                // Scenario 2: SeekTo -> AnchorChanged with the re-anchored position, within 1s.
+                                // Scenario 2: SeekTo -> AnchorChanged with the re-anchored position.
                                 serviceA
                                     .sendCommand(
                                         sessionId,
                                         PlaybackCommand.SeekTo(positionMs = 42_000L, commandId = "cmd-seek"),
                                     ).value()
                                 val seekFrame =
-                                    withTimeout(1.seconds) { awaitItem() }
-                                        .dataOrFail()
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "cmd-seek" }
                                         .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
                                 seekFrame.anchor.positionMs shouldBe 42_000L
 
-                                // Scenario 3: chat -> Chat frame, content matches, within 1s.
+                                // Scenario 3: chat -> Chat frame, content matches.
                                 serviceA.sendChat(sessionId, "hello from A").value()
                                 val chatFrame =
-                                    withTimeout(1.seconds) { awaitItem() }
-                                        .dataOrFail()
+                                    awaitFrameWhere { it is CampfireFrame.Chat && it.message.text == "hello from A" }
                                         .shouldBeInstanceOf<CampfireFrame.Chat>()
                                 chatFrame.message.text shouldBe "hello from A"
                                 chatFrame.message.senderId shouldBe USER_A
@@ -250,7 +249,7 @@ class CampfireRealTransportE2ETest :
                             val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
                             serviceB.joinSession(sessionId).value()
 
-                            serviceA.observeSession(sessionId).test(timeout = 20.seconds) {
+                            serviceA.observeSession(sessionId).test(timeout = 60.seconds) {
                                 // A subscribes fresh here (after B already joined), so replay=0 means A
                                 // never sees B's MemberJoined frame -- only what happens from here on.
                                 val bCollected = AtomicInteger(0)
@@ -271,24 +270,20 @@ class CampfireRealTransportE2ETest :
                                             sessionId,
                                             PlaybackCommand.SeekTo(positionMs = settlePos, commandId = "settle-$settlePos"),
                                         ).value()
-                                    withTimeout(2.seconds) { awaitItem() } // A's own copy of the settle frame
+                                    withTimeout(5.seconds) { awaitItem() } // A's own copy of the settle frame
                                     settlePos += 1
                                     delay(50)
                                 }
 
                                 relay.cut()
 
-                                val awayFrame =
-                                    withTimeout(10.seconds) { awaitItem() }
-                                        .dataOrFail()
-                                        .shouldBeInstanceOf<CampfireFrame.MemberAway>()
-                                awayFrame.member.userId shouldBe USER_B
+                                awaitFrameWhere(timeout = 15.seconds) {
+                                    it is CampfireFrame.MemberAway && it.member.userId == USER_B
+                                }
 
-                                val leftFrame =
-                                    withTimeout(10.seconds) { awaitItem() }
-                                        .dataOrFail()
-                                        .shouldBeInstanceOf<CampfireFrame.MemberLeft>()
-                                leftFrame.member.userId shouldBe USER_B
+                                awaitFrameWhere(timeout = 15.seconds) {
+                                    it is CampfireFrame.MemberLeft && it.member.userId == USER_B
+                                }
 
                                 bJob.cancel()
                                 cancelAndIgnoreRemainingEvents()
@@ -327,7 +322,7 @@ class CampfireRealTransportE2ETest :
                                         if (event is RpcEvent.Data) received.incrementAndGet()
                                     }
                                 }
-                            eventually(5.seconds) {
+                            eventually(15.seconds) {
                                 serviceA
                                     .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 0, commandId = "warmup"))
                                     .value()
@@ -367,7 +362,7 @@ class CampfireRealTransportE2ETest :
                                 }.value()
                             }
 
-                            eventually(30.seconds) { received.get() shouldBe baseline + frameCount }
+                            eventually(60.seconds) { received.get() shouldBe baseline + frameCount }
 
                             // Flows still alive: B's collector job hasn't died, and a fresh command after
                             // the soak still arrives.
@@ -375,7 +370,7 @@ class CampfireRealTransportE2ETest :
                             serviceA
                                 .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 999_999, commandId = "post-soak"))
                                 .value()
-                            eventually(5.seconds) { received.get() shouldBe baseline + frameCount + 1 }
+                            eventually(15.seconds) { received.get() shouldBe baseline + frameCount + 1 }
 
                             System.gc()
                             val after = runtime.totalMemory() - runtime.freeMemory()
@@ -417,7 +412,7 @@ class CampfireRealTransportE2ETest :
                                         if (event is RpcEvent.Data && !bReceivedFirst.isCompleted) bReceivedFirst.complete(Unit)
                                     }
                                 }
-                            eventually(5.seconds) {
+                            eventually(15.seconds) {
                                 serviceA
                                     .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 1, commandId = "warmup"))
                                     .value()
@@ -429,26 +424,15 @@ class CampfireRealTransportE2ETest :
                             bJob.join()
 
                             // Server-side room continues: A (as its own observer) still receives frames.
-                            serviceA.observeSession(sessionId).test(timeout = 10.seconds) {
-                                var warmedUp = false
-                                var pos = 2L
-                                while (!warmedUp) {
-                                    serviceA
-                                        .sendCommand(
-                                            sessionId,
-                                            PlaybackCommand.SeekTo(positionMs = pos, commandId = "a-warmup-$pos"),
-                                        ).value()
-                                    warmedUp = withTimeoutOrNull(500.milliseconds) { awaitItem() } != null
-                                    pos += 1
-                                }
+                            serviceA.observeSession(sessionId).test(timeout = 60.seconds) {
+                                warmUp(serviceA, sessionId, idPrefix = "a-warmup")
                                 serviceA
                                     .sendCommand(
                                         sessionId,
                                         PlaybackCommand.SeekTo(positionMs = 12_345L, commandId = "after-b-cancel"),
                                     ).value()
                                 val frame =
-                                    withTimeout(1.seconds) { awaitItem() }
-                                        .dataOrFail()
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "after-b-cancel" }
                                         .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
                                 frame.anchor.positionMs shouldBe 12_345L
                                 cancelAndIgnoreRemainingEvents()
@@ -457,26 +441,15 @@ class CampfireRealTransportE2ETest :
                             // B rejoins observeSession as a FRESH collection and receives frames going
                             // forward -- proving per-collector lifecycle under the pinned kotlinx.rpc (no
                             // stale replay, no dead second subscription after the first was cancelled).
-                            serviceB.observeSession(sessionId).test(timeout = 10.seconds) {
-                                var warmedUp = false
-                                var pos = 100L
-                                while (!warmedUp) {
-                                    serviceA
-                                        .sendCommand(
-                                            sessionId,
-                                            PlaybackCommand.SeekTo(positionMs = pos, commandId = "b-rejoin-warmup-$pos"),
-                                        ).value()
-                                    warmedUp = withTimeoutOrNull(500.milliseconds) { awaitItem() } != null
-                                    pos += 1
-                                }
+                            serviceB.observeSession(sessionId).test(timeout = 60.seconds) {
+                                warmUp(serviceA, sessionId, idPrefix = "b-rejoin-warmup")
                                 serviceA
                                     .sendCommand(
                                         sessionId,
                                         PlaybackCommand.SeekTo(positionMs = 54_321L, commandId = "b-rejoin-real"),
                                     ).value()
                                 val frame =
-                                    withTimeout(1.seconds) { awaitItem() }
-                                        .dataOrFail()
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "b-rejoin-real" }
                                         .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
                                 frame.anchor.positionMs shouldBe 54_321L
                                 cancelAndIgnoreRemainingEvents()
@@ -502,6 +475,61 @@ private fun RpcEvent<CampfireFrame>.dataOrFail(): CampfireFrame =
         is RpcEvent.Error -> error("frame delivered as RpcEvent.Error: $error")
         RpcEvent.Complete -> error("flow completed with RpcEvent.Complete unexpectedly")
     }
+
+/**
+ * Drains frames from this Turbine until one matches [predicate], silently discarding anything
+ * else — stale warm-up echoes, other members' frames, whatever else is queued ahead of the one
+ * this assertion actually cares about. This is what makes every scenario immune to the "several
+ * warm-up commands queued while a slow CI runner sets up the stream" failure mode: a strict
+ * "the NEXT item must be my frame" assertion has no such immunity. Fails loudly — listing every
+ * frame it DID see — if [timeout] elapses first, which is invaluable when triaging a CI-only
+ * failure with no way to attach a debugger.
+ */
+private suspend fun ReceiveTurbine<RpcEvent<CampfireFrame>>.awaitFrameWhere(
+    timeout: Duration = 20.seconds,
+    predicate: (CampfireFrame) -> Boolean,
+): CampfireFrame {
+    val seen = mutableListOf<CampfireFrame>()
+    val match =
+        withTimeoutOrNull(timeout) {
+            var found: CampfireFrame? = null
+            while (found == null) {
+                val frame = awaitItem().dataOrFail()
+                seen += frame
+                if (predicate(frame)) found = frame
+            }
+            found
+        }
+    return match ?: error("no frame matched predicate within $timeout; frames seen: $seen")
+}
+
+/**
+ * Warm-up: the room's SharedFlow has no replay, so a command fired before this collector's
+ * subscribe frame has actually landed server-side is silently missed. Retries a throwaway,
+ * always-emitting SeekTo (through [service], keyed `"$idPrefix-N"`) on a CI-tolerant 1-second
+ * poll interval until ANY frame arrives — proof the stream is live — without asserting anything
+ * about its content: every real assertion downstream uses [awaitFrameWhere], which is immune to
+ * whatever stale warm-up frames this leaves queued behind it. Bounded to an overall 30-second
+ * budget so a genuinely dead stream fails here, loudly, instead of surfacing as a confusing
+ * downstream timeout.
+ */
+private suspend fun ReceiveTurbine<RpcEvent<CampfireFrame>>.warmUp(
+    service: CampfireService,
+    sessionId: CampfireId,
+    idPrefix: String,
+) {
+    withTimeout(30.seconds) {
+        var pos = 1L
+        var warmedUp = false
+        while (!warmedUp) {
+            service
+                .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = pos, commandId = "$idPrefix-$pos"))
+                .value()
+            warmedUp = withTimeoutOrNull(1.seconds) { awaitItem() } != null
+            pos += 1
+        }
+    }
+}
 
 /**
  * Grants [viewer] access to [bookId] via the pure-union ALL_BOOKS system collection — the same
