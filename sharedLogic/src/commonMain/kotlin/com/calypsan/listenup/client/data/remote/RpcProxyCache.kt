@@ -10,6 +10,7 @@ import io.ktor.client.HttpClient
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.sync.Mutex
@@ -138,30 +139,56 @@ internal class RpcProxyCache<T : Any>(
                     emit(it)
                 }
             } catch (e: Throwable) {
-                if (e is CancellationException && !currentCoroutineContext().isActive) throw e
+                if (e.isCallerCancellation()) throw e
                 invalidate(first.generation)
-                val canResubscribe =
-                    !emitted &&
-                        when {
-                            isWsHandshake401(e) -> authRecovery.refreshAndRebuild()
-                            isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> true
-                            else -> false
-                        }
-                if (!canResubscribe) {
-                    if (e is CancellationException) throw RpcOutcomeUnknownException(e)
-                    throw e
-                }
-                val second = lease()
-                try {
-                    subscribe(second.proxy).collect { emit(it) }
-                } catch (e2: Throwable) {
-                    val callerCancelled = e2 is CancellationException && !currentCoroutineContext().isActive
-                    if (!callerCancelled) invalidate(second.generation)
-                    if (e2 is CancellationException && !callerCancelled) throw RpcOutcomeUnknownException(e2)
-                    throw e2
-                }
+                if (!canResubscribeStream(e, emitted)) surfaceStreamFailure(e)
+                resubscribe(subscribe)
             }
         }
+
+    /** A cancellation whose collector is still active is the CALLER cancelling — re-raise it untouched. */
+    private suspend fun Throwable.isCallerCancellation(): Boolean =
+        this is CancellationException && !currentCoroutineContext().isActive
+
+    /**
+     * Whether a from-below streaming failure can be retried on a fresh lease: only when nothing was
+     * emitted yet AND the fault is provably pre-delivery (a refreshable handshake 401, a pre-delivery
+     * transport failure, or a dead-client ISE). Everything else is [surfaceStreamFailure]d.
+     */
+    private suspend fun canResubscribeStream(e: Throwable, emitted: Boolean): Boolean =
+        !emitted &&
+            when {
+                isWsHandshake401(e) -> authRecovery.refreshAndRebuild()
+                isPreDeliveryTransportFailure(e) || isDeadRpcClient(e) -> true
+                else -> false
+            }
+
+    /**
+     * Turn a non-resubscribable streaming failure into the right thrown signal — always throws.
+     * Caller-cancellation is already re-raised upstream, so a remaining from-below cancellation means
+     * the frame was sent and its outcome is unknown → a typed [RpcOutcomeUnknownException] value; any
+     * other fault re-raises for [RpcChannel.stream] to fold into a typed error.
+     */
+    private fun surfaceStreamFailure(e: Throwable): Nothing {
+        if (e is CancellationException) throw RpcOutcomeUnknownException(e)
+        throw e
+    }
+
+    /**
+     * The single at-most-once stream retry, on a FRESH lease so a herd converges on the one
+     * reconnected proxy. Its failure is terminal: a still-active caller cancellation re-raises plain
+     * (no invalidate); any other from-below cancellation becomes an outcome-unknown value.
+     */
+    private suspend fun <R> FlowCollector<R>.resubscribe(subscribe: suspend (T) -> Flow<R>) {
+        val second = lease()
+        try {
+            subscribe(second.proxy).collect { emit(it) }
+        } catch (e: Throwable) {
+            if (e.isCallerCancellation()) throw e
+            invalidate(second.generation)
+            surfaceStreamFailure(e)
+        }
+    }
 
     /**
      * Retry ONLY on provably pre-delivery signals; otherwise [surface] the failure. Kept separate
