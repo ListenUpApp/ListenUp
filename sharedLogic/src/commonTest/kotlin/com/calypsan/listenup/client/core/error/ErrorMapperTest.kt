@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.client.checkIs
 import com.calypsan.listenup.client.data.remote.ServerUrlNotConfiguredException
+import com.calypsan.listenup.client.data.remote.model.EnvelopeMismatchException
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -26,6 +27,28 @@ import kotlinx.serialization.SerializationException
  */
 class ErrorMapperTest :
     FunSpec({
+        // ========== EnvelopeMismatchException → TransportError.ContractMismatch ==========
+
+        test("map EnvelopeMismatchException returns ContractMismatch, not InternalError or AuthError") {
+            val exception = EnvelopeMismatchException("Envelope version mismatch. Expected v=1, got v=2.")
+            val error = ErrorMapper.map(exception)
+
+            val contractMismatch = error.shouldBeInstanceOf<TransportError.ContractMismatch>()
+            contractMismatch.message shouldBe "The app and server versions don't match."
+            contractMismatch.code shouldBe "TRANSPORT_CONTRACT_MISMATCH"
+            contractMismatch.isRetryable shouldBe false
+            contractMismatch.detail shouldBe "Envelope version mismatch. Expected v=1, got v=2."
+            contractMismatch.debugInfo shouldBe "Envelope version mismatch. Expected v=1, got v=2."
+        }
+
+        test("ContractMismatch is not retryable") {
+            val exception = EnvelopeMismatchException("Response missing 'v' field.")
+            val error = ErrorMapper.map(exception)
+
+            val contractMismatch = error.shouldBeInstanceOf<TransportError.ContractMismatch>()
+            contractMismatch.isRetryable shouldBe false
+        }
+
         // ========== SerializationException → TransportError.DataMalformed ==========
 
         test("map SerializationException returns DataMalformed") {
