@@ -108,6 +108,7 @@ BrowseGenreViewModel
 CachedAudioTokenProvider
 CachedUserProfile
 CampfireAnchor
+CampfireBookPickerViewModel
 CampfireControlMode
 CampfireCreateUiState
 CampfireId
@@ -229,6 +230,8 @@ EventStreamRepository
 FacetCount
 FacetKind
 FileSource
+FireColor
+FireGeometry
 FolderId
 Genre
 GenreId
