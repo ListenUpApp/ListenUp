@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.PushService
+import com.calypsan.listenup.api.ReadingOrderService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
@@ -131,6 +132,7 @@ internal fun Application.installAppRoutes(homeDir: Path) {
     val genreService by inject<GenreService>()
     val collectionService by inject<CollectionService>()
     val shelfService by inject<ShelfService>()
+    val readingOrderService by inject<ReadingOrderService>()
     val socialService by inject<SocialService>()
     val activityService by inject<ActivityService>()
     val profileService by inject<ProfileService>()
@@ -223,6 +225,7 @@ private fun Application.rpcServiceBundle(): RpcServices =
         genreService = koinGet<GenreService>(),
         collectionService = koinGet<CollectionService>(),
         shelfService = koinGet<ShelfService>(),
+        readingOrderService = koinGet<ReadingOrderService>(),
         socialService = koinGet<SocialService>(),
         activityService = koinGet<ActivityService>(),
         adminUserService = koinGet<AdminUserServiceImpl>(),

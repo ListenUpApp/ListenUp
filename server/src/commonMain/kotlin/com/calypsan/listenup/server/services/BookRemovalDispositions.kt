@@ -75,6 +75,7 @@ internal val bookIdTableDispositions: Map<String, RemovalDisposition> =
         "listening_events" to RemovalDisposition.USER_DATA,
         "activities" to RemovalDisposition.USER_DATA,
         "shelf_books" to RemovalDisposition.USER_DATA,
+        "reading_order_books" to RemovalDisposition.USER_DATA,
         "active_sessions" to RemovalDisposition.USER_DATA,
         // ── FTS5 search-index shadow (rowid↔book_id map) ──
         "book_search_map" to RemovalDisposition.SEARCH_SHADOW,
