@@ -32,6 +32,7 @@ internal fun syncDomainCatalog(
     authSession: AuthSession,
     avatarDownloadRepository: AvatarDownloadRepository,
     pingPresence: () -> Unit,
+    pingCampfires: () -> Unit,
     refetchServerInfo: suspend () -> Unit,
     refetchPreferences: suspend () -> Unit,
     documentStorage: DocumentStorage? = null,
@@ -75,6 +76,7 @@ internal fun syncDomainCatalog(
         refreshed =
             listOf(
                 presenceDomain(ping = pingPresence),
+                campfireDomain(ping = pingCampfires),
                 serverInfoDomain(refetch = refetchServerInfo),
                 preferencesDomain(refetch = refetchPreferences),
             ),

@@ -2,6 +2,9 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import app.cash.turbine.turbineScope
 import com.calypsan.listenup.client.TestData
+import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
+import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
@@ -33,6 +36,7 @@ import dev.mokkery.mock
 import dev.mokkery.verify.VerifyMode
 import dev.mokkery.verifySuspend
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -115,6 +119,12 @@ class BookDetailViewModelTest :
             val bookAvailability = FakeBookAvailability()
             val serverReachability = FakeServerReachability()
 
+            /** Per-book campfire flows a test can seed via [campfiresFor]; defaults to empty for every book. */
+            private val campfiresByBook = mutableMapOf<String, MutableStateFlow<List<OpenCampfireSummary>>>()
+
+            fun campfiresFor(bookId: String): MutableStateFlow<List<OpenCampfireSummary>> =
+                campfiresByBook.getOrPut(bookId) { MutableStateFlow(emptyList()) }
+
             fun setup() {
                 everySuspend { playbackPositionRepository.get(any<BookId>()) } returns AppResult.Success(null)
                 every { userRepository.observeCurrentUser() } returns flowOf(null)
@@ -140,6 +150,7 @@ class BookDetailViewModelTest :
                     bookAvailability = bookAvailability,
                     serverReachability = serverReachability,
                     documentRepository = documentRepository,
+                    campfiresForBook = { bookId -> campfiresFor(bookId) },
                 )
         }
 
@@ -243,6 +254,50 @@ class BookDetailViewModelTest :
                     val error = states.expectMostRecentItem() as BookDetailUiState.Error
                     error.message shouldBe "Book not found"
                     states.cancel()
+                }
+            }
+        }
+
+        // ========== Live Campfires (badge) Tests ==========
+
+        test("liveCampfires reflects the loaded book's open campfires and switches on book change") {
+            runTest {
+                // Given
+                val fixture = createTestFixture()
+                every { fixture.bookRepository.observeBookDetail(any()) } returns flowOf(TestData.bookDetail())
+                everySuspend { fixture.bookRepository.getChapters(any()) } returns emptyList()
+                val viewModel = fixture.build()
+
+                turbineScope {
+                    val liveCampfires = viewModel.liveCampfires.testIn(backgroundScope)
+                    liveCampfires.awaitItem().shouldBeEmpty() // initialValue, before any book is loaded
+
+                    // When - book-1 has an open campfire
+                    viewModel.loadBook("book-1")
+                    advanceUntilIdle()
+                    fixture.campfiresFor("book-1").value =
+                        listOf(
+                            OpenCampfireSummary(
+                                id = CampfireId("cf-1"),
+                                bookId = "book-1",
+                                hostUserId = "host-1",
+                                memberCount = 2,
+                                controlMode = CampfireControlMode.EVERYONE,
+                                inviteOnly = false,
+                            ),
+                        )
+                    advanceUntilIdle()
+
+                    // Then
+                    liveCampfires.expectMostRecentItem().map { it.id.value } shouldBe listOf("cf-1")
+
+                    // When - switching to a different book with no campfire
+                    viewModel.loadBook("book-2")
+                    advanceUntilIdle()
+
+                    // Then - the badge clears; the previous book's campfire flow is no longer observed
+                    liveCampfires.expectMostRecentItem().shouldBeEmpty()
+                    liveCampfires.cancel()
                 }
             }
         }

@@ -62,6 +62,7 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -85,6 +86,7 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -131,7 +133,7 @@ class SyncDomainCompletenessSpec :
         }
 
         test(
-            "refreshed tier claims exactly the three fold-candidate controls, distinct and disjoint from engine controls",
+            "refreshed tier claims exactly the four fold-candidate controls, distinct and disjoint from engine controls",
         ) {
             val db = createInMemoryTestDatabase()
             try {
@@ -143,6 +145,7 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -153,14 +156,16 @@ class SyncDomainCompletenessSpec :
                 // router's KClass map would silently drop one).
                 triggers.toSet() shouldHaveSize triggers.size
 
-                // Exactly the three fold-candidate refresh triggers. ActivityChanged was retired when
+                // Exactly the four fold-candidate refresh triggers. ActivityChanged was retired when
                 // `activities` was promoted to a Room-mirrored data domain (catch-up + live tail),
-                // so it is no longer a refreshed trigger.
+                // so it is no longer a refreshed trigger. CampfiresChanged joined once the client
+                // Campfire discovery surface (CampfireDiscoveryRepository) landed.
                 triggers.toSet() shouldBe
                     setOf(
                         SyncControl.ActiveSessionsChanged::class,
                         SyncControl.ServerInfoChanged::class,
                         SyncControl.PreferencesChanged::class,
+                        SyncControl.CampfiresChanged::class,
                     )
 
                 // Disjoint from the engine/lifecycle controls the dispatcher owns.
@@ -188,6 +193,7 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -205,10 +211,6 @@ class SyncDomainCompletenessSpec :
                         // it current, so no RefreshedDomain claims this control. It stays a sealed
                         // subtype for wire compatibility; owning it here keeps completeness exhaustive.
                         SyncControl.ActivityChanged::class,
-                        // Campfire discovery nudge (server-side Campfire). No client RefreshedDomain
-                        // claims it yet — the client Campfire surface arrives with the feature; until
-                        // then the dispatcher warn-drops it (SyncEventDispatcher's unclaimed-refresh arm).
-                        SyncControl.CampfiresChanged::class,
                     )
                 val refreshedTriggers = catalog.refreshed.map { it.trigger }
 
@@ -231,7 +233,7 @@ class SyncDomainCompletenessSpec :
             }
         }
 
-        test("presence is the only access-sensitive refreshed domain (refreshOnAccessChanged frozen to presence)") {
+        test("presence and campfires are the access-sensitive refreshed domains (refreshOnAccessChanged frozen)") {
             val db = createInMemoryTestDatabase()
             try {
                 val catalog =
@@ -242,19 +244,21 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
 
-                // The presence RPCs (currently-listening / book-readers) are ACL-filtered at read time,
-                // so an access change is a presence-visibility change — presence is the one refreshed
-                // domain the engine re-fires at the end of an AccessChanged reconcile. Server-info and
-                // preferences are access-insensitive. Adding/removing an access-sensitive refresh domain
-                // must be a conscious edit here, not a silent side effect.
+                // The presence RPCs (currently-listening / book-readers) and listOpenSessions are both
+                // ACL-filtered at read time, so an access change is a visibility change for both — the
+                // engine re-fires both refreshes at the end of an AccessChanged reconcile. Server-info
+                // and preferences are access-insensitive. Adding/removing an access-sensitive refresh
+                // domain must be a conscious edit here, not a silent side effect.
                 catalog.refreshed
                     .filter { it.refreshOnAccessChanged }
                     .map { it.trigger }
-                    .toSet() shouldBe setOf(SyncControl.ActiveSessionsChanged::class)
+                    .toSet() shouldBe
+                    setOf(SyncControl.ActiveSessionsChanged::class, SyncControl.CampfiresChanged::class)
             } finally {
                 db.close()
             }
@@ -271,6 +275,7 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )
@@ -304,6 +309,7 @@ class SyncDomainCompletenessSpec :
                         authSession = FakeAuthSession(userId = "spec-user"),
                         avatarDownloadRepository = StubAvatarDownloadRepository(),
                         pingPresence = {},
+                        pingCampfires = {},
                         refetchServerInfo = {},
                         refetchPreferences = {},
                     )

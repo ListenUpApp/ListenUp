@@ -81,6 +81,7 @@ private fun testCatalog(db: com.calypsan.listenup.client.data.local.db.ListenUpD
         authSession = FakeAuthSession(userId = "parity-user"),
         avatarDownloadRepository = StubAvatarDownloadRepository(),
         pingPresence = {},
+        pingCampfires = {},
         refetchServerInfo = {},
         refetchPreferences = {},
     )

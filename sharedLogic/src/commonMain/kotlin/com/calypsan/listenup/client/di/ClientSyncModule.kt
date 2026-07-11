@@ -25,6 +25,7 @@ import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
+import com.calypsan.listenup.client.data.sync.CampfireRefreshSignal
 import com.calypsan.listenup.client.data.sync.PresenceRefreshSignal
 import com.calypsan.listenup.client.data.sync.SseClient
 import com.calypsan.listenup.client.data.sync.SyncCatchUpClient
@@ -83,6 +84,7 @@ internal val clientSyncModule =
         single { ClientSyncDomainRegistry() }
         single { SyncEngineState() }
         single { PresenceRefreshSignal() }
+        single { CampfireRefreshSignal() }
         single<ServerReachability> {
             SseServerReachability(
                 engineState = get(),
@@ -273,6 +275,7 @@ internal val clientSyncModule =
                 // write-through side effects. These are the sole home of this wiring now — the
                 // dispatcher routes refresh controls via RefreshedDomainRouter.
                 pingPresence = { get<PresenceRefreshSignal>().ping() },
+                pingCampfires = { get<CampfireRefreshSignal>().ping() },
                 refetchServerInfo = {
                     val _ = get<InstanceRepository>().getServerInfo(forceRefresh = true)
                     // The admin push toggle rides this same refetch: toggle flips → ServerInfoChanged →

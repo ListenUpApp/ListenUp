@@ -53,6 +53,10 @@ import org.koin.test.verify.verify
  *  - [MetadataRepository] — owned by `bookModule`.
  *  - [GenreRepository] — owned by `genreTagModule`.
  *  - [MoodRepository] — owned by `genreTagModule`.
+ *
+ * The binding also injects `campfiresForBook: (String) -> Flow<List<OpenCampfireSummary>>` (closing
+ * over `CampfireDiscoveryRepository`, owned by `campfireClientModule`); `verify()` sees its erased
+ * function type, hence the [Function1] entry.
  */
 @OptIn(KoinExperimentalAPI::class)
 class BookPresentationModuleVerifyTest :
@@ -84,6 +88,7 @@ class BookPresentationModuleVerifyTest :
                         MetadataRepository::class,
                         GenreRepository::class,
                         MoodRepository::class,
+                        Function1::class,
                     ),
             )
         }

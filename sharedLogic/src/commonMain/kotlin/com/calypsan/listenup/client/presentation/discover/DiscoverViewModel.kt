@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
@@ -17,6 +18,7 @@ import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +57,7 @@ class DiscoverViewModel(
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
     private val errorBus: ErrorBus,
+    private val openCampfires: Flow<List<OpenCampfireSummary>>,
 ) : ViewModel() {
     init {
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
@@ -107,6 +110,21 @@ class DiscoverViewModel(
             coverBlurHash = book.coverBlurHash,
             displayName = user.displayName,
             startedAt = startedAtMs,
+        )
+
+    // === Live Campfires State ("Live now" row, from CampfireDiscoveryRepository) ===
+
+    /**
+     * Open campfires (co-listening sessions) the caller may currently discover — the Discover
+     * "Live now" row. Backed by `CampfireDiscoveryRepository.observeOpenSessions` (in-memory, no
+     * Room — see that repository's KDoc): fetches on subscribe and re-fetches on every
+     * `CampfireRefreshSignal` ping (the server's `CampfiresChanged` nudge).
+     */
+    val liveCampfiresState: StateFlow<List<OpenCampfireSummary>> =
+        openCampfires.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = emptyList(),
         )
 
     // === Discover Books State (Random Unstarted from Room) ===
