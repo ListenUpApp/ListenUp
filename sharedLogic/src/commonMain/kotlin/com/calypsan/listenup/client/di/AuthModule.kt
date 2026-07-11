@@ -1,9 +1,11 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
-import com.calypsan.listenup.client.data.remote.InviteRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorAuthRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorInviteRpcFactory
+import com.calypsan.listenup.api.AuthServiceAuthed
+import com.calypsan.listenup.api.AuthServicePublic
+import com.calypsan.listenup.api.InviteService
+import com.calypsan.listenup.api.InviteServicePublic
+import com.calypsan.listenup.client.data.remote.RpcPolicy
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.AuthRepositoryImpl
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.data.repository.InviteRepositoryImpl
@@ -24,7 +26,6 @@ import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
 private const val APP_SCOPE = "appScope"
@@ -36,7 +37,7 @@ private const val APP_SCOPE = "appScope"
  *
  * What lives here:
  *  - [AuthSession] / [AuthSessionStore] — token storage + auth-state flow.
- *  - [AuthRpcFactory] — kotlinx.rpc proxies for the split AuthService contracts.
+ *  - The four auth/invite `rpcChannel` singles — the split AuthService + InviteService contracts.
  *  - [AuthRepository] / [AuthRepositoryImpl] — the typed `AppResult` surface.
  *  - [RegistrationStatusStream] — SSE for "is my registration approved yet?".
  *  - The four auth use cases.
@@ -45,7 +46,7 @@ private const val APP_SCOPE = "appScope"
  *  - `ApiClientFactory` — bearer-equipped HttpClient consumed by every API,
  *    not just auth. Its refresh-callback `{ get<AuthRepository>() … }` resolves
  *    across module boundaries at runtime, which is standard Koin.
- *  - The public invite-claim vertical ([InviteRpcFactory] / [InviteRepository])
+ *  - The public invite-claim vertical (the InviteServicePublic channel / [InviteRepository])
  *    lives here because a successful claim calls `AuthSession.saveAuthTokens`,
  *    landing the user logged-in exactly like login does.
  */
@@ -81,31 +82,39 @@ internal val clientAuthModule: Module
                 )
             } bind AuthSession::class
 
-            // kotlinx.rpc proxies for AuthServicePublic + AuthServiceAuthed.
-            // Cached per mount; invalidated alongside ApiClientFactory whenever
-            // the underlying HttpClient is recycled (server URL change). The
-            // The `binds arrayOf(RemoteCache::class)` declaration registers these with the
-            // RpcCacheInvalidator sweep automatically via getAll().
-            single<AuthRpcFactory> {
-                KtorAuthRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
-                )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+            // The four auth/invite RPC channels — one line per service, no factory, no
+            // repository-side result fold. Each `rpcChannel` single joins the RpcCacheInvalidator
+            // sweep automatically (via its `binds RemoteCache`), so all four drop on logout / URL
+            // change with no call site remembering to list them.
+            //
+            // The Public/Authed split is the recursion firewall: the refresh primitive
+            // (AuthServicePublic.refreshSession) rides the Public channel, whose recovery is None —
+            // so a 401 during refresh can never trigger another refresh.
+            rpcChannel<AuthServicePublic>(RpcPolicy.Public)
+            rpcChannel<AuthServiceAuthed>()
+            rpcChannel<InviteServicePublic>(RpcPolicy.Public)
+            rpcChannel<InviteService>()
 
-            // Thin RPC adapter — translates contract calls into typed AppResult.
-            singleOf(::AuthRepositoryImpl) bind AuthRepository::class
-
-            // Contract-typed invite claim vertical. The RPC factory mounts the
-            // public InviteServicePublic proxy; the repository lands the user
-            // logged-in on a successful claim via AuthSession.saveAuthTokens.
-            single<InviteRpcFactory> {
-                KtorInviteRpcFactory(
-                    apiClientFactory = get(),
-                    serverConfig = get(),
+            // Thin RPC adapter — translates contract calls into typed AppResult over the two auth
+            // channels (public handshake vs bearer-gated session).
+            single<AuthRepository> {
+                AuthRepositoryImpl(
+                    authPublicChannel = rpcChannel(),
+                    authedChannel = rpcChannel(),
+                    authSession = get(),
                 )
-            } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-            singleOf(::InviteRepositoryImpl) bind InviteRepository::class
+            }
+
+            // Contract-typed invite claim vertical over the anonymous InviteServicePublic channel;
+            // the repository lands the user logged-in on a successful claim via AuthSession.saveAuthTokens.
+            single<InviteRepository> {
+                InviteRepositoryImpl(
+                    channel = rpcChannel(),
+                    authSession = get(),
+                    userRepository = get(),
+                    deviceInfoProvider = get(),
+                )
+            }
 
             // SSE stream for the pending-approval flow.
             singleOf(::RegistrationStatusStreamImpl) bind RegistrationStatusStream::class

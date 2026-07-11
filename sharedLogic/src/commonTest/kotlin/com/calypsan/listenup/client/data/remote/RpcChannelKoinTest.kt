@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.remote
 
+import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -31,6 +32,9 @@ class RpcChannelKoinTest :
                         single<RpcAuthRecovery> { RpcAuthRecovery.None }
                         rpcChannel<GenreService>()
                         rpcChannel<TagService>()
+                        // A Public-policy channel alongside the Authed ones: pins that Public + the
+                        // shared RpcAuthRecovery single construct together WITHOUT a Koin cycle.
+                        rpcChannel<AuthServicePublic>(RpcPolicy.Public)
                     },
                 )
             }.koin
@@ -53,6 +57,19 @@ class RpcChannelKoinTest :
             val sweep = koin.getAll<RemoteCache>()
             sweep shouldContain genre
             sweep shouldContain tag
+            koin.close()
+        }
+
+        // W7 firewall pin: a Public-policy channel resolves as its own distinct single, constructs
+        // without a Koin cycle (Public → RpcAuthRecovery.None, so no lazy AuthRepository chase at
+        // build), and still joins the RemoteCache invalidation sweep like every other channel.
+        test("a Public-policy channel resolves distinctly and joins the RemoteCache sweep") {
+            val koin = testKoin()
+            val public = koin.get<RpcChannel<AuthServicePublic>>(rpcChannelQualifier<AuthServicePublic>())
+            val genre = koin.get<RpcChannel<GenreService>>(rpcChannelQualifier<GenreService>())
+
+            (public === genre) shouldBe false
+            koin.getAll<RemoteCache>() shouldContain public
             koin.close()
         }
     })

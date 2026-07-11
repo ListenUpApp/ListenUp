@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettings
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
@@ -34,7 +35,7 @@ class AdminRepositoryImplSettingsTest :
             AdminRepositoryImpl(
                 adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
                 adminSettingsChannel = RpcChannel.forTest(svc),
-                inviteRpc = mock(),
+                inviteAdminChannel = RpcChannel.forTest(mock<InviteService>()),
                 libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = mock(),
                 adminUserRosterDao = mock(),

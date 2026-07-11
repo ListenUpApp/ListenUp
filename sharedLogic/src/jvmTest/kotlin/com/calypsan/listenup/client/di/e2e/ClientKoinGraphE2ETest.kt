@@ -13,7 +13,7 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.types.shouldBeInstanceOf
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.koin.core.annotation.KoinInternalApi
 import org.koin.core.definition.Kind
 
@@ -90,20 +90,24 @@ class ClientKoinGraphE2ETest :
             val invalidator = koin.get<RpcCacheInvalidator>()
             val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
 
-            // getAll<RemoteCache>() must return exactly 23: ApiClientFactory + 22 RPC dispatch caches
+            // getAll<RemoteCache>() must return exactly 25: ApiClientFactory + 24 RPC dispatch caches
             // (Ktor*RpcFactory implementations and RpcChannel<S> singles). This pins the count so a
             // silently-dropped `binds arrayOf(RemoteCache::class)` declaration causes an immediate test
             // failure before production code ever misses an invalidation.
-            // Note: 23 is the sharedModules count (no platform-only RemoteCache impls on JVM).
-            // The Profile/UserPreferences factory→channel retires are net-zero; the +1 over the prior
-            // 22 is the temporary PlaybackService channel that coexists with PlaybackRpcFactory until
-            // the download/playback consumers migrate off the factory in a later wave.
-            defaultInvalidator.caches shouldHaveSize 23
+            // Note: 25 is the sharedModules count (no platform-only RemoteCache impls on JVM).
+            // W7 retired the two dual-mount Auth/Invite factories (−2) in favour of four finer-grained
+            // channels — AuthServicePublic, AuthServiceAuthed, InviteServicePublic, InviteService (+4) —
+            // for a net +2 over the prior 23.
+            defaultInvalidator.caches shouldHaveSize 25
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 
         test("the DI-wired client graph authenticates against the live server") {
-            runTest {
+            // runBlocking (real wall-clock), not runTest: the auth repo now dispatches through
+            // RpcChannel, which bounds each call with withTimeout. That clock is virtual under
+            // runTest, which would auto-advance past the 15s bound before the real WebSocket
+            // handshake completes and spuriously time the setup/login out.
+            runBlocking {
                 val fixture = autoClose(DiWiredClientFixture.start())
                 val koin = fixture.koin.koin
 

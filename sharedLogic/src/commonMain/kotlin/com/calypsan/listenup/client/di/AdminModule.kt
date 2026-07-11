@@ -4,6 +4,7 @@ import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.ImportService
+import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
@@ -38,7 +39,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.remote.ApiClientFactory] — `networkModule`
  *  - [com.calypsan.listenup.client.domain.repository.ServerConfig] — `settingsModule`
  *  - [com.calypsan.listenup.core.error.ErrorBus] — `appCoreModule`
- *  - [com.calypsan.listenup.client.data.remote.InviteRpcFactory] — `clientAuthModule`
+ *  - The authed `InviteService` RPC channel — `clientAuthModule` (resolved via `rpcChannel<InviteService>()`)
  */
 internal val adminModule: Module =
     module {
@@ -73,11 +74,10 @@ internal val adminModule: Module =
             AdminRepositoryImpl(
                 adminUserChannel = rpcChannel(),
                 adminSettingsChannel = rpcChannel(),
-                inviteRpc = get(),
+                inviteAdminChannel = rpcChannel<InviteService>(),
                 libraryAdminChannel = rpcChannel(),
                 serverConfig = get(),
                 adminUserRosterDao = get(),
-                rpcCacheInvalidator = get(),
             )
         }
 

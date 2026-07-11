@@ -125,7 +125,7 @@ class AdminRepositoryImplUserTest :
             AdminRepositoryImpl(
                 adminUserChannel = RpcChannel.forTest(service),
                 adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
-                inviteRpc = mock<com.calypsan.listenup.client.data.remote.InviteRpcFactory>(),
+                inviteAdminChannel = RpcChannel.forTest(mock<com.calypsan.listenup.api.InviteService>()),
                 libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = mock<com.calypsan.listenup.client.domain.repository.ServerConfig>(),
                 adminUserRosterDao = mock(),

@@ -8,7 +8,9 @@ import com.calypsan.listenup.api.dto.auth.SessionSummary
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AuthRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.RpcPolicy
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.AuthSession as ClientAuthSession
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -28,27 +30,21 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 
 /**
- * Drives [AuthRepositoryImpl]'s session-management methods through a fake
- * [AuthRpcFactory] whose `authedService()` returns a mocked
- * [AuthServiceAuthed] — no network. Pins the thin delegation: each repo method
- * forwards to its authed-proxy counterpart and returns its result verbatim.
+ * Drives [AuthRepositoryImpl]'s session-management methods through an authed [RpcChannel] wrapping a
+ * mocked [AuthServiceAuthed] — no network. Pins the thin delegation: each repo method forwards to its
+ * authed-channel counterpart and returns its result verbatim. Handshake/session calls that don't
+ * touch the public channel get an unused Public channel over a bare mock.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class AuthRepositoryImplTest :
     FunSpec({
 
-        /** Fake factory: every call resolves to the supplied authed proxy. */
-        class FakeAuthRpcFactory(
-            private val authed: AuthServiceAuthed,
-        ) : AuthRpcFactory {
-            override suspend fun authedService(): AuthServiceAuthed = authed
-
-            override suspend fun publicService() = throw NotImplementedError()
-
-            override suspend fun invalidate() = Unit
-        }
-
-        fun repository(authed: AuthServiceAuthed): AuthRepositoryImpl = AuthRepositoryImpl(rpc = FakeAuthRpcFactory(authed), authSession = mock())
+        fun repository(authed: AuthServiceAuthed): AuthRepositoryImpl =
+            AuthRepositoryImpl(
+                authPublicChannel = RpcChannel.forTest(mock<AuthServicePublic>(), RpcPolicy.Public),
+                authedChannel = RpcChannel.forTest(authed),
+                authSession = mock(),
+            )
 
         test("listSessions delegates to the authed service") {
             runTest {
@@ -122,14 +118,8 @@ class AuthRepositoryImplTest :
 
                 val repo =
                     AuthRepositoryImpl(
-                        rpc =
-                            object : AuthRpcFactory {
-                                override suspend fun publicService(): AuthServicePublic = public
-
-                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
-
-                                override suspend fun invalidate() = Unit
-                            },
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                     )
 
@@ -158,14 +148,8 @@ class AuthRepositoryImplTest :
                 everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
                 val repo =
                     AuthRepositoryImpl(
-                        rpc =
-                            object : AuthRpcFactory {
-                                override suspend fun publicService(): AuthServicePublic = public
-
-                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
-
-                                override suspend fun invalidate() = Unit
-                            },
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                     )
 
@@ -185,14 +169,8 @@ class AuthRepositoryImplTest :
                 everySuspend { authSession.getRefreshToken() } returns RefreshToken("rt-0")
                 val repo =
                     AuthRepositoryImpl(
-                        rpc =
-                            object : AuthRpcFactory {
-                                override suspend fun publicService(): AuthServicePublic = public
-
-                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
-
-                                override suspend fun invalidate() = Unit
-                            },
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                     )
 

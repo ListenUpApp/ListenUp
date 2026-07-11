@@ -155,14 +155,8 @@ class TokenRefreshSingleFlightTest :
 
                 val repo =
                     AuthRepositoryImpl(
-                        rpc =
-                            object : AuthRpcFactory {
-                                override suspend fun publicService(): AuthServicePublic = public
-
-                                override suspend fun authedService(): AuthServiceAuthed = throw NotImplementedError()
-
-                                override suspend fun invalidate() = Unit
-                            },
+                        authPublicChannel = RpcChannel.forTest(public, RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
                         authSession = authSession,
                     )
 

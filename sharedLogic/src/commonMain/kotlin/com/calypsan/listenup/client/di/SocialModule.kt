@@ -35,7 +35,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.PresenceRefreshSignal] — `clientSyncModule`
  *  - [com.calypsan.listenup.client.data.sync.OfflineEditor] — `clientSyncModule`
- *  - [com.calypsan.listenup.client.data.remote.AuthRpcFactory] — `clientAuthModule`
+ *  - The `AuthServiceAuthed` RPC channel — `clientAuthModule` (resolved via `rpcChannel<AuthServiceAuthed>()`)
  *  - [com.calypsan.listenup.client.domain.repository.PlaybackPositionRepository] — `listeningModule`
  */
 internal val socialModule: Module =
@@ -62,9 +62,11 @@ internal val socialModule: Module =
             )
         }
 
-        // UserRepository for current user profile data (SOLID: interface in domain, impl in data)
+        // UserRepository for current user profile data (SOLID: interface in domain, impl in data).
+        // Refreshes the current user over the bearer-gated AuthServiceAuthed channel owned by
+        // clientAuthModule.
         single<UserRepository> {
-            UserRepositoryImpl(userDao = get(), authRpcFactory = get())
+            UserRepositoryImpl(userDao = get(), authedChannel = rpcChannel())
         }
 
         // UserProfileRepository resolves EVERY user's avatar profile (self + others) from the

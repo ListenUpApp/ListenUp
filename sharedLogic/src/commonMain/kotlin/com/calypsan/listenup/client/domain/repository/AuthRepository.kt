@@ -16,8 +16,8 @@ import com.calypsan.listenup.api.result.AppResult
  * / `AppResult<RegisterResult>` out — so callers exhaustively `when` over
  * `AuthError` instead of catching exceptions.
  *
- * Implementations route through `AuthRpcFactory`. Token persistence is a
- * caller concern: this port does not mutate `AuthSession` state.
+ * Implementations route through the split auth RPC channels (public + authed).
+ * Token persistence is a caller concern: this port does not mutate `AuthSession` state.
  *
  * Note: `checkRegistrationStatus(userId)` is intentionally absent. It was
  * the REST-era polling fallback for "is my registration approved yet?" —

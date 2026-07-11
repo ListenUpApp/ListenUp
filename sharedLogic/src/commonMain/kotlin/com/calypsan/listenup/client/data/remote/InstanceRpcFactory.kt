@@ -18,7 +18,7 @@ import kotlinx.rpc.withService
  * Supplies an [InstanceService] kotlinx.rpc proxy for pre-authentication server
  * verification.
  *
- * Unlike the post-login factories ([AuthRpcFactory], …) this
+ * Unlike the post-login RPC channels (auth, invite, …) this
  * one does **not** reuse [ApiClientFactory] or read [ServerConfig]: verification
  * runs before any server URL is saved, and `ApiClientFactory.getClient()` errors
  * when no active URL is configured. So the proxy is built per call against an

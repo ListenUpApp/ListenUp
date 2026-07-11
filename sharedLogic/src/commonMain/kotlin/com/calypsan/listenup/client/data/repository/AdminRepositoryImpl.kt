@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
@@ -10,7 +11,6 @@ import com.calypsan.listenup.api.dto.auth.RegistrationPolicy
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserPermissions
 import com.calypsan.listenup.api.dto.auth.UserRole
-import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.flatMap
 import com.calypsan.listenup.api.result.map
@@ -21,8 +21,6 @@ import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.client.data.local.db.AdminUserRosterDao
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
-import com.calypsan.listenup.client.data.remote.InviteRpcFactory
-import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -33,7 +31,6 @@ import com.calypsan.listenup.client.domain.model.ServerSettings
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -42,15 +39,13 @@ private val logger = KotlinLogging.logger {}
 /**
  * Implementation of AdminRepository backed entirely by Kotlin RPC services.
  *
- * All methods return [AppResult] — no exceptions are thrown. The three admin services dispatch
- * through their [RpcChannel], which folds transport faults into typed [AppResult.Failure]s, re-raises
- * cancellation, and self-heals its own connection. The invite surface still rides the
- * [InviteRpcFactory] seam, so its calls are wrapped by the [catching] helper that converts a
- * transport-level exception into an [AppResult.Failure] and drops the RPC caches.
+ * All methods return [AppResult] — no exceptions are thrown. Every RPC surface (user, settings,
+ * library, and now invite) dispatches through its own [RpcChannel], which folds transport faults into
+ * typed [AppResult.Failure]s, re-raises cancellation, and self-heals its own connection.
  *
  * @property adminUserChannel Dispatches the [com.calypsan.listenup.api.AdminUserService] user-management RPC.
  * @property adminSettingsChannel Dispatches the [com.calypsan.listenup.api.AdminSettingsService] server-identity RPC.
- * @property inviteRpc RPC factory for invite-management operations
+ * @property inviteAdminChannel Dispatches the authed [com.calypsan.listenup.api.InviteService] invite-management RPC.
  * @property libraryAdminChannel Dispatches the [com.calypsan.listenup.api.LibraryAdminService] library-admin RPC.
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  * @property adminUserRosterDao Room DAO for the synced `admin_user_roster` sync domain, backing
@@ -59,16 +54,10 @@ private val logger = KotlinLogging.logger {}
 internal class AdminRepositoryImpl(
     private val adminUserChannel: RpcChannel<AdminUserService>,
     private val adminSettingsChannel: RpcChannel<AdminSettingsService>,
-    private val inviteRpc: InviteRpcFactory,
+    private val inviteAdminChannel: RpcChannel<InviteService>,
     private val libraryAdminChannel: RpcChannel<LibraryAdminService>,
     private val serverConfig: ServerConfig,
     private val adminUserRosterDao: AdminUserRosterDao,
-    private val rpcCacheInvalidator: RpcCacheInvalidator =
-        object : RpcCacheInvalidator {
-            override suspend fun invalidateAll() = Unit
-
-            override suspend fun invalidateRequestCaches() = Unit
-        },
 ) : AdminRepository {
     // ═══════════════════════════════════════════════════════════════════════
     // USER MANAGEMENT
@@ -133,59 +122,28 @@ internal class AdminRepositoryImpl(
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
         adminUserChannel.call { it.getRegistrationPolicy() }
 
-    /**
-     * Catches transport-level exceptions from the invite RPC calls and converts them to
-     * [AppResult.Failure], preserving the [AppResult] contract. [CancellationException]
-     * is always re-thrown per kotlinx.coroutines convention.
-     *
-     * This is required because [InviteRpcFactory.adminService] opens a WebSocket connection
-     * on first use; if authentication fails (HTTP 401 during the WS upgrade), the RPC
-     * library throws [io.ktor.client.plugins.websocket.WebSocketException] rather than
-     * returning an error response. Without this boundary the exception escapes into the
-     * caller's coroutine as an unhandled exception. The migrated admin services get the same
-     * guarantee from their [RpcChannel] instead.
-     */
-    private suspend inline fun <T> catching(
-        op: String,
-        block: () -> AppResult<T>,
-    ): AppResult<T> =
-        try {
-            block()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            // An exception reaching this catch is a transport-level failure (the data layer returns
-            // typed failures rather than raising them). The cached kotlinx.rpc proxy is likely bound
-            // to a dead/cancelled RpcClient after a reconnect to the same server — so drop the caches
-            // now and the next call (or a screen re-entry) rebinds to the live connection instead of
-            // stranding the user until app restart. No auto-retry: this path also wraps
-            // non-idempotent writes, so re-firing the same call could double-apply.
-            logger.warn(e) { "admin RPC $op failed at the transport boundary; invalidating RPC caches" }
-            rpcCacheInvalidator.invalidateAll()
-            AppResult.Failure(InternalError())
-        }
-
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
-    override suspend fun getInvites(): AppResult<List<InviteInfo>> =
-        catching("getInvites") {
-            val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
-            val remoteUrl = inviteRemoteUrl(serverUrl)
-            inviteRpc.adminService().listInvites().map { list -> list.map { it.toInviteInfo(serverUrl, remoteUrl) } }
-        }
+    override suspend fun getInvites(): AppResult<List<InviteInfo>> {
+        val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
+        val remoteUrl = inviteRemoteUrl(serverUrl)
+        return inviteAdminChannel
+            .call { it.listInvites() }
+            .map { list -> list.map { it.toInviteInfo(serverUrl, remoteUrl) } }
+    }
 
     override suspend fun createInvite(
         email: String,
         role: String,
         expiresInDays: Int,
-    ): AppResult<InviteInfo> =
-        catching("createInvite") {
-            val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
-            inviteRpc
-                .adminService()
-                .createInvite(
+    ): AppResult<InviteInfo> {
+        val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
+        val remoteUrl = inviteRemoteUrl(serverUrl)
+        return inviteAdminChannel
+            .call {
+                it.createInvite(
                     email = email,
                     // The admin no longer names the invitee — they choose a display name when they
                     // claim. The email's local part is a non-blank placeholder that satisfies the
@@ -193,8 +151,9 @@ internal class AdminRepositoryImpl(
                     displayName = email.substringBefore('@'),
                     role = role.toInviteRole(),
                     expiresInDays = expiresInDays,
-                ).map { it.toInviteInfo(serverUrl, inviteRemoteUrl(serverUrl)) }
-        }
+                )
+            }.map { it.toInviteInfo(serverUrl, remoteUrl) }
+    }
 
     /**
      * The operator-set remote (WAN) URL to embed alongside the local [serverUrl] in an invite link,
@@ -205,7 +164,7 @@ internal class AdminRepositoryImpl(
         serverConfig.getRemoteUrl()?.value?.takeIf { it.isNotBlank() && it != serverUrl }
 
     override suspend fun deleteInvite(inviteId: String): AppResult<Unit> =
-        catching("deleteInvite") { inviteRpc.adminService().revokeInvite(InviteId(inviteId)) }
+        inviteAdminChannel.call { it.revokeInvite(InviteId(inviteId)) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // SERVER SETTINGS

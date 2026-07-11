@@ -344,9 +344,8 @@ internal class KtorApiClientFactory(
         // `ws://`/`wss://`, and rewriting the protocol/host/port between the
         // upgrade-builder set-up and the actual handshake corrupts the request
         // (e.g. the WebSockets plugin builds an Upgrade headers preflight that
-        // the rewrite invalidates). RPC callers pin the URL themselves via
-        // `AuthRpcFactory.rpcBaseUrl()`; HTTP fallback doesn't apply to a live
-        // WebSocket transport anyway.
+        // the rewrite invalidates). RPC callers pin the URL themselves at the
+        // channel mount; HTTP fallback doesn't apply to a live WebSocket transport anyway.
         client.plugin(HttpSend).intercept { request ->
             if (request.url.protocol == URLProtocol.WS || request.url.protocol == URLProtocol.WSS) {
                 return@intercept execute(request)

@@ -1,7 +1,6 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.InviteService
-import com.calypsan.listenup.api.InviteServicePublic
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.invite.InviteDto
 import com.calypsan.listenup.api.dto.invite.InviteId
@@ -10,15 +9,17 @@ import com.calypsan.listenup.api.dto.invite.InviteStatus
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.LibraryAdminService
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.data.remote.forTestScripted
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -77,16 +78,6 @@ private class FakeInviteService : InviteService {
     }
 }
 
-private class FakeInviteRpcFactory(
-    private val service: FakeInviteService,
-) : InviteRpcFactory {
-    override suspend fun publicService(): InviteServicePublic = error("unused in admin invite tests")
-
-    override suspend fun adminService(): InviteService = service
-
-    override suspend fun invalidate() = Unit
-}
-
 private class FakeServerConfig(
     private val url: String = "https://srv.example",
 ) : ServerConfig {
@@ -131,7 +122,7 @@ class AdminRepositoryImplInviteTest :
             AdminRepositoryImpl(
                 adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
                 adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
-                inviteRpc = FakeInviteRpcFactory(service),
+                inviteAdminChannel = RpcChannel.forTest(service),
                 libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = FakeServerConfig(serverUrl),
                 adminUserRosterDao = mock(),
@@ -221,25 +212,26 @@ class AdminRepositoryImplInviteTest :
             service.revokedIds shouldBe listOf("inv1")
         }
 
-        test("a transport exception from the invite RPC factory becomes AppResult.Failure, not a throw") {
-            val throwingFactory =
-                object : InviteRpcFactory {
-                    override suspend fun publicService(): InviteServicePublic = error("unused")
-
-                    override suspend fun adminService(): InviteService = throw IllegalStateException("simulated WS 401")
-
-                    override suspend fun invalidate() = Unit
-                }
+        // The invite path now folds through the RpcChannel, not the deleted `catching` helper: a
+        // transport fault surfaces as the TYPED error ErrorMapper produces, not a blanket
+        // InternalError. Here a dropped socket (IOException) surfaces as NetworkUnavailable.
+        test("a transport fault on the invite channel folds to a typed AppResult.Failure, not a throw") {
             val repo =
                 AdminRepositoryImpl(
                     adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
                     adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
-                    inviteRpc = throwingFactory,
+                    inviteAdminChannel =
+                        RpcChannel.forTestScripted(
+                            mock<InviteService>(),
+                            faults = listOf(kotlinx.io.IOException("simulated socket drop")),
+                        ),
                     libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                     serverConfig = FakeServerConfig(),
                     adminUserRosterDao = mock(),
                 )
 
-            (repo.getInvites() is AppResult.Failure) shouldBe true
+            val result = repo.getInvites()
+
+            result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<TransportError.NetworkUnavailable>()
         }
     })

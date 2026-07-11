@@ -28,7 +28,7 @@ internal val networkModule: Module =
         //
         // The refreshAccessToken seam is a lambda that resolves AuthRepository LAZILY at
         // refresh time, breaking the construction-time cycle:
-        //   AuthRepositoryImpl(rpc=AuthRpcFactory(apiClientFactory=ApiClientFactory(...)))
+        //   AuthRepositoryImpl(authPublicChannel=RpcChannel(RpcProxyCache(apiClientFactory=ApiClientFactory(...))))
         // If we passed `authRepository = get()` here Koin would recurse during graph
         // construction. The lambda body executes on 401, by which time all three singletons
         // are constructed.
@@ -40,9 +40,10 @@ internal val networkModule: Module =
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 
-        // RpcAuthRecovery — single-flight token refresh + request-client rebuild for the authed RPC
-        // factories (Shelf/Collection/Playback). Injected into their RpcProxyCache so a handshake-401
-        // heals with one refresh + one retry. Same lazy AuthRepository seam as ApiClientFactory above.
+        // RpcAuthRecovery — single-flight token refresh + request-client rebuild for every authed RPC
+        // channel. Injected into their RpcProxyCache so a handshake-401 heals with one refresh + one
+        // retry. Same lazy AuthRepository seam as ApiClientFactory above. Public channels bypass this
+        // entirely (recovery = None), which is what stops a refresh-triggered 401 from recursing.
         single<RpcAuthRecovery> {
             RpcAuthRecoveryImpl(
                 authSession = get(),
@@ -51,9 +52,9 @@ internal val networkModule: Module =
             )
         }
 
-        // AuthRpcFactory is provided by clientAuthModule. It still needs to be
-        // invalidated alongside ApiClientFactory whenever the underlying HttpClient
-        // is recycled — see the ServerRepository binding's URL-change listener.
+        // The auth/invite RPC channels are provided by clientAuthModule. They still need to be
+        // invalidated alongside ApiClientFactory whenever the underlying HttpClient is recycled —
+        // see the ServerRepository binding's URL-change listener.
 
         // ListenUpApi - main API for server communication
         // Uses default base URL initially; can be recreated when server URL changes

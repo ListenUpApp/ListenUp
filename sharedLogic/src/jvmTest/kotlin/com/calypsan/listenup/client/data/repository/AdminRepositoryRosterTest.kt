@@ -2,9 +2,9 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.AdminSettingsService
 import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.InviteService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.data.local.db.AdminUserRosterEntity
-import com.calypsan.listenup.client.data.remote.InviteRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
@@ -58,7 +58,7 @@ class AdminRepositoryRosterTest :
                         AdminRepositoryImpl(
                             adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
                             adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
-                            inviteRpc = mock<InviteRpcFactory>(),
+                            inviteAdminChannel = RpcChannel.forTest(mock<InviteService>()),
                             libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                             serverConfig = mock<ServerConfig>(),
                             adminUserRosterDao = db.adminUserRosterDao(),
