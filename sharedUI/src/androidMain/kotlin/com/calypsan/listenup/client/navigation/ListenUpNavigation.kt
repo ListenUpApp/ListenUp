@@ -759,6 +759,7 @@ private fun authenticatedNavEntries(
         currentShellDestination = currentShellDestination,
         onDestinationChange = onShellDestinationChange,
         nowPlayingViewModel = nowPlayingViewModel,
+        campfireViewModel = campfireViewModel,
         readiness = readiness,
         onSignOut = onSignOut,
         onContinueToPartialLibrary = startupViewModel::onContinueToPartialLibrary,

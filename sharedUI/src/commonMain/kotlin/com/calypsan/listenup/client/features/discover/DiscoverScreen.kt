@@ -57,6 +57,7 @@ import com.calypsan.listenup.client.features.shell.ShellDestination
 import com.calypsan.listenup.client.features.shell.components.AppHeaderSlot
 import com.calypsan.listenup.client.presentation.books.BookMultiSelectViewModel
 import com.calypsan.listenup.client.presentation.books.SelectionMode
+import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelfUi
 import com.calypsan.listenup.client.presentation.discover.DiscoverShelvesUiState
 import com.calypsan.listenup.client.presentation.discover.DiscoverUserShelves
@@ -87,6 +88,8 @@ fun DiscoverScreen(
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
+    campfireViewModel: CampfireViewModel,
+    onStartCampfireForBook: (bookId: String) -> Unit,
     contentPadding: PaddingValues = PaddingValues(),
     modifier: Modifier = Modifier,
     viewModel: DiscoverViewModel = koinViewModel(),
@@ -132,6 +135,8 @@ fun DiscoverScreen(
                     if (isInSelectionMode) multiSelect.toggleSelection(id) else onBookClick(id)
                 },
                 onUserProfileClick = onUserProfileClick,
+                campfireViewModel = campfireViewModel,
+                onStartCampfireForBook = onStartCampfireForBook,
                 isInSelectionMode = isInSelectionMode,
                 selectedBookIds = selectedBookIds,
                 onBookLongPress = multiSelect::enterSelectionMode,
@@ -195,6 +200,8 @@ private fun DiscoverContent(
     onShelfClick: (String) -> Unit,
     onBookClick: (String) -> Unit,
     onUserProfileClick: (String) -> Unit,
+    campfireViewModel: CampfireViewModel,
+    onStartCampfireForBook: (bookId: String) -> Unit,
     isInSelectionMode: Boolean = false,
     selectedBookIds: Set<String> = emptySet(),
     onBookLongPress: ((String) -> Unit)? = null,
@@ -226,9 +233,14 @@ private fun DiscoverContent(
             }
         }
 
-        // Live now - open Campfire (co-listening) sessions. Renders nothing while empty.
+        // Campfires - join an open co-listening session directly, or start a new one. Always
+        // shown (unlike the other sections here) so the create entry point is discoverable from
+        // Discover, not buried behind a book's overflow menu.
         item {
-            LiveCampfiresSection(onBookClick = onBookClick)
+            LiveCampfiresSection(
+                campfireViewModel = campfireViewModel,
+                onStartCampfire = onStartCampfireForBook,
+            )
         }
 
         // Discover Something New - random book discovery (top section)
