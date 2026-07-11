@@ -28,7 +28,7 @@ import kotlinx.coroutines.flow.Flow
  * and apply; call sites convert it to hot state with `.stateIn(scope)` as needed.
  *
  * Implementations back this contract with the [com.calypsan.listenup.api.ImportService]
- * RPC proxy via [com.calypsan.listenup.client.data.remote.ImportRpcFactory].
+ * RPC channel ([com.calypsan.listenup.client.data.remote.RpcChannel]).
  */
 interface ImportRepository {
     /**

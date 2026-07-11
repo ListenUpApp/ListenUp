@@ -49,14 +49,8 @@ class RpcCallsRouteThroughCallResultRule :
  * factory's `callResult`. Each migrates when its domain is re-touched; removing a file from this set
  * is the explicit signal that its migration has shipped. Adding a new entry should never be
  * necessary — new repos call `factory.callResult { it.method() }` from day one.
- *
- * Legitimately-excluded shapes stay here on purpose, not as debt:
- * - **Long-running RPCs** (`BackupRepositoryImpl`, `ImportRepositoryImpl`) — backup/restore/import
- *   run far past `callResult`'s 15s bound; they need bespoke timeouts, so they own their fold.
  */
 private val RESIDUAL_HANDROLLED_RPC_ALLOWLIST: Set<String> =
     setOf(
-        "/data/repository/BackupRepositoryImpl.kt",
-        "/data/repository/ImportRepositoryImpl.kt",
         "/data/repository/ProfileEditRepositoryImpl.kt",
     )

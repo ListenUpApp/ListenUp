@@ -12,8 +12,8 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
-import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.ImportRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.AbsItemId
 import com.calypsan.listenup.core.AbsUserId
@@ -66,19 +66,10 @@ class ImportRepositoryImplTest :
 
         fun stubResult() = ImportResult(importedCount = 8, booksNotInLibrary = 3, perUser = emptyMap())
 
-        /** Minimal factory that always returns the supplied [ImportService] mock. */
-        class FakeImportRpcFactory(
-            private val service: ImportService,
-        ) : ImportRpcFactory {
-            override suspend fun get(): ImportService = service
-
-            override suspend fun invalidate() = Unit
-        }
-
         /** upload is not under test here — a relaxed ApiClientFactory mock stands in. */
         fun buildRepo(service: ImportService): ImportRepositoryImpl =
             ImportRepositoryImpl(
-                rpcFactory = FakeImportRpcFactory(service),
+                channel = RpcChannel.forTest(service),
                 clientFactory = mock(MockMode.autofill),
             )
 
