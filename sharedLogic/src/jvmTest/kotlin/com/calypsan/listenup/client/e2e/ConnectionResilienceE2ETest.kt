@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.e2e
 
+import com.calypsan.listenup.api.EXPECTED_API_VERSION
 import com.calypsan.listenup.api.VersionHeaders
 import com.calypsan.listenup.api.dto.auth.LoginRequest
 import com.calypsan.listenup.api.dto.auth.RegisterRequest
@@ -8,6 +9,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.di.e2e.DiWiredClientFixture
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.version.DefaultClientIdentity
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -53,22 +55,27 @@ class ConnectionResilienceE2ETest :
                 val apiClientFactory = koin.get<ApiClientFactory>()
                 val response = apiClientFactory.getClient().get("/api/v1/instance")
 
+                // Client and server both derive their version from the same repo-root VERSION file,
+                // so the server's reported version equals this build's DefaultClientIdentity.version.
+                // Referencing it (not a literal) keeps this green across VERSION bumps on main.
+                val appVersion = DefaultClientIdentity.version
+
                 // CLIENT → SERVER: KtorApiClientFactory.createClient()'s defaultRequest block
                 // attaches X-Client-Version/X-Client-Api to every request. Asserted here on the
                 // actual materialized request Ktor sent (HttpResponse.request), not a
                 // reconstruction.
-                response.request.headers[VersionHeaders.CLIENT_VERSION] shouldBe "0.6.0"
-                response.request.headers[VersionHeaders.CLIENT_API] shouldBe "v1"
+                response.request.headers[VersionHeaders.CLIENT_VERSION] shouldBe appVersion
+                response.request.headers[VersionHeaders.CLIENT_API] shouldBe EXPECTED_API_VERSION
 
                 // SERVER → CLIENT: installVersionHeaders() stamped X-Server-Version/X-Server-Api
                 // on the real response.
-                response.headers[VersionHeaders.SERVER_VERSION] shouldBe "0.6.0"
-                response.headers[VersionHeaders.SERVER_API] shouldBe "v1"
+                response.headers[VersionHeaders.SERVER_VERSION] shouldBe appVersion
+                response.headers[VersionHeaders.SERVER_API] shouldBe EXPECTED_API_VERSION
 
                 // The real payoff of the Task 8-12 arc: installPeerVersionCapture read those
                 // response headers off and onPeerVersion persisted them into LocalPreferences.
-                localPreferences.peerServerVersion.value shouldBe "0.6.0"
-                localPreferences.peerServerApi.value shouldBe "v1"
+                localPreferences.peerServerVersion.value shouldBe appVersion
+                localPreferences.peerServerApi.value shouldBe EXPECTED_API_VERSION
             }
         }
 
@@ -96,8 +103,8 @@ class ConnectionResilienceE2ETest :
 
                 // The RPC WebSocket upgrade response also carries X-Server-Version/X-Server-Api,
                 // and installPeerVersionCapture persists them the same way as a plain REST call.
-                localPreferences.peerServerVersion.value shouldBe "0.6.0"
-                localPreferences.peerServerApi.value shouldBe "v1"
+                localPreferences.peerServerVersion.value shouldBe DefaultClientIdentity.version
+                localPreferences.peerServerApi.value shouldBe EXPECTED_API_VERSION
             }
         }
     })

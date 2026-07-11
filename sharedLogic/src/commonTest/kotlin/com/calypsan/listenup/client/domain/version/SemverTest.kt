@@ -41,4 +41,12 @@ class SemverTest :
         test("empty input parses to null") {
             Semver.parseOrNull("") shouldBe null
         }
+
+        test("a non-numeric middle segment parses to null (no silent positional shift)") {
+            Semver.parseOrNull("1.x.3") shouldBe null
+        }
+
+        test("too few segments parse to null") {
+            Semver.parseOrNull("1.2") shouldBe null
+        }
     })
