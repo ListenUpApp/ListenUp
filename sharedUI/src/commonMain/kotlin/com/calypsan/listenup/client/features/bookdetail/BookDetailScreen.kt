@@ -60,8 +60,11 @@ import com.calypsan.listenup.client.features.library.CollectionPickerSheet
 import com.calypsan.listenup.client.features.library.ShelfPickerSheet
 import com.calypsan.listenup.client.features.bookdetail.components.AboutSection
 import com.calypsan.listenup.client.features.bookdetail.components.BookDetailTopBar
-import com.calypsan.listenup.client.features.bookdetail.components.CampfireBookSheet
 import com.calypsan.listenup.client.features.bookdetail.components.CampfireEntryPoint
+import com.calypsan.listenup.client.features.campfire.CampfireCreateDraft
+import com.calypsan.listenup.client.features.campfire.CampfireCreateScreen
+import com.calypsan.listenup.client.features.campfire.CampfireFlowBook
+import com.calypsan.listenup.client.features.campfire.CampfireInviteScreen
 import com.calypsan.listenup.client.features.bookdetail.components.BookReadersSection
 import com.calypsan.listenup.client.features.bookdetail.components.ChapterListItem
 import com.calypsan.listenup.client.features.bookdetail.components.ChaptersHeader
@@ -78,6 +81,7 @@ import com.calypsan.listenup.client.domain.model.BookDocument
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailNavAction
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailUiState
 import com.calypsan.listenup.client.presentation.bookdetail.BookDetailViewModel
+import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -194,6 +198,26 @@ fun BookDetailScreen(
 }
 
 /**
+ * Local pre-session state for the full-screen Campfire Create → Invite flow (co-listening design
+ * spec's 2026-07-11 lobby amendment, task L3) — replaces the Task-10 `CampfireBookSheet`. Scoped to
+ * [BookDetailReadyContent] because both screens render before any session exists (before
+ * `CampfireViewModel.createCampfire` is called); once a session exists, the persistent
+ * Lobby/Room experience takes over inside `NowPlayingHost`, independent of this screen's lifetime.
+ */
+private sealed interface CampfireFlowStep {
+    /** No create/invite flow in progress. */
+    data object None : CampfireFlowStep
+
+    /** Screen 1 — gathering name/privacy/control-mode settings. */
+    data object Create : CampfireFlowStep
+
+    /** Screen 2 — gathering invitees; [draft] carries what Screen 1 gathered. */
+    data class Invite(
+        val draft: CampfireCreateDraft,
+    ) : CampfireFlowStep
+}
+
+/**
  * Ready-state host for [BookDetailScreen]. Holds screen-scoped state
  * (dialogs) and delegates layout to [BookDetailContent].
  *
@@ -225,7 +249,7 @@ private fun BookDetailReadyContent(
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showMarkCompleteDialog by remember { mutableStateOf(false) }
-    var showCampfireSheet by remember { mutableStateOf(false) }
+    var campfireFlowStep by remember { mutableStateOf<CampfireFlowStep>(CampfireFlowStep.None) }
 
     // Callback for opening metadata search
     val onFindMetadataClick: () -> Unit = {
@@ -312,7 +336,7 @@ private fun BookDetailReadyContent(
 
         CampfireEntryPoint(
             liveMemberCount = liveCampfires.sumOf { it.memberCount },
-            onClick = { showCampfireSheet = true },
+            onClick = { campfireFlowStep = CampfireFlowStep.Create },
             modifier =
                 Modifier
                     .align(Alignment.TopEnd)
@@ -321,27 +345,58 @@ private fun BookDetailReadyContent(
         )
     }
 
-    if (showCampfireSheet) {
-        val createState by campfireViewModel.createState.collectAsStateWithLifecycle()
-        val inviteState by campfireViewModel.inviteState.collectAsStateWithLifecycle()
+    when (val step = campfireFlowStep) {
+        CampfireFlowStep.None -> {}
 
-        CampfireBookSheet(
-            liveCampfires = liveCampfires,
-            createState = createState,
-            inviteState = inviteState,
-            onJoin = { sessionId ->
-                platformActions.playBook(BookId(bookId))
-                campfireViewModel.join(sessionId)
-                showCampfireSheet = false
-            },
-            onCreate = { settings ->
-                platformActions.playBook(BookId(bookId))
-                campfireViewModel.createCampfire(bookId, settings)
-                showCampfireSheet = false
-            },
-            onLoadInvitableUsers = { campfireViewModel.listInvitableUsers(bookId) },
-            onDismiss = { showCampfireSheet = false },
-        )
+        CampfireFlowStep.Create -> {
+            val hostDisplayName by campfireViewModel.hostDisplayName.collectAsStateWithLifecycle()
+            CampfireCreateScreen(
+                book =
+                    CampfireFlowBook(
+                        bookId = bookId,
+                        title = book.title,
+                        subtitle =
+                            book.narrators
+                                .joinToString(", ") { it.name }
+                                .ifBlank { book.authors.joinToString(", ") { it.name } },
+                        coverPath = book.coverPath,
+                        coverHash = book.coverHash,
+                        coverBlurHash = book.coverBlurHash,
+                    ),
+                hostDisplayName = hostDisplayName,
+                liveCampfires = liveCampfires,
+                onJoin = { sessionId ->
+                    platformActions.playBook(BookId(bookId))
+                    campfireViewModel.join(sessionId)
+                    campfireFlowStep = CampfireFlowStep.None
+                },
+                onBack = { campfireFlowStep = CampfireFlowStep.None },
+                onNext = { draft -> campfireFlowStep = CampfireFlowStep.Invite(draft) },
+            )
+        }
+
+        is CampfireFlowStep.Invite -> {
+            val inviteState by campfireViewModel.inviteState.collectAsStateWithLifecycle()
+            CampfireInviteScreen(
+                inviteState = inviteState,
+                excludedUserIds = emptySet(),
+                onLoadInvitableUsers = { campfireViewModel.listInvitableUsers(bookId) },
+                onBack = { campfireFlowStep = CampfireFlowStep.Create },
+                onContinue = { invitedUserIds ->
+                    platformActions.playBook(BookId(bookId))
+                    campfireViewModel.createCampfire(
+                        bookId,
+                        CampfireSettings(
+                            name = step.draft.name,
+                            controlMode = step.draft.controlMode,
+                            inviteOnly = step.draft.inviteOnly,
+                            invitedUserIds = invitedUserIds,
+                        ),
+                    )
+                    campfireFlowStep = CampfireFlowStep.None
+                },
+            )
+        }
     }
 
     if (showDeleteDialog) {

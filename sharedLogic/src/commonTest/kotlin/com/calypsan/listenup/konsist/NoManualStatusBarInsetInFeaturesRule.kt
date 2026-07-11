@@ -30,6 +30,13 @@ class NoManualStatusBarInsetInFeaturesRule :
                     "features/nowplaying/CompactNowPlaying.kt",
                     "features/setup/LibrarySetupScreen.kt",
                     "features/setup/scan/LibraryScanScreen.kt",
+                    // Campfire full-screen flow (Create/Invite/Lobby/Room) — immersive scaffolds over
+                    // CampfireBackdrop, same "self-contained, owns its own system-bar inset" shape as
+                    // CompactNowPlaying.kt above (co-listening design spec's 2026-07-11 lobby amendment).
+                    "features/campfire/CampfireCreateScreen.kt",
+                    "features/campfire/CampfireInviteScreen.kt",
+                    "features/campfire/CampfireLobbyScreen.kt",
+                    "features/campfire/CampfireRoomScreen.kt",
                 )
             val offenders =
                 productionScope()
