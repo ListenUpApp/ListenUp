@@ -9,7 +9,10 @@ import kotlin.math.roundToLong
  * Used by chapter drift correction (user pins true starts by ear), world-track
  * import (matched chapter pairs), and audio-changed re-anchoring.
  */
-data class TimeAnchor(val sourceMs: Long, val targetMs: Long)
+data class TimeAnchor(
+    val sourceMs: Long,
+    val targetMs: Long,
+)
 
 /** Result of [validateAnchors]: either usable for [alignTimestamps], or why not. */
 sealed interface AnchorValidation {
@@ -63,7 +66,10 @@ fun validateAnchors(anchors: List<TimeAnchor>): AnchorValidation {
  * @throws IllegalArgumentException if [validateAnchors] does not return
  *   [AnchorValidation.Valid]. Callers validate first; the throw guards misuse.
  */
-fun alignTimestamps(anchors: List<TimeAnchor>, timestamps: List<Long>): List<Long> {
+fun alignTimestamps(
+    anchors: List<TimeAnchor>,
+    timestamps: List<Long>,
+): List<Long> {
     require(validateAnchors(anchors) == AnchorValidation.Valid) {
         "alignTimestamps requires anchors that pass validateAnchors"
     }
@@ -75,14 +81,18 @@ fun alignTimestamps(anchors: List<TimeAnchor>, timestamps: List<Long>): List<Lon
     return timestamps.map { ts -> mapThroughSegments(sorted, ts) }
 }
 
-private fun mapThroughSegments(sorted: List<TimeAnchor>, ts: Long): Long {
+private fun mapThroughSegments(
+    sorted: List<TimeAnchor>,
+    ts: Long,
+): Long {
     // Pick the governing segment: the one containing ts, or the nearest edge
     // segment when ts lies outside the anchored span (slope extrapolation).
-    val segmentStart = when {
-        ts <= sorted.first().sourceMs -> 0
-        ts >= sorted.last().sourceMs -> sorted.size - 2
-        else -> sorted.indexOfLast { it.sourceMs <= ts }.coerceAtMost(sorted.size - 2)
-    }
+    val segmentStart =
+        when {
+            ts <= sorted.first().sourceMs -> 0
+            ts >= sorted.last().sourceMs -> sorted.size - 2
+            else -> sorted.indexOfLast { it.sourceMs <= ts }.coerceAtMost(sorted.size - 2)
+        }
     val from = sorted[segmentStart]
     val to = sorted[segmentStart + 1]
     val slope = (to.targetMs - from.targetMs).toDouble() / (to.sourceMs - from.sourceMs).toDouble()

@@ -34,6 +34,7 @@ enum class PendingOperationType {
     USER_PREFERENCES,
     PLAYBACK_POSITION,
     LISTENING_EVENT,
+    READING_ORDER_UPDATE,
     OTHER,
 }
 

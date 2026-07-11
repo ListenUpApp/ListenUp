@@ -42,7 +42,12 @@ internal class PendingOperationRepositoryImpl(
     private companion object {
         /** Background domains users don't manage by hand; hidden from the pending count. */
         val SILENT_DOMAINS =
-            setOf(OutboxChannels.ListeningEvents.name, OutboxChannels.Positions.name, OutboxChannels.Preferences.name)
+            setOf(
+                OutboxChannels.ListeningEvents.name,
+                OutboxChannels.Positions.name,
+                OutboxChannels.Preferences.name,
+                OutboxChannels.ReadingOrderFollows.name,
+            )
     }
 }
 
@@ -57,12 +62,39 @@ private fun QueuedOperation.toDomainModel(status: PendingOperationStatus): Pendi
 
 private fun operationTypeFor(domainName: String): PendingOperationType =
     when (domainName) {
-        OutboxChannels.Books.name -> PendingOperationType.BOOK_UPDATE
-        OutboxChannels.Series.name -> PendingOperationType.SERIES_UPDATE
-        OutboxChannels.Contributors.name -> PendingOperationType.CONTRIBUTOR_UPDATE
-        OutboxChannels.Profile.name -> PendingOperationType.PROFILE_UPDATE
-        OutboxChannels.Preferences.name -> PendingOperationType.USER_PREFERENCES
-        OutboxChannels.Positions.name -> PendingOperationType.PLAYBACK_POSITION
-        OutboxChannels.ListeningEvents.name -> PendingOperationType.LISTENING_EVENT
-        else -> PendingOperationType.OTHER
+        OutboxChannels.Books.name -> {
+            PendingOperationType.BOOK_UPDATE
+        }
+
+        OutboxChannels.Series.name -> {
+            PendingOperationType.SERIES_UPDATE
+        }
+
+        OutboxChannels.Contributors.name -> {
+            PendingOperationType.CONTRIBUTOR_UPDATE
+        }
+
+        OutboxChannels.Profile.name -> {
+            PendingOperationType.PROFILE_UPDATE
+        }
+
+        OutboxChannels.Preferences.name -> {
+            PendingOperationType.USER_PREFERENCES
+        }
+
+        OutboxChannels.Positions.name -> {
+            PendingOperationType.PLAYBACK_POSITION
+        }
+
+        OutboxChannels.ListeningEvents.name -> {
+            PendingOperationType.LISTENING_EVENT
+        }
+
+        OutboxChannels.ReadingOrders.name, OutboxChannels.ReadingOrderBooks.name -> {
+            PendingOperationType.READING_ORDER_UPDATE
+        }
+
+        else -> {
+            PendingOperationType.OTHER
+        }
     }

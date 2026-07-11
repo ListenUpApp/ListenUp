@@ -112,9 +112,19 @@ class SyncDomainCompletenessSpec :
                 channels.map { it.name }.filter { it !in mirroredByName }.toSet() shouldBe
                     setOf("profile", "preferences")
 
-                // Frozen posture: exactly these five mirrored domains write through the outbox.
+                // Frozen posture: exactly these eight mirrored domains write through the outbox
+                // (the reading-order trio joined per Integration Foundations §5.3/§5.4).
                 outboxDomains.map { it.key.name }.toSet() shouldBe
-                    setOf("books", "series", "contributors", "playback_positions", "listening_events")
+                    setOf(
+                        "books",
+                        "series",
+                        "contributors",
+                        "playback_positions",
+                        "listening_events",
+                        "reading_orders",
+                        "reading_order_books",
+                        "reading_order_follows",
+                    )
             } finally {
                 db.close()
             }

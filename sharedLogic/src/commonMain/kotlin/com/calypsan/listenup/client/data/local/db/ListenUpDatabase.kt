@@ -15,16 +15,20 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
  *
  * Stores user data, books, and sync metadata for offline-first functionality.
  *
- * Schema is at **v2** — a pre-1.0 baseline that squashed the accumulated migration chain
+ * Schema is at **v3** — a pre-1.0 baseline that squashed the accumulated migration chain
  * (no beta DBs existed to migrate, so the collapse is purely mechanical). There is no
  * migration chain: the pre-launch policy `fallbackToDestructiveMigration(true)` on each
  * platform `DatabaseModule` nukes and recreates the local DB on any schema change (data
  * re-syncs from the server), which is acceptable pre-release. Before launch, flip the
  * fallback to `false` and begin a real migration chain in `data/local/migrations/`; the
- * `@Database.exportSchema` on-disk JSON (`schemas/…/2.json`) is the authoritative baseline.
+ * `@Database.exportSchema` on-disk JSON (`schemas/…/3.json`) is the authoritative baseline.
  *
  * v1 → v2 (nested chapters): adds nullable `partTitle` / `bookTitle` columns to `chapters` —
  * optional Book/Part header labels on the chapter that opens each section. No hand-written
+ * migration — the pre-launch destructive fallback recreates the schema.
+ *
+ * v2 → v3 (reading orders): adds the `reading_orders`, `reading_order_books`, and
+ * `reading_order_follows` mirrors (Story World Stage 1 backbone). No hand-written
  * migration — the pre-launch destructive fallback recreates the schema.
  */
 @Database(
@@ -46,6 +50,9 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         CollectionShareEntity::class,
         ShelfEntity::class,
         ShelfBookEntity::class,
+        ReadingOrderEntity::class,
+        ReadingOrderBookEntity::class,
+        ReadingOrderFollowEntity::class,
         TagEntity::class,
         BookTagEntity::class,
         MoodEntity::class,
@@ -67,7 +74,7 @@ import com.calypsan.listenup.client.data.local.db.entity.LibraryFolderEntity
         BookReadershipEntity::class,
         CachedActiveSessionEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 @TypeConverters(
@@ -115,6 +122,12 @@ internal abstract class ListenUpDatabase : RoomDatabase() {
     abstract fun shelfDao(): ShelfDao
 
     abstract fun shelfBookDao(): ShelfBookDao
+
+    abstract fun readingOrderDao(): ReadingOrderDao
+
+    abstract fun readingOrderBookDao(): ReadingOrderBookDao
+
+    abstract fun readingOrderFollowDao(): ReadingOrderFollowDao
 
     abstract fun tagDao(): TagDao
 

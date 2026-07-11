@@ -7,6 +7,9 @@ import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
+import com.calypsan.listenup.api.dto.readingorder.ReadingOrderBookWrite
+import com.calypsan.listenup.api.dto.readingorder.ReadingOrderUpdate
+import com.calypsan.listenup.api.dto.readingorder.SetActiveReadingOrderRequest
 import com.calypsan.listenup.api.sync.SyncDomains
 
 /**
@@ -31,11 +34,36 @@ internal object OutboxChannels {
             RecordListeningEventRequest.serializer(),
             setOf(OpKind.Upsert),
         )
+    val ReadingOrders =
+        OutboxChannel(SyncDomains.READING_ORDERS.name, ReadingOrderUpdate.serializer(), setOf(OpKind.Update))
+    val ReadingOrderBooks =
+        OutboxChannel(
+            SyncDomains.READING_ORDER_BOOKS.name,
+            ReadingOrderBookWrite.serializer(),
+            setOf(OpKind.Create, OpKind.Delete, OpKind.Update),
+        )
+    val ReadingOrderFollows =
+        OutboxChannel(
+            SyncDomains.READING_ORDER_FOLLOWS.name,
+            SetActiveReadingOrderRequest.serializer(),
+            setOf(OpKind.Upsert),
+        )
     val Profile = OutboxChannel("profile", UpdateProfileRequest.serializer(), setOf(OpKind.Update))
     val Preferences =
         OutboxChannel("preferences", UpdateUserPreferencesRequest.serializer(), setOf(OpKind.Update))
 
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
-        listOf(Books, Series, Contributors, Positions, ListeningEvents, Profile, Preferences)
+        listOf(
+            Books,
+            Series,
+            Contributors,
+            Positions,
+            ListeningEvents,
+            ReadingOrders,
+            ReadingOrderBooks,
+            ReadingOrderFollows,
+            Profile,
+            Preferences,
+        )
 }

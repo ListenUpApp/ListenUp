@@ -23,6 +23,7 @@ import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.PushService
+import com.calypsan.listenup.api.ReadingOrderService
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
@@ -48,6 +49,7 @@ import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
 import com.calypsan.listenup.server.api.PushServiceImpl
+import com.calypsan.listenup.server.api.ReadingOrderServiceImpl
 import com.calypsan.listenup.server.api.SearchServiceImpl
 import com.calypsan.listenup.server.api.SeriesServiceImpl
 import com.calypsan.listenup.server.api.ShelfServiceImpl
@@ -113,6 +115,9 @@ private fun Route.authedRpc(services: RpcServices) {
         registerScoped<GenreService> { guard((services.genreService as GenreServiceImpl).copyWith(it)) }
         registerScoped<CollectionService> { guard((services.collectionService as CollectionServiceImpl).copyWith(it)) }
         registerScoped<ShelfService> { guard((services.shelfService as ShelfServiceImpl).copyWith(it)) }
+        registerScoped<ReadingOrderService> {
+            guard((services.readingOrderService as ReadingOrderServiceImpl).copyWith(it))
+        }
         registerScoped<SocialService> { guard((services.socialService as SocialServiceImpl).copyWith(it)) }
         registerScoped<ActivityService> { guard((services.activityService as ActivityServiceImpl).copyWith(it)) }
         registerScoped<AdminUserService> { guard((services.adminUserService as AdminUserServiceImpl).copyWith(it)) }

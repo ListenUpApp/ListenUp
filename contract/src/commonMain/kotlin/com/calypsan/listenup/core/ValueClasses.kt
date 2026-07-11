@@ -312,6 +312,31 @@ value class ShelfId(
 }
 
 /**
+ * Type-safe wrapper for reading-order IDs.
+ *
+ * Reading orders are user-owned, named, ordered, attributed lists of books — the
+ * personal-artifact tier of the Story World epic (spec §5.1), architecturally a
+ * near-exact sibling of [ShelfId]. Wrapping the id prevents accidentally passing a
+ * [BookId] or any other string id where a reading-order id is expected.
+ *
+ * Value class compiles to primitive String with zero runtime overhead while
+ * maintaining compile-time type checking.
+ *
+ * @property value The underlying reading-order ID string (UUIDv7 at the storage layer).
+ */
+@Serializable
+@JvmInline
+value class ReadingOrderId(
+    val value: String,
+) {
+    init {
+        require(value.isNotBlank()) { "ReadingOrderId must not be blank" }
+    }
+
+    override fun toString(): String = value
+}
+
+/**
  * Type-safe wrapper for backup archive IDs.
  *
  * A backup id is the archive's stable filename stem (e.g. `backup-2026-06-02T18-30-00Z`),

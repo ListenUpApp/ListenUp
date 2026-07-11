@@ -12,6 +12,7 @@ import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.ReadingOrderRpcFactory
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
 import com.calypsan.listenup.api.error.AuthError
@@ -50,8 +51,10 @@ import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
+import com.calypsan.listenup.api.dto.readingorder.ReadingOrderBookWrite
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.ReadingOrderId
 import com.calypsan.listenup.core.SeriesId
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -120,6 +123,43 @@ internal val clientSyncModule =
                     },
                     outboxBinding(OutboxChannels.Contributors) { id, patch ->
                         get<ContributorRpcFactory>().contributorService().updateContributor(ContributorId(id), patch)
+                    },
+                    outboxBinding(OutboxChannels.ReadingOrders) { id, patch ->
+                        get<ReadingOrderRpcFactory>().get().updateReadingOrder(
+                            readingOrderId = ReadingOrderId(id),
+                            name = patch.name,
+                            description = patch.description,
+                            attribution = patch.attribution,
+                            isPrivate = patch.isPrivate,
+                        )
+                    },
+                    outboxBinding(OutboxChannels.ReadingOrderBooks) { _, write ->
+                        val service = get<ReadingOrderRpcFactory>().get()
+                        when (write) {
+                            is ReadingOrderBookWrite.Add -> {
+                                service.addBookToReadingOrder(
+                                    ReadingOrderId(write.readingOrderId),
+                                    BookId(write.bookId),
+                                )
+                            }
+
+                            is ReadingOrderBookWrite.Remove -> {
+                                service.removeBookFromReadingOrder(
+                                    ReadingOrderId(write.readingOrderId),
+                                    BookId(write.bookId),
+                                )
+                            }
+
+                            is ReadingOrderBookWrite.Reorder -> {
+                                service.reorderReadingOrderBooks(
+                                    ReadingOrderId(write.readingOrderId),
+                                    write.orderedBookIds.map(::BookId),
+                                )
+                            }
+                        }
+                    },
+                    outboxBinding(OutboxChannels.ReadingOrderFollows) { _, request ->
+                        get<ReadingOrderRpcFactory>().get().setActiveReadingOrder(request)
                     },
                     outboxBinding(OutboxChannels.Preferences) { _, patch ->
                         get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
