@@ -30,8 +30,9 @@ import kotlinx.coroutines.test.runTest
  *
  * Routing the same call through [RpcChannel.call] folds the thrown [RpcOutcomeUnknownException] to
  * `AppResult.Failure(TransportError.OutcomeUnknown)`, which the drain's typed-failure path routes to
- * [OutboxChannels.isIdempotent] → retried (not lost). This test drives that exact throw through the
- * real binding via [RpcChannel.forTestScripted] and asserts the op survives.
+ * [OutboxChannels.isIdempotent] → parked, not lost. Because the server never confirmed a verdict,
+ * this parks WITHOUT burning budget (failureCount stays 0). This test drives that exact throw through
+ * the real binding via [RpcChannel.forTestScripted] and asserts the op survives.
  */
 class OutboxOutcomeUnknownRetryRegressionTest :
     FunSpec({
@@ -83,14 +84,17 @@ class OutboxOutcomeUnknownRetryRegressionTest :
 
                 val outcome = queue.drain()
 
-                // Retried, NOT dead-lettered: failureCount incremented by one (well within budget),
-                // the op is still dispatchable, and the drain classifies it as a retryable failure.
+                // Retried, NOT dead-lettered — and parked, NOT budget-burning: the server never
+                // rendered a verdict (frame sent, response lost), so an idempotent channel re-sends
+                // without spending budget. failureCount stays 0, the op is still dispatchable, and the
+                // drain classifies it as a parked failure.
                 val stored = db.pendingOperationV2Dao().get(opId)
                 stored.shouldNotBeNull()
-                stored.failureCount shouldBe 1
+                stored.failureCount shouldBe 0
                 (stored.failureCount > MAX_RETRYABLE_ATTEMPTS) shouldBe false
                 db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
-                outcome.retryableFailures shouldBe 1
+                outcome.parkedFailures shouldBe 1
+                outcome.retryableFailures shouldBe 0
                 outcome.terminalFailures shouldBe 0
 
                 db.close()

@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.data.sync
 
+import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
@@ -27,30 +28,93 @@ internal const val DEAD_LETTER_RETENTION_MILLIS: Long = 30L * 24 * 60 * 60 * 100
 
 /**
  * What a single [PendingOperationQueue.drain] wave produced. The engine reads
- * [retryableFailures] to decide whether to reschedule another drain on a
- * backoff timer — `drain()` is one-wave-only and never loops internally, so
- * recurring retry is the engine's responsibility.
+ * [retryableFailures] vs [parkedFailures] to decide whether to reschedule another
+ * drain on a backoff timer — `drain()` is one-wave-only and never loops internally,
+ * so recurring retry is the engine's responsibility.
+ *
+ * The distinction is the durability contract's core: budget (the [MAX_RETRYABLE_ATTEMPTS]
+ * ceiling) is spent only when the SERVER ANSWERED. A failure where the server never
+ * rendered a verdict (unreachable, or an idempotent lost-response) is *parked*, not
+ * *burned* — it keeps its `failureCount` and re-sends the instant reachability returns.
  *
  * @property sent count of ops successfully ack'd by the server in this wave
- * @property retryableFailures count of ops that failed retryably (still in queue,
- *   `failureCount` incremented, will be picked up by a future drain)
+ * @property retryableFailures count of ops the server ANSWERED with a retryable failure
+ *   (5xx): `failureCount` incremented, dead-lettered after [MAX_RETRYABLE_ATTEMPTS]. The
+ *   engine reschedules a backoff drain for these — the server is up but erroring transiently.
+ * @property parkedFailures count of ops with NO server verdict (transport unreachable, or
+ *   an idempotent-channel lost-response): `failureCount` UNCHANGED, still dispatchable. The
+ *   engine does NOT busy-loop these on a timer — it parks them and lets the connection/reachability
+ *   edge re-drive drain when the server is back.
  * @property terminalFailures count of ops that failed non-retryably (flagged
  *   past [MAX_RETRYABLE_ATTEMPTS] and will not be retried)
  * @property remainingDispatchable count of ops still within retry budget after this
  *   wave — includes ops held back by per-entity FIFO (a second op queued behind
- *   one just sent) AND this wave's own retryable failures (still eligible, just
- *   not yet retried). The engine uses this to decide whether looping `drain()`
- *   again immediately would make further progress.
+ *   one just sent), this wave's own retryable failures, AND this wave's parked
+ *   failures (all still eligible, just not yet re-sent). The engine uses this to
+ *   decide whether looping `drain()` again immediately would make further progress.
  */
 internal data class DrainOutcome(
     val sent: Int,
     val retryableFailures: Int,
+    val parkedFailures: Int,
     val terminalFailures: Int,
     val remainingDispatchable: Int,
 ) {
-    /** True when this wave produced at least one retryable failure that the engine should reschedule. */
+    /** True when this wave produced a server-answered retryable failure the engine should reschedule on backoff. */
     val hasRetryableFailures: Boolean get() = retryableFailures > 0
+
+    /** True when this wave parked at least one op (no server verdict) awaiting a reachability edge. */
+    val hasParkedFailures: Boolean get() = parkedFailures > 0
 }
+
+/**
+ * How a failed send disposition affects the op's retry budget. The budget exists to eventually
+ * quarantine a POISON op (a validation reject, a corrupt payload the server keeps refusing) — NOT
+ * to punish an op for the network being down. So budget is spent only when the server answered.
+ */
+private enum class FailureDisposition {
+    /**
+     * No server verdict: the request never reached a responding server (unreachable), or was sent
+     * on an idempotent channel with a lost response (safe to re-send). Park and retry when reachable —
+     * do NOT burn budget.
+     */
+    Parked,
+
+    /** The server ANSWERED with a retryable failure (5xx). Burn one attempt; quarantine after [MAX_RETRYABLE_ATTEMPTS]. */
+    Burn,
+
+    /** Non-retryable — the op can never succeed as-is. Dead-letter immediately. */
+    Terminal,
+}
+
+/**
+ * Classify a drain failure against the budget contract. Unreachable failures ([TransportError.NetworkUnavailable],
+ * [TransportError.Timeout] — post-B1 these are connect/pre-send only) never got a server verdict, so they park.
+ * A provably-sent-but-lost-response ([TransportError.OutcomeUnknown]) parks on a declared-idempotent channel
+ * (safe to re-send) and dead-letters otherwise. A server-answered retryable failure (5xx) burns budget. Everything
+ * else non-retryable (4xx, malformed) dead-letters immediately.
+ */
+private fun classifyFailure(
+    error: AppError,
+    domainName: String,
+): FailureDisposition =
+    when {
+        error is TransportError.NetworkUnavailable || error is TransportError.Timeout -> {
+            FailureDisposition.Parked
+        }
+
+        error is TransportError.OutcomeUnknown -> {
+            if (OutboxChannels.isIdempotent(domainName)) FailureDisposition.Parked else FailureDisposition.Terminal
+        }
+
+        error.isRetryable -> {
+            FailureDisposition.Burn
+        }
+
+        else -> {
+            FailureDisposition.Terminal
+        }
+    }
 
 /**
  * Per-entity FIFO queue of local-first writes awaiting server replay.
@@ -63,9 +127,12 @@ internal data class DrainOutcome(
  *   the SQL filter, not Mutex coordination.
  * - [containsAndAck] is the dispatcher's echo-matching primitive: present →
  *   true and remove the op (ack); absent → false (event is a remote write).
- * - On retryable failure, `failureCount` increments; on non-retryable failure
- *   it leaps past [MAX_RETRYABLE_ATTEMPTS] so it never retries — becoming a
- *   **dead letter**.
+ * - Drain failures classify three ways ([classifyFailure]): a **server-answered
+ *   retryable** failure (5xx) increments `failureCount` and dead-letters after
+ *   [MAX_RETRYABLE_ATTEMPTS]; a **parked** failure (unreachable, or an idempotent
+ *   lost-response) leaves `failureCount` untouched and stays dispatchable so an
+ *   outage never silently exhausts the budget; a **non-retryable** failure leaps
+ *   past [MAX_RETRYABLE_ATTEMPTS] so it never retries — becoming a **dead letter**.
  *
  * Terminal ops are dead letters: excluded from [observeQueueDepth] (the live,
  * dispatchable count), surfaced separately via [observeDeadLetterCount] and
@@ -167,8 +234,8 @@ internal class PendingOperationQueue(
 
     /**
      * Dispatch the earliest-enqueued op per (domain, entityId) group currently
-     * available; each result mutates the row in place (delete on success,
-     * increment `failureCount` on failure).
+     * available; each result mutates the row in place (delete on success; on
+     * failure, [classifyFailure] decides whether to burn budget, park, or dead-letter).
      *
      * Within a single drain() call, dispatch is sequential — one op at a time.
      * Per-entity FIFO is enforced by the SQL filter (one earliest op per
@@ -195,6 +262,7 @@ internal class PendingOperationQueue(
         val ops = dao.nextDispatchable()
         var sent = 0
         var retryableFailures = 0
+        var parkedFailures = 0
         var terminalFailures = 0
         for (entity in ops) {
             val op = entity.toDomain()
@@ -223,33 +291,49 @@ internal class PendingOperationQueue(
 
                 is AppResult.Failure -> {
                     val error = result.error
-                    val retryable =
-                        if (error is TransportError.OutcomeUnknown) {
-                            // Provably sent, response lost: re-send only if the channel is declared idempotent
-                            // (server dedupes / last-write-wins); otherwise quarantine so a non-idempotent
-                            // mutation is never blindly double-applied.
-                            OutboxChannels.isIdempotent(op.domainName)
-                        } else {
-                            error.isRetryable
+                    when (classifyFailure(error, op.domainName)) {
+                        FailureDisposition.Parked -> {
+                            // No server verdict (unreachable, or idempotent lost-response): record the
+                            // attempt for diagnostics but KEEP failureCount, so an outage can never
+                            // silently exhaust an op's budget. It stays dispatchable and re-sends on the
+                            // next reachability edge.
+                            dao.update(entity.copy(lastAttemptAt = nowMillis(), lastError = error.code))
+                            parkedFailures++
+                            logger.warn {
+                                "Pending op ${op.clientOpId} parked (no server verdict): ${error.code} " +
+                                    "(count=${entity.failureCount}, unburned)"
+                            }
                         }
-                    val newCount =
-                        if (retryable) {
-                            entity.failureCount + 1
-                        } else {
-                            // Leap past MAX so the SQL filter never picks it up again.
-                            MAX_RETRYABLE_ATTEMPTS + 1
+
+                        FailureDisposition.Burn -> {
+                            // Server ANSWERED with a retryable failure (5xx): spend one attempt. A
+                            // persistently-5xx-ing op quarantines after MAX; a transient one costs ≤MAX.
+                            val newCount = entity.failureCount + 1
+                            dao.update(
+                                entity.copy(
+                                    failureCount = newCount,
+                                    lastAttemptAt = nowMillis(),
+                                    lastError = error.code,
+                                ),
+                            )
+                            retryableFailures++
+                            logger.warn {
+                                "Pending op ${op.clientOpId} failed (server-answered retryable): ${error.code} (count=$newCount)"
+                            }
                         }
-                    dao.update(
-                        entity.copy(
-                            failureCount = newCount,
-                            lastAttemptAt = nowMillis(),
-                            lastError = result.error.code,
-                        ),
-                    )
-                    if (retryable) retryableFailures++ else terminalFailures++
-                    logger.warn {
-                        "Pending op ${op.clientOpId} failed: ${result.error.code} " +
-                            "(retryable=$retryable, count=$newCount)"
+
+                        FailureDisposition.Terminal -> {
+                            // Non-retryable: leap past MAX so the SQL filter never picks it up again.
+                            dao.update(
+                                entity.copy(
+                                    failureCount = MAX_RETRYABLE_ATTEMPTS + 1,
+                                    lastAttemptAt = nowMillis(),
+                                    lastError = error.code,
+                                ),
+                            )
+                            terminalFailures++
+                            logger.warn { "Pending op ${op.clientOpId} dead-lettered (non-retryable): ${error.code}" }
+                        }
                     }
                 }
             }
@@ -257,6 +341,7 @@ internal class PendingOperationQueue(
         return DrainOutcome(
             sent = sent,
             retryableFailures = retryableFailures,
+            parkedFailures = parkedFailures,
             terminalFailures = terminalFailures,
             remainingDispatchable = dao.countDispatchable(),
         )

@@ -982,10 +982,15 @@ internal class SyncEngine(
      * dispatchable ops remain beyond this wave's own retryable failures.
      *
      * Each wave runs under [drainMutex] so concurrent triggers (connect-up,
-     * enqueue, retry) coalesce. If the loop exits with retryable failures still
-     * outstanding, schedule a backoff-delayed re-drain — that's the engine's
-     * retry timer. Non-retryable failures stay flagged past
-     * `MAX_RETRYABLE_ATTEMPTS` and are silently skipped on subsequent waves.
+     * enqueue, retry) coalesce. Retry scheduling is budget-aware:
+     *  - **Server-answered retryable failures** (5xx, [DrainOutcome.hasRetryableFailures]) schedule
+     *    a backoff-delayed re-drain — the server is up but erroring transiently, so a bounded timer
+     *    retry is right.
+     *  - **Parked failures** (unreachable / idempotent lost-response) do NOT schedule the timer. A
+     *    fixed-1s busy-loop against a down server would burn nothing (budget is preserved) but spin
+     *    pointlessly; instead the op parks and the connection-up / reachability edge
+     *    ([ensureDrainScheduling]'s Connected trigger) re-drives drain the instant the server is back.
+     *  Non-retryable failures stay flagged past `MAX_RETRYABLE_ATTEMPTS` and are silently skipped.
      */
     private suspend fun runDrain() {
         while (true) {
@@ -1004,8 +1009,13 @@ internal class SyncEngine(
                     }
                 }
             val madeProgress = outcome.sent > 0 || outcome.terminalFailures > 0
-            val backlogBeyondThisWavesFailures = outcome.remainingDispatchable > outcome.retryableFailures
+            // Both this wave's server-answered retries AND its parked ops remain dispatchable (still
+            // failureCount <= MAX), so subtract both to decide whether genuinely fresh backlog remains.
+            val thisWavesUnsentButDispatchable = outcome.retryableFailures + outcome.parkedFailures
+            val backlogBeyondThisWavesFailures = outcome.remainingDispatchable > thisWavesUnsentButDispatchable
             if (madeProgress && backlogBeyondThisWavesFailures) continue
+            // Only server-answered retryable failures earn the backoff timer. Parked ops wait for the
+            // reachability edge — busy-looping them against an unreachable server is wasted work.
             if (outcome.hasRetryableFailures) {
                 scope.launch {
                     delay(retryBackoffMillis)

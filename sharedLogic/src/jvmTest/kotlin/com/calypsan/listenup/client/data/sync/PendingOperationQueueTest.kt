@@ -140,14 +140,15 @@ class PendingOperationQueueTest :
             }
         }
 
-        test("retryable failure increments failureCount, op stays in queue") {
+        test("a server-answered retryable failure (Server5xx) increments failureCount, op stays in queue") {
             runTest {
                 val db = createInMemoryTestDatabase()
+                val serverErrorStatus = 503
                 var attempts = 0
                 val sender =
                     PendingOperationSender {
                         attempts++
-                        AppResult.Failure(TransportError.NetworkUnavailable())
+                        AppResult.Failure(TransportError.Server5xx(statusCode = serverErrorStatus))
                     }
                 val queue =
                     PendingOperationQueue(
@@ -156,13 +157,39 @@ class PendingOperationQueueTest :
                         nowMillis = { 1_000L },
                     )
                 val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
-                queue.drain()
+                val outcome = queue.drain()
                 val expectedAttempts = 1
                 attempts shouldBe expectedAttempts
                 val stored = db.pendingOperationV2Dao().get(opId)
                 stored shouldNotBe null
                 stored?.failureCount shouldBe expectedAttempts
+                stored?.lastError shouldBe TransportError.Server5xx(statusCode = serverErrorStatus).code
+                outcome.retryableFailures shouldBe 1
+                outcome.parkedFailures shouldBe 0
+                db.close()
+            }
+        }
+
+        test("an unreachable failure (NetworkUnavailable) parks the op without burning budget") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.NetworkUnavailable()) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                val outcome = queue.drain()
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored shouldNotBe null
+                // No server verdict: failureCount unburned, op still dispatchable, recorded as parked.
+                stored?.failureCount shouldBe 0
                 stored?.lastError shouldBe TransportError.NetworkUnavailable().code
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
+                outcome.parkedFailures shouldBe 1
+                outcome.retryableFailures shouldBe 0
+                outcome.terminalFailures shouldBe 0
                 db.close()
             }
         }
@@ -190,7 +217,7 @@ class PendingOperationQueueTest :
             }
         }
 
-        test("OutcomeUnknown on an idempotent channel is retried, not dead-lettered") {
+        test("OutcomeUnknown on an idempotent channel is parked (retried without burning budget), not dead-lettered") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -200,15 +227,37 @@ class PendingOperationQueueTest :
                         nowMillis = { 1_000L },
                     )
                 // Positions ("playback_positions") is a declared idempotent channel: re-sending is safe.
+                // The server never confirmed a verdict, so this parks — no budget spent.
                 val opId = queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
                 val outcome = queue.drain()
                 val stored = db.pendingOperationV2Dao().get(opId)
                 stored shouldNotBe null
-                val incrementedByOne = 1
-                stored?.failureCount shouldBe incrementedByOne
+                stored?.failureCount shouldBe 0
                 db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
-                outcome.retryableFailures shouldBe 1
+                outcome.parkedFailures shouldBe 1
+                outcome.retryableFailures shouldBe 0
                 outcome.terminalFailures shouldBe 0
+                db.close()
+            }
+        }
+
+        test("a server-answered retryable failure (Server5xx) every wave still dead-letters after MAX (budget preserved for poison)") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val serverErrorStatus = 503
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.Server5xx(statusCode = serverErrorStatus)) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
+                // MAX increments push failureCount to exactly MAX (still dispatchable); one more crosses it.
+                repeat(MAX_RETRYABLE_ATTEMPTS + 1) { queue.drain() }
+                val stored = db.pendingOperationV2Dao().get(opId)
+                stored shouldNotBe null
+                ((stored?.failureCount ?: 0) > MAX_RETRYABLE_ATTEMPTS) shouldBe true
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldBe emptyList()
                 db.close()
             }
         }
@@ -250,6 +299,63 @@ class PendingOperationQueueTest :
                 stored shouldNotBe null
                 ((stored?.failureCount ?: 0) > MAX_RETRYABLE_ATTEMPTS) shouldBe true
                 outcome.terminalFailures shouldBe 1
+                db.close()
+            }
+        }
+
+        test("A1 regression: an unreachable send (NetworkUnavailable) across many waves never dead-letters and delivers when reachable") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var reachable = false
+                val sender =
+                    PendingOperationSender {
+                        if (reachable) {
+                            AppResult.Success(Unit)
+                        } else {
+                            AppResult.Failure(TransportError.NetworkUnavailable())
+                        }
+                    }
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = sender,
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
+
+                // Drain far more waves than the retry budget while the server is unreachable.
+                repeat(MAX_RETRYABLE_ATTEMPTS + 2) { queue.drain() }
+
+                // The server never answered, so budget was never spent: the op is unburned and still
+                // dispatchable — NOT silently dead-lettered by an outage.
+                val parked = db.pendingOperationV2Dao().get(opId)
+                parked shouldNotBe null
+                parked?.failureCount shouldBe 0
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
+
+                // Server returns — the very next drain delivers and removes the op.
+                reachable = true
+                queue.drain()
+                db.pendingOperationV2Dao().get(opId) shouldBe null
+                db.close()
+            }
+        }
+
+        test("A1 regression: a connect Timeout is treated as unreachable and never burns budget") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Failure(TransportError.Timeout()) },
+                        nowMillis = { 1_000L },
+                    )
+                val opId = queue.enqueue(OutboxChannels.Positions, "b1", OpKind.Upsert, "{}", "u1")
+                repeat(MAX_RETRYABLE_ATTEMPTS + 2) { queue.drain() }
+                val parked = db.pendingOperationV2Dao().get(opId)
+                parked shouldNotBe null
+                parked?.failureCount shouldBe 0
+                db.pendingOperationV2Dao().nextDispatchable().map { it.clientOpId } shouldContainExactly listOf(opId)
                 db.close()
             }
         }
