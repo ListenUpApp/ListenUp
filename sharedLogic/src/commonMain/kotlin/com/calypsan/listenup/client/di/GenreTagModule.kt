@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.GenreRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorGenreRpcFactory
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.client.data.remote.KtorMoodRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorTagRpcFactory
 import com.calypsan.listenup.client.data.remote.MoodRpcFactory
 import com.calypsan.listenup.client.data.remote.TagRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MoodRepositoryImpl
 import com.calypsan.listenup.client.data.repository.TagRepositoryImpl
@@ -29,16 +29,14 @@ import org.koin.dsl.module
  */
 internal val genreTagModule: Module =
     module {
-        // GenreRpcFactory — kotlinx.rpc proxy for the curator mutation surface.
-        // Tree reads come from Room (via GenreDao); only mutations and the
-        // unmapped-string queue need an RPC channel.
-        single<GenreRpcFactory> {
-            KtorGenreRpcFactory(apiClientFactory = get(), serverConfig = get())
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // GenreService RPC channel — kotlinx.rpc dispatch for the curator mutation
+        // surface. Tree reads come from Room (via GenreDao); only mutations and the
+        // unmapped-string queue need an RPC channel. Authed (self-healing) by default.
+        rpcChannel<GenreService>()
 
         // GenreRepository — Room-backed reads, RPC-dispatched mutations.
         single<GenreRepository> {
-            GenreRepositoryImpl(dao = get(), rpcFactory = get())
+            GenreRepositoryImpl(dao = get(), channel = rpcChannel())
         }
 
         // TagRpcFactory — kotlinx.rpc proxy for TagService (observations from Room; mutations via RPC).

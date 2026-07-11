@@ -1,10 +1,11 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.local.db.GenreEntity
 import com.calypsan.listenup.client.data.local.db.GenreWithBookCount
-import com.calypsan.listenup.client.data.remote.GenreRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.Genre
 import com.calypsan.listenup.client.domain.repository.GenreRepository
 import com.calypsan.listenup.api.result.AppResult
@@ -28,7 +29,7 @@ import kotlinx.coroutines.flow.map
  */
 internal class GenreRepositoryImpl(
     private val dao: GenreDao,
-    private val rpcFactory: GenreRpcFactory,
+    private val channel: RpcChannel<GenreService>,
 ) : GenreRepository {
     // ── Observation ──────────────────────────────────────────────────────────
 
@@ -58,30 +59,30 @@ internal class GenreRepositoryImpl(
         name: String,
         parentId: GenreId?,
         sortOrder: Int,
-    ): AppResult<GenreId> = rpcFactory.callResult { it.createGenre(parentId, name, sortOrder) }
+    ): AppResult<GenreId> = channel.call { it.createGenre(parentId, name, sortOrder) }
 
     override suspend fun updateGenre(
         id: GenreId,
         patch: GenreUpdate,
-    ): AppResult<Unit> = rpcFactory.callResult { it.updateGenre(id, patch) }
+    ): AppResult<Unit> = channel.call { it.updateGenre(id, patch) }
 
-    override suspend fun deleteGenre(id: GenreId): AppResult<Unit> = rpcFactory.callResult { it.deleteGenre(id) }
+    override suspend fun deleteGenre(id: GenreId): AppResult<Unit> = channel.call { it.deleteGenre(id) }
 
     override suspend fun moveGenre(
         id: GenreId,
         newParentId: GenreId?,
-    ): AppResult<Unit> = rpcFactory.callResult { it.moveGenre(id, newParentId) }
+    ): AppResult<Unit> = channel.call { it.moveGenre(id, newParentId) }
 
     override suspend fun mergeGenres(
         source: GenreId,
         target: GenreId,
-    ): AppResult<Unit> = rpcFactory.callResult { it.mergeGenres(source, target) }
+    ): AppResult<Unit> = channel.call { it.mergeGenres(source, target) }
 
     override suspend fun browseBooks(
         genreId: GenreId,
         includeDescendants: Boolean,
         limit: Int,
-    ): AppResult<List<BookId>> = rpcFactory.callResult { it.browseBooks(genreId, includeDescendants, limit) }
+    ): AppResult<List<BookId>> = channel.call { it.browseBooks(genreId, includeDescendants, limit) }
 }
 
 private fun GenreEntity.toDomain(bookCount: Int): Genre =

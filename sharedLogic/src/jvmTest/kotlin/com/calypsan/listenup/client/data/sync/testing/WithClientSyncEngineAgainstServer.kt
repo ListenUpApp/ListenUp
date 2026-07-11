@@ -18,10 +18,11 @@ import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.CollectionRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
-import com.calypsan.listenup.client.data.remote.GenreRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.SeriesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
@@ -392,10 +393,18 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             }
         val testBookRpcFactory = TestBookRpcFactory(testClient)
         val testContributorRpcFactory = TestContributorRpcFactory(testClient)
+        // Real kotlinx.rpc GenreService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel via RpcChannel.forTest — a single cached proxy over a
+        // real socket to the in-process server, matching the sibling Test*RpcFactory idiom.
+        val genreServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<GenreService>()
         val genreRepository: ClientGenreRepository =
             GenreRepositoryImpl(
                 dao = clientDb.genreDao(),
-                rpcFactory = TestGenreRpcFactory(testClient),
+                channel = RpcChannel.forTest(genreServiceProxy),
             )
 
         try {
@@ -1015,34 +1024,4 @@ internal class TestCollectionRpcFactory(
             .rpc("ws://localhost/api/rpc/authed") {
                 rpcConfig { serialization { krpcJson(contractJson) } }
             }.withService<CollectionService>()
-}
-
-/**
- * Test-only [GenreRpcFactory] that opens a kotlinx.rpc [GenreService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- * Mirrors [TestSeriesRpcFactory] / [TestContributorRpcFactory] exactly.
- */
-internal class TestGenreRpcFactory(
-    private val httpClient: HttpClient,
-) : GenreRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: GenreService? = null
-
-    override suspend fun <T> callResult(block: suspend (GenreService) -> AppResult<T>): AppResult<T> =
-        catchingRpcResult { block(genreService()) }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun genreService(): GenreService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    private suspend fun connect(): GenreService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<GenreService>()
 }

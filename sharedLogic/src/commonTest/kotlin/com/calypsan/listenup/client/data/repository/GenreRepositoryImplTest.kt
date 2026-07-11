@@ -5,8 +5,8 @@ import com.calypsan.listenup.api.error.GenreError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.GenreDao
-import com.calypsan.listenup.client.data.remote.GenreRpcFactory
-import com.calypsan.listenup.client.data.remote.catchingRpcResult
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.api.dto.GenreUpdate
 import com.calypsan.listenup.core.GenreId
 import dev.mokkery.MockMode
@@ -22,24 +22,12 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Fake [GenreRpcFactory] routing [callResult] through the REAL boundary [catchingRpcResult],
- * so repository tests exercise the same throw→Failure / business-Failure-passthrough semantics the
- * production [com.calypsan.listenup.client.data.remote.RpcProxyCache] engine provides — without a
- * live socket. Mirrors `FakeCollectionRpcFactory` / `FakeShelfRpcFactory`.
- */
-private class FakeGenreRpcFactory(
-    private val service: GenreService,
-) : GenreRpcFactory {
-    override suspend fun <T> callResult(block: suspend (GenreService) -> AppResult<T>): AppResult<T> = catchingRpcResult { block(service) }
-
-    override suspend fun invalidate() {}
-}
-
-/**
- * Unit tests for [GenreRepositoryImpl] — the curator-mutation surface now routes through the bounded,
- * self-healing `callResult` boundary instead of a hand-rolled `try/catch`. These pin the three
+ * Unit tests for [GenreRepositoryImpl] — the curator-mutation surface routes through the bounded,
+ * self-healing [RpcChannel.call] boundary instead of a hand-rolled `try/catch`. These pin the three
  * outcomes of that boundary: a value returns, a business `AppResult.Failure` passes straight through,
- * and a thrown transport fault becomes a typed `AppResult.Failure`.
+ * and a thrown transport fault becomes a typed `AppResult.Failure`. [RpcChannel.forTest] routes the
+ * dispatch through the REAL [com.calypsan.listenup.client.data.remote.catchingRpcResult] fold, so the
+ * repo exercises production fold semantics without a live socket.
  */
 class GenreRepositoryImplTest :
     FunSpec({
@@ -47,7 +35,7 @@ class GenreRepositoryImplTest :
         fun repo(
             dao: GenreDao = mock(MockMode.autofill),
             service: GenreService = mock(),
-        ): GenreRepositoryImpl = GenreRepositoryImpl(dao = dao, rpcFactory = FakeGenreRpcFactory(service))
+        ): GenreRepositoryImpl = GenreRepositoryImpl(dao = dao, channel = RpcChannel.forTest(service))
 
         test("createGenre dispatches to the service and returns the new id") {
             runTest {
