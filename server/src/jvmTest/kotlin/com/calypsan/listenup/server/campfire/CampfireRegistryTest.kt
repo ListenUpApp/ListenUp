@@ -39,17 +39,38 @@ class CampfireRegistryTest :
         // ---- Anchor math (§3.2) ----
 
         test("posAt advances position by elapsed time while playing") {
-            val anchor = CampfireAnchor(positionMs = 10_000, capturedAtEpochMs = t0.toEpochMilliseconds(), speed = 1f, isPlaying = true, stateVersion = 0)
+            val anchor =
+                CampfireAnchor(
+                    positionMs = 10_000,
+                    capturedAtEpochMs = t0.toEpochMilliseconds(),
+                    speed = 1f,
+                    isPlaying = true,
+                    stateVersion = 0,
+                )
             anchor.posAt(t0 + 5.seconds) shouldBe 15_000L
         }
 
         test("posAt scales elapsed time by speed while playing") {
-            val anchor = CampfireAnchor(positionMs = 10_000, capturedAtEpochMs = t0.toEpochMilliseconds(), speed = 2f, isPlaying = true, stateVersion = 0)
+            val anchor =
+                CampfireAnchor(
+                    positionMs = 10_000,
+                    capturedAtEpochMs = t0.toEpochMilliseconds(),
+                    speed = 2f,
+                    isPlaying = true,
+                    stateVersion = 0,
+                )
             anchor.posAt(t0 + 5.seconds) shouldBe 20_000L
         }
 
         test("posAt is a fixed point while paused, regardless of elapsed time") {
-            val anchor = CampfireAnchor(positionMs = 10_000, capturedAtEpochMs = t0.toEpochMilliseconds(), speed = 1f, isPlaying = false, stateVersion = 0)
+            val anchor =
+                CampfireAnchor(
+                    positionMs = 10_000,
+                    capturedAtEpochMs = t0.toEpochMilliseconds(),
+                    speed = 1f,
+                    isPlaying = false,
+                    stateVersion = 0,
+                )
             anchor.posAt(t0 + 1.hours) shouldBe 10_000L
         }
 
@@ -91,7 +112,8 @@ class CampfireRegistryTest :
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
 
-                val outcome = registry.applyCommand(roomId, "host", PlaybackCommand.SeekTo(positionMs = 99_000L, commandId = "c1"), now = t0)
+                val outcome =
+                    registry.applyCommand(roomId, "host", PlaybackCommand.SeekTo(positionMs = 99_000L, commandId = "c1"), now = t0)
 
                 val applied = outcome as CommandOutcome.Applied
                 applied.frame.anchor.positionMs shouldBe 99_000L
@@ -105,7 +127,13 @@ class CampfireRegistryTest :
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
                 registry.applyCommand(roomId, "host", PlaybackCommand.Play("c1"), now = t0)
 
-                val outcome = registry.applyCommand(roomId, "host", PlaybackCommand.SetSpeed(speed = 1.5f, commandId = "c2"), now = t0 + 2.seconds)
+                val outcome =
+                    registry.applyCommand(
+                        roomId,
+                        "host",
+                        PlaybackCommand.SetSpeed(speed = 1.5f, commandId = "c2"),
+                        now = t0 + 2.seconds,
+                    )
 
                 val applied = outcome as CommandOutcome.Applied
                 applied.frame.anchor.speed shouldBe 1.5f

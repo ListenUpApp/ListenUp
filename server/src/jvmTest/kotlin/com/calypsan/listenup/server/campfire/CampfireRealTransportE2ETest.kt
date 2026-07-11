@@ -346,18 +346,28 @@ class CampfireRealTransportE2ETest :
                             // iteration below is guaranteed to produce exactly one frame.
                             repeat(frameCount) { i ->
                                 when (i % 4) {
-                                    0 -> serviceA.sendCommand(sessionId, PlaybackCommand.Play(commandId = "soak-$i"))
-                                    1 -> serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "soak-$i"))
-                                    2 ->
+                                    0 -> {
+                                        serviceA.sendCommand(sessionId, PlaybackCommand.Play(commandId = "soak-$i"))
+                                    }
+
+                                    1 -> {
+                                        serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "soak-$i"))
+                                    }
+
+                                    2 -> {
                                         serviceA.sendCommand(
                                             sessionId,
                                             PlaybackCommand.SeekTo(positionMs = i.toLong(), commandId = "soak-$i"),
                                         )
-                                    else -> serviceA.sendChat(sessionId, "soak-$i")
+                                    }
+
+                                    else -> {
+                                        serviceA.sendChat(sessionId, "soak-$i")
+                                    }
                                 }.value()
                             }
 
-                            eventually(30.seconds) { received.get() shouldBe (baseline + frameCount) }
+                            eventually(30.seconds) { received.get() shouldBe baseline + frameCount }
 
                             // Flows still alive: B's collector job hasn't died, and a fresh command after
                             // the soak still arrives.
@@ -365,7 +375,7 @@ class CampfireRealTransportE2ETest :
                             serviceA
                                 .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 999_999, commandId = "post-soak"))
                                 .value()
-                            eventually(5.seconds) { received.get() shouldBe (baseline + frameCount + 1) }
+                            eventually(5.seconds) { received.get() shouldBe baseline + frameCount + 1 }
 
                             System.gc()
                             val after = runtime.totalMemory() - runtime.freeMemory()
@@ -604,7 +614,11 @@ private suspend fun buildCampfireEnv(
     }
     val server = embeddedServer(ServerCIO, port = 0, host = "127.0.0.1", module = module)
     server.start(wait = false)
-    val port = server.engine.resolvedConnectors().first().port
+    val port =
+        server.engine
+            .resolvedConnectors()
+            .first()
+            .port
     return CampfireEnv(server, port, reaperScope)
 }
 

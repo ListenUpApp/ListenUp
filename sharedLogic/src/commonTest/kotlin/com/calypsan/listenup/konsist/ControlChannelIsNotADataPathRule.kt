@@ -114,6 +114,10 @@ internal object ControlChannelDetector {
             "AdminUserServiceImpl.kt" to setOf("UserDeleted"),
             "ActiveSessionCleanupTask.kt" to setOf("ActiveSessionsChanged"),
             "ActiveSessionRepository.kt" to setOf("ActiveSessionsChanged"),
+            // Campfire rooms are ephemeral (never persisted, never revisioned) — the discovery
+            // nudge is pure accelerator by construction; clients re-list open sessions via RPC.
+            "CampfireServiceImpl.kt" to setOf("CampfiresChanged"),
+            "CampfireReaperTask.kt" to setOf("CampfiresChanged"),
         )
 
     /**

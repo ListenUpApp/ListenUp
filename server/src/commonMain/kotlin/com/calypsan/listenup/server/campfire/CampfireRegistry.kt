@@ -274,7 +274,6 @@ class CampfireRegistry(
         return outcome
     }
 
-
     /** Marks [userId] away in [roomId] (flow disconnect). Silent no-op if the room or member doesn't exist. */
     suspend fun markAway(
         roomId: CampfireId,
@@ -374,7 +373,7 @@ class CampfireRegistry(
     suspend fun reapIdle(now: Instant = clock.now()): List<CampfireEndInfo> {
         val idleRooms =
             roomsLock.withLock {
-                rooms.values.filter { (now - it.lastActivityAt) >= idleTimeout }
+                rooms.values.filter { now - it.lastActivityAt >= idleTimeout }
             }
         for (room in idleRooms) {
             room.end(now, CAMPFIRE_END_REASON_IDLE)

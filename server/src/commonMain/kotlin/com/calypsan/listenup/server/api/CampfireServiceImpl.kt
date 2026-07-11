@@ -180,15 +180,24 @@ internal class CampfireServiceImpl(
     override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
         return when (val outcome = registry.leave(sessionId, caller.userId)) {
-            is LeaveOutcome.Left -> AppResult.Success(Unit)
+            is LeaveOutcome.Left -> {
+                AppResult.Success(Unit)
+            }
+
             is LeaveOutcome.RoomEnded -> {
                 // The last member leaving ended the room — it stops being discoverable.
                 bus.broadcastControl(SyncControl.CampfiresChanged)
                 recordTogetherActivity(outcome.endInfo)
                 AppResult.Success(Unit)
             }
-            LeaveOutcome.NotAMember -> AppResult.Failure(CampfireError.NotAMember())
-            LeaveOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
+
+            LeaveOutcome.NotAMember -> {
+                AppResult.Failure(CampfireError.NotAMember())
+            }
+
+            LeaveOutcome.RoomNotFound -> {
+                AppResult.Failure(CampfireError.CampfireNotFound())
+            }
         }
     }
 
@@ -211,7 +220,11 @@ internal class CampfireServiceImpl(
      */
     private suspend fun recordTogetherActivity(endInfo: CampfireEndInfo?) {
         if (endInfo == null || endInfo.participantUserIds.size < 2) return
-        activityRecorder.record(userId = endInfo.hostUserId, type = ActivityType.CAMPFIRE_TOGETHER, bookId = endInfo.bookId)
+        activityRecorder.record(
+            userId = endInfo.hostUserId,
+            type = ActivityType.CAMPFIRE_TOGETHER,
+            bookId = endInfo.bookId,
+        )
     }
 
     override suspend fun transferHost(
@@ -223,9 +236,11 @@ internal class CampfireServiceImpl(
         if (snapshot.hostUserId != caller.userId) return AppResult.Failure(CampfireError.NotController())
         return when (registry.transferHost(sessionId, toUserId)) {
             is TransferHostOutcome.Transferred -> AppResult.Success(Unit)
+
             // Reuses NotAMember for "the transfer target isn't a member" — the family has no
             // dedicated third-party-target error and this is the closest fit (see class KDoc).
             TransferHostOutcome.TargetNotAMember -> AppResult.Failure(CampfireError.NotAMember())
+
             TransferHostOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
         }
     }
@@ -300,7 +315,9 @@ internal class CampfireServiceImpl(
             // perspective (design spec §9: "no conflict UI exists or is needed") — a losing
             // simultaneous command silently doesn't apply; the sender notices via the next frame.
             is CommandOutcome.Applied, CommandOutcome.NoOp, CommandOutcome.Rejected -> AppResult.Success(Unit)
+
             CommandOutcome.NotAMember -> AppResult.Failure(CampfireError.NotAMember())
+
             CommandOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
         }
     }
@@ -326,7 +343,9 @@ internal class CampfireServiceImpl(
             // A rate-limited reaction is dropped silently per the registry's own contract — no
             // error surfaces to the sender (see ReactionOutcome KDoc).
             ReactionOutcome.Sent, ReactionOutcome.Dropped -> AppResult.Success(Unit)
+
             ReactionOutcome.NotAMember -> AppResult.Failure(CampfireError.NotAMember())
+
             ReactionOutcome.RoomNotFound -> AppResult.Failure(CampfireError.CampfireNotFound())
         }
     }
@@ -429,8 +448,9 @@ internal class CampfireServiceImpl(
     ): Boolean {
         val yourPos = yourPositionMs ?: 0L
         if (roomPositionMs <= yourPos) return false
-        val aheadByTime = (roomPositionMs - yourPos) > SPOILER_TIME_THRESHOLD_MS
-        val aheadByChapter = (chapterIndexAt(bookId, roomPositionMs) - chapterIndexAt(bookId, yourPos)) > SPOILER_CHAPTER_THRESHOLD
+        val aheadByTime = roomPositionMs - yourPos > SPOILER_TIME_THRESHOLD_MS
+        val aheadByChapter =
+            chapterIndexAt(bookId, roomPositionMs) - chapterIndexAt(bookId, yourPos) > SPOILER_CHAPTER_THRESHOLD
         return aheadByTime || aheadByChapter
     }
 
@@ -450,7 +470,8 @@ internal class CampfireServiceImpl(
             .coerceAtLeast(0)
     }
 
-    private suspend fun displayNameOf(userId: String): String? = publicProfiles.identities(setOf(userId))[userId]?.displayName
+    private suspend fun displayNameOf(userId: String): String? =
+        publicProfiles.identities(setOf(userId))[userId]?.displayName
 
     /** The resolved caller: their user id and contract role (the role [BookAccessPolicy] speaks). */
     private data class Caller(

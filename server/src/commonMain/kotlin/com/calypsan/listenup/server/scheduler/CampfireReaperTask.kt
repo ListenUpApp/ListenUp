@@ -70,11 +70,17 @@ internal class CampfireReaperTask(
         val endedForIdle = registry.reapIdle(now)
         val allEnded = endedForAway + endedForIdle
         if (allEnded.isNotEmpty()) {
-            log.info { "CampfireReaperTask ended ${allEnded.size} room(s) (away-grace=${endedForAway.size}, idle=${endedForIdle.size})" }
+            log.info {
+                "CampfireReaperTask ended ${allEnded.size} room(s) (away-grace=${endedForAway.size}, idle=${endedForIdle.size})"
+            }
             bus.broadcastControl(SyncControl.CampfiresChanged)
             allEnded.forEach { info ->
                 if (info.participantUserIds.size >= 2) {
-                    activityRecorder.record(userId = info.hostUserId, type = ActivityType.CAMPFIRE_TOGETHER, bookId = info.bookId)
+                    activityRecorder.record(
+                        userId = info.hostUserId,
+                        type = ActivityType.CAMPFIRE_TOGETHER,
+                        bookId = info.bookId,
+                    )
                 }
             }
         }

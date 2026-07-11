@@ -227,7 +227,7 @@ internal class CampfireRoom(
                 members.values
                     .filter { member ->
                         val awaySince = member.awaySinceEpochMs
-                        awaySince != null && (now.toEpochMilliseconds() - awaySince) >= grace.inWholeMilliseconds
+                        awaySince != null && now.toEpochMilliseconds() - awaySince >= grace.inWholeMilliseconds
                     }.map { it.userId }
             for (userId in staleUserIds) {
                 if (ended) break
@@ -329,7 +329,7 @@ internal class CampfireRoom(
             val computedPositionMs = anchor.posAt(now)
             val nextAnchor =
                 when (command) {
-                    is PlaybackCommand.Play ->
+                    is PlaybackCommand.Play -> {
                         if (anchor.isPlaying) {
                             return@withLock CommandOutcome.NoOp
                         } else {
@@ -340,7 +340,9 @@ internal class CampfireRoom(
                                 stateVersion = anchor.stateVersion + 1,
                             )
                         }
-                    is PlaybackCommand.Pause ->
+                    }
+
+                    is PlaybackCommand.Pause -> {
                         if (!anchor.isPlaying) {
                             return@withLock CommandOutcome.NoOp
                         } else {
@@ -351,22 +353,32 @@ internal class CampfireRoom(
                                 stateVersion = anchor.stateVersion + 1,
                             )
                         }
-                    is PlaybackCommand.SeekTo ->
+                    }
+
+                    is PlaybackCommand.SeekTo -> {
                         anchor.copy(
                             positionMs = command.positionMs,
                             capturedAtEpochMs = now.toEpochMilliseconds(),
                             stateVersion = anchor.stateVersion + 1,
                         )
-                    is PlaybackCommand.SetSpeed ->
+                    }
+
+                    is PlaybackCommand.SetSpeed -> {
                         anchor.copy(
                             positionMs = computedPositionMs,
                             capturedAtEpochMs = now.toEpochMilliseconds(),
                             speed = command.speed,
                             stateVersion = anchor.stateVersion + 1,
                         )
+                    }
                 }
             anchor = nextAnchor
-            val frame = CampfireFrame.AnchorChanged(anchor = nextAnchor, byUserId = userId, commandId = command.commandId)
+            val frame =
+                CampfireFrame.AnchorChanged(
+                    anchor = nextAnchor,
+                    byUserId = userId,
+                    commandId = command.commandId,
+                )
             mutableFrames.emit(frame)
             CommandOutcome.Applied(frame)
         }
@@ -409,7 +421,7 @@ internal class CampfireRoom(
             if (userId !in members) return@withLock ReactionOutcome.NotAMember
             lastActivityAt = now
             val recent = reactionTimestamps.getOrPut(userId) { ArrayDeque() }
-            while (recent.isNotEmpty() && (now - recent.first()) > reactionBurstWindow) recent.removeFirst()
+            while (recent.isNotEmpty() && now - recent.first() > reactionBurstWindow) recent.removeFirst()
             if (recent.size >= reactionBurstLimit) return@withLock ReactionOutcome.Dropped
             recent.addLast(now)
             mutableFrames.emit(CampfireFrame.Reaction(userId, emoji))

@@ -205,6 +205,10 @@ class SyncDomainCompletenessSpec :
                         // it current, so no RefreshedDomain claims this control. It stays a sealed
                         // subtype for wire compatibility; owning it here keeps completeness exhaustive.
                         SyncControl.ActivityChanged::class,
+                        // Campfire discovery nudge (server-side Campfire). No client RefreshedDomain
+                        // claims it yet — the client Campfire surface arrives with the feature; until
+                        // then the dispatcher warn-drops it (SyncEventDispatcher's unclaimed-refresh arm).
+                        SyncControl.CampfiresChanged::class,
                     )
                 val refreshedTriggers = catalog.refreshed.map { it.trigger }
 
