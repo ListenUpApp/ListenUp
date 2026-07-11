@@ -18,6 +18,10 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
@@ -29,13 +33,21 @@ import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.LocalDeviceContext
 import com.calypsan.listenup.client.features.contributors.CastRole
 import com.calypsan.listenup.client.features.contributors.FullCastSheetFor
+import com.calypsan.listenup.client.features.nowplaying.components.FloatingReaction
 import com.calypsan.listenup.client.features.shell.components.NavigationBarHeight
 import com.calypsan.listenup.client.playback.ContributorPickerType
 import com.calypsan.listenup.client.playback.NowPlayingOverlay
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.playback.PlaybackProgress
+import com.calypsan.listenup.client.presentation.campfire.CampfireScreenEvent
+import com.calypsan.listenup.client.presentation.campfire.CampfireScreenUiState
+import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingNavAction
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.playback.SleepTimerState
+import listenup.composeapp.generated.resources.Res
+import listenup.composeapp.generated.resources.campfire_control_denied
+import org.jetbrains.compose.resources.getString
 
 /** Height of a standard snackbar for padding calculations */
 private val SnackbarHeight = 48.dp
@@ -58,6 +70,7 @@ fun NowPlayingHost(
     onNavigateToContributor: (String) -> Unit,
     onNavigateToDocument: (localPath: String) -> Unit,
     viewModel: NowPlayingViewModel,
+    campfireViewModel: CampfireViewModel,
     onBarFootprintChanged: (Dp) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -77,6 +90,16 @@ fun NowPlayingHost(
         }
     }
     val isSnackbarVisible = snackbarHostState?.currentSnackbarData != null
+
+    // Campfire (co-listening) session mode — chrome only renders while a session is Active for
+    // the book currently shown here (campfire implementation plan, Task 10).
+    val campfire =
+        rememberCampfireHost(
+            campfireViewModel = campfireViewModel,
+            playingState = screenState.state as? NowPlayingState.Active,
+            snackbarHostState = snackbarHostState,
+            progress = provideProgress,
+        )
 
     val deviceContext = LocalDeviceContext.current
     val isTv = deviceContext.isLeanback
@@ -121,8 +144,8 @@ fun NowPlayingHost(
                     state = activeState,
                     progress = provideProgress,
                     onCollapse = viewModel::collapse,
-                    onPlayPause = viewModel::playPause,
-                    onSeek = viewModel::seekWithinChapter,
+                    onPlayPause = campfire.playPause ?: viewModel::playPause,
+                    onSeek = campfire.seek ?: viewModel::seekWithinChapter,
                     onSkipBack = { viewModel.skipBack() },
                     onSkipForward = { viewModel.skipForward() },
                     onPreviousChapter = viewModel::previousChapter,
@@ -148,6 +171,10 @@ fun NowPlayingHost(
                     hasPdf = firstPdfDocId != null,
                     onOpenPdf = viewModel::onOpenCurrentPdf,
                     isTv = isTv,
+                    campfireSession = campfire.session,
+                    onOpenCampfireChat = { campfire.setShowChat(true) },
+                    floatingReactions = campfire.reactions,
+                    onCampfireReactionFinished = campfire.onReactionFinished,
                 )
             }
         }
@@ -222,6 +249,128 @@ fun NowPlayingHost(
             activeState = activeState,
             viewModel = viewModel,
             onNavigateToContributor = onNavigateToContributor,
+        )
+
+        CampfireOverlays(campfire = campfire, campfireViewModel = campfireViewModel)
+    }
+}
+
+/**
+ * Campfire wiring for [NowPlayingHost], extracted to keep the host inside the cognitive-complexity
+ * budget. Carries the derived session (only when it matches the playing book), the transient
+ * chat/reaction UI state, and the campfire-routed transport intents — `null` when no session is
+ * active, so callers fall back to the plain player controls.
+ */
+private class CampfireHostUi(
+    val state: CampfireScreenUiState,
+    val session: CampfireScreenUiState.Active?,
+    val reactions: List<FloatingReaction>,
+    val onReactionFinished: (Long) -> Unit,
+    val showChat: Boolean,
+    val setShowChat: (Boolean) -> Unit,
+    val dismissedRejoinStateVersion: Long?,
+    val setDismissedRejoinStateVersion: (Long?) -> Unit,
+    val playPause: (() -> Unit)?,
+    val seek: ((Float) -> Unit)?,
+)
+
+/**
+ * Collects [CampfireViewModel] state/events into a [CampfireHostUi] for [NowPlayingHost]: derives
+ * the active session for the playing book, folds one-shot events (ControlDenied → snackbar,
+ * ReactionReceived → floating overlay entry), and builds the campfire-routed play/pause + seek
+ * intents. Only play/pause and seek funnel through the room — they are the surfaces
+ * `PlaybackCommand` models (Play/Pause/SeekTo/SetSpeed); chapter skips stay local.
+ */
+@Composable
+private fun rememberCampfireHost(
+    campfireViewModel: CampfireViewModel,
+    playingState: NowPlayingState.Active?,
+    snackbarHostState: SnackbarHostState?,
+    progress: () -> PlaybackProgress,
+): CampfireHostUi {
+    val campfireState by campfireViewModel.state.collectAsStateWithLifecycle()
+    val session = (campfireState as? CampfireScreenUiState.Active)?.takeIf { it.bookId == playingState?.bookId }
+
+    var showChat by remember { mutableStateOf(false) }
+    LaunchedEffect(session == null) {
+        if (session == null) showChat = false
+    }
+
+    val reactions = remember { mutableStateListOf<FloatingReaction>() }
+    var dismissedRejoinStateVersion by remember { mutableStateOf<Long?>(null) }
+
+    LaunchedEffect(campfireViewModel) {
+        campfireViewModel.events.collect { event ->
+            when (event) {
+                CampfireScreenEvent.ControlDenied -> {
+                    snackbarHostState?.showSnackbar(getString(Res.string.campfire_control_denied))
+                }
+
+                is CampfireScreenEvent.ReactionReceived -> {
+                    reactions.add(FloatingReaction(id = System.nanoTime(), emoji = event.emoji))
+                }
+            }
+        }
+    }
+
+    val isPlaying = playingState?.isPlaying == true
+    return CampfireHostUi(
+        state = campfireState,
+        session = session,
+        reactions = reactions,
+        onReactionFinished = { id -> reactions.removeAll { it.id == id } },
+        showChat = showChat,
+        setShowChat = { showChat = it },
+        dismissedRejoinStateVersion = dismissedRejoinStateVersion,
+        setDismissedRejoinStateVersion = { dismissedRejoinStateVersion = it },
+        playPause =
+            session?.let {
+                { if (isPlaying) campfireViewModel.pause() else campfireViewModel.play() }
+            },
+        seek =
+            session?.let {
+                { fraction ->
+                    val current = progress()
+                    val chapterStartMs = current.bookPositionMs - current.chapterPositionMs
+                    campfireViewModel.seekTo(chapterStartMs + (current.chapterDurationMs * fraction).toLong())
+                }
+            },
+    )
+}
+
+/**
+ * Campfire session overlays — chat sheet, spoiler confirm, rejoin confirm. Independent of
+ * [NowPlayingOverlay] (the plain player's own overlay enum) since a spoiler/rejoin prompt can
+ * surface before the full-screen player is ever expanded.
+ */
+@Composable
+private fun CampfireOverlays(
+    campfire: CampfireHostUi,
+    campfireViewModel: CampfireViewModel,
+) {
+    val session = campfire.session
+    if (campfire.showChat && session != null) {
+        CampfireChatSheet(
+            messages = session.chat,
+            members = session.members,
+            onSend = campfireViewModel::sendChat,
+            onReaction = campfireViewModel::sendReaction,
+            onDismiss = { campfire.setShowChat(false) },
+        )
+    }
+
+    if (campfire.state is CampfireScreenUiState.ConfirmingSpoiler) {
+        CampfireSpoilerDialog(
+            onConfirm = campfireViewModel::confirmSpoilerJoin,
+            onCancel = campfireViewModel::cancelSpoilerJoin,
+        )
+    }
+
+    val pendingRejoin = (campfire.state as? CampfireScreenUiState.Active)?.pendingRejoinSync
+    if (pendingRejoin != null && pendingRejoin.stateVersion != campfire.dismissedRejoinStateVersion) {
+        CampfireRejoinDialog(
+            onConfirm = campfireViewModel::confirmRejoinSync,
+            onDismiss = { campfire.setDismissedRejoinStateVersion(pendingRejoin.stateVersion) },
         )
     }
 }

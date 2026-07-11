@@ -75,6 +75,7 @@ import com.calypsan.listenup.client.features.invite.JoinScreen
 import com.calypsan.listenup.client.domain.repository.HomeRepository
 import com.calypsan.listenup.client.features.nowplaying.NowPlayingHost
 import com.calypsan.listenup.client.playback.NowPlayingState
+import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.features.nowplaying.DockedNowPlayingBarHeight
 import com.calypsan.listenup.client.features.shell.ShellDestination
@@ -556,6 +557,11 @@ private fun AuthenticatedNavigation(
     // ViewModels for shortcut action handling
     val nowPlayingViewModel: NowPlayingViewModel = koinViewModel()
 
+    // Hoisted once here (like nowPlayingViewModel above) so Book Detail's create/join flow and
+    // the Now Playing session chrome observe the SAME joined session — a campfire join anywhere
+    // in the app must be visible everywhere the app renders session chrome.
+    val campfireViewModel: CampfireViewModel = koinViewModel()
+
     // Mini-player clearance: the bar is the producer of its own footprint, the detail screens
     // are the consumers via LocalNowPlayingInsets. The bar is "visible" (and thus reserves space)
     // only while a book is Active and the full-screen player is collapsed. We latch the measured
@@ -698,6 +704,7 @@ private fun AuthenticatedNavigation(
                             currentShellDestination = { currentShellDestination },
                             onShellDestinationChange = { currentShellDestination = it },
                             nowPlayingViewModel = nowPlayingViewModel,
+                            campfireViewModel = campfireViewModel,
                             readiness = { readiness },
                             onSignOut = onSignOut,
                             startupViewModel = startupViewModel,
@@ -713,6 +720,7 @@ private fun AuthenticatedNavigation(
                     backStack = backStack,
                     snackbarHostState = snackbarHostState,
                     nowPlayingViewModel = nowPlayingViewModel,
+                    campfireViewModel = campfireViewModel,
                     readiness = readiness,
                     onRetryLibrarySetupCheck = { startupViewModel.retryLibrarySetupCheck() },
                     onBarFootprintChanged = { measured ->
@@ -736,6 +744,7 @@ private fun authenticatedNavEntries(
     currentShellDestination: () -> ShellDestination,
     onShellDestinationChange: (ShellDestination) -> Unit,
     nowPlayingViewModel: NowPlayingViewModel,
+    campfireViewModel: CampfireViewModel,
     readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
     startupViewModel: AppStartupViewModel,
@@ -755,7 +764,7 @@ private fun authenticatedNavEntries(
         onContinueToPartialLibrary = startupViewModel::onContinueToPartialLibrary,
     )
     librarySetupEntry(backStack, startupViewModel, scope, syncRepository)
-    bookEntries(backStack)
+    bookEntries(backStack, campfireViewModel)
     seriesEntries(backStack)
     contributorEntries(backStack)
     adminEntries(backStack)
@@ -793,6 +802,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
     backStack: NavBackStack<NavKey>,
     snackbarHostState: SnackbarHostState,
     nowPlayingViewModel: NowPlayingViewModel,
+    campfireViewModel: CampfireViewModel,
     readiness: LibraryReadiness,
     onRetryLibrarySetupCheck: () -> Unit,
     onBarFootprintChanged: (Dp) -> Unit,
@@ -818,6 +828,7 @@ private fun BoxScope.AuthenticatedNavOverlays(
             backStack.add(DocumentViewer(localPath))
         },
         viewModel = nowPlayingViewModel,
+        campfireViewModel = campfireViewModel,
         onBarFootprintChanged = onBarFootprintChanged,
     )
 

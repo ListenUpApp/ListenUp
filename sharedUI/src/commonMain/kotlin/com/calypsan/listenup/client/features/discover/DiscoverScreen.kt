@@ -49,6 +49,7 @@ import com.calypsan.listenup.client.design.util.stableColorForId
 import com.calypsan.listenup.client.features.discover.components.ActivityFeedSection
 import com.calypsan.listenup.client.features.discover.components.CurrentlyListeningSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverBooksSection
+import com.calypsan.listenup.client.features.discover.components.LiveCampfiresSection
 import com.calypsan.listenup.client.features.discover.components.DiscoverLeaderboardSection
 import com.calypsan.listenup.client.features.discover.components.RecentlyAddedSection
 import com.calypsan.listenup.client.features.library.components.BookSelectionScaffold
@@ -223,6 +224,11 @@ private fun DiscoverContent(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
+        }
+
+        // Live now - open Campfire (co-listening) sessions. Renders nothing while empty.
+        item {
+            LiveCampfiresSection(onBookClick = onBookClick)
         }
 
         // Discover Something New - random book discovery (top section)
