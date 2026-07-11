@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.ChatMessage
 import com.calypsan.listenup.api.error.AppError
@@ -206,6 +207,16 @@ class CampfireViewModel internal constructor(
         viewModelScope.launch { controller.sendReaction(emoji) }
     }
 
+    /** Starts the campfire (host-only — see [CampfireSessionController.startCampfire]). */
+    fun startCampfire() {
+        viewModelScope.launch { controller.startCampfire() }
+    }
+
+    /** Updates the campfire's lobby settings (host-only, lobby-only — see [CampfireSessionController.updateSettings]). */
+    fun updateSettings(settings: CampfireSettings) {
+        viewModelScope.launch { controller.updateSettings(settings) }
+    }
+
     /** Populates [inviteState] with [bookId]'s access-filtered invite candidates for the create/invite sheet. */
     fun listInvitableUsers(bookId: String) {
         viewModelScope.launch {
@@ -239,14 +250,20 @@ private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
             CampfireScreenUiState.Active(
                 sessionId = sessionId,
                 bookId = bookId,
+                phase = phase,
+                name = name,
                 anchor = anchor,
                 members = members,
                 hostUserId = hostUserId,
+                hostDisplayName = members.firstOrNull { it.userId == hostUserId }?.displayName ?: hostUserId,
                 controlMode = controlMode,
                 chat = chat,
                 yourPositionMs = yourPositionMs,
                 spoilerAhead = spoilerAhead,
                 hasControl = hasControl,
+                isHost = isHost,
+                startedAtEpochMs = startedAtEpochMs,
+                invitedPending = invitedPending,
                 pendingRejoinSync = pendingRejoinSync,
             )
         }
@@ -263,6 +280,7 @@ private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
 private fun CampfireSessionEvent.toScreenEvent(): CampfireScreenEvent =
     when (this) {
         CampfireSessionEvent.ControlDenied -> CampfireScreenEvent.ControlDenied
+        CampfireSessionEvent.NotStarted -> CampfireScreenEvent.NotStarted
         is CampfireSessionEvent.ReactionReceived -> CampfireScreenEvent.ReactionReceived(userId, emoji)
     }
 
@@ -289,18 +307,29 @@ sealed interface CampfireScreenUiState {
         val sessionId: CampfireId,
     ) : CampfireScreenUiState
 
-    /** A live, connected session. See [CampfireUiState.Active] for field semantics. */
+    /**
+     * A live, connected session. See [CampfireUiState.Active] for field semantics.
+     *
+     * @property hostDisplayName [hostUserId]'s display name, resolved from [members] (falling back
+     * to the raw id) — the guest lobby's "Waiting for {host} to start" copy.
+     */
     data class Active(
         val sessionId: CampfireId,
         val bookId: String,
+        val phase: CampfirePhase,
+        val name: String,
         val anchor: CampfireAnchor,
         val members: List<CampfireMember>,
         val hostUserId: String,
+        val hostDisplayName: String,
         val controlMode: CampfireControlMode,
         val chat: List<ChatMessage>,
         val yourPositionMs: Long?,
         val spoilerAhead: Boolean,
         val hasControl: Boolean,
+        val isHost: Boolean,
+        val startedAtEpochMs: Long? = null,
+        val invitedPending: List<CampfireInvitableUser> = emptyList(),
         val pendingRejoinSync: CampfireAnchor? = null,
     ) : CampfireScreenUiState
 
@@ -325,6 +354,9 @@ sealed interface CampfireScreenUiState {
 sealed interface CampfireScreenEvent {
     /** The local caller attempted a playback command while lacking control (HOST_ONLY, not host). */
     data object ControlDenied : CampfireScreenEvent
+
+    /** The local caller attempted a playback command before the host started the campfire. */
+    data object NotStarted : CampfireScreenEvent
 
     /** A fire-and-forget reaction arrived — render as a transient overlay, never folded into state. */
     data class ReactionReceived(

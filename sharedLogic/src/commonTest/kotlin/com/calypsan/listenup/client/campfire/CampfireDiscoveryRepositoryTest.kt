@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
@@ -39,6 +40,8 @@ class CampfireDiscoveryRepositoryTest :
         ) = OpenCampfireSummary(
             id = CampfireId(id),
             bookId = bookId,
+            phase = CampfirePhase.LIVE,
+            name = "Campfire",
             hostUserId = "host-1",
             memberCount = 1,
             controlMode = CampfireControlMode.EVERYONE,
@@ -136,6 +139,13 @@ private class FakeDiscoveryTransport(
     override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
 
     override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot> = throw NotImplementedError()
 
     override suspend fun transferHost(
         sessionId: CampfireId,

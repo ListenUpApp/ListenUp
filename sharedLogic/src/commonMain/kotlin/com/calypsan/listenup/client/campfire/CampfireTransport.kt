@@ -56,6 +56,15 @@ internal interface CampfireTransport {
     /** See [com.calypsan.listenup.api.CampfireService.endSession]. */
     suspend fun endSession(sessionId: CampfireId): AppResult<Unit>
 
+    /** See [com.calypsan.listenup.api.CampfireService.startSession]. */
+    suspend fun startSession(sessionId: CampfireId): AppResult<Unit>
+
+    /** See [com.calypsan.listenup.api.CampfireService.updateSettings]. */
+    suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot>
+
     /** See [com.calypsan.listenup.api.CampfireService.transferHost]. */
     suspend fun transferHost(
         sessionId: CampfireId,

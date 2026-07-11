@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.discover
 
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
@@ -255,6 +256,8 @@ class DiscoverViewModelTest :
                     OpenCampfireSummary(
                         id = CampfireId("cf-1"),
                         bookId = "book-1",
+                        phase = CampfirePhase.LIVE,
+                        name = "Campfire",
                         hostUserId = "host-1",
                         memberCount = 2,
                         controlMode = CampfireControlMode.EVERYONE,

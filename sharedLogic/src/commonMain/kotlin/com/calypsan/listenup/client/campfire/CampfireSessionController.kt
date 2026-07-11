@@ -6,6 +6,8 @@ import com.calypsan.listenup.api.dto.campfire.CampfireAnchor
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
+import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
@@ -121,8 +123,12 @@ internal class CampfireSessionController(
     private var driftJob: Job? = null
 
     /**
-     * Joins [sessionId]: fetches a snapshot, applies it to local playback, and starts the live
-     * frame stream + drift-correction loop.
+     * Joins [sessionId]: fetches a snapshot and starts the live frame stream + drift-correction
+     * loop. The snapshot's anchor is applied to local playback ONLY while the room is already
+     * [CampfirePhase.LIVE] — a [CampfirePhase.LOBBY] join leaves local playback exactly as it
+     * was (the Never Stranded inversion: the user keeps THEIR playback until the fire is lit).
+     * [CampfireFrame.CampfireStarted] is what applies the anchor for a still-lobby room, the one
+     * shared moment everyone starts from together.
      */
     suspend fun join(sessionId: CampfireId) {
         state.value = CampfireUiState.Joining(sessionId)
@@ -130,13 +136,14 @@ internal class CampfireSessionController(
         when (val result = transport.joinSession(sessionId)) {
             is AppResult.Success -> {
                 selfUserId = userRepository.getCurrentUser()?.idString
-                val nowMs = nowMs()
                 val snapshot = result.data
-                applyAnchorToPlayback(snapshot.anchor, nowMs)
+                if (snapshot.phase == CampfirePhase.LIVE) applyAnchorToPlayback(snapshot.anchor, nowMs())
                 state.value =
                     CampfireUiState.Active(
                         sessionId = sessionId,
                         bookId = snapshot.bookId,
+                        phase = snapshot.phase,
+                        name = snapshot.settings.name,
                         anchor = snapshot.anchor,
                         members = snapshot.members,
                         hostUserId = snapshot.hostUserId,
@@ -145,6 +152,9 @@ internal class CampfireSessionController(
                         yourPositionMs = snapshot.yourPositionMs,
                         spoilerAhead = snapshot.spoilerAhead,
                         hasControl = hasControl(snapshot.settings.controlMode, snapshot.hostUserId),
+                        isHost = isHost(snapshot.hostUserId),
+                        startedAtEpochMs = snapshot.startedAtEpochMs,
+                        invitedPending = snapshot.invitedPending,
                     )
                 startObserving(sessionId)
                 startDriftLoop()
@@ -179,17 +189,28 @@ internal class CampfireSessionController(
         when (val result = transport.joinSession(sessionId)) {
             is AppResult.Success -> {
                 selfUserId = userRepository.getCurrentUser()?.idString
-                val nowMs = nowMs()
                 val snapshot = result.data
-                val roomPositionMs = snapshot.anchor.posAt(nowMs)
-                val localPositionMs = playbackManager.currentPositionMs.value
-                val drift = abs(roomPositionMs - localPositionMs)
-                val isLargeDrift = drift > LARGE_DRIFT_THRESHOLD_MS
-                if (!isLargeDrift) applyAnchorToPlayback(snapshot.anchor, nowMs)
+                var pendingRejoinSync: CampfireAnchor? = null
+                if (snapshot.phase == CampfirePhase.LIVE) {
+                    val nowMs = nowMs()
+                    val roomPositionMs = snapshot.anchor.posAt(nowMs)
+                    val localPositionMs = playbackManager.currentPositionMs.value
+                    val isLargeDrift = abs(roomPositionMs - localPositionMs) > LARGE_DRIFT_THRESHOLD_MS
+                    if (isLargeDrift) {
+                        pendingRejoinSync = snapshot.anchor
+                    } else {
+                        applyAnchorToPlayback(
+                            snapshot.anchor,
+                            nowMs,
+                        )
+                    }
+                }
                 state.value =
                     CampfireUiState.Active(
                         sessionId = sessionId,
                         bookId = snapshot.bookId,
+                        phase = snapshot.phase,
+                        name = snapshot.settings.name,
                         anchor = snapshot.anchor,
                         members = snapshot.members,
                         hostUserId = snapshot.hostUserId,
@@ -198,7 +219,10 @@ internal class CampfireSessionController(
                         yourPositionMs = snapshot.yourPositionMs,
                         spoilerAhead = snapshot.spoilerAhead,
                         hasControl = hasControl(snapshot.settings.controlMode, snapshot.hostUserId),
-                        pendingRejoinSync = if (isLargeDrift) snapshot.anchor else null,
+                        isHost = isHost(snapshot.hostUserId),
+                        startedAtEpochMs = snapshot.startedAtEpochMs,
+                        invitedPending = snapshot.invitedPending,
+                        pendingRejoinSync = pendingRejoinSync,
                     )
                 startObserving(sessionId)
                 startDriftLoop()
@@ -264,12 +288,58 @@ internal class CampfireSessionController(
     }
 
     /**
-     * Mints a commandId, checks [CampfireUiState.Active.hasControl], applies the command
-     * optimistically to [playbackController], and fires it at the server. On a business
-     * rejection the pending id is dropped — no echo will ever arrive for it.
+     * Starts the campfire (host-only; the UI shouldn't offer this affordance to a non-host —
+     * see [CampfireUiState.Active.isHost]). A [CampfireError.NotController] failure routes the
+     * normal failure path (logged, no special denial event) rather than [sendCommand]'s local
+     * pre-check, since the UI is expected to have already gated the affordance. The phase flip
+     * and anchor apply happen uniformly for every member — including the host — via the
+     * broadcast [CampfireFrame.CampfireStarted] frame (see [handleFrame]), not here.
+     */
+    suspend fun startCampfire() {
+        val sessionId = (state.value as? CampfireUiState.Active)?.sessionId ?: return
+        val result = transport.startSession(sessionId)
+        if (result is AppResult.Failure) {
+            logger.warn { "Campfire startSession rejected: ${result.error.code}" }
+        }
+    }
+
+    /**
+     * Updates the campfire's settings while still in the lobby phase (host-only). On success,
+     * refreshes the settings-derived slice of [CampfireUiState.Active] ([CampfireUiState.Active.name],
+     * [CampfireUiState.Active.controlMode], [CampfireUiState.Active.invitedPending]) from the
+     * returned snapshot.
+     */
+    suspend fun updateSettings(settings: CampfireSettings) {
+        val current = state.value as? CampfireUiState.Active ?: return
+        when (val result = transport.updateSettings(current.sessionId, settings)) {
+            is AppResult.Success -> {
+                val snapshot = result.data
+                state.value =
+                    current.copy(
+                        name = snapshot.settings.name,
+                        controlMode = snapshot.settings.controlMode,
+                        hasControl = hasControl(snapshot.settings.controlMode, current.hostUserId),
+                        invitedPending = snapshot.invitedPending,
+                    )
+            }
+
+            is AppResult.Failure -> {
+                logger.warn { "Campfire updateSettings rejected: ${result.error.code}" }
+            }
+        }
+    }
+
+    /**
+     * Mints a commandId, checks [CampfireUiState.Active.phase] and [CampfireUiState.Active.hasControl],
+     * applies the command optimistically to [playbackController], and fires it at the server. On a
+     * business rejection the pending id is dropped — no echo will ever arrive for it.
      */
     private fun sendCommand(build: (commandId: String) -> PlaybackCommand) {
         val current = state.value as? CampfireUiState.Active ?: return
+        if (current.phase == CampfirePhase.LOBBY) {
+            eventChannel.trySend(CampfireSessionEvent.NotStarted)
+            return
+        }
         if (!current.hasControl) {
             eventChannel.trySend(CampfireSessionEvent.ControlDenied)
             return
@@ -314,6 +384,7 @@ internal class CampfireSessionController(
             }
     }
 
+    /** Runs only while [CampfireUiState.Active.phase] is [CampfirePhase.LIVE] and the room is playing — there's nothing to drift-correct against in a still-[CampfirePhase.LOBBY] room. */
     private fun startDriftLoop() {
         driftJob?.cancel()
         driftJob =
@@ -321,8 +392,8 @@ internal class CampfireSessionController(
                 while (isActive) {
                     delay(DRIFT_TICK_INTERVAL_MS)
                     val current = state.value as? CampfireUiState.Active ?: continue
-                    if (!current.anchor.isPlaying) continue
-                    if (playbackManager.isBuffering.value) continue
+                    val isCorrectable = current.phase == CampfirePhase.LIVE && current.anchor.isPlaying
+                    if (!isCorrectable || playbackManager.isBuffering.value) continue
                     val expectedPositionMs = current.anchor.posAt(nowMs())
                     val actualPositionMs = playbackManager.currentPositionMs.value
                     if (abs(expectedPositionMs - actualPositionMs) > DRIFT_TOLERANCE_MS) {
@@ -338,6 +409,16 @@ internal class CampfireSessionController(
     ) {
         val current = state.value as? CampfireUiState.Active ?: return
         when (frame) {
+            is CampfireFrame.CampfireStarted -> {
+                applyAnchorToPlayback(frame.anchor, nowMs())
+                state.value =
+                    current.copy(
+                        anchor = frame.anchor,
+                        phase = CampfirePhase.LIVE,
+                        startedAtEpochMs = frame.anchor.capturedAtEpochMs,
+                    )
+            }
+
             is CampfireFrame.AnchorChanged -> {
                 val isOwnEcho = consumePendingCommand(frame.commandId)
                 if (!isOwnEcho) applyAnchorToPlayback(frame.anchor, nowMs())
@@ -345,7 +426,11 @@ internal class CampfireSessionController(
             }
 
             is CampfireFrame.MemberJoined -> {
-                state.value = current.copy(members = current.members + frame.member)
+                state.value =
+                    current.copy(
+                        members = current.members + frame.member,
+                        invitedPending = current.invitedPending.filterNot { it.userId == frame.member.userId },
+                    )
             }
 
             is CampfireFrame.MemberLeft -> {
@@ -364,6 +449,7 @@ internal class CampfireSessionController(
                     current.copy(
                         hostUserId = frame.userId,
                         hasControl = hasControl(current.controlMode, frame.userId),
+                        isHost = isHost(frame.userId),
                     )
             }
 
@@ -412,6 +498,9 @@ internal class CampfireSessionController(
         mode: CampfireControlMode,
         hostUserId: String,
     ): Boolean = mode == CampfireControlMode.EVERYONE || selfUserId == hostUserId
+
+    /** Whether the local caller is [hostUserId] — distinct from [hasControl] (see [CampfireUiState.Active.isHost]). */
+    private fun isHost(hostUserId: String): Boolean = selfUserId == hostUserId
 
     /** Atomically removes [commandId] from [pendingCommandIds] if present; returns whether it was. */
     private fun consumePendingCommand(commandId: String?): Boolean {

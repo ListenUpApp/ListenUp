@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.client.features.nowplaying.components.CampfireReactionOverlay
 import com.calypsan.listenup.client.features.nowplaying.components.CampfireSessionBar
 import com.calypsan.listenup.client.features.nowplaying.components.FloatingReaction
@@ -265,9 +266,10 @@ fun NowPlayingScreen(
                 )
             }
 
-            // Session chrome: only rendered while a Campfire session is active for this book — zero
-            // visual change otherwise (campfire implementation plan, Task 10).
-            if (campfireSession != null) {
+            // Session chrome: only rendered while a Campfire session is active AND live for this
+            // book — zero visual change otherwise (campfire implementation plan, Task 10). Hidden
+            // during CampfirePhase.LOBBY; the full lobby UI (L3) replaces this gate.
+            if (campfireSession != null && campfireSession.phase == CampfirePhase.LIVE) {
                 CampfireSessionBar(
                     members = campfireSession.members,
                     hostUserId = campfireSession.hostUserId,

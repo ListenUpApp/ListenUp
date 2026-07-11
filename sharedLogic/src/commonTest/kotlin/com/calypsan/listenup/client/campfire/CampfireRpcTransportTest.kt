@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireAnchor
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
@@ -61,7 +62,8 @@ class CampfireRpcTransportTest :
             CampfireSnapshot(
                 id = CampfireId(id),
                 bookId = "book-1",
-                settings = CampfireSettings(controlMode = CampfireControlMode.HOST_ONLY, inviteOnly = false),
+                settings = CampfireSettings(name = "Campfire", controlMode = CampfireControlMode.HOST_ONLY, inviteOnly = false),
+                phase = CampfirePhase.LIVE,
                 anchor =
                     CampfireAnchor(
                         positionMs = 0L,
@@ -80,7 +82,7 @@ class CampfireRpcTransportTest :
         test("createSession delegates to CampfireService and returns the wire Success untouched") {
             runTest {
                 val snapshot = stubSnapshot()
-                val settings = CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
+                val settings = CampfireSettings(name = "Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
                 val service =
                     mock<CampfireService> {
                         everySuspend { createSession("book-1", settings) } returns AppResult.Success(snapshot)

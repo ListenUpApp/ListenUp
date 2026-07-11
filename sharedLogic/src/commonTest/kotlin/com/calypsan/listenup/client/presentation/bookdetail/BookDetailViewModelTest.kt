@@ -4,6 +4,7 @@ import app.cash.turbine.turbineScope
 import com.calypsan.listenup.client.TestData
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
@@ -279,6 +280,8 @@ class BookDetailViewModelTest :
                             OpenCampfireSummary(
                                 id = CampfireId("cf-1"),
                                 bookId = "book-1",
+                                phase = CampfirePhase.LIVE,
+                                name = "Campfire",
                                 hostUserId = "host-1",
                                 memberCount = 2,
                                 controlMode = CampfireControlMode.EVERYONE,

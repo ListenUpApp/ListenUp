@@ -162,6 +162,7 @@ fun CampfireBookSheet(
                 onClick = {
                     onCreate(
                         CampfireSettings(
+                            name = "Campfire",
                             controlMode = controlMode,
                             inviteOnly = inviteOnly,
                             invitedUserIds = selectedUserIds.toList(),

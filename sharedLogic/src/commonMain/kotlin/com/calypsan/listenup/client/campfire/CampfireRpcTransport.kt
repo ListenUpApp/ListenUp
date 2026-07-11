@@ -51,6 +51,14 @@ internal class CampfireRpcTransport(
             it.endSession(sessionId)
         }
 
+    override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> =
+        rpcFactory.callResult { it.startSession(sessionId) }
+
+    override suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot> = rpcFactory.callResult { it.updateSettings(sessionId, settings) }
+
     override suspend fun transferHost(
         sessionId: CampfireId,
         toUserId: String,

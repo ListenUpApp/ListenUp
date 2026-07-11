@@ -10,6 +10,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.ChatMessage
@@ -61,16 +62,23 @@ class CampfireSessionControllerTest :
             controlMode: CampfireControlMode = CampfireControlMode.EVERYONE,
             members: List<CampfireMember> = emptyList(),
             chat: List<ChatMessage> = emptyList(),
+            phase: CampfirePhase = CampfirePhase.LIVE,
+            name: String = "Campfire",
+            startedAtEpochMs: Long? = null,
+            invitedPending: List<CampfireInvitableUser> = emptyList(),
         ) = CampfireSnapshot(
             id = sessionId,
             bookId = "book-1",
-            settings = CampfireSettings(controlMode = controlMode, inviteOnly = false),
+            settings = CampfireSettings(name = name, controlMode = controlMode, inviteOnly = false),
+            phase = phase,
             anchor = anchor,
             members = members,
             hostUserId = hostUserId,
             recentChat = chat,
             yourPositionMs = null,
             spoilerAhead = false,
+            startedAtEpochMs = startedAtEpochMs,
+            invitedPending = invitedPending,
         )
 
         fun controller(
@@ -463,6 +471,191 @@ class CampfireSessionControllerTest :
                 sut.state.value shouldBe CampfireUiState.Idle
             }
         }
+
+        // ── Lobby phase (2026-07-11 amendment) ───────────────────────────────
+
+        test("join with a LOBBY snapshot does not touch local playback") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(
+                                snapshot(phase = CampfirePhase.LOBBY, anchor = anchor(positionMs = 5_000L, isPlaying = false)),
+                            )
+                    }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+
+                sut.join(sessionId)
+                runCurrent()
+
+                playbackController.seekCalls shouldBe emptyList()
+                playbackController.playCount shouldBe 0
+                playbackController.pauseCount shouldBe 0
+                playbackController.speedCalls shouldBe emptyList()
+                val active = sut.state.value as CampfireUiState.Active
+                active.phase shouldBe CampfirePhase.LOBBY
+            }
+        }
+
+        test("CampfireStarted frame applies the anchor to playback and flips phase to LIVE") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, anchor = anchor(positionMs = 0L, isPlaying = false)))
+                    }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+
+                val startedAnchor = anchor(positionMs = 3_000L, isPlaying = true)
+                transport.emit(RpcEvent.Data(CampfireFrame.CampfireStarted(anchor = startedAnchor, byUserId = "host-1")))
+                runCurrent()
+
+                playbackController.seekCalls.last() shouldBe 3_000L
+                playbackController.playCount shouldBe 1
+                val active = sut.state.value as CampfireUiState.Active
+                active.phase shouldBe CampfirePhase.LIVE
+                active.startedAtEpochMs shouldBe startedAnchor.capturedAtEpochMs
+                active.anchor shouldBe startedAnchor
+            }
+        }
+
+        test("drift loop does not correct while the room is still in LOBBY") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, anchor = anchor(positionMs = 0L, isPlaying = true)))
+                    }
+                val playbackManager = FakePlaybackManager()
+                val playbackController = FakePlaybackController()
+                val sut =
+                    controller(
+                        transport,
+                        backgroundScope,
+                        clock,
+                        playbackManager = playbackManager,
+                        playbackController = playbackController,
+                    )
+                sut.join(sessionId)
+                runCurrent()
+                val seekCountAfterJoin = playbackController.seekCalls.size
+
+                playbackManager.currentPositionMsFlow.value = 100L
+                advanceTimeBy(5_000L)
+                runCurrent()
+
+                playbackController.seekCalls.size shouldBe seekCountAfterJoin
+            }
+        }
+
+        test("startCampfire delegates to transport.startSession for the active session") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot(phase = CampfirePhase.LOBBY)) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.startCampfire()
+
+                transport.startSessionCalls shouldBe listOf(sessionId)
+            }
+        }
+
+        test("pause while still in LOBBY emits NotStarted and does not send or apply") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot(phase = CampfirePhase.LOBBY)) }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val pauseCountAfterJoin = playbackController.pauseCount
+
+                sut.events.test {
+                    sut.pause()
+                    runCurrent()
+                    awaitItem() shouldBe CampfireSessionEvent.NotStarted
+                }
+
+                transport.sentCommands shouldBe emptyList()
+                playbackController.pauseCount shouldBe pauseCountAfterJoin
+            }
+        }
+
+        test("MemberJoined removes the joining user from invitedPending") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val pendingUser = CampfireInvitableUser(userId = "u2", displayName = "Bob")
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, invitedPending = listOf(pendingUser)))
+                    }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+                (sut.state.value as CampfireUiState.Active).invitedPending shouldBe listOf(pendingUser)
+
+                transport.emit(
+                    RpcEvent.Data(
+                        CampfireFrame.MemberJoined(
+                            CampfireMember(userId = "u2", displayName = "Bob", joinedAtEpochMs = 0L, isAway = false, invited = false),
+                        ),
+                    ),
+                )
+                runCurrent()
+
+                (sut.state.value as CampfireUiState.Active).invitedPending shouldBe emptyList()
+            }
+        }
+
+        test("updateSettings success refreshes name, controlMode, and invitedPending from the returned snapshot") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult = AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, name = "Old Name"))
+                    }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                val newPending = listOf(CampfireInvitableUser(userId = "u3", displayName = "Carol"))
+                val newSettings =
+                    CampfireSettings(
+                        name = "New Name",
+                        controlMode = CampfireControlMode.HOST_ONLY,
+                        inviteOnly = true,
+                        invitedUserIds = listOf("u3"),
+                    )
+                transport.updateSettingsResult =
+                    AppResult.Success(
+                        snapshot(
+                            phase = CampfirePhase.LOBBY,
+                            name = "New Name",
+                            controlMode = CampfireControlMode.HOST_ONLY,
+                            invitedPending = newPending,
+                        ),
+                    )
+
+                sut.updateSettings(newSettings)
+                runCurrent()
+
+                transport.updateSettingsCalls shouldBe listOf(newSettings)
+                val active = sut.state.value as CampfireUiState.Active
+                active.name shouldBe "New Name"
+                active.controlMode shouldBe CampfireControlMode.HOST_ONLY
+                active.invitedPending shouldBe newPending
+            }
+        }
     })
 
 /** Bridges [kotlin.time.Clock] to the test scheduler's virtual time — mirrors CachedAudioTokenProviderTest's VirtualClock. */
@@ -481,6 +674,10 @@ private class FakeCampfireTransport : CampfireTransport {
     var sendCommandResult: AppResult<Unit> = AppResult.Success(Unit)
     val sentChat = mutableListOf<String>()
     val sentReactions = mutableListOf<String>()
+    val startSessionCalls = mutableListOf<CampfireId>()
+    var startSessionResult: AppResult<Unit> = AppResult.Success(Unit)
+    val updateSettingsCalls = mutableListOf<CampfireSettings>()
+    var updateSettingsResult: AppResult<CampfireSnapshot> = AppResult.Failure(CampfireError.CampfireNotFound())
 
     /** Ordered log of connection-lifecycle calls — proves rejoin refreshes BEFORE re-joining/re-subscribing. */
     val callOrder = mutableListOf<String>()
@@ -510,6 +707,19 @@ private class FakeCampfireTransport : CampfireTransport {
     }
 
     override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> {
+        startSessionCalls += sessionId
+        return startSessionResult
+    }
+
+    override suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot> {
+        updateSettingsCalls += settings
+        return updateSettingsResult
+    }
 
     override suspend fun transferHost(
         sessionId: CampfireId,

@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
 import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
@@ -65,7 +66,8 @@ class CampfireViewModelTest :
             CampfireSnapshot(
                 id = id,
                 bookId = "book-1",
-                settings = CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false),
+                settings = CampfireSettings(name = "Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false),
+                phase = CampfirePhase.LIVE,
                 anchor = anchor(),
                 members = emptyList(),
                 hostUserId = "host-1",
@@ -151,7 +153,7 @@ class CampfireViewModelTest :
                 fixture.transport.joinResult = AppResult.Success(snapshot(id = createdId))
                 val viewModel = fixture.build(this).also { keepStateHot(it) }
 
-                viewModel.createCampfire("book-1", CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false))
+                viewModel.createCampfire("book-1", CampfireSettings(name = "Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false))
                 advanceUntilIdle()
 
                 fixture.transport.joinCalls shouldBe listOf(createdId)
@@ -169,7 +171,7 @@ class CampfireViewModelTest :
                 val viewModel = fixture.build(this)
 
                 collectErrors(fixture.errorBus) { emitted ->
-                    viewModel.createCampfire("book-1", CampfireSettings(controlMode = CampfireControlMode.EVERYONE, inviteOnly = false))
+                    viewModel.createCampfire("book-1", CampfireSettings(name = "Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false))
                     advanceUntilIdle()
 
                     emitted shouldBe listOf(error)
@@ -217,7 +219,7 @@ class CampfireViewModelTest :
                 fixture.transport.joinResult =
                     AppResult.Success(
                         snapshot().copy(
-                            settings = CampfireSettings(controlMode = CampfireControlMode.HOST_ONLY, inviteOnly = false),
+                            settings = CampfireSettings(name = "Campfire", controlMode = CampfireControlMode.HOST_ONLY, inviteOnly = false),
                             hostUserId = "someone-else",
                         ),
                     )
@@ -328,6 +330,13 @@ private class FakeCampfireTransport : CampfireTransport {
     }
 
     override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun startSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun updateSettings(
+        sessionId: CampfireId,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot> = throw NotImplementedError()
 
     override suspend fun transferHost(
         sessionId: CampfireId,

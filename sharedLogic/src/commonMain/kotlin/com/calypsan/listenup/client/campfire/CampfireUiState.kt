@@ -3,7 +3,9 @@ package com.calypsan.listenup.client.campfire
 import com.calypsan.listenup.api.dto.campfire.CampfireAnchor
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
 import com.calypsan.listenup.api.dto.campfire.CampfireMember
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
 import com.calypsan.listenup.api.dto.campfire.ChatMessage
 
 /**
@@ -27,13 +29,26 @@ internal sealed interface CampfireUiState {
 
     /**
      * A live, connected session. Most fields mirror
-     * [com.calypsan.listenup.api.dto.campfire.CampfireSnapshot]; [hasControl] and
+     * [com.calypsan.listenup.api.dto.campfire.CampfireSnapshot]; [hasControl], [isHost], and
      * [pendingRejoinSync] are locally-derived UI concerns with no wire equivalent.
      *
+     * @property phase The room's lifecycle phase — no local playback is applied while
+     * [CampfirePhase.LOBBY] (the 2026-07-11 lobby amendment); see
+     * [CampfireSessionController.join]'s KDoc.
+     * @property name The campfire's display name.
      * @property hasControl Whether the local caller may currently send
      * [com.calypsan.listenup.api.dto.campfire.PlaybackCommand]s — `true` when [controlMode] is
      * [CampfireControlMode.EVERYONE], or the caller is [hostUserId] under
-     * [CampfireControlMode.HOST_ONLY].
+     * [CampfireControlMode.HOST_ONLY]. Meaningless while [phase] is [CampfirePhase.LOBBY]
+     * (playback commands are rejected outright — see [CampfireSessionController]'s `sendCommand`).
+     * @property isHost Whether the local caller is [hostUserId] — distinct from [hasControl],
+     * which also reads `true` for non-hosts under [CampfireControlMode.EVERYONE]. Drives the
+     * lobby's host-only "Start" affordance.
+     * @property startedAtEpochMs Epoch-ms the host called
+     * [com.calypsan.listenup.api.CampfireService.startSession], or `null` while still in
+     * [CampfirePhase.LOBBY].
+     * @property invitedPending Invited-but-not-yet-joined users for the lobby roster — shrinks as
+     * [CampfireFrame.MemberJoined] frames arrive.
      * @property pendingRejoinSync Non-null only immediately after [CampfireSessionController.rejoin]
      * detects the room has drifted far enough from local playback that auto-applying it would be
      * jarring (or spoiler-inducing) — the confirm-dialog case. Cleared by
@@ -42,6 +57,8 @@ internal sealed interface CampfireUiState {
     data class Active(
         val sessionId: CampfireId,
         val bookId: String,
+        val phase: CampfirePhase,
+        val name: String,
         val anchor: CampfireAnchor,
         val members: List<CampfireMember>,
         val hostUserId: String,
@@ -50,6 +67,9 @@ internal sealed interface CampfireUiState {
         val yourPositionMs: Long?,
         val spoilerAhead: Boolean,
         val hasControl: Boolean,
+        val isHost: Boolean,
+        val startedAtEpochMs: Long? = null,
+        val invitedPending: List<CampfireInvitableUser> = emptyList(),
         val pendingRejoinSync: CampfireAnchor? = null,
     ) : CampfireUiState
 
@@ -79,6 +99,13 @@ internal sealed interface CampfireUiState {
 internal sealed interface CampfireSessionEvent {
     /** The local caller attempted a playback command while lacking control (HOST_ONLY, not host). */
     data object ControlDenied : CampfireSessionEvent
+
+    /**
+     * The local caller attempted a playback command while the campfire is still in
+     * [CampfirePhase.LOBBY] — nothing has started yet, so there's no shared anchor to control
+     * (the 2026-07-11 lobby amendment). Mirrors [ControlDenied]'s shape.
+     */
+    data object NotStarted : CampfireSessionEvent
 
     /** A fire-and-forget reaction arrived — never folded into [CampfireUiState], rendered as a transient overlay. */
     data class ReactionReceived(

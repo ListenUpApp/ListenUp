@@ -302,7 +302,10 @@ private fun rememberCampfireHost(
     LaunchedEffect(campfireViewModel) {
         campfireViewModel.events.collect { event ->
             when (event) {
-                CampfireScreenEvent.ControlDenied -> {
+                // NotStarted (playback attempted before the host lit the fire) reuses the same
+                // denial snackbar as ControlDenied for now — the lobby UI (L3) replaces this with
+                // its own copy.
+                CampfireScreenEvent.ControlDenied, CampfireScreenEvent.NotStarted -> {
                     snackbarHostState?.showSnackbar(getString(Res.string.campfire_control_denied))
                 }
 
