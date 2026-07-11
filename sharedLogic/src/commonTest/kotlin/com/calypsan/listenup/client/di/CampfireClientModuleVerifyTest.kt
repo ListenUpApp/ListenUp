@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcAuthRecovery
 import com.calypsan.listenup.client.data.sync.CampfireRefreshSignal
+import com.calypsan.listenup.client.domain.repository.BookRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.playback.PlaybackController
@@ -27,6 +28,7 @@ import org.koin.test.verify.verify
  *  - [ErrorBus] — owned by `appCoreModule` (the [com.calypsan.listenup.client.presentation.campfire.CampfireViewModel] binding).
  *  - [CoroutineScope] — provided by `appCoreModule` under the `appScope` qualifier. Listed so
  *    verify can resolve the named qualifier reference in `CampfireSessionController`.
+ *  - [BookRepository] — owned by `bookModule` (the [com.calypsan.listenup.client.presentation.campfire.CampfireBookPickerViewModel] binding).
  */
 @OptIn(KoinExperimentalAPI::class)
 class CampfireClientModuleVerifyTest :
@@ -45,6 +47,7 @@ class CampfireClientModuleVerifyTest :
                         CampfireRefreshSignal::class,
                         ErrorBus::class,
                         CoroutineScope::class,
+                        BookRepository::class,
                     ),
             )
         }

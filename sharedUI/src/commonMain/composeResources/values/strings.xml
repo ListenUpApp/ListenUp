@@ -271,6 +271,7 @@ One beautiful library.</string>
     <string name="book_detail_all_count">All %1$d</string>
     <string name="book_detail_authors">Authors</string>
     <string name="book_detail_bitrate">Bitrate</string>
+    <string name="book_detail_campfire_this_book">Campfire this book</string>
     <string name="book_detail_cancel_download">Cancel download</string>
     <string name="book_detail_cast_author">Author</string>
     <string name="book_detail_cast_authors">Authors</string>
@@ -447,7 +448,13 @@ One beautiful library.</string>
     <string name="browse_facet_total_label">Total</string>
     <string name="browse_facet_unavailable_mood">Mood unavailable</string>
     <string name="browse_facet_unavailable_tag">Tag unavailable</string>
+    <string name="campfire_campfires_title">Campfires</string>
     <string name="campfire_control_denied">Only the host can control playback right now.</string>
+    <string name="campfire_discover_book_picker_empty">No books found</string>
+    <string name="campfire_discover_book_search_placeholder">Search your library</string>
+    <string name="campfire_discover_gathering_listening_count">Gathering · %1$d listening</string>
+    <string name="campfire_discover_live_listening_count">Live · %1$d listening</string>
+    <string name="campfire_discover_start_a_campfire">Start a campfire</string>
     <string name="campfire_entry_point">Campfire</string>
     <string name="campfire_flow_create_eyebrow">New Campfire</string>
     <string name="campfire_flow_create_title">Start a Campfire</string>
@@ -488,7 +495,6 @@ One beautiful library.</string>
     <string name="campfire_join">Join</string>
     <string name="campfire_listening_now">Listening now</string>
     <string name="campfire_listening_now_count">%1$d listening now</string>
-    <string name="campfire_live_now">Live now</string>
     <string name="campfire_rejoin_confirm">Jump to sync</string>
     <string name="campfire_rejoin_dismiss">Keep my place</string>
     <string name="campfire_rejoin_message">The room has moved on without you. Jump to where everyone else is listening.</string>

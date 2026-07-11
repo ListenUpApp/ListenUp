@@ -2701,6 +2701,16 @@
         }
       }
     },
+    "book.detail_campfire_this_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire this book"
+          }
+        }
+      }
+    },
     "book.detail_cancel_download": {
       "localizations": {
         "en": {
@@ -4461,12 +4471,72 @@
         }
       }
     },
+    "campfire.campfires_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfires"
+          }
+        }
+      }
+    },
     "campfire.control_denied": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Only the host can control playback right now."
+          }
+        }
+      }
+    },
+    "campfire.discover_book_picker_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books found"
+          }
+        }
+      }
+    },
+    "campfire.discover_book_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search your library"
+          }
+        }
+      }
+    },
+    "campfire.discover_gathering_listening_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gathering · %1$d listening"
+          }
+        }
+      }
+    },
+    "campfire.discover_live_listening_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live · %1$d listening"
+          }
+        }
+      }
+    },
+    "campfire.discover_start_a_campfire": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a campfire"
           }
         }
       }
@@ -4867,16 +4937,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$d listening now"
-          }
-        }
-      }
-    },
-    "campfire.live_now": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Live now"
           }
         }
       }

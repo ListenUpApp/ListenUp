@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.data.remote.CampfireRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorCampfireRpcFactory
 import com.calypsan.listenup.client.data.remote.RemoteCache
 import com.calypsan.listenup.client.data.sync.CampfireRefreshSignal
+import com.calypsan.listenup.client.domain.repository.BookRepository
+import com.calypsan.listenup.client.presentation.campfire.CampfireBookPickerViewModel
 import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -31,6 +33,7 @@ private const val APP_SCOPE = "appScope"
  *  - [CampfireRefreshSignal] — `clientSyncModule` (mirrors `PresenceRefreshSignal`'s home)
  *  - [com.calypsan.listenup.core.error.ErrorBus] — `appCoreModule`
  *  - `CoroutineScope` named `appScope` — `appCoreModule`
+ *  - [BookRepository] — `bookModule` (the Discover "Start a campfire" book-picker's data source)
  */
 internal val campfireClientModule: Module =
     module {
@@ -80,5 +83,10 @@ internal val campfireClientModule: Module =
                 errorBus = get(),
                 userRepository = get(),
             )
+        }
+
+        // CampfireBookPickerViewModel — one per Discover "Start a campfire" sheet instance.
+        factory {
+            CampfireBookPickerViewModel(bookRepository = get())
         }
     }
