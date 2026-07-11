@@ -85,9 +85,6 @@ internal class RpcProxyCache<T : Any>(
         val generation: Int,
     )
 
-    /** Returns the cached proxy, connecting on first use. */
-    suspend fun get(): T = lease().proxy
-
     /**
      * Run [block] against the cached proxy with bounded, single-flight, self-healing recovery.
      * See the class KDoc for the full retry/surface policy — the load-bearing invariant is that

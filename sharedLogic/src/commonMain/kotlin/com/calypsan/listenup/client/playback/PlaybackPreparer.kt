@@ -13,7 +13,6 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.ChapterDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.model.AudioFileResponse
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
@@ -25,6 +24,7 @@ import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.playback.TimelineFileInput
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -91,7 +91,7 @@ class PlaybackPreparer internal constructor(
     private val tokenProvider: AudioTokenProvider,
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
-    private val playbackRpcFactory: PlaybackRpcFactory,
+    private val prepareRepository: PlaybackPrepareRepository,
     private val channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
@@ -339,7 +339,7 @@ class PlaybackPreparer internal constructor(
                 // Routed through the bounded, self-healing engine so a dead-socket transport throw
                 // becomes a typed, time-bounded AppResult.Failure instead of an unguarded exception
                 // crossing the Swift Export seam as an opaque KotlinError.
-                when (val result = playbackRpcFactory.callResult { it.prepare(bookId) }) {
+                when (val result = prepareRepository.prepare(bookId)) {
                     is AppResult.Success -> {
                         result.data.audioFiles.associate { it.fileId to serverUrl + it.url }
                     }

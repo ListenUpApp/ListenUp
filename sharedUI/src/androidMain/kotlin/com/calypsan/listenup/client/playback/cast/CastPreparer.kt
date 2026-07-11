@@ -1,7 +1,7 @@
 package com.calypsan.listenup.client.playback.cast
 
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.BookId
 
@@ -18,12 +18,12 @@ data class CastPrepared(
  * local (never stranded).
  */
 class CastPreparer(
-    private val playbackRpcFactory: PlaybackRpcFactory,
+    private val prepareRepository: PlaybackPrepareRepository,
     private val serverConfig: ServerConfig,
 ) {
     suspend fun prepareForCast(bookId: BookId): CastPrepared? {
         val serverUrl = serverConfig.getServerUrl()?.value ?: return null
-        return when (val result = playbackRpcFactory.playbackService().prepare(bookId)) {
+        return when (val result = prepareRepository.prepare(bookId)) {
             is AppResult.Success -> {
                 val data = result.data
                 CastPrepared(

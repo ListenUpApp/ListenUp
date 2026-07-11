@@ -101,7 +101,7 @@ class PlaybackManagerSpeedTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = testPlaybackRpcFactory("af-0"),
+                prepareRepository = testPlaybackPrepareRepository("af-0"),
                 channel = RpcChannel.forTest(mock<BookService>()),
                 scope = scope,
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),

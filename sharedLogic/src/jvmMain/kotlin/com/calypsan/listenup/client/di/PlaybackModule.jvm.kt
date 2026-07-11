@@ -43,7 +43,7 @@ val desktopPlaybackModule: Module =
                 tokenProvider = get(),
                 deviceContext = get(),
                 downloadService = get(),
-                playbackRpcFactory = get(),
+                prepareRepository = get(),
                 channel = rpcChannel<BookService>(),
                 scope = get(qualifier = named("playbackScope")),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),

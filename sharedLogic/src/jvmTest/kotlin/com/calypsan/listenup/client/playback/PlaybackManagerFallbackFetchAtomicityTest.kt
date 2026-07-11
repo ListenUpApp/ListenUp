@@ -86,7 +86,7 @@ class PlaybackManagerFallbackFetchAtomicityTest :
                 tokenProvider = mock(),
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = mock(),
-                playbackRpcFactory = testPlaybackRpcFactory("af-1"),
+                prepareRepository = testPlaybackPrepareRepository("af-1"),
                 channel = channel,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = handler,

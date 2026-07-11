@@ -116,7 +116,7 @@ class PlaybackManagerPrepareTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = testPlaybackRpcFactory("af-0", "af-1", "af-2"),
+                prepareRepository = testPlaybackPrepareRepository("af-0", "af-1", "af-2"),
                 channel = RpcChannel.forTest(mock<BookService>()),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),

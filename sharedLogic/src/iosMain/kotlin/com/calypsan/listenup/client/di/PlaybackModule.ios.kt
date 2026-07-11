@@ -83,7 +83,7 @@ internal val iosPlaybackModule: Module =
                 serverConfig = get(),
                 tokenProvider = get(),
                 fileManager = get(),
-                playbackRpcFactory = get(),
+                prepareRepository = get(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 playbackBandwidthCoordinator = get(),
             )
@@ -135,7 +135,7 @@ internal val iosPlaybackModule: Module =
                 tokenProvider = get(),
                 deviceContext = get(),
                 downloadService = get(),
-                playbackRpcFactory = get(),
+                prepareRepository = get(),
                 channel = rpcChannel<BookService>(),
                 scope = get(qualifier = named(PLAYBACK_SCOPE)),
                 bookSyncDomainHandler = get<SyncDomainHandler<BookSyncPayload>>(named(SyncDomains.BOOKS.name)),

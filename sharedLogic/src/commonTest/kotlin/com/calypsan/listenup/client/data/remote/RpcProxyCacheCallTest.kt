@@ -137,8 +137,9 @@ class RpcProxyCacheCallTest :
 
                 // Re-raised (not swallowed into a retry): the job ends cancelled, not completed.
                 job.isCancelled shouldBe true
-                // And the proxy was never invalidated: get() reuses the SAME cached proxy, connect stays 1.
-                cache.get()
+                // And the proxy was never invalidated: a follow-up call leases the SAME cached proxy
+                // (identity block — never touches the still-parked `work()`), connect stays 1.
+                cache.call { it }
                 connects() shouldBe 1
             }
         }

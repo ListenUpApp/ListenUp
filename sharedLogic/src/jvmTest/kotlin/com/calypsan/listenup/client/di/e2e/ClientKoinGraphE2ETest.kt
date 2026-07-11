@@ -90,15 +90,17 @@ class ClientKoinGraphE2ETest :
             val invalidator = koin.get<RpcCacheInvalidator>()
             val defaultInvalidator = invalidator.shouldBeInstanceOf<DefaultRpcCacheInvalidator>()
 
-            // getAll<RemoteCache>() must return exactly 25: ApiClientFactory + 24 RPC dispatch caches
+            // getAll<RemoteCache>() must return exactly 24: ApiClientFactory + 23 RPC dispatch caches
             // (Ktor*RpcFactory implementations and RpcChannel<S> singles). This pins the count so a
             // silently-dropped `binds arrayOf(RemoteCache::class)` declaration causes an immediate test
             // failure before production code ever misses an invalidation.
-            // Note: 25 is the sharedModules count (no platform-only RemoteCache impls on JVM).
+            // Note: 24 is the sharedModules count (no platform-only RemoteCache impls on JVM).
             // W7 retired the two dual-mount Auth/Invite factories (−2) in favour of four finer-grained
-            // channels — AuthServicePublic, AuthServiceAuthed, InviteServicePublic, InviteService (+4) —
-            // for a net +2 over the prior 23.
-            defaultInvalidator.caches shouldHaveSize 25
+            // channels — AuthServicePublic, AuthServiceAuthed, InviteServicePublic, InviteService (+4).
+            // W8a retired the last PlaybackRpcFactory RemoteCache (−1) — its prepare() surface now rides
+            // the already-registered rpcChannel<PlaybackService>() via PlaybackPrepareRepository (which
+            // is NOT a RemoteCache, just a wrapper), so 25 → 24.
+            defaultInvalidator.caches shouldHaveSize 24
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

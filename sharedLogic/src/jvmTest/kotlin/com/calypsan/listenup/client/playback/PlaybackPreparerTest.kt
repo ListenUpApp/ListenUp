@@ -17,13 +17,13 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.device.DeviceType
 import com.calypsan.listenup.client.domain.model.DownloadOutcome
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.download.DownloadService
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
@@ -133,7 +133,7 @@ class PlaybackPreparerTest :
 
         fun buildPreparer(
             downloadService: DownloadService,
-            playbackRpcFactory: PlaybackRpcFactory,
+            prepareRepository: PlaybackPrepareRepository,
         ): PlaybackPreparer {
             val tokenProvider: AudioTokenProvider = mock()
             everySuspend { tokenProvider.prepareForPlayback() } returns Unit
@@ -158,7 +158,7 @@ class PlaybackPreparerTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = playbackRpcFactory,
+                prepareRepository = prepareRepository,
                 channel = RpcChannel.forTest(mock<BookService>()),
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = mock<SyncDomainHandler<BookSyncPayload>>(),
@@ -198,7 +198,7 @@ class PlaybackPreparerTest :
                                 ),
                             ),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(audioFile1) } returns "/local/af-prep-1.mp3"
@@ -244,7 +244,7 @@ class PlaybackPreparerTest :
                                 ),
                             ),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 // Both files NOT downloaded → streaming path
@@ -289,7 +289,7 @@ class PlaybackPreparerTest :
                     FakePlaybackService(
                         prepareResult = AppResult.Failure(InternalError(debugInfo = "server error")),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(any()) } returns null
@@ -313,7 +313,7 @@ class PlaybackPreparerTest :
                         prepareResult = AppResult.Failure(InternalError(debugInfo = "unused")),
                         prepareThrows = RuntimeException("RPC transport failure (e.g. dead WebSocket)"),
                     )
-                val fakeFactory = FakePlaybackRpcFactory(fakePlaybackService)
+                val fakeFactory = FakePlaybackPrepareRepository(fakePlaybackService)
 
                 val downloadService: DownloadService = mock()
                 everySuspend { downloadService.getLocalPath(any()) } returns null
@@ -368,12 +368,11 @@ private class FakePlaybackService(
 }
 
 /**
- * Fake [PlaybackRpcFactory] that returns a fixed [FakePlaybackService] without any I/O.
+ * Fake [PlaybackPrepareRepository] that delegates to a fixed [FakePlaybackService] without any I/O,
+ * so `prepareCallCount` assertions still hold across the seam.
  */
-private class FakePlaybackRpcFactory(
+private class FakePlaybackPrepareRepository(
     private val service: PlaybackService,
-) : PlaybackRpcFactory {
-    override suspend fun playbackService(): PlaybackService = service
-
-    override suspend fun invalidate() = Unit
+) : PlaybackPrepareRepository {
+    override suspend fun prepare(bookId: BookId): AppResult<ContractPreparedPlayback> = service.prepare(bookId)
 }

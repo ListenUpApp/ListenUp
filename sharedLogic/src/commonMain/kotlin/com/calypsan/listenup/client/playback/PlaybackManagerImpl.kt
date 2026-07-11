@@ -7,13 +7,13 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.AudioFileDao
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ChapterDao
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.model.Chapter
 import com.calypsan.listenup.client.domain.playback.PlaybackTimeline
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.PlaybackPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.device.DeviceContext
 import com.calypsan.listenup.client.download.DownloadService
@@ -56,7 +56,7 @@ internal class PlaybackManagerImpl(
     private val tokenProvider: AudioTokenProvider,
     private val deviceContext: DeviceContext,
     private val downloadService: DownloadService,
-    private val playbackRpcFactory: PlaybackRpcFactory,
+    private val prepareRepository: PlaybackPrepareRepository,
     private val channel: RpcChannel<BookService>,
     private val scope: CoroutineScope,
     private val bookSyncDomainHandler: SyncDomainHandler<BookSyncPayload>,
@@ -74,7 +74,7 @@ internal class PlaybackManagerImpl(
             tokenProvider = tokenProvider,
             deviceContext = deviceContext,
             downloadService = downloadService,
-            playbackRpcFactory = playbackRpcFactory,
+            prepareRepository = prepareRepository,
             channel = channel,
             scope = scope,
             bookSyncDomainHandler = bookSyncDomainHandler,

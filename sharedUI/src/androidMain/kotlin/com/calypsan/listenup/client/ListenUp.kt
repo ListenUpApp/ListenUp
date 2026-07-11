@@ -241,7 +241,7 @@ val playbackModule =
         }
 
         // Cast preparer — re-fetches signed network URLs when handing off to a Chromecast.
-        single { CastPreparer(playbackRpcFactory = get(), serverConfig = get()) }
+        single { CastPreparer(prepareRepository = get(), serverConfig = get()) }
     }
 
 /**

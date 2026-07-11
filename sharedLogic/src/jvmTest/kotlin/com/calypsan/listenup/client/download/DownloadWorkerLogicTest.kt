@@ -2,15 +2,9 @@
 
 package com.calypsan.listenup.client.download
 
-import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.dto.PreparedAudioFile
 import com.calypsan.listenup.api.dto.PreparedPlayback
-import com.calypsan.listenup.api.dto.RecordListeningEventRequest
-import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
-import com.calypsan.listenup.api.sync.PlaybackPositionSyncPayload
-import com.calypsan.listenup.api.sync.UserStatsSyncPayload
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.api.error.AuthError
@@ -19,9 +13,9 @@ import com.calypsan.listenup.api.error.DownloadError
 import com.calypsan.listenup.client.data.local.db.DownloadEntity
 import com.calypsan.listenup.client.data.local.db.DownloadState
 import com.calypsan.listenup.client.data.local.images.StoragePaths
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.repository.FakeDownloadRepository
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import io.kotest.assertions.withClue
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -136,12 +130,12 @@ class DownloadWorkerLogicTest :
                 }
             }
 
-        // A ready [FakePlaybackRpcFactory] for standard test setup.
+        // A ready [FakePlaybackPrepareRepository] for standard test setup.
         fun readyRpcFactory(
             audioFileId: String = "file-1",
             bookId: String = "book-1",
             streamUrl: String = "/api/v1/audio/$bookId/$audioFileId",
-        ) = FakePlaybackRpcFactory(
+        ) = FakePlaybackPrepareRepository(
             AppResult.Success(
                 PreparedPlayback(
                     bookId = bookId,
@@ -202,7 +196,7 @@ class DownloadWorkerLogicTest :
                         httpClient = productionLikeClient(binaryEngine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = readyRpcFactory(),
+                        prepareRepository = readyRpcFactory(),
                     )
 
                     val final = fakeRepo.entities.single()
@@ -251,7 +245,7 @@ class DownloadWorkerLogicTest :
                         httpClient = productionLikeClient(partialEngine),
                         repository = fakeRepo,
                         fileManager = fileManager,
-                        playbackRpcFactory = readyRpcFactory(),
+                        prepareRepository = readyRpcFactory(),
                     )
 
                     capturedRangeHeader shouldBe "bytes=400-"
@@ -303,7 +297,7 @@ class DownloadWorkerLogicTest :
                             },
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = readyRpcFactory(),
+                        prepareRepository = readyRpcFactory(),
                     )
 
                     val final = fakeRepo.entities.single()
@@ -351,7 +345,7 @@ class DownloadWorkerLogicTest :
                             httpClient = authProductionLikeClient(authEngine) { null },
                             repository = fakeRepo,
                             fileManager = fileManagerFor(tmpRoot),
-                            playbackRpcFactory = readyRpcFactory(),
+                            prepareRepository = readyRpcFactory(),
                         )
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
@@ -401,7 +395,7 @@ class DownloadWorkerLogicTest :
                         httpClient = retryProductionLikeClient(retryEngine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = readyRpcFactory(),
+                        prepareRepository = readyRpcFactory(),
                     )
 
                     fakeRepo.entities.single().state shouldBe DownloadState.COMPLETED
@@ -438,7 +432,7 @@ class DownloadWorkerLogicTest :
                             httpClient = retryProductionLikeClient(retryEngine),
                             repository = fakeRepo,
                             fileManager = fileManagerFor(tmpRoot),
-                            playbackRpcFactory = readyRpcFactory(),
+                            prepareRepository = readyRpcFactory(),
                         )
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -487,7 +481,7 @@ class DownloadWorkerLogicTest :
                             httpClient = productionLikeClient(dropEngine),
                             repository = fakeRepo,
                             fileManager = fileManagerFor(tmpRoot),
-                            playbackRpcFactory = readyRpcFactory(),
+                            prepareRepository = readyRpcFactory(),
                         )
 
                     val failure = result.shouldBeInstanceOf<AppResult.Failure>()
@@ -527,7 +521,7 @@ class DownloadWorkerLogicTest :
                             httpClient = productionLikeClient(binaryEngine),
                             repository = fakeRepo,
                             fileManager = FailingMoveFileManager(tmpRoot),
-                            playbackRpcFactory = readyRpcFactory(),
+                            prepareRepository = readyRpcFactory(),
                         )
 
                     // The internal IOException("Failed to move...") is caught by suspendRunCatching
@@ -577,7 +571,7 @@ class DownloadWorkerLogicTest :
                             httpClient = productionLikeClient(binaryEngine),
                             repository = fakeRepo,
                             fileManager = fileManagerFor(tmpRoot),
-                            playbackRpcFactory = readyRpcFactory(),
+                            prepareRepository = readyRpcFactory(),
                             isStopped = { true },
                         )
                     } catch (e: CancellationException) {
@@ -635,7 +629,7 @@ class DownloadWorkerLogicTest :
                         httpClient = productionLikeClient(binaryEngine),
                         repository = trackingRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = readyRpcFactory(),
+                        prepareRepository = readyRpcFactory(),
                     )
 
                     trackingRepo.entities.single().state shouldBe DownloadState.COMPLETED
@@ -662,7 +656,7 @@ class DownloadWorkerLogicTest :
                 try {
                     val fakeRepo = FakeDownloadRepository(initial = listOf(entity("file-1", totalBytes = 1000L)))
                     val failingRpcFactory =
-                        FakePlaybackRpcFactory(
+                        FakePlaybackPrepareRepository(
                             AppResult.Failure(
                                 com.calypsan.listenup.api.error.TransportError.NetworkUnavailable(
                                     debugInfo = "simulated rpc failure",
@@ -684,7 +678,7 @@ class DownloadWorkerLogicTest :
                             httpClient = productionLikeClient(unusedEngine),
                             repository = fakeRepo,
                             fileManager = fileManagerFor(tmpRoot),
-                            playbackRpcFactory = failingRpcFactory,
+                            prepareRepository = failingRpcFactory,
                         )
 
                     result.shouldBeInstanceOf<AppResult.Failure>()
@@ -730,7 +724,7 @@ class DownloadWorkerLogicTest :
                         httpClient = productionLikeClient(resolvedEngine),
                         repository = fakeRepo,
                         fileManager = fileManagerFor(tmpRoot),
-                        playbackRpcFactory = rpcFactory,
+                        prepareRepository = rpcFactory,
                     )
 
                     withClue("Expected download to hit signed URL path $signedPath") {
@@ -776,7 +770,7 @@ class DownloadWorkerLogicTest :
                             httpClient = productionLikeClient(binaryEngine),
                             repository = fakeRepo,
                             fileManager = fileManager,
-                            playbackRpcFactory = readyRpcFactory(),
+                            prepareRepository = readyRpcFactory(),
                             isStopped = { true },
                         )
                     } catch (_: CancellationException) {
@@ -810,30 +804,11 @@ class DownloadWorkerLogicTest :
 
 // ---- Fakes ----
 
-internal class FakePlaybackService(
+/** In-memory [PlaybackPrepareRepository] that returns a fixed `prepare()` result — no I/O, no channel. */
+internal class FakePlaybackPrepareRepository(
     private val prepareResult: AppResult<PreparedPlayback>,
-) : PlaybackService {
+) : PlaybackPrepareRepository {
     override suspend fun prepare(bookId: BookId): AppResult<PreparedPlayback> = prepareResult
-
-    override suspend fun getPosition(bookId: BookId): AppResult<PlaybackPositionSyncPayload?> = error("not used in test")
-
-    override suspend fun recordPosition(request: RecordPositionRequest): AppResult<PlaybackPositionSyncPayload> = error("not used in test")
-
-    override suspend fun getStats(): AppResult<UserStatsSyncPayload?> = error("not used in test")
-
-    override suspend fun recordListeningEvent(request: RecordListeningEventRequest): AppResult<ListeningEventSyncPayload> {
-        error("not used in test")
-    }
-}
-
-internal class FakePlaybackRpcFactory(
-    prepareResult: AppResult<PreparedPlayback>,
-) : PlaybackRpcFactory {
-    private val service = FakePlaybackService(prepareResult)
-
-    override suspend fun playbackService(): PlaybackService = service
-
-    override suspend fun invalidate() = Unit
 }
 
 /**

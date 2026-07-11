@@ -12,9 +12,8 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
-import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.rpcChannel
+import com.calypsan.listenup.client.data.repository.PlaybackPrepareRepositoryImpl
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.client.data.connection.ConnectionCoordinator
 import com.calypsan.listenup.client.data.connection.ConnectionHealthStore
@@ -49,6 +48,7 @@ import com.calypsan.listenup.client.domain.repository.BookAvailability
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.UserPreferencesRepository
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
+import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.core.BookId
@@ -103,18 +103,16 @@ internal val clientSyncModule =
         }
         single { SyncCursorStore(dao = get()) }
 
-        single<PlaybackRpcFactory> {
-            KtorPlaybackRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-                authRecovery = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
-
         // PlaybackService RPC channel — kotlinx.rpc dispatch backing the position/listening-event
-        // outbox senders below. Coexists (temporarily) with PlaybackRpcFactory above until the
-        // download/playback consumers migrate off the factory in a later wave.
+        // outbox senders below AND the prepare() seam (download-URL resolution, Cast handoff,
+        // timeline build) via PlaybackPrepareRepository. One channel, every PlaybackService caller.
         rpcChannel<PlaybackService>()
+
+        // The single public seam every PlaybackService.prepare caller shares. Wrapping the internal
+        // channel lets cross-module callers (Cast in :sharedUI) reach prepare without touching it.
+        single<PlaybackPrepareRepository> {
+            PlaybackPrepareRepositoryImpl(channel = rpcChannel<PlaybackService>())
+        }
 
         // The outbox sender map derives from OutboxChannels.all and is completeness-
         // checked at construction: a declared channel with no binding (or vice versa)

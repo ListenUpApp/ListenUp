@@ -160,7 +160,7 @@ class PlaybackManagerFallbackFetchTest :
                 tokenProvider = tokenProvider,
                 deviceContext = DeviceContext(type = DeviceType.Phone),
                 downloadService = downloadService,
-                playbackRpcFactory = testPlaybackRpcFactory("af-1", "af-2"),
+                prepareRepository = testPlaybackPrepareRepository("af-1", "af-2"),
                 channel = channel,
                 scope = CoroutineScope(Job()),
                 bookSyncDomainHandler = bookSyncDomainHandler,

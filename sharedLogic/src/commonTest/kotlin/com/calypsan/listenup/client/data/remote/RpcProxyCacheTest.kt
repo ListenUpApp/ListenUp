@@ -40,6 +40,11 @@ class RpcProxyCacheTest :
          * never actually sends a request (the `connect` stub below never calls `rpc()`).
          * `connectCalls`/`clientCalls` count invocations of the constructor args so
          * concurrency and invalidation behavior can be pinned precisely.
+         *
+         * The single at-most-once lease path is reached through `call { it }` — the identity block
+         * forces exactly one [RpcProxyCache.lease] (connect/reuse) and hands the leased proxy back,
+         * the smallest drive of the connect/single-flight/URL/not-configured behavior now that the
+         * bare-proxy `get()` accessor is gone (raw-proxy reach is a compile error by design).
          */
         fun fixture(
             activeUrl: String? = "http://server.local:8080",
@@ -60,7 +65,7 @@ class RpcProxyCacheTest :
             return cache to apiClientFactory
         }
 
-        test("get returns the proxy produced by connect") {
+        test("call leases the proxy produced by connect") {
             runTest {
                 var produced: Any? = null
                 val serverConfig = mock<ServerConfig>()
@@ -72,45 +77,45 @@ class RpcProxyCacheTest :
                         Any().also { produced = it }
                     }
 
-                val proxy = cache.get()
+                val proxy = cache.call { it }
 
                 proxy shouldBe produced
             }
         }
 
-        test("second get returns the same instance; connect invoked exactly once") {
+        test("second call leases the same instance; connect invoked exactly once") {
             runTest {
                 val connectCalls = mutableListOf<String>()
                 val (cache, _) = fixture(connectCalls = connectCalls)
 
-                val first = cache.get()
-                val second = cache.get()
+                val first = cache.call { it }
+                val second = cache.call { it }
 
                 (first === second) shouldBe true
                 connectCalls.size shouldBe 1
             }
         }
 
-        test("16 concurrent get calls resolve to the same instance (Mutex single-flight)") {
+        test("16 concurrent calls resolve to the same instance (Mutex single-flight)") {
             runTest {
                 val connectCalls = mutableListOf<String>()
                 val (cache, _) = fixture(connectCalls = connectCalls)
 
-                val proxies = (1..CONCURRENT_CALLERS).map { async { cache.get() } }.awaitAll()
+                val proxies = (1..CONCURRENT_CALLERS).map { async { cache.call { it } } }.awaitAll()
 
                 proxies.toSet().size shouldBe 1
                 connectCalls.size shouldBe 1
             }
         }
 
-        test("invalidate then get reconnects: new instance, connect called again, client re-derived") {
+        test("invalidate then call reconnects: new instance, connect called again, client re-derived") {
             runTest {
                 val connectCalls = mutableListOf<String>()
                 val (cache, apiClientFactory) = fixture(connectCalls = connectCalls)
 
-                val first = cache.get()
+                val first = cache.call { it }
                 cache.invalidate()
-                val second = cache.get()
+                val second = cache.call { it }
 
                 (first === second) shouldBe false
                 connectCalls.size shouldBe 2
@@ -122,21 +127,21 @@ class RpcProxyCacheTest :
             runTest {
                 val httpsCalls = mutableListOf<String>()
                 val (httpsCache, _) = fixture(activeUrl = "https://server.local:8080", connectCalls = httpsCalls)
-                httpsCache.get()
+                httpsCache.call { it }
                 httpsCalls shouldBe listOf("wss://server.local:8080")
 
                 val httpCalls = mutableListOf<String>()
                 val (httpCache, _) = fixture(activeUrl = "http://server.local:8080", connectCalls = httpCalls)
-                httpCache.get()
+                httpCache.call { it }
                 httpCalls shouldBe listOf("ws://server.local:8080")
             }
         }
 
-        test("no active URL: get throws ServerUrlNotConfiguredException, client never derived") {
+        test("no active URL: call throws ServerUrlNotConfiguredException, client never derived") {
             runTest {
                 val (cache, apiClientFactory) = fixture(activeUrl = null)
 
-                shouldThrow<ServerUrlNotConfiguredException> { cache.get() }
+                shouldThrow<ServerUrlNotConfiguredException> { cache.call { it } }
 
                 verifySuspend(exactly(0)) { apiClientFactory.getClient() }
             }
