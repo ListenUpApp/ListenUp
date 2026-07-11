@@ -15,8 +15,10 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -312,8 +314,10 @@ class CampfireRegistryTest :
                 val registry = CampfireRegistry(clock = FixedClock(t0))
                 registry.createRoom(roomId, bookId, "host", "Host", settings)
 
-                registry.leave(roomId, "host") shouldBe LeaveOutcome.RoomEnded
+                val outcome = registry.leave(roomId, "host")
 
+                outcome.shouldBeInstanceOf<LeaveOutcome.RoomEnded>()
+                outcome.endInfo.participantUserIds shouldBe setOf("host")
                 registry.snapshot(roomId) shouldBe null
             }
         }
@@ -475,7 +479,7 @@ class CampfireRegistryTest :
 
                 val ended = registry.reapIdle(now = t0 + 61.minutes)
 
-                ended shouldContainExactly listOf(roomId)
+                ended.map { it.id } shouldContainExactly listOf(roomId)
                 registry.snapshot(roomId) shouldBe null
             }
         }
@@ -490,6 +494,85 @@ class CampfireRegistryTest :
 
                 ended.shouldBeEmpty()
                 registry.snapshot(roomId) shouldNotBe null
+            }
+        }
+
+        // ---- "Listened together" participant tracking (Task 5) ----
+
+        test("CampfireEndInfo.participantUserIds includes everyone who ever joined, even if they already left") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.join(roomId, "u2", "Two")
+                registry.leave(roomId, "u2") // room continues — host is still present
+
+                val outcome = registry.leave(roomId, "host") // now ends the room
+
+                outcome.shouldBeInstanceOf<LeaveOutcome.RoomEnded>()
+                outcome.endInfo.participantUserIds shouldBe setOf("host", "u2")
+            }
+        }
+
+        test("endSession returns a CampfireEndInfo with every participant who ever joined") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+                registry.join(roomId, "u2", "Two")
+
+                val info = registry.endSession(roomId)
+
+                info.shouldNotBeNull()
+                info.participantUserIds shouldBe setOf("host", "u2")
+                info.hostUserId shouldBe "host"
+                info.bookId shouldBe bookId
+            }
+        }
+
+        test("endSession against an unknown room returns null") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+
+                registry.endSession(CampfireId("does-not-exist")) shouldBe null
+            }
+        }
+
+        test("a solo session's CampfireEndInfo has only the host as a participant") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings)
+
+                val info = registry.endSession(roomId)
+
+                info.shouldNotBeNull()
+                info.participantUserIds shouldBe setOf("host")
+            }
+        }
+
+        test("reapIdle's CampfireEndInfo carries every participant who ever joined") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings, now = t0)
+                registry.join(roomId, "u2", "Two", now = t0)
+
+                val ended = registry.reapIdle(now = t0 + 61.minutes)
+
+                ended shouldHaveSize 1
+                ended.single().participantUserIds shouldBe setOf("host", "u2")
+            }
+        }
+
+        test("reapAwayMembers' CampfireEndInfo carries every participant who ever joined") {
+            runTest {
+                val registry = CampfireRegistry(clock = FixedClock(t0))
+                registry.createRoom(roomId, bookId, "host", "Host", settings, now = t0)
+                registry.join(roomId, "u2", "Two", now = t0)
+                registry.leave(roomId, "u2", now = t0) // room continues — host is still present
+                registry.markAway(roomId, "host", now = t0)
+
+                val ended = registry.reapAwayMembers(now = t0 + 3.minutes)
+
+                ended shouldHaveSize 1
+                ended.single().participantUserIds shouldBe setOf("host", "u2")
             }
         }
 

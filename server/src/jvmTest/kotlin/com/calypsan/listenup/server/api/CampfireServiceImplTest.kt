@@ -4,6 +4,7 @@ package com.calypsan.listenup.server.api
 
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.dto.auth.UserRole
@@ -12,6 +13,7 @@ import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
 import com.calypsan.listenup.api.error.CampfireError
+import com.calypsan.listenup.api.push.PushPayload
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
@@ -20,8 +22,14 @@ import com.calypsan.listenup.api.sync.CollectionSyncPayload
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
 import com.calypsan.listenup.server.auth.UserPrincipal
+import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.campfire.CampfireInviteNotifier
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.push.PushNotifier
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivityRepository
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.CollectionBookRepository
@@ -73,6 +81,9 @@ class CampfireServiceImplTest :
             principal: PrincipalProvider,
             clock: kotlin.time.Clock = FixedClock(t0),
             bus: ChangeBus = ChangeBus(),
+            pushNotifier: PushNotifier = RecordingPushNotifier(),
+            activityRecorder: ActivityRecorder =
+                ActivityRecorder(syncRepo = ActivitySyncRepository(db = sql, bus = bus, registry = SyncRegistry(), driver = driver)),
         ): CampfireServiceImpl {
             val syncRegistry = SyncRegistry()
             return CampfireServiceImpl(
@@ -82,6 +93,9 @@ class CampfireServiceImplTest :
                 publicProfiles = PublicProfileRepository(db = sql, bus = bus, registry = syncRegistry),
                 db = sql,
                 bus = bus,
+                userRoleLookup = UserRoleLookup(db = sql),
+                inviteNotifier = CampfireInviteNotifier(pushNotifier = pushNotifier),
+                activityRecorder = activityRecorder,
                 clock = clock,
                 principal = principal,
             )
@@ -569,6 +583,182 @@ class CampfireServiceImplTest :
                     hostService.leaveSession(created.id).value()
 
                     sub.await() shouldBe SyncControl.CampfiresChanged
+                }
+            }
+        }
+
+        // ── Invites: push notification (Task 5) ────────────────────────────────
+
+        test(
+            "createSession push-notifies an invited user who can access the book, " +
+                "but never an inaccessible invitee or the inviter",
+        ) {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestUser("member")
+                sql.seedTestUser("stranger")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    makeBookAccessible(sql, driver, "book-a", "member")
+                    // "stranger" is deliberately never given access to "book-a".
+                    val notifier = RecordingPushNotifier()
+                    val inviteSettings =
+                        CampfireSettings(
+                            controlMode = CampfireControlMode.EVERYONE,
+                            inviteOnly = false,
+                            invitedUserIds = listOf("member", "stranger", "host"),
+                        )
+
+                    val created =
+                        makeService(
+                            sql,
+                            driver,
+                            CampfireRegistry(clock = FixedClock(t0)),
+                            principalFor("host"),
+                            pushNotifier = notifier,
+                        ).createSession("book-a", inviteSettings).value()
+
+                    notifier.calls.map { it.first } shouldBe listOf("member")
+                    val payload = notifier.calls.single().second.shouldBeInstanceOf<PushPayload.CampfireInvite>()
+                    payload.campfireId shouldBe created.id.value
+                    payload.bookId shouldBe "book-a"
+                    payload.inviterUserId shouldBe "host"
+                }
+            }
+        }
+
+        test("createSession with no invited users sends no push") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    val notifier = RecordingPushNotifier()
+
+                    makeService(
+                        sql,
+                        driver,
+                        CampfireRegistry(clock = FixedClock(t0)),
+                        principalFor("host"),
+                        pushNotifier = notifier,
+                    ).createSession("book-a", everyoneSettings).value()
+
+                    notifier.calls.shouldBeEmpty()
+                }
+            }
+        }
+
+        // ── Invites: listInvitableUsers (Task 5) ───────────────────────────────
+
+        test("listInvitableUsers returns only active users who can access the book, excluding the caller") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestUser("member")
+                sql.seedTestUser("stranger")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    makeBookAccessible(sql, driver, "book-a", "member")
+                    // "stranger" is deliberately never given access to "book-a".
+
+                    val invitable =
+                        makeService(sql, driver, CampfireRegistry(clock = FixedClock(t0)), principalFor("host"))
+                            .listInvitableUsers("book-a")
+                            .value()
+
+                    invitable.map { it.userId } shouldBe listOf("member")
+                }
+            }
+        }
+
+        // ── "Listened together" activity (Task 5) ──────────────────────────────
+
+        test("endSession by the host records CAMPFIRE_TOGETHER when at least 2 users ever joined") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestUser("member")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    makeBookAccessible(sql, driver, "book-a", "member")
+                    val registry = CampfireRegistry(clock = FixedClock(t0))
+                    val hostService = makeService(sql, driver, registry, principalFor("host"))
+                    val created = hostService.createSession("book-a", everyoneSettings).value()
+                    makeService(sql, driver, registry, principalFor("member")).joinSession(created.id).value()
+
+                    hostService.endSession(created.id).value()
+
+                    val rows = ActivityRepository(db = sql).page(before = null, limit = 10)
+                    rows shouldHaveSize 1
+                    rows.single().type shouldBe ActivityType.CAMPFIRE_TOGETHER
+                    rows.single().userId shouldBe "host"
+                    rows.single().bookId shouldBe "book-a"
+                }
+            }
+        }
+
+        test("endSession by a solo host does NOT record a listened-together activity") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    val hostService =
+                        makeService(sql, driver, CampfireRegistry(clock = FixedClock(t0)), principalFor("host"))
+                    val created = hostService.createSession("book-a", everyoneSettings).value()
+
+                    hostService.endSession(created.id).value()
+
+                    ActivityRepository(db = sql).page(before = null, limit = 10).shouldBeEmpty()
+                }
+            }
+        }
+
+        test("leaveSession by the last member ending a >=2-participant room records CAMPFIRE_TOGETHER") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestUser("member")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    makeBookAccessible(sql, driver, "book-a", "member")
+                    val registry = CampfireRegistry(clock = FixedClock(t0))
+                    val hostService = makeService(sql, driver, registry, principalFor("host"))
+                    val created = hostService.createSession("book-a", everyoneSettings).value()
+                    val memberService = makeService(sql, driver, registry, principalFor("member"))
+                    memberService.joinSession(created.id).value()
+                    memberService.leaveSession(created.id).value() // room continues — host still present
+
+                    hostService.leaveSession(created.id).value() // now empties and ends the room
+
+                    val rows = ActivityRepository(db = sql).page(before = null, limit = 10)
+                    rows shouldHaveSize 1
+                    rows.single().type shouldBe ActivityType.CAMPFIRE_TOGETHER
+                }
+            }
+        }
+
+        test("leaveSession by the last member of a solo room does NOT record a listened-together activity") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("host")
+                sql.seedTestBook("book-a")
+                runTest {
+                    makeBookAccessible(sql, driver, "book-a", "host")
+                    val hostService =
+                        makeService(sql, driver, CampfireRegistry(clock = FixedClock(t0)), principalFor("host"))
+                    val created = hostService.createSession("book-a", everyoneSettings).value()
+
+                    hostService.leaveSession(created.id).value()
+
+                    ActivityRepository(db = sql).page(before = null, limit = 10).shouldBeEmpty()
                 }
             }
         }

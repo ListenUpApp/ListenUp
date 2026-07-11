@@ -119,7 +119,11 @@ enum class CampfireControlMode {
  * member on host handoff).
  * @property isAway Whether the member's [com.calypsan.listenup.api.CampfireService.observeSession]
  * flow is currently disconnected (grace window before eviction).
- * @property invited Whether the member was explicitly invited but hasn't joined yet.
+ * @property invited Always `false` for an actual member — everyone in [CampfireSnapshot.members]
+ * has, by definition, already joined. A user named in [CampfireSettings.invitedUserIds] who has
+ * NOT yet joined is not a member and never appears here; a client renders the "invited — pending"
+ * list by diffing `settings.invitedUserIds` against `members.map { it.userId }`. This field is
+ * reserved for a future shape where pending invitees appear inline in the roster.
  */
 @Serializable
 @SerialName("CampfireMember")
@@ -296,4 +300,20 @@ data class OpenCampfireSummary(
     val memberCount: Int,
     val controlMode: CampfireControlMode,
     val inviteOnly: Boolean,
+)
+
+/**
+ * One candidate for the create/invite sheet's user picker, returned by
+ * [com.calypsan.listenup.api.CampfireService.listInvitableUsers]. Already filtered server-side to
+ * users who can access the campfire's book — the design spec §7 "no dead-end invites" rule — so
+ * the client never has to (and never sees) the full user roster just to build this list.
+ *
+ * @property userId The candidate's user id.
+ * @property displayName The candidate's public display name.
+ */
+@Serializable
+@SerialName("CampfireInvitableUser")
+data class CampfireInvitableUser(
+    val userId: String,
+    val displayName: String,
 )

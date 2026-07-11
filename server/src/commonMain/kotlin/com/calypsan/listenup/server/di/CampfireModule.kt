@@ -4,9 +4,12 @@ import com.calypsan.listenup.api.CampfireService
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.CampfireServiceImpl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.campfire.CampfireInviteNotifier
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.scheduler.CampfireReaperTask
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -15,16 +18,21 @@ import org.koin.dsl.module
 
 /**
  * Koin module for the Campfire (co-listening) slice: the in-memory [CampfireRegistry], the
- * access-gated [CampfireService], and the [CampfireReaperTask] that periodically sweeps away-grace
- * evictions and idle rooms.
+ * access-gated [CampfireService], the [CampfireInviteNotifier] push seam, and the
+ * [CampfireReaperTask] that periodically sweeps away-grace evictions and idle rooms.
  *
  * [CampfireRegistry] is deliberately NOT wired to [ChangeBus] itself (its own class KDoc) — the
  * `CampfiresChanged` discovery nudge is broadcast by [CampfireServiceImpl] (create/end/leave-to-empty)
  * and by [CampfireReaperTask] (reaper-driven endings) instead, both of which take a [ChangeBus] here.
+ *
+ * [CampfireInviteNotifier] resolves its [com.calypsan.listenup.server.push.PushNotifier] from
+ * `pushModule()` — whichever implementation that module selected (real relay or no-op) is what
+ * campfire invites use, with no campfire-specific push wiring of its own.
  */
 fun campfireModule(): Module =
     module {
         single { CampfireRegistry(clock = get()) }
+        single { CampfireInviteNotifier(pushNotifier = get()) }
         single {
             CampfireServiceImpl(
                 registry = get(),
@@ -33,6 +41,9 @@ fun campfireModule(): Module =
                 publicProfiles = get<PublicProfileRepository>(),
                 db = get<ListenUpDatabase>(),
                 bus = get<ChangeBus>(),
+                userRoleLookup = get<UserRoleLookup>(),
+                inviteNotifier = get<CampfireInviteNotifier>(),
+                activityRecorder = get<ActivityRecorder>(),
                 clock = get(),
                 principal =
                     PrincipalProvider {
@@ -41,5 +52,12 @@ fun campfireModule(): Module =
             )
         }
         single<CampfireService> { get<CampfireServiceImpl>() }
-        single { CampfireReaperTask(registry = get(), bus = get<ChangeBus>(), clock = get()) }
+        single {
+            CampfireReaperTask(
+                registry = get(),
+                bus = get<ChangeBus>(),
+                activityRecorder = get<ActivityRecorder>(),
+                clock = get(),
+            )
+        }
     }

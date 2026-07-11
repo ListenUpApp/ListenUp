@@ -3,10 +3,12 @@
 package com.calypsan.listenup.server.api
 
 import com.calypsan.listenup.api.CampfireService
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.dto.auth.UserRole
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
@@ -17,6 +19,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.api.sync.SyncControl
 import com.calypsan.listenup.server.auth.PrincipalProvider
+import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.auth.toContract
+import com.calypsan.listenup.server.campfire.CampfireEndInfo
+import com.calypsan.listenup.server.campfire.CampfireInviteNotifier
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.campfire.ChatOutcome
 import com.calypsan.listenup.server.campfire.CommandOutcome
@@ -26,8 +32,10 @@ import com.calypsan.listenup.server.campfire.ReactionOutcome
 import com.calypsan.listenup.server.campfire.SetControlModeOutcome
 import com.calypsan.listenup.server.campfire.TransferHostOutcome
 import com.calypsan.listenup.server.campfire.posAt
+import com.calypsan.listenup.server.db.UserRoleColumn
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
 import com.calypsan.listenup.server.db.sqldelight.suspendTransaction
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -64,6 +72,13 @@ private const val SPOILER_CHAPTER_THRESHOLD = 1
  *   no concept of "controller" — see [TransferHostOutcome]/[SetControlModeOutcome] KDoc). The same
  *   pattern gates [sendCommand] in [CampfireControlMode.HOST_ONLY] rooms.
  *
+ * **Invites and the "listened together" activity (Task 5).** [createSession] push-notifies every
+ * invited user who can access the book via [CampfireInviteNotifier] (best-effort; push is an
+ * accelerant, never a requirement — the room stays discoverable via [listOpenSessions]
+ * regardless). [endSession] and a [leaveSession] that empties the room both record one
+ * [ActivityType.CAMPFIRE_TOGETHER] activity when the ending [CampfireEndInfo] shows at least 2
+ * distinct all-time participants — see [recordTogetherActivity].
+ *
  * Route handlers call [copyWith] to bind each request to the authenticated principal; the Koin
  * singleton carries an unscoped placeholder [PrincipalProvider] that throws (fail-loud) if ever
  * invoked, so a route that forgets to [copyWith] surfaces as a guarded `InternalError` rather than
@@ -87,6 +102,9 @@ internal class CampfireServiceImpl(
     private val publicProfiles: PublicProfileRepository,
     private val db: ListenUpDatabase,
     private val bus: ChangeBus,
+    private val userRoleLookup: UserRoleLookup,
+    private val inviteNotifier: CampfireInviteNotifier,
+    private val activityRecorder: ActivityRecorder,
     private val clock: Clock = Clock.System,
     private val principal: PrincipalProvider = PrincipalProvider.None,
 ) : CampfireService {
@@ -113,8 +131,34 @@ internal class CampfireServiceImpl(
             )
         // A new room is now discoverable (subject to listOpenSessions' own ACL/invite filtering).
         bus.broadcastControl(SyncControl.CampfiresChanged)
+        notifyInvitedMembers(snapshot.id, bookId, caller.userId, settings.invitedUserIds)
         // The creator's own progress IS the anchor — never a spoiler to themselves.
         return AppResult.Success(snapshot.copy(yourPositionMs = startingPositionMs, spoilerAhead = false))
+    }
+
+    /**
+     * Push-notifies every invited user who can actually access [bookId] — an invite to a book
+     * the recipient can't see would be a dead-end deep link (design spec §7), and never revealing
+     * that a campfire exists for an inaccessible book is the same privacy posture [joinSession]
+     * already enforces via the `CampfireNotFound` deny-shape. The filter runs BEFORE
+     * [CampfireInviteNotifier] ever sees the invitee, so an inaccessible invite never reaches
+     * [com.calypsan.listenup.server.push.PushNotifier] at all. Never notifies [inviterUserId].
+     */
+    private suspend fun notifyInvitedMembers(
+        campfireId: CampfireId,
+        bookId: String,
+        inviterUserId: String,
+        invitedUserIds: List<String>,
+    ) {
+        if (invitedUserIds.isEmpty()) return
+        val reachable =
+            invitedUserIds.filter { userId ->
+                userId != inviterUserId &&
+                    bookAccessPolicy.canAccess(userId, userRoleLookup.roleOf(userId) ?: UserRole.MEMBER, bookId)
+            }
+        if (reachable.isNotEmpty()) {
+            inviteNotifier.notifyInvited(campfireId, bookId, inviterUserId, reachable)
+        }
     }
 
     override suspend fun joinSession(sessionId: CampfireId): AppResult<CampfireSnapshot> {
@@ -135,11 +179,12 @@ internal class CampfireServiceImpl(
 
     override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> {
         val caller = resolveCaller() ?: return noPrincipal()
-        return when (registry.leave(sessionId, caller.userId)) {
+        return when (val outcome = registry.leave(sessionId, caller.userId)) {
             is LeaveOutcome.Left -> AppResult.Success(Unit)
-            LeaveOutcome.RoomEnded -> {
+            is LeaveOutcome.RoomEnded -> {
                 // The last member leaving ended the room — it stops being discoverable.
                 bus.broadcastControl(SyncControl.CampfiresChanged)
+                recordTogetherActivity(outcome.endInfo)
                 AppResult.Success(Unit)
             }
             LeaveOutcome.NotAMember -> AppResult.Failure(CampfireError.NotAMember())
@@ -151,10 +196,22 @@ internal class CampfireServiceImpl(
         val caller = resolveCaller() ?: return noPrincipal()
         val snapshot = registry.snapshot(sessionId) ?: return AppResult.Failure(CampfireError.CampfireNotFound())
         if (snapshot.hostUserId != caller.userId) return AppResult.Failure(CampfireError.NotController())
-        registry.endSession(sessionId)
+        val endInfo = registry.endSession(sessionId)
         // The room stops being discoverable.
         bus.broadcastControl(SyncControl.CampfiresChanged)
+        recordTogetherActivity(endInfo)
         return AppResult.Success(Unit)
+    }
+
+    /**
+     * Records the design spec §7 "listened together" activity when [endInfo] shows at least 2
+     * distinct all-time participants ([CampfireEndInfo.participantUserIds] — actual joiners only,
+     * never merely-invited users who never joined). Attributed to the host at the moment the room
+     * ended (after any [transferHost] handoffs). A solo session (only ever the host) never records.
+     */
+    private suspend fun recordTogetherActivity(endInfo: CampfireEndInfo?) {
+        if (endInfo == null || endInfo.participantUserIds.size < 2) return
+        activityRecorder.record(userId = endInfo.hostUserId, type = ActivityType.CAMPFIRE_TOGETHER, bookId = endInfo.bookId)
     }
 
     override suspend fun transferHost(
@@ -310,6 +367,22 @@ internal class CampfireServiceImpl(
         )
     }
 
+    /**
+     * The create/invite sheet's user picker: every live ACTIVE user (other than the caller) who
+     * can already see [bookId] — the design spec §7 "no dead-end invites" rule. Filtering happens
+     * entirely server-side so a member's book-access boundary is never exposed by handing the
+     * client the full user roster just to build an invite list.
+     */
+    override suspend fun listInvitableUsers(bookId: String): AppResult<List<CampfireInvitableUser>> {
+        val caller = resolveCaller() ?: return noPrincipal()
+        val liveUsers = suspendTransaction(db) { db.usersQueries.selectActiveLive().executeAsList() }
+        val invitable =
+            liveUsers
+                .filter { it.id != caller.userId }
+                .filter { bookAccessPolicy.canAccess(it.id, UserRoleColumn.valueOf(it.role).toContract(), bookId) }
+        return AppResult.Success(invitable.map { CampfireInvitableUser(userId = it.id, displayName = it.display_name) })
+    }
+
     /** True when [userId] is already a member of [room], or was explicitly invited to it. */
     private fun isInvitedOrMember(
         room: CampfireSnapshot,
@@ -325,6 +398,9 @@ internal class CampfireServiceImpl(
             publicProfiles = publicProfiles,
             db = db,
             bus = bus,
+            userRoleLookup = userRoleLookup,
+            inviteNotifier = inviteNotifier,
+            activityRecorder = activityRecorder,
             clock = clock,
             principal = principal,
         )

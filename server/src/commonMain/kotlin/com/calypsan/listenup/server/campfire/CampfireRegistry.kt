@@ -51,8 +51,10 @@ sealed interface LeaveOutcome {
         val member: CampfireMember,
     ) : LeaveOutcome
 
-    /** The caller was the last member; the room ended itself as a consequence. */
-    data object RoomEnded : LeaveOutcome
+    /** The caller was the last member; the room ended itself as a consequence. [endInfo] carries what the service layer needs to record the "listened together" activity. */
+    data class RoomEnded(
+        val endInfo: CampfireEndInfo,
+    ) : LeaveOutcome
 
     /** The caller was never a member of this room. */
     data object NotAMember : LeaveOutcome
@@ -60,6 +62,26 @@ sealed interface LeaveOutcome {
     /** No such room. */
     data object RoomNotFound : LeaveOutcome
 }
+
+/**
+ * Enough about an ended campfire for [com.calypsan.listenup.server.api.CampfireServiceImpl] and
+ * [com.calypsan.listenup.server.scheduler.CampfireReaperTask] to record the design spec §7
+ * "listened together" activity — captured at (or immediately after) the moment of ending, since
+ * once a room is [CampfireRegistry.forget]-ten its [CampfireRoom] instance is no longer reachable
+ * through the registry.
+ *
+ * @property participantUserIds Every user id that ever actually joined the room (the host counts
+ * from creation) — NOT just who was still present at the end. A member who joined, listened, and
+ * left before the room ended still counts: the activity credits everyone who was ever there,
+ * matching the spec's "Simon, Anna and 2 others listened to X together" framing. Invited-but-
+ * never-joined users are never in this set — see [CampfireMember.invited]'s KDoc.
+ */
+data class CampfireEndInfo(
+    val id: CampfireId,
+    val bookId: String,
+    val hostUserId: String,
+    val participantUserIds: Set<String>,
+)
 
 /**
  * Result of [CampfireRegistry.applyCommand] — the rejection surface for the co-listening design
@@ -252,6 +274,7 @@ class CampfireRegistry(
         return outcome
     }
 
+
     /** Marks [userId] away in [roomId] (flow disconnect). Silent no-op if the room or member doesn't exist. */
     suspend fun markAway(
         roomId: CampfireId,
@@ -270,15 +293,21 @@ class CampfireRegistry(
         findRoom(roomId)?.clearAway(userId, now)
     }
 
-    /** Ends [roomId] for everyone with [reason] and removes it from the registry. Silent no-op if it doesn't exist. */
+    /**
+     * Ends [roomId] for everyone with [reason] and removes it from the registry — `null` if it
+     * doesn't exist. Otherwise returns a [CampfireEndInfo] captured right after ending, for the
+     * service layer's "listened together" activity check.
+     */
     suspend fun endSession(
         roomId: CampfireId,
         reason: String = CAMPFIRE_END_REASON_HOST_ENDED,
         now: Instant = clock.now(),
-    ) {
-        val room = findRoom(roomId) ?: return
+    ): CampfireEndInfo? {
+        val room = findRoom(roomId) ?: return null
         room.end(now, reason)
+        val info = CampfireEndInfo(roomId, room.bookId, room.currentHostUserId(), room.participantIds())
         forget(roomId)
+        return info
     }
 
     /** See [TransferHostOutcome]. */
@@ -322,37 +351,40 @@ class CampfireRegistry(
     /**
      * Evicts every away-past-grace member across all rooms, ending any room that empties out as
      * a result. Pure and clock-driven (fake-clock testable); production scheduling is Task 3/4's
-     * concern (the `ActiveSessionCleanupTask` periodic-sweep pattern). Returns the ids of rooms
-     * that ended as a consequence.
+     * concern (the `ActiveSessionCleanupTask` periodic-sweep pattern). Returns a [CampfireEndInfo]
+     * per room that ended as a consequence, for the reaper's "listened together" activity check.
      */
-    suspend fun reapAwayMembers(now: Instant = clock.now()): List<CampfireId> {
+    suspend fun reapAwayMembers(now: Instant = clock.now()): List<CampfireEndInfo> {
         val snapshot = roomsLock.withLock { rooms.values.toList() }
-        val endedIds = snapshot.filter { it.reapAwayMembers(now, awayGrace) }.map { it.id }
-        if (endedIds.isNotEmpty()) {
-            roomsLock.withLock { endedIds.forEach { rooms.remove(it) } }
-            log.info { "Campfire away-grace reap ended ${endedIds.size} room(s)" }
+        val endedRooms = snapshot.filter { it.reapAwayMembers(now, awayGrace) }
+        val infos = endedRooms.map { CampfireEndInfo(it.id, it.bookId, it.currentHostUserId(), it.participantIds()) }
+        if (infos.isNotEmpty()) {
+            roomsLock.withLock { infos.forEach { rooms.remove(it.id) } }
+            log.info { "Campfire away-grace reap ended ${infos.size} room(s)" }
         }
-        return endedIds
+        return infos
     }
 
     /**
      * Ends every room with no join/leave/command/chat/reaction activity in the last [idleTimeout]
      * — the §4 idle sweeper. Pure and clock-driven; production scheduling is Task 3/4's concern.
-     * Returns the ids of rooms it ended.
+     * Returns a [CampfireEndInfo] per room it ended, for the reaper's "listened together" activity
+     * check.
      */
-    suspend fun reapIdle(now: Instant = clock.now()): List<CampfireId> {
-        val idleIds =
+    suspend fun reapIdle(now: Instant = clock.now()): List<CampfireEndInfo> {
+        val idleRooms =
             roomsLock.withLock {
-                rooms.values.filter { (now - it.lastActivityAt) >= idleTimeout }.map { it.id }
+                rooms.values.filter { (now - it.lastActivityAt) >= idleTimeout }
             }
-        for (id in idleIds) {
-            findRoom(id)?.end(now, CAMPFIRE_END_REASON_IDLE)
+        for (room in idleRooms) {
+            room.end(now, CAMPFIRE_END_REASON_IDLE)
         }
-        if (idleIds.isNotEmpty()) {
-            roomsLock.withLock { idleIds.forEach { rooms.remove(it) } }
-            log.info { "Campfire idle reap ended ${idleIds.size} room(s)" }
+        val infos = idleRooms.map { CampfireEndInfo(it.id, it.bookId, it.currentHostUserId(), it.participantIds()) }
+        if (infos.isNotEmpty()) {
+            roomsLock.withLock { infos.forEach { rooms.remove(it.id) } }
+            log.info { "Campfire idle reap ended ${infos.size} room(s)" }
         }
-        return idleIds
+        return infos
     }
 
     private suspend fun findRoom(roomId: CampfireId): CampfireRoom? = roomsLock.withLock { rooms[roomId] }

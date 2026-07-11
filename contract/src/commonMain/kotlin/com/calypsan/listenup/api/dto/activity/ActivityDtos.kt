@@ -12,6 +12,7 @@ object ActivityType {
     const val LISTENING_MILESTONE = "listening_milestone"
     const val SHELF_CREATED = "shelf_created"
     const val USER_JOINED = "user_joined"
+    const val CAMPFIRE_TOGETHER = "campfire_together"
 }
 
 /**

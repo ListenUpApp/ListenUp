@@ -3,6 +3,7 @@ package com.calypsan.listenup.api
 import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
 import com.calypsan.listenup.api.dto.campfire.CampfireFrame
 import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
 import com.calypsan.listenup.api.dto.campfire.CampfireSettings
 import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
 import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
@@ -94,4 +95,12 @@ interface CampfireService {
 
     /** Lists open (non-invite-only) campfires visible to the caller, ACL-filtered like `SocialService.currentlyListening`. */
     suspend fun listOpenSessions(): AppResult<List<OpenCampfireSummary>>
+
+    /**
+     * The create/invite sheet's user picker: every user (other than the caller) who can already
+     * access [bookId] — an invite to a book the recipient can't see would be a dead-end deep
+     * link (design spec §7). The candidate list is filtered server-side so the client never
+     * receives the full user roster just to build an invite picker.
+     */
+    suspend fun listInvitableUsers(bookId: String): AppResult<List<CampfireInvitableUser>>
 }

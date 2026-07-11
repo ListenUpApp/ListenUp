@@ -101,6 +101,11 @@ class CampfireDtosContractTest :
             contractJson.decodeFromString<OpenCampfireSummary>(contractJson.encodeToString(summary)) shouldBe summary
         }
 
+        test("CampfireInvitableUser round-trips") {
+            val user = CampfireInvitableUser(userId = "user-2", displayName = "Anna")
+            contractJson.decodeFromString<CampfireInvitableUser>(contractJson.encodeToString(user)) shouldBe user
+        }
+
         test("PlaybackCommand.Play round-trips polymorphically") {
             val command: PlaybackCommand = PlaybackCommand.Play(commandId = "cmd-1", expectedStateVersion = 3)
             val json = contractJson.encodeToString(PlaybackCommand.serializer(), command)

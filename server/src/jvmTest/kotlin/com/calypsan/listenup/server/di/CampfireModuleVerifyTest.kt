@@ -5,9 +5,14 @@ package com.calypsan.listenup.server.di
 import app.cash.sqldelight.db.SqlDriver
 import com.calypsan.listenup.api.CampfireService
 import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.auth.UserRoleLookup
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.push.NoOpPushNotifier
+import com.calypsan.listenup.server.push.PushNotifier
 import com.calypsan.listenup.server.scheduler.CampfireReaperTask
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivitySyncRepository
 import com.calypsan.listenup.server.services.PlaybackPositionRepository
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.sync.PublicProfileRepository
@@ -41,6 +46,10 @@ class CampfireModuleVerifyTest :
                                 single { BookAccessPolicy(db = get(), driver = get()) }
                                 single { PlaybackPositionRepository(db = get(), bus = bus, registry = registry, clock = get()) }
                                 single { PublicProfileRepository(db = get(), bus = bus, registry = registry) }
+                                single { UserRoleLookup(db = get()) }
+                                single<PushNotifier> { NoOpPushNotifier() }
+                                single { ActivitySyncRepository(db = get(), bus = bus, registry = registry, driver = get()) }
+                                single { ActivityRecorder(syncRepo = get()) }
                             },
                             campfireModule(),
                         )

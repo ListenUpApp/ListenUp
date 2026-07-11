@@ -1,8 +1,11 @@
 package com.calypsan.listenup.server.scheduler
 
+import com.calypsan.listenup.api.dto.activity.ActivityType
 import com.calypsan.listenup.api.sync.SyncControl
+import com.calypsan.listenup.server.campfire.CampfireEndInfo
 import com.calypsan.listenup.server.campfire.CampfireRegistry
 import com.calypsan.listenup.server.logging.loggerFor
+import com.calypsan.listenup.server.services.ActivityRecorder
 import com.calypsan.listenup.server.sync.ChangeBus
 import com.calypsan.listenup.server.util.runCatchingCancellable
 import kotlin.time.Clock
@@ -36,10 +39,17 @@ private val log = loggerFor<CampfireReaperTask>()
  * can return, so [runOnce] broadcasts [SyncControl.CampfiresChanged] whenever it actually ends a
  * room — the [ActiveSessionCleanupTask] precedent (nudge only on an effectful sweep, never on an
  * empty one).
+ *
+ * **"Listened together" activity.** A reaper-driven ending (away-grace evicted down to empty, or
+ * idle) is exactly as much an "ending" as [com.calypsan.listenup.server.api.CampfireServiceImpl]'s
+ * explicit `endSession`/empty-`leaveSession` paths, so it records the same
+ * [ActivityType.CAMPFIRE_TOGETHER] activity whenever the ended [CampfireEndInfo] shows at least 2
+ * distinct all-time participants.
  */
 internal class CampfireReaperTask(
     private val registry: CampfireRegistry,
     private val bus: ChangeBus,
+    private val activityRecorder: ActivityRecorder,
     private val clock: Clock = Clock.System,
     private val interval: Duration = 30.seconds,
 ) {
@@ -58,10 +68,15 @@ internal class CampfireReaperTask(
         val now = clock.now()
         val endedForAway = registry.reapAwayMembers(now)
         val endedForIdle = registry.reapIdle(now)
-        val endedTotal = endedForAway.size + endedForIdle.size
-        if (endedTotal > 0) {
-            log.info { "CampfireReaperTask ended $endedTotal room(s) (away-grace=${endedForAway.size}, idle=${endedForIdle.size})" }
+        val allEnded = endedForAway + endedForIdle
+        if (allEnded.isNotEmpty()) {
+            log.info { "CampfireReaperTask ended ${allEnded.size} room(s) (away-grace=${endedForAway.size}, idle=${endedForIdle.size})" }
             bus.broadcastControl(SyncControl.CampfiresChanged)
+            allEnded.forEach { info ->
+                if (info.participantUserIds.size >= 2) {
+                    activityRecorder.record(userId = info.hostUserId, type = ActivityType.CAMPFIRE_TOGETHER, bookId = info.bookId)
+                }
+            }
         }
     }
 }

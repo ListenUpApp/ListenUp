@@ -83,6 +83,14 @@ internal class CampfireRoom(
     private val chatRing = ArrayDeque<ChatMessage>()
     private val reactionTimestamps = mutableMapOf<String, ArrayDeque<Instant>>()
 
+    /**
+     * Every user id that has ever actually joined this room — the host counts from creation.
+     * Grows monotonically; a leave/away-eviction never removes an id, since the "listened
+     * together" activity (see [CampfireEndInfo]) credits everyone who was ever present, not just
+     * who was still there at the end.
+     */
+    private val everJoinedUserIds = linkedSetOf(hostUserId)
+
     /** Instant of the room's most recent join/leave/command/chat/reaction — the idle-reaper's clock. */
     var lastActivityAt: Instant = now
         private set
@@ -125,6 +133,12 @@ internal class CampfireRoom(
     /** Current state, unscoped to a caller — [CampfireSnapshot.yourPositionMs]/[CampfireSnapshot.spoilerAhead] are always null/false here. */
     suspend fun snapshot(): CampfireSnapshot = mutex.withLock { snapshotLocked() }
 
+    /** The room's current host id — read by [CampfireRegistry] to build a [CampfireEndInfo] after [end]. */
+    suspend fun currentHostUserId(): String = mutex.withLock { hostUserId }
+
+    /** See [everJoinedUserIds] — read by [CampfireRegistry] to build a [CampfireEndInfo]. */
+    suspend fun participantIds(): Set<String> = mutex.withLock { everJoinedUserIds.toSet() }
+
     /**
      * Adds [userId] as a member, or — if already a member — clears any away flag (a reconnect).
      * Returns [JoinOutcome.RoomFull] at the [maxMembers] cap for a genuinely new member.
@@ -145,6 +159,7 @@ internal class CampfireRoom(
             if (members.size >= maxMembers) return@withLock JoinOutcome.RoomFull
             val member = MemberState(userId, displayName, now.toEpochMilliseconds())
             members[userId] = member
+            everJoinedUserIds += userId
             mutableFrames.emit(CampfireFrame.MemberJoined(member.toDto()))
             JoinOutcome.Joined(snapshotLocked())
         }
@@ -162,7 +177,11 @@ internal class CampfireRoom(
             if (ended) return@withLock LeaveOutcome.RoomNotFound
             lastActivityAt = now
             val removed = removeMemberLocked(userId, now) ?: return@withLock LeaveOutcome.NotAMember
-            if (ended) LeaveOutcome.RoomEnded else LeaveOutcome.Left(removed.toDto())
+            if (ended) {
+                LeaveOutcome.RoomEnded(CampfireEndInfo(id, bookId, hostUserId, everJoinedUserIds.toSet()))
+            } else {
+                LeaveOutcome.Left(removed.toDto())
+            }
         }
 
     /** Marks [userId] away (flow disconnect). No-op if already away or not a member. */
