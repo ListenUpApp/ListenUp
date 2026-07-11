@@ -76,6 +76,10 @@ fun clientApiClientFactoryTestModule(): Module =
                 refreshAccessToken = {
                     get<com.calypsan.listenup.client.domain.repository.AuthRepository>().refreshAccessToken()
                 },
+                // Not resolved via `get()`: the minimal `AuthEndToEndFixture` DI scope deliberately
+                // omits `appCoreModule` (which owns the `ClientIdentity` binding) — see its comment.
+                // Same module (`:sharedLogic` jvmMain) can reference the internal object directly.
+                clientIdentity = com.calypsan.listenup.client.domain.version.DefaultClientIdentity,
             )
         }
     }

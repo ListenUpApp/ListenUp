@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.client.test.http.testMockEngine
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.calls
@@ -196,6 +197,7 @@ class TokenRefreshSingleFlightTest :
                         authSession = authSession,
                         // Mirrors NetworkModule's `{ get<AuthRepository>().refreshAccessToken() }`.
                         refreshAccessToken = { repo.refreshAccessToken() },
+                        clientIdentity = FakeClientIdentity(),
                         engine = engine,
                     )
                 val client = factory.getClient()

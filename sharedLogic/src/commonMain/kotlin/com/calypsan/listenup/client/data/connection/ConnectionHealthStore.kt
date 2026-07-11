@@ -8,6 +8,7 @@ import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ConnectionHealth
 import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.version.ClientIdentity
+import com.calypsan.listenup.client.domain.version.Semver
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -183,14 +184,6 @@ internal class ConnectionHealthStore(
         if (reachable) lastProbeReachableAt.value = currentEpochMilliseconds()
     }
 
-    /** Persist the peer server's observed version + API contract version. */
-    suspend fun updatePeerVersion(
-        serverVersion: String,
-        serverApi: String,
-    ) {
-        localPreferences.setPeerServerVersion(serverVersion, serverApi)
-    }
-
     /**
      * Dismiss the current Outdated hint for the peer server's currently observed version. A
      * no-op if no peer version has been observed yet.
@@ -213,16 +206,32 @@ internal class ConnectionHealthStore(
 }
 
 /**
- * STUB for this PR: real semver-gap evaluation lands in a follow-up task. For now, only
- * behavioural evidence (a parse failure observed by a headless seam) produces a
- * [ConnectionHealth.Outdated] hint; a bare peer-version mismatch with no behavioural evidence is
- * not yet flagged.
+ * Evaluates whether the observed peer server represents a meaningful version gap worth
+ * surfacing as [ConnectionHealth.Outdated]. Three independent signals, checked in order:
+ * a declared API contract mismatch, behavioural evidence of an unparseable response, and a
+ * major-version semver gap. Minor/patch skew alone is never a signal — it's expected drift
+ * between compatible releases.
  */
-@Suppress("UnusedParameter")
 private fun evaluateVersionGap(
     identity: ClientIdentity,
     serverVersion: String,
     serverApi: String?,
     behaviouralEvidence: Boolean,
-): ConnectionHealth.Outdated? =
-    if (behaviouralEvidence) ConnectionHealth.Outdated(identity.version, serverVersion) else null
+): ConnectionHealth.Outdated? {
+    // Rule 1: API contract mismatch — a declared, unambiguous incompatibility.
+    if (serverApi != null && serverApi != identity.apiVersion) {
+        return ConnectionHealth.Outdated(identity.version, serverVersion)
+    }
+    // Rule 2: behavioural evidence (a 2xx slice we couldn't parse — Phase 3 feeds this).
+    if (behaviouralEvidence) {
+        return ConnectionHealth.Outdated(identity.version, serverVersion)
+    }
+    // Rule 3: a major-version gap. Minor/patch skew is NOT a signal (rule 4 → null).
+    val client = Semver.parseOrNull(identity.version) ?: return null
+    val server = Semver.parseOrNull(serverVersion) ?: return null
+    return if (client.major != server.major) {
+        ConnectionHealth.Outdated(identity.version, serverVersion)
+    } else {
+        null
+    }
+}

@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import com.calypsan.listenup.client.domain.version.FakeClientIdentity
 import com.calypsan.listenup.core.ServerUrl
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
@@ -36,6 +37,7 @@ class ApiClientFactoryStreamingCacheTest :
                 serverConfig = serverConfig,
                 authSession = mock<AuthSession>(),
                 refreshAccessToken = { error("token refresh not used") },
+                clientIdentity = FakeClientIdentity(),
                 engine = engine,
             )
         }

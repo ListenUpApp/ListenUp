@@ -10,6 +10,7 @@ import com.calypsan.listenup.client.data.remote.RpcAuthRecoveryImpl
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.api.ListenUpApi
 import com.calypsan.listenup.client.domain.repository.AuthRepository
+import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module
@@ -37,6 +38,12 @@ internal val networkModule: Module =
                 serverConfig = get(),
                 authSession = get(),
                 refreshAccessToken = { get<AuthRepository>().refreshAccessToken() },
+                clientIdentity = get(),
+                // Persists the peer server's version captured off every response's
+                // X-Server-Version/X-Server-Api headers. LocalPreferences (SettingsRepositoryImpl)
+                // has no dependency back on ApiClientFactory, so this is a plain eager `get()` —
+                // no construction-time cycle to break, unlike the AuthRepository seam above.
+                onPeerVersion = get<LocalPreferences>()::setPeerServerVersion,
             )
         } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
 

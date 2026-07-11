@@ -109,12 +109,14 @@ internal val iosPlaybackModule: Module =
 
         // Structured device identity — shared source for auth login + listening history.
         single<DeviceInfoProvider> {
+            val clientVersion = get<String>(named("clientVersion"))
             DeviceInfoProvider {
                 DeviceInfo(
                     deviceType = "phone",
                     platform = "iOS",
                     platformVersion = platform.UIKit.UIDevice.currentDevice.systemVersion,
                     clientName = "ListenUp iOS",
+                    clientVersion = clientVersion,
                     deviceName = platform.UIKit.UIDevice.currentDevice.name,
                 )
             }
