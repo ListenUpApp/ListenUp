@@ -355,6 +355,9 @@ PreviewLoadState
 ProfileEditRepository
 ProfileRecentBook
 ProfileShelfSummary
+PushRegistrar
+PushRepository
+PushTokenProvider
 Reachability
 Reader
 ReaderLine
