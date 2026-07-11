@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.AuthServiceAuthed
 import com.calypsan.listenup.api.AuthServicePublic
 import com.calypsan.listenup.api.BackupService
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CampfireService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
@@ -37,6 +38,7 @@ import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BackupServiceImpl
 import com.calypsan.listenup.server.api.BookServiceImpl
+import com.calypsan.listenup.server.api.CampfireServiceImpl
 import com.calypsan.listenup.server.api.CollectionServiceImpl
 import com.calypsan.listenup.server.api.ContributorServiceImpl
 import com.calypsan.listenup.server.api.GenreServiceImpl
@@ -136,5 +138,6 @@ private fun Route.authedRpc(services: RpcServices) {
         registerScoped<BackupService> { guard((services.backupService as BackupServiceImpl).copyWith(it)) }
         registerScoped<ImportService> { guard((services.importService as ImportServiceImpl).copyWith(it)) }
         registerScoped<PushService> { guard((services.pushService as PushServiceImpl).copyWith(it)) }
+        registerScoped<CampfireService> { guard((services.campfireService as CampfireServiceImpl).copyWith(it)) }
     }
 }

@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, next]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, next]
 
 # Least-privilege GITHUB_TOKEN for every job — nothing in CI writes to GitHub.
 # Matches the job-level scoping convention in release.yml.

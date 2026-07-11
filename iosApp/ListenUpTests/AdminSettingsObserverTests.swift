@@ -12,6 +12,7 @@ struct AdminSettingsObserverTests {
             serverName: "My Server",
             remoteUrl: "https://example.com",
             inboxEnabled: true,
+            pushNotificationsEnabled: true,
             isDirty: false,
             isSaving: false,
             error: nil
@@ -28,6 +29,7 @@ struct AdminSettingsObserverTests {
             serverName: "Inbox Off",
             remoteUrl: "",
             inboxEnabled: false,
+            pushNotificationsEnabled: false,
             isDirty: true,
             isSaving: false,
             error: nil
@@ -43,6 +45,7 @@ struct AdminSettingsObserverTests {
             serverName: "S",
             remoteUrl: "https://example.com",
             inboxEnabled: true,
+            pushNotificationsEnabled: true,
             isDirty: true,
             isSaving: true,
             error: nil

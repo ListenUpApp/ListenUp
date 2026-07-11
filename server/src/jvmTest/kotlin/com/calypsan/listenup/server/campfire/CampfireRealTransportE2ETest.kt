@@ -1,0 +1,892 @@
+@file:OptIn(kotlin.time.ExperimentalTime::class)
+
+package com.calypsan.listenup.server.campfire
+
+import app.cash.sqldelight.db.SqlDriver
+import com.calypsan.listenup.api.CampfireService
+import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.SharePermission
+import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
+import com.calypsan.listenup.api.dto.campfire.CampfireFrame
+import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfireSettings
+import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
+import com.calypsan.listenup.api.error.CampfireError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.api.sync.CollectionBookSyncPayload
+import com.calypsan.listenup.api.sync.CollectionShareSyncPayload
+import com.calypsan.listenup.api.sync.CollectionSyncPayload
+import com.calypsan.listenup.server.api.BookAccessPolicy
+import com.calypsan.listenup.server.api.CampfireServiceImpl
+import com.calypsan.listenup.server.api.RecordingPushNotifier
+import com.calypsan.listenup.server.auth.UserRoleLookup
+import com.calypsan.listenup.server.db.sqldelight.ListenUpDatabase
+import com.calypsan.listenup.server.plugins.JWT_PROVIDER
+import com.calypsan.listenup.server.routes.registerScoped
+import com.calypsan.listenup.server.rpcguard.guard
+import com.calypsan.listenup.server.scheduler.CampfireReaperTask
+import com.calypsan.listenup.server.services.ActivityRecorder
+import com.calypsan.listenup.server.services.ActivitySyncRepository
+import com.calypsan.listenup.server.services.PlaybackPositionRepository
+import com.calypsan.listenup.server.sync.ChangeBus
+import com.calypsan.listenup.server.sync.CollectionBookRepository
+import com.calypsan.listenup.server.sync.CollectionGrantRepository
+import com.calypsan.listenup.server.sync.CollectionRepository
+import com.calypsan.listenup.server.sync.PublicProfileRepository
+import com.calypsan.listenup.server.sync.SyncRegistry
+import com.calypsan.listenup.server.testing.roleOf
+import com.calypsan.listenup.server.testing.seedTestBook
+import com.calypsan.listenup.server.testing.seedTestLibraryAndFolder
+import com.calypsan.listenup.server.testing.seedTestUser
+import com.calypsan.listenup.server.testing.testAuth
+import com.calypsan.listenup.server.testing.withSqlDatabase
+import app.cash.turbine.ReceiveTurbine
+import app.cash.turbine.test
+import io.kotest.assertions.nondeterministic.eventually
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.ints.shouldBeGreaterThan
+import io.kotest.matchers.longs.shouldBeLessThan
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO as ClientCIO
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.plugins.websocket.WebSockets as ClientWebSockets
+import io.ktor.client.request.bearerAuth
+import io.ktor.server.application.Application
+import io.ktor.server.application.install
+import io.ktor.server.auth.Authentication
+import io.ktor.server.auth.authenticate
+import io.ktor.server.cio.CIO as ServerCIO
+import io.ktor.server.engine.EmbeddedServer
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.routing.routing
+import java.net.InetAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.thread
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.rpc.krpc.ktor.client.installKrpc
+import kotlinx.rpc.krpc.ktor.client.rpc
+import kotlinx.rpc.krpc.ktor.client.rpcConfig
+import kotlinx.rpc.krpc.ktor.server.Krpc as ServerKrpc
+import kotlinx.rpc.krpc.ktor.server.rpc as serverRpc
+import kotlinx.rpc.krpc.serialization.json.json as krpcJson
+import kotlinx.rpc.withService
+
+private const val USER_A = "user-a"
+private const val USER_B = "user-b"
+private const val BOOK_ID = "book-1"
+private const val ALL_BOOKS_ID = "all-books"
+
+private val everyoneSettings =
+    CampfireSettings(name = "Test Campfire", controlMode = CampfireControlMode.EVERYONE, inviteOnly = false)
+
+/**
+ * Task 6 of the co-listening (Campfire) implementation plan: the server soak/E2E over a REAL
+ * transport — an actual `embeddedServer(CIO)` on a real socket, and real kotlinx.rpc WebSocket
+ * clients (CIO engine + `installKrpc()`), never `testApplication`.
+ *
+ * **Why real transport.** This repo has a documented "black-hole WebSocket" lesson (see
+ * `docs/beta-bug-bash-2026-06-30.md` and MEMORY `contributor_merge_fixes`): `testApplication`'s
+ * in-memory WebSocket bridge never surfaced a dead/half-open socket that produced an infinite
+ * client-side spinner in production. kotlinx.rpc is also pinned to a dev-channel build
+ * (0.11.0-grpc-189) — long-lived bidirectional streaming flow cancellation (Campfire's
+ * `observeSession`) has to be proven against the actual pinned version over a real socket, not
+ * the test-host's simulated transport.
+ *
+ * **Harness precedent followed:**
+ * - [com.calypsan.listenup.server.foundation.FoundationSmokeTest] (`server/src/commonTest`) is
+ *   this repo's canonical "real embeddedServer(CIO) + real `HttpClient(CIO) { install(WebSockets);
+ *   installKrpc() }` + `.rpc("ws://…")`" recipe — the exact shape [buildCampfireEnv] and
+ *   [campfireClient] below mirror, extended from a single unguarded ping to the full guarded,
+ *   principal-scoped [CampfireService] mount ([registerScoped] + [guard], the same call shape as
+ *   production `RpcRoutes.jvm.kt`).
+ * - `RpcReconnectE2ETest` (`:sharedLogic` jvmTest) is this repo's precedent for simulating true
+ *   socket death (as opposed to a graceful `leaveSession()` call or a client-driven flow cancel):
+ *   a small duplex TCP relay whose `cut()` severs the live socket without a WebSocket close
+ *   handshake. [TcpRelay] below is a minimal, file-local duplicate (that class is `private` to a
+ *   different Gradle module, so it isn't importable) used only in the socket-death scenario.
+ * - `CampfireServiceImplTest` (`server/src/jvmTest`) is the precedent for wiring
+ *   [CampfireServiceImpl] over a real migrated SQLite database and for granting book access via
+ *   the ALL_BOOKS pure-union collection (`grantAllBooksAccess` below mirrors its
+ *   `makeBookAccessible` helper). [com.calypsan.listenup.server.testing.testAuth]
+ *   (`server/src/jvmTest/testing/TestAuthProvider.kt`) is reused verbatim for auth: its bearer
+ *   token IS the user id, so two real WebSocket clients bearing `Authorization: Bearer user-a` /
+ *   `user-b` genuinely authenticate as two distinct principals over the real upgrade handshake —
+ *   a real auth wall, not a stub that ignores the token.
+ *
+ * **jvmTest ONLY.** `:server` also has a `linuxX64Test` target, but real-socket, real-clock,
+ * multi-client soak infrastructure like this file is JVM-only test tooling (matching every other
+ * `*E2ETest`/`*RpcTest` in this package) — it never needs to prove anything about the native
+ * *production* binary's own transport (that's `FoundationSmokeTest`'s narrow "compiles and serves
+ * on linuxX64" job). Running a TCP relay, `Runtime.getRuntime()` heap sampling, and a 5,000-frame
+ * timing-sensitive soak against K/N's test runner would be disproportionate infrastructure for no
+ * additional coverage.
+ *
+ * **STOP conditions this file exists to catch** (see the plan's STOP conditions section):
+ * 1. Flow cancellation misbehaving under the pinned kotlinx.rpc (frames delivered after cancel,
+ *    a leaked server coroutine, or a hung cancel) — see the cancellation-semantics test.
+ * 2. Socket death not detected within the away-grace window (the black-hole problem resurfacing
+ *    at the RPC layer) — see the socket-death test.
+ *
+ * Uses `runBlocking`, not Kotest's `runTest`: every scenario does real socket I/O and real-clock
+ * waits (the away grace and reaper interval are genuinely shortened constructor parameters, not a
+ * fake clock) — a virtual-time dispatcher would auto-advance past those waits and prove nothing.
+ *
+ * **Latency vs. delivery.** Earlier revisions of this file asserted every frame arrived within a
+ * strict 1-second Turbine budget per step. That sub-1s latency is real and was hand-verified
+ * locally, but GitHub-hosted runners are shared and can stall stream setup for seconds — the
+ * warm-up loop below then queues several throwaway commands before B's subscribe frame lands,
+ * and a strict "the NEXT item must be my frame" assertion picks up a stale warm-up echo instead
+ * of the frame the just-sent command produced, failing on content it was never supposed to see.
+ * What this file needs to prove is that the right frame ARRIVES and is CORRECT — not that it
+ * beats a clock a shared CI box can't promise. Every assertion below drains via
+ * [awaitFrameWhere], keyed on each command's `commandId` (or, for chat/membership frames, on
+ * message text / member id) so it is immune to any stale frame still queued ahead of the real
+ * one, and fails with the full list of frames actually observed if the real one never shows.
+ */
+class CampfireRealTransportE2ETest :
+    FunSpec({
+
+        test("commands and chat propagate to B as real frames (scenarios 1-3)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser(USER_A)
+                sql.seedTestUser(USER_B)
+                sql.seedTestBook(BOOK_ID)
+                runBlocking {
+                    grantAllBooksAccess(sql, driver, USER_A)
+                    grantAllBooksAccess(sql, driver, USER_B)
+                    val env = buildCampfireEnv(sql, driver)
+                    try {
+                        withCampfireClients(env) { serviceA, serviceB ->
+                            val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
+                            serviceB.joinSession(sessionId).value()
+
+                            serviceB.observeSession(sessionId).test(timeout = 60.seconds) {
+                                // Chat is lobby-legal (unlike playback commands) — a safe warm-up signal
+                                // regardless of the room's phase.
+                                warmUp(serviceA, sessionId, idPrefix = "warmup")
+
+                                // The room starts in LOBBY, paused — startSession is the lobby amendment's
+                                // way to establish a playing LIVE baseline (re-anchors playing at now),
+                                // so the Pause below is a real transition, not a NoOp.
+                                serviceA.startSession(sessionId).value()
+                                val startedFrame =
+                                    awaitFrameWhere { it is CampfireFrame.CampfireStarted }
+                                        .shouldBeInstanceOf<CampfireFrame.CampfireStarted>()
+                                startedFrame.anchor.isPlaying shouldBe true
+                                startedFrame.byUserId shouldBe USER_A
+
+                                // Scenario 1: Pause -> AnchorChanged, keyed on this command's commandId so a
+                                // stale warm-up echo can never be mistaken for it.
+                                serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "cmd-pause")).value()
+                                val pauseFrame =
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "cmd-pause" }
+                                        .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
+                                pauseFrame.anchor.isPlaying shouldBe false
+
+                                // Scenario 2: SeekTo -> AnchorChanged with the re-anchored position.
+                                serviceA
+                                    .sendCommand(
+                                        sessionId,
+                                        PlaybackCommand.SeekTo(positionMs = 42_000L, commandId = "cmd-seek"),
+                                    ).value()
+                                val seekFrame =
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "cmd-seek" }
+                                        .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
+                                seekFrame.anchor.positionMs shouldBe 42_000L
+
+                                // Scenario 3: chat -> Chat frame, content matches.
+                                serviceA.sendChat(sessionId, "hello from A").value()
+                                val chatFrame =
+                                    awaitFrameWhere { it is CampfireFrame.Chat && it.message.text == "hello from A" }
+                                        .shouldBeInstanceOf<CampfireFrame.Chat>()
+                                chatFrame.message.text shouldBe "hello from A"
+                                chatFrame.message.senderId shouldBe USER_A
+
+                                cancelAndIgnoreRemainingEvents()
+                            }
+                        }
+                    } finally {
+                        env.close()
+                    }
+                }
+            }
+        }
+
+        test("B's socket death is detected via MemberAway then MemberLeft after the grace window (scenario 4)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser(USER_A)
+                sql.seedTestUser(USER_B)
+                sql.seedTestBook(BOOK_ID)
+                runBlocking {
+                    grantAllBooksAccess(sql, driver, USER_A)
+                    grantAllBooksAccess(sql, driver, USER_B)
+                    // Real short durations over a real transport (never a fake clock): a 2s away grace
+                    // and a 500ms reaper sweep keep this test fast without pretending time passed.
+                    val env = buildCampfireEnv(sql, driver, awayGrace = 2.seconds, reaperInterval = 500.milliseconds)
+                    val relay = TcpRelay.start("127.0.0.1", env.port)
+                    try {
+                        val clientA = campfireClient(USER_A)
+                        // B connects THROUGH the relay so its TCP connection can be severed
+                        // independently of the server's listening socket -- genuine socket death,
+                        // never a graceful leaveSession() call.
+                        val clientB = campfireClient(USER_B)
+                        try {
+                            val serviceA = clientA.connectService(env.wsUrl)
+                            val serviceB = clientB.connectService("ws://127.0.0.1:${relay.port}/api/rpc/authed")
+
+                            val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
+                            serviceB.joinSession(sessionId).value()
+                            // Establish LIVE before any SeekTo settle commands below — playback commands
+                            // are rejected while the room is still in LOBBY.
+                            serviceA.startSession(sessionId).value()
+
+                            serviceA.observeSession(sessionId).test(timeout = 60.seconds) {
+                                // A subscribes fresh here (after B already joined), so replay=0 means A
+                                // never sees B's MemberJoined frame -- only what happens from here on.
+                                val bCollected = AtomicInteger(0)
+                                val bJob =
+                                    launch(Dispatchers.Default) {
+                                        runCatching { serviceB.observeSession(sessionId).collect { bCollected.incrementAndGet() } }
+                                    }
+                                // Settle window for B's subscribe frame to travel through the relay and
+                                // register server-side before we sever the connection. A is ALSO
+                                // subscribed to this room (it's observing itself), so every settle
+                                // command below also enqueues a frame on A's OWN Turbine collector --
+                                // drain it immediately each iteration so it never gets mistaken for the
+                                // MemberAway/MemberLeft frames asserted below.
+                                var settlePos = 1L
+                                while (bCollected.get() == 0) {
+                                    serviceA
+                                        .sendCommand(
+                                            sessionId,
+                                            PlaybackCommand.SeekTo(positionMs = settlePos, commandId = "settle-$settlePos"),
+                                        ).value()
+                                    withTimeout(5.seconds) { awaitItem() } // A's own copy of the settle frame
+                                    settlePos += 1
+                                    delay(50)
+                                }
+
+                                relay.cut()
+
+                                awaitFrameWhere(timeout = 15.seconds) {
+                                    it is CampfireFrame.MemberAway && it.member.userId == USER_B
+                                }
+
+                                awaitFrameWhere(timeout = 15.seconds) {
+                                    it is CampfireFrame.MemberLeft && it.member.userId == USER_B
+                                }
+
+                                bJob.cancel()
+                                cancelAndIgnoreRemainingEvents()
+                            }
+                        } finally {
+                            clientA.close()
+                            clientB.close()
+                        }
+                    } finally {
+                        relay.shutdown()
+                        env.close()
+                    }
+                }
+            }
+        }
+
+        test("soak: 5,000 mixed command/chat frames sustain without leak or flow death (scenario 5)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser(USER_A)
+                sql.seedTestUser(USER_B)
+                sql.seedTestBook(BOOK_ID)
+                runBlocking {
+                    grantAllBooksAccess(sql, driver, USER_A)
+                    grantAllBooksAccess(sql, driver, USER_B)
+                    val env = buildCampfireEnv(sql, driver)
+                    try {
+                        withCampfireClients(env) { serviceA, serviceB ->
+                            val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
+                            serviceB.joinSession(sessionId).value()
+                            // The soak's mixed Play/Pause/SeekTo commands need LIVE, not LOBBY.
+                            serviceA.startSession(sessionId).value()
+                            // startSession leaves the room PLAYING; the soak cycle below starts with Play
+                            // (i % 4 == 0), which would silently NoOp on a playing room and shave one frame
+                            // off the expected count. Pause first (before B subscribes — no received impact)
+                            // so every soak iteration is a real transition.
+                            serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "pre-soak-pause")).value()
+
+                            val received = AtomicInteger(0)
+                            val bJob =
+                                launch(Dispatchers.Default) {
+                                    serviceB.observeSession(sessionId).collect { event ->
+                                        if (event is RpcEvent.Data) received.incrementAndGet()
+                                    }
+                                }
+                            eventually(15.seconds) {
+                                serviceA
+                                    .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 0, commandId = "warmup"))
+                                    .value()
+                                received.get() shouldBeGreaterThan 0
+                            }
+                            val baseline = received.get()
+
+                            // Loose canary: heap before the soak, after a forced GC.
+                            val runtime = Runtime.getRuntime()
+                            System.gc()
+                            val before = runtime.totalMemory() - runtime.freeMemory()
+
+                            val frameCount = 5_000
+                            // Cycle play/pause/seek/chat: play<->pause always alternates (never a NoOp
+                            // that would silently skip a broadcast), seek and chat always emit -- every
+                            // iteration below is guaranteed to produce exactly one frame.
+                            repeat(frameCount) { i ->
+                                when (i % 4) {
+                                    0 -> {
+                                        serviceA.sendCommand(sessionId, PlaybackCommand.Play(commandId = "soak-$i"))
+                                    }
+
+                                    1 -> {
+                                        serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "soak-$i"))
+                                    }
+
+                                    2 -> {
+                                        serviceA.sendCommand(
+                                            sessionId,
+                                            PlaybackCommand.SeekTo(positionMs = i.toLong(), commandId = "soak-$i"),
+                                        )
+                                    }
+
+                                    else -> {
+                                        serviceA.sendChat(sessionId, "soak-$i")
+                                    }
+                                }.value()
+                            }
+
+                            eventually(60.seconds) { received.get() shouldBe baseline + frameCount }
+
+                            // Flows still alive: B's collector job hasn't died, and a fresh command after
+                            // the soak still arrives.
+                            bJob.isActive shouldBe true
+                            serviceA
+                                .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 999_999, commandId = "post-soak"))
+                                .value()
+                            eventually(15.seconds) { received.get() shouldBe baseline + frameCount + 1 }
+
+                            System.gc()
+                            val after = runtime.totalMemory() - runtime.freeMemory()
+                            val growthMb = (after - before) / (1024 * 1024)
+                            // Loose leak canary, deliberately generous: 5,000 frames over one WS session
+                            // should not grow the heap materially. 100MB only catches a gross leak (e.g.
+                            // an unbounded per-frame allocation that never gets collected), not a tight
+                            // budget -- see the plan's Task 6 KDoc on keeping this bound loose.
+                            growthMb shouldBeLessThan 100L
+
+                            bJob.cancel()
+                        }
+                    } finally {
+                        env.close()
+                    }
+                }
+            }
+        }
+
+        test("B's collection cancellation doesn't kill the room; rejoin observes fresh frames (scenario 6)") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser(USER_A)
+                sql.seedTestUser(USER_B)
+                sql.seedTestBook(BOOK_ID)
+                runBlocking {
+                    grantAllBooksAccess(sql, driver, USER_A)
+                    grantAllBooksAccess(sql, driver, USER_B)
+                    val env = buildCampfireEnv(sql, driver)
+                    try {
+                        withCampfireClients(env) { serviceA, serviceB ->
+                            val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
+                            serviceB.joinSession(sessionId).value()
+                            // The SeekTo commands below need LIVE, not LOBBY.
+                            serviceA.startSession(sessionId).value()
+
+                            val bReceivedFirst = CompletableDeferred<Unit>()
+                            val bJob =
+                                launch(Dispatchers.Default) {
+                                    serviceB.observeSession(sessionId).collect { event ->
+                                        if (event is RpcEvent.Data && !bReceivedFirst.isCompleted) bReceivedFirst.complete(Unit)
+                                    }
+                                }
+                            eventually(15.seconds) {
+                                serviceA
+                                    .sendCommand(sessionId, PlaybackCommand.SeekTo(positionMs = 1, commandId = "warmup"))
+                                    .value()
+                                bReceivedFirst.isCompleted shouldBe true
+                            }
+
+                            // Client-driven cancel (NOT socket death) mid-stream.
+                            bJob.cancel()
+                            bJob.join()
+
+                            // Server-side room continues: A (as its own observer) still receives frames.
+                            serviceA.observeSession(sessionId).test(timeout = 60.seconds) {
+                                warmUp(serviceA, sessionId, idPrefix = "a-warmup")
+                                serviceA
+                                    .sendCommand(
+                                        sessionId,
+                                        PlaybackCommand.SeekTo(positionMs = 12_345L, commandId = "after-b-cancel"),
+                                    ).value()
+                                val frame =
+                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "after-b-cancel" }
+                                        .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
+                                frame.anchor.positionMs shouldBe 12_345L
+                                cancelAndIgnoreRemainingEvents()
+                            }
+
+                            // B rejoins over a FRESH RPC connection -- a new client, not a second
+                            // `observeSession` collection on the connection `serviceB` already
+                            // used above.
+                            //
+                            // STOP-CONDITION FINDING (see the campfire implementation plan): under
+                            // the pinned kotlinx.rpc dev-channel build (0.11.0-grpc-189 -- see the
+                            // KRPC-560 comment in gradle/libs.versions.toml), cancelling a
+                            // server-streaming `observeSession` collection and then re-subscribing
+                            // on the SAME RPC connection intermittently stalls -- the new
+                            // subscription's flow silently delivers nothing (observed on CI 3/4
+                            // runs, right here at the rejoin warm-up: 30s of warm-up commands,
+                            // zero frames; local runs, where CI's slower socket-teardown timing
+                            // never occurs, always passed). This is a race in kotlinx.rpc's
+                            // collector-to-transport wiring after a client-driven cancel, not a
+                            // slowness/timeout problem a longer budget would fix. A
+                            // same-connection resubscribe assertion was deliberately NOT kept --
+                            // a knowingly-racy assertion is worse than this documented gap.
+                            //
+                            // The production `CampfireSessionController.rejoin()` sidesteps the
+                            // race by calling `CampfireTransport.refreshConnection()` (which
+                            // invalidates the cached RPC proxy so the next call reconnects) before
+                            // re-joining and re-subscribing -- cheap for an explicit user-facing
+                            // rejoin, and exactly what this test now mirrors: a brand-new
+                            // `campfireClient(USER_B)` below, not `serviceB` again. Revisit once
+                            // kotlinx-rpc ships a stable 0.11.x release with the KRPC-560 fix --
+                            // re-test the same-connection path then, and if it's fixed upstream,
+                            // the reconnect-on-rejoin becomes an optimization rather than a
+                            // workaround.
+                            val rejoinClientB = campfireClient(USER_B)
+                            try {
+                                val rejoinServiceB = rejoinClientB.connectService(env.wsUrl)
+                                rejoinServiceB.joinSession(sessionId).value()
+                                rejoinServiceB.observeSession(sessionId).test(timeout = 60.seconds) {
+                                    warmUp(serviceA, sessionId, idPrefix = "b-rejoin-warmup")
+                                    serviceA
+                                        .sendCommand(
+                                            sessionId,
+                                            PlaybackCommand.SeekTo(positionMs = 54_321L, commandId = "b-rejoin-real"),
+                                        ).value()
+                                    val frame =
+                                        awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "b-rejoin-real" }
+                                            .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
+                                    frame.anchor.positionMs shouldBe 54_321L
+                                    cancelAndIgnoreRemainingEvents()
+                                }
+                            } finally {
+                                rejoinClientB.close()
+                            }
+                        }
+                    } finally {
+                        env.close()
+                    }
+                }
+            }
+        }
+
+        test(
+            "lobby phase: commands are rejected pre-start; startSession broadcasts " +
+                "CampfireStarted to every subscribed member (lobby scenario)",
+        ) {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser(USER_A)
+                sql.seedTestUser(USER_B)
+                sql.seedTestBook(BOOK_ID)
+                runBlocking {
+                    grantAllBooksAccess(sql, driver, USER_A)
+                    grantAllBooksAccess(sql, driver, USER_B)
+                    val env = buildCampfireEnv(sql, driver)
+                    try {
+                        withCampfireClients(env) { serviceA, serviceB ->
+                            // Create (LOBBY) -> B joins.
+                            val sessionId = serviceA.createSession(BOOK_ID, everyoneSettings).value().id
+                            serviceB.joinSession(sessionId).value()
+
+                            // Commands are rejected pre-start -- nothing has started yet.
+                            val rejected = serviceB.sendCommand(sessionId, PlaybackCommand.Play(commandId = "pre-start"))
+                            rejected.shouldBeInstanceOf<AppResult.Failure>()
+                            rejected.error.shouldBeInstanceOf<CampfireError.NotStarted>()
+
+                            // Chat is lobby-legal.
+                            serviceB.sendChat(sessionId, "excited for this one").value()
+
+                            // Both A and B must observe the shared start moment -- subscribe both BEFORE
+                            // startSession (the room's SharedFlow has no replay).
+                            val aFrames = mutableListOf<CampfireFrame>()
+                            val bFrames = mutableListOf<CampfireFrame>()
+                            val aJob =
+                                launch(Dispatchers.Default) {
+                                    serviceA.observeSession(sessionId).collect { if (it is RpcEvent.Data) aFrames += it.value }
+                                }
+                            val bJob =
+                                launch(Dispatchers.Default) {
+                                    serviceB.observeSession(sessionId).collect { if (it is RpcEvent.Data) bFrames += it.value }
+                                }
+                            try {
+                                // Settle both subscriptions before starting.
+                                eventually(15.seconds) {
+                                    serviceA.sendChat(sessionId, "settle").value()
+                                    aFrames.isNotEmpty() shouldBe true
+                                    bFrames.isNotEmpty() shouldBe true
+                                }
+
+                                // A startSession -> BOTH streams receive CampfireStarted with a playing anchor.
+                                serviceA.startSession(sessionId).value()
+
+                                eventually(15.seconds) {
+                                    val aStarted = aFrames.filterIsInstance<CampfireFrame.CampfireStarted>().first()
+                                    val bStarted = bFrames.filterIsInstance<CampfireFrame.CampfireStarted>().first()
+                                    aStarted.anchor.isPlaying shouldBe true
+                                    aStarted.byUserId shouldBe USER_A
+                                    bStarted.byUserId shouldBe USER_A
+                                }
+
+                                // Subsequent commands flow normally now that the room is LIVE.
+                                serviceA.sendCommand(sessionId, PlaybackCommand.Pause(commandId = "post-start-pause")).value()
+                                eventually(15.seconds) {
+                                    bFrames
+                                        .filterIsInstance<CampfireFrame.AnchorChanged>()
+                                        .any { it.commandId == "post-start-pause" } shouldBe true
+                                }
+                            } finally {
+                                aJob.cancel()
+                                bJob.cancel()
+                            }
+                        }
+                    } finally {
+                        env.close()
+                    }
+                }
+            }
+        }
+    })
+
+private fun <T> AppResult<T>.value(): T {
+    this.shouldBeInstanceOf<AppResult.Success<T>>()
+    return data
+}
+
+/** Unwraps a streamed [RpcEvent], failing loudly on [RpcEvent.Error] or an unexpected [RpcEvent.Complete]. */
+private fun RpcEvent<CampfireFrame>.dataOrFail(): CampfireFrame =
+    when (this) {
+        is RpcEvent.Data -> value
+        is RpcEvent.Error -> error("frame delivered as RpcEvent.Error: $error")
+        RpcEvent.Complete -> error("flow completed with RpcEvent.Complete unexpectedly")
+    }
+
+/**
+ * Drains frames from this Turbine until one matches [predicate], silently discarding anything
+ * else — stale warm-up echoes, other members' frames, whatever else is queued ahead of the one
+ * this assertion actually cares about. This is what makes every scenario immune to the "several
+ * warm-up commands queued while a slow CI runner sets up the stream" failure mode: a strict
+ * "the NEXT item must be my frame" assertion has no such immunity. Fails loudly — listing every
+ * frame it DID see — if [timeout] elapses first, which is invaluable when triaging a CI-only
+ * failure with no way to attach a debugger.
+ */
+private suspend fun ReceiveTurbine<RpcEvent<CampfireFrame>>.awaitFrameWhere(
+    timeout: Duration = 20.seconds,
+    predicate: (CampfireFrame) -> Boolean,
+): CampfireFrame {
+    val seen = mutableListOf<CampfireFrame>()
+    val match =
+        withTimeoutOrNull(timeout) {
+            var found: CampfireFrame? = null
+            while (found == null) {
+                val frame = awaitItem().dataOrFail()
+                seen += frame
+                if (predicate(frame)) found = frame
+            }
+            found
+        }
+    return match ?: error("no frame matched predicate within $timeout; frames seen: $seen")
+}
+
+/**
+ * Warm-up: the room's SharedFlow has no replay, so a command fired before this collector's
+ * subscribe frame has actually landed server-side is silently missed. Pumps a throwaway,
+ * always-emitting chat message (through [service], keyed `"$idPrefix-N"`) every 500ms from a
+ * concurrent coroutine until ANY frame arrives on this Turbine — proof the stream is live —
+ * without asserting anything about its content: every real assertion downstream uses
+ * [awaitFrameWhere], which is immune to whatever stale warm-up frames this leaves queued behind
+ * it. Chat (not a playback command) is used deliberately: it's legal in both the lobby and live
+ * phases (the 2026-07-11 lobby amendment rejects playback commands pre-start), so this warm-up
+ * works regardless of whether [startSession][com.calypsan.listenup.api.CampfireService.startSession]
+ * has been called yet.
+ *
+ * The single [ReceiveTurbine.awaitItem] here is deliberately NOT wrapped in a `withTimeoutOrNull`
+ * poll (the previous shape): Turbine's `awaitEvent` catches ANY [kotlinx.coroutines.TimeoutCancellationException]
+ * — including one thrown by an ENCLOSING `withTimeoutOrNull` — and rethrows it as a fatal
+ * `TurbineAssertionError`, so the poll-and-retry idiom intermittently blew up the whole test on a
+ * normal empty poll (observed locally under machine load, 2026-07-11). With one unwrapped await,
+ * the only timeout in play is Turbine's own `test(timeout = …)` budget, which fails loudly if the
+ * stream is genuinely dead.
+ */
+private suspend fun ReceiveTurbine<RpcEvent<CampfireFrame>>.warmUp(
+    service: CampfireService,
+    sessionId: CampfireId,
+    idPrefix: String,
+) {
+    coroutineScope {
+        val pump =
+            launch {
+                var n = 1L
+                while (true) {
+                    service.sendChat(sessionId, "$idPrefix-$n").value()
+                    n += 1
+                    delay(500.milliseconds)
+                }
+            }
+        try {
+            awaitItem()
+        } finally {
+            pump.cancel()
+        }
+    }
+}
+
+/**
+ * Grants [viewer] access to [bookId] via the pure-union ALL_BOOKS system collection — the same
+ * mechanism `CampfireServiceImplTest.makeBookAccessible` uses. Safe to call once per viewer against
+ * the same book: the underlying collection/collection-book rows are idempotently upserted.
+ */
+private suspend fun grantAllBooksAccess(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    viewer: String,
+    bookId: String = BOOK_ID,
+) {
+    val bus = ChangeBus()
+    val syncRegistry = SyncRegistry()
+    val collectionRepo = CollectionRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
+    val collectionBookRepo = CollectionBookRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
+    val grantRepo = CollectionGrantRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver)
+    collectionRepo.upsert(
+        CollectionSyncPayload(
+            id = ALL_BOOKS_ID,
+            libraryId = "test-library",
+            ownerId = "system",
+            name = "All Books",
+            isInbox = false,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+    collectionBookRepo.upsert(
+        CollectionBookSyncPayload(collectionId = ALL_BOOKS_ID, bookId = bookId, createdAt = 0L, revision = 0L),
+    )
+    grantRepo.upsert(
+        CollectionShareSyncPayload(
+            id = "grant-$viewer-$bookId",
+            collectionId = ALL_BOOKS_ID,
+            sharedWithUserId = viewer,
+            sharedByUserId = "system",
+            permission = SharePermission.Read,
+            revision = 0L,
+            updatedAt = 0L,
+        ),
+    )
+}
+
+/** The live resources for one real-transport scenario: a real embedded server + its Campfire wiring. */
+private class CampfireEnv(
+    private val server: EmbeddedServer<*, *>,
+    val port: Int,
+    private val reaperScope: CoroutineScope,
+) {
+    val wsUrl: String get() = "ws://127.0.0.1:$port/api/rpc/authed"
+
+    fun close() {
+        reaperScope.cancel()
+        @Suppress("MagicNumber")
+        server.stop(gracePeriodMillis = 100, timeoutMillis = 500)
+    }
+}
+
+/**
+ * Boots a real `embeddedServer(CIO)` on an OS-chosen port exposing ONLY the [CampfireService] RPC
+ * mount, wired exactly like production (`registerScoped` + `guard`, the same call shape as
+ * `RpcRoutes.jvm.kt`'s `registerScoped<CampfireService> { guard((services.campfireService as
+ * CampfireServiceImpl).copyWith(it)) }`) over a real, migrated SQLite database. [awayGrace] and
+ * [reaperInterval] are real (non-fake-clock) constructor parameters, shortened here so the
+ * away/reap scenarios finish in seconds instead of minutes.
+ */
+private suspend fun buildCampfireEnv(
+    sql: ListenUpDatabase,
+    driver: SqlDriver,
+    awayGrace: Duration = 2.seconds,
+    reaperInterval: Duration = 500.milliseconds,
+): CampfireEnv {
+    val bus = ChangeBus()
+    val syncRegistry = SyncRegistry()
+    val registry = CampfireRegistry(clock = Clock.System, awayGrace = awayGrace)
+    val activityRecorder =
+        ActivityRecorder(syncRepo = ActivitySyncRepository(db = sql, bus = bus, registry = syncRegistry, driver = driver))
+    val baseService =
+        CampfireServiceImpl(
+            registry = registry,
+            bookAccessPolicy = BookAccessPolicy(sql, driver),
+            playbackPositions = PlaybackPositionRepository(db = sql, bus = bus, registry = syncRegistry),
+            publicProfiles = PublicProfileRepository(db = sql, bus = bus, registry = syncRegistry),
+            db = sql,
+            bus = bus,
+            userRoleLookup = UserRoleLookup(db = sql),
+            inviteNotifier = CampfireInviteNotifier(pushNotifier = RecordingPushNotifier()),
+            activityRecorder = activityRecorder,
+        )
+    val reaperScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    CampfireReaperTask(
+        registry = registry,
+        bus = bus,
+        activityRecorder = activityRecorder,
+        interval = reaperInterval,
+    ).start(reaperScope)
+
+    val module: Application.() -> Unit = {
+        install(ServerKrpc)
+        install(Authentication) { testAuth(roleResolver = { sql.roleOf(it) }) }
+        routing {
+            authenticate(JWT_PROVIDER) {
+                serverRpc("/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                    registerScoped<CampfireService> { guard(baseService.copyWith(it)) }
+                }
+            }
+        }
+    }
+    val server = embeddedServer(ServerCIO, port = 0, host = "127.0.0.1", module = module)
+    server.start(wait = false)
+    val port =
+        server.engine
+            .resolvedConnectors()
+            .first()
+            .port
+    return CampfireEnv(server, port, reaperScope)
+}
+
+/** A real kotlinx.rpc WebSocket client (CIO engine) authenticating as [userId] via [testAuth]'s bearer-is-userid convention. */
+private fun campfireClient(userId: String): HttpClient =
+    HttpClient(ClientCIO) {
+        install(ClientWebSockets)
+        installKrpc()
+        defaultRequest { bearerAuth(userId) }
+    }
+
+/** Opens a [CampfireService] RPC proxy over [wsUrl] on this real client. */
+private suspend fun HttpClient.connectService(wsUrl: String): CampfireService =
+    this
+        .rpc(wsUrl) { rpcConfig { serialization { krpcJson(contractJson) } } }
+        .withService<CampfireService>()
+
+/** Builds real clients for user A and B against [env], running [block], then closing both clients. */
+private suspend fun withCampfireClients(
+    env: CampfireEnv,
+    block: suspend (serviceA: CampfireService, serviceB: CampfireService) -> Unit,
+) {
+    val clientA = campfireClient(USER_A)
+    val clientB = campfireClient(USER_B)
+    try {
+        block(clientA.connectService(env.wsUrl), clientB.connectService(env.wsUrl))
+    } finally {
+        clientA.close()
+        clientB.close()
+    }
+}
+
+/**
+ * A minimal duplex TCP relay — forwards bytes between one accepted client connection and
+ * [targetPort]. [cut] closes both sides of the live connection abruptly (no WebSocket close
+ * handshake reaches the server), reproducing genuine socket death rather than a graceful
+ * disconnect. This is the same technique `RpcReconnectE2ETest` (`:sharedLogic` jvmTest) uses to
+ * simulate a dead connection; duplicated here in miniature (only [cut]/[shutdown], no reconnect
+ * probing) because that class is `private` to a different Gradle module and isn't importable.
+ */
+private class TcpRelay private constructor(
+    private val listener: ServerSocket,
+    private val targetHost: String,
+    private val targetPort: Int,
+) {
+    val port: Int get() = listener.localPort
+    private val liveSockets = CopyOnWriteArrayList<Socket>()
+
+    @Volatile private var accepting = true
+
+    init {
+        thread(isDaemon = true, name = "campfire-relay-accept") {
+            while (accepting) {
+                val downstream = runCatching { listener.accept() }.getOrNull() ?: break
+                val upstream = runCatching { Socket(targetHost, targetPort) }.getOrNull()
+                if (upstream == null) {
+                    runCatching { downstream.close() }
+                    continue
+                }
+                liveSockets += downstream
+                liveSockets += upstream
+                pump(downstream, upstream)
+                pump(upstream, downstream)
+            }
+        }
+    }
+
+    private fun pump(
+        from: Socket,
+        to: Socket,
+    ) {
+        thread(isDaemon = true, name = "campfire-relay-pump") {
+            runCatching { from.getInputStream().copyTo(to.getOutputStream()) }
+        }
+    }
+
+    /** Severs the live connection abruptly — socket death, not a graceful close. */
+    fun cut() {
+        val snapshot = liveSockets.toList()
+        liveSockets.clear()
+        snapshot.forEach { runCatching { it.close() } }
+    }
+
+    /** Full teardown: stop accepting and close everything. */
+    fun shutdown() {
+        accepting = false
+        cut()
+        runCatching { listener.close() }
+    }
+
+    companion object {
+        fun start(
+            targetHost: String,
+            targetPort: Int,
+        ): TcpRelay = TcpRelay(ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")), targetHost, targetPort)
+    }
+}

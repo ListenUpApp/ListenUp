@@ -18,7 +18,7 @@ struct PlayerSwitchPathTests {
         preparer.result = PreparedPlayback(
             bookTitle: "T", bookAuthor: "A", bookNarrator: "N", coverPath: coverPath, resumeSpeed: 1.0,
             resumePositionMs: 0,
-            chapters: [Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0)],
+            chapters: [Chapter(id: "c0", title: "c0", duration: 1000, startTime: 0, partTitle: nil, bookTitle: nil)],
             timeline: PreparedTimeline(totalDurationMs: 60000, files: [
                 PreparedFile(localPath: "/a.m4a", streamingUrl: "", durationMs: 60000, startOffsetMs: 0)])
         )

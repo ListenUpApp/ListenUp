@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.error.AudioMetadataError
 import com.calypsan.listenup.api.error.AuthError
 import com.calypsan.listenup.api.error.BackupError
 import com.calypsan.listenup.api.error.BookError
+import com.calypsan.listenup.api.error.CampfireError
 import com.calypsan.listenup.api.error.CollectionError
 import com.calypsan.listenup.api.error.ContributorError
 import com.calypsan.listenup.api.error.CoverError
@@ -100,7 +101,8 @@ fun Application.installAppErrorStatusPages() {
  * cyclomatic complexity under the project threshold of 25 while preserving compile-time
  * exhaustiveness: the client-local [InternalError]/[TransportError]/[PlaybackError] share a 500
  * branch, [ShelfError]/[SocialError] delegate to [shelfOrSocialHttpStatus], and
- * [LibraryError]/[LibraryWriteError] delegate to [libraryFamilyHttpStatus]. Adding a new
+ * [LibraryError]/[LibraryWriteError] delegate to [libraryFamilyHttpStatus], and
+ * [BookError]/[CoverError] delegate to [bookOrCoverHttpStatus]. Adding a new
  * [AppError] sub-interface will still fail this `when` at compile time.
  */
 internal fun AppError.toHttpStatus(): HttpStatusCode =
@@ -142,9 +144,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is InviteError -> toHttpStatus()
 
-        is BookError -> toHttpStatus()
-
-        is CoverError -> toHttpStatus()
+        // BookError + CoverError share one branch (delegating to an exhaustive helper) to keep
+        // this function's cyclomatic complexity under the project threshold while preserving
+        // per-variant exhaustiveness for both families.
+        is BookError, is CoverError -> bookOrCoverHttpStatus()
 
         is ContributorError -> toHttpStatus()
 
@@ -157,6 +160,8 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
         is BackupError -> toHttpStatus()
 
         is PushError -> toHttpStatus()
+
+        is CampfireError -> toHttpStatus()
 
         is ValidationError -> HttpStatusCode.BadRequest
 
@@ -171,8 +176,9 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
  *
  * Exhaustive over all direct [AppError] implementors. The single-variant leaf families
  * ([ValidationError], [InternalError]) and the client-local types ([TransportError],
- * [PlaybackError]) are delegated to [leafWithCorrelationId] to keep the cyclomatic
- * complexity of this function under the project threshold of 25.
+ * [PlaybackError]) are delegated to [leafWithCorrelationId], and [ShelfError]/[SocialError]
+ * delegate to [shelfOrSocialWithCorrelationId], to keep the cyclomatic complexity of this
+ * function under the project threshold of 25.
  */
 internal fun AppError.withCorrelationId(id: String?): AppError =
     when (this) {
@@ -269,6 +275,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
         }
 
         is PushError -> {
+            withCorrelationId(id)
+        }
+
+        is CampfireError -> {
             withCorrelationId(id)
         }
 
@@ -589,6 +599,18 @@ private fun MoodError.withCorrelationId(id: String?): MoodError =
         is MoodError.NameTooLong -> copy(correlationId = id)
     }
 
+/**
+ * Re-dispatches the grouped `BookError`/`CoverError` branch of [toHttpStatus] to each family's
+ * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under
+ * the project threshold; the `else` is unreachable (only called from the grouped branch above).
+ */
+private fun AppError.bookOrCoverHttpStatus(): HttpStatusCode =
+    when (this) {
+        is BookError -> toHttpStatus()
+        is CoverError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
 private fun BookError.toHttpStatus(): HttpStatusCode =
     when (this) {
         is BookError.NotFound -> HttpStatusCode.NotFound
@@ -715,10 +737,10 @@ private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
     }
 
 /**
- * Re-dispatches the grouped `ShelfError`/`SocialError`/`ReadingOrderError` branch of the
- * correlation-id stamp to each family's own exhaustive mapping. Split out solely to keep the
- * calling `when`'s cyclomatic complexity under the project threshold; the `else` is unreachable
- * (only called from the grouped branch above).
+ * Re-dispatches the grouped `ShelfError`/`SocialError`/`ReadingOrderError` branch of
+ * [withCorrelationId] to each family's own exhaustive mapping. Split out solely to keep
+ * [withCorrelationId]'s cyclomatic complexity under the project threshold; the `else` is
+ * unreachable (only called from the grouped branch above).
  */
 private fun AppError.shelfOrSocialWithCorrelationId(id: String?): AppError =
     when (this) {
@@ -830,4 +852,31 @@ private fun PushError.toHttpStatus(): HttpStatusCode =
 private fun PushError.withCorrelationId(id: String?): PushError =
     when (this) {
         is PushError.PushDisabled -> copy(correlationId = id)
+    }
+
+private fun CampfireError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is CampfireError.CampfireNotFound -> HttpStatusCode.NotFound
+
+        is CampfireError.CampfireFull -> HttpStatusCode.Conflict
+
+        is CampfireError.NotAMember -> HttpStatusCode.Forbidden
+
+        is CampfireError.NotController -> HttpStatusCode.Forbidden
+
+        is CampfireError.BookAccessDenied -> HttpStatusCode.Forbidden
+
+        // The room exists but is in the wrong lifecycle phase for the requested action —
+        // a conflict with current room state, not a missing-resource or permission failure.
+        is CampfireError.NotStarted -> HttpStatusCode.Conflict
+    }
+
+private fun CampfireError.withCorrelationId(id: String?): CampfireError =
+    when (this) {
+        is CampfireError.CampfireNotFound -> copy(correlationId = id)
+        is CampfireError.CampfireFull -> copy(correlationId = id)
+        is CampfireError.NotAMember -> copy(correlationId = id)
+        is CampfireError.NotController -> copy(correlationId = id)
+        is CampfireError.BookAccessDenied -> copy(correlationId = id)
+        is CampfireError.NotStarted -> copy(correlationId = id)
     }

@@ -371,6 +371,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.admin.CreateInviteUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.LibrarySettingsEvent" to 1,
             "com.calypsan.listenup.client.presentation.admin.LibrarySettingsUiState" to 3,
+            "com.calypsan.listenup.client.presentation.admin.OrganizeSettingsUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.RestoreBackupUiState" to 4,
             "com.calypsan.listenup.client.presentation.admin.RestoreFromFileUiState" to 3,
             "com.calypsan.listenup.client.presentation.admin.UserDetailUiState" to 3,
@@ -421,6 +422,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.presentation.profile.EditProfileEvent" to 2,
             "com.calypsan.listenup.client.presentation.profile.EditProfileUiState" to 3,
             "com.calypsan.listenup.client.presentation.profile.UserProfileUiState" to 4,
+            "com.calypsan.listenup.client.presentation.readingorder.ReadingOrderListUiState" to 3,
             "com.calypsan.listenup.client.presentation.search.SearchNavAction" to 4,
             "com.calypsan.listenup.client.presentation.search.SearchUiState" to 4,
             "com.calypsan.listenup.client.presentation.search.SeeAllSearchUiState" to 4,
@@ -440,6 +442,7 @@ object SwiftExportSourcePatcher {
             "com.calypsan.listenup.client.share.ShareTarget" to 2,
             "com.calypsan.listenup.api.dto.backup.BackupEvent" to 10,
             "com.calypsan.listenup.api.dto.imports.ImportEvent" to 6,
+            "com.calypsan.listenup.api.dto.organize.OrganizeRunEvent" to 4,
             "com.calypsan.listenup.api.error.DownloadError" to 2,
             "com.calypsan.listenup.api.error.ServerConnectError" to 5,
         )
