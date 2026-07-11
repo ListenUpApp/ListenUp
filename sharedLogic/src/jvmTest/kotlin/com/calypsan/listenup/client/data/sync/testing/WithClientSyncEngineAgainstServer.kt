@@ -15,7 +15,6 @@ import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
@@ -389,7 +388,15 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 installKrpc()
             }
         val testBookRpcFactory = TestBookRpcFactory(testClient)
-        val testContributorRpcFactory = TestContributorRpcFactory(testClient)
+        // Real kotlinx.rpc ContributorService proxy over the in-process server, wrapped in a
+        // no-reconnect test channel — backs ContributorEditRepositoryImpl and the contributor
+        // outbox sender below (client → RPC → server → SSE → Room round trip).
+        val contributorServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<ContributorService>()
+        val contributorChannel = RpcChannel.forTest(contributorServiceProxy)
         // Real kotlinx.rpc GenreService proxy over the in-process server, wrapped in a
         // no-reconnect test channel via RpcChannel.forTest — a single cached proxy over a
         // real socket to the in-process server, matching the sibling Test*RpcFactory idiom.
@@ -453,10 +460,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                     },
                                 OutboxChannels.Contributors.name to
                                     OutboxOpSender(OutboxChannels.Contributors) { id, patch ->
-                                        testContributorRpcFactory.contributorService().updateContributor(
-                                            ContributorId(id),
-                                            patch,
-                                        )
+                                        contributorChannel.call { it.updateContributor(ContributorId(id), patch) }
                                     },
                                 // No harness test yet drains a "preferences" op end-to-end (the
                                 // RPC route isn't mounted server-side above); the entry exists so a
@@ -513,7 +517,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // the contributors sync domain.
             val contributorEditRepository: ContributorEditRepository =
                 ContributorEditRepositoryImpl(
-                    contributorRpcFactory = testContributorRpcFactory,
+                    channel = contributorChannel,
                     contributorDao = clientDb.contributorDao(),
                     offlineEditor = offlineEditor,
                 )
@@ -881,40 +885,10 @@ internal class TestBookRpcFactory(
 }
 
 /**
- * Test-only [ContributorRpcFactory] that opens a kotlinx.rpc [ContributorService] proxy
- * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
- *
- * Mirrors [TestBookRpcFactory] exactly, substituting [ContributorService] for
- * [BookService]. Used by the Books-C1 `ContributorDeleteCascadeE2ETest` to exercise
- * the client → RPC → server → SSE → Room round trip for the contributor delete cascade.
- */
-internal class TestContributorRpcFactory(
-    private val httpClient: HttpClient,
-) : ContributorRpcFactory {
-    private val mutex = Mutex()
-    private var cachedService: ContributorService? = null
-
-    override suspend fun contributorService(): ContributorService =
-        mutex.withLock {
-            cachedService ?: connect().also { cachedService = it }
-        }
-
-    override suspend fun invalidate() {
-        mutex.withLock { cachedService = null }
-    }
-
-    private suspend fun connect(): ContributorService =
-        httpClient
-            .rpc("ws://localhost/api/rpc/authed") {
-                rpcConfig { serialization { krpcJson(contractJson) } }
-            }.withService<ContributorService>()
-}
-
-/**
  * Test-only [UserPreferencesRpcFactory] that opens a kotlinx.rpc [UserPreferencesService] proxy
  * against the harness's in-process `testApplication` at `ws://localhost/api/rpc/authed`.
  *
- * Mirrors [TestContributorRpcFactory] exactly, substituting
+ * Mirrors [TestBookRpcFactory] exactly, substituting
  * [UserPreferencesService]. No harness test mounts the service server-side yet (see the
  * `OutboxChannels.Preferences` `byDomain` registration above) — this factory exists so a future
  * e2e test for the preferences offline-edit push can resolve a sender the same way every other

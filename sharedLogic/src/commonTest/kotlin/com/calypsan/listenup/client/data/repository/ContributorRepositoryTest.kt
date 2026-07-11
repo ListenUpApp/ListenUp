@@ -8,9 +8,11 @@ import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.ContributorSearchResult
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.NetworkMonitor
@@ -49,7 +51,7 @@ class ContributorRepositoryTest :
 
         fun createMockImageStorage(): ImageStorage = mock<ImageStorage>()
 
-        fun createMockRpcFactory(): ContributorRpcFactory = mock<ContributorRpcFactory>(MockMode.autoUnit)
+        fun createTestChannel(): RpcChannel<ContributorService> = RpcChannel.forTest(mock<ContributorService>(MockMode.autoUnit))
 
         fun createMockSyncHandler(): SyncDomainHandler<ContributorSyncPayload> = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit)
 
@@ -95,7 +97,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -122,7 +124,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -148,7 +150,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -176,7 +178,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -214,7 +216,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -243,7 +245,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -279,7 +281,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -311,7 +313,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -341,7 +343,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -377,7 +379,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -406,7 +408,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 
@@ -438,7 +440,7 @@ class ContributorRepositoryTest :
                         api = api,
                         networkMonitor = networkMonitor,
                         imageStorage = createMockImageStorage(),
-                        rpcFactory = createMockRpcFactory(),
+                        channel = createTestChannel(),
                         contributorSyncHandler = createMockSyncHandler(),
                     )
 

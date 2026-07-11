@@ -16,7 +16,7 @@ import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
@@ -293,7 +293,7 @@ private fun realContributorRepository(db: ListenUpDatabase): ContributorReposito
         api = mock<ContributorApiContract>(),
         networkMonitor = mock<NetworkMonitor> { every { isOnline() } returns false },
         imageStorage = mockImageStorage(),
-        rpcFactory = mock<ContributorRpcFactory>(),
+        channel = RpcChannel.forTest(mock<ContributorService>()),
         contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(),
     )
 

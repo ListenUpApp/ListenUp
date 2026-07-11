@@ -1,10 +1,12 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -52,7 +54,7 @@ class ContributorEditRepositoryOfflineTest :
 
                 val repo =
                     ContributorEditRepositoryImpl(
-                        contributorRpcFactory = mock<ContributorRpcFactory>(),
+                        channel = RpcChannel.forTest(mock<ContributorService>()),
                         contributorDao = db.contributorDao(),
                         offlineEditor = offlineEditor,
                     )

@@ -81,7 +81,6 @@ private val RESIDUAL_THROWS_ALLOWLIST: Set<String> =
         // Repo impls still in throwing style:
         "/data/repository/AuthRepositoryImpl.kt",
         "/data/repository/AvatarDownloadRepositoryImpl.kt",
-        "/data/repository/ContributorRepositoryImpl.kt",
         "/data/repository/CoverDownloadRepositoryImpl.kt",
         "/data/repository/DownloadRepositoryImpl.kt",
         "/data/repository/InstanceRepositoryImpl.kt",

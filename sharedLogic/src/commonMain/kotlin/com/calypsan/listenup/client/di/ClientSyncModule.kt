@@ -1,5 +1,6 @@
 package com.calypsan.listenup.client.di
 
+import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncDomainKey
@@ -8,7 +9,6 @@ import com.calypsan.listenup.client.data.local.db.BookEntityMapper
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookRpcFactory
-import com.calypsan.listenup.client.data.remote.ContributorRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorPlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.PlaybackRpcFactory
 import com.calypsan.listenup.client.data.remote.ProfileRpcFactory
@@ -115,6 +115,7 @@ internal val clientSyncModule =
         // is an immediate require() failure, not a silent op drop.
         single<PendingOperationSender> {
             val seriesChannel = rpcChannel<SeriesService>()
+            val contributorChannel = rpcChannel<ContributorService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -130,7 +131,7 @@ internal val clientSyncModule =
                         seriesChannel.call { it.updateSeries(SeriesId(id), patch) }
                     },
                     outboxBinding(OutboxChannels.Contributors) { id, patch ->
-                        get<ContributorRpcFactory>().contributorService().updateContributor(ContributorId(id), patch)
+                        contributorChannel.call { it.updateContributor(ContributorId(id), patch) }
                     },
                     outboxBinding(OutboxChannels.Preferences) { _, patch ->
                         get<UserPreferencesRpcFactory>().get().updateMyPreferences(patch)
