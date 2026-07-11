@@ -7,7 +7,9 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
-import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.SyncRepositoryImpl
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.domain.repository.AuthSession
@@ -160,9 +162,10 @@ class ForceReconcileWhileActiveTest :
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
                         }
-                    // Un-stubbed: get() throws, so the scan-progress observer dies in its own catch —
-                    // refreshListeningHistory under test never touches the scanner RPC.
-                    val scannerRpcFactory = mock<ScannerRpcFactory>()
+                    // Un-stubbed service: observeProgress()/lastScanResult() throw, so the scan-progress
+                    // observer folds to RpcEvent.Error and dies harmlessly — refreshListeningHistory under
+                    // test never depends on the scanner channel.
+                    val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
@@ -170,7 +173,7 @@ class ForceReconcileWhileActiveTest :
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
-                            scannerRpcFactory = scannerRpcFactory,
+                            scannerChannel = scannerChannel,
                             bookDao = db.bookDao(),
                             libraryDao = db.libraryDao(),
                             listeningEventDao = db.listeningEventDao(),

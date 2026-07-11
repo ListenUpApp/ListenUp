@@ -4,7 +4,9 @@ import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
-import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.api.ScannerService
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.CatchUp
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.ConnectionState
@@ -100,7 +102,7 @@ class OrphanRecoveryRaceTest :
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
                         }
-                    val scannerRpcFactory = mock<ScannerRpcFactory>()
+                    val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
@@ -108,7 +110,7 @@ class OrphanRecoveryRaceTest :
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
-                            scannerRpcFactory = scannerRpcFactory,
+                            scannerChannel = scannerChannel,
                             bookDao = db.bookDao(),
                             libraryDao = db.libraryDao(),
                             listeningEventDao = db.listeningEventDao(),
@@ -169,7 +171,7 @@ class OrphanRecoveryRaceTest :
                             everySuspend { rebuildIfEmpty() } returns Unit
                             everySuspend { rebuildAll() } returns Unit
                         }
-                    val scannerRpcFactory = mock<ScannerRpcFactory>()
+                    val scannerChannel = RpcChannel.forTest(mock<ScannerService>())
 
                     val repo =
                         SyncRepositoryImpl(
@@ -177,7 +179,7 @@ class OrphanRecoveryRaceTest :
                             syncEngineState = state,
                             authSession = authSession,
                             listeningEventRecorder = recorder,
-                            scannerRpcFactory = scannerRpcFactory,
+                            scannerChannel = scannerChannel,
                             bookDao = db.bookDao(),
                             libraryDao = db.libraryDao(),
                             listeningEventDao = db.listeningEventDao(),

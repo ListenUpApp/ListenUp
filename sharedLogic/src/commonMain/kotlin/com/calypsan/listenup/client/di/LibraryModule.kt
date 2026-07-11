@@ -1,9 +1,9 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.KtorScannerRpcFactory
-import com.calypsan.listenup.client.data.remote.ScannerRpcFactory
+import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.client.data.remote.KtorUserPreferencesRpcFactory
 import com.calypsan.listenup.client.data.remote.UserPreferencesRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.HomeRepositoryImpl
 import com.calypsan.listenup.client.data.repository.LibraryRepositoryImpl
 import com.calypsan.listenup.client.data.repository.PendingOperationRepositoryImpl
@@ -68,14 +68,9 @@ internal val libraryModule: Module =
             )
         } bind LibraryResetHelper::class
 
-        // ScannerRpcFactory — kotlinx.rpc proxy for ScannerService (authed mount):
-        // live scan-progress stream that drives the scan UI + post-scan reconcile.
-        single<ScannerRpcFactory> {
-            KtorScannerRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // ScannerService RPC channel (authed mount): live scan-progress stream that drives the
+        // scan UI + post-scan reconcile.
+        rpcChannel<ScannerService>()
 
         // HomeRepository for Home screen data (local-first)
         single<HomeRepository> {
@@ -92,7 +87,7 @@ internal val libraryModule: Module =
                 syncEngineState = get(),
                 authSession = get(),
                 listeningEventRecorder = get(),
-                scannerRpcFactory = get(),
+                scannerChannel = rpcChannel(),
                 bookDao = get(),
                 libraryDao = get(),
                 listeningEventDao = get(),
