@@ -68,7 +68,14 @@ class SidecarWriter(
                     try {
                         flush(bookId)
                     } finally {
-                        synchronized(lock) { pendingJobs.remove(bookId) }
+                        // Identity-conditional removal: a cancelled job's finally races the
+                        // markDirty that replaced it — an unconditional remove could evict the
+                        // NEWER job, breaking coalescing and awaitQuiescent. Only THIS job may
+                        // remove itself.
+                        val self = coroutineContext[Job]
+                        synchronized(lock) {
+                            if (pendingJobs[bookId] === self) pendingJobs.remove(bookId)
+                        }
                     }
                 }
         }
