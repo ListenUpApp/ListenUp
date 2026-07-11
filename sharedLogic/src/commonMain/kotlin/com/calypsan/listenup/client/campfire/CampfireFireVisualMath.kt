@@ -186,6 +186,21 @@ data class FireGeometry(
 )
 
 /**
+ * The vertical pixel offset to apply to a bottom-anchored, fixed-height ambient-glow layer so its
+ * center lands on the fire's [FireGeometry.baseY] — the single anchor the coal bed, logs, and flame
+ * spawn origin already share. Without this, an `Alignment.BottomCenter` layer of fixed height centers
+ * itself relative to the *canvas* bottom edge, which drifts away from `baseY` as `baseYFraction`
+ * departs from the canvas midpoint — producing a detached glow "orb" below the fire instead of one
+ * light source radiating from it. The result is negative (shift up) whenever `baseY` sits above the
+ * layer's natural resting center, which is the common case.
+ */
+fun glowLayerCenteringOffsetPx(
+    baseY: Float,
+    canvasHeightPx: Float,
+    layerHeightPx: Float,
+): Float = baseY + layerHeightPx / 2f - canvasHeightPx
+
+/**
  * The fire's overall brightness pulse — the single flicker-derived value that the ambient glow
  * layers, coal bed, and log embers all breathe in sync to. Ported from `fire.jsx`'s `gv` formula
  * (`Math.max(0.35, Math.min(1.15, (flick + jitter) * (0.6 + intensity * 0.5)))`).

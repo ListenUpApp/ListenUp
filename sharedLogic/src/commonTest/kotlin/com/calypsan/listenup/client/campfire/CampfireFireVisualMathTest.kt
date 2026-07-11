@@ -93,4 +93,19 @@ class CampfireFireVisualMathTest :
             glowValue(flick = 10f, jitter = 0f, intensity = 1f) shouldBe 1.15f plusOrMinus tolerance
             glowValue(flick = -10f, jitter = 0f, intensity = 1f) shouldBe 0.35f plusOrMinus tolerance
         }
+
+        test("glowLayerCenteringOffsetPx re-centers a bottom-anchored layer on baseY") {
+            // canvas 2000px tall, baseY at 1440 (0.72 fraction); a 340px-tall layer anchored to the
+            // canvas bottom naturally centers at 1830 (2000 - 340/2) — 390px below baseY — so the
+            // offset must shift it up by 390px to land on the fire's origin.
+            val offset = glowLayerCenteringOffsetPx(baseY = 1440f, canvasHeightPx = 2000f, layerHeightPx = 340f)
+
+            offset shouldBe (-390f) plusOrMinus tolerance
+        }
+
+        test("glowLayerCenteringOffsetPx is zero when baseY already matches the layer's natural center") {
+            val offset = glowLayerCenteringOffsetPx(baseY = 1830f, canvasHeightPx = 2000f, layerHeightPx = 340f)
+
+            offset shouldBe 0f plusOrMinus tolerance
+        }
     })

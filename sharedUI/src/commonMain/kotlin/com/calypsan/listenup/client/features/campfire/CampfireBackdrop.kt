@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
@@ -37,6 +38,7 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.calypsan.listenup.client.campfire.FireGeometry
@@ -45,10 +47,12 @@ import com.calypsan.listenup.client.campfire.emberSparkColor
 import com.calypsan.listenup.client.campfire.flameAlphaEnvelope
 import com.calypsan.listenup.client.campfire.flameLickColor
 import com.calypsan.listenup.client.campfire.flameRadiusScale
+import com.calypsan.listenup.client.campfire.glowLayerCenteringOffsetPx
 import com.calypsan.listenup.client.campfire.glowValue
 import kotlinx.coroutines.isActive
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -98,10 +102,10 @@ private fun specFor(stage: CampfireBackdropStage): StageSpec =
     when (stage) {
         CampfireBackdropStage.EMBER -> {
             StageSpec(
-                flameRate = 0.34f,
+                flameRate = 0.42f,
                 flameVy = 1.25f,
-                flameLifeScale = 0.7f,
-                flameWidthScale = 0.82f,
+                flameLifeScale = 0.9f,
+                flameWidthScale = 0.9f,
                 sparkRate = 1.7f,
                 coalIntensity = 1.5f,
                 intensity = 0.55f,
@@ -135,17 +139,17 @@ private fun specFor(stage: CampfireBackdropStage): StageSpec =
         CampfireBackdropStage.ROARING -> {
             StageSpec(
                 flameRate = 1.35f,
-                flameVy = 2.7f,
+                flameVy = 3.2f,
                 flameLifeScale = 1.25f,
-                flameWidthScale = 1.12f,
-                sparkRate = 1.15f,
+                flameWidthScale = 1.25f,
+                sparkRate = 1.3f,
                 coalIntensity = 0.9f,
-                intensity = 1.15f,
-                density = 1.2f,
-                maxFlames = 32,
-                maxSparks = 28,
+                intensity = 1.3f,
+                density = 1.35f,
+                maxFlames = 40,
+                maxSparks = 32,
                 glowMin = 0.52f,
-                glowMax = 0.95f,
+                glowMax = 1.05f,
                 glowPeriodMs = 2200,
             )
         }
@@ -156,6 +160,12 @@ private const val CAMPFIRE_BASE_Y_FRACTION = 0.72f
 
 /** Device-density-independent cap on the fire's half-width — `fire.jsx`'s `Math.min(W * 0.28, 138)`. */
 private const val CAMPFIRE_MAX_BASE_WIDTH_DP = 138
+
+/** Wide ambient-warmth glow layer height — re-centered on [FireGeometry.baseY], see [glowLayerCenteringOffsetPx]. */
+private const val CAMPFIRE_FAR_GLOW_HEIGHT_DP = 340
+
+/** Tight firelight-pool glow layer height — re-centered on [FireGeometry.baseY], see [glowLayerCenteringOffsetPx]. */
+private const val CAMPFIRE_NEAR_GLOW_HEIGHT_DP = 260
 
 /** Hard cap on star count regardless of screen area — keeps very large/tablet canvases cheap to draw. */
 private const val CAMPFIRE_MAX_STARS = 90
@@ -229,15 +239,27 @@ internal fun CampfireBackdrop(
             )
         }
     val canvasSizeState = remember { mutableStateOf(IntSize.Zero) }
+    val canvasSize = canvasSizeState.value
     val stars =
-        remember(canvasSizeState.value, stage) {
+        remember(canvasSize, stage) {
             generateStarField(
-                canvasSizeState.value,
+                canvasSize,
                 seed =
                     stage.ordinal * 7919L + 13L,
             )
         }
     val reducedGlow = rememberCampfireReducedGlow(spec)
+    // Computed once per resize (not per frame) so the ambient-glow layers below can re-center on the
+    // exact same origin the per-frame ticker/canvas geometry uses — see [CampfireGlowLayers].
+    val geometry =
+        remember(canvasSize, maxBaseWidthPx) {
+            computeFireGeometry(
+                widthPx = canvasSize.width.toFloat(),
+                heightPx = canvasSize.height.toFloat(),
+                baseYFraction = CAMPFIRE_BASE_Y_FRACTION,
+                maxBaseWidthPx = maxBaseWidthPx,
+            )
+        }
 
     CampfireFireTicker(stage, reducedMotion, spec, engine, canvasSizeState, maxBaseWidthPx)
 
@@ -248,7 +270,7 @@ internal fun CampfireBackdrop(
                 .onSizeChanged { canvasSizeState.value = it }
                 .background(CampfireNightSkyBrush),
     ) {
-        CampfireGlowLayers(reducedMotion, reducedGlow, engine)
+        CampfireGlowLayers(reducedMotion, reducedGlow, engine, geometry, canvasSize.height.toFloat())
         CampfireFireCanvas(reducedMotion, reducedGlow, engine, stars, spec.coalIntensity, maxBaseWidthPx)
 
         // Legibility scrim: darkest at the top where header chrome sits, fading toward the fire glow.
@@ -309,35 +331,54 @@ private fun CampfireFireTicker(
     }
 }
 
-/** The two ambient firelight washes, breathing in sync with [engine]'s (or [reducedGlow]'s) glow value. */
+/**
+ * The two ambient firelight washes, breathing in sync with [engine]'s (or [reducedGlow]'s) glow
+ * value. Both are `Alignment.BottomCenter` layers of a fixed height, which by default center
+ * themselves relative to the *canvas* bottom edge — that drifts away from [geometry]'s `baseY`
+ * (the same origin the coal bed, logs, and flame spawn all share) whenever `baseYFraction` isn't
+ * exactly the canvas midpoint, producing a detached glow "orb" below the fire instead of one light
+ * source radiating from it. The `offset` on each layer corrects for that, via
+ * [glowLayerCenteringOffsetPx], so both washes are co-located on the fire's origin by construction.
+ */
 @Composable
 private fun BoxScope.CampfireGlowLayers(
     reducedMotion: Boolean,
     reducedGlow: Float,
     engine: CampfireFireEngine,
+    geometry: FireGeometry,
+    canvasHeightPx: Float,
 ) {
-    // Wide ambient warmth — a soft wash behind the fire proper.
+    // Wide ambient warmth — a soft wash behind the fire proper, centered on the fire's own origin.
     Box(
         modifier =
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(340.dp)
-                .graphicsLayer {
+                .height(CAMPFIRE_FAR_GLOW_HEIGHT_DP.dp)
+                .offset {
+                    val layerHeightPx = CAMPFIRE_FAR_GLOW_HEIGHT_DP.dp.toPx()
+                    val offsetY = glowLayerCenteringOffsetPx(geometry.baseY, canvasHeightPx, layerHeightPx)
+                    IntOffset(0, offsetY.roundToInt())
+                }.graphicsLayer {
                     val gv = if (reducedMotion) reducedGlow else engine.glow
                     val farAlphaWeight = 0.34f
                     val farAlphaBaseline = 0.14f
                     alpha = (farAlphaWeight * gv + farAlphaBaseline).coerceIn(0f, 1f)
                 }.background(CampfireFarGlowBrush),
     )
-    // Tight firelight pool — the same amplitude value drives opacity and a subtle breathing scale.
+    // Tight firelight pool — the same origin, the same amplitude value drives opacity and a subtle
+    // breathing scale.
     Box(
         modifier =
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth(0.85f)
-                .height(260.dp)
-                .graphicsLayer {
+                .height(CAMPFIRE_NEAR_GLOW_HEIGHT_DP.dp)
+                .offset {
+                    val layerHeightPx = CAMPFIRE_NEAR_GLOW_HEIGHT_DP.dp.toPx()
+                    val offsetY = glowLayerCenteringOffsetPx(geometry.baseY, canvasHeightPx, layerHeightPx)
+                    IntOffset(0, offsetY.roundToInt())
+                }.graphicsLayer {
                     val gv = if (reducedMotion) reducedGlow else engine.glow
                     val nearAlphaWeight = 0.55f
                     val nearAlphaBaseline = 0.28f
@@ -546,7 +587,9 @@ private class CampfireFireEngine(
         val x = geometry.baseX + spreadSample * spreadJitter
         val edge = (abs(x - geometry.baseX) / spreadHalf.coerceAtLeast(1f)).coerceIn(0f, 1f)
 
-        val ySpawn = geometry.baseY + randomInRange(random, -4f, 6f)
+        // Biased toward/below baseY (rather than centered on it) so flames spawn at the log crossing
+        // (drawLogs' logCenterY sits a few dp below baseY) instead of slightly above it.
+        val ySpawn = geometry.baseY + randomInRange(random, 2f, 10f)
         val vxDriftScale = 0.004f
         val vx = (x - geometry.baseX) * vxDriftScale + randomInRange(random, -0.15f, 0.15f)
         val vySpread = randomInRange(random, 0.8f, 1.3f)
