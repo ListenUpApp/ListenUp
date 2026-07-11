@@ -79,6 +79,7 @@ class CampfireViewModelTest :
         class Fixture {
             val transport = FakeCampfireTransport()
             val errorBus = ErrorBus()
+            val userRepository = FakeUserRepository("self-1")
 
             fun build(scope: TestScope): CampfireViewModel {
                 val controller =
@@ -86,11 +87,16 @@ class CampfireViewModelTest :
                         transport = transport,
                         playbackManager = FakePlaybackManager(),
                         playbackController = FakePlaybackController(),
-                        userRepository = FakeUserRepository("self-1"),
+                        userRepository = userRepository,
                         scope = scope.backgroundScope,
                         clock = FixedClock,
                     )
-                return CampfireViewModel(controller = controller, transport = transport, errorBus = errorBus)
+                return CampfireViewModel(
+                    controller = controller,
+                    transport = transport,
+                    errorBus = errorBus,
+                    userRepository = userRepository,
+                )
             }
         }
 
@@ -122,6 +128,18 @@ class CampfireViewModelTest :
 
         beforeTest { Dispatchers.setMain(testDispatcher) }
         afterTest { Dispatchers.resetMain() }
+
+        test("hostDisplayName reflects the current user's display name") {
+            runTest {
+                val fixture = Fixture()
+                val viewModel = fixture.build(this)
+
+                viewModel.hostDisplayName.test {
+                    awaitItem() shouldBe null
+                    awaitItem() shouldBe "self-1"
+                }
+            }
+        }
 
         test("initial state is Idle before any join") {
             runTest {
@@ -372,15 +390,14 @@ private class FakeCampfireTransport : CampfireTransport {
     override suspend fun listInvitableUsers(bookId: String): AppResult<List<CampfireInvitableUser>> = invitableUsersResult
 }
 
-/** Minimal [UserRepository] fake — only [getCurrentUser] is reachable from [CampfireSessionController]. */
+/**
+ * Minimal [UserRepository] fake — [getCurrentUser] is reachable from [CampfireSessionController];
+ * [observeCurrentUser] backs [CampfireViewModel.hostDisplayName].
+ */
 private class FakeUserRepository(
     private val selfUserId: String?,
 ) : UserRepository {
-    override fun observeCurrentUser(): Flow<User?> = throw NotImplementedError()
-
-    override fun observeIsAdmin(): Flow<Boolean> = throw NotImplementedError()
-
-    override suspend fun getCurrentUser(): User? =
+    private fun currentUser(): User? =
         selfUserId?.let {
             User(
                 id = UserId(it),
@@ -391,6 +408,12 @@ private class FakeUserRepository(
                 updatedAtMs = 0L,
             )
         }
+
+    override fun observeCurrentUser(): Flow<User?> = kotlinx.coroutines.flow.flowOf(currentUser())
+
+    override fun observeIsAdmin(): Flow<Boolean> = throw NotImplementedError()
+
+    override suspend fun getCurrentUser(): User? = currentUser()
 
     override suspend fun saveUser(user: User): Unit = throw NotImplementedError()
 

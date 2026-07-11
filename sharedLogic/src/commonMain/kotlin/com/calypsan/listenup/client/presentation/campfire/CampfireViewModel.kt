@@ -16,6 +16,7 @@ import com.calypsan.listenup.client.campfire.CampfireSessionController
 import com.calypsan.listenup.client.campfire.CampfireSessionEvent
 import com.calypsan.listenup.client.campfire.CampfireTransport
 import com.calypsan.listenup.client.campfire.CampfireUiState
+import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.Flow
@@ -55,11 +56,15 @@ private const val SUBSCRIPTION_TIMEOUT_MS = 5_000L
  * retained for the screen's lifetime; [join]/[rejoin]/[leave] drive its lifecycle.
  * @property transport The create/invite calls that live outside any joined session.
  * @property errorBus Global snackbar surface for create/invite failures (house VM failure-branch shape).
+ * @property userRepository Backs [hostDisplayName] — the full-screen Create flow's (task L3) default
+ * campfire-name builder needs the caller's own display name reactively, independent of any joined
+ * session (the create screen renders before [transport.createSession] is ever called).
  */
 class CampfireViewModel internal constructor(
     private val controller: CampfireSessionController,
     private val transport: CampfireTransport,
     private val errorBus: ErrorBus,
+    private val userRepository: UserRepository,
 ) : ViewModel() {
     /**
      * Session id awaiting spoiler confirmation before [confirmSpoilerJoin] hands it to
@@ -96,6 +101,22 @@ class CampfireViewModel internal constructor(
     /** Invite-sheet state — populated on demand by [listInvitableUsers]. */
     val inviteState: StateFlow<CampfireInviteUiState>
         field = MutableStateFlow<CampfireInviteUiState>(CampfireInviteUiState.Idle)
+
+    /**
+     * The caller's own display name, reactively — the Create screen's default campfire-name builder
+     * ("{Host}'s Campfire", built in Kotlin code, never via a localized template — see
+     * [com.calypsan.listenup.api.dto.campfire.CampfireSettings.name]'s KDoc). `null` until the local
+     * user cache resolves.
+     */
+    val hostDisplayName: StateFlow<String?> =
+        userRepository
+            .observeCurrentUser()
+            .map { it?.displayName }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = null,
+            )
 
     /**
      * Creates a new session for [bookId] and immediately joins it. The creator becomes the host,
@@ -264,6 +285,7 @@ private fun CampfireUiState.toScreenState(): CampfireScreenUiState =
                 isHost = isHost,
                 startedAtEpochMs = startedAtEpochMs,
                 invitedPending = invitedPending,
+                inviteOnly = inviteOnly,
                 pendingRejoinSync = pendingRejoinSync,
             )
         }
@@ -330,6 +352,7 @@ sealed interface CampfireScreenUiState {
         val isHost: Boolean,
         val startedAtEpochMs: Long? = null,
         val invitedPending: List<CampfireInvitableUser> = emptyList(),
+        val inviteOnly: Boolean = false,
         val pendingRejoinSync: CampfireAnchor? = null,
     ) : CampfireScreenUiState
 

@@ -49,6 +49,9 @@ internal sealed interface CampfireUiState {
      * [CampfirePhase.LOBBY].
      * @property invitedPending Invited-but-not-yet-joined users for the lobby roster — shrinks as
      * [CampfireFrame.MemberJoined] frames arrive.
+     * @property inviteOnly Mirrors [com.calypsan.listenup.api.dto.campfire.CampfireSettings.inviteOnly] —
+     * the live Room's reinvite affordance (task L3) needs this to preserve the room's membership
+     * boundary when it calls [CampfireSessionController.updateSettings] with a merged invite list.
      * @property pendingRejoinSync Non-null only immediately after [CampfireSessionController.rejoin]
      * detects the room has drifted far enough from local playback that auto-applying it would be
      * jarring (or spoiler-inducing) — the confirm-dialog case. Cleared by
@@ -70,6 +73,7 @@ internal sealed interface CampfireUiState {
         val isHost: Boolean,
         val startedAtEpochMs: Long? = null,
         val invitedPending: List<CampfireInvitableUser> = emptyList(),
+        val inviteOnly: Boolean = false,
         val pendingRejoinSync: CampfireAnchor? = null,
     ) : CampfireUiState
 

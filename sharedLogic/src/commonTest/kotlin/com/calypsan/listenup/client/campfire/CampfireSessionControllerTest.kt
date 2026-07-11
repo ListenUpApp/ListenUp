@@ -66,10 +66,11 @@ class CampfireSessionControllerTest :
             name: String = "Campfire",
             startedAtEpochMs: Long? = null,
             invitedPending: List<CampfireInvitableUser> = emptyList(),
+            inviteOnly: Boolean = false,
         ) = CampfireSnapshot(
             id = sessionId,
             bookId = "book-1",
-            settings = CampfireSettings(name = name, controlMode = controlMode, inviteOnly = false),
+            settings = CampfireSettings(name = name, controlMode = controlMode, inviteOnly = inviteOnly),
             phase = phase,
             anchor = anchor,
             members = members,
@@ -617,16 +618,17 @@ class CampfireSessionControllerTest :
             }
         }
 
-        test("updateSettings success refreshes name, controlMode, and invitedPending from the returned snapshot") {
+        test("updateSettings success refreshes name, controlMode, invitedPending, and inviteOnly from the returned snapshot") {
             runTest {
                 val clock = VirtualClock(testScheduler)
                 val transport =
                     FakeCampfireTransport().apply {
-                        joinResult = AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, name = "Old Name"))
+                        joinResult = AppResult.Success(snapshot(phase = CampfirePhase.LOBBY, name = "Old Name", inviteOnly = false))
                     }
                 val sut = controller(transport, backgroundScope, clock)
                 sut.join(sessionId)
                 runCurrent()
+                (sut.state.value as CampfireUiState.Active).inviteOnly shouldBe false
 
                 val newPending = listOf(CampfireInvitableUser(userId = "u3", displayName = "Carol"))
                 val newSettings =
@@ -643,6 +645,7 @@ class CampfireSessionControllerTest :
                             name = "New Name",
                             controlMode = CampfireControlMode.HOST_ONLY,
                             invitedPending = newPending,
+                            inviteOnly = true,
                         ),
                     )
 
@@ -654,6 +657,7 @@ class CampfireSessionControllerTest :
                 active.name shouldBe "New Name"
                 active.controlMode shouldBe CampfireControlMode.HOST_ONLY
                 active.invitedPending shouldBe newPending
+                active.inviteOnly shouldBe true
             }
         }
     })

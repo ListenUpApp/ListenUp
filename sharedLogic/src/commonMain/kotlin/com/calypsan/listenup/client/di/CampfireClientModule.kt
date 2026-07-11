@@ -78,6 +78,7 @@ internal val campfireClientModule: Module =
                 controller = get(),
                 transport = get(),
                 errorBus = get(),
+                userRepository = get(),
             )
         }
     }

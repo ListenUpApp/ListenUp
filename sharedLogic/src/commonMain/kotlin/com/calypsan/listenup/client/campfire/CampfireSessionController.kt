@@ -155,6 +155,7 @@ internal class CampfireSessionController(
                         isHost = isHost(snapshot.hostUserId),
                         startedAtEpochMs = snapshot.startedAtEpochMs,
                         invitedPending = snapshot.invitedPending,
+                        inviteOnly = snapshot.settings.inviteOnly,
                     )
                 startObserving(sessionId)
                 startDriftLoop()
@@ -222,6 +223,7 @@ internal class CampfireSessionController(
                         isHost = isHost(snapshot.hostUserId),
                         startedAtEpochMs = snapshot.startedAtEpochMs,
                         invitedPending = snapshot.invitedPending,
+                        inviteOnly = snapshot.settings.inviteOnly,
                         pendingRejoinSync = pendingRejoinSync,
                     )
                 startObserving(sessionId)
@@ -320,6 +322,7 @@ internal class CampfireSessionController(
                         controlMode = snapshot.settings.controlMode,
                         hasControl = hasControl(snapshot.settings.controlMode, current.hostUserId),
                         invitedPending = snapshot.invitedPending,
+                        inviteOnly = snapshot.settings.inviteOnly,
                     )
             }
 
