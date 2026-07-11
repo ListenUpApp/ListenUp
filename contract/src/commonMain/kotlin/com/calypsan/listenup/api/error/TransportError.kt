@@ -88,4 +88,22 @@ sealed interface TransportError : AppError {
         override val code: String = "TRANSPORT_DATA_MALFORMED"
         override val isRetryable: Boolean = false
     }
+
+    /**
+     * A well-formed 2xx response whose body this client cannot parse (envelope-version skew or a
+     * shape mismatch) — evidence the app and server contract versions have diverged. NON-BLOCKING:
+     * surfaced as the "Update available" hint, never as an auth failure. [detail] is the technical
+     * per-instance context (not user-facing).
+     */
+    @Serializable
+    @SerialName("TransportError.ContractMismatch")
+    data class ContractMismatch(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+        val detail: String,
+    ) : TransportError {
+        override val message: String = "The app and server versions don't match."
+        override val code: String = "TRANSPORT_CONTRACT_MISMATCH"
+        override val isRetryable: Boolean = false
+    }
 }

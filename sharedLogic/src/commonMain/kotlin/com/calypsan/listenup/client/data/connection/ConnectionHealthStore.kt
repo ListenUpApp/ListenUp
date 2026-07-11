@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.connection
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.auth.invalidatesSession
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngineState
@@ -151,13 +152,28 @@ internal class ConnectionHealthStore(
 
     /**
      * Report a typed failure observed by a headless seam. Cheap and non-suspending — safe to
-     * call redundantly from every failure branch. Session-invalidating errors are forwarded to
-     * the [ErrorBus] exactly once per lapse — but only while currently [AuthState.Authenticated],
-     * so a failure reported before first login (or while already lapsed) never surfaces a
-     * snackbar. Everything else is swallowed. Same guard + dedup discipline as the absorbed
+     * call redundantly from every failure branch. Dispatches on the error's shape, never both:
+     * contract-mismatch evidence ([TransportError.ContractMismatch] / [TransportError.DataMalformed])
+     * routes to [reportCompat] — non-blocking, independent of auth state, since a parse failure
+     * can occur before first login and is never a session failure. Everything else falls through
+     * to the auth path: session-invalidating errors are forwarded to the [ErrorBus] exactly once
+     * per lapse — but only while currently [AuthState.Authenticated], so a failure reported before
+     * first login (or while already lapsed) never surfaces a snackbar. Everything not
+     * session-invalidating is swallowed. Same guard + dedup discipline as the absorbed
      * `ConnectionIssueReporter`.
      */
     fun report(error: AppError) {
+        val compatEvidence =
+            when (error) {
+                is TransportError.ContractMismatch -> error.detail
+                is TransportError.DataMalformed -> error.detail
+                else -> null
+            }
+        if (compatEvidence != null) {
+            reportCompat(compatEvidence)
+            return
+        }
+
         if (authStateFlow.value !is AuthState.Authenticated) return
         if (!error.invalidatesSession()) return
         if (reportedSinceAuthenticated) return
