@@ -27,6 +27,7 @@ struct ListenUpApp: App {
 /// Root view — created after `App.init()` so observers resolve Koin safely.
 private struct RootView: View {
     @State private var auth = AuthStateObserver()
+    @State private var connectionHealth = ConnectionHealthObserver()
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
@@ -160,7 +161,17 @@ private struct RootView: View {
                     AuthFlowCoordinator(openRegistration: false)
                 }
         case .authenticated:
+            // Shell mounted and healthy — overlay a non-blocking banner if the server goes
+            // unreachable (Offline + Retry) or a version skew is detected (Update available).
+            // `sessionExpired` never surfaces here; it has the `.sessionLapsed` branch above.
             authenticatedContent
+                .safeAreaInset(edge: .top) {
+                    ConnectionHealthBanner(
+                        kind: connectionHealth.kind,
+                        onRetry: { connectionHealth.retry() },
+                        onDismiss: { connectionHealth.dismiss() }
+                    )
+                }
         }
     }
 
