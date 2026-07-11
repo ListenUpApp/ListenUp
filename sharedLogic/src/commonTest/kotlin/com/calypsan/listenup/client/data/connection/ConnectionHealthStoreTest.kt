@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.client.data.sync.ConnectionState
 import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -87,6 +88,60 @@ class ConnectionHealthStoreTest :
 
                 errorBus.errors.test {
                     store.reportCompat("envelope v=2")
+                    expectNoEvents()
+                    cancelAndConsumeRemainingEvents()
+                }
+
+                advanceTimeBy(1)
+                store.state.value.shouldBeInstanceOf<ConnectionHealth.Outdated>()
+            }
+        }
+
+        test("report(ContractMismatch) routes to compat, never auth") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val errorBus = ErrorBus()
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = errorBus,
+                        clientIdentity = FakeClientIdentity(),
+                        localPreferences = fakeLocalPreferences(),
+                        scope = backgroundScope,
+                    )
+
+                errorBus.errors.test {
+                    store.report(TransportError.ContractMismatch(detail = "envelope v=2"))
+                    expectNoEvents()
+                    cancelAndConsumeRemainingEvents()
+                }
+
+                advanceTimeBy(1)
+                store.state.value.shouldBeInstanceOf<ConnectionHealth.Outdated>()
+            }
+        }
+
+        test("report(DataMalformed) routes to compat, never auth") {
+            runTest {
+                val engineState = SyncEngineState()
+                engineState.setConnection(ConnectionState.Connected(lastEventId = null))
+                val authState = MutableStateFlow<AuthState>(authed())
+                val errorBus = ErrorBus()
+                val store =
+                    ConnectionHealthStore(
+                        engineState = engineState,
+                        authStateFlow = authState,
+                        errorBus = errorBus,
+                        clientIdentity = FakeClientIdentity(),
+                        localPreferences = fakeLocalPreferences(),
+                        scope = backgroundScope,
+                    )
+
+                errorBus.errors.test {
+                    store.report(TransportError.DataMalformed(detail = "bad body"))
                     expectNoEvents()
                     cancelAndConsumeRemainingEvents()
                 }
