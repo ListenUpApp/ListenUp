@@ -133,6 +133,9 @@ internal class ReadingOrderServiceImpl(
             }
 
         readingOrderBookRepo.softDeleteByReadingOrder(readingOrderId.value, userId = owned.ownerId)
+        // Clear every follower's pointer at the deleted order (cross-user by design) so no
+        // follow row dangles at a tombstone — each clear syncs to its owner as a revision bump.
+        followRepo.clearFollowsOf(readingOrderId.value)
         return readingOrderRepo.softDelete(readingOrderId, userId = owned.ownerId)
     }
 

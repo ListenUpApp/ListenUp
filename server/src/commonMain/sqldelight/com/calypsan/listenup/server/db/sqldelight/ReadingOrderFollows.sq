@@ -56,6 +56,12 @@ SELECT * FROM reading_order_follows WHERE id = :id;
 selectByIds:
 SELECT * FROM reading_order_follows WHERE id IN :ids;
 
+-- Live follow rows pointing at a reading order — the cascade set when the order
+-- is deleted (every follower's pointer must be cleared, cross-user by design).
+selectLiveByActiveReadingOrder:
+SELECT * FROM reading_order_follows
+WHERE active_reading_order_id = :reading_order_id AND deleted_at IS NULL;
+
 -- Live follow row for a (user, series) pair, or none.
 selectLiveByUserAndSeries:
 SELECT * FROM reading_order_follows

@@ -29,7 +29,10 @@ import com.calypsan.listenup.client.domain.repository.ReadingOrderRepository
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ReadingOrderId
 import com.calypsan.listenup.core.currentEpochMilliseconds
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
 /**
@@ -224,8 +227,18 @@ internal class ReadingOrderRepositoryImpl(
 
     // ── Follow-state (§5.4) ───────────────────────────────────────────────────────
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeActiveReadingOrder(seriesId: String): Flow<ReadingOrderId?> =
-        followDao.observeActiveReadingOrderId(seriesId).map { id -> id?.let(::ReadingOrderId) }
+        followDao.observeActiveReadingOrderId(seriesId).flatMapLatest { id ->
+            // Defensive resolve: a follow pointing at an order that is absent or tombstoned
+            // in the local mirror (e.g. deleted by its owner before the follow-clear echo
+            // lands) emits null — the graceful per-book-frontier floor, never a dangling id.
+            if (id == null) {
+                flowOf(null)
+            } else {
+                dao.observeById(id).map { order -> order?.let { ReadingOrderId(id) } }
+            }
+        }
 
     override suspend fun setActiveReadingOrder(
         seriesId: String,

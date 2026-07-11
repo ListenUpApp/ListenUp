@@ -162,6 +162,7 @@ class ReadingOrderRepositoryOfflineTest :
         test("offline setActiveReadingOrder writes the follow row with the deterministic id and enqueues an op") {
             runTest {
                 withRepo { repo, db ->
+                    db.readingOrderDao().upsert(orderEntity())
                     repo
                         .setActiveReadingOrder("series-1", ReadingOrderId("ro1"))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
@@ -174,6 +175,27 @@ class ReadingOrderRepositoryOfflineTest :
                     repo
                         .setActiveReadingOrder("series-1", null)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    repo.observeActiveReadingOrder("series-1").first() shouldBe null
+                }
+            }
+        }
+
+        test("observeActiveReadingOrder falls back to null when the followed order is absent or tombstoned") {
+            runTest {
+                withRepo { repo, db ->
+                    // Follow points at an order the local mirror has never seen — the
+                    // graceful per-book-frontier floor, never a dangling pointer.
+                    repo
+                        .setActiveReadingOrder("series-1", ReadingOrderId("ghost"))
+                        .shouldBeInstanceOf<AppResult.Success<Unit>>()
+                    repo.observeActiveReadingOrder("series-1").first() shouldBe null
+
+                    // The order arrives in the mirror — the follow resolves again.
+                    db.readingOrderDao().upsert(orderEntity(id = "ghost"))
+                    repo.observeActiveReadingOrder("series-1").first() shouldBe ReadingOrderId("ghost")
+
+                    // The order is tombstoned (e.g. deleted by its owner) — back to the floor.
+                    db.readingOrderDao().softDelete(id = "ghost", deletedAt = 999L, revision = 2L)
                     repo.observeActiveReadingOrder("series-1").first() shouldBe null
                 }
             }

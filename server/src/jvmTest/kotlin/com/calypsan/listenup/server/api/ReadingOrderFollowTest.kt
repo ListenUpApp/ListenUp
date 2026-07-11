@@ -136,6 +136,55 @@ class ReadingOrderFollowTest :
             }
         }
 
+        test("deleting a reading order clears every follow row pointing at it, with a synced revision bump") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                sql.seedTestUser("u1")
+                sql.seedTestUser("u2")
+                runTest {
+                    val bus = ChangeBus()
+                    val registry = SyncRegistry()
+                    val followRepo = ReadingOrderFollowRepository(db = sql, bus = bus, registry = registry)
+                    val service =
+                        ReadingOrderServiceImpl(
+                            readingOrderRepo = ReadingOrderRepository(db = sql, bus = bus, registry = registry),
+                            readingOrderBookRepo = ReadingOrderBookRepository(db = sql, bus = bus, registry = registry),
+                            followRepo = followRepo,
+                            bookAccessPolicy = BookAccessPolicy(sql, driver),
+                            readAssembler = ReadingOrderReadAssembler(sql),
+                            clock = fixedClock,
+                            principal = principalFor("u1"),
+                        )
+
+                    // u1 publishes an order; u2 follows it (a cross-user follow on a public order).
+                    val order = service.actAs("u1").createReadingOrder(name = "Cosmere", isPrivate = false).value()
+                    service
+                        .actAs("u2")
+                        .setActiveReadingOrder(
+                            SetActiveReadingOrderRequest(seriesId = "series-1", activeReadingOrderId = order.id.value),
+                        ).value()
+                    val revisionBefore =
+                        sql.readingOrderFollowsQueries
+                            .selectById("u2:series-1")
+                            .executeAsOne()
+                            .revision
+
+                    // u1 deletes the order — u2's follow must not keep the dangling pointer.
+                    service.actAs("u1").deleteReadingOrder(order.id).value()
+
+                    val row = sql.readingOrderFollowsQueries.selectById("u2:series-1").executeAsOne()
+                    row.active_reading_order_id shouldBe null
+                    row.deleted_at shouldBe null
+                    // Revision bumped so the clear is a sync event — u2's device drops it live
+                    // and a catch-up pull delivers the cleared payload.
+                    (row.revision > revisionBefore) shouldBe true
+                    val pulled = followRepo.pullSince(userId = "u2", cursor = revisionBefore, limit = 50)
+                    pulled.items.map { it.id } shouldContainExactly listOf("u2:series-1")
+                    pulled.items.single().activeReadingOrderId shouldBe null
+                }
+            }
+        }
+
         test("follow rows pull user-scoped: user A never sees user B's follows") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

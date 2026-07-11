@@ -149,6 +149,28 @@ class ReadingOrderFollowRepository(
         }
     }
 
+    /**
+     * Clears every live follow row pointing at [readingOrderId] — the follow-state
+     * cascade of a reading-order deletion. Crosses the user-scoping boundary by
+     * design: any user may follow a public order, so the deletion must clear every
+     * follower's pointer, not just the owner's. Each cleared row routes through the
+     * substrate's [upsert] (`activeReadingOrderId` → null, the per-book frontier
+     * floor), bumping a revision and publishing a per-user sync event so followers'
+     * devices drop the dangling pointer live. Returns the number of rows cleared.
+     */
+    suspend fun clearFollowsOf(readingOrderId: String): Int {
+        val rows =
+            suspendTransaction(db) {
+                db.readingOrderFollowsQueries
+                    .selectLiveByActiveReadingOrder(readingOrderId)
+                    .executeAsList()
+            }
+        for (row in rows) {
+            upsert(row.toSyncPayload().copy(activeReadingOrderId = null), userId = row.user_id)
+        }
+        return rows.size
+    }
+
     /** Returns the live follow row for `(userId, seriesId)`, or null when absent. */
     suspend fun findLive(
         userId: String,
