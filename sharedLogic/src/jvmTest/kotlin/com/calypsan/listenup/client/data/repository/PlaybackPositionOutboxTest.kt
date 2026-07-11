@@ -317,4 +317,47 @@ class PlaybackPositionOutboxTest :
                 }
             }
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Task 3a: the enqueued RecordPositionRequest carries the row's current
+        // high-water mark — same protective idiom as the `finished` carry above.
+        // ──────────────────────────────────────────────────────────────────────
+
+        test("Position on a book below its prior max enqueues the row's current (unlowered) maxPositionMs") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 70_000L, maxPositionMs = 70_000L))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 10_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).maxPositionMs shouldBe 70_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("Position advancing past the prior max enqueues the newly-raised maxPositionMs") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 10_000L, maxPositionMs = 10_000L))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Position(positionMs = 90_000L, speed = 1.25f))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    singleQueuedRequest(db).maxPositionMs shouldBe 90_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })

@@ -44,6 +44,12 @@ data class RecordPositionRequest(
     val finished: Boolean,
     val playbackSpeed: Float,
     val currentChapterId: String?,
+    // The furthest position ever heard in this book, carried from the local row's current
+    // high-water mark — the same protective idiom as `finished` above. The server folds it
+    // into an order-independent max-merge (see PlaybackPositionRepository.recordPosition),
+    // outside the lastPlayedAt staleness gate, so a stale-but-higher write still raises the
+    // stored max. Default 0 keeps old servers/clients wire-compatible: `max(0, x) = x`.
+    @SerialName("maxPositionMs") val maxPositionMs: Long = 0,
 )
 
 /**

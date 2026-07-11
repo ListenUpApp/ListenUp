@@ -133,4 +133,19 @@ class PreparedPlaybackContractTest :
             val encoded = contractJson.encodeToString(RecordPositionRequest.serializer(), original)
             contractJson.decodeFromString(RecordPositionRequest.serializer(), encoded) shouldBe original
         }
+
+        test("RecordPositionRequest round-trips with maxPositionMs preserved") {
+            val original =
+                RecordPositionRequest(
+                    bookId = "book-3",
+                    positionMs = 5_000L,
+                    lastPlayedAt = 1_730_001_000_000L,
+                    finished = false,
+                    playbackSpeed = 1.0f,
+                    currentChapterId = null,
+                    maxPositionMs = 250_000L,
+                )
+            val encoded = contractJson.encodeToString(RecordPositionRequest.serializer(), original)
+            contractJson.decodeFromString(RecordPositionRequest.serializer(), encoded) shouldBe original
+        }
     })

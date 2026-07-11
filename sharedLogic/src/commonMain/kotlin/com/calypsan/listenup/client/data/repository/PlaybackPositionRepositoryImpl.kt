@@ -181,6 +181,11 @@ internal class PlaybackPositionRepositoryImpl(
         // finished book on the server. Unfinishing is explicit: only DiscardProgress/Restart
         // send finished=false by design.
         val entity = dao.get(bookId)
+        // The post-write row's current high-water — carried on every request the same
+        // protective way `finished` is: the value handle() already computed/preserved,
+        // never re-derived here, so the outbox can never enqueue a lower max than the
+        // local row holds.
+        val maxPositionMs = entity?.maxPositionMs ?: 0
         val request: RecordPositionRequest =
             when (update) {
                 is PlaybackUpdate.Position -> {
@@ -191,6 +196,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -202,6 +208,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -213,6 +220,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.defaultSpeed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -224,6 +232,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -235,6 +244,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -246,6 +256,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = entity?.isFinished ?: false,
                         playbackSpeed = update.speed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -257,6 +268,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = true,
                         playbackSpeed = entity?.playbackSpeed ?: 1.0f,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -268,6 +280,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = true,
                         playbackSpeed = entity?.playbackSpeed ?: 1.0f,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
 
@@ -292,6 +305,7 @@ internal class PlaybackPositionRepositoryImpl(
                         finished = false,
                         playbackSpeed = entity.playbackSpeed,
                         currentChapterId = null,
+                        maxPositionMs = maxPositionMs,
                     )
                 }
             }
