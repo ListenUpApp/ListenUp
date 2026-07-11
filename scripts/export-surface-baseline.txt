@@ -114,6 +114,7 @@ CampfireId
 CampfireInvitableUser
 CampfireInviteUiState
 CampfireMember
+CampfirePhase
 CampfireScreenEvent
 CampfireScreenUiState
 CampfireSettings
