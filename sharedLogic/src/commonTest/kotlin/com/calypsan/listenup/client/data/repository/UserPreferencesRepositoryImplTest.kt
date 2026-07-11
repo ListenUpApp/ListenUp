@@ -77,6 +77,15 @@ private class FakePendingOperationV2Dao : PendingOperationV2Dao {
 
     override suspend fun countDispatchable(maxAttempts: Int): Int = inserted.count { it.failureCount <= maxAttempts }
 
+    override suspend fun hasQueuedOp(
+        domainName: String,
+        entityId: String,
+        maxAttempts: Int,
+    ): Boolean =
+        inserted.any {
+            it.domainName == domainName && it.entityId == entityId && it.failureCount <= maxAttempts
+        }
+
     override suspend fun deleteQueuedOps(
         domainName: String,
         entityId: String,

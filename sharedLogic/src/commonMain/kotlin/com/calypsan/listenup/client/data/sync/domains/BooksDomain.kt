@@ -8,18 +8,16 @@ import com.calypsan.listenup.client.data.local.documents.DocumentStorage
 import com.calypsan.listenup.client.data.sync.TargetedFetch
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.core.BookId
-import com.calypsan.listenup.core.Timestamp
 
 /**
- * The `books` domain: atomic aggregate apply (see [BookMirrorApply]), echo-shielded
- * server-wins, soft-delete tombstones, full digest, access-gated, outbox updates.
+ * The `books` domain: atomic aggregate apply (see [BookMirrorApply]), server-wins,
+ * soft-delete tombstones, full digest, access-gated, outbox updates.
  *
- * **Echo no-flicker:** when an event echoes this client's own write, the visible
- * fields are already correct locally — the shield advances only `revision` and
- * `updatedAt` on the root row, leaving title, cover, and child rows untouched
- * (repainting them would flicker the UI). An echo for a book not yet mirrored falls
- * through to a full apply: there is nothing on screen to flicker, and the payload is
- * the freshest full snapshot of a book this client has never seen.
+ * **Echo no-flicker:** delivered structurally by the engine's entity-level in-flight shield
+ * ([OutboxInFlightQuery]), not by a books-specific echo path. While a queued `books` edit for a
+ * book is still in flight, the apply choke point skips any inbound snapshot for that book — so a
+ * stale echo cannot revert the optimistic edit. Once the edit drains, its own echo (the freshest
+ * full snapshot) applies and the row converges. A book with no in-flight edit applies normally.
  *
  * **Why server-wins is safe for offline edits:** a queued outbox edit carries
  * per-field `userEditedFields` provenance, so the server folds the user's fields
@@ -56,20 +54,7 @@ internal fun booksDomain(
         key = SyncDomains.BOOKS,
         apply = apply,
         conflict =
-            ConflictPolicy.EchoShielded(
-                onOwnEcho = { id, payload ->
-                    val bookId = BookId(id)
-                    if (database.bookDao().getById(bookId) == null) {
-                        false
-                    } else {
-                        database.bookDao().updateRevisionAndTimestamp(
-                            id = bookId,
-                            revision = payload.revision,
-                            updatedAt = Timestamp(payload.updatedAt),
-                        )
-                        true
-                    }
-                },
+            ConflictPolicy.ServerWins(
                 revisionGuard = RevisionGuard { id -> database.bookDao().revisionOf(BookId(id)) },
             ),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),

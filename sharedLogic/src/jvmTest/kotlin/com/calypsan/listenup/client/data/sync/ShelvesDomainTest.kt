@@ -27,7 +27,7 @@ class ShelvesDomainTest :
         test("shelf Created event upserts the row into Room") {
             withShelfHandler { handler, db ->
                 handler
-                    .onEvent(createdShelf(shelfPayload("s1", name = "Favourites")), isOwnEcho = false)
+                    .onEvent(createdShelf(shelfPayload("s1", name = "Favourites")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.shelfDao().getById("s1")
                 row shouldNotBe null
@@ -39,7 +39,7 @@ class ShelvesDomainTest :
 
         test("shelf Updated event overwrites the existing row") {
             withShelfHandler { handler, db ->
-                handler.onEvent(createdShelf(shelfPayload("s1", name = "Favourites")), isOwnEcho = false)
+                handler.onEvent(createdShelf(shelfPayload("s1", name = "Favourites")))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "s1",
@@ -48,7 +48,6 @@ class ShelvesDomainTest :
                         clientOpId = null,
                         payload = shelfPayload("s1", name = "Top Picks", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.shelfDao().getById("s1")!!
                 row.name shouldBe "Top Picks"
@@ -58,9 +57,9 @@ class ShelvesDomainTest :
 
         test("shelf Deleted event soft-deletes the row") {
             withShelfHandler { handler, db ->
-                handler.onEvent(createdShelf(shelfPayload("s1")), isOwnEcho = false)
+                handler.onEvent(createdShelf(shelfPayload("s1")))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.shelfDao().getById("s1") shouldBe null
             }
@@ -68,8 +67,8 @@ class ShelvesDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withShelfHandler { handler, db ->
-                handler.onEvent(createdShelf(shelfPayload("s1")), isOwnEcho = false)
-                handler.onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L), isOwnEcho = false)
+                handler.onEvent(createdShelf(shelfPayload("s1")))
+                handler.onEvent(SyncEvent.Deleted(id = "s1", revision = 2L, occurredAt = 500L))
                 db.shelfDao().getById("s1") shouldBe null
                 db.shelfDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "s1"
             }

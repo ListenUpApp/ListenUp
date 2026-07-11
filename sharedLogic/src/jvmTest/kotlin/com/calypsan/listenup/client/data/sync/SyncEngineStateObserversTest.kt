@@ -147,7 +147,6 @@ private fun buildEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )

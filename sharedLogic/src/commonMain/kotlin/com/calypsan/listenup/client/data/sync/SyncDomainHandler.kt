@@ -36,19 +36,16 @@ internal interface SyncDomainHandler<T : Any> {
     /**
      * Apply an SSE-driven event.
      *
-     * [isOwnEcho] is `true` when the event's `clientOpId` matched a pending op
-     * the engine just acknowledged. Honor it by writing only metadata fields
-     * (`revision`, `updatedAt`) on the existing local row — never repaint
-     * domain fields the user just wrote, or the UI flickers on every echo.
+     * Anti-flicker is structural, not per-call: the engine's apply choke point shields an inbound
+     * snapshot for an entity whose local edit is still in flight (a queued outbox op), so a stale
+     * echo can never revert the optimistic state — the edit's own echo applies once it drains.
+     * Implementations therefore apply the canonical server state unconditionally here.
      *
      * For [SyncEvent.Deleted] events the payload is absent; apply the tombstone
      * by id alone. For [SyncEvent.Created] / [SyncEvent.Updated] the payload is
      * the canonical server state.
      */
-    suspend fun onEvent(
-        event: SyncEvent<T>,
-        isOwnEcho: Boolean,
-    ): AppResult<Unit>
+    suspend fun onEvent(event: SyncEvent<T>): AppResult<Unit>
 
     /**
      * Apply an item from REST catch-up paging. [isTombstone] is `true` when

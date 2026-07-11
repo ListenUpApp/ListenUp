@@ -80,7 +80,7 @@ class PendingOperationQueueTest :
             }
         }
 
-        test("containsAndAck removes a matching op and returns true") {
+        test("hasQueuedOpFor is true while a dispatchable op is queued for the entity") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 val queue =
@@ -89,24 +89,29 @@ class PendingOperationQueueTest :
                         sender = PendingOperationSender { AppResult.Success(Unit) },
                         nowMillis = { 1_000L },
                     )
-                val opId = queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
-                db.pendingOperationV2Dao().get(opId) shouldNotBe null
-                queue.containsAndAck(opId) shouldBe true
-                db.pendingOperationV2Dao().get(opId) shouldBe null
+                queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe false
+                queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe true
+                // A different entity on the same channel is not in flight.
+                queue.hasQueuedOpFor(upsertOnlyChannel.name, "t2") shouldBe false
                 db.close()
             }
         }
 
-        test("containsAndAck returns false for an unknown clientOpId") {
+        test("hasQueuedOpFor is false once the op is dead-lettered — the shield lifts so the entity converges") {
             runTest {
                 val db = createInMemoryTestDatabase()
+                // A sender that throws is flagged terminally failed (dead-lettered) on the first drain.
                 val queue =
                     PendingOperationQueue(
                         dao = db.pendingOperationV2Dao(),
-                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                        sender = PendingOperationSender { error("boom") },
                         nowMillis = { 1_000L },
                     )
-                queue.containsAndAck("not-a-real-op-id") shouldBe false
+                queue.enqueue(upsertOnlyChannel, "t1", OpKind.Upsert, "{}", "u1")
+                queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe true
+                queue.drain() // sender throws → op dead-lettered
+                queue.hasQueuedOpFor(upsertOnlyChannel.name, "t1") shouldBe false
                 db.close()
             }
         }

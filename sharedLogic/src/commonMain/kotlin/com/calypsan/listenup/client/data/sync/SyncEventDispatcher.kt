@@ -14,7 +14,6 @@ private val logger = KotlinLogging.logger {}
 /**
  * Routes parsed SSE frames to the right handler. The single seam where:
  *  - typed event payloads are decoded using the handler's `KSerializer<T>`,
- *  - `clientOpId` echoes are matched against the pending queue (and acked),
  *  - control events are recognised: refresh controls run their catalog-declared refresh
  *    strategy via [refreshedRouter]; engine/lifecycle controls (`CursorStale`,
  *    `StreamError`, `AccessChanged`, `UserDeleted`, `LibraryDataChanged`) fire their callbacks,
@@ -23,7 +22,6 @@ private val logger = KotlinLogging.logger {}
  */
 internal class SyncEventDispatcher(
     private val registry: ClientSyncDomainRegistry,
-    private val queue: PendingOperationQueue,
     private val state: SyncEngineState,
     private val cursorAdvance: suspend (domainName: String, revision: Long) -> Unit,
     private val refreshedRouter: RefreshedDomainRouter = RefreshedDomainRouter(emptyList()),
@@ -126,8 +124,7 @@ internal class SyncEventDispatcher(
                 logger.warn(e) { "Failed to decode SyncEvent for domain '$domainName'" }
                 return
             }
-        val isOwnEcho = event.clientOpId?.let { queue.containsAndAck(it) } ?: false
-        when (val result = typed.onEvent(event, isOwnEcho)) {
+        when (val result = typed.onEvent(event)) {
             is AppResult.Success -> {
                 frame.id?.let { rev -> cursorAdvance(domainName, rev) }
             }

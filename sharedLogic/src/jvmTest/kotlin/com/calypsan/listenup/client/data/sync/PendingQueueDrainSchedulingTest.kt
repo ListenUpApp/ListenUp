@@ -472,7 +472,6 @@ private fun buildEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )
@@ -550,7 +549,6 @@ private object NoopTagHandler : SyncDomainHandler<Tag> {
 
     override suspend fun onEvent(
         event: com.calypsan.listenup.api.sync.SyncEvent<Tag>,
-        isOwnEcho: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun onCatchUpItem(
@@ -584,6 +582,12 @@ private class CountingDao(
     }
 
     override suspend fun countDispatchable(maxAttempts: Int) = delegate.countDispatchable(maxAttempts)
+
+    override suspend fun hasQueuedOp(
+        domainName: String,
+        entityId: String,
+        maxAttempts: Int,
+    ) = delegate.hasQueuedOp(domainName, entityId, maxAttempts)
 
     override suspend fun deleteQueuedOps(
         domainName: String,

@@ -25,7 +25,7 @@ class TagsDomainTest :
         test("Created event inserts the tag row into Room") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")), isOwnEcho = false)
+                    .onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.tagDao().getById("t1")
                 row shouldNotBe null
@@ -38,7 +38,7 @@ class TagsDomainTest :
 
         test("Updated event overwrites the existing tag row") {
             withHandler { handler, db ->
-                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi", revision = 1L)))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "t1",
@@ -47,7 +47,6 @@ class TagsDomainTest :
                         clientOpId = null,
                         payload = tagPayload("t1", "Science Fiction", "sci-fi", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.tagDao().getById("t1")!!
                 row.name shouldBe "Science Fiction"
@@ -57,11 +56,10 @@ class TagsDomainTest :
 
         test("Deleted event soft-deletes the tag row") {
             withHandler { handler, db ->
-                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")), isOwnEcho = false)
+                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "t1", revision = 2L, occurredAt = 500L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 // getById filters tombstones — should return null after soft-delete
                 db.tagDao().getById("t1") shouldBe null
@@ -70,10 +68,9 @@ class TagsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")), isOwnEcho = false)
+                handler.onEvent(created(tagPayload("t1", "Sci-Fi", "sci-fi")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "t1", revision = 2L, occurredAt = 500L),
-                    isOwnEcho = false,
                 )
                 db.tagDao().getById("t1") shouldBe null
                 db.tagDao().digestRows(Long.MAX_VALUE).map { it.id } shouldNotContain "t1"

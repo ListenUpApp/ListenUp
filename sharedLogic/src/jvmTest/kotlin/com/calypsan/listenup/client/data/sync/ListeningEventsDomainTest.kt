@@ -26,7 +26,7 @@ class ListeningEventsDomainTest :
         test("Created event for a new id inserts the row with all wire fields") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("ev-1", "book-1")), isOwnEcho = false)
+                    .onEvent(created(payload("ev-1", "book-1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row = db.listeningEventDao().getById("ev-1")
@@ -47,7 +47,7 @@ class ListeningEventsDomainTest :
 
         test("Created event is stamped with the signed-in user's id so cross-device events count") {
             withHandler(userId = "u1") { handler, db ->
-                handler.onEvent(created(payload("ev-x", "book-1")), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-x", "book-1")))
 
                 // The wire payload omits userId; the handler must stamp the current user's id,
                 // otherwise the user-scoped stats query (WHERE userId = :userId) excludes it.
@@ -73,9 +73,9 @@ class ListeningEventsDomainTest :
 
         test("Created event for an existing id is a no-op (append-only)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("ev-1", "book-1", startPositionMs = 0L, endPositionMs = 60_000L)), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-1", "book-1", startPositionMs = 0L, endPositionMs = 60_000L)))
                 // Second event same id, different positions — must be ignored
-                handler.onEvent(created(payload("ev-1", "book-1", startPositionMs = 999L, endPositionMs = 999_000L)), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-1", "book-1", startPositionMs = 999L, endPositionMs = 999_000L)))
 
                 val row = db.listeningEventDao().getById("ev-1").shouldNotBeNull()
                 // Original positions preserved, not overwritten by the second event
@@ -86,10 +86,9 @@ class ListeningEventsDomainTest :
 
         test("Updated event for an existing id is also a no-op (append-only)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("ev-2", "book-1", startPositionMs = 100L, endPositionMs = 200L)), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-2", "book-1", startPositionMs = 100L, endPositionMs = 200L)))
                 handler.onEvent(
                     updated(payload("ev-2", "book-1", startPositionMs = 500L, endPositionMs = 600L, revision = 2L)),
-                    isOwnEcho = false,
                 )
 
                 val row = db.listeningEventDao().getById("ev-2").shouldNotBeNull()
@@ -114,7 +113,7 @@ class ListeningEventsDomainTest :
 
         test("onCatchUpItem for an existing row is a no-op (append-only)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("ev-4", "book-3", startPositionMs = 10L, endPositionMs = 20L)), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-4", "book-3", startPositionMs = 10L, endPositionMs = 20L)))
                 handler.onCatchUpItem(payload("ev-4", "book-3", startPositionMs = 999L, endPositionMs = 9999L), isTombstone = false)
 
                 val row = db.listeningEventDao().getById("ev-4").shouldNotBeNull()
@@ -124,7 +123,7 @@ class ListeningEventsDomainTest :
 
         test("onCatchUpItem with isTombstone soft-deletes the row") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("ev-5", "book-1")), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-5", "book-1")))
                 handler
                     .onCatchUpItem(
                         payload("ev-5", "book-1", deletedAt = 555L, revision = 9L),
@@ -159,7 +158,7 @@ class ListeningEventsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("ev-6", "book-1")), isOwnEcho = false)
+                handler.onEvent(created(payload("ev-6", "book-1")))
                 handler.onCatchUpItem(
                     payload("ev-6", "book-1", deletedAt = 555L, revision = 9L),
                     isTombstone = true,

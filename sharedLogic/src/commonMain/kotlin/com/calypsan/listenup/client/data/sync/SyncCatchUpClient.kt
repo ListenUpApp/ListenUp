@@ -163,7 +163,7 @@ internal class SyncCatchUpClient(
      * the read half of the scoped `AccessChanged` delta. Chunks the id set under
      * [TARGETED_FETCH_LIMIT] (the server's per-request cap) so a large scope never truncates,
      * applies each returned row via [SyncDomainHandler.onCatchUpItem] (inheriting the same
-     * ServerWins/EchoShielded guard as paged catch-up), and returns the non-tombstone ids that came
+     * revision guard and in-flight shield as paged catch-up), and returns the non-tombstone ids that came
      * back — the still-accessible subset the caller diffs against to prune.
      */
     override suspend fun <T : Any> fetchTransient(

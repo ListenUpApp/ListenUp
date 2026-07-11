@@ -36,6 +36,7 @@ import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.data.sync.outboxBinding
 import com.calypsan.listenup.client.data.sync.outboxSender
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
@@ -208,7 +209,6 @@ internal val clientSyncModule =
         single {
             SyncEventDispatcher(
                 registry = get(),
-                queue = get(),
                 state = get(),
                 cursorAdvance = { domain, rev -> get<SyncCursorStore>().setCursor(domain, rev) },
                 // The three content-free re-fetch triggers (presence, server-info,
@@ -266,6 +266,9 @@ internal val clientSyncModule =
                 catalog = get(),
                 transactionRunner = get(),
                 registry = get(),
+                // The anti-flicker shield: every mirrored handler consults the outbox before applying
+                // an inbound snapshot, so an in-flight local edit is never clobbered by a stale echo.
+                inFlightOutbox = OutboxInFlightQuery(get<PendingOperationQueue>()::hasQueuedOpFor),
             ).apply { registerAll() }
         }
 

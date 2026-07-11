@@ -33,11 +33,11 @@ internal class RecordingTagSyncDomainHandler(
     private val bufferCapacity = 64
 
     private val observedFlow =
-        MutableSharedFlow<Pair<SyncEvent<Tag>, Boolean>>(
+        MutableSharedFlow<SyncEvent<Tag>>(
             replay = replayCapacity,
             extraBufferCapacity = bufferCapacity,
         )
-    val observed: SharedFlow<Pair<SyncEvent<Tag>, Boolean>> = observedFlow.asSharedFlow()
+    val observed: SharedFlow<SyncEvent<Tag>> = observedFlow.asSharedFlow()
 
     private val catchUpObservedFlow =
         MutableSharedFlow<Pair<Tag, Boolean>>(
@@ -46,11 +46,8 @@ internal class RecordingTagSyncDomainHandler(
         )
     val catchUpObserved: SharedFlow<Pair<Tag, Boolean>> = catchUpObservedFlow.asSharedFlow()
 
-    override suspend fun onEvent(
-        event: SyncEvent<Tag>,
-        isOwnEcho: Boolean,
-    ): AppResult<Unit> {
-        observedFlow.emit(event to isOwnEcho)
+    override suspend fun onEvent(event: SyncEvent<Tag>): AppResult<Unit> {
+        observedFlow.emit(event)
         return AppResult.Success(Unit)
     }
 

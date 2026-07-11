@@ -182,7 +182,6 @@ private fun buildEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )
@@ -255,7 +254,6 @@ private object IdempotencyNoopTagHandler : SyncDomainHandler<Tag> {
 
     override suspend fun onEvent(
         event: com.calypsan.listenup.api.sync.SyncEvent<Tag>,
-        isOwnEcho: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun onCatchUpItem(

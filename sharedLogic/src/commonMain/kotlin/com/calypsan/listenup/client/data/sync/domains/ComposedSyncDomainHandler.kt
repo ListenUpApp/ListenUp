@@ -25,6 +25,7 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
     private val domain: MirroredDomain<T>,
     private val transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
+    private val inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
 ) : SyncDomainHandler<T> {
     override val domainName: String = domain.key.name
     override val payloadSerializer: KSerializer<T> = domain.key.serializer
@@ -35,10 +36,7 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
         registry.register(this)
     }
 
-    override suspend fun onEvent(
-        event: SyncEvent<T>,
-        isOwnEcho: Boolean,
-    ): AppResult<Unit> =
+    override suspend fun onEvent(event: SyncEvent<T>): AppResult<Unit> =
         transactionRunner.applyEventAtomically(domainName, event.id, logger) {
             if (isStale(event.id, event.revision)) {
                 logger.debug { "[$domainName] skipping stale inbound rev=${event.revision} for ${event.id}" }
@@ -46,11 +44,11 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
             }
             when (event) {
                 is SyncEvent.Created -> {
-                    applyGuarded(event.id, event.payload, isOwnEcho)
+                    applyInbound(event.id, event.payload)
                 }
 
                 is SyncEvent.Updated -> {
-                    applyGuarded(event.id, event.payload, isOwnEcho)
+                    applyInbound(event.id, event.payload)
                 }
 
                 is SyncEvent.Deleted -> {
@@ -81,8 +79,7 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
             if (isTombstone) {
                 domain.apply.tombstoneFromItem(item)
             } else {
-                // Catch-up has no echo concept; apply through the conflict guard.
-                applyConflictGuarded(item)
+                applyInbound(syncId(item), item)
             }
         }
 
@@ -92,13 +89,22 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
             is DigestParticipation.OptOut -> null
         }
 
-    private suspend fun applyGuarded(
+    /**
+     * The single anti-flicker shield point for both SSE echoes and catch-up snapshots. When a local
+     * edit for this entity is still in flight (a queued, non-dead-letter outbox op), the inbound
+     * server state is shielded: its authoritative post-edit form arrives via that op's own echo once
+     * it drains, so applying this (possibly stale) snapshot now would only flicker the optimistic
+     * local edit. Once the op drains (success → removed; or dead-letter → no longer counted), the
+     * next inbound apply proceeds and the entity converges.
+     */
+    private suspend fun applyInbound(
         id: String,
         payload: T,
-        isOwnEcho: Boolean,
     ) {
-        val conflict = domain.conflict
-        if (isOwnEcho && conflict is ConflictPolicy.EchoShielded && conflict.onOwnEcho(id, payload)) return
+        if (inFlightOutbox.isQueued(domainName, id)) {
+            logger.debug { "[$domainName] shielding apply for $id — local edit in flight, deferring to its own echo" }
+            return
+        }
         applyConflictGuarded(payload)
     }
 
@@ -106,7 +112,6 @@ internal open class ComposedSyncDomainHandler<T : SyncPayload>(
         when (val conflict = domain.conflict) {
             is ConflictPolicy.ServerWins,
             is ConflictPolicy.AppendOnly,
-            is ConflictPolicy.EchoShielded,
             -> {
                 domain.apply.upsert(payload)
             }
@@ -139,7 +144,6 @@ private val <T : Any> ConflictPolicy<T>.revisionGuard: RevisionGuard?
     get() =
         when (this) {
             is ConflictPolicy.ServerWins -> revisionGuard
-            is ConflictPolicy.EchoShielded -> revisionGuard
             is ConflictPolicy.AppendOnly, is ConflictPolicy.NewerWins -> null
         }
 
@@ -153,7 +157,8 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
     private val gate: AccessGate,
     transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
-) : ComposedSyncDomainHandler<T>(domain, transactionRunner, registry),
+    inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
+) : ComposedSyncDomainHandler<T>(domain, transactionRunner, registry, inFlightOutbox),
     AccessFilteredSyncHandler {
     override val deltaPolicy: AccessDeltaPolicy = gate.delta
 
@@ -187,12 +192,17 @@ internal class AccessFilteredComposedSyncDomainHandler<T : SyncPayload>(
     }
 }
 
-/** Compile a descriptor into the runtime handler the engine speaks. */
+/**
+ * Compile a descriptor into the runtime handler the engine speaks. [inFlightOutbox] backs the
+ * anti-flicker shield — production wires [com.calypsan.listenup.client.data.sync.PendingOperationQueue.hasQueuedOpFor];
+ * domains/tests with no outbox interplay take the [NoOutboxInFlight] no-op default.
+ */
 internal fun <T : SyncPayload> MirroredDomain<T>.toHandler(
     transactionRunner: TransactionRunner,
     registry: ClientSyncDomainRegistry,
+    inFlightOutbox: OutboxInFlightQuery = NoOutboxInFlight,
 ): SyncDomainHandler<T> =
     when (val gate = accessGate) {
-        null -> ComposedSyncDomainHandler(this, transactionRunner, registry)
-        else -> AccessFilteredComposedSyncDomainHandler(this, gate, transactionRunner, registry)
+        null -> ComposedSyncDomainHandler(this, transactionRunner, registry, inFlightOutbox)
+        else -> AccessFilteredComposedSyncDomainHandler(this, gate, transactionRunner, registry, inFlightOutbox)
     }

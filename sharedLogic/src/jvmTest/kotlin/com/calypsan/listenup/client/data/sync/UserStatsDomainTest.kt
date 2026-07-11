@@ -23,7 +23,7 @@ class UserStatsDomainTest :
         test("Created event upserts a new user_stats row matching the payload") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(payload("user-1")), isOwnEcho = false)
+                    .onEvent(created(payload("user-1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row = db.userStatsDao().getForUser("user-1")
@@ -44,7 +44,7 @@ class UserStatsDomainTest :
 
         test("Updated event for an existing user REPLACES the local row entirely") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-1", totalSecondsAllTime = 1000L, revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-1", totalSecondsAllTime = 1000L, revision = 1L)))
 
                 handler
                     .onEvent(
@@ -57,7 +57,6 @@ class UserStatsDomainTest :
                                 revision = 2L,
                             ),
                         ),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                 val row = db.userStatsDao().getForUser("user-1").shouldNotBeNull()
@@ -84,7 +83,7 @@ class UserStatsDomainTest :
 
         test("onCatchUpItem for an existing row also replaces it (server wins)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-3", totalSecondsAllTime = 100L, revision = 1L)), isOwnEcho = false)
+                handler.onEvent(created(payload("user-3", totalSecondsAllTime = 100L, revision = 1L)))
                 handler.onCatchUpItem(payload("user-3", totalSecondsAllTime = 7777L, revision = 3L), isTombstone = false)
 
                 val row = db.userStatsDao().getForUser("user-3").shouldNotBeNull()
@@ -95,7 +94,7 @@ class UserStatsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(payload("user-tomb")), isOwnEcho = false)
+                handler.onEvent(created(payload("user-tomb")))
                 handler.onCatchUpItem(
                     payload("user-tomb", revision = 2L, deletedAt = 999_000L),
                     isTombstone = true,

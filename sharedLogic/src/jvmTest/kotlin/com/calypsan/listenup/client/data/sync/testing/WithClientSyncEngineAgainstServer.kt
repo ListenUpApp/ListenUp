@@ -37,6 +37,7 @@ import com.calypsan.listenup.client.data.sync.SyncEngineState
 import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
+import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
@@ -442,10 +443,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
         try {
             val registry = ClientSyncDomainRegistry()
             val recording = RecordingTagSyncDomainHandler(registry)
-            // Real Books, Contributor, and Series handlers registered into the SAME
-            // registry — the client dispatcher routes domain SSE frames here, applying
-            // them into the client Room DB exactly as production does.
-            registerClientSyncHandlers(clientDb, registry)
             val state = SyncEngineState()
             val store = SyncCursorStore(clientDb.syncCursorDao())
             // Wire real senders for `playback_positions` and `listening_events` so the
@@ -503,6 +500,12 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                             ),
                         ),
                 )
+
+            // Real Books, Contributor, and Series handlers registered into the SAME registry — the
+            // client dispatcher routes domain SSE frames here, applying them into the client Room DB
+            // exactly as production does. Registered AFTER the queue so the anti-flicker shield can
+            // consult the real outbox: an in-flight local edit shields its entity's inbound echoes.
+            registerClientSyncHandlers(clientDb, registry, queue)
 
             val offlineEditor =
                 OfflineEditor(
@@ -571,7 +574,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             val dispatcher =
                 SyncEventDispatcher(
                     registry = registry,
-                    queue = queue,
                     state = state,
                     cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
                     onCursorStale = {
@@ -667,12 +669,16 @@ private data class ServerRepositories(
 private fun registerClientSyncHandlers(
     clientDb: ListenUpDatabase,
     registry: ClientSyncDomainRegistry,
+    queue: PendingOperationQueue,
 ) {
     registerTestSyncDomains(
         db = clientDb,
         registry = registry,
         authSession = FakeAuthSession(),
         exclude = setOf(SyncDomains.TAGS.name),
+        // The anti-flicker shield consults the real outbox — the same wiring production does via
+        // Koin — so the e2e proves an in-flight local edit is not clobbered by a stale echo.
+        inFlightOutbox = OutboxInFlightQuery(queue::hasQueuedOpFor),
     )
 }
 

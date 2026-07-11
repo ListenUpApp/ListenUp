@@ -26,7 +26,7 @@ class BookMoodsDomainTest :
         test("Created event inserts the junction row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(created(junctionPayload("b1", "m1")), isOwnEcho = false)
+                    .onEvent(created(junctionPayload("b1", "m1")))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.bookMoodDao().findByKey("b1", "m1")
                 row shouldNotBe null
@@ -39,7 +39,7 @@ class BookMoodsDomainTest :
 
         test("Updated event upserts the junction row (re-add clears tombstone)") {
             withHandler { handler, db ->
-                handler.onEvent(created(junctionPayload("b1", "m1", deletedAt = 500L)), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("b1", "m1", deletedAt = 500L)))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "b1:m1",
@@ -48,7 +48,6 @@ class BookMoodsDomainTest :
                         clientOpId = null,
                         payload = junctionPayload("b1", "m1", revision = 2L),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.bookMoodDao().findByKey("b1", "m1")!!
                 row.deletedAt shouldBe null
@@ -58,11 +57,10 @@ class BookMoodsDomainTest :
 
         test("Deleted event tombstones via synthetic id") {
             withHandler { handler, db ->
-                handler.onEvent(created(junctionPayload("b1", "m1")), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("b1", "m1")))
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "b1:m1", revision = 2L, occurredAt = 900L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
                 db.bookMoodDao().findByKey("b1", "m1")!!.deletedAt shouldBe 900L
             }
@@ -70,10 +68,9 @@ class BookMoodsDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(created(junctionPayload("b1", "m1")), isOwnEcho = false)
+                handler.onEvent(created(junctionPayload("b1", "m1")))
                 handler.onEvent(
                     SyncEvent.Deleted(id = "b1:m1", revision = 2L, occurredAt = 900L),
-                    isOwnEcho = false,
                 )
                 // observeForBook filters tombstones — invisible to reads
                 db
@@ -93,7 +90,6 @@ class BookMoodsDomainTest :
                 handler
                     .onEvent(
                         SyncEvent.Deleted(id = "malformed", revision = 2L, occurredAt = 900L),
-                        isOwnEcho = false,
                     ).shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }

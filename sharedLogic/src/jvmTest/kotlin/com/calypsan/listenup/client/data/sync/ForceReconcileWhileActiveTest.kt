@@ -231,7 +231,6 @@ private fun buildEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
         )
@@ -318,7 +317,6 @@ private class DriftingTagHandler(
 
     override suspend fun onEvent(
         event: SyncEvent<Tag>,
-        isOwnEcho: Boolean,
     ): AppResult<Unit> = AppResult.Success(Unit)
 
     override suspend fun onCatchUpItem(

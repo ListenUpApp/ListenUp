@@ -52,7 +52,6 @@ class SyncCatchUpFromZeroTest :
 
                 override suspend fun onEvent(
                     event: SyncEvent<Tag>,
-                    isOwnEcho: Boolean,
                 ): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(

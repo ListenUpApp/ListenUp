@@ -44,7 +44,6 @@ class CatchUpRevisionGuardTest :
                         occurredAt = 2L,
                         payload = tag(name = "fresh", revision = 6L),
                     ),
-                    isOwnEcho = false,
                 )
 
                 // A concurrently-running from-zero catch-up page, read before the live write
@@ -68,7 +67,6 @@ class CatchUpRevisionGuardTest :
                         occurredAt = 2L,
                         payload = tag(name = "restored", revision = 6L),
                     ),
-                    isOwnEcho = false,
                 )
 
                 // A stale from-zero catch-up page still carries the pre-restore tombstone at rev 5.
@@ -91,7 +89,6 @@ class CatchUpRevisionGuardTest :
                         occurredAt = 2L,
                         payload = tag(name = "before-repair", revision = 6L),
                     ),
-                    isOwnEcho = false,
                 )
 
                 // A from-zero re-pull can legitimately rewrite content at an unchanged revision
@@ -129,7 +126,6 @@ class CatchUpRevisionGuardTest :
                             occurredAt = 2L,
                             payload = BookTagSyncPayload(bookId = "b1", tagId = "t1", createdAt = 1L, revision = 6L),
                         ),
-                        isOwnEcho = false,
                     )
 
                     // A stale from-zero catch-up page still carries the pre-restore tombstone at rev 5.
@@ -153,7 +149,7 @@ class CatchUpRevisionGuardTest :
             }
         }
 
-        test("books (EchoShielded): a stale own-echo does not regress the shield's revision metadata") {
+        test("books (ServerWins): a stale inbound event does not regress the row's revision metadata") {
             runTest {
                 val db = createInMemoryTestDatabase()
                 try {
@@ -163,20 +159,16 @@ class CatchUpRevisionGuardTest :
 
                     handler.onEvent(
                         SyncEvent.Created(id = "b1", revision = 1L, occurredAt = 1L, payload = bookPayload(revision = 1L)),
-                        isOwnEcho = false,
                     )
 
                     // The live SSE tail already delivered a fresher write (rev 6).
                     handler.onEvent(
                         SyncEvent.Updated(id = "b1", revision = 6L, occurredAt = 2L, payload = bookPayload(revision = 6L)),
-                        isOwnEcho = false,
                     )
 
-                    // A stale own echo (rev 5) must not reach the EchoShielded shield, which would
-                    // otherwise blindly overwrite revision/updatedAt with the stale values.
+                    // A stale inbound frame (rev 5) must be skipped by the revision guard, not applied.
                     handler.onEvent(
                         SyncEvent.Updated(id = "b1", revision = 5L, occurredAt = 3L, payload = bookPayload(revision = 5L)),
-                        isOwnEcho = true,
                     )
 
                     db.bookDao().getById(BookId("b1"))?.revision shouldBe 6L

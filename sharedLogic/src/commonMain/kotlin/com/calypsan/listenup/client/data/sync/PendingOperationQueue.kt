@@ -125,8 +125,9 @@ private fun classifyFailure(
  *   sequentially within a single call; cross-entity parallelism emerges across
  *   concurrent drain() schedulings, not within one. Per-entity FIFO comes from
  *   the SQL filter, not Mutex coordination.
- * - [containsAndAck] is the dispatcher's echo-matching primitive: present →
- *   true and remove the op (ack); absent → false (event is a remote write).
+ * - [hasQueuedOpFor] is the anti-flicker shield's primitive: a still-dispatchable
+ *   op for (domain, entity) means a local edit is in flight, so an inbound echo/
+ *   catch-up for that entity is shielded rather than clobbering the optimistic state.
  * - Drain failures classify three ways ([classifyFailure]): a **server-answered
  *   retryable** failure (5xx) increments `failureCount` and dead-letters after
  *   [MAX_RETRYABLE_ATTEMPTS]; a **parked** failure (unreachable, or an idempotent
@@ -219,18 +220,19 @@ internal class PendingOperationQueue(
     }
 
     /**
-     * If [clientOpId] is in the queue, delete it and return true. Used by the
-     * dispatcher to ack echoes.
+     * True when a still-dispatchable local op is queued for (domainName, entityId).
      *
-     * Get + delete is intentionally non-atomic — production usage is
-     * single-coroutine (the SSE dispatcher), and adding a Mutex would mask
-     * the design constraint without buying anything under that invariant.
+     * This is the anti-flicker shield's one primitive: entity-level and clientOpId-independent.
+     * When an inbound SSE echo or catch-up item arrives for an entity whose local edit is still
+     * in flight, the apply is shielded so the optimistic state is not clobbered by a (possibly
+     * stale) server snapshot — the authoritative state arrives via the edit's own echo once it
+     * drains. Dead-lettered ops do NOT count as in-flight, so a permanently-failed edit lets the
+     * entity converge to server truth (see [PendingOperationV2Dao.hasQueuedOp]).
      */
-    suspend fun containsAndAck(clientOpId: String): Boolean {
-        val existing = dao.get(clientOpId) ?: return false
-        dao.delete(existing.clientOpId)
-        return true
-    }
+    suspend fun hasQueuedOpFor(
+        domainName: String,
+        entityId: String,
+    ): Boolean = dao.hasQueuedOp(domainName, entityId)
 
     /**
      * Dispatch the earliest-enqueued op per (domain, entityId) group currently

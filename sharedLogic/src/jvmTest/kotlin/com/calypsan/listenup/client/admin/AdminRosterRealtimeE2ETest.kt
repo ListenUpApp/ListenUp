@@ -301,7 +301,6 @@ private fun buildRosterSyncEngine(
     val dispatcher =
         SyncEventDispatcher(
             registry = registry,
-            queue = queue,
             state = state,
             cursorAdvance = { domain, rev -> store.setCursor(domain, rev) },
             onCursorStale = {

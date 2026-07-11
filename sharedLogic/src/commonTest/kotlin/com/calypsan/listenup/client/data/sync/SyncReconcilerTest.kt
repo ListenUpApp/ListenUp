@@ -48,7 +48,6 @@ class SyncReconcilerTest :
 
                 override suspend fun onEvent(
                     event: SyncEvent<Tag>,
-                    isOwnEcho: Boolean,
                 ): AppResult<Unit> = AppResult.Success(Unit)
 
                 override suspend fun onCatchUpItem(
@@ -293,7 +292,6 @@ private fun accessGatedHandler(
 
         override suspend fun onEvent(
             event: SyncEvent<Tag>,
-            isOwnEcho: Boolean,
         ): AppResult<Unit> = AppResult.Success(Unit)
 
         override suspend fun onCatchUpItem(

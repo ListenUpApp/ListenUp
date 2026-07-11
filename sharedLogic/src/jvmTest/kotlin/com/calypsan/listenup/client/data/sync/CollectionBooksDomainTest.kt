@@ -28,7 +28,7 @@ class CollectionBooksDomainTest :
         test("collection_books Created event inserts the junction row") {
             withHandler { handler, db ->
                 handler
-                    .onEvent(createdJunction(junctionPayload("c1", "b1", createdAt = 100L, revision = 1L)), isOwnEcho = false)
+                    .onEvent(createdJunction(junctionPayload("c1", "b1", createdAt = 100L, revision = 1L)))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.collectionBookDao().findByKey("c1", "b1")
                 row shouldNotBe null
@@ -42,7 +42,7 @@ class CollectionBooksDomainTest :
 
         test("collection_books Updated event upserts (re-add clears tombstone)") {
             withHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("c1", "b1", deletedAt = 500L, revision = 2L)), isOwnEcho = false)
+                handler.onEvent(createdJunction(junctionPayload("c1", "b1", deletedAt = 500L, revision = 2L)))
                 handler.onEvent(
                     SyncEvent.Updated(
                         id = "c1:b1",
@@ -51,7 +51,6 @@ class CollectionBooksDomainTest :
                         clientOpId = null,
                         payload = junctionPayload("c1", "b1", revision = 3L, deletedAt = null),
                     ),
-                    isOwnEcho = false,
                 )
                 val row = db.collectionBookDao().findByKey("c1", "b1")!!
                 row.deletedAt shouldBe null
@@ -61,9 +60,9 @@ class CollectionBooksDomainTest :
 
         test("collection_books Deleted event tombstones via synthetic id") {
             withHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("c1", "b1", revision = 1L)), isOwnEcho = false)
+                handler.onEvent(createdJunction(junctionPayload("c1", "b1", revision = 1L)))
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "c1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "c1:b1", revision = 2L, occurredAt = 800L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
                 val row = db.collectionBookDao().findByKey("c1", "b1")!!
                 row.deletedAt shouldBe 800L
@@ -73,8 +72,8 @@ class CollectionBooksDomainTest :
 
         test("tombstoned row is EXCLUDED from digestRows — the digest counts live rows only (F1)") {
             withHandler { handler, db ->
-                handler.onEvent(createdJunction(junctionPayload("c1", "b1", revision = 1L)), isOwnEcho = false)
-                handler.onEvent(SyncEvent.Deleted(id = "c1:b1", revision = 2L, occurredAt = 800L), isOwnEcho = false)
+                handler.onEvent(createdJunction(junctionPayload("c1", "b1", revision = 1L)))
+                handler.onEvent(SyncEvent.Deleted(id = "c1:b1", revision = 2L, occurredAt = 800L))
                 // observeBookIds filters tombstones — invisible to reads
                 db
                     .collectionBookDao()
@@ -91,7 +90,7 @@ class CollectionBooksDomainTest :
         test("collection_books Deleted event with malformed id logs and returns Success") {
             withHandler { handler, _ ->
                 handler
-                    .onEvent(SyncEvent.Deleted(id = "no-colon-here", revision = 1L, occurredAt = 100L), isOwnEcho = false)
+                    .onEvent(SyncEvent.Deleted(id = "no-colon-here", revision = 1L, occurredAt = 100L))
                     .shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }

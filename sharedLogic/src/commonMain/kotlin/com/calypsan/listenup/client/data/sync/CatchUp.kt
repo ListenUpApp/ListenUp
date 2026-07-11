@@ -33,8 +33,8 @@ internal interface CatchUp {
     /**
      * Targeted, access-filtered fetch of just the rows named by [fetch] — the read half of the
      * scoped `AccessChanged` delta, [catchUpTransient] minus the from-0 paging. Each returned row is
-     * applied through [SyncDomainHandler.onCatchUpItem], so it inherits the same ServerWins /
-     * EchoShielded no-lost-update guard as paged catch-up. Returns the non-tombstone ids that came
+     * applied through [SyncDomainHandler.onCatchUpItem], so it inherits the same revision guard and
+     * in-flight shield as paged catch-up. Returns the non-tombstone ids that came
      * back — for [TargetedFetch.ByIds] that is the still-accessible subset of the requested ids (the
      * requested-but-not-returned remainder is what the caller prunes); the persisted
      * [SyncCursorStore] is deliberately untouched, exactly like [catchUpTransient].
