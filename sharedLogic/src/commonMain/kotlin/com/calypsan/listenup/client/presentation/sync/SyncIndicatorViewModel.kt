@@ -224,6 +224,7 @@ internal val PendingOperationType.description: OpDescription
             PendingOperationType.USER_PREFERENCES -> OpDescription.Global("Syncing preferences")
             PendingOperationType.PLAYBACK_POSITION -> OpDescription.Global("Syncing playback position")
             PendingOperationType.LISTENING_EVENT -> OpDescription.Global("Syncing listening data")
+            PendingOperationType.READING_ORDER_UPDATE -> OpDescription.Global("Syncing reading orders")
             PendingOperationType.OTHER -> OpDescription.Global("Syncing changes")
         }
 

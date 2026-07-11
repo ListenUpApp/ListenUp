@@ -42,7 +42,12 @@ internal class PendingOperationRepositoryImpl(
     private companion object {
         /** Background domains users don't manage by hand; hidden from the pending count. */
         val SILENT_DOMAINS =
-            setOf(OutboxChannels.ListeningEvents.name, OutboxChannels.Positions.name, OutboxChannels.Preferences.name)
+            setOf(
+                OutboxChannels.ListeningEvents.name,
+                OutboxChannels.Positions.name,
+                OutboxChannels.Preferences.name,
+                OutboxChannels.ReadingOrderFollows.name,
+            )
     }
 }
 
@@ -64,5 +69,7 @@ private fun operationTypeFor(domainName: String): PendingOperationType =
         OutboxChannels.Preferences.name -> PendingOperationType.USER_PREFERENCES
         OutboxChannels.Positions.name -> PendingOperationType.PLAYBACK_POSITION
         OutboxChannels.ListeningEvents.name -> PendingOperationType.LISTENING_EVENT
+        OutboxChannels.ReadingOrders.name, OutboxChannels.ReadingOrderBooks.name ->
+            PendingOperationType.READING_ORDER_UPDATE
         else -> PendingOperationType.OTHER
     }
