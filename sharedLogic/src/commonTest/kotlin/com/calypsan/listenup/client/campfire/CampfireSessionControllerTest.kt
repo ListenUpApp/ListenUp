@@ -1,0 +1,539 @@
+@file:OptIn(ExperimentalTime::class, ExperimentalCoroutinesApi::class)
+
+package com.calypsan.listenup.client.campfire
+
+import app.cash.turbine.test
+import com.calypsan.listenup.api.dto.auth.UserId
+import com.calypsan.listenup.api.dto.campfire.CampfireAnchor
+import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
+import com.calypsan.listenup.api.dto.campfire.CampfireFrame
+import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfireInvitableUser
+import com.calypsan.listenup.api.dto.campfire.CampfireMember
+import com.calypsan.listenup.api.dto.campfire.CampfireSettings
+import com.calypsan.listenup.api.dto.campfire.CampfireSnapshot
+import com.calypsan.listenup.api.dto.campfire.ChatMessage
+import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
+import com.calypsan.listenup.api.dto.campfire.PlaybackCommand
+import com.calypsan.listenup.api.error.CampfireError
+import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.streaming.RpcEvent
+import com.calypsan.listenup.client.domain.model.User
+import com.calypsan.listenup.client.domain.repository.UserRepository
+import com.calypsan.listenup.client.test.fake.FakePlaybackController
+import com.calypsan.listenup.client.test.fake.FakePlaybackManager
+import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
+
+/**
+ * TDD suite for [CampfireSessionController] (campfire implementation plan, Task 8). Drives the
+ * controller against [FakeCampfireTransport] and the shared [FakePlaybackManager]/
+ * [FakePlaybackController] fakes under virtual time (no real RPC socket, no real player).
+ */
+class CampfireSessionControllerTest :
+    FunSpec({
+
+        val sessionId = CampfireId("cf-1")
+
+        fun anchor(
+            positionMs: Long = 0L,
+            capturedAtEpochMs: Long = 0L,
+            speed: Float = 1.0f,
+            isPlaying: Boolean = false,
+            stateVersion: Long = 0L,
+        ) = CampfireAnchor(positionMs, capturedAtEpochMs, speed, isPlaying, stateVersion)
+
+        fun snapshot(
+            anchor: CampfireAnchor = anchor(),
+            hostUserId: String = "host-1",
+            controlMode: CampfireControlMode = CampfireControlMode.EVERYONE,
+            members: List<CampfireMember> = emptyList(),
+            chat: List<ChatMessage> = emptyList(),
+        ) = CampfireSnapshot(
+            id = sessionId,
+            bookId = "book-1",
+            settings = CampfireSettings(controlMode = controlMode, inviteOnly = false),
+            anchor = anchor,
+            members = members,
+            hostUserId = hostUserId,
+            recentChat = chat,
+            yourPositionMs = null,
+            spoilerAhead = false,
+        )
+
+        fun controller(
+            transport: FakeCampfireTransport,
+            scope: CoroutineScope,
+            clock: Clock,
+            selfUserId: String = "self-1",
+            playbackManager: FakePlaybackManager = FakePlaybackManager(),
+            playbackController: FakePlaybackController = FakePlaybackController(),
+        ) = CampfireSessionController(
+            transport = transport,
+            playbackManager = playbackManager,
+            playbackController = playbackController,
+            userRepository = FakeUserRepository(selfUserId),
+            scope = scope,
+            clock = clock,
+        )
+
+        test("join applies the snapshot anchor to playback and seeds Active state") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult = AppResult.Success(snapshot(anchor = anchor(positionMs = 5_000L, isPlaying = true)))
+                    }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+
+                sut.join(sessionId)
+
+                transport.joinCalls shouldBe listOf(sessionId)
+                playbackController.seekCalls shouldBe listOf(5_000L)
+                playbackController.playCount shouldBe 1
+                playbackController.pauseCount shouldBe 0
+                playbackController.speedCalls shouldBe listOf(1.0f)
+                val active = sut.state.value as CampfireUiState.Active
+                active.sessionId shouldBe sessionId
+                active.anchor.positionMs shouldBe 5_000L
+            }
+        }
+
+        test("foreign AnchorChanged frame is applied via the playback controller") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.state.test {
+                    awaitItem() // initial Active from join
+
+                    val newAnchor = anchor(positionMs = 12_000L, isPlaying = true)
+                    transport.emit(RpcEvent.Data(CampfireFrame.AnchorChanged(newAnchor, byUserId = "other-user", commandId = null)))
+                    runCurrent()
+
+                    val updated = awaitItem() as CampfireUiState.Active
+                    updated.anchor.positionMs shouldBe 12_000L
+                    cancelAndIgnoreRemainingEvents()
+                }
+
+                playbackController.seekCalls.last() shouldBe 12_000L
+                playbackController.playCount shouldBe 1
+            }
+        }
+
+        test("own command echo is not re-applied to the playback controller") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val pauseCountAfterJoin = playbackController.pauseCount // join()'s own anchor apply (default anchor is paused)
+                val seekCallsAfterJoin = playbackController.seekCalls.size
+
+                sut.pause()
+                runCurrent()
+                val commandId = transport.sentCommands.single().commandId
+                playbackController.pauseCount shouldBe pauseCountAfterJoin + 1 // the optimistic apply
+
+                val echoAnchor = anchor(positionMs = 3_000L, isPlaying = false)
+                transport.emit(RpcEvent.Data(CampfireFrame.AnchorChanged(echoAnchor, byUserId = "self-1", commandId = commandId)))
+                runCurrent()
+
+                // No additional pause/seek/play beyond the original optimistic pause.
+                playbackController.pauseCount shouldBe pauseCountAfterJoin + 1
+                playbackController.seekCalls.size shouldBe seekCallsAfterJoin
+                (sut.state.value as CampfireUiState.Active).anchor.positionMs shouldBe 3_000L
+            }
+        }
+
+        test("drift beyond tolerance triggers a single corrective seek while the room plays") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult = AppResult.Success(snapshot(anchor = anchor(positionMs = 0L, isPlaying = true)))
+                    }
+                val playbackManager = FakePlaybackManager()
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val seekCountAfterJoin = playbackController.seekCalls.size
+
+                // Local playback lags well behind the room's expected position after one tick.
+                playbackManager.currentPositionMsFlow.value = 100L
+                advanceTimeBy(5_000L)
+                runCurrent()
+
+                playbackController.seekCalls.size shouldBe seekCountAfterJoin + 1
+                playbackController.seekCalls.last() shouldBe 5_000L
+            }
+        }
+
+        test("drift within tolerance does not trigger a corrective seek") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult = AppResult.Success(snapshot(anchor = anchor(positionMs = 0L, isPlaying = true)))
+                    }
+                val playbackManager = FakePlaybackManager()
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val seekCountAfterJoin = playbackController.seekCalls.size
+
+                playbackManager.currentPositionMsFlow.value = 5_000L
+                advanceTimeBy(5_000L)
+                runCurrent()
+
+                playbackController.seekCalls.size shouldBe seekCountAfterJoin
+            }
+        }
+
+        test("drift loop does not correct while local playback is buffering") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult = AppResult.Success(snapshot(anchor = anchor(positionMs = 0L, isPlaying = true)))
+                    }
+                val playbackManager = FakePlaybackManager()
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val seekCountAfterJoin = playbackController.seekCalls.size
+
+                playbackManager.isBufferingFlow.value = true
+                playbackManager.currentPositionMsFlow.value = 100L
+                advanceTimeBy(5_000L)
+                runCurrent()
+
+                playbackController.seekCalls.size shouldBe seekCountAfterJoin
+            }
+        }
+
+        test("pause without control emits ControlDenied and does not send or apply") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(
+                                snapshot(controlMode = CampfireControlMode.HOST_ONLY, hostUserId = "host-1"),
+                            )
+                    }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, selfUserId = "self-1", playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val pauseCountAfterJoin = playbackController.pauseCount
+
+                sut.events.test {
+                    sut.pause()
+                    runCurrent()
+                    awaitItem() shouldBe CampfireSessionEvent.ControlDenied
+                }
+
+                transport.sentCommands shouldBe emptyList()
+                playbackController.pauseCount shouldBe pauseCountAfterJoin
+            }
+        }
+
+        test("pause with control (host under HOST_ONLY) sends the command and applies optimistically") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport =
+                    FakeCampfireTransport().apply {
+                        joinResult =
+                            AppResult.Success(
+                                snapshot(controlMode = CampfireControlMode.HOST_ONLY, hostUserId = "self-1"),
+                            )
+                    }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, selfUserId = "self-1", playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val pauseCountAfterJoin = playbackController.pauseCount
+
+                sut.pause()
+                runCurrent()
+
+                transport.sentCommands.single().shouldBeInstanceOf<PlaybackCommand.Pause>()
+                playbackController.pauseCount shouldBe pauseCountAfterJoin + 1
+            }
+        }
+
+        test("transport flow error moves state to Disconnected without pausing playback") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val pauseCountAfterJoin = playbackController.pauseCount
+
+                transport.emit(RpcEvent.Error(CampfireError.CampfireNotFound()))
+                runCurrent()
+
+                val disconnected = sut.state.value as CampfireUiState.Disconnected
+                disconnected.sessionId shouldBe sessionId
+                disconnected.keepPlayingSolo shouldBe true
+                playbackController.pauseCount shouldBe pauseCountAfterJoin
+            }
+        }
+
+        test("rejoin re-snapshots and returns to Active when drift is small") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackManager = FakePlaybackManager()
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                transport.emit(RpcEvent.Error(CampfireError.CampfireNotFound()))
+                runCurrent()
+
+                playbackManager.currentPositionMsFlow.value = 1_000L
+                transport.joinResult = AppResult.Success(snapshot(anchor = anchor(positionMs = 1_500L)))
+                sut.rejoin()
+                runCurrent()
+
+                val active = sut.state.value as CampfireUiState.Active
+                active.pendingRejoinSync shouldBe null
+                active.anchor.positionMs shouldBe 1_500L
+            }
+        }
+
+        test("rejoin with large drift withholds the seek and exposes pendingRejoinSync") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackManager = FakePlaybackManager()
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackManager = playbackManager, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                transport.emit(RpcEvent.Error(CampfireError.CampfireNotFound()))
+                runCurrent()
+                val seekCountAfterDisconnect = playbackController.seekCalls.size
+
+                playbackManager.currentPositionMsFlow.value = 0L
+                val farAnchor = anchor(positionMs = 600_000L) // 10 minutes ahead — well past the large-drift threshold
+                transport.joinResult = AppResult.Success(snapshot(anchor = farAnchor))
+                sut.rejoin()
+                runCurrent()
+
+                val active = sut.state.value as CampfireUiState.Active
+                active.pendingRejoinSync shouldBe farAnchor
+                playbackController.seekCalls.size shouldBe seekCountAfterDisconnect
+
+                sut.confirmRejoinSync()
+                (sut.state.value as CampfireUiState.Active).pendingRejoinSync shouldBe null
+                playbackController.seekCalls.last() shouldBe 600_000L
+            }
+        }
+
+        test("chat and reaction pass-throughs: chat accumulates into state, reactions are one-shot events") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.sendChat("hello room")
+                runCurrent()
+                transport.sentChat shouldBe listOf("hello room")
+
+                sut.events.test {
+                    transport.emit(RpcEvent.Data(CampfireFrame.Chat(ChatMessage("other", 0L, 0L, "hi back"))))
+                    runCurrent()
+                    (sut.state.value as CampfireUiState.Active).chat.map { it.text } shouldBe listOf("hi back")
+
+                    transport.emit(RpcEvent.Data(CampfireFrame.Reaction("other", "🔥")))
+                    runCurrent()
+                    awaitItem() shouldBe CampfireSessionEvent.ReactionReceived("other", "🔥")
+                }
+            }
+        }
+
+        test("CampfireEnded moves state to Ended without pausing local playback") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val playbackController = FakePlaybackController()
+                val sut = controller(transport, backgroundScope, clock, playbackController = playbackController)
+                sut.join(sessionId)
+                runCurrent()
+                val pauseCountAfterJoin = playbackController.pauseCount
+
+                transport.emit(RpcEvent.Data(CampfireFrame.CampfireEnded("host_ended")))
+                runCurrent()
+
+                val ended = sut.state.value as CampfireUiState.Ended
+                ended.reason shouldBe "host_ended"
+                playbackController.pauseCount shouldBe pauseCountAfterJoin
+            }
+        }
+
+        test("state is exposed as a StateFlow starting at Idle before join") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport()
+                val sut = controller(transport, backgroundScope, clock)
+
+                sut.state.value shouldBe CampfireUiState.Idle
+            }
+        }
+
+        test("leave cancels the frame stream and returns state to Idle") {
+            runTest {
+                val clock = VirtualClock(testScheduler)
+                val transport = FakeCampfireTransport().apply { joinResult = AppResult.Success(snapshot()) }
+                val sut = controller(transport, backgroundScope, clock)
+                sut.join(sessionId)
+                runCurrent()
+
+                sut.leave()
+                runCurrent()
+
+                sut.state.value shouldBe CampfireUiState.Idle
+                transport.leaveCalls shouldBe listOf(sessionId)
+
+                // A frame emitted after leave() must not resurrect Active state.
+                transport.emit(RpcEvent.Data(CampfireFrame.HostChanged("someone-else")))
+                runCurrent()
+                sut.state.value shouldBe CampfireUiState.Idle
+            }
+        }
+    })
+
+/** Bridges [kotlin.time.Clock] to the test scheduler's virtual time — mirrors CachedAudioTokenProviderTest's VirtualClock. */
+private class VirtualClock(
+    private val scheduler: TestCoroutineScheduler,
+) : Clock {
+    override fun now(): Instant = Instant.fromEpochMilliseconds(scheduler.currentTime)
+}
+
+/** In-memory [FakeCampfireTransport] — records every call, replays a hot frame flow for [observeSession]. */
+private class FakeCampfireTransport : CampfireTransport {
+    var joinResult: AppResult<CampfireSnapshot> = AppResult.Failure(CampfireError.CampfireNotFound())
+    val joinCalls = mutableListOf<CampfireId>()
+    val leaveCalls = mutableListOf<CampfireId>()
+    val sentCommands = mutableListOf<PlaybackCommand>()
+    var sendCommandResult: AppResult<Unit> = AppResult.Success(Unit)
+    val sentChat = mutableListOf<String>()
+    val sentReactions = mutableListOf<String>()
+
+    private val frameFlow = MutableSharedFlow<RpcEvent<CampfireFrame>>(extraBufferCapacity = 64)
+
+    suspend fun emit(event: RpcEvent<CampfireFrame>) = frameFlow.emit(event)
+
+    override suspend fun createSession(
+        bookId: String,
+        settings: CampfireSettings,
+    ): AppResult<CampfireSnapshot> = throw NotImplementedError("not exercised by CampfireSessionController")
+
+    override suspend fun joinSession(sessionId: CampfireId): AppResult<CampfireSnapshot> {
+        joinCalls += sessionId
+        return joinResult
+    }
+
+    override suspend fun leaveSession(sessionId: CampfireId): AppResult<Unit> {
+        leaveCalls += sessionId
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun endSession(sessionId: CampfireId): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun transferHost(
+        sessionId: CampfireId,
+        toUserId: String,
+    ): AppResult<Unit> = throw NotImplementedError()
+
+    override suspend fun setControlMode(
+        sessionId: CampfireId,
+        mode: CampfireControlMode,
+    ): AppResult<Unit> = throw NotImplementedError()
+
+    override fun observeSession(sessionId: CampfireId): Flow<RpcEvent<CampfireFrame>> = frameFlow
+
+    override suspend fun sendCommand(
+        sessionId: CampfireId,
+        command: PlaybackCommand,
+    ): AppResult<Unit> {
+        sentCommands += command
+        return sendCommandResult
+    }
+
+    override suspend fun sendChat(
+        sessionId: CampfireId,
+        text: String,
+    ): AppResult<Unit> {
+        sentChat += text
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun sendReaction(
+        sessionId: CampfireId,
+        emoji: String,
+    ): AppResult<Unit> {
+        sentReactions += emoji
+        return AppResult.Success(Unit)
+    }
+
+    override suspend fun listOpenSessions(): AppResult<List<OpenCampfireSummary>> = AppResult.Success(emptyList())
+
+    override suspend fun listInvitableUsers(bookId: String): AppResult<List<CampfireInvitableUser>> = AppResult.Success(emptyList())
+}
+
+/** Minimal [UserRepository] fake — only [getCurrentUser] is reachable from [CampfireSessionController]. */
+private class FakeUserRepository(
+    private val selfUserId: String?,
+) : UserRepository {
+    override fun observeCurrentUser(): Flow<User?> = throw NotImplementedError()
+
+    override fun observeIsAdmin(): Flow<Boolean> = throw NotImplementedError()
+
+    override suspend fun getCurrentUser(): User? =
+        selfUserId?.let {
+            User(
+                id = UserId(it),
+                email = "$it@example.test",
+                displayName = it,
+                isAdmin = false,
+                createdAtMs = 0L,
+                updatedAtMs = 0L,
+            )
+        }
+
+    override suspend fun saveUser(user: User): Unit = throw NotImplementedError()
+
+    override suspend fun clearUsers(): Unit = throw NotImplementedError()
+
+    override suspend fun refreshCurrentUser(): User? = throw NotImplementedError()
+}
