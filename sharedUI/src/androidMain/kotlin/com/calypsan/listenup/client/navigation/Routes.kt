@@ -315,6 +315,13 @@ data class AdminUserDetail(
 @Serializable
 data object AdminLibrarySettings : Route
 
+/**
+ * Admin file-organization settings screen — enable the organizer, pick the folder schema,
+ * preview + run the full-library reorganization.
+ */
+@Serializable
+data object AdminOrganizeSettings : Route
+
 // Admin Backup Routes
 
 /**

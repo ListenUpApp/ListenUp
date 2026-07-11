@@ -17,6 +17,7 @@ import com.calypsan.listenup.api.InstanceService
 import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.api.MoodService
+import com.calypsan.listenup.api.OrganizeService
 import com.calypsan.listenup.api.PlaybackProgressService
 import com.calypsan.listenup.api.PingService
 import com.calypsan.listenup.api.PlaybackService
@@ -42,6 +43,7 @@ import com.calypsan.listenup.server.api.ImportServiceImpl
 import com.calypsan.listenup.server.api.LibraryAdminServiceImpl
 import com.calypsan.listenup.server.api.MetadataLookupServiceImpl
 import com.calypsan.listenup.server.api.MoodServiceImpl
+import com.calypsan.listenup.server.api.OrganizeServiceImpl
 import com.calypsan.listenup.server.api.PlaybackProgressServiceImpl
 import com.calypsan.listenup.server.api.PlaybackServiceImpl
 import com.calypsan.listenup.server.api.ProfileServiceImpl
@@ -107,6 +109,7 @@ private fun Route.authedRpc(services: RpcServices) {
         }
         registerScoped<TagService> { guard((services.tagService as TagServiceImpl).copyWith(it)) }
         registerScoped<MoodService> { guard((services.moodService as MoodServiceImpl).copyWith(it)) }
+        registerScoped<OrganizeService> { guard((services.organizeService as OrganizeServiceImpl).copyWith(it)) }
         registerScoped<GenreService> { guard((services.genreService as GenreServiceImpl).copyWith(it)) }
         registerScoped<CollectionService> { guard((services.collectionService as CollectionServiceImpl).copyWith(it)) }
         registerScoped<ShelfService> { guard((services.shelfService as ShelfServiceImpl).copyWith(it)) }

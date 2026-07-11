@@ -37,6 +37,7 @@ class ManagementSectionTest {
                     onBackupClick = {},
                     onInboxClick = {},
                     onLibrarySettingsClick = {},
+                    onOrganizeClick = {},
                     inboxEnabled = false,
                 )
             }
@@ -57,6 +58,7 @@ class ManagementSectionTest {
                     onBackupClick = {},
                     onInboxClick = {},
                     onLibrarySettingsClick = { clicked = true },
+                    onOrganizeClick = {},
                     inboxEnabled = false,
                 )
             }

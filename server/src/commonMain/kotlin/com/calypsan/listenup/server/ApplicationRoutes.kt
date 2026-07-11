@@ -25,6 +25,7 @@ import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.dto.auth.RegistrationStatusEvent
 import com.calypsan.listenup.api.event.ScanEvent
 import com.calypsan.listenup.server.api.AdminSettingsServiceImpl
+import com.calypsan.listenup.server.api.OrganizeServiceImpl
 import com.calypsan.listenup.server.api.AdminUserServiceImpl
 import com.calypsan.listenup.server.api.BookAccessPolicy
 import com.calypsan.listenup.server.api.InviteServiceImpl
@@ -220,6 +221,7 @@ private fun Application.rpcServiceBundle(): RpcServices =
         libraryAdminService = koinGet<LibraryAdminService>(),
         tagService = koinGet<TagService>(),
         moodService = koinGet<MoodService>(),
+        organizeService = koinGet<OrganizeServiceImpl>(),
         genreService = koinGet<GenreService>(),
         collectionService = koinGet<CollectionService>(),
         shelfService = koinGet<ShelfService>(),

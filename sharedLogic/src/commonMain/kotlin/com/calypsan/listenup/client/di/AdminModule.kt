@@ -9,15 +9,19 @@ import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorImportRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.KtorOrganizeRpcFactory
+import com.calypsan.listenup.client.data.remote.OrganizeRpcFactory
 import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ImportRepositoryImpl
+import com.calypsan.listenup.client.data.repository.OrganizeRepositoryImpl
 import com.calypsan.listenup.client.domain.repository.AdminRepository
 import com.calypsan.listenup.client.domain.repository.BackupRepository
 import com.calypsan.listenup.client.domain.repository.EventStreamRepository
 import com.calypsan.listenup.client.domain.repository.ImportRepository
+import com.calypsan.listenup.client.domain.repository.OrganizeRepository
 import com.calypsan.listenup.client.domain.usecase.admin.ApproveUserUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.CreateInviteUseCase
 import com.calypsan.listenup.client.domain.usecase.admin.DeleteUserUseCase
@@ -94,6 +98,19 @@ internal val adminModule: Module =
         // ImportRepository — admin Audiobookshelf import via ImportService RPC proxy + REST upload.
         single<ImportRepository> {
             ImportRepositoryImpl(rpcFactory = get(), clientFactory = get())
+        }
+
+        // OrganizeRpcFactory — kotlinx.rpc proxy for OrganizeService (admin file organizer).
+        single<OrganizeRpcFactory> {
+            KtorOrganizeRpcFactory(
+                apiClientFactory = get(),
+                serverConfig = get(),
+            )
+        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+
+        // OrganizeRepository — admin file-organizer settings/preview/run via OrganizeService RPC proxy.
+        single<OrganizeRepository> {
+            OrganizeRepositoryImpl(rpcFactory = get())
         }
 
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)

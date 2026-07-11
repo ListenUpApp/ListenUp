@@ -244,6 +244,16 @@ UPDATE books SET revision = :revision, updated_at = :updated_at, deleted_at = NU
 updateTotalDuration:
 UPDATE books SET total_duration = :total_duration WHERE id = :id;
 
+-- Organizer move (MoveManifestExecutor): rewrites just the book's canonical relative path plus
+-- the SyncableTable substrate bump (revision/updated_at) — never library_id/folder_id (moves stay
+-- within-root) and never any content column. Distinct from the full-aggregate
+-- updateContent/updateContentPreserveCover the scanner uses: this is a pure move, run only after
+-- the corresponding on-disk files have already landed at their new location.
+updateRootRelPath:
+UPDATE books
+SET root_rel_path = :root_rel_path, revision = :revision, updated_at = :updated_at
+WHERE id = :id;
+
 -- Total duration (ms) of a single live book — feeds the re-read coverage threshold. A tombstoned or
 -- absent book yields no row (the caller then treats coverage as unassessable and appends).
 durationForBook:
