@@ -241,7 +241,14 @@ internal class BookServiceImpl(
         validateChapterSet(chapters, current.totalDuration)?.let { return AppResult.Failure(it) }
         val payloadChapters =
             chapters.map {
-                BookChapterPayload(id = it.id, title = it.title, duration = it.duration, startTime = it.startTime)
+                BookChapterPayload(
+                    id = it.id,
+                    title = it.title,
+                    duration = it.duration,
+                    startTime = it.startTime,
+                    partTitle = it.partTitle,
+                    bookTitle = it.bookTitle,
+                )
             }
         return when (
             val res =

@@ -72,6 +72,66 @@ class StickyChaptersOnRescanTest :
             }
         }
 
+        test("USER chapter headers (partTitle/bookTitle) survive a rescan") {
+            withSqlDatabase {
+                sql.seedTestLibraryAndFolder()
+                val bus = ChangeBus()
+                val syncRegistry = SyncRegistry()
+                val contributorRepo = ContributorRepository(sql, bus, syncRegistry)
+                val seriesRepo = SeriesRepository(sql, bus, syncRegistry)
+                val genreRepo = GenreRepository(sql, bus, syncRegistry)
+                val repo =
+                    BookRepository(
+                        db = sql,
+                        driver = driver,
+                        bus = bus,
+                        registry = syncRegistry,
+                        contributorRepository = contributorRepo,
+                        seriesRepository = seriesRepo,
+                        genreRepository = genreRepo,
+                    )
+                runTest {
+                    // First upsert: USER chapter set with Book/Part headers on the opening chapter
+                    repo.upsert(
+                        bookFixture("bx").copy(
+                            chapters =
+                                listOf(
+                                    BookChapterPayload(
+                                        id = "ch-p",
+                                        title = "Prologue",
+                                        duration = 600_000L,
+                                        startTime = 0L,
+                                        partTitle = "Part One",
+                                        bookTitle = "Book I",
+                                    ),
+                                    BookChapterPayload(id = "ch-a", title = "Act One", duration = 2_400_000L, startTime = 600_000L),
+                                ),
+                            chapterSource = ChapterSource.USER,
+                        ),
+                    )
+
+                    // Second upsert: simulated rescan with EMBEDDED chapters — must NOT clobber USER set or its headers
+                    repo.upsert(
+                        bookFixture("bx").copy(
+                            chapters =
+                                listOf(
+                                    BookChapterPayload(id = "ch-1", title = "Ch1", duration = 100_000L, startTime = 0L),
+                                    BookChapterPayload(id = "ch-2", title = "Ch2", duration = 100_000L, startTime = 100_000L),
+                                ),
+                            chapterSource = ChapterSource.EMBEDDED,
+                        ),
+                    )
+
+                    val readback = repo.findById(BookId("bx"))!!
+                    readback.chapterSource shouldBe ChapterSource.USER
+                    readback.chapters shouldHaveSize 2
+                    val openingChapter = readback.chapters.first { it.id == "ch-p" }
+                    openingChapter.partTitle shouldBe "Part One"
+                    openingChapter.bookTitle shouldBe "Book I"
+                }
+            }
+        }
+
         test("USER chapter set is overwritten by a subsequent USER edit") {
             withSqlDatabase {
                 sql.seedTestLibraryAndFolder()

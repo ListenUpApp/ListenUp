@@ -23,7 +23,7 @@ class SchemaMigrationSmokeTest :
                 // changes land, bump this and start asserting actual v(N-1) → v(N) migration
                 // behaviour. Today this just proves the harness can load the schema
                 // bundle and drive [androidx.sqlite.SQLiteConnection].
-                val connection = helper.createDatabase(version = 1)
+                val connection = helper.createDatabase(version = 2)
                 connection.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").use { stmt ->
                     val tables =
                         buildList {

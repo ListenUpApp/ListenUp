@@ -91,6 +91,8 @@ internal class BookAggregateWriter(
                 title = ch.title,
                 duration = ch.duration,
                 start_time = ch.startTime,
+                part_title = ch.partTitle,
+                book_title = ch.bookTitle,
             )
         }
     }
