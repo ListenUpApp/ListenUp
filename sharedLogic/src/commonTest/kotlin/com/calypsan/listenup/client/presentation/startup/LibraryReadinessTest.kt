@@ -9,7 +9,8 @@ import com.calypsan.listenup.api.dto.auth.SessionId
 import com.calypsan.listenup.api.dto.auth.UserId
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.model.AuthState
 import com.calypsan.listenup.client.domain.model.ScanProgressState
 import com.calypsan.listenup.client.domain.model.User
@@ -68,11 +69,7 @@ class LibraryReadinessTest :
             return repo
         }
 
-        fun adminFactory(service: LibraryAdminService): LibraryAdminRpcFactory {
-            val factory = mock<LibraryAdminRpcFactory>()
-            everySuspend { factory.get() } returns service
-            return factory
-        }
+        fun adminChannel(service: LibraryAdminService): RpcChannel<LibraryAdminService> = RpcChannel.forTest(service)
 
         fun authSession(state: MutableStateFlow<AuthState>): AuthSession {
             val session = mock<AuthSession>()
@@ -127,7 +124,7 @@ class LibraryReadinessTest :
                 val vm =
                     AppStartupViewModel(
                         userRepoReturning(adminUser()),
-                        adminFactory(service),
+                        adminChannel(service),
                         authSession(authState),
                         syncRepo(scanning),
                     )
@@ -164,7 +161,7 @@ class LibraryReadinessTest :
                 val vm =
                     AppStartupViewModel(
                         userRepoReturning(adminUser()),
-                        adminFactory(service),
+                        adminChannel(service),
                         authSession(MutableStateFlow(authenticated)),
                         // Existing library present in Room → local-first resolves Ready without the
                         // server round-trip (the getSetupStatus stub above is intentionally unreached).
@@ -188,7 +185,7 @@ class LibraryReadinessTest :
                 val vm =
                     AppStartupViewModel(
                         userRepoReturning(adminUser()),
-                        adminFactory(service),
+                        adminChannel(service),
                         authSession(MutableStateFlow(authenticated)),
                         syncRepo(MutableStateFlow(false)),
                     )
@@ -212,7 +209,7 @@ class LibraryReadinessTest :
                 val vm =
                     AppStartupViewModel(
                         userRepoReturning(adminUser()),
-                        adminFactory(setUpAdminService()),
+                        adminChannel(setUpAdminService()),
                         authSession(MutableStateFlow(authenticated)),
                         syncRepo(scanning),
                     )
@@ -241,7 +238,7 @@ class LibraryReadinessTest :
                 val vm =
                     AppStartupViewModel(
                         userRepoReturning(adminUser()),
-                        adminFactory(setUpAdminService()),
+                        adminChannel(setUpAdminService()),
                         authSession(MutableStateFlow(authenticated)),
                         syncRepo(scanning, progress),
                     )
@@ -274,7 +271,7 @@ class LibraryReadinessTest :
                 val vm =
                     AppStartupViewModel(
                         userRepoReturning(adminUser()),
-                        adminFactory(setUpAdminService()),
+                        adminChannel(setUpAdminService()),
                         authSession(MutableStateFlow(authenticated)),
                         syncRepo(scanning),
                     )

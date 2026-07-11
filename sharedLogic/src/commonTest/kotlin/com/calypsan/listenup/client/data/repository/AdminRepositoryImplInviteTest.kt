@@ -7,9 +7,13 @@ import com.calypsan.listenup.api.dto.invite.InviteDto
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.api.dto.invite.InviteSummary
 import com.calypsan.listenup.api.dto.invite.InviteStatus
+import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.core.ServerUrl
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import dev.mokkery.mock
@@ -125,10 +129,10 @@ class AdminRepositoryImplInviteTest :
             serverUrl: String = "https://srv.example",
         ): AdminRepositoryImpl =
             AdminRepositoryImpl(
-                adminUserRpc = mock<AdminUserRpcFactory>(),
-                adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
+                adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
+                adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
                 inviteRpc = FakeInviteRpcFactory(service),
-                libraryAdminRpc = mock(),
+                libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                 serverConfig = FakeServerConfig(serverUrl),
                 adminUserRosterDao = mock(),
             )
@@ -228,10 +232,10 @@ class AdminRepositoryImplInviteTest :
                 }
             val repo =
                 AdminRepositoryImpl(
-                    adminUserRpc = mock<AdminUserRpcFactory>(),
-                    adminSettingsRpc = mock<com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory>(),
+                    adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
+                    adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
                     inviteRpc = throwingFactory,
-                    libraryAdminRpc = mock(),
+                    libraryAdminChannel = RpcChannel.forTest(mock<LibraryAdminService>()),
                     serverConfig = FakeServerConfig(),
                     adminUserRosterDao = mock(),
                 )

@@ -3,8 +3,9 @@ package com.calypsan.listenup.client.presentation.setup
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.calypsan.listenup.api.dto.DirectoryEntry
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.core.error.ErrorBus
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
@@ -40,8 +41,8 @@ sealed interface LibrarySetupNavAction {
  *
  * There is one library; the wizard selects which folders it watches.
  */
-class LibrarySetupViewModel(
-    private val libraryAdminRpcFactory: LibraryAdminRpcFactory,
+class LibrarySetupViewModel internal constructor(
+    private val libraryAdminChannel: RpcChannel<LibraryAdminService>,
     private val errorBus: ErrorBus,
     private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -65,7 +66,7 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isCheckingStatus = true, error = null) }
 
-            when (val result = libraryAdminRpcFactory.get().getSetupStatus()) {
+            when (val result = libraryAdminChannel.call { it.getSetupStatus() }) {
                 is AppResult.Success -> {
                     val status = result.data
                     logger.info { "Setup status: needsSetup=${status.needsSetup}" }
@@ -107,7 +108,7 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isLoadingDirectories = true, error = null) }
 
-            when (val result = libraryAdminRpcFactory.get().browseFilesystem(path)) {
+            when (val result = libraryAdminChannel.call { it.browseFilesystem(path) }) {
                 is AppResult.Success -> {
                     val entries = result.data
                     val isRoot = path == "/"
@@ -208,7 +209,7 @@ class LibrarySetupViewModel(
         viewModelScope.launch {
             state.update { it.copy(isCreatingLibrary = true, error = null) }
             for (path in current.selectedPaths) {
-                when (val result = libraryAdminRpcFactory.get().addFolder(path)) {
+                when (val result = libraryAdminChannel.call { it.addFolder(path) }) {
                     is AppResult.Failure -> {
                         errorBus.emit(result.error)
                         state.update { it.copy(isCreatingLibrary = false, error = result.error.message) }
@@ -237,7 +238,7 @@ class LibrarySetupViewModel(
      */
     private fun triggerInitialScan() {
         appScope.launch {
-            when (val result = libraryAdminRpcFactory.get().scanLibrary()) {
+            when (val result = libraryAdminChannel.call { it.scanLibrary() }) {
                 is AppResult.Success -> {
                     logger.info { "Initial scan started" }
                 }

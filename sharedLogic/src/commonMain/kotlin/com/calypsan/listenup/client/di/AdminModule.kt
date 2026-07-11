@@ -1,15 +1,13 @@
 package com.calypsan.listenup.client.di
 
-import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
-import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
+import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.client.data.remote.BackupRpcFactory
 import com.calypsan.listenup.client.data.remote.ImportRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorAdminSettingsRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorAdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorBackupRpcFactory
 import com.calypsan.listenup.client.data.remote.KtorImportRpcFactory
-import com.calypsan.listenup.client.data.remote.KtorLibraryAdminRpcFactory
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.AdminRepositoryImpl
 import com.calypsan.listenup.client.data.repository.BackupRepositoryImpl
 import com.calypsan.listenup.client.data.repository.EventStreamRepositoryImpl
@@ -46,29 +44,15 @@ import org.koin.dsl.module
  */
 internal val adminModule: Module =
     module {
-        // LibraryAdminRpcFactory — kotlinx.rpc proxy for LibraryAdminService.
-        single<LibraryAdminRpcFactory> {
-            KtorLibraryAdminRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // LibraryAdminService RPC channel — kotlinx.rpc dispatch for library/folder administration.
+        // Authed (self-healing) by default; joins the RpcCacheInvalidator sweep.
+        rpcChannel<LibraryAdminService>()
 
-        // AdminUserRpcFactory — kotlinx.rpc proxy for AdminUserService (user roster, approval queue, edits).
-        single<AdminUserRpcFactory> {
-            KtorAdminUserRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // AdminUserService RPC channel — user roster, approval queue, role/permission edits.
+        rpcChannel<AdminUserService>()
 
-        // AdminSettingsRpcFactory — kotlinx.rpc proxy for AdminSettingsService (server identity settings).
-        single<AdminSettingsRpcFactory> {
-            KtorAdminSettingsRpcFactory(
-                apiClientFactory = get(),
-                serverConfig = get(),
-            )
-        } binds arrayOf(com.calypsan.listenup.client.data.remote.RemoteCache::class)
+        // AdminSettingsService RPC channel — server-identity settings (server name + remote URL).
+        rpcChannel<AdminSettingsService>()
 
         // BackupRpcFactory — kotlinx.rpc proxy for BackupService (admin backup/restore over RPC).
         single<BackupRpcFactory> {
@@ -99,10 +83,10 @@ internal val adminModule: Module =
         // AdminRepository for admin operations (SOLID: interface in domain, impl in data)
         single<AdminRepository> {
             AdminRepositoryImpl(
-                adminUserRpc = get(),
-                adminSettingsRpc = get(),
+                adminUserChannel = rpcChannel(),
+                adminSettingsChannel = rpcChannel(),
                 inviteRpc = get(),
-                libraryAdminRpc = get(),
+                libraryAdminChannel = rpcChannel(),
                 serverConfig = get(),
                 adminUserRosterDao = get(),
                 rpcCacheInvalidator = get(),

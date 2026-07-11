@@ -1,5 +1,8 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.AdminUserService
+import com.calypsan.listenup.api.LibraryAdminService
 import com.calypsan.listenup.api.dto.admin.AdminServerSettingsPatch
 import com.calypsan.listenup.api.dto.auth.AdminUserPatch
 import com.calypsan.listenup.api.dto.auth.PendingRegistrationDecision
@@ -16,13 +19,11 @@ import com.calypsan.listenup.api.dto.Library as ContractLibrary
 import com.calypsan.listenup.api.dto.invite.InviteId
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.client.data.local.db.AdminUserRosterDao
-import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
-import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.BrowseFilesystemResponse
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.domain.model.AccessMode
 import com.calypsan.listenup.client.domain.model.AdminUserInfo
 import com.calypsan.listenup.client.domain.model.InviteInfo
@@ -41,24 +42,25 @@ private val logger = KotlinLogging.logger {}
 /**
  * Implementation of AdminRepository backed entirely by Kotlin RPC services.
  *
- * All methods return [AppResult] — no exceptions are thrown. The [catching] helper wraps
- * every RPC call so that transport-level exceptions (e.g. [io.ktor.client.plugins.websocket.WebSocketException]
- * on a 401 WS handshake) are converted to [AppResult.Failure] rather than propagating as
- * unhandled exceptions. This mirrors [AuthRepositoryImpl.catching] and upholds the contract.
+ * All methods return [AppResult] — no exceptions are thrown. The three admin services dispatch
+ * through their [RpcChannel], which folds transport faults into typed [AppResult.Failure]s, re-raises
+ * cancellation, and self-heals its own connection. The invite surface still rides the
+ * [InviteRpcFactory] seam, so its calls are wrapped by the [catching] helper that converts a
+ * transport-level exception into an [AppResult.Failure] and drops the RPC caches.
  *
- * @property adminUserRpc RPC factory for user-management operations
- * @property adminSettingsRpc RPC factory for server-identity settings operations
+ * @property adminUserChannel Dispatches the [com.calypsan.listenup.api.AdminUserService] user-management RPC.
+ * @property adminSettingsChannel Dispatches the [com.calypsan.listenup.api.AdminSettingsService] server-identity RPC.
  * @property inviteRpc RPC factory for invite-management operations
- * @property libraryAdminRpc RPC factory for library-admin operations (add/remove folder, scan)
+ * @property libraryAdminChannel Dispatches the [com.calypsan.listenup.api.LibraryAdminService] library-admin RPC.
  * @property serverConfig source of the active server URL (used to reconstruct invite URLs)
  * @property adminUserRosterDao Room DAO for the synced `admin_user_roster` sync domain, backing
  *   [observeRoster]
  */
 internal class AdminRepositoryImpl(
-    private val adminUserRpc: AdminUserRpcFactory,
-    private val adminSettingsRpc: AdminSettingsRpcFactory,
+    private val adminUserChannel: RpcChannel<AdminUserService>,
+    private val adminSettingsChannel: RpcChannel<AdminSettingsService>,
     private val inviteRpc: InviteRpcFactory,
-    private val libraryAdminRpc: LibraryAdminRpcFactory,
+    private val libraryAdminChannel: RpcChannel<LibraryAdminService>,
     private val serverConfig: ServerConfig,
     private val adminUserRosterDao: AdminUserRosterDao,
     private val rpcCacheInvalidator: RpcCacheInvalidator =
@@ -73,42 +75,32 @@ internal class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getUsers(): AppResult<List<AdminUserInfo>> =
-        catching("getUsers") {
-            adminUserRpc.get().listUsers().map { users -> users.map { it.toAdminUserInfo() } }
-        }
+        adminUserChannel.call { it.listUsers() }.map { users -> users.map { it.toAdminUserInfo() } }
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> =
-        catching("getPendingUsers") {
-            adminUserRpc.get().listPendingUsers().map { users -> users.map { it.toAdminUserInfo() } }
-        }
+        adminUserChannel.call { it.listPendingUsers() }.map { users -> users.map { it.toAdminUserInfo() } }
 
     override fun observeRoster(): Flow<List<AdminUserInfo>> =
         adminUserRosterDao.observeAll().map { rows -> rows.map { it.toAdminUserInfo() } }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
-        catching("approveUser") {
-            adminUserRpc
-                .get()
+        adminUserChannel.call { service ->
+            service
                 .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
-                .flatMap { adminUserRpc.get().getUser(UserId(userId)) }
+                .flatMap { service.getUser(UserId(userId)) }
                 .map { it.toAdminUserInfo() }
         }
 
     override suspend fun denyUser(userId: String): AppResult<Unit> =
-        catching("denyUser") {
-            adminUserRpc
-                .get()
-                .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = false))
-                .map { }
-        }
+        adminUserChannel
+            .call { it.decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = false)) }
+            .map { }
 
     override suspend fun deleteUser(userId: String): AppResult<Unit> =
-        catching("deleteUser") { adminUserRpc.get().deleteUser(UserId(userId)) }
+        adminUserChannel.call { it.deleteUser(UserId(userId)) }
 
     override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
-        catching("getUser") {
-            adminUserRpc.get().getUser(UserId(userId)).map { it.toAdminUserInfo() }
-        }
+        adminUserChannel.call { it.getUser(UserId(userId)) }.map { it.toAdminUserInfo() }
 
     override suspend fun updateUser(
         userId: String,
@@ -117,42 +109,41 @@ internal class AdminRepositoryImpl(
         role: String?,
         canShare: Boolean?,
     ): AppResult<AdminUserInfo> =
-        catching("updateUser") {
+        adminUserChannel.call { service ->
             // firstName/lastName have no contract field — they must NOT be sent (displayName is
             // deferred to a future domain-realignment follow-up). The server applies
             // AdminUserPatch.permissions wholesale (canEdit + canShare) and the admin UI only
             // toggles canShare, so read the user first to preserve its current canEdit.
             val permissions =
                 canShare?.let { share ->
-                    when (val current = adminUserRpc.get().getUser(UserId(userId))) {
+                    when (val current = service.getUser(UserId(userId))) {
                         is AppResult.Success -> {
                             UserPermissions(canEdit = current.data.permissions.canEdit, canShare = share)
                         }
 
                         is AppResult.Failure -> {
-                            return@catching current
+                            return@call current
                         }
                     }
                 }
             val patch = AdminUserPatch(role = role?.let { UserRole.valueOf(it) }, permissions = permissions)
-            adminUserRpc.get().updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
+            service.updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
         }
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
-        catching("getRegistrationPolicy") {
-            adminUserRpc.get().getRegistrationPolicy()
-        }
+        adminUserChannel.call { it.getRegistrationPolicy() }
 
     /**
-     * Catches transport-level exceptions from RPC calls and converts them to
+     * Catches transport-level exceptions from the invite RPC calls and converts them to
      * [AppResult.Failure], preserving the [AppResult] contract. [CancellationException]
      * is always re-thrown per kotlinx.coroutines convention.
      *
-     * This is required because [AdminUserRpcFactory.get] opens a WebSocket connection
+     * This is required because [InviteRpcFactory.adminService] opens a WebSocket connection
      * on first use; if authentication fails (HTTP 401 during the WS upgrade), the RPC
      * library throws [io.ktor.client.plugins.websocket.WebSocketException] rather than
      * returning an error response. Without this boundary the exception escapes into the
-     * caller's coroutine as an unhandled exception.
+     * caller's coroutine as an unhandled exception. The migrated admin services get the same
+     * guarantee from their [RpcChannel] instead.
      */
     private suspend inline fun <T> catching(
         op: String,
@@ -221,19 +212,15 @@ internal class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun setRegistrationPolicy(policy: RegistrationPolicy): AppResult<Unit> =
-        catching("setRegistrationPolicy") {
-            adminUserRpc.get().setRegistrationPolicy(policy)
-        }
+        adminUserChannel.call { it.setRegistrationPolicy(policy) }
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
-        catching("getServerSettings") {
-            adminSettingsRpc.get().getServerSettings().map {
-                ServerSettings(
-                    it.serverName,
-                    it.remoteUrl,
-                    it.inboxEnabled,
-                )
-            }
+        adminSettingsChannel.call { it.getServerSettings() }.map {
+            ServerSettings(
+                it.serverName,
+                it.remoteUrl,
+                it.inboxEnabled,
+            )
         }
 
     override suspend fun updateServerSettings(
@@ -241,36 +228,33 @@ internal class AdminRepositoryImpl(
         remoteUrl: String?,
         inboxEnabled: Boolean?,
     ): AppResult<ServerSettings> =
-        catching("updateServerSettings") {
-            adminSettingsRpc
-                .get()
-                .updateServerSettings(
+        adminSettingsChannel
+            .call {
+                it.updateServerSettings(
                     AdminServerSettingsPatch(
                         serverName = serverName,
                         remoteUrl = remoteUrl,
                         inboxEnabled = inboxEnabled,
                     ),
-                ).map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
-        }
+                )
+            }.map { ServerSettings(it.serverName, it.remoteUrl, it.inboxEnabled) }
 
     // ═══════════════════════════════════════════════════════════════════════
     // LIBRARY MANAGEMENT
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getLibrary(): AppResult<Library> =
-        catching("getLibrary") {
-            libraryAdminRpc.get().getLibrary().map { it.toDomain() }
-        }
+        libraryAdminChannel.call { it.getLibrary() }.map { it.toDomain() }
 
     override suspend fun addScanPath(path: String): AppResult<Library> =
-        catching("addScanPath") {
-            libraryAdminRpc.get().addFolder(path).flatMap { folder ->
+        libraryAdminChannel.call { service ->
+            service.addFolder(path).flatMap { folder ->
                 // Scan JUST the folder we added — a full library rescan takes minutes on a large
                 // library. Best-effort: the folder is already registered server-side, so a
                 // scan-trigger hiccup must not fail the add (that would strand the admin with a
                 // folder that looks like it failed). Log and continue; the library screen still
                 // offers a manual full rescan as the fallback.
-                val scan = libraryAdminRpc.get().scanFolder(folder.id)
+                val scan = service.scanFolder(folder.id)
                 if (scan is AppResult.Failure) {
                     logger.warn { "Folder ${folder.id.value} added but its scan trigger failed: ${scan.error.code}" }
                 }
@@ -279,33 +263,26 @@ internal class AdminRepositoryImpl(
         }
 
     override suspend fun removeFolder(folderId: String): AppResult<Library> =
-        catching("removeFolder") {
-            libraryAdminRpc.get().removeFolder(FolderId(folderId)).flatMap { getLibrary() }
-        }
+        libraryAdminChannel.call { it.removeFolder(FolderId(folderId)) }.flatMap { getLibrary() }
 
-    override suspend fun triggerScan(): AppResult<Unit> =
-        catching("triggerScan") {
-            libraryAdminRpc.get().scanLibrary()
-        }
+    override suspend fun triggerScan(): AppResult<Unit> = libraryAdminChannel.call { it.scanLibrary() }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
-        catching("browseFilesystem") {
-            libraryAdminRpc.get().browseFilesystem(path).map { entries ->
-                val isRoot = path == "/"
-                val parent =
-                    if (isRoot) {
-                        null
-                    } else {
-                        val lastSlash = path.lastIndexOf('/')
-                        if (lastSlash <= 0) "/" else path.substring(0, lastSlash)
-                    }
-                BrowseFilesystemResponse(
-                    path = path,
-                    parent = parent,
-                    entries = entries.map { DirectoryEntryResponse(name = it.name, path = it.path) },
-                    isRoot = isRoot,
-                )
-            }
+        libraryAdminChannel.call { it.browseFilesystem(path) }.map { entries ->
+            val isRoot = path == "/"
+            val parent =
+                if (isRoot) {
+                    null
+                } else {
+                    val lastSlash = path.lastIndexOf('/')
+                    if (lastSlash <= 0) "/" else path.substring(0, lastSlash)
+                }
+            BrowseFilesystemResponse(
+                path = path,
+                parent = parent,
+                entries = entries.map { DirectoryEntryResponse(name = it.name, path = it.path) },
+                isRoot = isRoot,
+            )
         }
 }
 

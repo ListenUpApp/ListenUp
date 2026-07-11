@@ -7,12 +7,13 @@ import com.calypsan.listenup.api.dto.Library
 import com.calypsan.listenup.api.dto.LibraryFolder
 import com.calypsan.listenup.api.dto.LibraryFolderRef
 import com.calypsan.listenup.api.dto.SetupStatus
+import com.calypsan.listenup.api.AdminSettingsService
+import com.calypsan.listenup.api.AdminUserService
 import com.calypsan.listenup.api.result.AppResult
-import com.calypsan.listenup.client.data.remote.AdminSettingsRpcFactory
-import com.calypsan.listenup.client.data.remote.AdminUserRpcFactory
 import com.calypsan.listenup.client.data.remote.DirectoryEntryResponse
 import com.calypsan.listenup.client.data.remote.InviteRpcFactory
-import com.calypsan.listenup.client.data.remote.LibraryAdminRpcFactory
+import com.calypsan.listenup.client.data.remote.RpcChannel
+import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.core.FolderId
 import com.calypsan.listenup.core.LibraryId
@@ -93,20 +94,12 @@ private class FakeLibraryAdminService : LibraryAdminService {
     }
 }
 
-private class FakeLibraryAdminRpcFactory(
-    private val service: FakeLibraryAdminService,
-) : LibraryAdminRpcFactory {
-    override suspend fun get(): LibraryAdminService = service
-
-    override suspend fun invalidate() = Unit
-}
-
-private fun buildRepo(service: FakeLibraryAdminService): AdminRepositoryImpl =
+private fun buildRepo(service: LibraryAdminService): AdminRepositoryImpl =
     AdminRepositoryImpl(
-        adminUserRpc = mock<AdminUserRpcFactory>(),
-        adminSettingsRpc = mock<AdminSettingsRpcFactory>(),
+        adminUserChannel = RpcChannel.forTest(mock<AdminUserService>()),
+        adminSettingsChannel = RpcChannel.forTest(mock<AdminSettingsService>()),
         inviteRpc = mock<InviteRpcFactory>(),
-        libraryAdminRpc = FakeLibraryAdminRpcFactory(service),
+        libraryAdminChannel = RpcChannel.forTest(service),
         serverConfig = mock<ServerConfig>(),
         adminUserRosterDao = mock(),
     )
