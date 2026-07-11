@@ -37,6 +37,13 @@ const val SIDECAR_WRITES_ENABLED_KEY = "sidecar_writes_enabled"
  * Failure is parked, never lost: a broker failure (unwritable mount) leaves the book in a
  * pending set that [retryPending] — called by the periodic `SidecarRetryTask` — flushes when
  * the mount recovers. Gated by the [SIDECAR_WRITES_ENABLED_KEY] admin setting; absent = enabled.
+ *
+ * **Hook coverage (v1):** [markDirty] fires from exactly four curation mutations on
+ * `BookServiceImpl` — `updateBook`, `setBookContributors`, `setBookChapters`, and
+ * `setBookSeries`. Tag and genre edits (`TagServiceImpl` junction writes, `setBookGenres`)
+ * do NOT trigger a rewrite on their own: a tag or genre change reaches the sidecar on the
+ * book's next curation flush, not at edit time. The flush always reads the CURRENT tag and
+ * genre state, so nothing is lost — only delayed until the next hooked edit.
  */
 class SidecarWriter(
     private val db: ListenUpDatabase,
