@@ -77,8 +77,7 @@ class ReadingOrderRepositoryOfflineTest :
                 createdAt = 50L,
             )
 
-        suspend fun ListenUpDatabase.queuedDomains(): List<String> =
-            pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).map { it.domainName }
+        suspend fun ListenUpDatabase.queuedOps() = pendingOperationV2Dao().nextDispatchable(maxAttempts = 5)
 
         test("offline metadata update persists to Room and enqueues a reading_orders op") {
             runTest {
@@ -101,7 +100,7 @@ class ReadingOrderRepositoryOfflineTest :
                     row.isPrivate shouldBe true
                     // revision untouched — the SSE echo advances it.
                     row.revision shouldBe 1L
-                    db.queuedDomains() shouldContainExactly listOf("reading_orders")
+                    db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_orders")
                 }
             }
         }
@@ -119,7 +118,7 @@ class ReadingOrderRepositoryOfflineTest :
                         listOf("b1", "b2")
                     db.readingOrderBookDao().findById("ro1:b1")!!.sortOrder shouldBe 0
                     db.readingOrderBookDao().findById("ro1:b2")!!.sortOrder shouldBe 1
-                    db.queuedDomains() shouldContainExactly listOf("reading_order_books", "reading_order_books")
+                    db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_order_books", "reading_order_books")
                 }
             }
         }
@@ -128,7 +127,8 @@ class ReadingOrderRepositoryOfflineTest :
             runTest {
                 withRepo { repo, db ->
                     db.readingOrderDao().upsert(orderEntity())
-                    repo.addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1")))
+                    repo
+                        .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1")))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     repo
@@ -145,7 +145,8 @@ class ReadingOrderRepositoryOfflineTest :
             runTest {
                 withRepo { repo, db ->
                     db.readingOrderDao().upsert(orderEntity())
-                    repo.addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2"), BookId("b3")))
+                    repo
+                        .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2"), BookId("b3")))
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
 
                     repo
@@ -167,7 +168,7 @@ class ReadingOrderRepositoryOfflineTest :
 
                     repo.observeActiveReadingOrder("series-1").first() shouldBe ReadingOrderId("ro1")
                     db.readingOrderFollowDao().findById("u1:series-1") shouldNotBe null
-                    db.queuedDomains() shouldContainExactly listOf("reading_order_follows")
+                    db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_order_follows")
 
                     // Clearing resets to the frontier floor without deleting the row.
                     repo

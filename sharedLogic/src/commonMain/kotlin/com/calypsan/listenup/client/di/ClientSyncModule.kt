@@ -136,17 +136,26 @@ internal val clientSyncModule =
                     outboxBinding(OutboxChannels.ReadingOrderBooks) { _, write ->
                         val service = get<ReadingOrderRpcFactory>().get()
                         when (write) {
-                            is ReadingOrderBookWrite.Add ->
-                                service.addBookToReadingOrder(ReadingOrderId(write.readingOrderId), BookId(write.bookId))
+                            is ReadingOrderBookWrite.Add -> {
+                                service.addBookToReadingOrder(
+                                    ReadingOrderId(write.readingOrderId),
+                                    BookId(write.bookId),
+                                )
+                            }
 
-                            is ReadingOrderBookWrite.Remove ->
-                                service.removeBookFromReadingOrder(ReadingOrderId(write.readingOrderId), BookId(write.bookId))
+                            is ReadingOrderBookWrite.Remove -> {
+                                service.removeBookFromReadingOrder(
+                                    ReadingOrderId(write.readingOrderId),
+                                    BookId(write.bookId),
+                                )
+                            }
 
-                            is ReadingOrderBookWrite.Reorder ->
+                            is ReadingOrderBookWrite.Reorder -> {
                                 service.reorderReadingOrderBooks(
                                     ReadingOrderId(write.readingOrderId),
                                     write.orderedBookIds.map(::BookId),
                                 )
+                            }
                         }
                     },
                     outboxBinding(OutboxChannels.ReadingOrderFollows) { _, request ->

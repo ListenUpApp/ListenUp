@@ -62,14 +62,39 @@ private fun QueuedOperation.toDomainModel(status: PendingOperationStatus): Pendi
 
 private fun operationTypeFor(domainName: String): PendingOperationType =
     when (domainName) {
-        OutboxChannels.Books.name -> PendingOperationType.BOOK_UPDATE
-        OutboxChannels.Series.name -> PendingOperationType.SERIES_UPDATE
-        OutboxChannels.Contributors.name -> PendingOperationType.CONTRIBUTOR_UPDATE
-        OutboxChannels.Profile.name -> PendingOperationType.PROFILE_UPDATE
-        OutboxChannels.Preferences.name -> PendingOperationType.USER_PREFERENCES
-        OutboxChannels.Positions.name -> PendingOperationType.PLAYBACK_POSITION
-        OutboxChannels.ListeningEvents.name -> PendingOperationType.LISTENING_EVENT
-        OutboxChannels.ReadingOrders.name, OutboxChannels.ReadingOrderBooks.name ->
+        OutboxChannels.Books.name -> {
+            PendingOperationType.BOOK_UPDATE
+        }
+
+        OutboxChannels.Series.name -> {
+            PendingOperationType.SERIES_UPDATE
+        }
+
+        OutboxChannels.Contributors.name -> {
+            PendingOperationType.CONTRIBUTOR_UPDATE
+        }
+
+        OutboxChannels.Profile.name -> {
+            PendingOperationType.PROFILE_UPDATE
+        }
+
+        OutboxChannels.Preferences.name -> {
+            PendingOperationType.USER_PREFERENCES
+        }
+
+        OutboxChannels.Positions.name -> {
+            PendingOperationType.PLAYBACK_POSITION
+        }
+
+        OutboxChannels.ListeningEvents.name -> {
+            PendingOperationType.LISTENING_EVENT
+        }
+
+        OutboxChannels.ReadingOrders.name, OutboxChannels.ReadingOrderBooks.name -> {
             PendingOperationType.READING_ORDER_UPDATE
-        else -> PendingOperationType.OTHER
+        }
+
+        else -> {
+            PendingOperationType.OTHER
+        }
     }

@@ -133,12 +133,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is CollectionError -> toHttpStatus()
 
-        // ShelfError + SocialError share one branch (delegating to an exhaustive helper) to keep
-        // this function's cyclomatic complexity under the project threshold while preserving
-        // per-variant exhaustiveness for both families.
-        is ShelfError, is SocialError -> shelfOrSocialHttpStatus()
-
-        is ReadingOrderError -> toHttpStatus()
+        // ShelfError + SocialError + ReadingOrderError share one branch (delegating to an
+        // exhaustive helper) to keep this function's cyclomatic complexity under the project
+        // threshold while preserving per-variant exhaustiveness for all three families.
+        is ShelfError, is SocialError, is ReadingOrderError -> shelfOrSocialHttpStatus()
 
         is AdminError -> toHttpStatus()
 
@@ -228,16 +226,10 @@ internal fun AppError.withCorrelationId(id: String?): AppError =
             withCorrelationId(id)
         }
 
-        is ShelfError -> {
-            withCorrelationId(id)
-        }
-
-        is ReadingOrderError -> {
-            withCorrelationId(id)
-        }
-
-        is SocialError -> {
-            withCorrelationId(id)
+        // Grouped for the same complexity-budget reason as [toHttpStatus]'s shelf/social branch;
+        // the helper re-dispatches exhaustively per family.
+        is ShelfError, is SocialError, is ReadingOrderError -> {
+            shelfOrSocialWithCorrelationId(id)
         }
 
         is AdminError -> {
@@ -710,7 +702,7 @@ private fun ShelfError.withCorrelationId(id: String?): ShelfError =
     }
 
 /**
- * Re-dispatches the grouped `ShelfError`/`SocialError` branch of [toHttpStatus] to each family's
+ * Re-dispatches the grouped `ShelfError`/`SocialError`/`ReadingOrderError` branch of [toHttpStatus] to each family's
  * own exhaustive mapping. Split out solely to keep [toHttpStatus]'s cyclomatic complexity under the
  * project threshold; the `else` is unreachable (only called from the grouped branch above).
  */
@@ -718,7 +710,22 @@ private fun AppError.shelfOrSocialHttpStatus(): HttpStatusCode =
     when (this) {
         is ShelfError -> toHttpStatus()
         is SocialError -> toHttpStatus()
+        is ReadingOrderError -> toHttpStatus()
         else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+/**
+ * Re-dispatches the grouped `ShelfError`/`SocialError`/`ReadingOrderError` branch of the
+ * correlation-id stamp to each family's own exhaustive mapping. Split out solely to keep the
+ * calling `when`'s cyclomatic complexity under the project threshold; the `else` is unreachable
+ * (only called from the grouped branch above).
+ */
+private fun AppError.shelfOrSocialWithCorrelationId(id: String?): AppError =
+    when (this) {
+        is ShelfError -> withCorrelationId(id)
+        is SocialError -> withCorrelationId(id)
+        is ReadingOrderError -> withCorrelationId(id)
+        else -> this // unreachable: only called from the grouped branch
     }
 
 private fun ReadingOrderError.toHttpStatus(): HttpStatusCode =

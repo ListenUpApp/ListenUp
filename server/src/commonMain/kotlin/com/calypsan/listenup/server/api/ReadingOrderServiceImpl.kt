@@ -154,7 +154,14 @@ internal class ReadingOrderServiceImpl(
             return AppResult.Failure(ReadingOrderError.NotFound())
         }
 
-        return when (val result = readingOrderBookRepo.addBook(readingOrderId.value, bookId.value, userId = owned.ownerId)) {
+        return when (
+            val result =
+                readingOrderBookRepo.addBook(
+                    readingOrderId.value,
+                    bookId.value,
+                    userId = owned.ownerId,
+                )
+        ) {
             is AppResult.Success -> AppResult.Success(Unit)
             is AppResult.Failure -> AppResult.Failure(result.error)
         }
@@ -186,7 +193,11 @@ internal class ReadingOrderServiceImpl(
                 is OwnerGate.Allowed -> gate.owned
             }
 
-        return readingOrderBookRepo.reorder(readingOrderId.value, orderedBookIds.map { it.value }, userId = owned.ownerId)
+        return readingOrderBookRepo.reorder(
+            readingOrderId.value,
+            orderedBookIds.map { it.value },
+            userId = owned.ownerId,
+        )
     }
 
     // ── Follow-state ──────────────────────────────────────────────────────────
@@ -199,7 +210,8 @@ internal class ReadingOrderServiceImpl(
         // private order's existence is never revealed.
         val targetId = request.activeReadingOrderId
         if (targetId != null) {
-            val owned = readingOrderRepo.findOwnedById(targetId) ?: return AppResult.Failure(ReadingOrderError.NotFound())
+            val owned =
+                readingOrderRepo.findOwnedById(targetId) ?: return AppResult.Failure(ReadingOrderError.NotFound())
             val visible = owned.ownerId == caller.userId || caller.isAdmin || !owned.readingOrder.isPrivate
             if (!visible) return AppResult.Failure(ReadingOrderError.NotFound())
         }
@@ -237,7 +249,9 @@ internal class ReadingOrderServiceImpl(
 
     override suspend fun getReadingOrder(readingOrderId: ReadingOrderId): AppResult<ReadingOrderDetail> {
         val caller = resolveCaller() ?: return noPrincipal()
-        val owned = readingOrderRepo.findOwnedById(readingOrderId.value) ?: return AppResult.Failure(ReadingOrderError.NotFound())
+        val owned =
+            readingOrderRepo.findOwnedById(readingOrderId.value)
+                ?: return AppResult.Failure(ReadingOrderError.NotFound())
         val order = owned.readingOrder
 
         val isOwner = owned.ownerId == caller.userId
@@ -347,7 +361,8 @@ internal class ReadingOrderServiceImpl(
         caller: Caller,
     ): OwnerGate {
         val owned =
-            readingOrderRepo.findOwnedById(readingOrderId.value) ?: return OwnerGate.Denied(ReadingOrderError.NotFound())
+            readingOrderRepo.findOwnedById(readingOrderId.value)
+                ?: return OwnerGate.Denied(ReadingOrderError.NotFound())
         return if (owned.ownerId == caller.userId || caller.isAdmin) {
             OwnerGate.Allowed(owned)
         } else {

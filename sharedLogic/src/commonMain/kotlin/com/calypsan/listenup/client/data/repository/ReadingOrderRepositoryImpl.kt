@@ -197,7 +197,11 @@ internal class ReadingOrderRepositoryImpl(
         return offlineEditor.edit(OutboxChannels.ReadingOrderBooks, syntheticId, write, op = OpKind.Delete) {
             bookDao.findById(syntheticId)?.let { existing ->
                 // Local tombstone at the current revision — the echo advances it.
-                bookDao.softDelete(id = syntheticId, deletedAt = currentEpochMilliseconds(), revision = existing.revision)
+                bookDao.softDelete(
+                    id = syntheticId,
+                    deletedAt = currentEpochMilliseconds(),
+                    revision = existing.revision,
+                )
             }
         }
     }
