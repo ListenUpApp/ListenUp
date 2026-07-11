@@ -160,6 +160,10 @@ data class BookChapterPayload(
     val title: String,
     val duration: Long,
     val startTime: Long,
+    /** Non-null on the chapter that opens a Part. Free text; null = not a Part start. */
+    val partTitle: String? = null,
+    /** Non-null on the chapter that opens a Book. May co-occur with [partTitle]. */
+    val bookTitle: String? = null,
 )
 
 /**

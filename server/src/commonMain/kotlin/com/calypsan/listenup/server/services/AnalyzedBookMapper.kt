@@ -214,6 +214,8 @@ class AnalyzedBookMapper(
     /** Builds the chapter payloads for [analyzed]; `duration = endMs - startMs`. */
     fun buildChapters(analyzed: AnalyzedBook): List<BookChapterPayload> =
         analyzed.chapters.map { chapter ->
+            // partTitle/bookTitle intentionally omitted: scanned/embedded chapters are
+            // always flat. Book/Part headers are user-authored only (set via setBookChapters).
             BookChapterPayload(
                 id = "",
                 title = chapter.title,

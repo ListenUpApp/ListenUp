@@ -127,6 +127,8 @@ internal data class ChapterEntity(
     val title: String,
     val duration: Long, // Milliseconds
     val startTime: Long, // Milliseconds from start of book
+    val partTitle: String? = null,
+    val bookTitle: String? = null,
 )
 
 /**

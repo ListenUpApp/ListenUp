@@ -165,6 +165,8 @@ internal fun ListenUpDatabase.readBookPayloads(idStrs: List<String>): List<BookS
                         title = row.title,
                         duration = row.duration,
                         startTime = row.start_time,
+                        partTitle = row.part_title,
+                        bookTitle = row.book_title,
                     ),
                 )
         }
