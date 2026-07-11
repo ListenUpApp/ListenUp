@@ -394,8 +394,9 @@ class PlaybackPositionRepository(
             suspendTransaction<Unit>(db) {
                 chunk.forEach { op ->
                     when (op) {
-                        is PreparedImportOp.Write ->
+                        is PreparedImportOp.Write -> {
                             upsertInOpenTransaction(op.payload, suppressed, clientOpId = null, userId = op.userId)
+                        }
 
                         is PreparedImportOp.MaxBump -> {
                             val rev = nextRevision()
