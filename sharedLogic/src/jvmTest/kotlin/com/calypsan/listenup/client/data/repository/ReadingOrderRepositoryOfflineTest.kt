@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ReadingOrderId
 import dev.mokkery.mock
+import dev.mokkery.verifyNoMoreCalls
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -30,7 +31,7 @@ import kotlinx.coroutines.test.runTest
 class ReadingOrderRepositoryOfflineTest :
     FunSpec({
 
-        suspend fun withRepo(block: suspend (ReadingOrderRepository, ListenUpDatabase) -> Unit) {
+        suspend fun withRepo(block: suspend (ReadingOrderRepository, ListenUpDatabase, ReadingOrderRpcFactory) -> Unit) {
             val db = createInMemoryTestDatabase()
             try {
                 val queue =
@@ -48,17 +49,18 @@ class ReadingOrderRepositoryOfflineTest :
                         transactionRunner = txRunner,
                         authSession = FakeAuthSession(userId = "u1"),
                     )
+                val rpcFactory = mock<ReadingOrderRpcFactory>()
                 val repo =
                     ReadingOrderRepositoryImpl(
                         dao = db.readingOrderDao(),
                         bookDao = db.readingOrderBookDao(),
                         followDao = db.readingOrderFollowDao(),
                         userDao = db.userDao(),
-                        rpcFactory = mock<ReadingOrderRpcFactory>(),
+                        rpcFactory = rpcFactory,
                         offlineEditor = offlineEditor,
                         authSession = FakeAuthSession(userId = "u1"),
                     )
-                block(repo, db)
+                block(repo, db, rpcFactory)
             } finally {
                 db.close()
             }
@@ -81,7 +83,7 @@ class ReadingOrderRepositoryOfflineTest :
 
         test("offline metadata update persists to Room and enqueues a reading_orders op") {
             runTest {
-                withRepo { repo, db ->
+                withRepo { repo, db, rpcFactory ->
                     db.readingOrderDao().upsert(orderEntity())
 
                     val result =
@@ -101,13 +103,15 @@ class ReadingOrderRepositoryOfflineTest :
                     // revision untouched — the SSE echo advances it.
                     row.revision shouldBe 1L
                     db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_orders")
+                    // Explicit: the offline path never touches the RPC surface.
+                    verifyNoMoreCalls(rpcFactory)
                 }
             }
         }
 
         test("offline addBooks appends optimistic junction rows in order and enqueues one op per book") {
             runTest {
-                withRepo { repo, db ->
+                withRepo { repo, db, rpcFactory ->
                     db.readingOrderDao().upsert(orderEntity())
 
                     repo
@@ -119,13 +123,14 @@ class ReadingOrderRepositoryOfflineTest :
                     db.readingOrderBookDao().findById("ro1:b1")!!.sortOrder shouldBe 0
                     db.readingOrderBookDao().findById("ro1:b2")!!.sortOrder shouldBe 1
                     db.queuedOps().map { it.domainName } shouldContainExactly listOf("reading_order_books", "reading_order_books")
+                    verifyNoMoreCalls(rpcFactory)
                 }
             }
         }
 
         test("offline removeBook tombstones the junction row locally and enqueues a delete op") {
             runTest {
-                withRepo { repo, db ->
+                withRepo { repo, db, rpcFactory ->
                     db.readingOrderDao().upsert(orderEntity())
                     repo
                         .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1")))
@@ -137,13 +142,14 @@ class ReadingOrderRepositoryOfflineTest :
 
                     db.readingOrderBookDao().observeReadingOrderBooks("ro1").first() shouldBe emptyList()
                     db.readingOrderBookDao().findById("ro1:b1")!!.deletedAt shouldNotBe null
+                    verifyNoMoreCalls(rpcFactory)
                 }
             }
         }
 
         test("offline reorder rewrites local sort order and enqueues one op for the whole ordering") {
             runTest {
-                withRepo { repo, db ->
+                withRepo { repo, db, rpcFactory ->
                     db.readingOrderDao().upsert(orderEntity())
                     repo
                         .addBooksToReadingOrder(ReadingOrderId("ro1"), listOf(BookId("b1"), BookId("b2"), BookId("b3")))
@@ -155,13 +161,14 @@ class ReadingOrderRepositoryOfflineTest :
 
                     db.readingOrderBookDao().observeReadingOrderBooks("ro1").first() shouldContainExactly
                         listOf("b3", "b1", "b2")
+                    verifyNoMoreCalls(rpcFactory)
                 }
             }
         }
 
         test("offline setActiveReadingOrder writes the follow row with the deterministic id and enqueues an op") {
             runTest {
-                withRepo { repo, db ->
+                withRepo { repo, db, rpcFactory ->
                     db.readingOrderDao().upsert(orderEntity())
                     repo
                         .setActiveReadingOrder("series-1", ReadingOrderId("ro1"))
@@ -176,13 +183,14 @@ class ReadingOrderRepositoryOfflineTest :
                         .setActiveReadingOrder("series-1", null)
                         .shouldBeInstanceOf<AppResult.Success<Unit>>()
                     repo.observeActiveReadingOrder("series-1").first() shouldBe null
+                    verifyNoMoreCalls(rpcFactory)
                 }
             }
         }
 
         test("observeActiveReadingOrder falls back to null when the followed order is absent or tombstoned") {
             runTest {
-                withRepo { repo, db ->
+                withRepo { repo, db, rpcFactory ->
                     // Follow points at an order the local mirror has never seen — the
                     // graceful per-book-frontier floor, never a dangling pointer.
                     repo
