@@ -27,6 +27,9 @@ struct ListenUpApp: App {
 /// Root view — created after `App.init()` so observers resolve Koin safely.
 private struct RootView: View {
     @State private var auth = AuthStateObserver()
+    /// Resolved lazily on first authentication (see `.authenticated`) — never at launch, so the
+    /// shared ConnectionHealthViewModel graph doesn't touch the keychain before the session exists.
+    @State private var connectionHealth: ConnectionHealthObserver?
     @State private var currentUser = CurrentUserObserver()
     @State private var readiness = LibraryReadinessObserver()
     @State private var hapticsSettings = HapticsSettings()
@@ -160,7 +163,26 @@ private struct RootView: View {
                     AuthFlowCoordinator(openRegistration: false)
                 }
         case .authenticated:
+            // Overlay a non-blocking banner if the server goes unreachable (Offline + Retry) or a
+            // version skew is detected (Update available). `sessionExpired` never surfaces here — it
+            // has the `.sessionLapsed` branch above. The observer is created lazily on first appear
+            // (not at RootView root), so the shared ConnectionHealthViewModel graph is only resolved
+            // once the user is authenticated.
             authenticatedContent
+                .safeAreaInset(edge: .top) {
+                    if let connectionHealth {
+                        ConnectionHealthBanner(
+                            kind: connectionHealth.kind,
+                            onRetry: { connectionHealth.retry() },
+                            onDismiss: { connectionHealth.dismiss() }
+                        )
+                    }
+                }
+                .onAppear {
+                    if connectionHealth == nil {
+                        connectionHealth = ConnectionHealthObserver()
+                    }
+                }
         }
     }
 
