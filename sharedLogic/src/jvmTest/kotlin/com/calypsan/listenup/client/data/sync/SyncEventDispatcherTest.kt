@@ -521,6 +521,68 @@ class SyncEventDispatcherTest :
             }
         }
 
+        test("control: malformed frame reports contract-mismatch evidence, doesn't throw, doesn't advance cursor") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                var advanced = false
+                val compatReports = mutableListOf<String>()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = ClientSyncDomainRegistry(),
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> advanced = true },
+                        reportCompat = { compatReports += it },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = 1L,
+                        event = "control",
+                        data = "{not valid json for SyncControl}",
+                    )
+                dispatcher.handle(frame) // no throw
+                compatReports shouldHaveSize 1
+                advanced shouldBe false
+                db.close()
+            }
+        }
+
+        test("data event: malformed frame reports contract-mismatch evidence, doesn't throw, doesn't advance cursor") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val registry = ClientSyncDomainRegistry()
+                registry.register(RecordingHandler())
+                var advanced = false
+                val compatReports = mutableListOf<String>()
+                val dispatcher =
+                    SyncEventDispatcher(
+                        registry = registry,
+                        queue =
+                            PendingOperationQueue(
+                                dao = db.pendingOperationV2Dao(),
+                                sender = PendingOperationSender { AppResult.Success(Unit) },
+                            ),
+                        state = SyncEngineState(),
+                        cursorAdvance = { _, _ -> advanced = true },
+                        reportCompat = { compatReports += it },
+                    )
+                val frame =
+                    ParsedSseFrame(
+                        id = 1L,
+                        event = "tags",
+                        data = "{not valid json for a Tag SyncEvent}",
+                    )
+                dispatcher.handle(frame) // no throw
+                compatReports shouldHaveSize 1
+                advanced shouldBe false
+                db.close()
+            }
+        }
+
         test("a failed apply does not stall the stream — a later successful event still advances the cursor") {
             runTest {
                 val db = createInMemoryTestDatabase()
