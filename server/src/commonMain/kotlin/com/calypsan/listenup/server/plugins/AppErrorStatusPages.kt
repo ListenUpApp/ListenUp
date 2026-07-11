@@ -15,6 +15,7 @@ import com.calypsan.listenup.api.error.ImportError
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.InviteError
 import com.calypsan.listenup.api.error.LibraryError
+import com.calypsan.listenup.api.error.LibraryWriteError
 import com.calypsan.listenup.api.error.MetadataError
 import com.calypsan.listenup.api.error.MoodError
 import com.calypsan.listenup.api.error.PlaybackError
@@ -127,7 +128,10 @@ internal fun AppError.toHttpStatus(): HttpStatusCode =
 
         is AudioMetadataError -> toHttpStatus()
 
-        is LibraryError -> toHttpStatus()
+        // LibraryError + LibraryWriteError share one branch (delegating to an exhaustive helper)
+        // to keep this function's cyclomatic complexity under the project threshold while
+        // preserving per-variant exhaustiveness for both families.
+        is LibraryError, is LibraryWriteError -> libraryFamilyHttpStatus()
 
         is MetadataError -> toHttpStatus()
 
@@ -295,6 +299,25 @@ private fun MetadataError.toHttpStatus(): HttpStatusCode =
         is MetadataError.NotFound -> HttpStatusCode.NotFound
         is MetadataError.Malformed -> HttpStatusCode.BadGateway
         is MetadataError.ChapterCountMismatch -> HttpStatusCode.UnprocessableEntity
+    }
+
+/**
+ * Status mapping for the library-folder error families, [LibraryError] and [LibraryWriteError].
+ *
+ * Split from [toHttpStatus] solely to keep that function's cyclomatic complexity under the
+ * project threshold. The `else` branch is unreachable — this is only called from the single
+ * grouped branch in [toHttpStatus].
+ */
+private fun AppError.libraryFamilyHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryError -> toHttpStatus()
+        is LibraryWriteError -> toHttpStatus()
+        else -> HttpStatusCode.InternalServerError // unreachable: only called from the grouped branch
+    }
+
+private fun LibraryWriteError.toHttpStatus(): HttpStatusCode =
+    when (this) {
+        is LibraryWriteError.Unavailable -> HttpStatusCode.ServiceUnavailable
     }
 
 private fun LibraryError.toHttpStatus(): HttpStatusCode =
