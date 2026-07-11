@@ -104,7 +104,7 @@ class RpcProxyCacheCallTest :
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
-                    .shouldBeInstanceOf<TransportError.Timeout>()
+                    .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
                 connects() shouldBe 1 // NO retry — the second scripted behavior is never reached
             }
         }

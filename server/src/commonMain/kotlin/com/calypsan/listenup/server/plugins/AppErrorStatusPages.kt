@@ -341,6 +341,7 @@ private fun TransportError.withCorrelationId(id: String?): TransportError =
     when (this) {
         is TransportError.NetworkUnavailable -> copy(correlationId = id)
         is TransportError.Timeout -> copy(correlationId = id)
+        is TransportError.OutcomeUnknown -> copy(correlationId = id)
         is TransportError.Server4xx -> copy(correlationId = id)
         is TransportError.Server5xx -> copy(correlationId = id)
         is TransportError.DataMalformed -> copy(correlationId = id)

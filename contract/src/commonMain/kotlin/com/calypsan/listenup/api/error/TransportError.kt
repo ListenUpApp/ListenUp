@@ -37,6 +37,24 @@ sealed interface TransportError : AppError {
     }
 
     /**
+     * The request frame was delivered but its outcome was never observed — the connection dropped
+     * while awaiting the response, so the server may have committed the operation. Never blindly
+     * retryable: re-firing a non-idempotent mutation could double-apply it. Consumers that KNOW their
+     * operation is idempotent (the outbox's declared-idempotent channels) may re-classify at their
+     * own policy boundary.
+     */
+    @Serializable
+    @SerialName("TransportError.OutcomeUnknown")
+    data class OutcomeUnknown(
+        override val correlationId: String? = null,
+        override val debugInfo: String? = null,
+    ) : TransportError {
+        override val message: String = "The request may not have completed. Check before retrying."
+        override val code: String = "TRANSPORT_OUTCOME_UNKNOWN"
+        override val isRetryable: Boolean = false
+    }
+
+    /**
      * Server returned a 4xx response that doesn't map to a typed domain error.
      *
      * Typed cases (401/403 auth, 429 rate-limit) should already be unwrapped by

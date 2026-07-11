@@ -26,9 +26,12 @@ internal suspend fun <T> catchingRpcResult(run: suspend () -> AppResult<T>): App
     } catch (e: TimeoutCancellationException) {
         AppResult.Failure(TransportError.Timeout(debugInfo = e.message))
     } catch (e: RpcOutcomeUnknownException) {
-        // The frame was sent but the response was lost — outcome unknown. Surface as a typed transport
-        // failure (not a re-raised cancellation) so the caller can honestly report it and decide.
-        AppResult.Failure(TransportError.Timeout(debugInfo = e.message))
+        // The frame was sent but the response was lost — the mutation may have committed. Surface it as
+        // the honest, NON-retryable OutcomeUnknown (not a re-raised cancellation, and not a retryable
+        // Timeout that would license a blind re-fire — double-applying a non-idempotent mutation).
+        // Route the wrapped cause (the real per-instance diagnostic) into debugInfo; the exception's own
+        // message is a fixed constant, so it would carry no diagnostic value.
+        AppResult.Failure(TransportError.OutcomeUnknown(debugInfo = e.cause?.toString() ?: e.message))
     } catch (e: CancellationException) {
         throw e
     } catch (e: Throwable) {
