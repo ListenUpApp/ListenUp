@@ -1,0 +1,91 @@
+-- reading_orders: per-user, user-owned, named, ordered, attributed lists of books.
+-- Syncable, soft-deletable, revision-tracked, and userScoped — every row carries
+-- the owning `user_id`, so the per-user substrate variants below filter every
+-- pull/digest by that user.
+-- Column set matches V5__reading_orders_substrate.sql exactly.
+CREATE TABLE reading_orders (
+    id           TEXT    NOT NULL PRIMARY KEY,
+    user_id      TEXT    NOT NULL,
+    name         TEXT    NOT NULL,
+    description  TEXT    NOT NULL DEFAULT '',
+    attribution  TEXT    NOT NULL DEFAULT '',
+    is_private   INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    updated_at   INTEGER NOT NULL,
+    revision     INTEGER NOT NULL,
+    deleted_at   INTEGER,
+    client_op_id TEXT
+);
+
+CREATE INDEX idx_reading_orders_user ON reading_orders(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reading_orders_revision ON reading_orders(revision);
+
+-- Global substrate queries (kept for source-compatibility with the base contract;
+-- a userScoped repo routes pullSince/digest through the *ForUser variants instead).
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM reading_orders WHERE id = :id);
+
+softDeleteById:
+UPDATE reading_orders
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM reading_orders WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM reading_orders WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- User-scoped substrate variants — the per-user filtering the Exposed base applies
+-- via `(revision <cmp> cursor) AND user_id = userId`. Used by the userScoped
+-- pullSince/digest path so user A's pull never observes user B's reading orders.
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM reading_orders
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM reading_orders
+WHERE user_id = :userId AND deleted_at IS NULL AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by id. Used by the base's pullSince/readPayloads, which
+-- must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM reading_orders WHERE id = :id;
+
+selectByIds:
+SELECT * FROM reading_orders WHERE id IN :ids;
+
+-- Live (non-tombstoned) reading order by id.
+selectLiveById:
+SELECT * FROM reading_orders WHERE id = :id AND deleted_at IS NULL;
+
+-- All live reading orders owned by a user.
+listOwnedBy:
+SELECT * FROM reading_orders WHERE user_id = :userId AND deleted_at IS NULL;
+
+-- All live, public reading orders owned by a user (the getUserReadingOrders building block).
+listPublicForOwner:
+SELECT * FROM reading_orders
+WHERE user_id = :userId AND is_private = 0 AND deleted_at IS NULL;
+
+-- All live, public reading orders NOT owned by a user (the discovery candidate set).
+listDiscoverable:
+SELECT * FROM reading_orders
+WHERE is_private = 0 AND user_id != :excludeUserId AND deleted_at IS NULL;
+
+insert:
+INSERT INTO reading_orders (id, user_id, name, description, attribution, is_private, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :user_id, :name, :description, :attribution, :is_private, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+update:
+UPDATE reading_orders
+SET name = :name, description = :description, attribution = :attribution, is_private = :is_private,
+    revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;

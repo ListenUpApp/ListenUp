@@ -1,0 +1,108 @@
+-- reading_order_books junction: syncable, soft-deletable, revision-tracked, userScoped.
+-- Composite PK (reading_order_id, book_id); synthetic `id`
+-- ("$readingOrderId:$bookId") is the sync-cursor identity. `sort_order` is the
+-- denormalized display position within the reading order. Every row carries the
+-- owning `user_id`, so the per-user substrate variants filter every pull/digest by
+-- that user.
+-- Column set matches V5__reading_orders_substrate.sql exactly.
+-- FK declarations (REFERENCES reading_orders/books) are omitted here: SQLDelight
+-- cannot resolve cross-table references for tables not defined in this schema's
+-- .sq files. The constraints are present in the migration DDL and enforced by
+-- SQLite at runtime.
+CREATE TABLE reading_order_books (
+    id               TEXT    NOT NULL,
+    user_id          TEXT    NOT NULL,
+    reading_order_id TEXT    NOT NULL,
+    book_id          TEXT    NOT NULL,
+    sort_order       INTEGER NOT NULL,
+    created_at       INTEGER NOT NULL,
+    updated_at       INTEGER NOT NULL,
+    revision         INTEGER NOT NULL,
+    deleted_at       INTEGER,
+    client_op_id     TEXT,
+    PRIMARY KEY (reading_order_id, book_id)
+);
+
+CREATE UNIQUE INDEX idx_reading_order_books_id ON reading_order_books(id);
+CREATE INDEX idx_reading_order_books_reading_order ON reading_order_books(reading_order_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reading_order_books_book ON reading_order_books(book_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reading_order_books_user ON reading_order_books(user_id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_reading_order_books_revision ON reading_order_books(revision);
+
+-- Global substrate queries (kept for source-compatibility with the base contract;
+-- a userScoped repo routes pullSince/digest through the *ForUser variants instead),
+-- keyed on the synthetic `id` column.
+
+existsById:
+SELECT EXISTS(SELECT 1 FROM reading_order_books WHERE id = :id);
+
+softDeleteById:
+UPDATE reading_order_books
+SET revision = :revision, updated_at = :updated_at, deleted_at = :deleted_at,
+    client_op_id = :client_op_id
+WHERE id = :id;
+
+selectIdsAboveRevision:
+SELECT id, revision FROM reading_order_books WHERE revision > :cursor ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMost:
+SELECT id, revision FROM reading_order_books WHERE deleted_at IS NULL AND revision <= :cursor;
+
+-- User-scoped substrate variants — the per-user filtering the Exposed base applies
+-- via `(revision <cmp> cursor) AND user_id = userId`. Used by the userScoped
+-- pullSince/digest path so user A's pull never observes user B's junction rows.
+
+selectIdsAboveRevisionForUser:
+SELECT id, revision FROM reading_order_books
+WHERE user_id = :userId AND revision > :cursor
+ORDER BY revision ASC LIMIT :limit;
+
+selectIdRevAtMostForUser:
+SELECT id, revision FROM reading_order_books
+WHERE user_id = :userId AND deleted_at IS NULL AND revision <= :cursor;
+
+-- Domain queries.
+
+-- Tombstone-inclusive read by synthetic id. Used by the base's pullSince/readPayloads,
+-- which must hydrate soft-deleted rows so clients receive tombstones.
+selectById:
+SELECT * FROM reading_order_books WHERE id = :id;
+
+selectByIds:
+SELECT * FROM reading_order_books WHERE id IN :ids;
+
+-- Live junction rows for a reading order, ordered by sort_order (the display ordering).
+selectByReadingOrder:
+SELECT * FROM reading_order_books
+WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL
+ORDER BY sort_order ASC;
+
+-- Live junction row for a (reading order, book) pair, or none.
+selectLiveByReadingOrderAndBook:
+SELECT * FROM reading_order_books
+WHERE reading_order_id = :reading_order_id AND book_id = :book_id AND deleted_at IS NULL;
+
+-- The next free sort_order for a reading order — max(sort_order) + 1 over live rows, or 0
+-- when the reading order is empty. COALESCE over the all-NULL aggregate yields a
+-- non-null result, so the generated column is a plain non-null Long (no wrapper).
+nextSortOrderForReadingOrder:
+SELECT COALESCE(MAX(sort_order) + 1, 0) AS next_sort_order FROM reading_order_books
+WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL;
+
+-- Live synthetic ids for a reading order — the cascade set for softDeleteByReadingOrder.
+selectLiveIdsForReadingOrder:
+SELECT id FROM reading_order_books WHERE reading_order_id = :reading_order_id AND deleted_at IS NULL;
+
+-- Live synthetic ids for a book — the cascade set when a book is deleted.
+selectLiveIdsForBook:
+SELECT id FROM reading_order_books WHERE book_id = :book_id AND deleted_at IS NULL;
+
+insert:
+INSERT INTO reading_order_books (id, user_id, reading_order_id, book_id, sort_order, created_at, updated_at, revision, deleted_at, client_op_id)
+VALUES (:id, :user_id, :reading_order_id, :book_id, :sort_order, :created_at, :updated_at, :revision, :deleted_at, :client_op_id);
+
+update:
+UPDATE reading_order_books
+SET sort_order = :sort_order, revision = :revision, updated_at = :updated_at,
+    deleted_at = :deleted_at, client_op_id = :client_op_id
+WHERE reading_order_id = :reading_order_id AND book_id = :book_id;
