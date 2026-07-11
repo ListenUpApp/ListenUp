@@ -6,6 +6,7 @@ import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.data.sync.domains.OpKind
@@ -174,6 +175,7 @@ private suspend fun withReporterFixture(
                 ListeningEventRecorder(
                     listeningEventDao = db.listeningEventDao(),
                     tentativeSpanDao = db.tentativeSpanDao(),
+                    transactionRunner = RoomTransactionRunner(db),
                     enqueue = { entityId, payload, ownerUserId ->
                         captured.add(ReporterCapturedEnqueue(entityId, payload, ownerUserId))
                         realQueue.enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)

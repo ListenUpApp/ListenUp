@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.error.SyncError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.api.ScannerService
@@ -91,6 +92,7 @@ class OrphanRecoveryRaceTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = countingSpanDao,
+                            transactionRunner = RoomTransactionRunner(db),
                             enqueue = { _, _, _ -> },
                             currentUserId = { "user-test" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },
@@ -160,6 +162,7 @@ class OrphanRecoveryRaceTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = countingSpanDao,
+                            transactionRunner = RoomTransactionRunner(db),
                             enqueue = { _, _, _ -> },
                             currentUserId = { "user-test" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },

@@ -4,6 +4,7 @@ package com.calypsan.listenup.client.listening
 
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
 import com.calypsan.listenup.api.sync.ListeningEventSyncPayload
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
@@ -119,6 +120,7 @@ class ListeningEventEndToEndTest :
                     ListeningEventRecorder(
                         listeningEventDao = clientDatabase.listeningEventDao(),
                         tentativeSpanDao = clientDatabase.tentativeSpanDao(),
+                        transactionRunner = RoomTransactionRunner(clientDatabase),
                         enqueue = { entityId, payloadJson, ownerUserId ->
                             queue.enqueue(
                                 channel = OutboxChannels.ListeningEvents,

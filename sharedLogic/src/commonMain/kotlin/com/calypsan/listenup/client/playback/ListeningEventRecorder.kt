@@ -7,6 +7,7 @@ import com.calypsan.listenup.client.data.local.db.ListeningEventDao
 import com.calypsan.listenup.client.data.local.db.ListeningEventEntity
 import com.calypsan.listenup.client.data.local.db.TentativeSpanDao
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
+import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
@@ -47,6 +48,9 @@ private val logger = KotlinLogging.logger {}
  *
  * @property listeningEventDao DAO for the `listening_events` table.
  * @property tentativeSpanDao DAO for the single-row `tentative_span` table.
+ * @property transactionRunner Runs the finalize writes (event upsert + enqueue + tentative
+ *   delete) in one all-or-nothing transaction, so a failed enqueue rolls back the delete and
+ *   the tentative span survives as the recovery breadcrumb for [recoverOrphan].
  * @property enqueue Suspend function that persists a pending op for the finalized span.
  * @property currentUserId Returns the signed-in user's ID, or null if unauthenticated.
  *   A null result causes all write operations to no-op silently — no pending write without
@@ -61,6 +65,7 @@ private val logger = KotlinLogging.logger {}
 class ListeningEventRecorder internal constructor(
     private val listeningEventDao: ListeningEventDao,
     private val tentativeSpanDao: TentativeSpanDao,
+    private val transactionRunner: TransactionRunner,
     private val enqueue: suspend (entityId: String, payload: String, ownerUserId: String) -> Unit,
     private val currentUserId: suspend () -> String?,
     private val deviceInfo: DeviceInfoProvider,
@@ -196,16 +201,14 @@ class ListeningEventRecorder internal constructor(
      * time (play+pause within the same millisecond). The tentative is deleted and no event is
      * written — avoids polluting the events table with accidental double-taps.
      *
-     * Note on atomicity: the three writes (upsert event, enqueue op, delete tentative) are NOT
-     * wrapped in a Room transaction. An orphan recovery run on the next launch handles any of the
-     * three intermediate states safely:
-     * - If the event upsert succeeded but enqueue / delete failed, the orphan is re-promoted on
-     *   the next launch. The event write is insert-if-absent (see [finalizeCurrentSpan]), so a
-     *   re-promotion never clobbers an already-synced/tombstoned row; only the enqueue + delete
-     *   are retried.
-     * - If all three succeed, there is no orphan row to recover.
-     * Full transactionality would require [com.calypsan.listenup.client.data.local.db.TransactionRunner]
-     * involvement and cross-DAO scope — the recovery path is the designed safety net.
+     * **Atomicity.** The three writes (upsert event, enqueue op, delete tentative) run inside a
+     * single [transactionRunner] transaction — they are all same-database Room DAO writes, so
+     * they commit or roll back as a unit. A failed enqueue rolls back BOTH the event upsert and
+     * the tentative delete, so the tentative span survives as the ONLY breadcrumb [recoverOrphan]
+     * can re-promote from on the next launch. Without this, a swallowed enqueue failure would
+     * delete that breadcrumb and strand the event at `revision = 0` locally forever. The event
+     * write stays insert-if-absent so a re-promoted orphan never clobbers an already-synced or
+     * tombstoned row. Serialization runs before the transaction to keep the SQLite write lock short.
      */
     private suspend fun finalizeCurrentSpan(
         endPositionMs: Long,
@@ -235,45 +238,44 @@ class ListeningEventRecorder internal constructor(
                 revision = 0L,
                 deletedAt = null,
             )
-        // Insert-if-absent. A re-promoted orphan whose event row already exists must
-        // NOT be clobbered: the row may have synced (revision advanced) and even been
-        // tombstoned server-side since. Writing a fresh revision=0/deletedAt=null row
-        // would resurrect/regress it. Only write the event the first time; the enqueue
-        // + tentative-delete below still run so a stalled recovery completes.
-        if (listeningEventDao.getById(entity.id) == null) {
-            listeningEventDao.upsert(entity)
-        }
 
-        val request =
-            RecordListeningEventRequest(
-                id = entity.id,
-                bookId = entity.bookId,
-                startPositionMs = entity.startPositionMs,
-                endPositionMs = entity.endPositionMs,
-                startedAt = entity.startedAt,
-                endedAt = entity.endedAt,
-                playbackSpeed = entity.playbackSpeed,
-                tz = entity.tz,
-                deviceLabel = entity.deviceLabel,
+        val payload =
+            contractJson.encodeToString(
+                RecordListeningEventRequest.serializer(),
+                RecordListeningEventRequest(
+                    id = entity.id,
+                    bookId = entity.bookId,
+                    startPositionMs = entity.startPositionMs,
+                    endPositionMs = entity.endPositionMs,
+                    startedAt = entity.startedAt,
+                    endedAt = entity.endedAt,
+                    playbackSpeed = entity.playbackSpeed,
+                    tz = entity.tz,
+                    deviceLabel = entity.deviceLabel,
+                ),
             )
 
         try {
-            enqueue(
-                entity.id,
-                contractJson.encodeToString(RecordListeningEventRequest.serializer(), request),
-                tentative.userId,
-            )
+            transactionRunner.atomically {
+                // Insert-if-absent. A re-promoted orphan whose event row already exists must
+                // NOT be clobbered: the row may have synced (revision advanced) and even been
+                // tombstoned server-side since. Writing a fresh revision=0/deletedAt=null row
+                // would resurrect/regress it.
+                if (listeningEventDao.getById(entity.id) == null) {
+                    listeningEventDao.upsert(entity)
+                }
+                enqueue(entity.id, payload, tentative.userId)
+                tentativeSpanDao.delete()
+            }
         } catch (e: kotlin.coroutines.cancellation.CancellationException) {
             throw e
         } catch (e: Exception) {
-            // Queue write failure is non-fatal: the event is already in Room. The orphan
-            // recovery path on next launch will re-enqueue if needed.
+            // The transaction rolled back: no event row, and the tentative span survives.
+            // recoverOrphan() on the next launch re-promotes it, so the span is never lost.
             logger.warn(e) {
-                "[ListeningEventRecorder] Failed to enqueue listening event ${entity.id} — " +
-                    "event is persisted locally and will be re-enqueued on next launch"
+                "[ListeningEventRecorder] Failed to finalize listening event ${entity.id} — " +
+                    "tentative span preserved for recovery on next launch"
             }
         }
-
-        tentativeSpanDao.delete()
     }
 }

@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.sync.DomainDigest
 import com.calypsan.listenup.api.sync.SyncEvent
 import com.calypsan.listenup.api.sync.Tag
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.api.ScannerService
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -152,6 +153,7 @@ class ForceReconcileWhileActiveTest :
                         ListeningEventRecorder(
                             listeningEventDao = db.listeningEventDao(),
                             tentativeSpanDao = db.tentativeSpanDao(),
+                            transactionRunner = RoomTransactionRunner(db),
                             enqueue = { _, _, _ -> },
                             currentUserId = { "user-a" },
                             deviceInfo = DeviceInfoProvider { error("device info not used in this test") },

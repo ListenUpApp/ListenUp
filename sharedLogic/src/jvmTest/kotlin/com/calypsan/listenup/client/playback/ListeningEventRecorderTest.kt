@@ -5,6 +5,7 @@ package com.calypsan.listenup.client.playback
 import com.calypsan.listenup.api.contractJson
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.auth.DeviceInfo
+import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.local.db.TentativeSpanEntity
 import com.calypsan.listenup.client.device.DeviceInfoProvider
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
@@ -344,6 +345,30 @@ class ListeningEventRecorderTest :
                 }
             }
         }
+
+        // ── Failed enqueue must roll back atomically — span survives for recovery ──
+
+        test("failed enqueue rolls back the finalize: tentative_span survives so recoverOrphan can re-promote") {
+            runTest {
+                var now = 1_000L
+                withFixture(nowMillisProvider = { now }, failEnqueue = true) { recorder, db, _ ->
+                    recorder.onPlay(BOOK_ID, START_POSITION, SPEED)
+
+                    now = 61_000L
+                    // The outbox enqueue fails mid-finalize. The finalize must be atomic:
+                    // the tentative-span delete (and event upsert) must roll back so the
+                    // ONLY breadcrumb recoverOrphan reads survives. Before the fix the span
+                    // was deleted unconditionally and the event stranded at revision=0.
+                    recorder.onPause(positionMs = 60_000L)
+
+                    // The tentative span MUST still exist — the delete rolled back.
+                    db.tentativeSpanDao().get().shouldNotBeNull()
+
+                    // The event upsert rolled back too — no half-committed listening_event.
+                    db.listeningEventDao().getByBookForUser(USER_ID, BOOK_ID).size shouldBe 0
+                }
+            }
+        }
     })
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
@@ -367,6 +392,7 @@ private suspend fun withFixture(
 
 private suspend fun withFixture(
     nowMillisProvider: () -> Long,
+    failEnqueue: Boolean = false,
     block: suspend (
         ListeningEventRecorder,
         com.calypsan.listenup.client.data.local.db.ListenUpDatabase,
@@ -390,7 +416,9 @@ private suspend fun withFixture(
             ListeningEventRecorder(
                 listeningEventDao = db.listeningEventDao(),
                 tentativeSpanDao = db.tentativeSpanDao(),
+                transactionRunner = RoomTransactionRunner(db),
                 enqueue = { entityId, payload, ownerUserId ->
+                    if (failEnqueue) error("Simulated outbox enqueue failure")
                     captured.add(CapturedEnqueue(entityId, payload, ownerUserId))
                     realQueue.enqueue(OutboxChannels.ListeningEvents, entityId, OpKind.Upsert, payload, ownerUserId)
                 },
