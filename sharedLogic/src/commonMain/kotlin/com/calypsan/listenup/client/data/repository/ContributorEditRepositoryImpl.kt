@@ -14,9 +14,11 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Never-stranded cap on a contributor merge. The server does O(books) work for a merge and has been
  * observed to hang indefinitely under real-transport conditions (the RPC response never arrives,
- * leaving the edit screen spinning forever). Bounding the wait turns that into a retryable error —
- * the bound is now enforced by the [RpcChannel], whose [RpcChannel.call] runs the block under
- * `withTimeout` and folds an expiry to a retryable [com.calypsan.listenup.api.error.TransportError.Timeout].
+ * leaving the edit screen spinning forever). Bounding the wait turns that into an honest failure —
+ * the bound is enforced by the [RpcChannel], whose [RpcChannel.call] runs the block under
+ * `withTimeout`. Because the merge frame was already SENT when the bound trips, an expiry folds to a
+ * NON-retryable [com.calypsan.listenup.api.error.TransportError.OutcomeUnknown], not a retryable
+ * Timeout: the merge may have committed, so it must not be blindly re-fired.
  */
 private val MERGE_TIMEOUT = 30.seconds
 
@@ -70,10 +72,11 @@ internal class ContributorEditRepositoryImpl(
         source: ContributorId,
         target: ContributorId,
     ): AppResult<Unit> =
-        // The channel bounds the call at MERGE_TIMEOUT: a stalled merge folds to a retryable
-        // TransportError.Timeout the screen can show + offer retry, rather than a
-        // CancellationException that tears down the caller. A genuine parent cancellation still
-        // propagates through normally.
+        // The channel bounds the call at MERGE_TIMEOUT: a stalled merge folds to a NON-retryable
+        // TransportError.OutcomeUnknown the screen can show honestly, rather than a
+        // CancellationException that tears down the caller. The merge frame was sent, so it may have
+        // committed — the UI must NOT blindly retry (that would double-apply). A genuine parent
+        // cancellation still propagates through normally.
         channel.call(timeout = MERGE_TIMEOUT) { it.mergeContributors(source, target) }
 
     override suspend fun unmergeContributor(

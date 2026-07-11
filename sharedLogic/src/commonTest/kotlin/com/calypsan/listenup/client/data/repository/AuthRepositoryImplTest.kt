@@ -136,6 +136,37 @@ class AuthRepositoryImplTest :
             }
         }
 
+        test("a leader whose token read throws wakes coalesced followers with a Failure (never hangs)") {
+            runTest {
+                // The leader's getRefreshToken() throws a non-cancellation fault AFTER a follower has
+                // coalesced onto its in-flight deferred. Before the fix the leader never completed the
+                // deferred, so the follower awaited it forever (runTest would time out). The leader
+                // must ALWAYS complete its deferred.
+                val readGate = CompletableDeferred<Unit>()
+                val authSession = mock<ClientAuthSession>()
+                everySuspend { authSession.getRefreshToken() } calls {
+                    readGate.await()
+                    throw RuntimeException("secure storage read failed")
+                }
+                val repo =
+                    AuthRepositoryImpl(
+                        authPublicChannel = RpcChannel.forTest(mock<AuthServicePublic>(), RpcPolicy.Public),
+                        authedChannel = RpcChannel.forTest(mock<AuthServiceAuthed>()),
+                        authSession = authSession,
+                    )
+
+                val leader = async { runCatching { repo.refreshAccessToken() } }
+                val follower = async { repo.refreshAccessToken() }
+                runCurrent() // leader registers + suspends on the token read; follower coalesces + awaits it
+                readGate.complete(Unit) // the leader's read now throws
+
+                // The follower WAKES with a Failure instead of hanging on a never-completed deferred.
+                follower.await().shouldBeInstanceOf<AppResult.Failure>()
+                // The leader's own call still surfaced the throw (rethrown after completing the deferred).
+                leader.await().isFailure shouldBe true
+            }
+        }
+
         // Regression for the trigger bug (spec §6.1): a refresh failure that surfaces as a THROW
         // must become a typed AuthError via ErrorMapper — not collapse to InternalError, which
         // defeats refreshAuthTokens' clear-on-typed-auth-error branch and loops forever.

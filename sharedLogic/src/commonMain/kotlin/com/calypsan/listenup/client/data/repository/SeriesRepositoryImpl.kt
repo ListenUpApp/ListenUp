@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.measureTimedValue
 
 private val logger = KotlinLogging.logger {}
@@ -118,8 +119,21 @@ internal class SeriesRepositoryImpl(
     private suspend fun fetchAndCacheSeries(id: SeriesId) {
         when (val result = channel.call { it.getSeries(id) }) {
             is AppResult.Success -> {
-                result.data?.let { seriesSyncHandler.onCatchUpItem(it, isTombstone = false) }
-                    ?: logger.debug { "getSeries returned no series for $id — leaving cache miss" }
+                val payload = result.data
+                if (payload == null) {
+                    logger.debug { "getSeries returned no series for $id — leaving cache miss" }
+                } else {
+                    // Never-stranded: a Room write-through failure must NOT propagate into the
+                    // observing flow and kill the screen's collector. Swallow-and-log; the observer
+                    // keeps emitting null. Cooperative cancellation still propagates.
+                    try {
+                        seriesSyncHandler.onCatchUpItem(payload, isTombstone = false)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        logger.warn(e) { "On-demand getSeries write-through failed for $id — leaving cache miss" }
+                    }
+                }
             }
 
             is AppResult.Failure -> {

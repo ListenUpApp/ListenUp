@@ -12,7 +12,7 @@ import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.RpcProxyCache
 import com.calypsan.listenup.client.data.remote.forServer
-import com.calypsan.listenup.client.data.remote.rpcCall
+import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
 import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.client.di.e2e.TestServerConfig
@@ -249,11 +249,16 @@ class RpcReconnectE2ETest :
                     }
 
                 val result: AppResult<CollectionSummary> =
-                    cache.rpcCall(timeout = 2.seconds) {
-                        it.createCollection("test-library", "Staff Picks")
+                    catchingRpcResult {
+                        cache.call(timeout = 2.seconds) {
+                            it.createCollection("test-library", "Staff Picks")
+                        }
                     }
 
-                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<TransportError.Timeout>()
+                // The frame was SENT (the handler committed) before the client bound tripped, so the
+                // engine surfaces a NON-retryable OutcomeUnknown — never a retryable Timeout that would
+                // license a blind re-fire and double-commit.
+                result.shouldBeInstanceOf<AppResult.Failure>().error.shouldBeInstanceOf<TransportError.OutcomeUnknown>()
                 // The handler committed once and the timeout path never retries — exactly one row.
                 normalCollectionCount(driver) shouldBe 1L
 

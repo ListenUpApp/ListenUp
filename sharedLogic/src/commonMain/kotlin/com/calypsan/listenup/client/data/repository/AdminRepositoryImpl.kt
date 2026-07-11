@@ -73,12 +73,12 @@ internal class AdminRepositoryImpl(
         adminUserRosterDao.observeAll().map { rows -> rows.map { it.toAdminUserInfo() } }
 
     override suspend fun approveUser(userId: String): AppResult<AdminUserInfo> =
-        adminUserChannel.call { service ->
-            service
-                .decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true))
-                .flatMap { service.getUser(UserId(userId)) }
-                .map { it.toAdminUserInfo() }
-        }
+        // One RPC frame per call block: approve in its own frame, then re-fetch the user in its own
+        // frame, composed with flatMap. A single block issuing both would re-run BOTH on the engine's
+        // pre-delivery retry, firing the (non-idempotent) approval twice.
+        adminUserChannel
+            .call { it.decidePendingRegistration(PendingRegistrationDecision(UserId(userId), approved = true)) }
+            .flatMap { getUser(userId) }
 
     override suspend fun denyUser(userId: String): AppResult<Unit> =
         adminUserChannel
@@ -97,27 +97,26 @@ internal class AdminRepositoryImpl(
         lastName: String?,
         role: String?,
         canShare: Boolean?,
-    ): AppResult<AdminUserInfo> =
-        adminUserChannel.call { service ->
-            // firstName/lastName have no contract field — they must NOT be sent (displayName is
-            // deferred to a future domain-realignment follow-up). The server applies
-            // AdminUserPatch.permissions wholesale (canEdit + canShare) and the admin UI only
-            // toggles canShare, so read the user first to preserve its current canEdit.
-            val permissions =
-                canShare?.let { share ->
-                    when (val current = service.getUser(UserId(userId))) {
-                        is AppResult.Success -> {
-                            UserPermissions(canEdit = current.data.permissions.canEdit, canShare = share)
-                        }
-
-                        is AppResult.Failure -> {
-                            return@call current
-                        }
-                    }
-                }
-            val patch = AdminUserPatch(role = role?.let { UserRole.valueOf(it) }, permissions = permissions)
-            service.updateUser(UserId(userId), patch).map { it.toAdminUserInfo() }
+    ): AppResult<AdminUserInfo> {
+        // firstName/lastName have no contract field — they must NOT be sent (displayName is deferred
+        // to a future domain-realignment follow-up). The server applies AdminUserPatch.permissions
+        // wholesale (canEdit + canShare) and the admin UI only toggles canShare, so read the user
+        // first — in its OWN RPC frame — to preserve its current canEdit. Read and mutate ride
+        // separate call blocks (composed with flatMap) so the engine's pre-delivery retry can never
+        // re-fire the mutation off the back of a re-run read.
+        val permissions: AppResult<UserPermissions?> =
+            if (canShare == null) {
+                AppResult.Success(null)
+            } else {
+                adminUserChannel
+                    .call { it.getUser(UserId(userId)) }
+                    .map { UserPermissions(canEdit = it.permissions.canEdit, canShare = canShare) }
+            }
+        return permissions.flatMap { perms ->
+            val patch = AdminUserPatch(role = role?.let { UserRole.valueOf(it) }, permissions = perms)
+            adminUserChannel.call { it.updateUser(UserId(userId), patch) }.map { it.toAdminUserInfo() }
         }
+    }
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
         adminUserChannel.call { it.getRegistrationPolicy() }
@@ -206,20 +205,24 @@ internal class AdminRepositoryImpl(
         libraryAdminChannel.call { it.getLibrary() }.map { it.toDomain() }
 
     override suspend fun addScanPath(path: String): AppResult<Library> =
-        libraryAdminChannel.call { service ->
-            service.addFolder(path).flatMap { folder ->
+        // One RPC frame per call block: add the folder in its own frame, then (on success) trigger
+        // its scan in its own frame and re-fetch the library via getLibrary() (itself a call block),
+        // composed with flatMap. A single block issuing all three would re-run the folder-add on the
+        // engine's pre-delivery retry.
+        libraryAdminChannel
+            .call { it.addFolder(path) }
+            .flatMap { folder ->
                 // Scan JUST the folder we added — a full library rescan takes minutes on a large
                 // library. Best-effort: the folder is already registered server-side, so a
                 // scan-trigger hiccup must not fail the add (that would strand the admin with a
                 // folder that looks like it failed). Log and continue; the library screen still
                 // offers a manual full rescan as the fallback.
-                val scan = service.scanFolder(folder.id)
+                val scan = libraryAdminChannel.call { it.scanFolder(folder.id) }
                 if (scan is AppResult.Failure) {
                     logger.warn { "Folder ${folder.id.value} added but its scan trigger failed: ${scan.error.code}" }
                 }
                 getLibrary()
             }
-        }
 
     override suspend fun removeFolder(folderId: String): AppResult<Library> =
         libraryAdminChannel.call { it.removeFolder(FolderId(folderId)) }.flatMap { getLibrary() }

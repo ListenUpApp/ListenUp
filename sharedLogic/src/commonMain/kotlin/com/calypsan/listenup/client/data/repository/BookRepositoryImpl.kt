@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Cohesive bundle of the Flow sources joined into a book's detail view by
@@ -276,7 +277,16 @@ internal class BookRepositoryImpl(
     private suspend fun fetchAndCacheBook(bookId: BookId) {
         when (val result = channel.call { it.getBook(bookId) }) {
             is AppResult.Success -> {
-                bookSyncDomainHandler.onCatchUpItem(result.data, isTombstone = false)
+                // Never-stranded: a Room write-through failure must NOT propagate into the observing
+                // flow and kill the screen's collector. Swallow-and-log; the observer keeps emitting
+                // null. Cooperative cancellation still propagates.
+                try {
+                    bookSyncDomainHandler.onCatchUpItem(result.data, isTombstone = false)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    logger.warn(e) { "On-demand getBook write-through failed for $bookId — leaving cache miss" }
+                }
             }
 
             is AppResult.Failure -> {

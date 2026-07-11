@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.data.remote
 
 import io.ktor.client.network.sockets.ConnectTimeoutException
 import io.ktor.client.plugins.websocket.WebSocketException
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Classifies a throwable that escaped a kotlinx.rpc call so [RpcProxyCache.call] can decide whether
@@ -48,5 +49,11 @@ internal object RpcFailureClassifier {
      * AppError bodies, not third-party exceptions).
      */
     fun isDeadRpcClient(t: Throwable): Boolean =
-        t.message?.contains("RpcClient was cancelled", ignoreCase = true) == true
+        t is IllegalStateException &&
+            // On the JVM, kotlin's CancellationException typealiases to java.util.concurrent.
+            // CancellationException, which extends IllegalStateException — so the `is IllegalStateException`
+            // check alone would misclassify a POST-delivery cancellation as a pre-delivery dead client and
+            // license a double-applying retry. Exclude it explicitly.
+            t !is CancellationException &&
+            t.message?.contains("RpcClient was cancelled", ignoreCase = true) == true
 }

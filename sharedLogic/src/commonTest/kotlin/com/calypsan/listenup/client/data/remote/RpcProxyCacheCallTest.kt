@@ -99,7 +99,7 @@ class RpcProxyCacheCallTest :
                         ),
                     )
 
-                val result: AppResult<String> = cache.rpcCall { AppResult.Success(it.work()) }
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
 
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()
@@ -177,8 +177,9 @@ class RpcProxyCacheCallTest :
                 var timedOut = false
                 try {
                     cache.call(timeout = 50.milliseconds) { it.work() }
-                } catch (_: CancellationException) {
-                    // TimeoutCancellationException is a CancellationException subtype.
+                } catch (_: RpcOutcomeUnknownException) {
+                    // A post-send bound trip surfaces as the non-retryable RpcOutcomeUnknownException
+                    // (NOT the raw TimeoutCancellationException), so a blind retry can't double-apply.
                     timedOut = true
                 }
 
@@ -187,6 +188,36 @@ class RpcProxyCacheCallTest :
                 // The proxy WAS invalidated for the next attempt: a follow-up reconnects.
                 cache.call { it.work() } shouldBe "reconnected"
                 connects() shouldBe 2
+            }
+        }
+
+        test("a first-attempt post-send timeout folds to a non-retryable OutcomeUnknown (symmetric with the retry leg)") {
+            runTest {
+                var calls = 0
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                {
+                                    calls++
+                                    awaitCancellation()
+                                },
+                                { "must-not-run" },
+                            ),
+                        ),
+                    )
+
+                val result: AppResult<String> =
+                    catchingRpcResult { cache.call(timeout = 50.milliseconds) { AppResult.Success(it.work()) } }
+
+                val error =
+                    result
+                        .shouldBeInstanceOf<AppResult.Failure>()
+                        .error
+                        .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
+                error.isRetryable shouldBe false // a possibly-committed mutation must NOT be blindly re-fired
+                calls shouldBe 1 // called exactly once — no auto-retry (the second behavior never runs)
+                connects() shouldBe 1 // one lease only: the timeout branch invalidates but never re-leases
             }
         }
 
@@ -229,7 +260,7 @@ class RpcProxyCacheCallTest :
                         authRecovery = recovery,
                     )
 
-                val result: AppResult<String> = cache.rpcCall { AppResult.Success(it.work()) }
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
 
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()
@@ -263,7 +294,7 @@ class RpcProxyCacheCallTest :
                         authRecovery = failingRecovery,
                     )
 
-                val result: AppResult<String> = cache.rpcCall { AppResult.Success(it.work()) }
+                val result: AppResult<String> = catchingRpcResult { cache.call { AppResult.Success(it.work()) } }
 
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()

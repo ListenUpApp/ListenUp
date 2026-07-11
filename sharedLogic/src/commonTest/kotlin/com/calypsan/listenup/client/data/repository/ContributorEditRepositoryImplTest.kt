@@ -30,11 +30,12 @@ import kotlinx.coroutines.test.runTest
  *
  * A contributor merge does O(books) work server-side and has been seen to hang indefinitely under
  * real-transport conditions (the RPC response never arrives), leaving the edit screen spinning
- * forever. The repository caps the wait so the UI gets a retryable error instead.
+ * forever. The repository caps the wait so the UI gets an honest, non-retryable OutcomeUnknown error
+ * instead — the merge frame was sent, so it may have committed and must NOT be blindly retried.
  */
 class ContributorEditRepositoryImplTest :
     FunSpec({
-        test("mergeContributor surfaces a retryable Timeout failure when the RPC never returns") {
+        test("mergeContributor surfaces a non-retryable OutcomeUnknown failure when the RPC never returns") {
             runTest {
                 // A merge RPC that never completes (far longer than the channel's 30s cap).
                 val service =
@@ -69,7 +70,7 @@ class ContributorEditRepositoryImplTest :
                 result
                     .shouldBeInstanceOf<AppResult.Failure>()
                     .error
-                    .shouldBeInstanceOf<TransportError.Timeout>()
+                    .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
             }
         }
     })

@@ -5,7 +5,7 @@ import io.kotest.matchers.shouldBe
 
 /**
  * Repository RPC calls route through the factory's bounded, self-healing `callResult`
- * (which delegates to [com.calypsan.listenup.client.data.remote.RpcProxyCache.rpcCall]) — never a
+ * (which delegates to [com.calypsan.listenup.client.data.remote.RpcProxyCache.call]) — never a
  * hand-rolled `try/catch` that folds a raw `service.method()` result itself.
  *
  * The bounded engine is the whole point of the seam: a transport death heals invisibly (one bounded

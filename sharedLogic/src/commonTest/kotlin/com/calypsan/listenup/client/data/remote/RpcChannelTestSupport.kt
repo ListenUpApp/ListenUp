@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.remote
 
 import com.calypsan.listenup.client.domain.repository.ServerConfig
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
@@ -21,7 +22,14 @@ internal class DirectRpcDispatch<S : Any>(
     override suspend fun <R> call(
         timeout: Duration,
         block: suspend (S) -> R,
-    ): R = withTimeout(timeout) { block(service) }
+    ): R =
+        try {
+            withTimeout(timeout) { block(service) }
+        } catch (e: TimeoutCancellationException) {
+            // Mirror the production RpcProxyCache: a post-send bound trip is outcome-unknown, never a
+            // retryable Timeout — so forTest-based tests observe the same non-retryable fold.
+            throw RpcOutcomeUnknownException(e)
+        }
 
     override fun <R> streaming(subscribe: suspend (S) -> Flow<R>): Flow<R> = flow { emitAll(subscribe(service)) }
 
@@ -45,7 +53,12 @@ internal class ScriptedRpcDispatch<S : Any>(
         block: suspend (S) -> R,
     ): R {
         remaining.removeFirstOrNull()?.let { throw it }
-        return withTimeout(timeout) { block(service) }
+        return try {
+            withTimeout(timeout) { block(service) }
+        } catch (e: TimeoutCancellationException) {
+            // Mirror the production RpcProxyCache post-send bound: outcome-unknown, not a retryable Timeout.
+            throw RpcOutcomeUnknownException(e)
+        }
     }
 
     override fun <R> streaming(subscribe: suspend (S) -> Flow<R>): Flow<R> =

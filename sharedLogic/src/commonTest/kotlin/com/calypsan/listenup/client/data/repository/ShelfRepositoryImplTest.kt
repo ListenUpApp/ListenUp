@@ -310,7 +310,7 @@ class ShelfRepositoryImplTest :
             }
         }
 
-        test("getUserShelves surfaces transport failure as AppResult.Failure (rpcCall boundary)") {
+        test("getUserShelves surfaces transport failure as AppResult.Failure (channel.call boundary)") {
             runTest {
                 val service =
                     mock<ShelfService> {

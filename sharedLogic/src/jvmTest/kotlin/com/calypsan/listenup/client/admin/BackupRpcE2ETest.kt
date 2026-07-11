@@ -151,7 +151,7 @@ class BackupRpcE2ETest :
                     // Drive the flow directly in the testApplication suspend scope — do NOT wrap in
                     // runTest. The channel's `call` bounds each RPC with `withTimeout`; under runTest's
                     // virtual clock the scheduler auto-advances past that bound while the real socket
-                    // I/O is still in flight, tripping a spurious TransportError.Timeout. The plain
+                    // I/O is still in flight, tripping a spurious TransportError.OutcomeUnknown. The plain
                     // suspend scope uses real time, so the bound never fires. (See sibling E2E tests.)
                     val repository =
                         BackupRepositoryImpl(

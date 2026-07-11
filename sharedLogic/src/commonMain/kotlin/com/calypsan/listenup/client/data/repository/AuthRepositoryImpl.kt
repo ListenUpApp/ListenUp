@@ -86,6 +86,13 @@ internal class AuthRepositoryImpl(
             // (independent) coroutines; they retry on their next trigger.
             leader.complete(AppResult.Failure(InternalError()))
             throw e
+        } catch (e: Throwable) {
+            // The leader MUST complete its deferred on ANY throw between acquiring leadership and
+            // completing it (e.g. a getRefreshToken() secure-storage read failure) — otherwise every
+            // coalesced follower awaits this deferred forever (a hang). Wake them with a transient
+            // failure, then re-raise so the leader's own caller still sees the fault.
+            leader.complete(AppResult.Failure(InternalError()))
+            throw e
         } finally {
             refreshMutex.withLock { if (inFlightRefresh === leader) inFlightRefresh = null }
         }

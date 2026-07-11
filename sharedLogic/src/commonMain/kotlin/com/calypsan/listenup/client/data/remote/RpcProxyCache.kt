@@ -44,7 +44,9 @@ private val logger = KotlinLogging.logger {}
  *   converts it to a typed [RpcOutcomeUnknownException] rather than retrying (would double-apply) or
  *   re-raising the raw cancellation (would silently kill the caller's job).
  * - **Re-raise** a bare `CancellationException` with a cancelled caller context — genuine caller
- *   cancellation. Our own [TimeoutCancellationException] heals for the next call but never retries.
+ *   cancellation. Our own [TimeoutCancellationException] heals for the next call but never retries;
+ *   the frame was sent, so it surfaces as the non-retryable [RpcOutcomeUnknownException], symmetric
+ *   with the retry leg's [surface] path.
  *
  * [invalidate] drops both the cached proxy and the derived [HttpClient] — they are
  * principal-bound and must not survive a logout, re-login, or server-URL change
@@ -98,10 +100,13 @@ internal class RpcProxyCache<T : Any>(
         return try {
             withTimeout(timeout) { block(lease.proxy) }
         } catch (e: TimeoutCancellationException) {
-            // Our own bound tripped; the frame may be in flight — heal for the NEXT call, never retry.
-            logger.warn { "RPC timed out after $timeout; invalidating for the next attempt (no retry)" }
+            // Our own bound tripped: the frame was SENT and its outcome is unknown. Heal for the NEXT
+            // call, never retry, and surface as the non-retryable RpcOutcomeUnknownException (symmetric
+            // with surface()'s retry-leg path). Re-raising the raw TCE would fold to a RETRYABLE
+            // TransportError.Timeout, inviting a blind Retry that double-applies a committed mutation.
+            logger.warn { "RPC timed out after $timeout; frame sent, outcome unknown (no retry)" }
             invalidate(lease.generation)
-            throw e
+            throw RpcOutcomeUnknownException(e)
         } catch (e: Throwable) {
             recover(e, lease.generation, timeout, block)
         }
@@ -143,7 +148,7 @@ internal class RpcProxyCache<T : Any>(
             }
         }
 
-    /** A cancellation whose collector is still active is the CALLER cancelling — re-raise it untouched. */
+    /** A cancellation whose context is INACTIVE (cancelled) is the CALLER cancelling — re-raise it untouched. */
     private suspend fun Throwable.isCallerCancellation(): Boolean =
         this is CancellationException && !currentCoroutineContext().isActive
 
