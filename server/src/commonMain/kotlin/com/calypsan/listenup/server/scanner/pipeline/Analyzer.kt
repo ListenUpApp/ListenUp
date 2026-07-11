@@ -341,6 +341,69 @@ internal class Analyzer(
             null
         }
 
+    /**
+     * Resolves the book's display title/subtitle from the precedence-picked raw title.
+     *
+     * A title sourced from the ListenUp curation sidecar is the user's exact words — it
+     * bypasses the abridged-parse / series-suffix-strip / subtitle-split cleanup chain that
+     * exists to de-junk scanner-derived titles. An explicit subtitle (ListenUp sidecar,
+     * metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the gated folder " - "
+     * split) always wins; only when none exists is one derived from the title string —
+     * except a curated title, which is never split. A non-ListenUp explicit subtitle that
+     * is really a series reference (mistagged SUBTITLE/TIT3) is discarded so the real
+     * subtitle can be split out of the title.
+     */
+    @Suppress("LongParameterList") // The title resolution honestly consults every source.
+    private fun resolveTitleSubtitle(
+        candidate: CandidateBook,
+        shape: FolderShape,
+        parsed: ParsedTitle,
+        embedded: EmbeddedAudioMetadata?,
+        metadata: AbsMetadata?,
+        sidecar: SidecarMetadata?,
+        listenUp: ListenUpSidecar?,
+    ): ResolvedTitle {
+        val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
+        val curatedTitleWins = rawTitle == listenUp?.metadata?.title?.takeUnless { it.isBlank() }
+        val (abridgedStripped, titleAbridged) =
+            if (curatedTitleWins) rawTitle to false else parseAbridgedFromTitle(rawTitle)
+        // Strip a strict trailing series suffix the tag/album baked into the title (", Book 6",
+        // "(Series, Book Two)", ": Series, Book 3"). Conservative — leaves prose series names alone.
+        val cleanedTitle =
+            if (curatedTitleWins) abridgedStripped else SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
+        val explicitSubtitle =
+            listenUp?.metadata?.subtitle
+                ?: (
+                    metadata?.subtitle
+                        ?: embedded?.tags?.subtitle
+                        ?: sidecar?.subtitle
+                        ?: parsed.subtitle
+                )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it) }
+        return when {
+            explicitSubtitle != null -> {
+                ResolvedTitle(cleanedTitle, explicitSubtitle, titleAbridged)
+            }
+
+            // Never split a user-curated title.
+            curatedTitleWins -> {
+                ResolvedTitle(cleanedTitle, null, titleAbridged)
+            }
+
+            else -> {
+                TitleSubtitleSplitter.split(cleanedTitle).let { (t, sub) ->
+                    ResolvedTitle(t, sub, titleAbridged)
+                }
+            }
+        }
+    }
+
+    /** The resolved display title/subtitle plus the abridged flag parsed out of the raw title. */
+    private data class ResolvedTitle(
+        val title: String,
+        val subtitle: String?,
+        val titleAbridged: Boolean,
+    )
+
     @Suppress("LongParameterList") // Composing the merged view honestly takes every source.
     private fun compose(
         candidate: CandidateBook,
@@ -355,41 +418,8 @@ internal class Analyzer(
         listenUp: ListenUpSidecar?,
         perTrackMetadata: Map<TrackEntry, EmbeddedAudioMetadata?>,
     ): AnalyzedBook {
-        val rawTitle = pickTitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
-        // A title sourced from the ListenUp curation sidecar is the user's exact words —
-        // it bypasses the abridged-parse / series-suffix-strip / subtitle-split cleanup
-        // chain that exists to de-junk scanner-derived titles.
-        val curatedTitleWins = rawTitle == listenUp?.metadata?.title?.takeUnless { it.isBlank() }
-        val (abridgedStripped, titleAbridged) =
-            if (curatedTitleWins) rawTitle to false else parseAbridgedFromTitle(rawTitle)
-        // Strip a strict trailing series suffix the tag/album baked into the title (", Book 6",
-        // "(Series, Book Two)", ": Series, Book 3"). Conservative — leaves prose series names alone.
-        val cleanedTitle =
-            if (curatedTitleWins) abridgedStripped else SeriesSuffixMatcher.stripTrailingSeriesSuffix(abridgedStripped)
-
-        // An explicit subtitle (metadata.json, embedded TIT3/freeform, OPF dc:subtitle, or the
-        // gated folder " - " split) always wins; only when none exists do we derive one from the
-        // title string. Applied uniformly to whatever source pickTitle chose.
-        // Discard an explicit subtitle that is really the series (a mistagged SUBTITLE/TIT3), so the
-        // real subtitle can be split out of the title below.
-        val explicitSubtitle =
-            listenUp?.metadata?.subtitle
-                ?: (
-                    metadata?.subtitle
-                        ?: embedded?.tags?.subtitle
-                        ?: sidecar?.subtitle
-                        ?: parsed.subtitle
-                )?.takeUnless { SeriesSuffixMatcher.isSeriesReference(it) }
-        val (title, subtitle) =
-            when {
-                explicitSubtitle != null -> cleanedTitle to explicitSubtitle
-
-                curatedTitleWins -> cleanedTitle to null
-
-                // never split a user-curated title
-                else -> TitleSubtitleSplitter.split(cleanedTitle)
-            }
-
+        val (title, subtitle, titleAbridged) =
+            resolveTitleSubtitle(candidate, shape, parsed, embedded, metadata, sidecar, listenUp)
         val (resolvedChapters, chaptersSource) = pickChapters(embedded, metadata, tracks, perTrackMetadata, title)
         return AnalyzedBook(
             candidate = candidate,
