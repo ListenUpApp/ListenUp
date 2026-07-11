@@ -187,7 +187,9 @@ class SidecarWriterTest :
                     val writer = writer(backgroundScope, lib)
                     sql.seedTestBook(bookId = "book1", rootRelPath = "MyBook")
                     // A read-only book directory makes the broker's staged write fail typed.
-                    val bookDir = java.nio.file.Path.of(lib, "MyBook")
+                    val bookDir =
+                        java.nio.file.Path
+                            .of(lib, "MyBook")
                     Files.createDirectories(bookDir)
                     makeReadOnly(Path(bookDir.toString()))
 
@@ -201,7 +203,8 @@ class SidecarWriterTest :
                     // Recovery: restore write permission, retry.
                     Files.setPosixFilePermissions(
                         bookDir,
-                        java.nio.file.attribute.PosixFilePermissions.fromString("rwxr-xr-x"),
+                        java.nio.file.attribute.PosixFilePermissions
+                            .fromString("rwxr-xr-x"),
                     )
                     writer.retryPending()
 
