@@ -4461,6 +4461,276 @@
         }
       }
     },
+    "campfire.chat_at_position": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "at %1$@"
+          }
+        }
+      }
+    },
+    "campfire.chat_input_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message"
+          }
+        }
+      }
+    },
+    "campfire.chat_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat"
+          }
+        }
+      }
+    },
+    "campfire.chat_unknown_member": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Someone"
+          }
+        }
+      }
+    },
+    "campfire.control_denied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the host can control playback right now."
+          }
+        }
+      }
+    },
+    "campfire.control_everyone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everyone"
+          }
+        }
+      }
+    },
+    "campfire.control_host_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host only"
+          }
+        }
+      }
+    },
+    "campfire.create_start": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Campfire"
+          }
+        }
+      }
+    },
+    "campfire.entry_point": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire"
+          }
+        }
+      }
+    },
+    "campfire.has_the_remote": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ has the remote"
+          }
+        }
+      }
+    },
+    "campfire.invite_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite only"
+          }
+        }
+      }
+    },
+    "campfire.invite_only_no_users": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No one else can access this book yet."
+          }
+        }
+      }
+    },
+    "campfire.join": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join"
+          }
+        }
+      }
+    },
+    "campfire.listening_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening now"
+          }
+        }
+      }
+    },
+    "campfire.listening_now_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d listening now"
+          }
+        }
+      }
+    },
+    "campfire.live_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live now"
+          }
+        }
+      }
+    },
+    "campfire.open_chat": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open chat"
+          }
+        }
+      }
+    },
+    "campfire.rejoin_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jump to sync"
+          }
+        }
+      }
+    },
+    "campfire.rejoin_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep my place"
+          }
+        }
+      }
+    },
+    "campfire.rejoin_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The room has moved on without you. Jump to where everyone else is listening."
+          }
+        }
+      }
+    },
+    "campfire.rejoin_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Catch up with the room"
+          }
+        }
+      }
+    },
+    "campfire.sheet_host_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Host a Campfire"
+          }
+        }
+      }
+    },
+    "campfire.sheet_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire"
+          }
+        }
+      }
+    },
+    "campfire.spoiler_cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not yet"
+          }
+        }
+      }
+    },
+    "campfire.spoiler_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join anyway"
+          }
+        }
+      }
+    },
+    "campfire.spoiler_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This room is further along in the story than you are. Joining will move your progress forward."
+          }
+        }
+      }
+    },
+    "campfire.spoiler_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heads up: spoilers ahead"
+          }
+        }
+      }
+    },
     "common.about": {
       "localizations": {
         "en": {
