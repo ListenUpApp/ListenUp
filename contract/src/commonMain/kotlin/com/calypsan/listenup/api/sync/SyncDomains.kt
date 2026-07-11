@@ -74,6 +74,12 @@ object SyncDomains {
     /** Book–shelf junction rows. */
     val SHELF_BOOKS = SyncDomainKey("shelf_books", ShelfBookSyncPayload.serializer())
 
+    /** User-curated, ordered, attributed reading orders. */
+    val READING_ORDERS = SyncDomainKey("reading_orders", ReadingOrderSyncPayload.serializer())
+
+    /** Book–reading-order junction rows. */
+    val READING_ORDER_BOOKS = SyncDomainKey("reading_order_books", ReadingOrderBookSyncPayload.serializer())
+
     /** Server-materialized public profiles (leaderboard/social read model). */
     val PUBLIC_PROFILES = SyncDomainKey("public_profiles", PublicProfileSyncPayload.serializer())
 
@@ -106,6 +112,8 @@ object SyncDomains {
             COLLECTION_SHARES,
             SHELVES,
             SHELF_BOOKS,
+            READING_ORDERS,
+            READING_ORDER_BOOKS,
             PUBLIC_PROFILES,
             ACTIVITIES,
         )
