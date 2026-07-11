@@ -438,21 +438,53 @@ class CampfireRealTransportE2ETest :
                                 cancelAndIgnoreRemainingEvents()
                             }
 
-                            // B rejoins observeSession as a FRESH collection and receives frames going
-                            // forward -- proving per-collector lifecycle under the pinned kotlinx.rpc (no
-                            // stale replay, no dead second subscription after the first was cancelled).
-                            serviceB.observeSession(sessionId).test(timeout = 60.seconds) {
-                                warmUp(serviceA, sessionId, idPrefix = "b-rejoin-warmup")
-                                serviceA
-                                    .sendCommand(
-                                        sessionId,
-                                        PlaybackCommand.SeekTo(positionMs = 54_321L, commandId = "b-rejoin-real"),
-                                    ).value()
-                                val frame =
-                                    awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "b-rejoin-real" }
-                                        .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
-                                frame.anchor.positionMs shouldBe 54_321L
-                                cancelAndIgnoreRemainingEvents()
+                            // B rejoins over a FRESH RPC connection -- a new client, not a second
+                            // `observeSession` collection on the connection `serviceB` already
+                            // used above.
+                            //
+                            // STOP-CONDITION FINDING (see the campfire implementation plan): under
+                            // the pinned kotlinx.rpc dev-channel build (0.11.0-grpc-189 -- see the
+                            // KRPC-560 comment in gradle/libs.versions.toml), cancelling a
+                            // server-streaming `observeSession` collection and then re-subscribing
+                            // on the SAME RPC connection intermittently stalls -- the new
+                            // subscription's flow silently delivers nothing (observed on CI 3/4
+                            // runs, right here at the rejoin warm-up: 30s of warm-up commands,
+                            // zero frames; local runs, where CI's slower socket-teardown timing
+                            // never occurs, always passed). This is a race in kotlinx.rpc's
+                            // collector-to-transport wiring after a client-driven cancel, not a
+                            // slowness/timeout problem a longer budget would fix. A
+                            // same-connection resubscribe assertion was deliberately NOT kept --
+                            // a knowingly-racy assertion is worse than this documented gap.
+                            //
+                            // The production `CampfireSessionController.rejoin()` sidesteps the
+                            // race by calling `CampfireTransport.refreshConnection()` (which
+                            // invalidates the cached RPC proxy so the next call reconnects) before
+                            // re-joining and re-subscribing -- cheap for an explicit user-facing
+                            // rejoin, and exactly what this test now mirrors: a brand-new
+                            // `campfireClient(USER_B)` below, not `serviceB` again. Revisit once
+                            // kotlinx-rpc ships a stable 0.11.x release with the KRPC-560 fix --
+                            // re-test the same-connection path then, and if it's fixed upstream,
+                            // the reconnect-on-rejoin becomes an optimization rather than a
+                            // workaround.
+                            val rejoinClientB = campfireClient(USER_B)
+                            try {
+                                val rejoinServiceB = rejoinClientB.connectService(env.wsUrl)
+                                rejoinServiceB.joinSession(sessionId).value()
+                                rejoinServiceB.observeSession(sessionId).test(timeout = 60.seconds) {
+                                    warmUp(serviceA, sessionId, idPrefix = "b-rejoin-warmup")
+                                    serviceA
+                                        .sendCommand(
+                                            sessionId,
+                                            PlaybackCommand.SeekTo(positionMs = 54_321L, commandId = "b-rejoin-real"),
+                                        ).value()
+                                    val frame =
+                                        awaitFrameWhere { it is CampfireFrame.AnchorChanged && it.commandId == "b-rejoin-real" }
+                                            .shouldBeInstanceOf<CampfireFrame.AnchorChanged>()
+                                    frame.anchor.positionMs shouldBe 54_321L
+                                    cancelAndIgnoreRemainingEvents()
+                                }
+                            } finally {
+                                rejoinClientB.close()
                             }
                         }
                     } finally {
