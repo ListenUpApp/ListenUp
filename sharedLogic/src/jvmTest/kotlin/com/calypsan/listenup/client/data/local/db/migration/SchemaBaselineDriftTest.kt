@@ -16,16 +16,16 @@ import kotlinx.coroutines.runBlocking
  * Drift guard for the squashed Room schema baseline.
  *
  * PR #1060 collapsed the client migration chain to a single committed export
- * (`schemas/…/ListenUpDatabase/3.json` as of the reading-orders bump), which is
+ * (`schemas/…/ListenUpDatabase/4.json` as of the high-water-frontier bump), which is
  * the authoritative baseline the first real post-launch migration will be
  * written against. Nothing else asserts
  * that this JSON still matches the compiled `@Entity` set: Room's Gradle plugin
  * *re-exports* the JSON on build instead of failing, so an entity edit that
- * forgets to commit the regenerated `3.json` — or a JSON edit that doesn't
+ * forgets to commit the regenerated `4.json` — or a JSON edit that doesn't
  * match the entities — is invisible to CI.
  *
  * This test closes that gap. It creates a database whose schema (and stored
- * identity hash) comes from the committed `3.json`, then reopens the same file
+ * identity hash) comes from the committed `4.json`, then reopens the same file
  * with the real compiled [ListenUpDatabase] WITHOUT the destructive fallback the
  * platform modules use. Room validates the stored identity hash against the
  * compiled schema on first connection use, so any drift between the JSON and the
@@ -37,7 +37,7 @@ import kotlinx.coroutines.runBlocking
  */
 class SchemaBaselineDriftTest :
     FunSpec({
-        test("compiled ListenUpDatabase opens a database created from the committed 3.json baseline") {
+        test("compiled ListenUpDatabase opens a database created from the committed 4.json baseline") {
             // Resolve the exported-schema directory the same way the shared helper does:
             // Gradle runs :sharedLogic:jvmTest with the module root as working directory,
             // so `schemas` points at the Room-plugin export folder.
@@ -63,9 +63,9 @@ class SchemaBaselineDriftTest :
                 )
 
             try {
-                // Create the schema in `databasePath` FROM the committed 3.json (this also
+                // Create the schema in `databasePath` FROM the committed 4.json (this also
                 // writes the JSON's identity hash into room_master_table), then release it.
-                helper.createDatabase(version = 3).close()
+                helper.createDatabase(version = 4).close()
 
                 // Reopen the SAME file with the real compiled database — deliberately WITHOUT
                 // fallbackToDestructiveMigration, so Room's identity-hash validation runs
@@ -78,8 +78,8 @@ class SchemaBaselineDriftTest :
 
                 try {
                     withClue(
-                        "committed 3.json no longer matches the compiled @Entity schema — " +
-                            "regenerate sharedLogic/schemas/…/ListenUpDatabase/3.json " +
+                        "committed 4.json no longer matches the compiled @Entity schema — " +
+                            "regenerate sharedLogic/schemas/…/ListenUpDatabase/4.json " +
                             "(the build re-exports it) and commit the diff",
                     ) {
                         // First connection use forces Room to open and validate the stored

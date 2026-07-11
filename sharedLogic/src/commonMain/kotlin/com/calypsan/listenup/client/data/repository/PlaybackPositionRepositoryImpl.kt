@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.math.max
 import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
@@ -333,6 +334,7 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val existing = dao.get(bookId)
         val now = currentEpochMilliseconds()
+        val newMax = max(existing?.maxPositionMs ?: 0, u.positionMs)
         val merged =
             existing?.copy(
                 positionMs = u.positionMs,
@@ -341,10 +343,12 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
                 playbackSpeed = u.speed,
                 hasCustomSpeed = u.custom,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -355,6 +359,7 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val existing = dao.get(bookId)
         val now = currentEpochMilliseconds()
+        val newMax = max(existing?.maxPositionMs ?: 0, u.positionMs)
         val merged =
             existing?.copy(
                 positionMs = u.positionMs,
@@ -363,10 +368,12 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
                 playbackSpeed = u.defaultSpeed,
                 hasCustomSpeed = false,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -377,6 +384,7 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val existing = dao.get(bookId)
         val now = currentEpochMilliseconds()
+        val newMax = max(existing?.maxPositionMs ?: 0, u.positionMs)
         val merged =
             existing?.copy(
                 positionMs = u.positionMs,
@@ -385,10 +393,12 @@ internal class PlaybackPositionRepositoryImpl(
                 lastPlayedAt = now,
                 updatedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
                 playbackSpeed = u.speed,
                 startedAt = now,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -420,6 +430,7 @@ internal class PlaybackPositionRepositoryImpl(
         // Preserve original finishedAt on re-finish — first-completion timestamp is sticky.
         val finishedAt = existing?.finishedAt ?: now
         val startedAt = existing?.startedAt ?: now
+        val newMax = max(existing?.maxPositionMs ?: 0, u.finalPositionMs)
         val merged =
             existing?.copy(
                 positionMs = u.finalPositionMs,
@@ -429,11 +440,13 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.finalPositionMs,
                 isFinished = true,
                 finishedAt = finishedAt,
                 startedAt = startedAt,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -457,6 +470,7 @@ internal class PlaybackPositionRepositoryImpl(
             return
         }
 
+        val newMax = max(existing?.maxPositionMs ?: 0, payload.currentPositionMs)
         val merged =
             existing?.copy(
                 positionMs = payload.currentPositionMs,
@@ -467,6 +481,7 @@ internal class PlaybackPositionRepositoryImpl(
                 // Server omits null timestamps; wire-absence means "no change".
                 finishedAt = finishedAtMs ?: existing.finishedAt,
                 startedAt = startedAtMs ?: existing.startedAt,
+                maxPositionMs = newMax,
                 // playbackSpeed and hasCustomSpeed preserved implicitly via .copy().
             ) ?: PlaybackPositionEntity(
                 bookId = bookId,
@@ -479,6 +494,7 @@ internal class PlaybackPositionRepositoryImpl(
                 syncedAt = lastPlayedAtMs,
                 finishedAt = finishedAtMs,
                 startedAt = startedAtMs,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }

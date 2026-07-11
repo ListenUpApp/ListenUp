@@ -210,4 +210,111 @@ class PlaybackPositionOutboxTest :
                 }
             }
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // Monotonic maxPositionMs (high-water frontier) — every dao.save() handler
+        // must carry max(existing?.maxPositionMs ?: 0, newPositionMs), since Room's
+        // @Upsert can't express a column-wise MAX (unlike updatePositionOnly's SQL).
+        // ──────────────────────────────────────────────────────────────────────
+
+        test("Speed change raises maxPositionMs when the new position advances past the prior max") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 10_000L, maxPositionMs = 10_000L))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Speed(positionMs = 40_000L, speed = 1.5f, custom = true))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId)!!
+                    row.positionMs shouldBe 40_000L
+                    row.maxPositionMs shouldBe 40_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("Speed change does not lower maxPositionMs when the new position is behind the prior max") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    // A stale write racing behind a further-ahead high-water mark.
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 80_000L, maxPositionMs = 80_000L))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.Speed(positionMs = 20_000L, speed = 1.5f, custom = true))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId)!!
+                    row.positionMs shouldBe 20_000L
+                    row.maxPositionMs shouldBe 80_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("BookFinished raises maxPositionMs to the final position") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 10_000L, maxPositionMs = 10_000L))
+
+                    repo
+                        .savePlaybackState(bookId, PlaybackUpdate.BookFinished(finalPositionMs = 100_000L))
+                        .shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId)!!
+                    row.maxPositionMs shouldBe 100_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("DiscardProgress resets positionMs to 0 but never lowers maxPositionMs") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 60_000L, maxPositionMs = 60_000L))
+
+                    repo.discardProgress(bookId).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId)!!
+                    row.positionMs shouldBe 0L
+                    row.maxPositionMs shouldBe 60_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("Restart resets positionMs to 0 but never lowers maxPositionMs") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val repo = repoAgainst(db)
+                    val bookId = BookId("b1")
+                    db.playbackPositionDao().save(playedEntity(bookId).copy(positionMs = 60_000L, maxPositionMs = 60_000L))
+
+                    repo.restartBook(bookId).shouldBeInstanceOf<AppResult.Success<*>>()
+
+                    val row = db.playbackPositionDao().get(bookId)!!
+                    row.positionMs shouldBe 0L
+                    row.maxPositionMs shouldBe 60_000L
+                } finally {
+                    db.close()
+                }
+            }
+        }
     })

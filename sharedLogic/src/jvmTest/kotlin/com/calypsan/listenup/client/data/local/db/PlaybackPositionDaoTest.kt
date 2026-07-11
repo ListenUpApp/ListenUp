@@ -164,4 +164,40 @@ class PlaybackPositionDaoTest :
                 dao.deleteAll()
             }
         }
+
+        // ──────────────────────────────────────────────────────────────────────
+        // updatePositionOnly — monotonic maxPositionMs (high-water frontier)
+        // ──────────────────────────────────────────────────────────────────────
+
+        test("updatePositionOnly to a HIGHER position raises maxPositionMs") {
+            runTest {
+                dao.save(
+                    position(id = "a", positionMs = 10_000L, lastPlayedAt = 1_000L, updatedAt = 1_000L)
+                        .copy(maxPositionMs = 10_000L),
+                )
+
+                dao.updatePositionOnly(BookId("a"), positionMs = 20_000L, updatedAt = 2_000L, lastPlayedAt = 2_000L)
+
+                val row = dao.get(BookId("a"))!!
+                row.positionMs shouldBe 20_000L
+                row.maxPositionMs shouldBe 20_000L
+            }
+        }
+
+        test("updatePositionOnly to a LOWER position leaves maxPositionMs unchanged (the invariant)") {
+            runTest {
+                dao.save(
+                    position(id = "a", positionMs = 50_000L, lastPlayedAt = 1_000L, updatedAt = 1_000L)
+                        .copy(maxPositionMs = 50_000L),
+                )
+
+                // Seek backward — a rewind, a restart-from-earlier, or a stale periodic write racing
+                // a further-ahead one. The resume point moves back; the high-water mark must not.
+                dao.updatePositionOnly(BookId("a"), positionMs = 5_000L, updatedAt = 2_000L, lastPlayedAt = 2_000L)
+
+                val row = dao.get(BookId("a"))!!
+                row.positionMs shouldBe 5_000L
+                row.maxPositionMs shouldBe 50_000L
+            }
+        }
     })

@@ -66,11 +66,16 @@ internal interface PlaybackPositionDao {
      * between periodic saves (savePosition) and explicit speed changes (onSpeedChanged).
      * Both run on Dispatchers.IO concurrently and would otherwise clobber each other.
      *
+     * [PlaybackPositionEntity.maxPositionMs] is bumped monotonically in the same statement —
+     * `MAX(maxPositionMs, :positionMs)` — so a rewind (seek backward, restart-from-earlier)
+     * moves [PlaybackPositionEntity.positionMs] without ever lowering the high-water mark.
+     *
      * @return The number of rows updated (0 if no record exists for this book)
      */
     @Query(
         "UPDATE playback_positions SET positionMs = :positionMs, updatedAt = :updatedAt, " +
-            "syncedAt = NULL, lastPlayedAt = :lastPlayedAt WHERE bookId = :bookId",
+            "syncedAt = NULL, lastPlayedAt = :lastPlayedAt, maxPositionMs = MAX(maxPositionMs, :positionMs) " +
+            "WHERE bookId = :bookId",
     )
     suspend fun updatePositionOnly(
         bookId: BookId,
