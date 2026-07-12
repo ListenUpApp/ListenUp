@@ -1,6 +1,9 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.dto.SearchQuery
+import com.calypsan.listenup.api.dto.SeriesHit
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.core.Failure
 import com.calypsan.listenup.core.IODispatcher
@@ -11,7 +14,6 @@ import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
@@ -57,11 +59,12 @@ private val logger = KotlinLogging.logger {}
  * @property bookDao Room DAO for book queries that include contributor joins,
  *   used to populate the [BookListItem]s carried by [SeriesWithBooks]
  * @property searchDao Room DAO for FTS search
- * @property api Server API client for series search
  * @property networkMonitor For checking online/offline status
  * @property imageStorage For resolving cover image paths
  * @property channel [RpcChannel] over [com.calypsan.listenup.api.SeriesService]
  *   for on-demand cache-miss fetches (bounded, self-healing).
+ * @property searchChannel [RpcChannel] over the unified [com.calypsan.listenup.api.SearchService]
+ *   backing the never-stranded server series autocomplete (bounded, self-healing).
  * @property seriesSyncHandler Owns the atomic aggregate write-through used to
  *   cache an on-demand-fetched series into Room.
  */
@@ -69,10 +72,10 @@ internal class SeriesRepositoryImpl(
     private val seriesDao: SeriesDao,
     private val bookDao: BookDao,
     private val searchDao: SearchDao,
-    private val api: SeriesApiContract,
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
     private val channel: RpcChannel<SeriesService>,
+    private val searchChannel: RpcChannel<SearchService>,
     private val seriesSyncHandler: SyncDomainHandler<SeriesSyncPayload>,
 ) : SeriesRepository {
     // ========== Basic Observation Methods ==========
@@ -256,8 +259,9 @@ internal class SeriesRepositoryImpl(
     }
 
     /**
-     * Attempt a server-side series search. Returns `null` on [AppResult.Failure] so the
-     * caller can fall back to local FTS (never-stranded pattern).
+     * Attempt a server-side series search via the unified [SearchService], reading the `series`
+     * slice of the [com.calypsan.listenup.api.dto.SearchResults] envelope. Returns `null` on
+     * [AppResult.Failure] so the caller can fall back to local FTS (never-stranded pattern).
      */
     private suspend fun searchServer(
         query: String,
@@ -265,11 +269,11 @@ internal class SeriesRepositoryImpl(
     ): SeriesSearchResponse? =
         withContext(IODispatcher) {
             val (result, duration) =
-                measureTimedValue { api.searchSeries(query, limit) }
+                measureTimedValue { searchChannel.call { it.search(SearchQuery(text = query, limit = limit)) } }
 
             when (result) {
                 is AppResult.Success -> {
-                    val series = result.data.map { it.toDomain() }
+                    val series = result.data.series.map { it.toDomain() }
                     logger.debug {
                         "Server series search: query='$query', results=${series.size}, took=${duration.inWholeMilliseconds}ms"
                     }
@@ -339,9 +343,9 @@ private fun SeriesEntity.toSearchResult(): SeriesSearchResult =
         bookCount = 0, // Not available in offline mode
     )
 
-private fun com.calypsan.listenup.client.data.remote.SeriesSearchResult.toDomain(): SeriesSearchResult =
+private fun SeriesHit.toDomain(): SeriesSearchResult =
     SeriesSearchResult(
-        id = id,
+        id = id.value,
         name = name,
         bookCount = bookCount,
     )

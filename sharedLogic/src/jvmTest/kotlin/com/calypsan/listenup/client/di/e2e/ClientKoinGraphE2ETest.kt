@@ -100,7 +100,9 @@ class ClientKoinGraphE2ETest :
             // W8a retired the last PlaybackRpcFactory RemoteCache (−1) — its prepare() surface now rides
             // the already-registered rpcChannel<PlaybackService>() via PlaybackPrepareRepository (which
             // is NOT a RemoteCache, just a wrapper), so 25 → 24.
-            defaultInvalidator.caches shouldHaveSize 24
+            // The search bug-fix added rpcChannel<SearchService>() (a NEW channel, no factory retired) for
+            // the contributor/series server search that previously 404'd over REST, so 24 → 25.
+            defaultInvalidator.caches shouldHaveSize 25
             defaultInvalidator.caches.any { it is ApiClientFactory } shouldBe true
         }
 

@@ -4,7 +4,7 @@ import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
+import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
 import com.calypsan.listenup.client.domain.repository.MetadataRepository
@@ -24,7 +24,7 @@ import org.koin.test.verify.verify
  *  - [ContributorDao] — owned by `persistenceModule`.
  *  - [BookDao] — owned by `persistenceModule`.
  *  - [SearchDao] — owned by `persistenceModule`.
- *  - [ContributorApiContract] — owned by `networkModule`.
+ *  - the [RpcChannel] for `SearchService` — owned by `searchModule`.
  *  - [NetworkMonitor] — owned by the platform device module.
  *  - [ImageStorage] — owned by the platform storage module.
  *  - [SyncDomainHandler] (named `contributors`) — owned by `clientSyncModule`.
@@ -41,7 +41,7 @@ class ContributorModuleVerifyTest :
                         ContributorDao::class,
                         BookDao::class,
                         SearchDao::class,
-                        ContributorApiContract::class,
+                        RpcChannel::class,
                         NetworkMonitor::class,
                         ImageStorage::class,
                         SyncDomainHandler::class,

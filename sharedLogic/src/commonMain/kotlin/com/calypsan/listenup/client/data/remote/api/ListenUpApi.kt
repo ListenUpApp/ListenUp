@@ -5,7 +5,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.appJson
 import com.calypsan.listenup.core.isDebugBuild
 import com.calypsan.listenup.client.data.remote.apiCall
-import com.calypsan.listenup.client.data.remote.apiCallUnit
 import com.calypsan.listenup.client.data.remote.installListenUpErrorHandling
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
 import com.calypsan.listenup.client.data.remote.BookApiContract
@@ -13,12 +12,10 @@ import com.calypsan.listenup.client.data.remote.BookEditResponse
 import com.calypsan.listenup.client.data.remote.BookUpdateRequest
 import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.client.data.remote.ContributorInput
-import com.calypsan.listenup.client.data.remote.ContributorSearchResult
 import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.SeriesEditResponse
 import com.calypsan.listenup.client.data.remote.SeriesInput
-import com.calypsan.listenup.client.data.remote.SeriesSearchResult
 import com.calypsan.listenup.client.data.remote.SeriesUpdateRequest
 import com.calypsan.listenup.client.data.remote.UpdateContributorRequest
 import com.calypsan.listenup.client.data.remote.UpdateContributorResponse
@@ -35,9 +32,7 @@ import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.http.HttpHeaders
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
-import io.ktor.client.request.delete
 import io.ktor.client.request.get
-import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
@@ -49,8 +44,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 private val logger = KotlinLogging.logger {}
-
-private const val MAX_SEARCH_LIMIT = 50
 
 /**
  * HTTP client for the ListenUp audiobook server API.
@@ -137,34 +130,6 @@ internal class ListenUpApi(
         }
 
     /**
-     * Search contributors for autocomplete during book editing.
-     *
-     * Uses server-side Bleve full-text search for O(log n) performance:
-     * - Prefix matching ("bran" → "Brandon Sanderson")
-     * - Word matching ("sanderson" in "Brandon Sanderson")
-     * - Fuzzy matching for typo tolerance (1 edit distance for 3+ char queries)
-     *
-     * Endpoint: GET /api/v1/contributors/search?q={query}&limit={limit}
-     *
-     * @param query Search query (min 2 characters recommended)
-     * @param limit Maximum results to return (default 10, max 50)
-     * @return Result containing list of matching contributors
-     */
-    override suspend fun searchContributors(
-        query: String,
-        limit: Int,
-    ): AppResult<List<ContributorSearchResult>> =
-        apiCall<ContributorSearchResponse>(errorMessage = "Failed to search contributors") {
-            logger.debug { "Searching contributors: query='$query', limit=$limit" }
-            val client = getAuthenticatedClient()
-            client
-                .get("/api/v1/contributors/search") {
-                    parameter("q", query)
-                    parameter("limit", limit.coerceIn(1, MAX_SEARCH_LIMIT))
-                }.body<ApiResponse<ContributorSearchResponse>>()
-        }.map { it.contributors.map { c -> c.toDomain() } }
-
-    /**
      * Update book metadata (PATCH semantics).
      *
      * Only fields present in the request are updated.
@@ -214,34 +179,6 @@ internal class ListenUpApi(
                     setBody(request)
                 }.body<ApiResponse<BookEditApiResponse>>()
         }.map { it.toDomain() }
-
-    /**
-     * Search series for autocomplete during book editing.
-     *
-     * Uses server-side Bleve full-text search for O(log n) performance:
-     * - Prefix matching ("mist" → "Mistborn")
-     * - Word matching
-     * - Fuzzy matching for typo tolerance
-     *
-     * Endpoint: GET /api/v1/series/search?q={query}&limit={limit}
-     *
-     * @param query Search query (min 2 characters recommended)
-     * @param limit Maximum results to return (default 10, max 50)
-     * @return Result containing list of matching series
-     */
-    override suspend fun searchSeries(
-        query: String,
-        limit: Int,
-    ): AppResult<List<SeriesSearchResult>> =
-        apiCall<SeriesSearchResponse>(errorMessage = "Failed to search series") {
-            logger.debug { "Searching series: query='$query', limit=$limit" }
-            val client = getAuthenticatedClient()
-            client
-                .get("/api/v1/series/search") {
-                    parameter("q", query)
-                    parameter("limit", limit.coerceIn(1, MAX_SEARCH_LIMIT))
-                }.body<ApiResponse<SeriesSearchResponse>>()
-        }.map { it.series.map { s -> s.toDomain() } }
 
     /**
      * Set book series (replaces all existing series relationships).
@@ -303,21 +240,6 @@ internal class ListenUpApi(
         }.map { it.toDomain() }
 
     /**
-     * Delete a contributor.
-     *
-     * Endpoint: DELETE /api/v1/contributors/{id}
-     *
-     * @param contributorId Contributor to delete
-     * @return Result indicating success or failure
-     */
-    override suspend fun deleteContributor(contributorId: String): AppResult<Unit> =
-        apiCallUnit {
-            logger.debug { "Deleting contributor: $contributorId" }
-            val client = getAuthenticatedClient()
-            client.delete("/api/v1/contributors/$contributorId").body<ApiResponse<Unit>>()
-        }
-
-    /**
      * Update series metadata (PATCH semantics).
      *
      * Only fields present in the request are updated.
@@ -347,34 +269,6 @@ internal class ListenUpApi(
     fun close() {
         publicClient.close()
     }
-}
-
-/**
- * Internal response model for contributor search endpoint.
- * Maps to server's JSON response structure.
- */
-@Serializable
-private data class ContributorSearchResponse(
-    @SerialName("contributors")
-    val contributors: List<ContributorSearchResultResponse>,
-)
-
-/**
- * Individual contributor result from search endpoint.
- */
-@Serializable
-private data class ContributorSearchResultResponse(
-    val id: String,
-    val name: String,
-    @SerialName("book_count")
-    val bookCount: Int,
-) {
-    fun toDomain(): ContributorSearchResult =
-        ContributorSearchResult(
-            id = id,
-            name = name,
-            bookCount = bookCount,
-        )
 }
 
 // --- Book Edit API Models ---
@@ -433,34 +327,6 @@ private data class ContributorApiInput(
     val name: String,
     val roles: List<String>,
 )
-
-/**
- * Internal response model for series search endpoint.
- * Maps to server's JSON response structure.
- */
-@Serializable
-private data class SeriesSearchResponse(
-    @SerialName("series")
-    val series: List<SeriesSearchResultResponse>,
-)
-
-/**
- * Individual series result from search endpoint.
- */
-@Serializable
-private data class SeriesSearchResultResponse(
-    val id: String,
-    val name: String,
-    @SerialName("book_count")
-    val bookCount: Int,
-) {
-    fun toDomain(): SeriesSearchResult =
-        SeriesSearchResult(
-            id = id,
-            name = name,
-            bookCount = bookCount,
-        )
-}
 
 /**
  * API request for PUT /api/v1/books/{id}/series.

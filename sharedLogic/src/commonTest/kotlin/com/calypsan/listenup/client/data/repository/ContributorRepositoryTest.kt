@@ -1,17 +1,19 @@
 package com.calypsan.listenup.client.data.repository
 
+import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.dto.ContributorHit
+import com.calypsan.listenup.api.dto.SearchResults
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.core.Failure
+import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.Timestamp
 import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.SearchDao
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.api.ContributorService
-import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.remote.ContributorSearchResult
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -28,41 +30,46 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
 /**
- * Tests for ContributorRepository.
+ * Tests for ContributorRepository server-search + never-stranded fallback.
  *
- * Tests the "never stranded" pattern:
- * - Online: Use server Bleve search
- * - Offline or server failure: Fall back to local Room FTS5
+ * Server search now rides the unified [SearchService] over RPC (the `contributors` slice of the
+ * [SearchResults] envelope), not the retired REST `searchContributors` endpoint:
+ * - Online: call [SearchService.search], map [ContributorHit] → domain results.
+ * - Offline or server failure: fall back to local Room FTS5.
  */
 class ContributorRepositoryTest :
     FunSpec({
 
-        // --- Helper functions for creating mocks ---
+        // --- Helpers ---
 
-        fun createMockApi(): ContributorApiContract = mock<ContributorApiContract>()
+        fun searchResultsOf(vararg contributors: ContributorHit): SearchResults =
+            SearchResults(
+                books = emptyList(),
+                contributors = contributors.toList(),
+                series = emptyList(),
+                tags = emptyList(),
+            )
 
-        fun createMockSearchDao(): SearchDao = mock<SearchDao>(MockMode.autoUnit)
-
-        fun createMockContributorDao(): ContributorDao = mock<ContributorDao>(MockMode.autoUnit)
-
-        fun createMockBookDao(): BookDao = mock<BookDao>(MockMode.autoUnit)
-
-        fun createMockNetworkMonitor(): NetworkMonitor = mock<NetworkMonitor>()
-
-        fun createMockImageStorage(): ImageStorage = mock<ImageStorage>()
-
-        fun createTestChannel(): RpcChannel<ContributorService> = RpcChannel.forTest(mock<ContributorService>(MockMode.autoUnit))
-
-        fun createMockSyncHandler(): SyncDomainHandler<ContributorSyncPayload> = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit)
+        fun contributorHit(
+            id: String = "contrib-1",
+            name: String = "Brandon Sanderson",
+            bookCount: Int = 5,
+        ): ContributorHit =
+            ContributorHit(
+                id = ContributorId(id),
+                name = name,
+                sortName = name,
+                photoPath = null,
+                photoBlurHash = null,
+                bookCount = bookCount,
+            )
 
         fun createTestContributorEntity(
             id: String = "contrib-1",
             name: String = "Brandon Sanderson",
         ): ContributorEntity =
             ContributorEntity(
-                id =
-                    com.calypsan.listenup.core
-                        .ContributorId(id),
+                id = ContributorId(id),
                 name = name,
                 description = null,
                 imagePath = null,
@@ -70,131 +77,72 @@ class ContributorRepositoryTest :
                 updatedAt = Timestamp(0),
             )
 
-        fun createContributorSearchResult(
-            id: String = "contrib-1",
-            name: String = "Brandon Sanderson",
-            bookCount: Int = 5,
-        ): ContributorSearchResult =
-            ContributorSearchResult(
-                id = id,
-                name = name,
-                bookCount = bookCount,
+        fun createRepository(
+            searchService: SearchService,
+            searchDao: SearchDao,
+            networkMonitor: NetworkMonitor,
+        ): ContributorRepositoryImpl =
+            ContributorRepositoryImpl(
+                contributorDao = mock<ContributorDao>(MockMode.autoUnit),
+                bookDao = mock<BookDao>(MockMode.autoUnit),
+                searchDao = searchDao,
+                networkMonitor = networkMonitor,
+                imageStorage = mock<ImageStorage>(),
+                channel = RpcChannel.forTest(mock<ContributorService>(MockMode.autoUnit)),
+                searchChannel = RpcChannel.forTest(searchService),
+                contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit),
             )
 
         // --- Empty/short query tests ---
 
         test("empty query returns empty result") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
                 val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
+                    createRepository(mock<SearchService>(), mock<SearchDao>(MockMode.autoUnit), mock<NetworkMonitor>())
 
-                // When
                 val result = repository.searchContributors("")
 
-                // Then
-                (result.contributors.isEmpty()) shouldBe true
+                result.contributors.isEmpty() shouldBe true
                 result.tookMs shouldBe 0
             }
         }
 
         test("single character query returns empty result") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
                 val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
+                    createRepository(mock<SearchService>(), mock<SearchDao>(MockMode.autoUnit), mock<NetworkMonitor>())
 
-                // When
-                val result = repository.searchContributors("b")
-
-                // Then
-                (result.contributors.isEmpty()) shouldBe true
+                repository.searchContributors("b").contributors.isEmpty() shouldBe true
             }
         }
 
         test("whitespace-only query returns empty result") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
                 val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
+                    createRepository(mock<SearchService>(), mock<SearchDao>(MockMode.autoUnit), mock<NetworkMonitor>())
 
-                // When
-                val result = repository.searchContributors("   ")
-
-                // Then
-                (result.contributors.isEmpty()) shouldBe true
+                repository.searchContributors("   ").contributors.isEmpty() shouldBe true
             }
         }
 
         // --- Online search tests ---
 
-        test("online search calls server API") {
+        test("online search calls the unified SearchService and maps the contributors slice") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchService = mock<SearchService>()
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns true
-
-                val serverResults =
-                    listOf(
-                        createContributorSearchResult(id = "c1", name = "Brandon Sanderson", bookCount = 10),
-                        createContributorSearchResult(id = "c2", name = "Brian McClellan", bookCount = 5),
+                everySuspend { searchService.search(any()) } returns
+                    AppResult.Success(
+                        searchResultsOf(
+                            contributorHit(id = "c1", name = "Brandon Sanderson", bookCount = 10),
+                            contributorHit(id = "c2", name = "Brian McClellan", bookCount = 5),
+                        ),
                     )
-                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(serverResults)
+                val repository = createRepository(searchService, mock<SearchDao>(MockMode.autoUnit), networkMonitor)
 
-                // When
                 val result = repository.searchContributors("bran")
 
-                // Then
                 result.contributors.size shouldBe 2
                 result.contributors[0].name shouldBe "Brandon Sanderson"
                 result.contributors[1].name shouldBe "Brian McClellan"
@@ -202,66 +150,30 @@ class ContributorRepositoryTest :
             }
         }
 
-        test("online search passes limit parameter") {
+        test("online search calls SearchService.search") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchService = mock<SearchService>()
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(emptyList())
+                everySuspend { searchService.search(any()) } returns AppResult.Success(searchResultsOf())
+                val repository = createRepository(searchService, mock<SearchDao>(MockMode.autoUnit), networkMonitor)
 
-                // When
                 repository.searchContributors("test", limit = 5)
 
-                // Then - verify API was called with correct limit
-                verifySuspend { api.searchContributors(any(), any()) }
+                verifySuspend { searchService.search(any()) }
             }
         }
 
         test("online search returns book counts") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchService = mock<SearchService>()
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns true
+                everySuspend { searchService.search(any()) } returns
+                    AppResult.Success(searchResultsOf(contributorHit(id = "c1", name = "Brandon Sanderson", bookCount = 15)))
+                val repository = createRepository(searchService, mock<SearchDao>(MockMode.autoUnit), networkMonitor)
 
-                val serverResults =
-                    listOf(
-                        createContributorSearchResult(id = "c1", name = "Brandon Sanderson", bookCount = 15),
-                    )
-                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(serverResults)
-
-                // When
-                val result = repository.searchContributors("sanderson")
-
-                // Then
-                result.contributors[0].bookCount shouldBe 15
+                repository.searchContributors("sanderson").contributors[0].bookCount shouldBe 15
             }
         }
 
@@ -269,30 +181,15 @@ class ContributorRepositoryTest :
 
         test("offline search uses local FTS") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns false
                 everySuspend { searchDao.searchContributors(any(), any()) } returns
                     listOf(createTestContributorEntity(id = "c1", name = "Local Author"))
+                val repository = createRepository(mock<SearchService>(), searchDao, networkMonitor)
 
-                // When
                 val result = repository.searchContributors("local")
 
-                // Then
                 result.contributors.size shouldBe 1
                 result.contributors[0].name shouldBe "Local Author"
                 result.isOfflineResult shouldBe true
@@ -301,62 +198,30 @@ class ContributorRepositoryTest :
 
         test("offline search sets book count to zero") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns false
                 everySuspend { searchDao.searchContributors(any(), any()) } returns
                     listOf(createTestContributorEntity(id = "c1", name = "Author"))
+                val repository = createRepository(mock<SearchService>(), searchDao, networkMonitor)
 
-                // When
-                val result = repository.searchContributors("author")
-
-                // Then
-                result.contributors[0].bookCount shouldBe 0 // Not available offline
+                repository.searchContributors("author").contributors[0].bookCount shouldBe 0
             }
         }
 
         test("server error falls back to local FTS") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchService = mock<SearchService>()
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns
-                    Failure(Exception("Server error"))
+                everySuspend { searchService.search(any()) } returns Failure(Exception("Server error"))
                 everySuspend { searchDao.searchContributors(any(), any()) } returns
                     listOf(createTestContributorEntity(id = "c1", name = "Fallback Author"))
+                val repository = createRepository(searchService, searchDao, networkMonitor)
 
-                // When
                 val result = repository.searchContributors("fallback")
 
-                // Then
                 result.contributors.size shouldBe 1
                 result.contributors[0].name shouldBe "Fallback Author"
                 result.isOfflineResult shouldBe true
@@ -367,60 +232,26 @@ class ContributorRepositoryTest :
 
         test("query with special characters is sanitized") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchService = mock<SearchService>()
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(emptyList())
+                everySuspend { searchService.search(any()) } returns AppResult.Success(searchResultsOf())
+                val repository = createRepository(searchService, mock<SearchDao>(MockMode.autoUnit), networkMonitor)
 
-                // When - query with FTS special chars that should be stripped
-                val result = repository.searchContributors("test*()\":")
-
-                // Then - should not throw, search executes
-                result.isOfflineResult shouldBe false
+                repository.searchContributors("test*()\":").isOfflineResult shouldBe false
             }
         }
 
         test("very long query is truncated") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchService = mock<SearchService>()
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns true
-                everySuspend { api.searchContributors(any(), any()) } returns AppResult.Success(emptyList())
+                everySuspend { searchService.search(any()) } returns AppResult.Success(searchResultsOf())
+                val repository = createRepository(searchService, mock<SearchDao>(MockMode.autoUnit), networkMonitor)
 
-                // When - query longer than 100 chars
                 val longQuery = "ab" + "a".repeat(200)
-                val result = repository.searchContributors(longQuery)
-
-                // Then - should not throw, search executes with truncated query
-                result.isOfflineResult shouldBe false
+                repository.searchContributors(longQuery).isOfflineResult shouldBe false
             }
         }
 
@@ -428,29 +259,14 @@ class ContributorRepositoryTest :
 
         test("local search converts query to FTS format") {
             runTest {
-                // Given
-                val api = createMockApi()
-                val searchDao = createMockSearchDao()
-                val networkMonitor = createMockNetworkMonitor()
-                val repository =
-                    ContributorRepositoryImpl(
-                        contributorDao = createMockContributorDao(),
-                        bookDao = createMockBookDao(),
-                        searchDao = searchDao,
-                        api = api,
-                        networkMonitor = networkMonitor,
-                        imageStorage = createMockImageStorage(),
-                        channel = createTestChannel(),
-                        contributorSyncHandler = createMockSyncHandler(),
-                    )
-
+                val searchDao = mock<SearchDao>(MockMode.autoUnit)
+                val networkMonitor = mock<NetworkMonitor>()
                 every { networkMonitor.isOnline() } returns false
                 everySuspend { searchDao.searchContributors(any(), any()) } returns emptyList()
+                val repository = createRepository(mock<SearchService>(), searchDao, networkMonitor)
 
-                // When - multi-word query
                 repository.searchContributors("brandon sanderson")
 
-                // Then - should call searchDao (FTS query conversion happens internally)
                 verifySuspend { searchDao.searchContributors(any(), any()) }
             }
         }

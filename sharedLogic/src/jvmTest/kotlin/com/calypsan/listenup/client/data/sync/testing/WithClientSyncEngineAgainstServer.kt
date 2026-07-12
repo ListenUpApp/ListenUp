@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.ProfileService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
@@ -18,8 +19,10 @@ import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
 import com.calypsan.listenup.client.data.repository.SeriesEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.SeriesRepositoryImpl
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
@@ -38,12 +41,22 @@ import com.calypsan.listenup.client.data.sync.SyncEventDispatcher
 import com.calypsan.listenup.client.data.sync.SyncSseClient
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
+import com.calypsan.listenup.client.data.sync.domains.contributorsDomain
+import com.calypsan.listenup.client.data.sync.domains.seriesDomain
+import com.calypsan.listenup.client.data.sync.domains.toHandler
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
+import com.calypsan.listenup.client.domain.repository.ContributorRepository as ClientContributorRepository
 import com.calypsan.listenup.client.domain.repository.GenreRepository as ClientGenreRepository
+import com.calypsan.listenup.client.domain.repository.NetworkMonitor
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
+import com.calypsan.listenup.client.domain.repository.SeriesRepository as ClientSeriesRepository
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
+import com.calypsan.listenup.client.test.stubImageStorage
+import dev.mokkery.answering.returns
+import dev.mokkery.every
+import dev.mokkery.mock
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
@@ -55,6 +68,7 @@ import com.calypsan.listenup.server.plugins.userPrincipalOrNull
 import com.calypsan.listenup.server.api.contributorServiceScopedTo
 import com.calypsan.listenup.server.api.createContributorService
 import com.calypsan.listenup.server.api.createGenreService
+import com.calypsan.listenup.server.api.createSearchService
 import com.calypsan.listenup.server.api.createSeriesService
 import com.calypsan.listenup.server.api.genreServiceScopedTo
 import com.calypsan.listenup.server.api.seriesServiceScopedTo
@@ -210,6 +224,8 @@ internal data class ClientEngineScope(
     val bookEditRepository: BookEditRepository,
     val contributorEditRepository: ContributorEditRepository,
     val seriesEditRepository: SeriesEditRepository,
+    val contributorSearchRepository: ClientContributorRepository,
+    val seriesSearchRepository: ClientSeriesRepository,
     val genreRepository: ClientGenreRepository,
     val state: SyncEngineState,
     val dispatcher: SyncEventDispatcher,
@@ -294,6 +310,10 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 sqlDb = serverSqlDb,
                 driver = serverDriver,
             )
+        // The unified server-search e2e (contributor/series autocomplete via SearchService) needs a
+        // `SearchService` over the same server scaffolding. Left unscoped — the ROOT test principal
+        // bypasses the access policy.
+        val searchService: SearchService = createSearchService(sqlDb = serverSqlDb, driver = serverDriver)
 
         application {
             install(ServerContentNegotiation) { json(contractJson) }
@@ -367,6 +387,9 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                     ?: error("authed RPC mount reached without a principal")
                             guard(genreServiceScopedTo(genreService, PrincipalProvider { p }))
                         }
+                        // SearchService is unscoped in the harness (ROOT bypasses the access policy),
+                        // so it mounts without per-request principal scoping.
+                        registerService<SearchService> { guard(searchService) }
                     }
                 }
             }
@@ -403,6 +426,15 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     rpcConfig { serialization { krpcJson(contractJson) } }
                 }.withService<ContributorService>()
         val contributorChannel = RpcChannel.forTest(contributorServiceProxy)
+        // Real kotlinx.rpc SearchService proxy over the in-process server, wrapped in a no-reconnect
+        // test channel — backs the contributor/series search repos' never-stranded server search
+        // (client repo → RPC → server SearchService → SearchResults).
+        val searchServiceProxy =
+            testClient
+                .rpc("ws://localhost/api/rpc/authed") {
+                    rpcConfig { serialization { krpcJson(contractJson) } }
+                }.withService<SearchService>()
+        val searchChannel = RpcChannel.forTest(searchServiceProxy)
         // Real kotlinx.rpc ProfileService / UserPreferencesService proxies over the in-process
         // server, wrapped in no-reconnect test channels — back the profile/preferences outbox
         // senders below. No harness test mounts these services server-side yet; the channels exist
@@ -546,6 +578,40 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     offlineEditor = offlineEditor,
                 )
 
+            // Always-online NetworkMonitor so the search repos take the server (RPC) path rather
+            // than the local-FTS fallback — the whole point of the unified-search e2e.
+            val alwaysOnline = mock<NetworkMonitor> { every { isOnline() } returns true }
+
+            // Read-side contributor/series repositories backed by the SAME clientDb + real RPC
+            // channels. `searchContributors` / `searchSeries` route through `searchChannel` to the
+            // in-process server's SearchService — the client→RPC→server search round trip. Their
+            // cache-miss write-through handlers use a throwaway registry (search never touches them).
+            val contributorSearchRepository: ClientContributorRepository =
+                ContributorRepositoryImpl(
+                    contributorDao = clientDb.contributorDao(),
+                    bookDao = clientDb.bookDao(),
+                    searchDao = clientDb.searchDao(),
+                    networkMonitor = alwaysOnline,
+                    imageStorage = stubImageStorage(),
+                    channel = contributorChannel,
+                    searchChannel = searchChannel,
+                    contributorSyncHandler =
+                        contributorsDomain(clientDb, stubImageStorage())
+                            .toHandler(RoomTransactionRunner(clientDb), ClientSyncDomainRegistry()),
+                )
+            val seriesSearchRepository: ClientSeriesRepository =
+                SeriesRepositoryImpl(
+                    seriesDao = clientDb.seriesDao(),
+                    bookDao = clientDb.bookDao(),
+                    searchDao = clientDb.searchDao(),
+                    networkMonitor = alwaysOnline,
+                    imageStorage = stubImageStorage(),
+                    channel = seriesChannel,
+                    searchChannel = searchChannel,
+                    seriesSyncHandler =
+                        seriesDomain(clientDb).toHandler(RoomTransactionRunner(clientDb), ClientSyncDomainRegistry()),
+                )
+
             val catchUp =
                 SyncCatchUpClient(
                     httpClientProvider = { testClient },
@@ -618,6 +684,8 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     bookEditRepository = bookEditRepository,
                     contributorEditRepository = contributorEditRepository,
                     seriesEditRepository = seriesEditRepository,
+                    contributorSearchRepository = contributorSearchRepository,
+                    seriesSearchRepository = seriesSearchRepository,
                     genreRepository = genreRepository,
                     state = state,
                     dispatcher = dispatcher,

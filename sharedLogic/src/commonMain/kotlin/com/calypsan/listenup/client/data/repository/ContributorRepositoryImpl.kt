@@ -11,8 +11,10 @@ import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.toListItem
 import com.calypsan.listenup.client.domain.repository.ImageStorage
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.SearchService
+import com.calypsan.listenup.api.dto.ContributorHit
+import com.calypsan.listenup.api.dto.SearchQuery
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.repository.common.QueryUtils
@@ -56,11 +58,12 @@ private val logger = KotlinLogging.logger {}
  * @property contributorDao Room DAO for contributor operations
  * @property bookDao Room DAO for book operations
  * @property searchDao Room DAO for FTS search
- * @property api Server API client for contributor operations
  * @property networkMonitor For checking online/offline status
  * @property imageStorage For resolving cover image paths
  * @property channel [RpcChannel] over [com.calypsan.listenup.api.ContributorService]
  *   for on-demand cache-miss fetches (bounded, self-healing).
+ * @property searchChannel [RpcChannel] over the unified [com.calypsan.listenup.api.SearchService]
+ *   backing the never-stranded server contributor autocomplete (bounded, self-healing).
  * @property contributorSyncHandler Owns the atomic aggregate write-through
  *   used to cache an on-demand-fetched contributor into Room.
  */
@@ -68,10 +71,10 @@ internal class ContributorRepositoryImpl(
     private val contributorDao: ContributorDao,
     private val bookDao: BookDao,
     private val searchDao: SearchDao,
-    private val api: ContributorApiContract,
     private val networkMonitor: NetworkMonitor,
     private val imageStorage: ImageStorage,
     private val channel: RpcChannel<ContributorService>,
+    private val searchChannel: RpcChannel<SearchService>,
     private val contributorSyncHandler: SyncDomainHandler<ContributorSyncPayload>,
 ) : ContributorRepository {
     // ========== Basic Observation Methods ==========
@@ -211,9 +214,11 @@ internal class ContributorRepositoryImpl(
     }
 
     /**
-     * Attempt a server-side contributor search. Returns `null` on [AppResult.Failure] so the
-     * caller can fall back to local FTS (never-stranded pattern). CancellationException is
-     * re-thrown so coroutine cancellation is never swallowed.
+     * Attempt a server-side contributor search via the unified [SearchService], reading the
+     * `contributors` slice of the [com.calypsan.listenup.api.dto.SearchResults] envelope. Returns
+     * `null` on [AppResult.Failure] so the caller can fall back to local FTS (never-stranded
+     * pattern). The [searchChannel] folds transport faults to a typed failure and re-raises
+     * CancellationException, so coroutine cancellation is never swallowed.
      */
     private suspend fun searchServer(
         query: String,
@@ -221,11 +226,11 @@ internal class ContributorRepositoryImpl(
     ): ContributorSearchResponse? =
         withContext(IODispatcher) {
             val (result, duration) =
-                measureTimedValue { api.searchContributors(query, limit) }
+                measureTimedValue { searchChannel.call { it.search(SearchQuery(text = query, limit = limit)) } }
 
             when (result) {
                 is AppResult.Success -> {
-                    val contributors = result.data.map { it.toDomain() }
+                    val contributors = result.data.contributors.map { it.toDomain() }
                     logger.debug {
                         "Server contributor search: query='$query', " +
                             "results=${contributors.size}, took=${duration.inWholeMilliseconds}ms"
@@ -286,13 +291,6 @@ internal class ContributorRepositoryImpl(
             logger.debug { "Upserted contributor ${contributor.id}" }
         }
     }
-
-    override suspend fun deleteContributor(contributorId: String): AppResult<Unit> =
-        withContext(IODispatcher) {
-            api.deleteContributor(contributorId).also { result ->
-                if (result is AppResult.Success) logger.info { "Deleted contributor $contributorId" }
-            }
-        }
 }
 
 // ========== Entity to Domain Mappers ==========
@@ -340,9 +338,9 @@ private fun ContributorEntity.toSearchResult(): ContributorSearchResult =
         bookCount = 0, // Not available in offline mode
     )
 
-private fun com.calypsan.listenup.client.data.remote.ContributorSearchResult.toDomain(): ContributorSearchResult =
+private fun ContributorHit.toDomain(): ContributorSearchResult =
     ContributorSearchResult(
-        id = id,
+        id = id.value,
         name = name,
         bookCount = bookCount,
     )

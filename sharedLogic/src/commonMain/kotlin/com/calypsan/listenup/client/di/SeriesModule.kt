@@ -24,7 +24,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.SeriesDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.SearchDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.data.remote.SeriesApiContract] — `networkModule`
+ *  - the [com.calypsan.listenup.api.SearchService] `RpcChannel` — `searchModule`
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - [com.calypsan.listenup.client.data.sync.domains.seriesDomain] — `clientSyncModule`
@@ -43,10 +43,11 @@ internal val seriesModule: Module =
                 seriesDao = get(),
                 bookDao = get(),
                 searchDao = get(),
-                api = get(),
                 networkMonitor = get(),
                 imageStorage = get(),
                 channel = rpcChannel(),
+                // SearchService channel owned by searchModule — powers server series autocomplete.
+                searchChannel = rpcChannel(),
                 seriesSyncHandler =
                     get<SyncDomainHandler<SeriesSyncPayload>>(named(SyncDomains.SERIES.name)),
             )

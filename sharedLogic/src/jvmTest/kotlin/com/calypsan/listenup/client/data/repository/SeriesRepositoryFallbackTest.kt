@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.repository
 
 import app.cash.turbine.test
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.result.AppResult as WireResult
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
@@ -8,7 +9,6 @@ import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.ClientSyncDomainRegistry
 import com.calypsan.listenup.client.data.sync.domains.seriesDomain
@@ -140,10 +140,10 @@ private fun withTestRepo(
                 seriesDao = db.seriesDao(),
                 bookDao = db.bookDao(),
                 searchDao = db.searchDao(),
-                api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
                 channel = RpcChannel.forTest(service),
+                searchChannel = RpcChannel.forTest(mock<SearchService>()),
                 seriesSyncHandler = syncHandler,
             )
 

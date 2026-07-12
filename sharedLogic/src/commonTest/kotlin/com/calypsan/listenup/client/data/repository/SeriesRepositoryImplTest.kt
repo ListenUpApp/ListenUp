@@ -12,10 +12,10 @@ import com.calypsan.listenup.client.data.local.db.BookWithContributors
 import com.calypsan.listenup.client.data.local.db.SearchDao
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.local.db.SeriesEntity
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.sync.SeriesSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.domain.repository.ImageStorage
@@ -63,10 +63,10 @@ class SeriesRepositoryImplTest :
                 seriesDao = dao,
                 bookDao = mock<BookDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
-                api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
                 channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -100,10 +100,10 @@ class SeriesRepositoryImplTest :
                 seriesDao = seriesDao,
                 bookDao = bookDao,
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
-                api = mock<SeriesApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = imageStorage,
                 channel = RpcChannel.forTest(mock<SeriesService>(MockMode.autoUnit)),
+                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 seriesSyncHandler = mock<SyncDomainHandler<SeriesSyncPayload>>(MockMode.autoUnit),
             )
         }
@@ -343,10 +343,10 @@ class SeriesRepositoryImplTest :
                         seriesDao = dao,
                         bookDao = mock<BookDao>(MockMode.autoUnit),
                         searchDao = mock<SearchDao>(MockMode.autoUnit),
-                        api = mock<SeriesApiContract>(),
                         networkMonitor = networkMonitor,
                         imageStorage = mock<ImageStorage>(),
                         channel = RpcChannel.forTest(service),
+                        searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                         seriesSyncHandler = handler,
                     )
 

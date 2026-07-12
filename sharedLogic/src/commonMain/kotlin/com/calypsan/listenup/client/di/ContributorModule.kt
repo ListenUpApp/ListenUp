@@ -25,7 +25,7 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.data.local.db.ContributorDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.BookDao] — `persistenceModule`
  *  - [com.calypsan.listenup.client.data.local.db.SearchDao] — `persistenceModule`
- *  - [com.calypsan.listenup.client.data.remote.ContributorApiContract] — `networkModule`
+ *  - the [com.calypsan.listenup.api.SearchService] `RpcChannel` — `searchModule`
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.ImageStorage] — platform storage module
  *  - `SyncDomainHandler<ContributorSyncPayload>` (named `contributors`) — `clientSyncModule`
@@ -44,10 +44,11 @@ internal val contributorModule: Module =
                 contributorDao = get(),
                 bookDao = get(),
                 searchDao = get(),
-                api = get(),
                 networkMonitor = get(),
                 imageStorage = get(),
                 channel = rpcChannel(),
+                // SearchService channel owned by searchModule — powers server contributor autocomplete.
+                searchChannel = rpcChannel(),
                 contributorSyncHandler =
                     get<SyncDomainHandler<ContributorSyncPayload>>(named(SyncDomains.CONTRIBUTORS.name)),
             )
@@ -71,7 +72,7 @@ internal val contributorModule: Module =
         }
         factory {
             DeleteContributorUseCase(
-                contributorRepository = get(),
+                contributorEditRepository = get(),
             )
         }
         factory {

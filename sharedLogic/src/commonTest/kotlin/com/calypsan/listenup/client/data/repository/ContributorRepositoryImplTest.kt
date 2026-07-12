@@ -6,8 +6,8 @@ import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
 import com.calypsan.listenup.client.data.local.db.ContributorWithAliases
 import com.calypsan.listenup.client.data.local.db.SearchDao
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.sync.ContributorSyncPayload
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -54,10 +54,10 @@ class ContributorRepositoryImplTest :
                 contributorDao = dao,
                 bookDao = mock<BookDao>(MockMode.autoUnit),
                 searchDao = mock<SearchDao>(MockMode.autoUnit),
-                api = mock<ContributorApiContract>(),
                 networkMonitor = networkMonitor,
                 imageStorage = mock<ImageStorage>(),
                 channel = RpcChannel.forTest(mock<ContributorService>(MockMode.autoUnit)),
+                searchChannel = RpcChannel.forTest(mock<SearchService>(MockMode.autoUnit)),
                 contributorSyncHandler = mock<SyncDomainHandler<ContributorSyncPayload>>(MockMode.autoUnit),
             )
         }
