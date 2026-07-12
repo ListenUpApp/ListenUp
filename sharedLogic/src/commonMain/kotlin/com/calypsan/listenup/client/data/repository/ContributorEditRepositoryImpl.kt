@@ -1,14 +1,17 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.client.data.local.db.ContributorDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.ContributorEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -32,10 +35,12 @@ private val MERGE_TIMEOUT = 30.seconds
  * authoritative state still arrives via the SSE sync engine and reconciles
  * through [com.calypsan.listenup.client.data.sync.domains.contributorsDomain].
  *
- * [deleteContributor], [mergeContributor], and [unmergeContributor] stay pure
- * RPC dispatchers — no optimistic Room writes; the SSE echo from the server is
- * their single write path back into Room. All three route through the [channel],
- * which bounds the call, self-heals the transport, and folds any fault to a typed
+ * [deleteContributor] is offline-first too: it soft-deletes the contributor row and cascade-removes
+ * its `book_contributors` credits (mirroring the server's `deleteContributor` cascade), then
+ * enqueues a durable [ContributorMutation.Delete] op on the same `contributors` channel.
+ * [mergeContributor] and [unmergeContributor] stay pure RPC dispatchers — they relink junctions and
+ * mint identities server-side, so they can't be mirrored optimistically. Both route through the
+ * [channel], which bounds the call, self-heals the transport, and folds any fault to a typed
  * [AppResult.Failure], following the same pattern as [BookEditRepositoryImpl].
  */
 internal class ContributorEditRepositoryImpl(
@@ -47,7 +52,7 @@ internal class ContributorEditRepositoryImpl(
         id: ContributorId,
         patch: ContributorUpdate,
     ): AppResult<Unit> =
-        offlineEditor.edit(OutboxChannels.Contributors, id.value, patch) {
+        offlineEditor.edit(OutboxChannels.Contributors, id.value, ContributorMutation.Update(patch)) {
             contributorDao.getById(id.value)?.let { existing ->
                 contributorDao.upsert(
                     existing.copy(
@@ -65,8 +70,25 @@ internal class ContributorEditRepositoryImpl(
             }
         }
 
-    override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> =
-        channel.call { it.deleteContributor(id) }
+    /**
+     * Offline-first: soft-delete the contributor (preserving its revision so the echo re-applies the
+     * authoritative tombstone on drain) and cascade-remove its `book_contributors` credits, then
+     * enqueue a durable [ContributorMutation.Delete] op on the `contributors` channel keyed by the id.
+     */
+    override suspend fun deleteContributor(id: ContributorId): AppResult<Unit> {
+        val now = currentEpochMilliseconds()
+        return offlineEditor.edit(
+            OutboxChannels.Contributors,
+            id.value,
+            ContributorMutation.Delete,
+            op = OpKind.Delete,
+        ) {
+            contributorDao
+                .getById(id.value)
+                ?.let { contributorDao.softDelete(id = id, deletedAt = now, revision = it.revision) }
+            contributorDao.deleteAllBookContributorsForContributor(id.value)
+        }
+    }
 
     override suspend fun mergeContributor(
         source: ContributorId,

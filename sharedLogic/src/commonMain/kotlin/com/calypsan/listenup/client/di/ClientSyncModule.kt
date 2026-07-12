@@ -3,6 +3,7 @@ package com.calypsan.listenup.client.di
 import com.calypsan.listenup.api.BookService
 import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
+import com.calypsan.listenup.api.GenreService
 import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
@@ -41,6 +42,7 @@ import com.calypsan.listenup.client.data.sync.SyncDomainHandler
 import com.calypsan.listenup.client.data.sync.domains.ComposedHandlerRegistrar
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.data.sync.domains.OutboxInFlightQuery
+import com.calypsan.listenup.client.data.sync.orSuccessIfNotFound
 import com.calypsan.listenup.client.data.sync.outboxBinding
 import com.calypsan.listenup.client.data.sync.outboxSender
 import com.calypsan.listenup.client.data.sync.domains.RefreshedDomainRouter
@@ -61,12 +63,16 @@ import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookTagMutation
 import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
+import com.calypsan.listenup.api.dto.ContributorMutation
+import com.calypsan.listenup.api.dto.GenreMutation
+import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.core.ShelfId
@@ -145,6 +151,7 @@ internal val clientSyncModule =
             val tagChannel = rpcChannel<TagService>()
             val moodChannel = rpcChannel<MoodService>()
             val shelfChannel = rpcChannel<ShelfService>()
+            val genreChannel = rpcChannel<GenreService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -188,11 +195,34 @@ internal val clientSyncModule =
                             }
                         }
                     },
-                    outboxBinding(OutboxChannels.Series) { id, patch ->
-                        seriesChannel.call { it.updateSeries(SeriesId(id), patch) }
+                    // The op's entityId is the seriesId; the sender reconstructs the SeriesId from it.
+                    outboxBinding(OutboxChannels.Series) { id, mutation ->
+                        when (mutation) {
+                            is SeriesMutation.Update -> {
+                                seriesChannel.call { it.updateSeries(SeriesId(id), mutation.patch) }
+                            }
+
+                            is SeriesMutation.Delete -> {
+                                seriesChannel.call { it.deleteSeries(SeriesId(id)) }.orSuccessIfNotFound()
+                            }
+                        }
                     },
-                    outboxBinding(OutboxChannels.Contributors) { id, patch ->
-                        contributorChannel.call { it.updateContributor(ContributorId(id), patch) }
+                    // The op's entityId is the contributorId; the sender reconstructs the ContributorId from it.
+                    outboxBinding(OutboxChannels.Contributors) { id, mutation ->
+                        when (mutation) {
+                            is ContributorMutation.Update -> {
+                                contributorChannel.call { it.updateContributor(ContributorId(id), mutation.patch) }
+                            }
+
+                            is ContributorMutation.Delete -> {
+                                contributorChannel
+                                    .call {
+                                        it.deleteContributor(
+                                            ContributorId(id),
+                                        )
+                                    }.orSuccessIfNotFound()
+                            }
+                        }
                     },
                     outboxBinding(OutboxChannels.Preferences) { _, patch ->
                         userPreferencesChannel.call { it.updateMyPreferences(patch) }
@@ -200,11 +230,23 @@ internal val clientSyncModule =
                     outboxBinding(OutboxChannels.Profile) { _, patch ->
                         profileChannel.call { it.updateMyProfile(patch) }
                     },
+                    // The op's entityId is the genreId; the sender reconstructs the GenreId from it.
+                    outboxBinding(OutboxChannels.Genres) { id, mutation ->
+                        when (mutation) {
+                            is GenreMutation.Update -> {
+                                genreChannel.call { it.updateGenre(GenreId(id), mutation.patch) }
+                            }
+
+                            is GenreMutation.Delete -> {
+                                genreChannel.call { it.deleteGenre(GenreId(id)) }.orSuccessIfNotFound()
+                            }
+                        }
+                    },
                     // The op's entityId is the tagId; the sender reconstructs the TagId from it.
                     outboxBinding(OutboxChannels.Tags) { id, mutation ->
                         when (mutation) {
                             is TagMutation.Rename -> tagChannel.call { it.renameTag(TagId(id), mutation.newName) }
-                            is TagMutation.Delete -> tagChannel.call { it.deleteTag(TagId(id)) }
+                            is TagMutation.Delete -> tagChannel.call { it.deleteTag(TagId(id)) }.orSuccessIfNotFound()
                         }
                     },
                     // The op's entityId is the "$bookId:$tagId" envelope; the sender reads the ids from the payload.
@@ -237,7 +279,7 @@ internal val clientSyncModule =
                             }
 
                             is ShelfMutation.Delete -> {
-                                shelfChannel.call { it.deleteShelf(ShelfId(id)) }
+                                shelfChannel.call { it.deleteShelf(ShelfId(id)) }.orSuccessIfNotFound()
                             }
                         }
                     },
@@ -265,7 +307,7 @@ internal val clientSyncModule =
                             }
 
                             is CollectionMutation.Delete -> {
-                                collectionChannel.call { it.deleteCollection(CollectionId(id)) }
+                                collectionChannel.call { it.deleteCollection(CollectionId(id)) }.orSuccessIfNotFound()
                             }
                         }
                     },

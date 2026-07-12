@@ -14,8 +14,10 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.RoomTransactionRunner
+import com.calypsan.listenup.api.dto.ContributorMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
+import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
@@ -30,6 +32,7 @@ import com.calypsan.listenup.client.data.sync.DomainDigestClient
 import com.calypsan.listenup.client.data.sync.DomainPendingOperationSender
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.OutboxOpSender
+import com.calypsan.listenup.client.data.sync.orSuccessIfNotFound
 import com.calypsan.listenup.client.data.sync.PendingOperation
 import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
@@ -470,11 +473,6 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     rpcConfig { serialization { krpcJson(contractJson) } }
                 }.withService<CollectionService>()
         val collectionChannel = RpcChannel.forTest(collectionServiceProxy)
-        val genreRepository: ClientGenreRepository =
-            GenreRepositoryImpl(
-                dao = clientDb.genreDao(),
-                channel = RpcChannel.forTest(genreServiceProxy),
-            )
 
         try {
             val registry = ClientSyncDomainRegistry()
@@ -548,12 +546,34 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                         }
                                     },
                                 OutboxChannels.Series.name to
-                                    OutboxOpSender(OutboxChannels.Series) { id, patch ->
-                                        seriesChannel.call { it.updateSeries(SeriesId(id), patch) }
+                                    OutboxOpSender(OutboxChannels.Series) { id, mutation ->
+                                        when (mutation) {
+                                            is SeriesMutation.Update -> {
+                                                seriesChannel.call { it.updateSeries(SeriesId(id), mutation.patch) }
+                                            }
+
+                                            is SeriesMutation.Delete -> {
+                                                seriesChannel
+                                                    .call { it.deleteSeries(SeriesId(id)) }
+                                                    .orSuccessIfNotFound()
+                                            }
+                                        }
                                     },
                                 OutboxChannels.Contributors.name to
-                                    OutboxOpSender(OutboxChannels.Contributors) { id, patch ->
-                                        contributorChannel.call { it.updateContributor(ContributorId(id), patch) }
+                                    OutboxOpSender(OutboxChannels.Contributors) { id, mutation ->
+                                        when (mutation) {
+                                            is ContributorMutation.Update -> {
+                                                contributorChannel.call {
+                                                    it.updateContributor(ContributorId(id), mutation.patch)
+                                                }
+                                            }
+
+                                            is ContributorMutation.Delete -> {
+                                                contributorChannel
+                                                    .call { it.deleteContributor(ContributorId(id)) }
+                                                    .orSuccessIfNotFound()
+                                            }
+                                        }
                                     },
                                 // No harness test yet drains a "preferences" op end-to-end (the
                                 // RPC route isn't mounted server-side above); the entry exists so a
@@ -587,6 +607,14 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                     pendingQueue = queue,
                     transactionRunner = RoomTransactionRunner(clientDb),
                     authSession = FakeAuthSession(),
+                )
+
+            // Offline-first genre update/delete write to client Room and enqueue a "genres" op.
+            val genreRepository: ClientGenreRepository =
+                GenreRepositoryImpl(
+                    dao = clientDb.genreDao(),
+                    channel = RpcChannel.forTest(genreServiceProxy),
+                    offlineEditor = offlineEditor,
                 )
 
             // Offline-first book edits write to client Room and enqueue a "books" op;

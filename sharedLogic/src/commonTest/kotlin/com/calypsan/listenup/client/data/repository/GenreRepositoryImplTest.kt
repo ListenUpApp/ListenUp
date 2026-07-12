@@ -7,7 +7,7 @@ import com.calypsan.listenup.api.result.AppResult as WireAppResult
 import com.calypsan.listenup.client.data.local.db.GenreDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
-import com.calypsan.listenup.api.dto.GenreUpdate
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.core.GenreId
 import dev.mokkery.MockMode
 import dev.mokkery.answering.returns
@@ -22,12 +22,14 @@ import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.test.runTest
 
 /**
- * Unit tests for [GenreRepositoryImpl] — the curator-mutation surface routes through the bounded,
- * self-healing [RpcChannel.call] boundary instead of a hand-rolled `try/catch`. These pin the three
- * outcomes of that boundary: a value returns, a business `AppResult.Failure` passes straight through,
- * and a thrown transport fault becomes a typed `AppResult.Failure`. [RpcChannel.forTest] routes the
- * dispatch through the REAL [com.calypsan.listenup.client.data.remote.catchingRpcResult] fold, so the
- * repo exercises production fold semantics without a live socket.
+ * Unit tests for [GenreRepositoryImpl]'s still-online curator-mutation surface (`createGenre`,
+ * `moveGenre`, `mergeGenres`) — each routes through the bounded, self-healing [RpcChannel.call]
+ * boundary instead of a hand-rolled `try/catch`. These pin the three outcomes of that boundary: a
+ * value returns, a business `AppResult.Failure` passes straight through, and a thrown transport fault
+ * becomes a typed `AppResult.Failure`. [RpcChannel.forTest] routes the dispatch through the REAL
+ * [com.calypsan.listenup.client.data.remote.catchingRpcResult] fold, so the repo exercises production
+ * fold semantics without a live socket. The offline-first surfaces (`updateGenre`, `deleteGenre`) are
+ * covered by `GenreRepositoryOfflineTest` against a real in-memory database.
  */
 class GenreRepositoryImplTest :
     FunSpec({
@@ -35,7 +37,7 @@ class GenreRepositoryImplTest :
         fun repo(
             dao: GenreDao = mock(MockMode.autofill),
             service: GenreService = mock(),
-        ): GenreRepositoryImpl = GenreRepositoryImpl(dao = dao, channel = RpcChannel.forTest(service))
+        ): GenreRepositoryImpl = GenreRepositoryImpl(dao = dao, channel = RpcChannel.forTest(service), offlineEditor = noopOfflineEditor())
 
         test("createGenre dispatches to the service and returns the new id") {
             runTest {
@@ -71,29 +73,6 @@ class GenreRepositoryImplTest :
                 val result = repo(service = service).createGenre(name = "Boom", parentId = null, sortOrder = 0)
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
-            }
-        }
-
-        test("deleteGenre dispatches to the service") {
-            runTest {
-                val service = mock<GenreService>()
-                everySuspend { service.deleteGenre(GenreId("g1")) } returns WireAppResult.Success(Unit)
-
-                repo(service = service).deleteGenre(GenreId("g1")).shouldBeInstanceOf<AppResult.Success<*>>()
-
-                verifySuspend(VerifyMode.exactly(1)) { service.deleteGenre(GenreId("g1")) }
-            }
-        }
-
-        test("updateGenre dispatches the patch to the service") {
-            runTest {
-                val service = mock<GenreService>()
-                val patch = GenreUpdate(name = "Renamed")
-                everySuspend { service.updateGenre(GenreId("g1"), patch) } returns WireAppResult.Success(Unit)
-
-                repo(service = service).updateGenre(GenreId("g1"), patch).shouldBeInstanceOf<AppResult.Success<*>>()
-
-                verifySuspend(VerifyMode.exactly(1)) { service.updateGenre(GenreId("g1"), patch) }
             }
         }
 

@@ -1,14 +1,17 @@
 package com.calypsan.listenup.client.data.repository
 
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.client.data.local.db.SeriesDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
+import com.calypsan.listenup.client.data.sync.domains.OpKind
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.SeriesEditRepository
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.currentEpochMilliseconds
 
 /**
  * Offline-first series editor.
@@ -20,11 +23,12 @@ import com.calypsan.listenup.core.SeriesId
  * still arrives via the SSE sync engine and reconciles through
  * [com.calypsan.listenup.client.data.sync.domains.seriesDomain].
  *
- * [deleteSeries] and [mergeSeries] stay pure RPC dispatchers — the SSE echo from
- * the server is their single write path back into Room. Both route through the
- * [channel], which bounds the call, self-heals the transport, and folds any
- * fault to a typed [AppResult.Failure], following the same pattern as
- * [BookEditRepositoryImpl].
+ * [deleteSeries] is offline-first too: it soft-deletes the series row and cascade-removes its
+ * `book_series` memberships (mirroring the server's `deleteSeries` cascade), then enqueues a
+ * durable [SeriesMutation.Delete] op on the same `series` channel. [mergeSeries] stays a pure RPC
+ * dispatcher — a merge relinks memberships server-side and can't be mirrored optimistically; it
+ * routes through the [channel], which bounds the call, self-heals the transport, and folds any
+ * fault to a typed [AppResult.Failure], following the same pattern as [BookEditRepositoryImpl].
  */
 internal class SeriesEditRepositoryImpl(
     private val channel: RpcChannel<SeriesService>,
@@ -35,7 +39,7 @@ internal class SeriesEditRepositoryImpl(
         id: SeriesId,
         patch: SeriesUpdate,
     ): AppResult<Unit> =
-        offlineEditor.edit(OutboxChannels.Series, id.value, patch) {
+        offlineEditor.edit(OutboxChannels.Series, id.value, SeriesMutation.Update(patch)) {
             seriesDao.getById(id.value)?.let { existing ->
                 seriesDao.upsert(
                     existing.copy(
@@ -50,7 +54,18 @@ internal class SeriesEditRepositoryImpl(
             }
         }
 
-    override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> = channel.call { it.deleteSeries(id) }
+    /**
+     * Offline-first: soft-delete the series (preserving its revision so the echo re-applies the
+     * authoritative tombstone on drain) and cascade-remove its `book_series` memberships, then
+     * enqueue a durable [SeriesMutation.Delete] op on the `series` channel keyed by the series id.
+     */
+    override suspend fun deleteSeries(id: SeriesId): AppResult<Unit> {
+        val now = currentEpochMilliseconds()
+        return offlineEditor.edit(OutboxChannels.Series, id.value, SeriesMutation.Delete, op = OpKind.Delete) {
+            seriesDao.getById(id.value)?.let { seriesDao.softDelete(id = id, deletedAt = now, revision = it.revision) }
+            seriesDao.deleteAllBookSeriesForSeries(id.value)
+        }
+    }
 
     override suspend fun mergeSeries(
         source: SeriesId,

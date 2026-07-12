@@ -118,6 +118,7 @@ class SyncDomainCompletenessSpec :
                 // server-side id that can't be mirrored optimistically). shelves, shelf_books,
                 // collections, and collection_books joined when their update/delete/add/remove surfaces
                 // went offline-first (create stays online — the server mints the shelf/collection id).
+                // genres joined when update/delete went offline-first (create/move/merge stay online).
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -125,6 +126,7 @@ class SyncDomainCompletenessSpec :
                         "contributors",
                         "playback_positions",
                         "listening_events",
+                        "genres",
                         "tags",
                         "book_tags",
                         "book_moods",

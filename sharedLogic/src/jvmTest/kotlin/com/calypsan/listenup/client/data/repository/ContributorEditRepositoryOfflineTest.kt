@@ -3,7 +3,10 @@ package com.calypsan.listenup.client.data.repository
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.BookContributorCrossRef
+import com.calypsan.listenup.client.data.local.db.BookEntity
 import com.calypsan.listenup.client.data.local.db.ContributorEntity
+import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.TransactionRunner
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
@@ -12,10 +15,15 @@ import com.calypsan.listenup.client.data.sync.PendingOperationQueue
 import com.calypsan.listenup.client.data.sync.PendingOperationSender
 import com.calypsan.listenup.client.test.db.createInMemoryTestDatabase
 import com.calypsan.listenup.client.test.fake.FakeAuthSession
+import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.FolderId
+import com.calypsan.listenup.core.LibraryId
 import com.calypsan.listenup.core.Timestamp
 import dev.mokkery.mock
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 
@@ -71,4 +79,78 @@ class ContributorEditRepositoryOfflineTest :
                 db.close()
             }
         }
+
+        test("deleteContributor soft-deletes, cascade-removes book_contributors, and enqueues a delete op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val contributorId = ContributorId("c1")
+                db.contributorDao().upsert(
+                    ContributorEntity(
+                        id = contributorId,
+                        name = "Brandon Sanderson",
+                        description = null,
+                        imagePath = null,
+                        revision = 2,
+                        createdAt = Timestamp(0L),
+                        updatedAt = Timestamp(0L),
+                    ),
+                )
+                // book_contributors carries FK constraints to books + contributors; both parents must exist.
+                db.seedContributorTestBook(BookId("b1"))
+                db.bookContributorDao().insert(
+                    BookContributorCrossRef(bookId = BookId("b1"), contributorId = contributorId, role = "author"),
+                )
+
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val offlineEditor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner =
+                            object : TransactionRunner {
+                                override suspend fun <R> atomically(block: suspend () -> R): R = block()
+                            },
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
+                val repo =
+                    ContributorEditRepositoryImpl(
+                        channel = RpcChannel.forTest(mock<ContributorService>()),
+                        contributorDao = db.contributorDao(),
+                        offlineEditor = offlineEditor,
+                    )
+
+                val result = repo.deleteContributor(contributorId)
+
+                result shouldBe AppResult.Success(Unit)
+                // Contributor tombstoned (getById returns the row with deletedAt set) and credit gone.
+                db
+                    .contributorDao()
+                    .getById(contributorId.value)
+                    ?.deletedAt
+                    .shouldNotBeNull()
+                db.contributorDao().getBookIdsForContributor(contributorId.value).shouldBeEmpty()
+                val op = db.pendingOperationV2Dao().nextDispatchable().single()
+                op.domainName shouldBe "contributors"
+                op.entityId shouldBe "c1"
+                op.opType shouldBe "delete"
+                db.close()
+            }
+        }
     })
+
+/** Seed a minimal live book so `book_contributors` FK inserts have a parent row. */
+private suspend fun ListenUpDatabase.seedContributorTestBook(id: BookId) =
+    bookDao().upsert(
+        BookEntity(
+            id = id,
+            libraryId = LibraryId("lib1"),
+            folderId = FolderId("folder1"),
+            title = "Book ${id.value}",
+            totalDuration = 3_600_000L,
+            createdAt = Timestamp(0L),
+            updatedAt = Timestamp(0L),
+        ),
+    )

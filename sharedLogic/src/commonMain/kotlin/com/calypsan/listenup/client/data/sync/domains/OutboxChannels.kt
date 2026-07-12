@@ -5,13 +5,14 @@ import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookTagMutation
 import com.calypsan.listenup.api.dto.CollectionBookMutation
 import com.calypsan.listenup.api.dto.CollectionMutation
-import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.ContributorMutation
+import com.calypsan.listenup.api.dto.GenreMutation
 import com.calypsan.listenup.api.dto.ShelfBookMutation
 import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
-import com.calypsan.listenup.api.dto.SeriesUpdate
+import com.calypsan.listenup.api.dto.SeriesMutation
 import com.calypsan.listenup.api.dto.preferences.UpdateUserPreferencesRequest
 import com.calypsan.listenup.api.dto.profile.UpdateProfileRequest
 import com.calypsan.listenup.api.sync.SyncDomains
@@ -31,13 +32,24 @@ internal object OutboxChannels {
     // so a book's edits share per-entity FIFO and the domain-keyed anti-flicker shield.
     val Books =
         OutboxChannel(SyncDomains.BOOKS.name, BookMutation.serializer(), setOf(OpKind.Update), idempotent = true)
+
+    // Series lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side. Both
+    // are idempotent — a re-fire re-applies the same terminal state. Merging two series stays online.
     val Series =
-        OutboxChannel(SyncDomains.SERIES.name, SeriesUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
+        OutboxChannel(
+            SyncDomains.SERIES.name,
+            SeriesMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
+
+    // Contributor lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side.
+    // Both are idempotent. Merging/un-merging a contributor stays online (server relinks junctions).
     val Contributors =
         OutboxChannel(
             SyncDomains.CONTRIBUTORS.name,
-            ContributorUpdate.serializer(),
-            setOf(OpKind.Update),
+            ContributorMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
             idempotent = true,
         )
 
@@ -62,6 +74,18 @@ internal object OutboxChannels {
         OutboxChannel("profile", UpdateProfileRequest.serializer(), setOf(OpKind.Update), idempotent = true)
     val Preferences =
         OutboxChannel("preferences", UpdateUserPreferencesRequest.serializer(), setOf(OpKind.Update), idempotent = true)
+
+    // Genre lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
+    // idempotent — a re-fire re-applies the same terminal state (a second delete finds the genre already
+    // tombstoned). Creating a genre (server-minted id/slug), a subtree move (path/depth recompute), and a
+    // merge (server-side relink) all stay online.
+    val Genres =
+        OutboxChannel(
+            SyncDomains.GENRES.name,
+            GenreMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
 
     // Tag lifecycle: rename (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
     // idempotent — a re-fire re-applies the same terminal state (a second delete finds the tag already
@@ -137,6 +161,7 @@ internal object OutboxChannels {
             ListeningEvents,
             Profile,
             Preferences,
+            Genres,
             Tags,
             BookTags,
             BookMoods,

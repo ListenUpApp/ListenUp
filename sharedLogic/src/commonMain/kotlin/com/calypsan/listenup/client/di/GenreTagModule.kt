@@ -31,9 +31,9 @@ internal val genreTagModule: Module =
         // unmapped-string queue need an RPC channel. Authed (self-healing) by default.
         rpcChannel<GenreService>()
 
-        // GenreRepository — Room-backed reads, RPC-dispatched mutations.
+        // GenreRepository — Room-backed reads, offline-first update/delete (create/move/merge online).
         single<GenreRepository> {
-            GenreRepositoryImpl(dao = get(), channel = rpcChannel())
+            GenreRepositoryImpl(dao = get(), channel = rpcChannel(), offlineEditor = get())
         }
 
         // TagService RPC channel — kotlinx.rpc dispatch for the tag mutation surface
