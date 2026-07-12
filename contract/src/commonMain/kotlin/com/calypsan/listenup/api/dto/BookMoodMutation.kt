@@ -9,12 +9,35 @@ import kotlinx.serialization.Serializable
  * junction's mirror row uses — so the per-entity FIFO order and the anti-flicker shield align
  * with the row the edit changes. Mirrors [BookTagMutation].
  *
- * Only removal is modelled: adding a mood to a book is find-or-create and may mint a new
- * server-side mood id, so it cannot be mirrored optimistically and stays an online RPC
- * ([com.calypsan.listenup.api.MoodService.addMoodToBook]).
+ * Both add and remove are modelled, but add is only enqueued for the **name-hit** case: adding a mood
+ * to a book is find-or-create by slug server-side, and the client has no cross-platform slug
+ * normalizer. When a mood with the same display name (case-insensitive) already exists locally its
+ * slug is `normalize(name)`, so the server's find-or-create for the same `name` resolves to that same
+ * mood id — the client can optimistically add the `([bookId], [Add.moodId])` junction and enqueue the
+ * add, guaranteed to converge with the echo. A genuinely-new mood (no same-name row) mints its
+ * id/slug server-side and stays an online RPC ([com.calypsan.listenup.api.MoodService.addMoodToBook]);
+ * it is never enqueued as an [Add].
  */
 @Serializable
 sealed interface BookMoodMutation {
+    /**
+     * Add the existing mood [moodId] to book [bookId] — maps to
+     * [com.calypsan.listenup.api.MoodService.addMoodToBook], whose find-or-create resolves [name] back
+     * to this same mood. Only enqueued when a same-name mood already exists locally (see the interface
+     * KDoc); idempotent server-side (re-adding an existing junction returns Success).
+     *
+     * @property bookId the book gaining the mood.
+     * @property moodId the existing mood being added.
+     * @property name the mood's display name — the find-or-create argument the RPC takes.
+     */
+    @Serializable
+    @SerialName("BookMoodMutation.Add")
+    data class Add(
+        @SerialName("bookId") val bookId: String,
+        @SerialName("moodId") val moodId: String,
+        @SerialName("name") val name: String,
+    ) : BookMoodMutation
+
     /**
      * Remove the mood [moodId] from book [bookId] — maps to
      * [com.calypsan.listenup.api.MoodService.removeMoodFromBook]. Idempotent server-side.

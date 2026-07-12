@@ -98,15 +98,22 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
-    // Junction removals: soft-delete is idempotent server-side (re-removing an already-removed junction
-    // returns Success). Adding a tag/mood to a book stays online — find-or-create may mint a server id.
+    // Junction add/remove: both idempotent server-side (re-adding an existing junction or re-removing an
+    // absent one returns Success). Add (Create) is offline-first only for the name-hit case — a same-name
+    // tag/mood already exists locally, so the server's find-or-create resolves to that same id; a
+    // genuinely-new tag/mood mints a server id and stays online (never enqueued as an Add).
     val BookTags =
-        OutboxChannel(SyncDomains.BOOK_TAGS.name, BookTagMutation.serializer(), setOf(OpKind.Delete), idempotent = true)
+        OutboxChannel(
+            SyncDomains.BOOK_TAGS.name,
+            BookTagMutation.serializer(),
+            setOf(OpKind.Create, OpKind.Delete),
+            idempotent = true,
+        )
     val BookMoods =
         OutboxChannel(
             SyncDomains.BOOK_MOODS.name,
             BookMoodMutation.serializer(),
-            setOf(OpKind.Delete),
+            setOf(OpKind.Create, OpKind.Delete),
             idempotent = true,
         )
 

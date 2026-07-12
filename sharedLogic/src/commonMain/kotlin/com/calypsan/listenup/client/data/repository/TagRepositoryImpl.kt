@@ -11,6 +11,7 @@ import com.calypsan.listenup.core.TagId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.core.error.ErrorMapper
 import com.calypsan.listenup.client.data.local.db.BookTagDao
+import com.calypsan.listenup.client.data.local.db.BookTagEntity
 import com.calypsan.listenup.client.data.local.db.TagDao
 import com.calypsan.listenup.client.data.local.db.TagEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
@@ -44,8 +45,10 @@ private val logger = KotlinLogging.logger {}
  *   each row's own echo until its op drains; the authoritative state then reconciles through
  *   [com.calypsan.listenup.client.data.sync.domains.tagsDomain] /
  *   [com.calypsan.listenup.client.data.sync.domains.bookTagsDomain].
- * - `addTagToBook` stays online (find-or-create allocates a new tag's id and slug server-side, which
- *   can't be mirrored optimistically); it dispatches through the [RpcChannel] for [TagService].
+ * - `addTagToBook` is offline-first when a same-name tag already exists in Room (its slug equals the
+ *   server's `normalize(name)`, so find-or-create resolves to that same id — the junction is mirrored
+ *   and a durable [BookTagMutation.Add] enqueued); a genuinely-new tag mints its id/slug server-side
+ *   and stays online, dispatching through the [RpcChannel] for [TagService].
  *
  * @property channel the [RpcChannel] the online mutation surface dispatches through; the channel
  *   folds the RPC outcome into an [AppResult] (throw → typed `Failure`, business `Failure` passthrough).
@@ -85,11 +88,49 @@ internal class TagRepositoryImpl(
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
     /**
-     * Adding a tag to a book is find-or-create and stays ONLINE: a brand-new tag's id and slug are
-     * allocated server-side and are unknown until the echo, so it can't be mirrored optimistically.
-     * The other three surfaces are offline-first below.
+     * Adding a tag to a book is find-or-create by slug server-side, so its offline-first eligibility
+     * turns on whether the target tag already exists locally:
+     * - **Name hit** (a live tag with [name] already in Room, case-insensitive): its slug equals the
+     *   server's `normalize(name)`, so the server's find-or-create for the same `name` resolves to THIS
+     *   tag id — a false hit is impossible (two tags can't share a slug). So it's offline-first: upsert
+     *   the `(bookId, tagId)` junction optimistically (revision-0, clearing any tombstone for re-add
+     *   semantics) and enqueue a durable [BookTagMutation.Add] on the `book_tags` channel, keyed by the
+     *   same `"$bookId:$tagId"` envelope id the junction's mirror row uses so the in-flight shield and
+     *   reconcile-on-drain align. The known tag is returned immediately.
+     * - **Miss** (no same-name tag locally): a brand-new tag's id/slug are minted server-side and unknown
+     *   until the echo, so it stays ONLINE via the [RpcChannel]. This also correctly covers the rare case
+     *   where the server would slug-match a *differently-named* existing tag (e.g. "sci-fi" vs "Sci-Fi"
+     *   is a hit, but "SciFi" vs "Sci-Fi" is a miss); the echo reconciles Room either way.
+     *
+     * The client deliberately does NOT normalize slugs itself — the server's normalizer is a JVM-only
+     * expect/actual, so name-match is the safe cross-platform proxy for the find-or-create identity.
      */
     override suspend fun addTagToBook(
+        bookId: String,
+        name: String,
+    ): AppResult<Tag> {
+        val existing = tagDao.findByName(name) ?: return onlineAddTagToBook(bookId, name)
+        return offlineEditor
+            .edit(
+                OutboxChannels.BookTags,
+                "$bookId:${existing.id}",
+                BookTagMutation.Add(bookId = bookId, tagId = existing.id, name = name),
+                op = OpKind.Create,
+            ) {
+                bookTagDao.upsert(
+                    BookTagEntity(
+                        bookId = bookId,
+                        tagId = existing.id,
+                        createdAt = currentEpochMilliseconds(),
+                        revision = 0,
+                        deletedAt = null,
+                    ),
+                )
+            }.map { existing.toDomain() }
+    }
+
+    /** The online find-or-create fallback for a brand-new tag; the echo reconciles Room. */
+    private suspend fun onlineAddTagToBook(
         bookId: String,
         name: String,
     ): AppResult<Tag> = channel.call { it.addTagToBook(BookId(bookId), name) }.map { it.toDomain() }

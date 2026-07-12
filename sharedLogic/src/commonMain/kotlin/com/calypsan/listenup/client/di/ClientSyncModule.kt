@@ -250,8 +250,13 @@ internal val clientSyncModule =
                         }
                     },
                     // The op's entityId is the "$bookId:$tagId" envelope; the sender reads the ids from the payload.
+                    // Add re-dispatches find-or-create by name (resolves back to the same existing tag).
                     outboxBinding(OutboxChannels.BookTags) { _, mutation ->
                         when (mutation) {
+                            is BookTagMutation.Add -> {
+                                tagChannel.call { it.addTagToBook(BookId(mutation.bookId), mutation.name) }
+                            }
+
                             is BookTagMutation.Remove -> {
                                 tagChannel.call { it.removeTagFromBook(BookId(mutation.bookId), TagId(mutation.tagId)) }
                             }
@@ -259,6 +264,10 @@ internal val clientSyncModule =
                     },
                     outboxBinding(OutboxChannels.BookMoods) { _, mutation ->
                         when (mutation) {
+                            is BookMoodMutation.Add -> {
+                                moodChannel.call { it.addMoodToBook(BookId(mutation.bookId), mutation.name) }
+                            }
+
                             is BookMoodMutation.Remove -> {
                                 moodChannel.call {
                                     it.removeMoodFromBook(

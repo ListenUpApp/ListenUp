@@ -30,7 +30,9 @@ import com.calypsan.listenup.api.sync.Tag as WireTag
  * Offline-first contract for the tag write surface. Every server-mutating op that CAN be mirrored
  * optimistically (rename, delete, remove-from-book) must write Room and enqueue a durable outbox op
  * with no server present — never fail with a [com.calypsan.listenup.api.error.ServerConnectError].
- * Adding a tag to a book stays online (find-or-create mints a server-side id).
+ * Adding a tag to a book is offline-first when a same-name tag already exists locally (the server's
+ * find-or-create resolves to that same tag), and falls back online otherwise (a genuinely new tag
+ * mints a server-side id that can't be mirrored optimistically).
  */
 class TagRepositoryOfflineTest :
     FunSpec({
@@ -148,7 +150,38 @@ class TagRepositoryOfflineTest :
             }
         }
 
-        test("addTagToBook stays online — it dispatches to the RPC and enqueues nothing") {
+        test("addTagToBook with an existing same-name tag is offline-first: upserts the junction and enqueues a create op") {
+            runTest {
+                val f = fixture()
+                // The display name is "Sci-Fi"; the caller types "sci-fi" — a case-insensitive hit.
+                f.db.tagDao().upsert(TagEntity(id = "t1", name = "Sci-Fi", slug = "sci-fi", revision = 4, updatedAt = 0L))
+                // The service must NOT be called on the offline-first hit path — a bare mock proves it.
+                val repo = f.repo(mock())
+
+                val result = repo.addTagToBook(bookId = "b1", name = "sci-fi")
+
+                result.shouldBeInstanceOf<AppResult.Success<*>>()
+                (result as AppResult.Success).data.id shouldBe "t1"
+                // The junction is upserted optimistically and live.
+                f.db
+                    .bookTagDao()
+                    .findByKey("b1", "t1")
+                    .shouldNotBeNull()
+                    .deletedAt
+                    .shouldBeNull()
+                val op =
+                    f.db
+                        .pendingOperationV2Dao()
+                        .nextDispatchable()
+                        .single()
+                op.domainName shouldBe "book_tags"
+                op.entityId shouldBe "b1:t1"
+                op.opType shouldBe "create"
+                f.db.close()
+            }
+        }
+
+        test("addTagToBook with no same-name tag stays online — it dispatches to the RPC and enqueues nothing") {
             runTest {
                 val f = fixture()
                 val service = mock<TagService>()
@@ -156,7 +189,7 @@ class TagRepositoryOfflineTest :
                     AppResult.Success(WireTag(id = "t1", name = "Sci Fi", slug = "sci-fi", revision = 1, updatedAt = 0L))
                 val repo = f.repo(service)
 
-                val result = repo.addTagToBook(bookId = "b1", name = "Sci Fi")
+                val result = repo.addTagToBook(bookId = "b1", name = "Brand New")
 
                 result.shouldBeInstanceOf<AppResult.Success<*>>()
                 f.db

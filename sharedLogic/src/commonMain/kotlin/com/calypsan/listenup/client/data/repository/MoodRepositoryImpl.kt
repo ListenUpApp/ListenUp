@@ -8,6 +8,7 @@ import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.currentEpochMilliseconds
 import com.calypsan.listenup.client.data.local.db.BookMoodDao
+import com.calypsan.listenup.client.data.local.db.BookMoodEntity
 import com.calypsan.listenup.client.data.local.db.MoodDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.sync.OfflineEditor
@@ -32,9 +33,11 @@ import kotlinx.coroutines.flow.map
  * keyed by the `"$bookId:$moodId"` envelope id, so an edit made offline persists and replays on
  * reconnect rather than failing with a [com.calypsan.listenup.api.error.ServerConnectError]; the
  * in-flight shield defers the junction's own echo until the op drains, then it reconciles through
- * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain]. `addMoodToBook` stays online
- * (find-or-create allocates a new mood's id and slug server-side); it dispatches through the
- * [RpcChannel] for [MoodService].
+ * [com.calypsan.listenup.client.data.sync.domains.bookMoodsDomain]. `addMoodToBook` is offline-first
+ * when a same-name mood already exists in Room (its slug equals the server's `normalize(name)`, so
+ * find-or-create resolves to that same id — the junction is mirrored and a durable
+ * [BookMoodMutation.Add] enqueued); a genuinely-new mood mints its id/slug server-side and stays
+ * online, dispatching through the [RpcChannel] for [MoodService].
  *
  * @property channel the [RpcChannel] the online mutation surface dispatches through; the channel
  *   folds the RPC outcome into an [AppResult] (throw → typed `Failure`, business `Failure` passthrough).
@@ -63,10 +66,48 @@ internal class MoodRepositoryImpl(
     // ── Mutation (RPC-backed) ─────────────────────────────────────────────────
 
     /**
-     * Adding a mood to a book is find-or-create and stays ONLINE: a brand-new mood's id and slug are
-     * allocated server-side and are unknown until the echo, so it can't be mirrored optimistically.
+     * Adding a mood to a book is find-or-create by slug server-side, so its offline-first eligibility
+     * turns on whether the target mood already exists locally:
+     * - **Name hit** (a live mood with [name] already in Room, case-insensitive): its slug equals the
+     *   server's `normalize(name)`, so find-or-create for the same `name` resolves to THIS mood id — a
+     *   false hit is impossible (two moods can't share a slug). So it's offline-first: upsert the
+     *   `(bookId, moodId)` junction optimistically (revision-0, clearing any tombstone for re-add
+     *   semantics) and enqueue a durable [BookMoodMutation.Add] on the `book_moods` channel, keyed by
+     *   the same `"$bookId:$moodId"` envelope id the junction's mirror row uses so the in-flight shield
+     *   and reconcile-on-drain align. The known mood is returned immediately.
+     * - **Miss** (no same-name mood locally): a brand-new mood's id/slug are minted server-side and
+     *   unknown until the echo, so it stays ONLINE via the [RpcChannel]. This also covers the rare case
+     *   where the server would slug-match a *differently-named* existing mood; the echo reconciles Room.
+     *
+     * The client deliberately does NOT normalize slugs itself — the server's normalizer is a JVM-only
+     * expect/actual, so name-match is the safe cross-platform proxy for the find-or-create identity.
      */
     override suspend fun addMoodToBook(
+        bookId: String,
+        name: String,
+    ): AppResult<Mood> {
+        val existing = moodDao.findByName(name) ?: return onlineAddMoodToBook(bookId, name)
+        return offlineEditor
+            .edit(
+                OutboxChannels.BookMoods,
+                "$bookId:${existing.id}",
+                BookMoodMutation.Add(bookId = bookId, moodId = existing.id, name = name),
+                op = OpKind.Create,
+            ) {
+                bookMoodDao.upsert(
+                    BookMoodEntity(
+                        bookId = bookId,
+                        moodId = existing.id,
+                        createdAt = currentEpochMilliseconds(),
+                        revision = 0,
+                        deletedAt = null,
+                    ),
+                )
+            }.map { existing.toDomain() }
+    }
+
+    /** The online find-or-create fallback for a brand-new mood; the echo reconciles Room. */
+    private suspend fun onlineAddMoodToBook(
         bookId: String,
         name: String,
     ): AppResult<Mood> = channel.call { it.addMoodToBook(BookId(bookId), name) }.map { it.toDomain() }
