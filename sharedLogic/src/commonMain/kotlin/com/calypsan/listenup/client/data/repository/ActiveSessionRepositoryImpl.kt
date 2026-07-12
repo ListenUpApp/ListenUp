@@ -77,7 +77,7 @@ internal class ActiveSessionRepositoryImpl(
     /** Re-fetch the presence roster and replace the cache; leave it intact on failure. */
     private suspend fun refresh() {
         try {
-            when (val result = channel.call { it.currentlyListening() }) {
+            when (val result = channel.call(idempotent = true) { it.currentlyListening() }) {
                 is AppResult.Success -> {
                     val observedAt = clock.now().toEpochMilliseconds()
                     cachedSessionDao.replaceAll(result.data.map { it.toEntity(observedAt) })

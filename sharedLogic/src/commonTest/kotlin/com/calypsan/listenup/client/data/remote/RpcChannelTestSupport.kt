@@ -21,6 +21,7 @@ internal class DirectRpcDispatch<S : Any>(
 ) : RpcDispatch<S> {
     override suspend fun <R> call(
         timeout: Duration,
+        idempotent: Boolean,
         block: suspend (S) -> R,
     ): R =
         try {
@@ -50,6 +51,7 @@ internal class ScriptedRpcDispatch<S : Any>(
 
     override suspend fun <R> call(
         timeout: Duration,
+        idempotent: Boolean,
         block: suspend (S) -> R,
     ): R {
         remaining.removeFirstOrNull()?.let { throw it }

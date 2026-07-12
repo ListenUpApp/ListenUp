@@ -66,7 +66,7 @@ internal class UserPreferencesRepositoryImpl(
 
     override suspend fun getPreferences(): AppResult<UserPreferences> =
         channel
-            .call { it.getMyPreferences() }
+            .call(idempotent = true) { it.getMyPreferences() }
             .map { it.toDomain() }
             .also { result -> if (result is AppResult.Success) cache(result.data) }
 

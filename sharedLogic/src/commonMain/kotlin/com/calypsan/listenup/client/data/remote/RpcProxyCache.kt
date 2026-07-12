@@ -108,9 +108,16 @@ internal class RpcProxyCache<T : Any>(
      * Run [block] against the cached proxy with bounded, single-flight, self-healing recovery.
      * See the class KDoc for the full retry/surface policy — the load-bearing invariant is that
      * only **provably pre-delivery** failures retry, so a non-idempotent mutation never double-applies.
+     *
+     * [idempotent] widens that only for READS the caller declares safe to re-fire: when `true`, a
+     * post-delivery lost response (our own first-attempt timeout, or a from-below "Client cancelled")
+     * auto-retries ONCE on a fresh lease instead of surfacing outcome-unknown. The retry is
+     * at-most-once — a second lost response goes through the ordinary [surface] path. When `false`
+     * (the default, every mutation) behaviour is exactly as before: surface, never re-fire.
      */
     override suspend fun <R> call(
         timeout: Duration,
+        idempotent: Boolean,
         block: suspend (T) -> R,
     ): R {
         val lease = lease()
@@ -126,9 +133,11 @@ internal class RpcProxyCache<T : Any>(
             // NEXT call re-leases, but keep the shared client alive so sibling in-flight calls/streams on
             // this channel are not torn down (C1). Closing here reserved for provable socket death.
             invalidateProxyOnly(lease.generation)
+            // A READ is safe to re-fire: retry once (at-most-once — retryOnce's terminal is surface()).
+            if (idempotent) return retryOnce(timeout, block)
             throw RpcOutcomeUnknownException(e)
         } catch (e: Throwable) {
-            recover(e, lease.generation, timeout, block)
+            recover(e, lease.generation, timeout, idempotent, block)
         }
     }
 
@@ -254,6 +263,7 @@ internal class RpcProxyCache<T : Any>(
         e: Throwable,
         leasedGeneration: Int,
         timeout: Duration,
+        idempotent: Boolean,
         block: suspend (T) -> R,
     ): R {
         when {
@@ -272,13 +282,31 @@ internal class RpcProxyCache<T : Any>(
                 return retryOnce(timeout, block)
             }
 
-            // Everything else — a from-below (post-delivery) cancellation, a cancelled caller, or an
-            // unknown fault — is NOT safe to retry. Surface it.
+            // A from-below (post-delivery) lost response on a READ the caller declared idempotent: the
+            // frame was sent but the response was lost, so re-firing cannot double-apply. Reconnect and
+            // retry ONCE (at-most-once — retryOnce's terminal is surface(), so a second loss surfaces).
+            idempotent && e.isPostDeliveryLostResponse() -> {
+                logger.info { "RPC post-delivery lost response on an idempotent call; reconnecting + retrying once" }
+                invalidate(leasedGeneration)
+                return retryOnce(timeout, block)
+            }
+
+            // Everything else — a from-below (post-delivery) cancellation on a NON-idempotent call, a
+            // cancelled caller, or an unknown fault — is NOT safe to retry. Surface it.
             else -> {
                 surface(e, leasedGeneration)
             }
         }
     }
+
+    /**
+     * A from-below **post-delivery** lost response: a `CancellationException` thrown from below (the
+     * WS closed a pending, already-SENT request channel) while the CALLER context is still ACTIVE.
+     * Distinguished from a genuine caller cancellation (inactive context) — only this one is safe to
+     * re-fire when the call is idempotent.
+     */
+    private suspend fun Throwable.isPostDeliveryLostResponse(): Boolean =
+        this is CancellationException && currentCoroutineContext().isActive
 
     /**
      * Refresh the bearer token for a handshake 401, then retry once on a rebuilt connection. If the

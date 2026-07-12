@@ -64,10 +64,12 @@ internal class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getUsers(): AppResult<List<AdminUserInfo>> =
-        adminUserChannel.call { it.listUsers() }.map { users -> users.map { it.toAdminUserInfo() } }
+        adminUserChannel.call(idempotent = true) { it.listUsers() }.map { users -> users.map { it.toAdminUserInfo() } }
 
     override suspend fun getPendingUsers(): AppResult<List<AdminUserInfo>> =
-        adminUserChannel.call { it.listPendingUsers() }.map { users -> users.map { it.toAdminUserInfo() } }
+        adminUserChannel.call(idempotent = true) { it.listPendingUsers() }.map { users ->
+            users.map { it.toAdminUserInfo() }
+        }
 
     override fun observeRoster(): Flow<List<AdminUserInfo>> =
         adminUserRosterDao.observeAll().map { rows -> rows.map { it.toAdminUserInfo() } }
@@ -89,7 +91,7 @@ internal class AdminRepositoryImpl(
         adminUserChannel.call { it.deleteUser(UserId(userId)) }
 
     override suspend fun getUser(userId: String): AppResult<AdminUserInfo> =
-        adminUserChannel.call { it.getUser(UserId(userId)) }.map { it.toAdminUserInfo() }
+        adminUserChannel.call(idempotent = true) { it.getUser(UserId(userId)) }.map { it.toAdminUserInfo() }
 
     override suspend fun updateUser(
         userId: String,
@@ -109,7 +111,7 @@ internal class AdminRepositoryImpl(
                 AppResult.Success(null)
             } else {
                 adminUserChannel
-                    .call { it.getUser(UserId(userId)) }
+                    .call(idempotent = true) { it.getUser(UserId(userId)) }
                     .map { UserPermissions(canEdit = it.permissions.canEdit, canShare = canShare) }
             }
         return permissions.flatMap { perms ->
@@ -119,7 +121,7 @@ internal class AdminRepositoryImpl(
     }
 
     override suspend fun getRegistrationPolicy(): AppResult<RegistrationPolicy> =
-        adminUserChannel.call { it.getRegistrationPolicy() }
+        adminUserChannel.call(idempotent = true) { it.getRegistrationPolicy() }
 
     // ═══════════════════════════════════════════════════════════════════════
     // INVITE MANAGEMENT
@@ -129,7 +131,7 @@ internal class AdminRepositoryImpl(
         val serverUrl = serverConfig.getActiveUrl()?.value.orEmpty()
         val remoteUrl = inviteRemoteUrl(serverUrl)
         return inviteAdminChannel
-            .call { it.listInvites() }
+            .call(idempotent = true) { it.listInvites() }
             .map { list -> list.map { it.toInviteInfo(serverUrl, remoteUrl) } }
     }
 
@@ -173,7 +175,7 @@ internal class AdminRepositoryImpl(
         adminUserChannel.call { it.setRegistrationPolicy(policy) }
 
     override suspend fun getServerSettings(): AppResult<ServerSettings> =
-        adminSettingsChannel.call { it.getServerSettings() }.map {
+        adminSettingsChannel.call(idempotent = true) { it.getServerSettings() }.map {
             ServerSettings(
                 it.serverName,
                 it.remoteUrl,
@@ -202,7 +204,7 @@ internal class AdminRepositoryImpl(
     // ═══════════════════════════════════════════════════════════════════════
 
     override suspend fun getLibrary(): AppResult<Library> =
-        libraryAdminChannel.call { it.getLibrary() }.map { it.toDomain() }
+        libraryAdminChannel.call(idempotent = true) { it.getLibrary() }.map { it.toDomain() }
 
     override suspend fun addScanPath(path: String): AppResult<Library> =
         // One RPC frame per call block: add the folder in its own frame, then (on success) trigger
@@ -230,7 +232,7 @@ internal class AdminRepositoryImpl(
     override suspend fun triggerScan(): AppResult<Unit> = libraryAdminChannel.call { it.scanLibrary() }
 
     override suspend fun browseFilesystem(path: String): AppResult<BrowseFilesystemResponse> =
-        libraryAdminChannel.call { it.browseFilesystem(path) }.map { entries ->
+        libraryAdminChannel.call(idempotent = true) { it.browseFilesystem(path) }.map { entries ->
             val isRoot = path == "/"
             val parent =
                 if (isRoot) {

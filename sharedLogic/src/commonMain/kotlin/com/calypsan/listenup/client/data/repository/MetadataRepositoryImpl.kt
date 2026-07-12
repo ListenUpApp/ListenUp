@@ -34,25 +34,26 @@ internal class MetadataRepositoryImpl(
     override suspend fun searchBooks(
         query: String,
         region: AudibleRegion?,
-    ): AppResult<MetadataSearchResults> = channel.call { it.searchBooks(query, region) }
+    ): AppResult<MetadataSearchResults> = channel.call(idempotent = true) { it.searchBooks(query, region) }
 
     override suspend fun getBookMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataBook?> = channel.call { it.getBookMetadata(asin, region) }
+    ): AppResult<MetadataBook?> = channel.call(idempotent = true) { it.getBookMetadata(asin, region) }
 
     override suspend fun getBookChapters(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataChapters?> = channel.call { it.getBookChapters(asin, region) }
+    ): AppResult<MetadataChapters?> = channel.call(idempotent = true) { it.getBookChapters(asin, region) }
 
     override suspend fun searchContributorMetadata(query: String): AppResult<List<MetadataContributorHit>> =
-        channel.call { it.searchContributorMetadata(query) }
+        channel.call(idempotent = true) { it.searchContributorMetadata(query) }
 
     override suspend fun getContributorMetadata(
         asin: String,
         region: AudibleRegion,
-    ): AppResult<MetadataContributorProfile?> = channel.call { it.getContributorMetadata(asin, region) }
+    ): AppResult<MetadataContributorProfile?> =
+        channel.call(idempotent = true) { it.getContributorMetadata(asin, region) }
 
     override suspend fun refreshBookMetadata(
         asin: String,

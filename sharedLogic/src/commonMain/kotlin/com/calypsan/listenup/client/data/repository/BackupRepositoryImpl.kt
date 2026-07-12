@@ -119,7 +119,10 @@ internal class BackupRepositoryImpl(
     override suspend fun createBackup(includeImages: Boolean): AppResult<BackupSummary> =
         channel.call(timeout = 10.minutes) { it.createBackup(includeImages) }
 
-    override suspend fun listBackups(): AppResult<List<BackupSummary>> = channel.call { it.listBackups() }
+    override suspend fun listBackups(): AppResult<List<BackupSummary>> =
+        channel.call(idempotent = true) {
+            it.listBackups()
+        }
 
     override suspend fun deleteBackup(id: BackupId): AppResult<Unit> = channel.call { it.deleteBackup(id) }
 

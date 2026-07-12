@@ -76,7 +76,7 @@ internal class BookReadersRepositoryImpl(
     /** Re-fetch the readership and replace the book's cached rows; leave the cache intact on failure. */
     private suspend fun refresh(bookId: String) {
         try {
-            when (val result = channel.call { it.bookReadership(BookId(bookId)) }) {
+            when (val result = channel.call(idempotent = true) { it.bookReadership(BookId(bookId)) }) {
                 is AppResult.Success -> {
                     val observedAt = clock.now().toEpochMilliseconds()
                     readershipDao.replaceForBook(bookId, result.data.readers.map { it.toEntity(bookId, observedAt) })

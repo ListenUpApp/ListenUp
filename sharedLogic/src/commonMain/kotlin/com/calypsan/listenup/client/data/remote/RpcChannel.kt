@@ -66,9 +66,17 @@ internal data class RpcPolicy(
  * express, not merely discouraged.
  */
 internal interface RpcDispatch<S : Any> : RemoteCache {
-    /** Bounded, single-flight, self-healing unary dispatch. See [RpcProxyCache.call]. */
+    /**
+     * Bounded, single-flight, self-healing unary dispatch. See [RpcProxyCache.call].
+     *
+     * [idempotent] declares that re-firing [block] cannot change server state or double-apply — set
+     * it `true` only for READS. When `true`, a post-delivery lost response auto-retries once; when
+     * `false` (the default, for every mutation) a lost response surfaces as outcome-unknown, never
+     * re-fired.
+     */
     suspend fun <R> call(
         timeout: Duration = DEFAULT_RPC_TIMEOUT,
+        idempotent: Boolean = false,
         block: suspend (S) -> R,
     ): R
 
@@ -99,11 +107,18 @@ internal class RpcChannel<S : Any> internal constructor(
      * an [AppResult]. A business [AppResult.Failure] returned by the service passes through untouched.
      * [timeout] defaults to the policy bound; long operations declare their own, e.g.
      * `call(timeout = 10.minutes) { it.restoreBackup(id) }`.
+     *
+     * [idempotent] is policy-as-data at the call site: pass `true` only when re-firing [block] cannot
+     * change server state or double-apply — i.e. for READS (`getBook`, `searchBooks`, `listBackups`,
+     * …). It licenses the engine to auto-retry ONCE on a post-delivery lost response instead of
+     * surfacing outcome-unknown. Every mutation keeps the safe default `false`, so a lost response is
+     * never blindly re-fired.
      */
     suspend fun <T> call(
         timeout: Duration = policy.defaultTimeout,
+        idempotent: Boolean = false,
         block: suspend (S) -> AppResult<T>,
-    ): AppResult<T> = catchingRpcResult { dispatch.call(timeout) { service -> block(service) } }
+    ): AppResult<T> = catchingRpcResult { dispatch.call(timeout, idempotent) { service -> block(service) } }
 
     /**
      * Subscribe to a server-pushed stream. Collection is **never** bounded by a timeout.

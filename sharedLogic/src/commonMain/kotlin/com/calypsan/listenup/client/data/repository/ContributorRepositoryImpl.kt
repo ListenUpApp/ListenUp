@@ -119,7 +119,7 @@ internal class ContributorRepositoryImpl(
      * ("Never Stranded").
      */
     private suspend fun fetchAndCacheContributor(id: ContributorId) {
-        when (val result = channel.call { it.getContributor(id) }) {
+        when (val result = channel.call(idempotent = true) { it.getContributor(id) }) {
             is AppResult.Success -> {
                 result.data?.let { contributorSyncHandler.onCatchUpItem(it, isTombstone = false) }
                     ?: logger.debug { "getContributor returned no contributor for $id — leaving cache miss" }
@@ -226,7 +226,11 @@ internal class ContributorRepositoryImpl(
     ): ContributorSearchResponse? =
         withContext(IODispatcher) {
             val (result, duration) =
-                measureTimedValue { searchChannel.call { it.search(SearchQuery(text = query, limit = limit)) } }
+                measureTimedValue {
+                    searchChannel.call(
+                        idempotent = true,
+                    ) { it.search(SearchQuery(text = query, limit = limit)) }
+                }
 
             when (result) {
                 is AppResult.Success -> {

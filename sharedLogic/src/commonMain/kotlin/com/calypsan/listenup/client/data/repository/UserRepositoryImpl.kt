@@ -55,7 +55,7 @@ internal class UserRepositoryImpl(
         // yet) is folded by the channel into a typed AppResult.Failure, which we swallow to null so
         // callers fall back to the locally-persisted user. Genuine cancellation re-raises through
         // the channel per structured-concurrency rules.
-        return when (val result = authedChannel.call { it.currentUser() }) {
+        return when (val result = authedChannel.call(idempotent = true) { it.currentUser() }) {
             is AppResult.Success -> {
                 val user = result.data.toDomain()
                 saveUser(user)

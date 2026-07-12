@@ -82,7 +82,7 @@ internal class GenreRepositoryImpl(
         genreId: GenreId,
         includeDescendants: Boolean,
         limit: Int,
-    ): AppResult<List<BookId>> = channel.call { it.browseBooks(genreId, includeDescendants, limit) }
+    ): AppResult<List<BookId>> = channel.call(idempotent = true) { it.browseBooks(genreId, includeDescendants, limit) }
 }
 
 private fun GenreEntity.toDomain(bookCount: Int): Genre =

@@ -120,7 +120,7 @@ internal class SeriesRepositoryImpl(
      * ("Never Stranded").
      */
     private suspend fun fetchAndCacheSeries(id: SeriesId) {
-        when (val result = channel.call { it.getSeries(id) }) {
+        when (val result = channel.call(idempotent = true) { it.getSeries(id) }) {
             is AppResult.Success -> {
                 val payload = result.data
                 if (payload == null) {
@@ -269,7 +269,11 @@ internal class SeriesRepositoryImpl(
     ): SeriesSearchResponse? =
         withContext(IODispatcher) {
             val (result, duration) =
-                measureTimedValue { searchChannel.call { it.search(SearchQuery(text = query, limit = limit)) } }
+                measureTimedValue {
+                    searchChannel.call(
+                        idempotent = true,
+                    ) { it.search(SearchQuery(text = query, limit = limit)) }
+                }
 
             when (result) {
                 is AppResult.Success -> {

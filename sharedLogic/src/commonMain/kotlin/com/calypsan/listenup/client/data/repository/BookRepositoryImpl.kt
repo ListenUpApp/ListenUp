@@ -275,7 +275,7 @@ internal class BookRepositoryImpl(
      * ("Never Stranded").
      */
     private suspend fun fetchAndCacheBook(bookId: BookId) {
-        when (val result = channel.call { it.getBook(bookId) }) {
+        when (val result = channel.call(idempotent = true) { it.getBook(bookId) }) {
             is AppResult.Success -> {
                 // Never-stranded: a Room write-through failure must NOT propagate into the observing
                 // flow and kill the screen's collector. Swallow-and-log; the observer keeps emitting
@@ -337,7 +337,7 @@ internal class BookRepositoryImpl(
      * re-raises untouched, preserving structured concurrency.
      */
     private suspend fun searchServerOrLocal(query: String): List<BookListItem> =
-        when (val result = channel.call { it.searchBooks(query, limit = SEARCH_LIMIT) }) {
+        when (val result = channel.call(idempotent = true) { it.searchBooks(query, limit = SEARCH_LIMIT) }) {
             is AppResult.Success -> {
                 hydrateRanked(result.data)
             }

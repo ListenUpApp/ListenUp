@@ -383,7 +383,7 @@ class PlaybackPreparer internal constructor(
      * @return true if fetch + persist succeeded.
      */
     internal suspend fun fetchBookFromServer(bookId: BookId): Boolean =
-        when (val result = channel.call { it.getBook(bookId) }) {
+        when (val result = channel.call(idempotent = true) { it.getBook(bookId) }) {
             is AppResult.Success -> {
                 val payload = result.data
                 logger.info { "Fetched book from server: ${payload.title}" }

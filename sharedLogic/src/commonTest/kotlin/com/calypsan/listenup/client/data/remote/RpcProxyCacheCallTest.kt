@@ -346,4 +346,131 @@ class RpcProxyCacheCallTest :
                 connectCount shouldBe 1 // one shared proxy/client served both
             }
         }
+
+        // ─── B2: the idempotent-call knob ────────────────────────────────────────────────────
+        //
+        // A post-delivery lost response (a from-below "Client cancelled" CE, or our own first-attempt
+        // timeout) is outcome-unknown for a MUTATION — re-firing could double-apply. For a READ,
+        // re-firing is always safe, so a caller may declare `idempotent = true` to auto-retry ONCE on
+        // a fresh lease. The default (`idempotent = false`) is unchanged: surface, never re-fire.
+
+        test("idempotent = true retries once on a from-below (post-delivery) cancellation and returns the retry Success") {
+            runTest {
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw CancellationException("Client cancelled") },
+                                { "healed" },
+                            ),
+                        ),
+                    )
+
+                cache.call(idempotent = true) { it.work() } shouldBe "healed"
+                connects() shouldBe 2 // 1 original (lost response) + exactly 1 idempotent retry
+            }
+        }
+
+        test("idempotent = true retries once on a first-attempt timeout and returns the retry Success") {
+            runTest {
+                var calls = 0
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                {
+                                    calls++
+                                    awaitCancellation()
+                                },
+                                { "healed" },
+                            ),
+                        ),
+                    )
+
+                cache.call(timeout = 50.milliseconds, idempotent = true) { it.work() } shouldBe "healed"
+                calls shouldBe 1 // the first (hung) behavior ran once; the retry took the second
+                connects() shouldBe 2 // 1 original (timed out) + exactly 1 idempotent retry
+            }
+        }
+
+        test("idempotent = true is at-most-once: a SECOND from-below cancellation after the retry surfaces OutcomeUnknown") {
+            runTest {
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw CancellationException("Client cancelled") },
+                                { throw CancellationException("Client cancelled") },
+                                { "must-not-run" },
+                            ),
+                        ),
+                    )
+
+                val result: AppResult<String> =
+                    catchingRpcResult { cache.call(idempotent = true) { AppResult.Success(it.work()) } }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
+                connects() shouldBe 2 // original + one retry only — the third behavior is never reached
+            }
+        }
+
+        test("idempotent = true is at-most-once: a SECOND timeout after the retry surfaces OutcomeUnknown") {
+            runTest {
+                var calls = 0
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                {
+                                    calls++
+                                    awaitCancellation()
+                                },
+                                {
+                                    calls++
+                                    awaitCancellation()
+                                },
+                                { "must-not-run" },
+                            ),
+                        ),
+                    )
+
+                val result: AppResult<String> =
+                    catchingRpcResult {
+                        cache.call(timeout = 50.milliseconds, idempotent = true) { AppResult.Success(it.work()) }
+                    }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
+                calls shouldBe 2 // the original and the single retry both hung — no third fire
+                connects() shouldBe 2
+            }
+        }
+
+        test("idempotent = false (default) still surfaces OutcomeUnknown with NO retry — the no-double-apply guard is intact") {
+            runTest {
+                val (cache, connects) =
+                    scriptedCache(
+                        ArrayDeque(
+                            listOf(
+                                { throw CancellationException("Client cancelled") },
+                                { "must-not-run" },
+                            ),
+                        ),
+                    )
+
+                val result: AppResult<String> =
+                    catchingRpcResult { cache.call(idempotent = false) { AppResult.Success(it.work()) } }
+
+                result
+                    .shouldBeInstanceOf<AppResult.Failure>()
+                    .error
+                    .shouldBeInstanceOf<TransportError.OutcomeUnknown>()
+                connects() shouldBe 1 // NO retry — the mutation guard holds for the default
+            }
+        }
     })

@@ -26,7 +26,8 @@ internal class InviteRepositoryImpl(
     private val userRepository: UserRepository,
     private val deviceInfoProvider: DeviceInfoProvider,
 ) : InviteRepository {
-    override suspend fun lookupInvite(code: String): AppResult<InvitePreview> = channel.call { it.lookupInvite(code) }
+    override suspend fun lookupInvite(code: String): AppResult<InvitePreview> =
+        channel.call(idempotent = true) { it.lookupInvite(code) }
 
     override suspend fun claimInvite(
         code: String,

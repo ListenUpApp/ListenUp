@@ -98,7 +98,10 @@ internal class AuthRepositoryImpl(
         }
     }
 
-    override suspend fun listSessions(): AppResult<List<SessionSummary>> = authedChannel.call { it.listSessions() }
+    override suspend fun listSessions(): AppResult<List<SessionSummary>> =
+        authedChannel.call(idempotent = true) {
+            it.listSessions()
+        }
 
     override suspend fun revokeSession(sessionId: SessionId): AppResult<Unit> =
         authedChannel.call { it.revokeSession(sessionId) }

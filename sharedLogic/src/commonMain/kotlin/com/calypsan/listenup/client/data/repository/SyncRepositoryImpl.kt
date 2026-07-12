@@ -394,7 +394,7 @@ internal class SyncRepositoryImpl(
      * "not finished" so recovery keeps the gate up and re-subscribes rather than latching early.
      */
     private suspend fun isInitialScanFinishedOnServer(): Boolean =
-        when (val result = scannerChannel.call { it.lastScanResult() }) {
+        when (val result = scannerChannel.call(idempotent = true) { it.lastScanResult() }) {
             is AppResult.Success -> {
                 true
             }

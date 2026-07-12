@@ -75,19 +75,19 @@ internal class ShelfRepositoryImpl(
 
     override suspend fun getUserShelves(userId: String): AppResult<List<Shelf>> =
         channel
-            .call { it.getUserShelves(UserId(userId)) }
+            .call(idempotent = true) { it.getUserShelves(UserId(userId)) }
             .map { shelves -> shelves.map { it.toDomain() } }
 
     override suspend fun discoverShelves(): AppResult<List<Shelf>> =
         channel
-            .call { it.discoverShelves() }
+            .call(idempotent = true) { it.discoverShelves() }
             .map { discovered -> discovered.map { it.toDomain() } }
 
     // ── Detail (on-demand RPC) ────────────────────────────────────────────────────
 
     override suspend fun getShelfDetail(shelfId: ShelfId): AppResult<ShelfDetail> =
         channel
-            .call { it.getShelf(shelfId) }
+            .call(idempotent = true) { it.getShelf(shelfId) }
             .map { detail ->
                 val coverHashByBook = dao.coverHashesByBookFor(shelfId.value).associate { it.bookId to it.coverHash }
                 detail.toDomain(coverHashByBook)

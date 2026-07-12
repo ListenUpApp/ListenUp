@@ -94,7 +94,10 @@ internal class ImportRepositoryImpl(
     override suspend fun apply(importId: ImportId): AppResult<ImportResult> =
         channel.call(timeout = 10.minutes) { it.apply(importId) }
 
-    override suspend fun listImports(): AppResult<List<ImportSummary>> = channel.call { it.listImports() }
+    override suspend fun listImports(): AppResult<List<ImportSummary>> =
+        channel.call(idempotent = true) {
+            it.listImports()
+        }
 
     override suspend fun deleteImport(importId: ImportId): AppResult<Unit> = channel.call { it.deleteImport(importId) }
 

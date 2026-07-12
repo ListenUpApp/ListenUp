@@ -302,7 +302,7 @@ class AppStartupViewModel internal constructor(
 
                         if (user?.isAdmin == true) {
                             applyAdminSetupCheckResult(
-                                libraryAdminChannel.call { it.getSetupStatus() },
+                                libraryAdminChannel.call(idempotent = true) { it.getSetupStatus() },
                             )
                         } else {
                             logger.info {

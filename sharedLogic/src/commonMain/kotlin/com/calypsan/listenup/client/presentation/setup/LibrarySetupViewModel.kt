@@ -66,7 +66,7 @@ class LibrarySetupViewModel internal constructor(
         viewModelScope.launch {
             state.update { it.copy(isCheckingStatus = true, error = null) }
 
-            when (val result = libraryAdminChannel.call { it.getSetupStatus() }) {
+            when (val result = libraryAdminChannel.call(idempotent = true) { it.getSetupStatus() }) {
                 is AppResult.Success -> {
                     val status = result.data
                     logger.info { "Setup status: needsSetup=${status.needsSetup}" }
@@ -108,7 +108,7 @@ class LibrarySetupViewModel internal constructor(
         viewModelScope.launch {
             state.update { it.copy(isLoadingDirectories = true, error = null) }
 
-            when (val result = libraryAdminChannel.call { it.browseFilesystem(path) }) {
+            when (val result = libraryAdminChannel.call(idempotent = true) { it.browseFilesystem(path) }) {
                 is AppResult.Success -> {
                     val entries = result.data
                     val isRoot = path == "/"
