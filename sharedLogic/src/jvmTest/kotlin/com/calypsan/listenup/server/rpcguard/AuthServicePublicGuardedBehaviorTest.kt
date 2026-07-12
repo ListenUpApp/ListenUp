@@ -22,7 +22,6 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
-import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
@@ -72,7 +71,7 @@ class AuthServicePublicGuardedBehaviorTest :
             }
         }
 
-        test("escaped RuntimeException becomes AppResult.Failure(InternalError) with cause set") {
+        test("escaped RuntimeException becomes a sanitized AppResult.Failure(InternalError)") {
             val delegate = mock<AuthServicePublic>()
             everySuspend { delegate.login(sampleLogin) } throws RuntimeException("boom")
             val guard = AuthServicePublicGuarded(delegate)
@@ -82,10 +81,13 @@ class AuthServicePublicGuardedBehaviorTest :
                 result.shouldBeInstanceOf<AppResult.Failure>()
                 val err = result.error
                 err.shouldBeInstanceOf<InternalError>()
-                err.cause shouldBe "RuntimeException"
+                // Correlation id links the user's error to the server log line that holds the detail.
                 err.correlationId shouldNotBe null
                 err.correlationId!!.length shouldBe 36
-                err.debugInfo!! shouldContain "boom"
+                // The server exception's class name and message must NOT cross the wire — they can
+                // embed SQL / paths / hostnames. Only the correlation id and the constant message ship.
+                err.cause shouldBe null
+                err.debugInfo shouldBe null
             }
         }
 
