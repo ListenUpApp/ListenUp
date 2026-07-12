@@ -1,6 +1,8 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.error.AppError
+import com.calypsan.listenup.api.error.AuthError
+import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.PendingOperationV2Dao
@@ -108,9 +110,12 @@ private enum class FailureDisposition {
 /**
  * Classify a drain failure against the budget contract. Unreachable failures ([TransportError.NetworkUnavailable],
  * [TransportError.Timeout] — post-B1 these are connect/pre-send only) never got a server verdict, so they park.
- * A provably-sent-but-lost-response ([TransportError.OutcomeUnknown]) parks on a declared-idempotent channel
- * (safe to re-send) and dead-letters otherwise. A server-answered retryable failure (5xx) burns budget. Everything
- * else non-retryable (4xx, malformed) dead-letters immediately.
+ * An [AuthError] is op-independent (the channel isn't authorized right now) and pre-delivery (401 at the RPC
+ * handshake), so it parks too — never dead-letter a queued write on a transient token-refresh blip. A
+ * provably-sent-but-lost-response ([TransportError.OutcomeUnknown]) parks on a declared-idempotent channel
+ * (safe to re-send) and dead-letters otherwise. A server-answered retryable failure (5xx) or a sanitized
+ * escaped-exception fault ([InternalError], usually transient server trouble) burns budget. Everything else
+ * non-retryable (4xx, malformed) dead-letters immediately.
  */
 private fun classifyFailure(
     error: AppError,
@@ -121,8 +126,20 @@ private fun classifyFailure(
             FailureDisposition.Parked
         }
 
+        // Op-independent + pre-delivery: the session lapsed/blipped, the op never reached the server.
+        // Park so it re-sends the instant the session recovers instead of dead-lettering the edit.
+        error is AuthError -> {
+            FailureDisposition.Parked
+        }
+
         error is TransportError.OutcomeUnknown -> {
             if (OutboxChannels.isIdempotent(domainName)) FailureDisposition.Parked else FailureDisposition.Terminal
+        }
+
+        // A sanitized escaped-exception fault is usually transient (DB lock, restart race), not poison:
+        // spend a bounded attempt rather than dead-lettering the user's edit on the first occurrence.
+        error is InternalError -> {
+            FailureDisposition.Burn
         }
 
         error.isRetryable -> {
