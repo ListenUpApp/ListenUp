@@ -10,6 +10,7 @@ import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.everySuspend
 import dev.mokkery.mock
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -23,6 +24,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.cancellation.CancellationException
@@ -302,6 +304,46 @@ class RpcProxyCacheCallTest :
                     .shouldBeInstanceOf<AuthError.SessionExpired>()
                 failingRecovery.count shouldBe 1
                 connects() shouldBe 1 // no retry — the second behavior is never reached
+            }
+        }
+
+        test("C1: a timeout drops only the proxy — the shared client survives so in-flight siblings are not torn down") {
+            runTest {
+                // The connect lambda captures the derived `.config { }` child the whole channel shares, so
+                // the test can assert the timeout did NOT close it (closing it would cancel every WS session
+                // riding it — the sibling-teardown bug C1 fixes). No new proxy behavior is scripted: the
+                // sibling parks in its own block, the timing-out call's work() hangs forever.
+                val capturedClients = mutableListOf<HttpClient>()
+                var connectCount = 0
+                val siblingCanFinish = CompletableDeferred<Unit>()
+                val cache =
+                    RpcProxyCache(mockFactory(), mockServerConfig()) { client, _ ->
+                        connectCount++
+                        capturedClients += client
+                        FakeProxy { awaitCancellation() }
+                    }
+
+                // A sibling call leases the shared proxy/client and parks IN FLIGHT inside its own block.
+                val sibling =
+                    async(start = CoroutineStart.UNDISPATCHED) {
+                        cache.call {
+                            siblingCanFinish.await()
+                            "sibling-ok"
+                        }
+                    }
+
+                // Another call on the SAME channel trips our own bound → OutcomeUnknown (drop-proxy-only).
+                shouldThrow<RpcOutcomeUnknownException> {
+                    cache.call(timeout = 50.milliseconds) { it.work() }
+                }
+
+                // The shared derived client the sibling rides was NOT closed by the timeout.
+                capturedClients.single().isActive shouldBe true
+
+                // And the sibling completes normally — never torn down.
+                siblingCanFinish.complete(Unit)
+                sibling.await() shouldBe "sibling-ok"
+                connectCount shouldBe 1 // one shared proxy/client served both
             }
         }
     })

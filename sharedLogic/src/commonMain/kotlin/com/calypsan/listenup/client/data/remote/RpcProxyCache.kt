@@ -48,7 +48,14 @@ private val logger = KotlinLogging.logger {}
  *   the frame was sent, so it surfaces as the non-retryable [RpcOutcomeUnknownException], symmetric
  *   with the retry leg's [surface] path.
  *
- * [invalidate] drops both the cached proxy and the derived [HttpClient] — they are
+ * **Drop-proxy vs close-client (C1).** A timeout is our own bound tripping on a possibly-healthy
+ * socket, so it drops ONLY the cached proxy ([invalidateProxyOnly]) and re-leases on the SAME shared
+ * client for the next call — sibling in-flight calls/streams on this channel are not torn down.
+ * Closing the derived [HttpClient] ([invalidate]/[dropLocked]) is reserved for provable socket death
+ * (a handshake/WS fault, a dead-client ISE, a from-below post-delivery drop) and for the
+ * principal-bound sweep below. Both paths bump the generation, so single-flight is identical.
+ *
+ * [invalidate] drops the cached proxy and the derived [HttpClient] — they are
  * principal-bound and must not survive a logout, re-login, or server-URL change
  * ([RpcCacheInvalidator] sweeps every [RemoteCache] for exactly that reason).
  *
@@ -88,6 +95,16 @@ internal class RpcProxyCache<T : Any>(
     )
 
     /**
+     * Wraps a throwable raised by the DOWNSTREAM collector (a `.first()`/`.take(n)` truncation, a
+     * Turbine partial-collect abort, or any consumer throw) so the streaming catch clauses can tell
+     * it apart from an UPSTREAM transport fault. The [cause] is always re-raised unchanged — a
+     * downstream abort must never invalidate a healthy generation or fold to outcome-unknown.
+     */
+    private class DownstreamEmitException(
+        override val cause: Throwable,
+    ) : Exception(cause)
+
+    /**
      * Run [block] against the cached proxy with bounded, single-flight, self-healing recovery.
      * See the class KDoc for the full retry/surface policy — the load-bearing invariant is that
      * only **provably pre-delivery** failures retry, so a non-idempotent mutation never double-applies.
@@ -105,7 +122,10 @@ internal class RpcProxyCache<T : Any>(
             // with surface()'s retry-leg path). Re-raising the raw TCE would fold to a RETRYABLE
             // TransportError.Timeout, inviting a blind Retry that double-applies a committed mutation.
             logger.warn { "RPC timed out after $timeout; frame sent, outcome unknown (no retry)" }
-            invalidate(lease.generation)
+            // Our own bound tripped — that is NO evidence the socket is dead. Drop only the proxy so the
+            // NEXT call re-leases, but keep the shared client alive so sibling in-flight calls/streams on
+            // this channel are not torn down (C1). Closing here reserved for provable socket death.
+            invalidateProxyOnly(lease.generation)
             throw RpcOutcomeUnknownException(e)
         } catch (e: Throwable) {
             recover(e, lease.generation, timeout, block)
@@ -128,18 +148,24 @@ internal class RpcProxyCache<T : Any>(
      *   invalidator sweep during logout) becomes [RpcOutcomeUnknownException] — a value at the
      *   boundary, not a silent kill of the collector's job. A genuinely cancelled collector re-raises.
      *
-     * [emitted] is flipped before each [emit], so any exception thrown by a DOWNSTREAM collector
-     * arrives with [emitted] already true and is re-raised, never mistaken for a subscription fault.
+     * Only an exception from the UPSTREAM iteration ([subscribe] producing/serializing a frame) may
+     * be classified as a transport fault and heal. An exception from the DOWNSTREAM [emit] — a
+     * truncation (`.first()`, `.take(n)`, a Turbine partial-collect → `AbortFlowException`, which IS
+     * a [CancellationException] on a still-active context), or any consumer-side failure — is
+     * wrapped by [pipe] in a private marker and re-raised **unchanged** here: it must never
+     * invalidate a healthy generation (which would tear down sibling streams/calls on the shared
+     * client) nor be rewrapped as [RpcOutcomeUnknownException].
      */
     override fun <R> streaming(subscribe: suspend (T) -> Flow<R>): Flow<R> =
         flow {
             var emitted = false
             val first = lease()
             try {
-                subscribe(first.proxy).collect {
-                    emitted = true
-                    emit(it)
-                }
+                pipe(subscribe(first.proxy)) { emitted = true }
+            } catch (e: DownstreamEmitException) {
+                // A downstream truncation/abort on a HEALTHY generation — propagate the consumer's own
+                // throwable unchanged. No invalidate, no OutcomeUnknown rewrap.
+                throw e.cause
             } catch (e: Throwable) {
                 if (e.isCallerCancellation()) throw e
                 invalidate(first.generation)
@@ -147,6 +173,26 @@ internal class RpcProxyCache<T : Any>(
                 resubscribe(subscribe)
             }
         }
+
+    /**
+     * Collect [upstream] into this collector, running [onEmitted] after each successful delivery. An
+     * exception from the downstream [emit] is wrapped in [DownstreamEmitException] so the caller can
+     * tell a consumer-side abort apart from an UPSTREAM transport fault; an exception from the
+     * upstream iteration escapes bare for transport classification.
+     */
+    private suspend fun <R> FlowCollector<R>.pipe(
+        upstream: Flow<R>,
+        onEmitted: () -> Unit,
+    ) {
+        upstream.collect { value ->
+            try {
+                emit(value)
+            } catch (e: Throwable) {
+                throw DownstreamEmitException(e)
+            }
+            onEmitted()
+        }
+    }
 
     /** A cancellation whose context is INACTIVE (cancelled) is the CALLER cancelling — re-raise it untouched. */
     private suspend fun Throwable.isCallerCancellation(): Boolean =
@@ -187,7 +233,11 @@ internal class RpcProxyCache<T : Any>(
     private suspend fun <R> FlowCollector<R>.resubscribe(subscribe: suspend (T) -> Flow<R>) {
         val second = lease()
         try {
-            subscribe(second.proxy).collect { emit(it) }
+            pipe(subscribe(second.proxy)) { }
+        } catch (e: DownstreamEmitException) {
+            // Same as the first attempt: a downstream abort is the consumer's business — propagate it
+            // unchanged on a healthy generation.
+            throw e.cause
         } catch (e: Throwable) {
             if (e.isCallerCancellation()) throw e
             invalidate(second.generation)
@@ -282,7 +332,18 @@ internal class RpcProxyCache<T : Any>(
         leasedGeneration: Int,
     ): Nothing {
         val callerCancelled = e is CancellationException && !currentCoroutineContext().isActive
-        if (!callerCancelled) invalidate(leasedGeneration)
+        if (!callerCancelled) {
+            // A retry-leg timeout (our own bound) is no evidence the socket is dead — drop only the proxy
+            // so siblings on the shared client survive (C1). Any other fault here is a provable transport
+            // drop (a from-below post-delivery cancellation, a WS death) — close the client too.
+            if (e is TimeoutCancellationException) {
+                invalidateProxyOnly(
+                    leasedGeneration,
+                )
+            } else {
+                invalidate(leasedGeneration)
+            }
+        }
         if (e is CancellationException && !callerCancelled) {
             logger.warn { "RPC frame sent but outcome unknown (${e.message}); surfacing as a typed failure (no retry)" }
             throw RpcOutcomeUnknownException(e)
@@ -317,14 +378,33 @@ internal class RpcProxyCache<T : Any>(
         }
     }
 
+    /**
+     * Drop ONLY the cached proxy (and bump the generation) if [leasedGeneration] is still current —
+     * WITHOUT closing the shared derived [HttpClient]. Used by the timeout paths: our own bound
+     * tripping is no evidence the socket is dead, so the next call re-leases a fresh proxy on the SAME
+     * shared client while sibling in-flight calls/streams keep running (C1). Single-flight is
+     * preserved — the generation bump still converges a herd on one re-lease, exactly like [invalidate].
+     */
+    private suspend fun invalidateProxyOnly(leasedGeneration: Int) {
+        mutex.withLock {
+            if (leasedGeneration == generation) dropProxyLocked()
+        }
+    }
+
     /** Null the proxy, close the derived RPC client, and bump the generation. Caller holds [mutex]. */
     private fun dropLocked() {
-        cachedProxy = null
         // Close the derived `.config { }` child so a dead socket's client doesn't leak. It is a
         // child of the shared request client (its engine is shared), so closing it is safe — the
-        // request client survives for the next getClient().
+        // request client survives for the next getClient(). Reserved for provable socket death;
+        // the timeout paths use dropProxyLocked() so a healthy-but-slow socket's siblings survive.
         cachedRpcClient?.close()
         cachedRpcClient = null
+        dropProxyLocked()
+    }
+
+    /** Null the proxy and bump the generation, KEEPING the shared client alive. Caller holds [mutex]. */
+    private fun dropProxyLocked() {
+        cachedProxy = null
         generation++
     }
 

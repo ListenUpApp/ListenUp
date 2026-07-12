@@ -111,6 +111,11 @@ private fun com.lemonappdev.konsist.api.declaration.KoFunctionDeclaration.contai
             // but the response was lost, so it can't be retried. catchingRpcResult immediately folds
             // it to a typed AppResult.Failure(TransportError.Timeout) — a transport signal, not a
             // propagated/swallowed failure (same rationale as ServerUrlNotConfiguredException).
-            !line.contains("throw RpcOutcomeUnknownException(")
+            !line.contains("throw RpcOutcomeUnknownException(") &&
+            // downstream-emit marker: RpcProxyCache.pipe wraps a throw from the DOWNSTREAM collector
+            // in this internal marker so streaming/resubscribe can tell a consumer-side abort apart
+            // from an upstream transport fault. It never escapes the file — both catch clauses unwrap
+            // it and re-raise its cause. A control-flow signal, not a swallowed failure.
+            !line.contains("throw DownstreamEmitException(")
     }
 }
