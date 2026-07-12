@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.math.max
 import kotlin.time.Instant
 
 private val logger = KotlinLogging.logger {}
@@ -180,120 +181,12 @@ internal class PlaybackPositionRepositoryImpl(
         // finished book on the server. Unfinishing is explicit: only DiscardProgress/Restart
         // send finished=false by design.
         val entity = dao.get(bookId)
-        val request: RecordPositionRequest =
-            when (update) {
-                is PlaybackUpdate.Position -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.Speed -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.SpeedReset -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.defaultSpeed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.PlaybackStarted -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.PlaybackPaused -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.PeriodicUpdate -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.positionMs,
-                        lastPlayedAt = now,
-                        finished = entity?.isFinished ?: false,
-                        playbackSpeed = update.speed,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.BookFinished -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = update.finalPositionMs,
-                        lastPlayedAt = now,
-                        finished = true,
-                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
-                        currentChapterId = null,
-                    )
-                }
-
-                is PlaybackUpdate.MarkComplete -> {
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = entity?.positionMs ?: 0L,
-                        lastPlayedAt = now,
-                        finished = true,
-                        playbackSpeed = entity?.playbackSpeed ?: 1.0f,
-                        currentChapterId = null,
-                    )
-                }
-
-                // Inbound reconciliation only — pushing it back would create an echo loop.
-                is PlaybackUpdate.CrossDeviceSync -> {
-                    return
-                }
-
-                // User-command resets: enqueue the post-reset row so the discard/restart
-                // reaches the server immediately (NewerWins on lastPlayedAt lets it beat
-                // stale positions from other devices). coalesce=true supersedes any queued
-                // periodic write for this book. The startedAt reset stays local-only:
-                // RecordPositionRequest carries no startedAt and this arc makes no wire changes.
-                PlaybackUpdate.DiscardProgress,
-                PlaybackUpdate.Restart,
-                -> {
-                    if (entity == null) return
-                    RecordPositionRequest(
-                        bookId = bookId.value,
-                        positionMs = entity.positionMs,
-                        lastPlayedAt = entity.lastPlayedAt ?: now,
-                        finished = false,
-                        playbackSpeed = entity.playbackSpeed,
-                        currentChapterId = null,
-                    )
-                }
-            }
+        // The post-write row's current high-water — carried on every request the same
+        // protective way `finished` is: the value handle() already computed/preserved,
+        // never re-derived here, so the outbox can never enqueue a lower max than the
+        // local row holds.
+        val maxPositionMs = entity?.maxPositionMs ?: 0
+        val request = buildPositionRequest(bookId, update, entity, maxPositionMs, now) ?: return
 
         try {
             pendingQueue.enqueue(
@@ -314,6 +207,149 @@ internal class PlaybackPositionRepositoryImpl(
         }
     }
 
+    // Builds the wire request for a variant, or null when nothing should be enqueued
+    // (inbound CrossDeviceSync would echo-loop; a reset with no local row has nothing to send).
+    // [maxPositionMs] is the post-write high-water the caller already read, carried verbatim so
+    // the outbox can never enqueue a lower max than the local row holds.
+    private fun buildPositionRequest(
+        bookId: BookId,
+        update: PlaybackUpdate,
+        entity: PlaybackPositionEntity?,
+        maxPositionMs: Long,
+        now: Long,
+    ): RecordPositionRequest? =
+        when (update) {
+            is PlaybackUpdate.Position -> {
+                positionRequest(
+                    bookId,
+                    update.positionMs,
+                    now,
+                    entity?.isFinished ?: false,
+                    update.speed,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.Speed -> {
+                positionRequest(
+                    bookId,
+                    update.positionMs,
+                    now,
+                    entity?.isFinished ?: false,
+                    update.speed,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.SpeedReset -> {
+                positionRequest(
+                    bookId,
+                    update.positionMs,
+                    now,
+                    entity?.isFinished ?: false,
+                    update.defaultSpeed,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.PlaybackStarted -> {
+                positionRequest(
+                    bookId,
+                    update.positionMs,
+                    now,
+                    entity?.isFinished ?: false,
+                    update.speed,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.PlaybackPaused -> {
+                positionRequest(
+                    bookId,
+                    update.positionMs,
+                    now,
+                    entity?.isFinished ?: false,
+                    update.speed,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.PeriodicUpdate -> {
+                positionRequest(
+                    bookId,
+                    update.positionMs,
+                    now,
+                    entity?.isFinished ?: false,
+                    update.speed,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.BookFinished -> {
+                positionRequest(
+                    bookId,
+                    update.finalPositionMs,
+                    now,
+                    finished = true,
+                    entity?.playbackSpeed ?: 1.0f,
+                    maxPositionMs,
+                )
+            }
+
+            is PlaybackUpdate.MarkComplete -> {
+                positionRequest(
+                    bookId,
+                    entity?.positionMs ?: 0L,
+                    now,
+                    finished = true,
+                    entity?.playbackSpeed ?: 1.0f,
+                    maxPositionMs,
+                )
+            }
+
+            // Inbound reconciliation only — pushing it back would create an echo loop.
+            is PlaybackUpdate.CrossDeviceSync -> {
+                null
+            }
+
+            // User-command resets: enqueue the post-reset row so the discard/restart reaches the
+            // server immediately (NewerWins on lastPlayedAt lets it beat stale positions from other
+            // devices). coalesce=true supersedes any queued periodic write for this book. The
+            // startedAt reset stays local-only: RecordPositionRequest carries no startedAt.
+            PlaybackUpdate.DiscardProgress,
+            PlaybackUpdate.Restart,
+            -> {
+                entity?.let {
+                    positionRequest(
+                        bookId,
+                        it.positionMs,
+                        it.lastPlayedAt ?: now,
+                        finished = false,
+                        it.playbackSpeed,
+                        maxPositionMs,
+                    )
+                }
+            }
+        }
+
+    private fun positionRequest(
+        bookId: BookId,
+        positionMs: Long,
+        lastPlayedAt: Long,
+        finished: Boolean,
+        playbackSpeed: Float,
+        maxPositionMs: Long,
+    ): RecordPositionRequest =
+        RecordPositionRequest(
+            bookId = bookId.value,
+            positionMs = positionMs,
+            lastPlayedAt = lastPlayedAt,
+            finished = finished,
+            playbackSpeed = playbackSpeed,
+            currentChapterId = null,
+            maxPositionMs = maxPositionMs,
+        )
+
     // ----- Per-variant handlers -------------------------------------------------------------
 
     private suspend fun handlePosition(
@@ -333,6 +369,7 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val existing = dao.get(bookId)
         val now = currentEpochMilliseconds()
+        val newMax = max(existing?.maxPositionMs ?: 0, u.positionMs)
         val merged =
             existing?.copy(
                 positionMs = u.positionMs,
@@ -341,10 +378,12 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
                 playbackSpeed = u.speed,
                 hasCustomSpeed = u.custom,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -355,6 +394,7 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val existing = dao.get(bookId)
         val now = currentEpochMilliseconds()
+        val newMax = max(existing?.maxPositionMs ?: 0, u.positionMs)
         val merged =
             existing?.copy(
                 positionMs = u.positionMs,
@@ -363,10 +403,12 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
                 playbackSpeed = u.defaultSpeed,
                 hasCustomSpeed = false,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -377,6 +419,7 @@ internal class PlaybackPositionRepositoryImpl(
     ) {
         val existing = dao.get(bookId)
         val now = currentEpochMilliseconds()
+        val newMax = max(existing?.maxPositionMs ?: 0, u.positionMs)
         val merged =
             existing?.copy(
                 positionMs = u.positionMs,
@@ -385,10 +428,12 @@ internal class PlaybackPositionRepositoryImpl(
                 lastPlayedAt = now,
                 updatedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.positionMs,
                 playbackSpeed = u.speed,
                 startedAt = now,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -420,6 +465,7 @@ internal class PlaybackPositionRepositoryImpl(
         // Preserve original finishedAt on re-finish — first-completion timestamp is sticky.
         val finishedAt = existing?.finishedAt ?: now
         val startedAt = existing?.startedAt ?: now
+        val newMax = max(existing?.maxPositionMs ?: 0, u.finalPositionMs)
         val merged =
             existing?.copy(
                 positionMs = u.finalPositionMs,
@@ -429,11 +475,13 @@ internal class PlaybackPositionRepositoryImpl(
                 updatedAt = now,
                 lastPlayedAt = now,
                 syncedAt = null,
+                maxPositionMs = newMax,
             ) ?: blank(bookId, now).copy(
                 positionMs = u.finalPositionMs,
                 isFinished = true,
                 finishedAt = finishedAt,
                 startedAt = startedAt,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }
@@ -457,6 +505,7 @@ internal class PlaybackPositionRepositoryImpl(
             return
         }
 
+        val newMax = max(existing?.maxPositionMs ?: 0, payload.currentPositionMs)
         val merged =
             existing?.copy(
                 positionMs = payload.currentPositionMs,
@@ -467,6 +516,7 @@ internal class PlaybackPositionRepositoryImpl(
                 // Server omits null timestamps; wire-absence means "no change".
                 finishedAt = finishedAtMs ?: existing.finishedAt,
                 startedAt = startedAtMs ?: existing.startedAt,
+                maxPositionMs = newMax,
                 // playbackSpeed and hasCustomSpeed preserved implicitly via .copy().
             ) ?: PlaybackPositionEntity(
                 bookId = bookId,
@@ -479,6 +529,7 @@ internal class PlaybackPositionRepositoryImpl(
                 syncedAt = lastPlayedAtMs,
                 finishedAt = finishedAtMs,
                 startedAt = startedAtMs,
+                maxPositionMs = newMax,
             )
         dao.save(merged)
     }

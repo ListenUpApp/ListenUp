@@ -44,4 +44,45 @@ class PlaybackPositionPayloadContractTest :
             val encoded = contractJson.encodeToString(PlaybackPositionSyncPayload.serializer(), original)
             contractJson.decodeFromString(PlaybackPositionSyncPayload.serializer(), encoded) shouldBe original
         }
+
+        test("PlaybackPositionSyncPayload round-trips with maxPositionMs preserved") {
+            val original =
+                PlaybackPositionSyncPayload(
+                    id = "pos-3",
+                    bookId = "book-3",
+                    positionMs = 10_000L,
+                    lastPlayedAt = 1_730_000_500_000L,
+                    finished = false,
+                    playbackSpeed = 1.0f,
+                    currentChapterId = null,
+                    revision = 1L,
+                    updatedAt = 1_730_000_500_000L,
+                    createdAt = 1_720_000_000_000L,
+                    deletedAt = null,
+                    maxPositionMs = 123_456L,
+                )
+            val encoded = contractJson.encodeToString(PlaybackPositionSyncPayload.serializer(), original)
+            contractJson.decodeFromString(PlaybackPositionSyncPayload.serializer(), encoded) shouldBe original
+        }
+
+        test("PlaybackPositionSyncPayload decodes a payload JSON without maxPositionMs as 0L (forward-compat)") {
+            val json =
+                """
+                {
+                  "id": "pos-4",
+                  "bookId": "book-4",
+                  "positionMs": 5000,
+                  "lastPlayedAt": 1730000000000,
+                  "finished": false,
+                  "playbackSpeed": 1.0,
+                  "currentChapterId": null,
+                  "revision": 1,
+                  "updatedAt": 1730000000000,
+                  "createdAt": 1720000000000,
+                  "deletedAt": null
+                }
+                """.trimIndent()
+            val decoded = contractJson.decodeFromString(PlaybackPositionSyncPayload.serializer(), json)
+            decoded.maxPositionMs shouldBe 0L
+        }
     })

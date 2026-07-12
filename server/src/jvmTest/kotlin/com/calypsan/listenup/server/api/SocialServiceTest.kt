@@ -121,6 +121,7 @@ class SocialServiceTest :
                 user_id = userId,
                 book_id = bookId,
                 position_ms = positionMs,
+                max_position_ms = positionMs,
                 last_played_at = 1L,
                 finished = 0L,
                 playback_speed = 1.0,

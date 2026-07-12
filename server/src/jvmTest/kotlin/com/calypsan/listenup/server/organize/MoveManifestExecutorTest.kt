@@ -403,6 +403,7 @@ private fun seedPlaybackPosition(
             user_id = userId,
             book_id = bookId,
             position_ms = 42_000L,
+            max_position_ms = 42_000L,
             last_played_at = 1L,
             finished = 0L,
             playback_speed = 1.0,

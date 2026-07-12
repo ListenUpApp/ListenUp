@@ -5,6 +5,7 @@ import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
 import com.calypsan.listenup.client.data.local.db.PlaybackPositionEntity
 import com.calypsan.listenup.core.BookId
+import kotlin.math.max
 
 /**
  * The `playback_positions` domain: one row per book, `lastPlayedAt`-wins on both
@@ -62,6 +63,12 @@ internal class PlaybackPositionMirrorApply(
             PlaybackPositionEntity(
                 bookId = BookId(payload.bookId),
                 positionMs = payload.positionMs,
+                // Monotonic safety net: even though NewerWins already gates a stale
+                // (older-lastPlayedAt) payload out before this runs, a payload that DOES
+                // pass the gate could still carry a lower maxPositionMs than local knowledge
+                // (e.g. an older server snapshot briefly winning a race) — max() here means
+                // it can never lower the local high-water mark.
+                maxPositionMs = max(existing?.maxPositionMs ?: 0, payload.maxPositionMs),
                 playbackSpeed = payload.playbackSpeed,
                 hasCustomSpeed = existing?.hasCustomSpeed ?: false,
                 updatedAt = payload.updatedAt,

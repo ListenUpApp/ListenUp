@@ -44,6 +44,7 @@ class UserStatsDerivationStreakDivergenceTest :
                         user_id = "u1",
                         book_id = "b1",
                         position_ms = 3_600_000L,
+                        max_position_ms = 3_600_000L,
                         last_played_at = day1Ms,
                         finished = 1L,
                         playback_speed = 1.0,

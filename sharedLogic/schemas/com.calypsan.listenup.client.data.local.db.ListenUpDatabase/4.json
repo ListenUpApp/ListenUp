@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 3,
-    "identityHash": "9a4ab63368eb37be998d5ad99b0cdfd0",
+    "version": 4,
+    "identityHash": "6b70e4f9f233295cbccf28f2eb1c1b4b",
     "entities": [
       {
         "tableName": "users",
@@ -788,7 +788,7 @@
       },
       {
         "tableName": "playback_positions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `positionMs` INTEGER NOT NULL, `playbackSpeed` REAL NOT NULL, `hasCustomSpeed` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncedAt` INTEGER, `lastPlayedAt` INTEGER, `isFinished` INTEGER NOT NULL, `finishedAt` INTEGER, `startedAt` INTEGER, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`bookId` TEXT NOT NULL, `positionMs` INTEGER NOT NULL, `maxPositionMs` INTEGER NOT NULL, `playbackSpeed` REAL NOT NULL, `hasCustomSpeed` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `syncedAt` INTEGER, `lastPlayedAt` INTEGER, `isFinished` INTEGER NOT NULL, `finishedAt` INTEGER, `startedAt` INTEGER, `revision` INTEGER NOT NULL, `deletedAt` INTEGER, PRIMARY KEY(`bookId`))",
         "fields": [
           {
             "fieldPath": "bookId",
@@ -799,6 +799,12 @@
           {
             "fieldPath": "positionMs",
             "columnName": "positionMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "maxPositionMs",
+            "columnName": "maxPositionMs",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -3070,7 +3076,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9a4ab63368eb37be998d5ad99b0cdfd0')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6b70e4f9f233295cbccf28f2eb1c1b4b')"
     ]
   }
 }

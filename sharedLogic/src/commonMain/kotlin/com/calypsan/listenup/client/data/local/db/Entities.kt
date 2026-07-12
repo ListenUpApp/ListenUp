@@ -200,6 +200,13 @@ internal data class PlaybackPositionEntity(
     @PrimaryKey val bookId: BookId,
     // Current position in book (book-relative)
     val positionMs: Long,
+    // The furthest position ever heard in this book — the high-water mark for the
+    // spoiler-safe frontier (Story World Stage 3). Monotonic: every write computes
+    // max(existing.maxPositionMs, newPositionMs). Never decreases, not even on
+    // DiscardProgress/Restart — the user still *heard* that far, only the resume
+    // point resets. See PlaybackPositionDao.updatePositionOnly and every
+    // PlaybackPositionRepositoryImpl handler that calls dao.save.
+    val maxPositionMs: Long = 0,
     // Last used speed for this book
     val playbackSpeed: Float,
     // Whether user explicitly set a custom speed for this book (vs using universal default)

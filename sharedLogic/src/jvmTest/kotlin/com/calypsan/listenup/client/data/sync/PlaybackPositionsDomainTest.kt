@@ -168,6 +168,64 @@ class PlaybackPositionsDomainTest :
             }
         }
 
+        // ──────────────────────────────────────────────────────────────────────
+        // Task 3b: mirror-apply's own max-merge — a server payload with a LOWER
+        // maxPositionMs can never clobber local knowledge, and a HIGHER one raises it.
+        // Uses a newer lastPlayedAt so the event passes the NewerWins conflict gate
+        // and reaches upsert(); this tests the additional safety net inside upsert().
+        // ──────────────────────────────────────────────────────────────────────
+
+        test("applied event with a LOWER maxPositionMs than the local row does not lower it") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 50_000L, lastPlayedAt = 1000L, revision = 1L)
+                        .copy(maxPositionMs = 90_000L),
+                )
+
+                handler.onEvent(
+                    updated(
+                        payload(
+                            "pos-1",
+                            "book-1",
+                            positionMs = 10_000L,
+                            lastPlayedAt = 5000L, // newer — passes the NewerWins gate
+                            revision = 2L,
+                        ).copy(maxPositionMs = 5_000L), // lower than local — must not clobber
+                    ),
+                    isOwnEcho = false,
+                )
+
+                val row = db.playbackPositionDao().get(BookId("book-1"))!!
+                row.positionMs shouldBe 10_000L // wire fields still applied
+                row.maxPositionMs shouldBe 90_000L // high-water mark preserved
+            }
+        }
+
+        test("applied event with a HIGHER maxPositionMs than the local row raises it") {
+            withHandler { handler, db ->
+                db.playbackPositionDao().save(
+                    localRow(bookId = "book-1", positionMs = 10_000L, lastPlayedAt = 1000L, revision = 1L)
+                        .copy(maxPositionMs = 10_000L),
+                )
+
+                handler.onEvent(
+                    updated(
+                        payload(
+                            "pos-1",
+                            "book-1",
+                            positionMs = 20_000L,
+                            lastPlayedAt = 5000L,
+                            revision = 2L,
+                        ).copy(maxPositionMs = 200_000L), // e.g. another device heard further ahead
+                    ),
+                    isOwnEcho = false,
+                )
+
+                val row = db.playbackPositionDao().get(BookId("book-1"))!!
+                row.maxPositionMs shouldBe 200_000L
+            }
+        }
+
         test("handler self-registers under domainName 'playback_positions'") {
             val registry = ClientSyncDomainRegistry()
             val db = createInMemoryTestDatabase()
