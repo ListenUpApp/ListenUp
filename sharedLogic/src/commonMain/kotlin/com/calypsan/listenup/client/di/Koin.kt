@@ -70,6 +70,7 @@ internal val sharedModules =
         clientAuthModule,
         voiceModule,
         pushClientModule,
+        campfireClientModule,
     ) + allPresentationModules
 
 /**

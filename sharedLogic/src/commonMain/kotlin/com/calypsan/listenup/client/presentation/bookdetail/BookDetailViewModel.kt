@@ -2,6 +2,7 @@ package com.calypsan.listenup.client.presentation.bookdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.domain.model.BookDetail
 import com.calypsan.listenup.client.domain.model.BookDocument
@@ -70,6 +71,7 @@ class BookDetailViewModel(
     private val bookAvailability: BookAvailability,
     private val serverReachability: ServerReachability,
     private val documentRepository: DocumentRepository,
+    private val campfiresForBook: (bookId: String) -> Flow<List<OpenCampfireSummary>>,
 ) : ViewModel() {
     val state: StateFlow<BookDetailUiState>
         field = MutableStateFlow<BookDetailUiState>(BookDetailUiState.Loading)
@@ -198,6 +200,18 @@ class BookDetailViewModel(
         bookIdFlow
             .filterNotNull()
             .flatMapLatest { id -> documentRepository.observeDocuments(BookId(id)) }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /**
+     * Open campfires (co-listening sessions) currently live for the loaded book — drives the
+     * live 🔥 badge. Backed by `CampfireDiscoveryRepository.campfiresForBook` (in-memory, no Room —
+     * see that repository's KDoc); reactive + offline-tolerant, switches automatically when the
+     * displayed book changes.
+     */
+    val liveCampfires: StateFlow<List<OpenCampfireSummary>> =
+        bookIdFlow
+            .filterNotNull()
+            .flatMapLatest { id -> campfiresForBook(id) }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /**

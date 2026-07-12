@@ -308,6 +308,9 @@ internal val bookPresentationModule =
                 bookAvailability = get(),
                 serverReachability = get(),
                 documentRepository = get(),
+                campfiresForBook = { bookId ->
+                    get<com.calypsan.listenup.client.campfire.CampfireDiscoveryRepository>().campfiresForBook(bookId)
+                },
             )
         }
         factory { params ->
@@ -429,6 +432,8 @@ internal val discoverPresentationModule =
                 authSession = get(),
                 shelfRepository = get(),
                 errorBus = get(),
+                openCampfires =
+                    get<com.calypsan.listenup.client.campfire.CampfireDiscoveryRepository>().observeOpenSessions(),
             )
         }
         // LeaderboardViewModel for discover screen leaderboard

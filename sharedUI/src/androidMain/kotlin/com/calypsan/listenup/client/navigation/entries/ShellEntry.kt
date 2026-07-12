@@ -22,6 +22,7 @@ import com.calypsan.listenup.client.navigation.Shell
 import com.calypsan.listenup.client.navigation.ShelfDetail
 import com.calypsan.listenup.client.navigation.TagDetail
 import com.calypsan.listenup.client.navigation.UserProfile
+import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import com.calypsan.listenup.client.presentation.library.LibraryViewModel
 import com.calypsan.listenup.client.presentation.nowplaying.NowPlayingViewModel
 import com.calypsan.listenup.client.presentation.startup.LibraryReadiness
@@ -33,6 +34,7 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
     currentShellDestination: () -> ShellDestination,
     onDestinationChange: (ShellDestination) -> Unit,
     nowPlayingViewModel: NowPlayingViewModel,
+    campfireViewModel: CampfireViewModel,
     readiness: () -> LibraryReadiness,
     onSignOut: () -> Unit,
     onContinueToPartialLibrary: () -> Unit,
@@ -139,6 +141,10 @@ internal fun EntryProviderScope<NavKey>.shellEntry(
                     onShelfClick = { shelfId -> backStack.add(ShelfDetail(shelfId)) },
                     onBookClick = { bookId -> backStack.add(BookDetail(bookId)) },
                     onUserProfileClick = { userId -> backStack.add(UserProfile(userId)) },
+                    campfireViewModel = campfireViewModel,
+                    onStartCampfireForBook = { bookId ->
+                        backStack.add(BookDetail(bookId, openCampfireCreate = true))
+                    },
                     contentPadding = padding,
                 )
             },

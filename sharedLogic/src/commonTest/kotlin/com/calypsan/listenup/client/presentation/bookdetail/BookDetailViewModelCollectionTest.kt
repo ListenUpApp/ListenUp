@@ -114,6 +114,7 @@ class BookDetailViewModelCollectionTest :
                     bookAvailability = bookAvailability,
                     serverReachability = serverReachability,
                     documentRepository = documentRepository,
+                    campfiresForBook = { flowOf(emptyList()) },
                 )
         }
 

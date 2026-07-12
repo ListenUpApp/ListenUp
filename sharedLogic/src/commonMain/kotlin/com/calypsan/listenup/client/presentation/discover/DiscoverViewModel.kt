@@ -2,12 +2,14 @@ package com.calypsan.listenup.client.presentation.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.error.AppError
 import com.calypsan.listenup.api.error.TransportError
 import com.calypsan.listenup.core.error.ErrorBus
 import com.calypsan.listenup.client.core.fallbackTo
 import com.calypsan.listenup.client.domain.model.ActiveSession
+import com.calypsan.listenup.client.domain.model.BookListItem
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
 import com.calypsan.listenup.client.domain.model.AuthState
@@ -17,6 +19,7 @@ import com.calypsan.listenup.client.domain.repository.DiscoveryBook
 import com.calypsan.listenup.client.domain.repository.ShelfRepository
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -55,6 +58,7 @@ class DiscoverViewModel(
     private val authSession: AuthSession,
     private val shelfRepository: ShelfRepository,
     private val errorBus: ErrorBus,
+    private val openCampfires: Flow<List<OpenCampfireSummary>>,
 ) : ViewModel() {
     init {
         // Load discovered shelves on screen open (on-demand RPC, not Room-backed).
@@ -108,6 +112,48 @@ class DiscoverViewModel(
             displayName = user.displayName,
             startedAt = startedAtMs,
         )
+
+    // === Live Campfires State ("Live now" row, from CampfireDiscoveryRepository) ===
+
+    /**
+     * Open campfires (co-listening sessions) the caller may currently discover — the Discover
+     * "Live now" row. Backed by `CampfireDiscoveryRepository.observeOpenSessions` (in-memory, no
+     * Room — see that repository's KDoc): fetches on subscribe and re-fetches on every
+     * `CampfireRefreshSignal` ping (the server's `CampfiresChanged` nudge).
+     */
+    val liveCampfiresState: StateFlow<List<OpenCampfireSummary>> =
+        openCampfires.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+            initialValue = emptyList(),
+        )
+
+    /**
+     * [liveCampfiresState] enriched with each session's book (cover, title, authors) for the
+     * Discover "Live now" row — [OpenCampfireSummary] itself carries only a bare [OpenCampfireSummary.bookId]
+     * (deliberately lean, see its KDoc), so this pairs each summary with a [BookRepository]
+     * lookup. Every book here is already synced to Room (the caller has access to it, or it would
+     * not have appeared in [liveCampfiresState] at all), so the join is a pure local read — no
+     * extra network round-trip.
+     */
+    val liveCampfiresUiState: StateFlow<List<LiveCampfireUiModel>> =
+        liveCampfiresState
+            .flatMapLatest { summaries ->
+                if (summaries.isEmpty()) {
+                    flowOf(emptyList())
+                } else {
+                    bookRepository.observeBookListItems(summaries.map { it.bookId }).map { books ->
+                        val booksById = books.associateBy { it.id.value }
+                        summaries.mapNotNull { summary ->
+                            booksById[summary.bookId]?.let { book -> LiveCampfireUiModel(summary, book) }
+                        }
+                    }
+                }
+            }.stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(SUBSCRIPTION_TIMEOUT_MS),
+                initialValue = emptyList(),
+            )
 
     // === Discover Books State (Random Unstarted from Room) ===
 
@@ -422,6 +468,16 @@ data class RecentlyAddedUiBook(
     val coverBlurHash: String?,
     val coverHash: String?,
     val createdAt: Long,
+)
+
+/**
+ * One entry in the Discover "Live now" row — an [OpenCampfireSummary] paired with its [book] for
+ * cover/title rendering (see [DiscoverViewModel.liveCampfiresUiState]'s KDoc for why the join
+ * happens here rather than server-side).
+ */
+data class LiveCampfireUiModel(
+    val summary: OpenCampfireSummary,
+    val book: BookListItem,
 )
 
 /**

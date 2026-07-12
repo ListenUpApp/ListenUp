@@ -23,6 +23,22 @@ internal fun presenceDomain(ping: () -> Unit): RefreshedDomain =
         refreshOnAccessChanged = true,
     )
 
+/**
+ * Discoverable campfires (co-listening sessions) changed: ping the signal
+ * `CampfireDiscoveryRepository` collects to re-fetch `listOpenSessions()` — the book-detail live
+ * badge and the Discover "Live now" row.
+ *
+ * [refreshOnAccessChanged] is `true` for the same reason as [presenceDomain]: `listOpenSessions()`
+ * is ACL-filtered at read time, so a collection grant/revoke changes which books' campfires the
+ * caller may discover.
+ */
+internal fun campfireDomain(ping: () -> Unit): RefreshedDomain =
+    RefreshedDomain(
+        trigger = SyncControl.CampfiresChanged::class,
+        refresh = RefreshStrategy.Ping(ping),
+        refreshOnAccessChanged = true,
+    )
+
 /** Server info changed (admin edited name / remote URL): re-fetch getServerInfo (persists the remote-URL fallback). */
 internal fun serverInfoDomain(refetch: suspend () -> Unit): RefreshedDomain =
     RefreshedDomain(

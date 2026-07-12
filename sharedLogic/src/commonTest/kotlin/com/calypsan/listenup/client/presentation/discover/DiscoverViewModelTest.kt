@@ -1,5 +1,9 @@
 package com.calypsan.listenup.client.presentation.discover
 
+import com.calypsan.listenup.api.dto.campfire.CampfireControlMode
+import com.calypsan.listenup.api.dto.campfire.CampfireId
+import com.calypsan.listenup.api.dto.campfire.CampfirePhase
+import com.calypsan.listenup.api.dto.campfire.OpenCampfireSummary
 import com.calypsan.listenup.client.domain.model.ActiveSession
 import com.calypsan.listenup.client.domain.model.Shelf
 import com.calypsan.listenup.client.domain.repository.ActiveSessionRepository
@@ -135,6 +139,8 @@ class DiscoverViewModelTest :
             val recentlyAddedFlow = MutableStateFlow<List<DiscoveryBook>>(emptyList())
             val errorBus = ErrorBus()
 
+            val openCampfiresFlow = MutableStateFlow<List<OpenCampfireSummary>>(emptyList())
+
             fun build(): DiscoverViewModel =
                 DiscoverViewModel(
                     bookRepository = bookRepository,
@@ -142,6 +148,7 @@ class DiscoverViewModelTest :
                     authSession = authSession,
                     shelfRepository = shelfRepository,
                     errorBus = errorBus,
+                    openCampfires = openCampfiresFlow,
                 )
         }
 
@@ -236,6 +243,35 @@ class DiscoverViewModelTest :
                 // Then
                 val err = viewModel.currentlyListeningState.value.shouldBeInstanceOf<CurrentlyListeningUiState.Error>()
                 err.message shouldBe "Failed to load currently listening"
+            }
+        }
+
+        // ========== Live Campfires ("Live now") Tests ==========
+
+        test("liveCampfiresState reflects the open-campfires flow") {
+            runTest {
+                // Given
+                val fixture = createFixture()
+                val summary =
+                    OpenCampfireSummary(
+                        id = CampfireId("cf-1"),
+                        bookId = "book-1",
+                        phase = CampfirePhase.LIVE,
+                        name = "Campfire",
+                        hostUserId = "host-1",
+                        memberCount = 2,
+                        controlMode = CampfireControlMode.EVERYONE,
+                        inviteOnly = false,
+                    )
+
+                // When
+                val viewModel = fixture.build().also { keepStateHot(it.liveCampfiresState) }
+                advanceUntilIdle()
+                fixture.openCampfiresFlow.value = listOf(summary)
+                advanceUntilIdle()
+
+                // Then
+                viewModel.liveCampfiresState.value.map { it.id.value } shouldBe listOf("cf-1")
             }
         }
 

@@ -17,13 +17,19 @@ import com.calypsan.listenup.client.navigation.MetadataSearch
 import com.calypsan.listenup.client.navigation.SeriesDetail
 import com.calypsan.listenup.client.navigation.UserProfile
 import com.calypsan.listenup.client.presentation.browsefacet.BrowseFacetViewModel
+import com.calypsan.listenup.client.presentation.campfire.CampfireViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 /** Book navigation entries. */
-internal fun EntryProviderScope<NavKey>.bookEntries(backStack: NavBackStack<NavKey>) {
+internal fun EntryProviderScope<NavKey>.bookEntries(
+    backStack: NavBackStack<NavKey>,
+    campfireViewModel: CampfireViewModel,
+) {
     entry<BookDetail> { args ->
         com.calypsan.listenup.client.features.bookdetail.BookDetailScreen(
             bookId = args.bookId,
+            campfireViewModel = campfireViewModel,
+            startWithCampfireCreate = args.openCampfireCreate,
             onBackClick = {
                 backStack.removeAt(backStack.lastIndex)
             },

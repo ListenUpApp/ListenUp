@@ -107,6 +107,19 @@ BrowseGenreUiState
 BrowseGenreViewModel
 CachedAudioTokenProvider
 CachedUserProfile
+CampfireAnchor
+CampfireBookPickerViewModel
+CampfireControlMode
+CampfireCreateUiState
+CampfireId
+CampfireInvitableUser
+CampfireInviteUiState
+CampfireMember
+CampfirePhase
+CampfireScreenEvent
+CampfireScreenUiState
+CampfireSettings
+CampfireViewModel
 Chapter
 ChapterAnchor
 ChapterInput
@@ -114,6 +127,7 @@ ChapterNameRow
 ChapterResponse
 ChapterSuggestion
 ChapterUiModel
+ChatMessage
 ClaimInviteUiState
 ClaimInviteViewModel
 Collection
@@ -216,6 +230,8 @@ EventStreamRepository
 FacetCount
 FacetKind
 FileSource
+FireColor
+FireGeometry
 FolderId
 Genre
 GenreId
@@ -292,6 +308,7 @@ LibraryViewModel
 ListeningEvent
 ListeningEventRecorder
 ListeningEventRepository
+LiveCampfireUiModel
 LocalPreferences
 LoginErrorType
 LoginField
@@ -323,6 +340,7 @@ NowPlayingOverlay
 NowPlayingScreenState
 NowPlayingState
 NowPlayingViewModel
+OpenCampfireSummary
 OrganizeAuthorForm
 OrganizePreset
 OrganizePreviewDto

@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -21,6 +22,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import com.calypsan.listenup.client.design.util.PlatformPredictiveBackHandler
 import com.calypsan.listenup.client.playback.NowPlayingState
@@ -195,52 +197,54 @@ fun NowPlayingScreen(
                 },
         color = MaterialTheme.colorScheme.surface,
     ) {
-        if (expanded) {
-            WideNowPlaying(
-                state = state,
-                progress = progress,
-                onCollapse = onCollapse,
-                onPlayPause = onPlayPause,
-                onSeek = onSeek,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
-                onPreviousChapter = onPreviousChapter,
-                onNextChapter = onNextChapter,
-                onSpeedClick = onSpeedClick,
-                onSleepClick = onSleepTimerClick,
-                onChaptersClick = onChaptersClick,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
-                onShowAuthorPicker = onShowAuthorPicker,
-                onShowNarratorPicker = onShowNarratorPicker,
-                onCloseBook = onCloseBook,
-                hasPdf = hasPdf,
-                onOpenPdf = onOpenPdf,
-            )
-        } else {
-            CompactNowPlaying(
-                state = state,
-                progress = progress,
-                onCollapse = onCollapse,
-                onPlayPause = onPlayPause,
-                onSeek = onSeek,
-                onSkipBack = onSkipBack,
-                onSkipForward = onSkipForward,
-                onPreviousChapter = onPreviousChapter,
-                onNextChapter = onNextChapter,
-                onSpeedClick = onSpeedClick,
-                onSleepClick = onSleepTimerClick,
-                onChaptersClick = onChaptersClick,
-                onGoToBook = onGoToBook,
-                onGoToSeries = onGoToSeries,
-                onGoToContributor = onGoToContributor,
-                onShowAuthorPicker = onShowAuthorPicker,
-                onShowNarratorPicker = onShowNarratorPicker,
-                onCloseBook = onCloseBook,
-                hasPdf = hasPdf,
-                onOpenPdf = onOpenPdf,
-            )
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (expanded) {
+                WideNowPlaying(
+                    state = state,
+                    progress = progress,
+                    onCollapse = onCollapse,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                    onPreviousChapter = onPreviousChapter,
+                    onNextChapter = onNextChapter,
+                    onSpeedClick = onSpeedClick,
+                    onSleepClick = onSleepTimerClick,
+                    onChaptersClick = onChaptersClick,
+                    onGoToBook = onGoToBook,
+                    onGoToSeries = onGoToSeries,
+                    onGoToContributor = onGoToContributor,
+                    onShowAuthorPicker = onShowAuthorPicker,
+                    onShowNarratorPicker = onShowNarratorPicker,
+                    onCloseBook = onCloseBook,
+                    hasPdf = hasPdf,
+                    onOpenPdf = onOpenPdf,
+                )
+            } else {
+                CompactNowPlaying(
+                    state = state,
+                    progress = progress,
+                    onCollapse = onCollapse,
+                    onPlayPause = onPlayPause,
+                    onSeek = onSeek,
+                    onSkipBack = onSkipBack,
+                    onSkipForward = onSkipForward,
+                    onPreviousChapter = onPreviousChapter,
+                    onNextChapter = onNextChapter,
+                    onSpeedClick = onSpeedClick,
+                    onSleepClick = onSleepTimerClick,
+                    onChaptersClick = onChaptersClick,
+                    onGoToBook = onGoToBook,
+                    onGoToSeries = onGoToSeries,
+                    onGoToContributor = onGoToContributor,
+                    onShowAuthorPicker = onShowAuthorPicker,
+                    onShowNarratorPicker = onShowNarratorPicker,
+                    onCloseBook = onCloseBook,
+                    hasPdf = hasPdf,
+                    onOpenPdf = onOpenPdf,
+                )
+            }
         }
     }
 }

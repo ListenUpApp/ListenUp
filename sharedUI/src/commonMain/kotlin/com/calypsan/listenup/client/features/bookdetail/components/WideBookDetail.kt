@@ -77,6 +77,8 @@ fun WideBookDetail(
     onAddToShelfClick: () -> Unit,
     onAddToCollectionClick: () -> Unit,
     onShareClick: () -> Unit = {},
+    campfireLiveCount: Int = 0,
+    onCampfireClick: () -> Unit = {},
     onDeleteBookClick: () -> Unit,
     onPlayClick: () -> Unit,
     onDownloadClick: () -> Unit,
@@ -119,6 +121,8 @@ fun WideBookDetail(
             onAddToShelfClick = onAddToShelfClick,
             onAddToCollectionClick = onAddToCollectionClick,
             onShareClick = onShareClick,
+            campfireLiveCount = campfireLiveCount,
+            onCampfireClick = onCampfireClick,
             onDeleteClick = onDeleteBookClick,
         )
 

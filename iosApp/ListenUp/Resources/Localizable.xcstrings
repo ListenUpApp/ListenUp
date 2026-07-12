@@ -2701,6 +2701,16 @@
         }
       }
     },
+    "book.detail_campfire_this_book": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire this book"
+          }
+        }
+      }
+    },
     "book.detail_cancel_download": {
       "localizations": {
         "en": {
@@ -4457,6 +4467,556 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tag unavailable"
+          }
+        }
+      }
+    },
+    "campfire.campfires_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfires"
+          }
+        }
+      }
+    },
+    "campfire.control_denied": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the host can control playback right now."
+          }
+        }
+      }
+    },
+    "campfire.discover_book_picker_empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No books found"
+          }
+        }
+      }
+    },
+    "campfire.discover_book_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search your library"
+          }
+        }
+      }
+    },
+    "campfire.discover_gathering_listening_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gathering · %1$d listening"
+          }
+        }
+      }
+    },
+    "campfire.discover_live_listening_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Live · %1$d listening"
+          }
+        }
+      }
+    },
+    "campfire.discover_start_a_campfire": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a campfire"
+          }
+        }
+      }
+    },
+    "campfire.entry_point": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Campfire"
+          }
+        }
+      }
+    },
+    "campfire.flow_create_eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New Campfire"
+          }
+        }
+      }
+    },
+    "campfire.flow_create_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start a Campfire"
+          }
+        }
+      }
+    },
+    "campfire.flow_everyone_controls_sub": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Any listener can play, pause, and skip."
+          }
+        }
+      }
+    },
+    "campfire.flow_everyone_controls_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Everyone can control playback"
+          }
+        }
+      }
+    },
+    "campfire.flow_invite_continue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continue"
+          }
+        }
+      }
+    },
+    "campfire.flow_invite_continue_n": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite %1$d and continue"
+          }
+        }
+      }
+    },
+    "campfire.flow_invite_eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
+          }
+        }
+      }
+    },
+    "campfire.flow_invite_search_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search people"
+          }
+        }
+      }
+    },
+    "campfire.flow_invite_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gather your circle"
+          }
+        }
+      }
+    },
+    "campfire.flow_light_the_fire": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light the fire"
+          }
+        }
+      }
+    },
+    "campfire.flow_listening_to": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening to"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_eyebrow": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warming up"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_gathered": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d gathered · %2$@"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_headline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The fire is catching"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_host_badge": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "HOST"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_invited_pending": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "invited…"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_latecomers": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Latecomers can hop in anytime"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_start_cta": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start listening together"
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_subcopy": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start when ready — everyone hears the same moment, in sync."
+          }
+        }
+      }
+    },
+    "campfire.flow_lobby_waiting_for_host": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for %1$@ to start"
+          }
+        }
+      }
+    },
+    "campfire.flow_name_label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        }
+      }
+    },
+    "campfire.flow_privacy_anyone": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anyone on this server"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_around_fire": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "around the fire"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_chat_placeholder": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Say something…"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_everyone_controls": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "everyone controls"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_invite": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_leave": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_live": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "LIVE"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_others": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@ and %3$d others"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_others_two": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ and %2$@"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_system_host_changed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ is now hosting"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_system_joined": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ joined the fire"
+          }
+        }
+      }
+    },
+    "campfire.flow_room_system_left": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ left the fire"
+          }
+        }
+      }
+    },
+    "campfire.flow_who_can_join": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Who can join"
+          }
+        }
+      }
+    },
+    "campfire.invite_only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Invite only"
+          }
+        }
+      }
+    },
+    "campfire.invite_only_no_users": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No one else can access this book yet."
+          }
+        }
+      }
+    },
+    "campfire.join": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join"
+          }
+        }
+      }
+    },
+    "campfire.listening_now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listening now"
+          }
+        }
+      }
+    },
+    "campfire.listening_now_count": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$d listening now"
+          }
+        }
+      }
+    },
+    "campfire.rejoin_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jump to sync"
+          }
+        }
+      }
+    },
+    "campfire.rejoin_dismiss": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep my place"
+          }
+        }
+      }
+    },
+    "campfire.rejoin_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The room has moved on without you. Jump to where everyone else is listening."
+          }
+        }
+      }
+    },
+    "campfire.rejoin_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Catch up with the room"
+          }
+        }
+      }
+    },
+    "campfire.spoiler_cancel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not yet"
+          }
+        }
+      }
+    },
+    "campfire.spoiler_confirm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Join anyway"
+          }
+        }
+      }
+    },
+    "campfire.spoiler_message": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This room is further along in the story than you are. Joining will move your progress forward."
+          }
+        }
+      }
+    },
+    "campfire.spoiler_title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heads up: spoilers ahead"
           }
         }
       }
