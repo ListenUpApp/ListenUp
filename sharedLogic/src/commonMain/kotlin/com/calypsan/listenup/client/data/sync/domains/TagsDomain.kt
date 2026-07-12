@@ -8,7 +8,7 @@ import com.calypsan.listenup.client.data.local.db.TagEntity
 /**
  * The `tags` domain: server-authored rows (curators), server-wins apply,
  * soft-delete tombstones, full digest participation, online-only writes.
- * `isOwnEcho` needs no shield: the client has no local tag-row write path
+ * An own-echo needs no shield: the client has no local tag-row write path
  * that would generate echoes.
  */
 internal fun tagsDomain(database: ListenUpDatabase): MirroredDomain<Tag> {

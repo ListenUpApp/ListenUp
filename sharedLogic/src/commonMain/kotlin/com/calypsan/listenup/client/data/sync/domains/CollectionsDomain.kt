@@ -16,7 +16,7 @@ import com.calypsan.listenup.client.data.sync.TargetedFetch
  * (not hard-deletes) every live row outside the accessible set.
  *
  * `bookCount` is JOIN-derived (never stored), so the apply maps only substrate
- * fields — drift is impossible by construction. `isOwnEcho` needs no shield:
+ * fields — drift is impossible by construction. An own-echo needs no shield:
  * `@Upsert` is idempotent.
  */
 internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<CollectionSyncPayload> {

@@ -9,7 +9,7 @@ import com.calypsan.listenup.core.Timestamp
 /**
  * The `genres` domain: server-authored hierarchy (admin RPC writes), server-wins
  * apply, soft-delete tombstones, full digest participation, online-only writes.
- * `isOwnEcho` needs no shield: the client has no local genre-row write path.
+ * An own-echo needs no shield: the client has no local genre-row write path.
  */
 internal fun genresDomain(database: ListenUpDatabase): MirroredDomain<GenreSyncPayload> {
     val apply = GenreMirrorApply(database)

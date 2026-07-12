@@ -21,7 +21,7 @@ private val logger = KotlinLogging.logger {}
  * and pruning tombstones rows outside the accessible set.
  *
  * **Re-add semantics.** Re-adding a book arrives as Created/Updated with
- * `deletedAt = null`; the upsert clears the tombstone. `isOwnEcho` needs no
+ * `deletedAt = null`; the upsert clears the tombstone. An own-echo needs no
  * shield: `@Upsert` is idempotent.
  */
 internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<CollectionBookSyncPayload> {

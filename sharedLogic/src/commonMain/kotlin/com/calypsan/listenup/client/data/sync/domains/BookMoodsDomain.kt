@@ -17,7 +17,7 @@ private val logger = KotlinLogging.logger {}
  * reconciliation stays faithful, and re-adds arrive as Created/Updated with
  * `deletedAt = null`.
  *
- * No FK constraints on `book_moods` — sync is responsible for integrity. `isOwnEcho`
+ * No FK constraints on `book_moods` — sync is responsible for integrity. An own-echo
  * needs no shield: `@Upsert` is idempotent.
  */
 internal fun bookMoodsDomain(database: ListenUpDatabase): MirroredDomain<BookMoodSyncPayload> {

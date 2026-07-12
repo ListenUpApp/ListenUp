@@ -14,7 +14,7 @@ import com.calypsan.listenup.core.Timestamp
  * **Enrichment preservation.** `description`, `asin`, and cover imagery are copied
  * from the existing row when the payload's value is null — a B1-era event must
  * never null Books-B2 enrichment. This is apply-layer mapping, not conflict policy.
- * `isOwnEcho` needs no shield: idempotent upsert; edits echo identical values.
+ * An own-echo needs no shield: idempotent upsert; edits echo identical values.
  */
 internal fun seriesDomain(database: ListenUpDatabase): MirroredDomain<SeriesSyncPayload> {
     val apply = SeriesMirrorApply(database)

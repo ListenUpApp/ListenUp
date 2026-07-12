@@ -20,7 +20,7 @@ private val logger = KotlinLogging.logger {}
  * **Re-add semantics.** Re-applying a tag after removal arrives as Created/Updated
  * with `deletedAt = null`; the upsert clears the tombstone.
  *
- * No FK constraints on `book_tags` — sync is responsible for integrity. `isOwnEcho`
+ * No FK constraints on `book_tags` — sync is responsible for integrity. An own-echo
  * needs no shield: `@Upsert` is idempotent.
  */
 internal fun bookTagsDomain(database: ListenUpDatabase): MirroredDomain<BookTagSyncPayload> {
