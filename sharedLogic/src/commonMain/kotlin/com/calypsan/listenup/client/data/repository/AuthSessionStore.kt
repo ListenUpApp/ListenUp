@@ -14,18 +14,14 @@ import com.calypsan.listenup.client.domain.repository.PendingRegistration
 import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.retryWhen
 import kotlinx.coroutines.launch
 import kotlin.time.TimeSource
 import com.calypsan.listenup.client.domain.model.AuthState as DomainAuthState
@@ -75,21 +71,14 @@ internal class AuthSessionStore(
                 .map { it is DomainAuthState.NeedsLogin }
                 .distinctUntilChanged()
                 .flatMapLatest { onLoginScreen ->
-                    if (onLoginScreen) resilientPolicyStream() else emptyFlow()
+                    // The SseConnection engine behind streamPolicy() owns reconnect (bounded connect +
+                    // exponential backoff), so a dropped stream self-heals — no bespoke retryWhen here.
+                    if (onLoginScreen) policyStream.streamPolicy() else emptyFlow()
                 }.collect { policy ->
                     applyOpenRegistration(policy != RegistrationPolicy.CLOSED)
                 }
         }
     }
-
-    /** The policy SSE, reconnecting with a fixed backoff on any non-cancellation failure. */
-    private fun resilientPolicyStream(): Flow<RegistrationPolicy> =
-        policyStream.streamPolicy().retryWhen { cause, _ ->
-            if (cause is CancellationException) throw cause
-            logger.warn(cause) { "registration-policy stream dropped; reconnecting" }
-            delay(POLICY_STREAM_RETRY_MILLIS)
-            true
-        }
 
     /** Persists the cached flag and, when still on the login screen, flips the live auth state. */
     private suspend fun applyOpenRegistration(open: Boolean) {
@@ -314,7 +303,5 @@ internal class AuthSessionStore(
         const val KEY_SETUP_REQUIRED = "setup_required"
         const val KEY_PENDING_USER_ID = "pending_user_id"
         const val KEY_PENDING_EMAIL = "pending_email"
-
-        const val POLICY_STREAM_RETRY_MILLIS = 5_000L
     }
 }
