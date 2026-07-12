@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.BookService
+import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.ContributorService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
@@ -52,7 +53,9 @@ import com.calypsan.listenup.client.domain.repository.LocalPreferences
 import com.calypsan.listenup.client.domain.repository.PlaybackPrepareRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
 import com.calypsan.listenup.client.domain.repository.ServerReachability
+import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import org.koin.core.module.Module
@@ -120,6 +123,7 @@ internal val clientSyncModule =
         // is an immediate require() failure, not a silent op drop.
         single<PendingOperationSender> {
             val bookChannel = rpcChannel<BookService>()
+            val collectionChannel = rpcChannel<CollectionService>()
             val seriesChannel = rpcChannel<SeriesService>()
             val contributorChannel = rpcChannel<ContributorService>()
             val playbackChannel = rpcChannel<PlaybackService>()
@@ -133,8 +137,40 @@ internal val clientSyncModule =
                     outboxBinding(OutboxChannels.ListeningEvents) { _, request ->
                         playbackChannel.call { it.recordListeningEvent(request) }
                     },
-                    outboxBinding(OutboxChannels.Books) { id, patch ->
-                        bookChannel.call { it.updateBook(BookId(id), patch) }
+                    outboxBinding(OutboxChannels.Books) { id, mutation ->
+                        val bookId = BookId(id)
+                        when (mutation) {
+                            is BookMutation.Update -> {
+                                bookChannel.call { it.updateBook(bookId, mutation.patch) }
+                            }
+
+                            is BookMutation.SetContributors -> {
+                                bookChannel.call { it.setBookContributors(bookId, mutation.contributors) }
+                            }
+
+                            is BookMutation.SetSeries -> {
+                                bookChannel.call { it.setBookSeries(bookId, mutation.series) }
+                            }
+
+                            is BookMutation.SetGenres -> {
+                                bookChannel.call { it.setBookGenres(bookId, mutation.genres) }
+                            }
+
+                            is BookMutation.SetChapters -> {
+                                bookChannel.call { it.setBookChapters(bookId, mutation.chapters) }
+                            }
+
+                            // Rides the books channel for FIFO + shield, but dispatches to CollectionService.
+                            is BookMutation.SetCollections -> {
+                                collectionChannel.call {
+                                    it.setBookCollections(bookId, mutation.collectionIds.map(::CollectionId))
+                                }
+                            }
+
+                            is BookMutation.DeleteCover -> {
+                                bookChannel.call { it.deleteBookCover(bookId) }
+                            }
+                        }
                     },
                     outboxBinding(OutboxChannels.Series) { id, patch ->
                         seriesChannel.call { it.updateSeries(SeriesId(id), patch) }

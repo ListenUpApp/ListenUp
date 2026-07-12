@@ -1,6 +1,7 @@
 package com.calypsan.listenup.client.data.sync
 
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.error.InternalError
 import com.calypsan.listenup.api.result.AppResult
@@ -40,7 +41,7 @@ class OfflineEditorTest :
                         authSession = FakeAuthSession(userId = "u1"),
                     )
 
-                val patch = BookUpdate(title = "New Title")
+                val patch = BookMutation.Update(BookUpdate(title = "New Title"))
                 val result = editor.edit(OutboxChannels.Books, entityId = "book1", patch = patch) { applied = true }
 
                 result shouldBe AppResult.Success(Unit)
@@ -49,7 +50,7 @@ class OfflineEditorTest :
                 op?.domainName shouldBe "books"
                 op?.entityId shouldBe "book1"
                 op?.opType shouldBe "update"
-                op?.payload shouldBe contractJson.encodeToString(BookUpdate.serializer(), patch)
+                op?.payload shouldBe contractJson.encodeToString(BookMutation.serializer(), patch)
                 db.close()
             }
         }
@@ -82,7 +83,7 @@ class OfflineEditorTest :
                         authSession = FakeAuthSession(userId = "u1"),
                     )
 
-                editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "New Title")) { }
+                editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookMutation.Update(BookUpdate(title = "New Title"))) { }
 
                 // No pre-commit signal: the drain collector can't wake against pre-commit state.
                 signalDuringTx shouldBe initialSignal
@@ -114,7 +115,12 @@ class OfflineEditorTest :
                     )
 
                 var applied = false
-                val result = editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "x")) { applied = true }
+                val result =
+                    editor.edit(
+                        OutboxChannels.Books,
+                        entityId = "book1",
+                        patch = BookMutation.Update(BookUpdate(title = "x")),
+                    ) { applied = true }
 
                 result.shouldBeInstanceOf<AppResult.Failure>()
                 applied shouldBe false
@@ -141,7 +147,7 @@ class OfflineEditorTest :
                     )
 
                 val result =
-                    editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "x")) {
+                    editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookMutation.Update(BookUpdate(title = "x"))) {
                         error("local write blew up")
                     }
 
@@ -171,7 +177,7 @@ class OfflineEditorTest :
                     )
 
                 shouldThrow<CancellationException> {
-                    editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "x")) {
+                    editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookMutation.Update(BookUpdate(title = "x"))) {
                         throw CancellationException("cancelled")
                     }
                 }
@@ -204,7 +210,7 @@ class OfflineEditorTest :
                     editor.edit(
                         OutboxChannels.Books,
                         entityId = "book1",
-                        patch = BookUpdate(title = "x"),
+                        patch = BookMutation.Update(BookUpdate(title = "x")),
                         op = OpKind.Upsert,
                     ) { }
 

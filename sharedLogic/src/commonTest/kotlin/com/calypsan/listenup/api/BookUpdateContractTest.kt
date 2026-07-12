@@ -1,12 +1,17 @@
 package com.calypsan.listenup.api
 
 import com.calypsan.listenup.api.dto.BookContributorInput
+import com.calypsan.listenup.api.dto.BookGenreInput
+import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.ChapterInput
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.dto.SeriesUpdate
 import com.calypsan.listenup.core.ContributorId
+import com.calypsan.listenup.core.GenreId
 import com.calypsan.listenup.core.SeriesId
+import io.kotest.matchers.types.shouldBeInstanceOf
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
@@ -183,6 +188,33 @@ class BookUpdateContractTest :
             shouldThrow<IllegalArgumentException> {
                 SeriesUpdate(name = "")
             }
+        }
+
+        // ── BookMutation (unified outbox payload) ─────────────────────────────
+
+        test("should round-trip every BookMutation variant through the sealed serializer") {
+            roundTrip<BookMutation>(BookMutation.Update(BookUpdate(title = "New"))) shouldBe
+                BookMutation.Update(BookUpdate(title = "New"))
+
+            val contributors =
+                BookMutation.SetContributors(
+                    listOf(BookContributorInput(id = ContributorId("c1"), name = "King", role = "author", position = 0)),
+                )
+            roundTrip<BookMutation>(contributors) shouldBe contributors
+
+            val series = BookMutation.SetSeries(listOf(BookSeriesInput(id = SeriesId("s1"), name = "Tower", position = 1.0)))
+            roundTrip<BookMutation>(series) shouldBe series
+
+            val genres = BookMutation.SetGenres(listOf(BookGenreInput(GenreId("g1"))))
+            roundTrip<BookMutation>(genres) shouldBe genres
+
+            val chapters = BookMutation.SetChapters(listOf(ChapterInput(id = "ch1", title = "One", startTime = 0, duration = 1)))
+            roundTrip<BookMutation>(chapters) shouldBe chapters
+
+            val collections = BookMutation.SetCollections(listOf("col1", "col2"))
+            roundTrip<BookMutation>(collections) shouldBe collections
+
+            roundTrip<BookMutation>(BookMutation.DeleteCover).shouldBeInstanceOf<BookMutation.DeleteCover>()
         }
     })
 

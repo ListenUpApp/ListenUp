@@ -1,11 +1,11 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.api.BookService
-import com.calypsan.listenup.api.CollectionService
 import com.calypsan.listenup.api.MetadataLookupService
 import com.calypsan.listenup.client.data.remote.rpcChannel
 import com.calypsan.listenup.client.data.repository.BookDetailJoinSources
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookMutationLocalApply
 import com.calypsan.listenup.client.data.repository.BookIngestPort
 import com.calypsan.listenup.client.data.repository.BookRepositoryImpl
 import com.calypsan.listenup.client.data.repository.MetadataRepositoryImpl
@@ -38,7 +38,6 @@ import org.koin.dsl.module
  *  - [com.calypsan.listenup.client.domain.repository.NetworkMonitor] — platform device module
  *  - [com.calypsan.listenup.client.domain.repository.GenreRepository] — `genreTagModule`
  *  - [com.calypsan.listenup.client.domain.repository.TagRepository] — `genreTagModule`
- *  - the [com.calypsan.listenup.api.CollectionService] `RpcChannel` — `collectionModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageRepository] — `mediaModule`
  *  - [com.calypsan.listenup.client.domain.repository.ImageStagingRepository] — `mediaModule`
  *  - the books [com.calypsan.listenup.client.data.sync.SyncDomainHandler] — `clientSyncModule`
@@ -81,14 +80,24 @@ internal val bookModule: Module =
             )
         } binds arrayOf(BookIngestPort::class)
 
-        // BookEditRepository — offline-first updateBook (Room + outbox queue); the
-        // remaining edits stay RPC-only with SSE echoes writing back into Room.
+        // BookEditRepository — offline-first for every edit surface: each write does its optimistic
+        // Room merge and enqueues a durable BookMutation on the `books` outbox channel (one
+        // transaction). The outbox sender in `clientSyncModule` dispatches each variant to its RPC;
+        // the SSE echo reconciles Room.
         single<BookEditRepository> {
             BookEditRepositoryImpl(
-                bookChannel = rpcChannel<BookService>(),
-                collectionChannel = rpcChannel<CollectionService>(),
-                bookDao = get(),
                 offlineEditor = get(),
+                localApply =
+                    BookMutationLocalApply(
+                        bookDao = get(),
+                        bookContributorDao = get(),
+                        contributorDao = get(),
+                        bookSeriesDao = get(),
+                        seriesDao = get(),
+                        genreDao = get(),
+                        chapterDao = get(),
+                        collectionBookDao = get(),
+                    ),
             )
         }
 

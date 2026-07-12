@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.SearchService
 import com.calypsan.listenup.api.SeriesService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.contractJson
+import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.SyncDomains
 import com.calypsan.listenup.client.data.local.db.ListenUpDatabase
@@ -18,6 +19,7 @@ import com.calypsan.listenup.api.dto.RecordPositionRequest
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.BookEditRepositoryImpl
+import com.calypsan.listenup.client.data.repository.BookMutationLocalApply
 import com.calypsan.listenup.client.data.repository.ContributorEditRepositoryImpl
 import com.calypsan.listenup.client.data.repository.ContributorRepositoryImpl
 import com.calypsan.listenup.client.data.repository.GenreRepositoryImpl
@@ -58,6 +60,7 @@ import dev.mokkery.answering.returns
 import dev.mokkery.every
 import dev.mokkery.mock
 import com.calypsan.listenup.core.BookId
+import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.SeriesId
 import com.calypsan.listenup.server.api.BookAccessPolicy
@@ -466,6 +469,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                 .rpc("ws://localhost/api/rpc/authed") {
                     rpcConfig { serialization { krpcJson(contractJson) } }
                 }.withService<CollectionService>()
+        val collectionChannel = RpcChannel.forTest(collectionServiceProxy)
         val genreRepository: ClientGenreRepository =
             GenreRepositoryImpl(
                 dao = clientDb.genreDao(),
@@ -501,8 +505,47 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                                 OutboxChannels.Positions.name to playbackSender,
                                 OutboxChannels.ListeningEvents.name to listeningEventSender,
                                 OutboxChannels.Books.name to
-                                    OutboxOpSender(OutboxChannels.Books) { id, patch ->
-                                        bookChannel.call { it.updateBook(BookId(id), patch) }
+                                    OutboxOpSender(OutboxChannels.Books) { id, mutation ->
+                                        val bookId = BookId(id)
+                                        when (mutation) {
+                                            is BookMutation.Update -> {
+                                                bookChannel.call { it.updateBook(bookId, mutation.patch) }
+                                            }
+
+                                            is BookMutation.SetContributors -> {
+                                                bookChannel.call {
+                                                    it.setBookContributors(
+                                                        bookId,
+                                                        mutation.contributors,
+                                                    )
+                                                }
+                                            }
+
+                                            is BookMutation.SetSeries -> {
+                                                bookChannel.call { it.setBookSeries(bookId, mutation.series) }
+                                            }
+
+                                            is BookMutation.SetGenres -> {
+                                                bookChannel.call { it.setBookGenres(bookId, mutation.genres) }
+                                            }
+
+                                            is BookMutation.SetChapters -> {
+                                                bookChannel.call { it.setBookChapters(bookId, mutation.chapters) }
+                                            }
+
+                                            is BookMutation.SetCollections -> {
+                                                collectionChannel.call {
+                                                    it.setBookCollections(
+                                                        bookId,
+                                                        mutation.collectionIds.map(::CollectionId),
+                                                    )
+                                                }
+                                            }
+
+                                            is BookMutation.DeleteCover -> {
+                                                bookChannel.call { it.deleteBookCover(bookId) }
+                                            }
+                                        }
                                     },
                                 OutboxChannels.Series.name to
                                     OutboxOpSender(OutboxChannels.Series) { id, patch ->
@@ -551,10 +594,18 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
             // server, whose SSE echo reconciles client Room via the books sync handler.
             val bookEditRepository: BookEditRepository =
                 BookEditRepositoryImpl(
-                    bookChannel = bookChannel,
-                    collectionChannel = RpcChannel.forTest(collectionServiceProxy),
-                    bookDao = clientDb.bookDao(),
                     offlineEditor = offlineEditor,
+                    localApply =
+                        BookMutationLocalApply(
+                            bookDao = clientDb.bookDao(),
+                            bookContributorDao = clientDb.bookContributorDao(),
+                            contributorDao = clientDb.contributorDao(),
+                            bookSeriesDao = clientDb.bookSeriesDao(),
+                            seriesDao = clientDb.seriesDao(),
+                            genreDao = clientDb.genreDao(),
+                            chapterDao = clientDb.chapterDao(),
+                            collectionBookDao = clientDb.collectionBookDao(),
+                        ),
                 )
 
             // Offline-first series edits write to client Room and enqueue a "series" op;

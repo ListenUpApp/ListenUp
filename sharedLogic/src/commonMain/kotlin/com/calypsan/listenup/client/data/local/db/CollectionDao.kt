@@ -141,6 +141,18 @@ internal interface CollectionBookDao {
     fun observeCollectionIdsForBook(bookId: String): Flow<List<String>>
 
     /**
+     * One-shot live (non-tombstoned) collection ids a book currently belongs to.
+     *
+     * The synchronous counterpart to [observeCollectionIdsForBook], used by the offline-first
+     * `setBookCollections` optimistic write to diff the book's current membership against the
+     * requested set before adding/removing rows.
+     */
+    @Query(
+        "SELECT collectionId FROM collection_books WHERE bookId = :bookId AND deletedAt IS NULL ORDER BY createdAt ASC",
+    )
+    suspend fun liveCollectionIdsForBook(bookId: String): List<String>
+
+    /**
      * Live (non-tombstoned) junction ids in the synthetic `"$collectionId:$bookId"` form the
      * server uses on the wire — used by the access-change reconcile so the local set lines up
      * with `catchUpTransient`'s returned set.

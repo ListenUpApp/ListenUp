@@ -1,6 +1,6 @@
 package com.calypsan.listenup.client.data.sync.domains
 
-import com.calypsan.listenup.api.dto.BookUpdate
+import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.ContributorUpdate
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
@@ -19,8 +19,11 @@ import com.calypsan.listenup.api.sync.SyncDomains
  * mirror; preferences' via the `PreferencesChanged` refreshed domain).
  */
 internal object OutboxChannels {
-    // Update = set-fields, last-write-wins → inherently idempotent (a repeated PATCH re-applies the same snapshot).
-    val Books = OutboxChannel(SyncDomains.BOOKS.name, BookUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
+    // The unified book-edit payload: the PATCH plus every replace-set (contributors, series, genres,
+    // chapters, collections, cover removal), each last-write-wins → inherently idempotent. One channel
+    // so a book's edits share per-entity FIFO and the domain-keyed anti-flicker shield.
+    val Books =
+        OutboxChannel(SyncDomains.BOOKS.name, BookMutation.serializer(), setOf(OpKind.Update), idempotent = true)
     val Series =
         OutboxChannel(SyncDomains.SERIES.name, SeriesUpdate.serializer(), setOf(OpKind.Update), idempotent = true)
     val Contributors =
