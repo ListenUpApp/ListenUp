@@ -81,14 +81,6 @@ fun clientApiClientFactoryTestModule(): Module =
     }
 
 /**
- * JVM desktop has no default base URL.
- * Users must configure server URL manually or via discovery.
- *
- * Returns a placeholder that will be replaced when user configures the server.
- */
-actual fun getBaseUrl(): String = "http://localhost:8080"
-
-/**
  * JVM desktop discovery module.
  *
  * Uses JmDNS for mDNS/Zeroconf server discovery on the local network.

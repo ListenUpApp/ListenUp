@@ -5,7 +5,6 @@ package com.calypsan.listenup.client.domain.repository
 import com.calypsan.listenup.api.dto.ServerInfo
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.result.valueOrNull
-import com.calypsan.listenup.client.domain.model.Instance
 import io.github.oshai.kotlinlogging.KotlinLogging
 
 private val instanceRepositoryLogger = KotlinLogging.logger {}
@@ -25,10 +24,8 @@ data class VerifiedServer(
 /**
  * Repository for server-instance data.
  *
- * Verification and the pre-auth [getServerInfo] probe go over kotlinx.rpc
- * ([ServerInfo]); the legacy [getInstance] REST path remains for admin/settings
- * consumers that still read the richer [Instance] (e.g. `remoteUrl`) until those
- * screens migrate.
+ * Verification and the pre-auth [getServerInfo] probe go over kotlinx.rpc,
+ * exchanging [ServerInfo] over the public RPC mount.
  */
 interface InstanceRepository {
     // Try multiple URLs to find one that's reachable.
@@ -52,15 +49,6 @@ interface InstanceRepository {
         getServerInfo(forceRefresh).valueOrNull {
             instanceRepositoryLogger.warn { "getServerInfoOrNull: ${it.debugInfo ?: it.message}" }
         }
-
-    /**
-     * Legacy REST fetch of the richer [Instance] aggregate.
-     *
-     * Retained only for admin/settings consumers that read fields absent from
-     * [ServerInfo] (notably `remoteUrl`). Migrates away once a dedicated admin
-     * GET surface exists. New code should prefer [getServerInfo].
-     */
-    suspend fun getInstance(forceRefresh: Boolean = false): AppResult<Instance>
 
     /**
      * Verifies a server URL is a valid ListenUp instance before authentication.

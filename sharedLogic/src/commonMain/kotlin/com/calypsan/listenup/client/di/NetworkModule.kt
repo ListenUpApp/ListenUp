@@ -1,26 +1,17 @@
 package com.calypsan.listenup.client.di
 
 import com.calypsan.listenup.client.data.remote.ApiClientFactory
-import com.calypsan.listenup.client.data.remote.BookApiContract
 import com.calypsan.listenup.client.data.remote.KtorApiClientFactory
-import com.calypsan.listenup.client.data.remote.ContributorApiContract
-import com.calypsan.listenup.client.data.remote.InstanceApiContract
 import com.calypsan.listenup.client.data.remote.RpcAuthRecovery
 import com.calypsan.listenup.client.data.remote.RpcAuthRecoveryImpl
-import com.calypsan.listenup.client.data.remote.SeriesApiContract
-import com.calypsan.listenup.client.data.remote.api.ListenUpApi
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import org.koin.core.module.Module
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
 /**
- * Network layer dependencies — HTTP client factory and the [ListenUpApi] singleton
- * bound to its four segregated ISP interfaces.
- *
- * Note: Initial setup uses default base URL from [getBaseUrl].
- * When user configures a different server URL at runtime, API instances
- * should be recreated via factory pattern or manual invalidation.
+ * Network layer dependencies — the authenticated HTTP client factory and the
+ * per-RPC-channel auth-recovery seam.
  */
 internal val networkModule: Module =
     module {
@@ -55,19 +46,4 @@ internal val networkModule: Module =
         // The auth/invite RPC channels are provided by clientAuthModule. They still need to be
         // invalidated alongside ApiClientFactory whenever the underlying HttpClient is recycled —
         // see the ServerRepository binding's URL-change listener.
-
-        // ListenUpApi - main API for server communication
-        // Uses default base URL initially; can be recreated when server URL changes
-        single {
-            ListenUpApi(
-                baseUrl = getBaseUrl(),
-                apiClientFactory = get(),
-            )
-        }
-
-        // Bind segregated interfaces to the same ListenUpApi instance (ISP compliance)
-        single<InstanceApiContract> { get<ListenUpApi>() }
-        single<BookApiContract> { get<ListenUpApi>() }
-        single<ContributorApiContract> { get<ListenUpApi>() }
-        single<SeriesApiContract> { get<ListenUpApi>() }
     }

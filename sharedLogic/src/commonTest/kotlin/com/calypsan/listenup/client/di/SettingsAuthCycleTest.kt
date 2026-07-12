@@ -4,7 +4,6 @@ import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.core.SecureStorage
 import com.calypsan.listenup.client.data.repository.AuthSessionStore
 import com.calypsan.listenup.client.data.repository.SettingsRepositoryImpl
-import com.calypsan.listenup.client.domain.model.Instance
 import com.calypsan.listenup.client.domain.repository.AuthSession
 import com.calypsan.listenup.client.domain.repository.InstanceRepository
 import com.calypsan.listenup.client.domain.repository.ServerConfig
@@ -99,13 +98,6 @@ private class NoOpInstanceRepository : InstanceRepository {
     override suspend fun findReachableUrl(urls: List<String>): String? = null
 
     override suspend fun getServerInfo(forceRefresh: Boolean): AppResult<com.calypsan.listenup.api.dto.ServerInfo> =
-        AppResult.Failure(
-            com.calypsan.listenup.api.error.TransportError.NetworkUnavailable(
-                debugInfo = "NoOpInstanceRepository",
-            ),
-        )
-
-    override suspend fun getInstance(forceRefresh: Boolean): AppResult<Instance> =
         AppResult.Failure(
             com.calypsan.listenup.api.error.TransportError.NetworkUnavailable(
                 debugInfo = "NoOpInstanceRepository",

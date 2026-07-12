@@ -223,7 +223,6 @@ GenreShare
 GenreTagEditDelegate
 GenreTreeNode
 GenreUpdate
-GetInstanceUseCase
 HomeRepository
 HomeStatsUiState
 HomeStatsViewModel
@@ -250,8 +249,6 @@ ImportStatus
 ImportSummary
 InboxBookItem
 InboxRepository
-Instance
-InstanceId
 InstanceRepository
 InviteInfo
 InvitePreview

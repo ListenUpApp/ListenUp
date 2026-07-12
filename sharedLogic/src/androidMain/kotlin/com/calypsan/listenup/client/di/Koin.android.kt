@@ -39,11 +39,6 @@ fun androidSharedModules(): List<Module> = sharedModules
 fun androidPlaybackPresentationModule(): Module = playbackPresentationModule
 
 /**
- * Android emulator uses 10.0.2.2 to connect to host's localhost.
- */
-actual fun getBaseUrl(): String = "http://10.0.2.2:8080"
-
-/**
  * Android-specific discovery module.
  * Provides NsdManager-based mDNS discovery.
  */
