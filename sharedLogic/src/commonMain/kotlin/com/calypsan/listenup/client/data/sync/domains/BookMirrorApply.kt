@@ -91,9 +91,12 @@ internal class BookMirrorApply(
         // The cover was replaced server-side when the content hash changes. The local cover file is
         // id-named and otherwise never re-downloaded (the downloader skips when a file exists), so it
         // would keep rendering the stale image. Drop it: the render then re-fetches the new cover and
-        // the downloader repopulates it. Best-effort — a failed delete must not fail the sync write.
+        // the downloader repopulates it. Deferred to POST-COMMIT — if a later child apply throws and
+        // this aggregate transaction rolls back, Room keeps the old coverHash, so deleting the file
+        // now would strand the book with no file and no hash change to re-trigger the download.
+        // Best-effort — a failed delete must not fail the sync write.
         if (existing != null && existing.coverHash != updatedEntity.coverHash) {
-            val _ = imageStorage.deleteCover(bookId)
+            deferUntilCommit { val _ = imageStorage.deleteCover(bookId) }
         }
 
         applyContributors(bookId, payload.contributors)

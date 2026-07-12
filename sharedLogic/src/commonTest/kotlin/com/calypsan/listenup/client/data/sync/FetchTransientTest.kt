@@ -149,6 +149,14 @@ private class InMemoryCursorDao : SyncCursorDao {
         cursors[entity.domainName] = entity.revision
     }
 
+    override suspend fun setCursorMonotonic(
+        domainName: String,
+        revision: Long,
+    ) {
+        val current = cursors[domainName]
+        if (current == null || revision > current) cursors[domainName] = revision
+    }
+
     override suspend fun all(): List<SyncCursorEntity> = cursors.map { (domain, rev) -> SyncCursorEntity(domainName = domain, revision = rev) }
 
     override suspend fun deleteAll() {

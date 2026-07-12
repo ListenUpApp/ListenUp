@@ -54,6 +54,46 @@ class OfflineEditorTest :
             }
         }
 
+        test("the enqueue signal fires only AFTER the transaction commits, and a drain then sees the op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                val queue =
+                    PendingOperationQueue(
+                        dao = db.pendingOperationV2Dao(),
+                        sender = PendingOperationSender { AppResult.Success(Unit) },
+                    )
+                val initialSignal = queue.observeEnqueueSignal().value
+                // A runner that snapshots the signal DURING the transaction — after the enqueue row
+                // write, before commit. The fix defers the tick to post-commit, so this must equal
+                // the initial value; the bug ticked inside enqueue, so it would already be +1 here.
+                var signalDuringTx: Long? = null
+                val txRunner =
+                    object : TransactionRunner {
+                        override suspend fun <R> atomically(block: suspend () -> R): R {
+                            val result = block()
+                            signalDuringTx = queue.observeEnqueueSignal().value
+                            return result
+                        }
+                    }
+                val editor =
+                    OfflineEditor(
+                        pendingQueue = queue,
+                        transactionRunner = txRunner,
+                        authSession = FakeAuthSession(userId = "u1"),
+                    )
+
+                editor.edit(OutboxChannels.Books, entityId = "book1", patch = BookUpdate(title = "New Title")) { }
+
+                // No pre-commit signal: the drain collector can't wake against pre-commit state.
+                signalDuringTx shouldBe initialSignal
+                // The signal fired exactly once, post-commit.
+                queue.observeEnqueueSignal().value shouldBe initialSignal + 1
+                // And a drain triggered by that signal now finds the committed op.
+                queue.drain().sent shouldBe 1
+                db.close()
+            }
+        }
+
         test("returns Failure and does NOT enqueue when no user is signed in") {
             runTest {
                 val db = createInMemoryTestDatabase()

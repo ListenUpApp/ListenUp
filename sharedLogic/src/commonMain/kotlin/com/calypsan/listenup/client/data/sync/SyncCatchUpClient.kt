@@ -63,18 +63,24 @@ internal class SyncCatchUpClient(
     /**
      * Re-pull [handler]'s domain from `since = 0`, applying every item and advancing the
      * persisted cursor. Used by the reconciler to repair a domain whose digest diverged.
+     *
+     * Re-baselines the cursor from server truth via [SyncCursorStore.resetCursor], so a stale-high
+     * local cursor is corrected DOWN to the server's actual max — the one sanctioned regression
+     * (the incremental path in [catchUp] stays monotonic).
      */
     override suspend fun <T : Any> catchUpFromZero(handler: SyncDomainHandler<T>): AppResult<Unit> =
-        pageFrom(handler, startSince = 0L)
+        pageFrom(handler, startSince = 0L, resetCursor = true)
 
     /**
      * Core paging loop shared by [catchUp] and [catchUpFromZero]. Pulls pages of [handler]'s
      * domain starting from [startSince], applies each item via [SyncDomainHandler.onCatchUpItem],
-     * and advances the persisted cursor after each page.
+     * and advances the persisted cursor after each page. [resetCursor] forces each advance
+     * (from-zero re-baseline) instead of the default monotonic advance (incremental catch-up).
      */
     private suspend fun <T : Any> pageFrom(
         handler: SyncDomainHandler<T>,
         startSince: Long,
+        resetCursor: Boolean = false,
     ): AppResult<Unit> =
         suspendRunCatching {
             val baseUrl = serverUrlProvider() ?: error(SERVER_URL_NOT_CONFIGURED)
@@ -111,7 +117,14 @@ internal class SyncCatchUpClient(
                     logger.warn { "catchUp(${handler.domainName}): $failed/${page.items.size} items failed to apply" }
                 }
                 page.nextCursor?.let {
-                    store.setCursor(handler.domainName, it)
+                    if (resetCursor) {
+                        store.resetCursor(
+                            handler.domainName,
+                            it,
+                        )
+                    } else {
+                        store.setCursor(handler.domainName, it)
+                    }
                     since = it
                 }
                 if (!page.hasMore) break

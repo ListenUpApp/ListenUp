@@ -432,6 +432,63 @@ class BooksDomainTest :
             }
         }
 
+        // A4: the cover-file delete must land POST-COMMIT. If a later child apply throws and the
+        // aggregate transaction rolls back, Room keeps the OLD coverHash — deleting the file mid-tx
+        // would strand the book with no file and no hash change to re-trigger the download.
+        test("a rolled-back cover-hash change does NOT delete the file; a committed one DOES (A4)") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val imageStorage =
+                        mock<ImageStorage> { everySuspend { deleteCover(any()) } returns AppResult.Success(Unit) }
+                    val real = RoomTransactionRunner(db)
+                    var failNext = false
+                    // Runs the apply inside a REAL transaction, then throws before commit when armed —
+                    // reproducing a child apply that fails after the cover-hash change was detected.
+                    val runner =
+                        object : TransactionRunner {
+                            override suspend fun <R> atomically(block: suspend () -> R): R =
+                                real.atomically {
+                                    val r = block()
+                                    if (failNext) error("simulated child-apply failure — roll back")
+                                    r
+                                }
+                        }
+                    val handler =
+                        booksDomain(database = db, mapper = BookEntityMapper(), imageStorage = imageStorage)
+                            .toHandler(transactionRunner = runner, registry = ClientSyncDomainRegistry())
+
+                    // Commit a book with cover h1.
+                    handler.onEvent(
+                        created(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h1"))),
+                    )
+
+                    // A cover-hash change (h1 -> h2) whose transaction rolls back.
+                    failNext = true
+                    handler
+                        .onEvent(
+                            updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                        ).shouldBeInstanceOf<AppResult.Failure>()
+
+                    // Rollback: Room still holds h1, and the file was NOT deleted.
+                    db.bookDao().getById(BookId("b1"))?.coverHash shouldBe "h1"
+                    verifySuspend(VerifyMode.not) { imageStorage.deleteCover(any()) }
+
+                    // The same change again, now committing: the deferred delete runs post-commit.
+                    failNext = false
+                    handler
+                        .onEvent(
+                            updatedEvent(bookPayload(id = "b1").copy(cover = CoverPayload(CoverSource.ENRICHED, "h2"))),
+                        ).shouldBeInstanceOf<AppResult.Success<Unit>>()
+
+                    db.bookDao().getById(BookId("b1"))?.coverHash shouldBe "h2"
+                    verifySuspend(VerifyMode.exactly(1)) { imageStorage.deleteCover(BookId("b1")) }
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
         test("an unchanged cover hash leaves the local cover in place") {
             runTest {
                 val db = createInMemoryTestDatabase()

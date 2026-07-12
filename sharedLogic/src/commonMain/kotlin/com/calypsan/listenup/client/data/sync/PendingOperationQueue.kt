@@ -172,6 +172,18 @@ internal class PendingOperationQueue(
     fun observeEnqueueSignal(): StateFlow<Long> = enqueueCounter.asStateFlow()
 
     /**
+     * Tick the enqueue signal so the engine schedules a drain wave. The caller-driven
+     * counterpart to [enqueue]'s built-in tick: a transactional enqueue (`signal = false`)
+     * defers the tick to its enclosing caller so the signal fires only AFTER the transaction
+     * commits — otherwise a drain collector wakes on a signal, reads pre-commit WAL state that
+     * doesn't yet see the new row, finds nothing, and strands the op until the next unrelated
+     * trigger (see [OfflineEditor.edit]).
+     */
+    fun signalEnqueued() {
+        enqueueCounter.update { it + 1 }
+    }
+
+    /**
      * Enqueue a new op on [channel]. Returns its generated `clientOpId`. `check`s [op] is one of
      * [OutboxChannel.ops] — the single validation choke point ensuring a queued op can never drift
      * from what the channel declared.
@@ -185,6 +197,11 @@ internal class PendingOperationQueue(
      *   delete-then-insert is non-atomic: the one coalescing caller today serializes per entity on
      *   a Mutex, and racing a concurrent drain is benign (Room `@Update`/`@Delete` on an
      *   already-removed row is a silent no-op).
+     * @param signal When true (the default), ticks the enqueue signal immediately after inserting
+     *   the row. Callers that enqueue INSIDE a write transaction pass `false` and tick via
+     *   [signalEnqueued] once the transaction commits — the row write stays inside the transaction
+     *   for atomicity, but the drain signal must not fire against pre-commit state where the row is
+     *   not yet visible to another connection's reader.
      */
     suspend fun enqueue(
         channel: OutboxChannel<*>,
@@ -193,6 +210,7 @@ internal class PendingOperationQueue(
         payload: String,
         ownerUserId: String,
         coalesce: Boolean = false,
+        signal: Boolean = true,
     ): String {
         check(op in channel.ops) {
             "op $op is not declared by outbox channel '${channel.name}' (declared: ${channel.ops})"
@@ -215,7 +233,9 @@ internal class PendingOperationQueue(
                 ownerUserId = ownerUserId,
             ),
         )
-        enqueueCounter.update { it + 1 }
+        if (signal) {
+            enqueueCounter.update { it + 1 }
+        }
         return opId
     }
 
