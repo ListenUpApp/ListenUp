@@ -116,11 +116,18 @@ internal val clientAuthModule: Module
                 )
             }
 
-            // SSE stream for the pending-approval flow.
-            singleOf(::RegistrationStatusStreamImpl) bind RegistrationStatusStream::class
+            // SSE stream for the pending-approval flow. Explicit constructor call (not `singleOf`) so the
+            // `connectTimeoutMillis: Long` default applies — Koin's constructor DSL resolves EVERY param via
+            // the graph and ignores Kotlin defaults, so `singleOf` would demand an unbound `Long` binding.
+            single<RegistrationStatusStream> {
+                RegistrationStatusStreamImpl(apiClientFactory = get(), serverConfig = get())
+            }
 
-            // SSE stream for the live registration-policy (Sign Up toggle on the login screen).
-            singleOf(::RegistrationPolicyStreamImpl) bind RegistrationPolicyStream::class
+            // SSE stream for the live registration-policy (Sign Up toggle on the login screen). Same
+            // explicit-constructor rationale as the status stream above (defaulted `Long` vs `singleOf`).
+            single<RegistrationPolicyStream> {
+                RegistrationPolicyStreamImpl(apiClientFactory = get(), serverConfig = get())
+            }
 
             // Use cases. LogoutUseCase wants a PlaybackStateProvider, supplied here
             // by the concrete PlaybackManager that implements it — we keep the

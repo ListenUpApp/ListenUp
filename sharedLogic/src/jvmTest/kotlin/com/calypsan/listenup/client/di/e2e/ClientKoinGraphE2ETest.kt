@@ -8,6 +8,8 @@ import com.calypsan.listenup.client.data.remote.DefaultRpcCacheInvalidator
 import com.calypsan.listenup.client.data.remote.RpcCacheInvalidator
 import com.calypsan.listenup.client.domain.repository.AuthRepository
 import com.calypsan.listenup.client.domain.repository.AuthSession
+import com.calypsan.listenup.client.domain.repository.RegistrationPolicyStream
+import com.calypsan.listenup.client.domain.repository.RegistrationStatusStream
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
@@ -24,6 +26,17 @@ class ClientKoinGraphE2ETest :
             val fixture = autoClose(DiWiredClientFixture.start())
             // Resolving a known singleton proves the graph wired, not just that start() returned.
             fixture.koin.koin.get<AuthSession>() shouldNotBe null
+        }
+
+        test("registration SSE streams resolve — a defaulted-Long ctor param must not be Koin-resolved") {
+            // Regression guard: RegistrationPolicy/StatusStreamImpl take `connectTimeoutMillis: Long = DEFAULT`.
+            // A `singleOf(::…)` binding makes Koin resolve EVERY param via the graph (Kotlin defaults are
+            // ignored), demanding an unbound `Long` and throwing NoDefinitionFoundException at resolution.
+            // The cross-cutting graph test above skips missing-dep singletons, so it can't catch this —
+            // resolve these two explicitly. (Surfaced on CI as a DemoProfileBootTest failure post-merge.)
+            val fixture = autoClose(DiWiredClientFixture.start())
+            fixture.koin.koin.get<RegistrationPolicyStream>() shouldNotBe null
+            fixture.koin.koin.get<RegistrationStatusStream>() shouldNotBe null
         }
 
         test("the client Koin graph instantiates without a constructor cycle") {
