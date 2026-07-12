@@ -103,6 +103,24 @@ internal class SyncEngine(
     // queue's SQL filter responsibility.
     private val drainMutex = Mutex()
 
+    // The ONE shared choke point for cursor-advancing catch-up + digest reconcile — the same
+    // "single dispatch seam" move the RpcChannel seam made for RPC. Every reconcile/catch-up entry
+    // point ([runStart], [lifecycleReconcile], [handleCursorStale], [forceReconcile]) drives
+    // [CatchUp.catchUpAll] and/or [SyncReconciler.reconcileAll], both of which page the server and
+    // rewrite [SyncCursorStore]. Before this guard each entry point owned a SEPARATE mutex (or none),
+    // so two could page CONCURRENTLY — e.g. a scan-completion handleCursorStale racing a foreground
+    // lifecycleReconcile: the overlapping-page-decode storm the cursorStale coalescer exists to
+    // prevent, re-opened by the second entry point, with interleaving setCursor writes. Serializing
+    // every catchUpAll/reconcileAll execution behind this one mutex makes concurrent paging
+    // UNREPRESENTABLE. It wraps ONLY the paging call itself (never SSE connect/disconnect or other
+    // orchestration), and is never acquired while any other engine mutex is held — the caller-level
+    // coalescers ([cursorStaleMutex], [lifecycleReconcileMutex]) and [startMutex] all release their
+    // bookkeeping lock BEFORE the pass runs, so there is no lock-order inversion with this guard or
+    // with [drainMutex] (which the drain path holds independently and which never pages catch-up).
+    // Each caller's DISTINCT surrounding behavior (cursorStale's coalescing + await, lifecycle's
+    // debounce + digest, start's ordering) is preserved above this seam; only the paging serializes.
+    private val catchUpMutex = Mutex()
+
     // Serializes the start/stop handshake so concurrent re-entries (e.g.
     // MainActivity.onResume firing twice in quick succession → two
     // syncRepository.connectRealtime() → two engine.start()) can't race two
@@ -257,8 +275,9 @@ internal class SyncEngine(
     private suspend fun runStart(currentUserId: String) {
         // Step 1: queue ownership.
         queue.clearForUserChange(currentUserId)
-        // Step 2: catch-up across all registered domains.
-        catchUp.catchUpAll(registry)
+        // Step 2: catch-up across all registered domains, behind the shared catch-up guard so a
+        // lifecycle/cursorStale trigger racing startup can't page concurrently.
+        catchUpMutex.withLock { catchUp.catchUpAll(registry) }
         // Step 3: seed SSE resume cursor.
         sseClient.seedLastEventId(store.highestCursor())
         // Step 4: collect frames before connecting so immediate frames are not dropped.
@@ -286,8 +305,9 @@ internal class SyncEngine(
         sseClient.connect()
         // Step 8: digest reconciliation — compare local domain digests against the
         // server's and re-pull any domain that has drifted. Runs after SSE connect
-        // so the live tail is already in place; reconcileAll() is non-throwing.
-        reconciler.reconcileAll()
+        // so the live tail is already in place; reconcileAll() is non-throwing. Behind the shared
+        // catch-up guard: its digest repair pages the server and rewrites the cursor store too.
+        catchUpMutex.withLock { reconciler.reconcileAll() }
         // All steps succeeded — flag the user's setup complete so a subsequent
         // start() for the same user is a no-op. If any step above threw, this
         // line is never reached, the flag stays false, and start() retries.
@@ -364,7 +384,9 @@ internal class SyncEngine(
      * same digest re-pull that [start] performs as its final step.
      */
     suspend fun forceReconcile() {
-        reconciler.reconcileAll()
+        // Behind the shared catch-up guard so a post-restore reconcile can't page concurrently with
+        // an in-flight lifecycle/cursorStale/start catch-up (both rewrite the cursor store).
+        catchUpMutex.withLock { reconciler.reconcileAll() }
     }
 
     /**
@@ -462,7 +484,7 @@ internal class SyncEngine(
 
     /** One lifecycle reconcile pass: forward catch-up → digest reconcile → refreshed-tier recovery. */
     private suspend fun runLifecycleReconcilePass() {
-        when (val result = catchUp.catchUpAll(registry)) {
+        when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
             is AppResult.Failure -> {
@@ -472,8 +494,9 @@ internal class SyncEngine(
                 reportConnectionIssue(result.error)
             }
         }
-        // reconcileAll is non-throwing; the router guards each refresh individually.
-        reconciler.reconcileAll()
+        // reconcileAll is non-throwing; the router guards each refresh individually. Behind the
+        // shared catch-up guard: its digest repair pages the server and rewrites the cursor store.
+        catchUpMutex.withLock { reconciler.reconcileAll() }
         // Re-run every refreshed domain's declared refresh so a dropped refresh trigger (presence, server-info,
         // preferences) self-heals on this lifecycle edge — derived from the catalog, not hand-dispatched.
         refreshedRouter.refreshAll()
@@ -573,7 +596,7 @@ internal class SyncEngine(
     private suspend fun runCursorStaleRecovery() {
         logger.info { "CursorStale recovery — disconnect → catchUp → reseed → reconnect" }
         sseClient.disconnect()
-        when (val result = catchUp.catchUpAll(registry)) {
+        when (val result = catchUpMutex.withLock { catchUp.catchUpAll(registry) }) {
             is AppResult.Success -> {}
 
             is AppResult.Failure -> {
