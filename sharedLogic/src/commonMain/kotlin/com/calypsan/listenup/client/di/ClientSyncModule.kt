@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.MoodService
 import com.calypsan.listenup.api.PlaybackService
 import com.calypsan.listenup.api.ProfileService
 import com.calypsan.listenup.api.SeriesService
+import com.calypsan.listenup.api.ShelfService
 import com.calypsan.listenup.api.TagService
 import com.calypsan.listenup.api.UserPreferencesService
 import com.calypsan.listenup.api.sync.BookSyncPayload
@@ -58,12 +59,17 @@ import com.calypsan.listenup.client.domain.repository.ServerReachability
 import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookTagMutation
+import com.calypsan.listenup.api.dto.CollectionBookMutation
+import com.calypsan.listenup.api.dto.CollectionMutation
+import com.calypsan.listenup.api.dto.ShelfBookMutation
+import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.CollectionId
 import com.calypsan.listenup.core.ContributorId
 import com.calypsan.listenup.core.MoodId
 import com.calypsan.listenup.core.SeriesId
+import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.TagId
 import org.koin.core.module.Module
 import org.koin.core.qualifier.named
@@ -138,6 +144,7 @@ internal val clientSyncModule =
             val userPreferencesChannel = rpcChannel<UserPreferencesService>()
             val tagChannel = rpcChannel<TagService>()
             val moodChannel = rpcChannel<MoodService>()
+            val shelfChannel = rpcChannel<ShelfService>()
             outboxSender(
                 mapOf(
                     outboxBinding(OutboxChannels.Positions) { _, request ->
@@ -215,6 +222,67 @@ internal val clientSyncModule =
                                     it.removeMoodFromBook(
                                         BookId(mutation.bookId),
                                         MoodId(mutation.moodId),
+                                    )
+                                }
+                            }
+                        }
+                    },
+                    // The op's entityId is the shelfId; the sender reconstructs the ShelfId from it.
+                    outboxBinding(OutboxChannels.Shelves) { id, mutation ->
+                        when (mutation) {
+                            is ShelfMutation.Update -> {
+                                shelfChannel.call {
+                                    it.updateShelf(ShelfId(id), mutation.name, mutation.description, mutation.isPrivate)
+                                }
+                            }
+
+                            is ShelfMutation.Delete -> {
+                                shelfChannel.call { it.deleteShelf(ShelfId(id)) }
+                            }
+                        }
+                    },
+                    // The op's entityId is the "$shelfId:$bookId" envelope; the sender reads the ids from the payload.
+                    outboxBinding(OutboxChannels.ShelfBooks) { _, mutation ->
+                        when (mutation) {
+                            is ShelfBookMutation.Add -> {
+                                shelfChannel.call {
+                                    it.addBookToShelf(ShelfId(mutation.shelfId), BookId(mutation.bookId))
+                                }
+                            }
+
+                            is ShelfBookMutation.Remove -> {
+                                shelfChannel.call {
+                                    it.removeBookFromShelf(ShelfId(mutation.shelfId), BookId(mutation.bookId))
+                                }
+                            }
+                        }
+                    },
+                    // The op's entityId is the collectionId; the sender reconstructs the CollectionId from it.
+                    outboxBinding(OutboxChannels.Collections) { id, mutation ->
+                        when (mutation) {
+                            is CollectionMutation.Rename -> {
+                                collectionChannel.call { it.renameCollection(CollectionId(id), mutation.newName) }
+                            }
+
+                            is CollectionMutation.Delete -> {
+                                collectionChannel.call { it.deleteCollection(CollectionId(id)) }
+                            }
+                        }
+                    },
+                    // The op's entityId is the "$collectionId:$bookId" envelope; the sender reads the ids from the payload.
+                    outboxBinding(OutboxChannels.CollectionBooks) { _, mutation ->
+                        when (mutation) {
+                            is CollectionBookMutation.Add -> {
+                                collectionChannel.call {
+                                    it.addBookToCollection(CollectionId(mutation.collectionId), BookId(mutation.bookId))
+                                }
+                            }
+
+                            is CollectionBookMutation.Remove -> {
+                                collectionChannel.call {
+                                    it.removeBookFromCollection(
+                                        CollectionId(mutation.collectionId),
+                                        BookId(mutation.bookId),
                                     )
                                 }
                             }

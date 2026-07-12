@@ -39,6 +39,7 @@ internal val collectionModule: Module =
                 collectionBookDao = get(),
                 collectionShareDao = get(),
                 channel = rpcChannel(),
+                offlineEditor = get(),
             )
         }
 

@@ -14,15 +14,19 @@ private val logger = KotlinLogging.logger {}
  * `(collectionId, bookId)` primary key mirrored under the server's synthetic
  * `"$collectionId:$bookId"` envelope id (see `CollectionBookId.asString()`
  * server-side). Server-wins apply, soft tombstones (junction rule: row + revision
- * kept for digest), full digest, online-only writes, access-gated.
+ * kept for digest), full digest, outbox-backed writes, access-gated.
  *
  * **Access gate:** membership rows follow their collection's accessibility;
  * [AccessGate.liveIds] returns synthetic wire-form ids via `liveSyntheticIds()`,
  * and pruning tombstones rows outside the accessible set.
  *
  * **Re-add semantics.** Re-adding a book arrives as Created/Updated with
- * `deletedAt = null`; the upsert clears the tombstone. An own-echo needs no
- * shield: `@Upsert` is idempotent.
+ * `deletedAt = null`; the upsert clears the tombstone.
+ *
+ * **Outbox writes.** Adding and removing a book write the junction optimistically and queue a
+ * durable op on [OutboxChannels.CollectionBooks], keyed by the same `"$collectionId:$bookId"`
+ * envelope id; the in-flight shield defers the junction's own echo until that op drains. Both are
+ * offline-first — the book already exists, so no server id is minted.
  */
 internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<CollectionBookSyncPayload> {
     val apply = CollectionBookMirrorApply(database)
@@ -42,7 +46,7 @@ internal fun collectionBooksDomain(database: ListenUpDatabase): MirroredDomain<C
             ),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.collectionBookDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.CollectionBooks),
         accessGate =
             AccessGate(
                 liveIds = database.collectionBookDao()::liveSyntheticIds,

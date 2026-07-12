@@ -9,6 +9,7 @@ import com.calypsan.listenup.api.dto.shelf.ShelfDetail as ShelfDetailDto
 import com.calypsan.listenup.api.error.ValidationError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.client.data.local.db.ShelfBookCoverHash
+import com.calypsan.listenup.client.data.local.db.ShelfBookDao
 import com.calypsan.listenup.client.data.local.db.ShelfDao
 import com.calypsan.listenup.client.data.local.db.ShelfEntity
 import com.calypsan.listenup.client.data.local.db.ShelfWithBookCount
@@ -16,6 +17,7 @@ import com.calypsan.listenup.client.data.local.db.UserDao
 import com.calypsan.listenup.client.data.local.db.UserEntity
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.core.ShelfId
 import com.calypsan.listenup.core.Timestamp
@@ -42,10 +44,11 @@ import kotlinx.coroutines.test.runTest
  * Unit tests for [ShelfRepositoryImpl] — substrate-Room reads + RPC-dispatched writes.
  *
  * Observation maps Room projections to the domain model (owner fields from the current
- * user, JOIN-derived `bookCount`, surfaced `isPrivate`); writes dispatch to a faked
- * [ShelfService] and surface the typed [AppResult] directly (no throwing bridge). No
- * optimistic Room writes — Room updates arrive via the sync handler on SSE. Cancellation
- * is re-raised.
+ * user, JOIN-derived `bookCount`, surfaced `isPrivate`); the still-online surfaces
+ * (`createShelf`, `reorderBooks`, discovery, detail) dispatch to a faked [ShelfService] and
+ * surface the typed [AppResult] directly. The offline-first surfaces (`updateShelf`,
+ * `deleteShelf`, `addBooksToShelf`, `removeBookFromShelf`) are covered by
+ * [ShelfRepositoryOfflineTest]. Cancellation is re-raised.
  */
 class ShelfRepositoryImplTest :
     FunSpec({
@@ -63,9 +66,11 @@ class ShelfRepositoryImplTest :
         fun repo(
             // autofill: createShelf() now reads revisionOf() and calls upsert() for the optimistic mirror.
             shelfDao: ShelfDao = mock(MockMode.autofill),
+            shelfBookDao: ShelfBookDao = mock(MockMode.autofill),
             userDao: UserDao = mock { everySuspend { getCurrentUser() } returns user() },
             service: ShelfService = mock(),
-        ): ShelfRepositoryImpl = ShelfRepositoryImpl(shelfDao, userDao, RpcChannel.forTest(service))
+        ): ShelfRepositoryImpl =
+            ShelfRepositoryImpl(shelfDao, shelfBookDao, userDao, RpcChannel.forTest(service), noopOfflineEditor())
 
         fun shelfEntity(
             id: String,
@@ -177,54 +182,6 @@ class ShelfRepositoryImplTest :
                 repo(shelfDao = dao, service = service).createShelf("New", null, isPrivate = false)
 
                 verifySuspend(mode = VerifyMode.not) { dao.upsert(any()) }
-            }
-        }
-
-        test("updateShelf dispatches name, description, and privacy flag") {
-            runTest {
-                val service =
-                    mock<ShelfService> {
-                        everySuspend {
-                            updateShelf(ShelfId("s1"), "Renamed", "", true)
-                        } returns AppResult.Success(summary("s1", "Renamed", isPrivate = true))
-                    }
-                repo(service = service).updateShelf(ShelfId("s1"), "Renamed", null, isPrivate = true)
-                verifySuspend { service.updateShelf(ShelfId("s1"), "Renamed", "", true) }
-            }
-        }
-
-        test("deleteShelf dispatches to the service and returns success") {
-            runTest {
-                val service =
-                    mock<ShelfService> {
-                        everySuspend { deleteShelf(ShelfId("s1")) } returns AppResult.Success(Unit)
-                    }
-                val result = repo(service = service).deleteShelf(ShelfId("s1"))
-                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
-            }
-        }
-
-        test("addBooksToShelf dispatches one RPC per book and fails fast") {
-            runTest {
-                val service =
-                    mock<ShelfService> {
-                        everySuspend { addBookToShelf(ShelfId("s1"), BookId("b1")) } returns AppResult.Success(Unit)
-                        everySuspend { addBookToShelf(ShelfId("s1"), BookId("b2")) } returns
-                            AppResult.Failure(ValidationError(message = "nope"))
-                    }
-                val result = repo(service = service).addBooksToShelf(ShelfId("s1"), listOf(BookId("b1"), BookId("b2")))
-                result.shouldBeInstanceOf<AppResult.Failure>()
-            }
-        }
-
-        test("removeBookFromShelf dispatches to the service") {
-            runTest {
-                val service =
-                    mock<ShelfService> {
-                        everySuspend { removeBookFromShelf(ShelfId("s1"), BookId("b1")) } returns AppResult.Success(Unit)
-                    }
-                val result = repo(service = service).removeBookFromShelf(ShelfId("s1"), BookId("b1"))
-                result.shouldBeInstanceOf<AppResult.Success<Unit>>()
             }
         }
 
@@ -378,11 +335,15 @@ class ShelfRepositoryImplTest :
 
         test("CancellationException from the service is re-raised, not swallowed") {
             runTest {
+                // reorderBooks is a still-online surface — it exercises the RPC boundary directly.
                 val service =
                     mock<ShelfService> {
-                        everySuspend { deleteShelf(ShelfId("s1")) } throws CancellationException("cancelled")
+                        everySuspend { reorderShelfBooks(ShelfId("s1"), listOf(BookId("b1"))) } throws
+                            CancellationException("cancelled")
                     }
-                shouldThrow<CancellationException> { repo(service = service).deleteShelf(ShelfId("s1")) }
+                shouldThrow<CancellationException> {
+                    repo(service = service).reorderBooks(ShelfId("s1"), listOf(BookId("b1")))
+                }
             }
         }
     })

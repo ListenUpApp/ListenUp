@@ -36,8 +36,10 @@ internal val shelfModule: Module =
         single<ShelfRepository> {
             ShelfRepositoryImpl(
                 dao = get(),
+                shelfBookDao = get(),
                 userDao = get(),
                 channel = rpcChannel(),
+                offlineEditor = get(),
             )
         }
 

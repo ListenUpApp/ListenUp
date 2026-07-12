@@ -9,6 +9,7 @@ import com.calypsan.listenup.client.data.local.db.CollectionShareDao
 import com.calypsan.listenup.client.data.remote.RpcChannel
 import com.calypsan.listenup.client.data.remote.forTest
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.core.BookId
 import com.calypsan.listenup.server.api.collectionServiceScopedTo
@@ -145,6 +146,7 @@ class CreateAndAddRpcE2ETest :
                         collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
                         collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
                         channel = RpcChannel.forTest(collectionServiceProxy),
+                        offlineEditor = noopOfflineEditor(),
                     )
 
                 // runBlocking (real wall-clock), not runTest: the repo's channel.call now bounds each call

@@ -3,7 +3,11 @@ package com.calypsan.listenup.client.data.sync.domains
 import com.calypsan.listenup.api.dto.BookMoodMutation
 import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookTagMutation
+import com.calypsan.listenup.api.dto.CollectionBookMutation
+import com.calypsan.listenup.api.dto.CollectionMutation
 import com.calypsan.listenup.api.dto.ContributorUpdate
+import com.calypsan.listenup.api.dto.ShelfBookMutation
+import com.calypsan.listenup.api.dto.ShelfMutation
 import com.calypsan.listenup.api.dto.TagMutation
 import com.calypsan.listenup.api.dto.RecordListeningEventRequest
 import com.calypsan.listenup.api.dto.RecordPositionRequest
@@ -82,6 +86,47 @@ internal object OutboxChannels {
             idempotent = true,
         )
 
+    // Shelf lifecycle: update (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
+    // idempotent — a re-fire re-applies the same terminal state. Creating a shelf stays online (server-minted id).
+    val Shelves =
+        OutboxChannel(
+            SyncDomains.SHELVES.name,
+            ShelfMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
+
+    // Junction add/remove: both idempotent server-side (re-adding an existing member or re-removing an
+    // absent one returns Success). Unlike book_tags/book_moods, adding a book mints no server id — the
+    // book already exists — so add is offline-first too.
+    val ShelfBooks =
+        OutboxChannel(
+            SyncDomains.SHELF_BOOKS.name,
+            ShelfBookMutation.serializer(),
+            setOf(OpKind.Create, OpKind.Delete),
+            idempotent = true,
+        )
+
+    // Collection lifecycle: rename (Update) is last-write-wins; delete (Delete) cascades server-side. Both are
+    // idempotent. Creating a collection stays online (server-minted id).
+    val Collections =
+        OutboxChannel(
+            SyncDomains.COLLECTIONS.name,
+            CollectionMutation.serializer(),
+            setOf(OpKind.Update, OpKind.Delete),
+            idempotent = true,
+        )
+
+    // Junction add/remove: both idempotent server-side. Adding a book mints no server id, so add is
+    // offline-first too. The `collection_books` domain is access-gated; the outbox flip touches only its writes.
+    val CollectionBooks =
+        OutboxChannel(
+            SyncDomains.COLLECTION_BOOKS.name,
+            CollectionBookMutation.serializer(),
+            setOf(OpKind.Create, OpKind.Delete),
+            idempotent = true,
+        )
+
     /** The complete, ordered channel list — the set the sender map must bind exactly. */
     val all: List<OutboxChannel<*>> =
         listOf(
@@ -95,6 +140,10 @@ internal object OutboxChannels {
             Tags,
             BookTags,
             BookMoods,
+            Shelves,
+            ShelfBooks,
+            Collections,
+            CollectionBooks,
         )
 
     private val byName: Map<String, OutboxChannel<*>> = all.associateBy { it.name }

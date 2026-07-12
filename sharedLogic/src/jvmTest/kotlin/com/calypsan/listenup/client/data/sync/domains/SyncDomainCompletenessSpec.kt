@@ -115,7 +115,9 @@ class SyncDomainCompletenessSpec :
                 // Frozen posture: exactly these mirrored domains write through the outbox. tags,
                 // book_tags, and book_moods joined when their rename/delete/remove surfaces went
                 // offline-first (adding a tag/mood to a book stays online — find-or-create mints a
-                // server-side id that can't be mirrored optimistically).
+                // server-side id that can't be mirrored optimistically). shelves, shelf_books,
+                // collections, and collection_books joined when their update/delete/add/remove surfaces
+                // went offline-first (create stays online — the server mints the shelf/collection id).
                 outboxDomains.map { it.key.name }.toSet() shouldBe
                     setOf(
                         "books",
@@ -126,6 +128,10 @@ class SyncDomainCompletenessSpec :
                         "tags",
                         "book_tags",
                         "book_moods",
+                        "shelves",
+                        "shelf_books",
+                        "collections",
+                        "collection_books",
                     )
             } finally {
                 db.close()

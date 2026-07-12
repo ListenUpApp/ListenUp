@@ -8,16 +8,20 @@ import com.calypsan.listenup.client.data.sync.TargetedFetch
 
 /**
  * The `collections` domain (Collections — Room v24): server-wins apply, soft-delete
- * tombstones, full digest, online-only writes, access-gated.
+ * tombstones, full digest, outbox-backed writes, access-gated.
  *
  * **Access gate:** the server's `pullSince` for collections is filtered to the
  * caller's accessible set (pure-union grant model), so an `AccessChanged` reconcile
  * must prune local rows the user can no longer see. The [AccessGate] tombstones
  * (not hard-deletes) every live row outside the accessible set.
  *
+ * **Outbox writes.** Rename and delete write Room optimistically and queue a durable op on
+ * [OutboxChannels.Collections] keyed by the collection id; the entity-level in-flight shield defers
+ * a collection's own echo until its op drains. Creating a collection stays an online RPC
+ * (server-minted id).
+ *
  * `bookCount` is JOIN-derived (never stored), so the apply maps only substrate
- * fields — drift is impossible by construction. An own-echo needs no shield:
- * `@Upsert` is idempotent.
+ * fields — drift is impossible by construction.
  */
 internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<CollectionSyncPayload> {
     val apply = CollectionMirrorApply(database)
@@ -27,7 +31,7 @@ internal fun collectionsDomain(database: ListenUpDatabase): MirroredDomain<Colle
         conflict = ConflictPolicy.ServerWins(RevisionGuard { id -> database.collectionDao().revisionOf(id) }),
         deletes = DeleteSemantics.SoftDelete(apply::tombstoneById),
         digest = fullDigest(database.collectionDao()::digestRows),
-        writes = WriteTier.OnlineOnly,
+        writes = WriteTier.Outbox(OutboxChannels.Collections),
         accessGate =
             AccessGate(
                 liveIds = database.collectionDao()::liveIds,

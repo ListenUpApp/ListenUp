@@ -14,6 +14,7 @@ import com.calypsan.listenup.client.data.remote.RpcProxyCache
 import com.calypsan.listenup.client.data.remote.forServer
 import com.calypsan.listenup.client.data.remote.catchingRpcResult
 import com.calypsan.listenup.client.data.repository.CollectionRepositoryImpl
+import com.calypsan.listenup.client.test.fake.noopOfflineEditor
 import com.calypsan.listenup.client.data.sync.testing.testAuth
 import com.calypsan.listenup.client.di.e2e.TestServerConfig
 import com.calypsan.listenup.core.BookId
@@ -197,6 +198,7 @@ class RpcReconnectE2ETest :
                         collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
                         collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
                         channel = channel,
+                        offlineEditor = noopOfflineEditor(),
                     )
 
                 // First create over a live connection — caches the proxy.
@@ -321,6 +323,7 @@ class RpcReconnectE2ETest :
                         collectionBookDao = mock<CollectionBookDao>(MockMode.autofill),
                         collectionShareDao = mock<CollectionShareDao>(MockMode.autofill),
                         channel = channel,
+                        offlineEditor = noopOfflineEditor(),
                     )
 
                 val pending = async { repo.create("test-library", "Staff Picks") }
