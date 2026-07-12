@@ -1031,6 +1031,14 @@ internal class SyncEngine(
                         return
                     }
                 }
+            // Reconcile-on-drain-success: an entity whose optimistic write was INCOMPLETE (e.g. a
+            // new-by-name contributor that couldn't be linked offline) stayed stale because the
+            // entity-level anti-flicker shield DROPPED the server echo while this op was in flight,
+            // and the op is now gone. Targeted-fetch just-sent entities so the current server state
+            // lands promptly instead of waiting for the next lifecycle digest. Deliberately AFTER the
+            // drainMutex block: fetchTransient serializes on catchUpMutex (a leaf lock), which must
+            // never be acquired while drainMutex is held (non-inversion).
+            reconcileSentEntities(outcome.sentEntities)
             val madeProgress = outcome.sent > 0 || outcome.terminalFailures > 0
             // Both this wave's server-answered retries AND its parked ops remain dispatchable (still
             // failureCount <= MAX), so subtract both to decide whether genuinely fresh backlog remains.
@@ -1046,6 +1054,46 @@ internal class SyncEngine(
                 }
             }
             return
+        }
+    }
+
+    /**
+     * Targeted-reconcile the entities an outbox drain wave just sent, so a server echo the in-flight
+     * anti-flicker shield dropped lands promptly instead of waiting for the next lifecycle digest.
+     *
+     * Bounded to ONE targeted fetch per (mirrored) domain per wave: the sent refs are grouped by
+     * domain and fetched by their id list via the existing [CatchUp.fetchTransient] `?ids=` path —
+     * the same primitive the `AccessChanged` delta uses, so the fetch inherits the domain handler's
+     * revision guard and in-flight shield. A client-only channel (`profile`/`preferences`) has no
+     * registered [SyncDomainHandler], so it is skipped gracefully — its inbound echo already rides a
+     * different surface (the `public_profiles` mirror / the `PreferencesChanged` refreshed domain).
+     *
+     * Runs under the shared [catchUpMutex] so it serializes with catch-up/reconcile paging (never
+     * concurrent), and NOT under [drainMutex] (released by the caller before this runs) so there is
+     * no lock-order inversion. Best-effort: a failed fetch logs and moves on — the digest reconcile
+     * is the convergence backstop.
+     */
+    private suspend fun reconcileSentEntities(sentEntities: List<SentEntityRef>) {
+        if (sentEntities.isEmpty()) return
+        for ((domainName, refs) in sentEntities.groupBy { it.domainName }) {
+            val handler = registry.lookup(domainName)
+            if (handler == null) {
+                logger.debug {
+                    "reconcile-on-drain: '$domainName' has no sync handler (client-only channel); skipping targeted fetch"
+                }
+                continue
+            }
+            val ids = refs.map { it.entityId }.distinct()
+
+            @Suppress("UNCHECKED_CAST")
+            val typed = handler as SyncDomainHandler<Any>
+            val result = catchUpMutex.withLock { catchUp.fetchTransient(typed, TargetedFetch.ByIds(ids)) }
+            if (result is AppResult.Failure) {
+                logger.warn {
+                    "reconcile-on-drain fetch failed for '$domainName' (${ids.size} id(s)): ${result.error.code}; " +
+                        "digest reconcile is the backstop"
+                }
+            }
         }
     }
 

@@ -6,7 +6,9 @@ import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
+import com.calypsan.listenup.client.data.local.db.BookDao
 import com.calypsan.listenup.client.data.sync.OfflineEditor
 import com.calypsan.listenup.client.data.sync.domains.OutboxChannels
 import com.calypsan.listenup.client.domain.repository.BookEditRepository
@@ -36,6 +38,7 @@ import com.calypsan.listenup.core.BookId
 internal class BookEditRepositoryImpl(
     private val offlineEditor: OfflineEditor,
     private val localApply: BookMutationLocalApply,
+    private val bookDao: BookDao,
 ) : BookEditRepository {
     override suspend fun updateBook(
         id: BookId,
@@ -57,10 +60,25 @@ internal class BookEditRepositoryImpl(
         genres: List<BookGenreInput>,
     ): AppResult<Unit> = edit(id, BookMutation.SetGenres(genres))
 
+    /**
+     * Pre-validate the chapter set against the SAME set-level invariants the server enforces
+     * ([com.calypsan.listenup.api.BookService.setBookChapters]) BEFORE the optimistic write. An
+     * offline-first edit that failed server validation would otherwise apply optimistically, dead-letter
+     * on drain, and revert — a jarring "it saved, then un-saved" flicker. Rejecting up front returns a
+     * typed [BookError.InvalidInput] with no Room write and no queued op, so the user gets the same
+     * immediate rejection they would online.
+     */
     override suspend fun setBookChapters(
         id: BookId,
         chapters: List<ChapterInput>,
-    ): AppResult<Unit> = edit(id, BookMutation.SetChapters(chapters))
+    ): AppResult<Unit> {
+        // totalDuration for the `startTime < duration` bound. Null (book not yet in Room) skips only
+        // that bound — the size and strictly-increasing checks still run, and the server remains the
+        // final authority on drain.
+        val totalDuration = bookDao.getById(id)?.totalDuration
+        validateChapterSet(chapters, totalDuration)?.let { return AppResult.Failure(it) }
+        return edit(id, BookMutation.SetChapters(chapters))
+    }
 
     override suspend fun deleteBookCover(id: BookId): AppResult<Unit> = edit(id, BookMutation.DeleteCover)
 
@@ -77,4 +95,40 @@ internal class BookEditRepositoryImpl(
         offlineEditor.edit(OutboxChannels.Books, id.value, mutation) {
             localApply.apply(id, mutation)
         }
+}
+
+/**
+ * The largest chapter set a book may carry — mirrors `BookServiceImpl.MAX_CHAPTERS_PER_BOOK`. Client
+ * and server must agree so an offline edit is rejected up front with the same verdict the server
+ * would give on drain.
+ */
+private const val MAX_CHAPTERS_PER_BOOK = 5000
+
+/**
+ * Set-level chapter invariants, mirroring `BookServiceImpl.validateChapterSet` (per-row shape is
+ * already enforced by [ChapterInput]'s `init`). Returns the typed failure, or `null` when valid:
+ *  - the set is capped at [MAX_CHAPTERS_PER_BOOK],
+ *  - an empty set is valid (clears chapters),
+ *  - `startTime`s must be strictly increasing (sorted AND distinct),
+ *  - each `startTime` must fall before [bookDurationMs] (skipped when it is `null` — the book's
+ *    duration isn't known locally, so the server backstops that one bound on drain).
+ */
+internal fun validateChapterSet(
+    chapters: List<ChapterInput>,
+    bookDurationMs: Long?,
+): BookError.InvalidInput? {
+    if (chapters.size > MAX_CHAPTERS_PER_BOOK) {
+        return BookError.InvalidInput(
+            debugInfo = "chapters: size ${chapters.size} exceeds max $MAX_CHAPTERS_PER_BOOK",
+        )
+    }
+    if (chapters.isEmpty()) return null
+    val starts = chapters.map { it.startTime }
+    if (starts != starts.sorted() || starts.toSet().size != starts.size) {
+        return BookError.InvalidInput(debugInfo = "chapter starts must be strictly increasing")
+    }
+    if (bookDurationMs != null && chapters.any { it.startTime >= bookDurationMs }) {
+        return BookError.InvalidInput(debugInfo = "chapter start beyond book duration")
+    }
+    return null
 }

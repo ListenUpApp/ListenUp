@@ -98,6 +98,7 @@ internal val bookModule: Module =
                         chapterDao = get(),
                         collectionBookDao = get(),
                     ),
+                bookDao = get(),
             )
         }
 

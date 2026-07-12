@@ -52,6 +52,11 @@ internal const val DEAD_LETTER_RETENTION_MILLIS: Long = 30L * 24 * 60 * 60 * 100
  *   one just sent), this wave's own retryable failures, AND this wave's parked
  *   failures (all still eligible, just not yet re-sent). The engine uses this to
  *   decide whether looping `drain()` again immediately would make further progress.
+ * @property sentEntities the `(domainName, entityId)` of every op that SENT (and was
+ *   therefore deleted) this wave. The engine targeted-reconciles these after the wave so a
+ *   server echo the entity-level anti-flicker shield dropped WHILE the op was in flight lands
+ *   promptly — closing the "incomplete optimistic write stays stale until the next digest"
+ *   gap (e.g. a new-by-name contributor with no local id). Empty on a wave that sent nothing.
  */
 internal data class DrainOutcome(
     val sent: Int,
@@ -59,6 +64,7 @@ internal data class DrainOutcome(
     val parkedFailures: Int,
     val terminalFailures: Int,
     val remainingDispatchable: Int,
+    val sentEntities: List<SentEntityRef> = emptyList(),
 ) {
     /** True when this wave produced a server-answered retryable failure the engine should reschedule on backoff. */
     val hasRetryableFailures: Boolean get() = retryableFailures > 0
@@ -66,6 +72,18 @@ internal data class DrainOutcome(
     /** True when this wave parked at least one op (no server verdict) awaiting a reachability edge. */
     val hasParkedFailures: Boolean get() = parkedFailures > 0
 }
+
+/**
+ * The identity of an op that SENT successfully in a drain wave — the `(domainName, entityId)`
+ * pair the engine feeds to a targeted [CatchUp.fetchTransient] so the just-sent entity reconciles
+ * to current server state (re-landing any echo the in-flight anti-flicker shield dropped). The
+ * `entityId` is the sync-domain row id (a book edit's `bookId`), so it lines up with the domain
+ * handler's `?ids=` fetch.
+ */
+internal data class SentEntityRef(
+    val domainName: String,
+    val entityId: String,
+)
 
 /**
  * How a failed send disposition affects the op's retry budget. The budget exists to eventually
@@ -286,6 +304,7 @@ internal class PendingOperationQueue(
         var retryableFailures = 0
         var parkedFailures = 0
         var terminalFailures = 0
+        val sentEntities = mutableListOf<SentEntityRef>()
         for (entity in ops) {
             val op = entity.toDomain()
             val result =
@@ -309,6 +328,7 @@ internal class PendingOperationQueue(
                 is AppResult.Success -> {
                     dao.delete(op.clientOpId)
                     sent++
+                    sentEntities += SentEntityRef(op.domainName, op.entityId)
                 }
 
                 is AppResult.Failure -> {
@@ -366,6 +386,7 @@ internal class PendingOperationQueue(
             parkedFailures = parkedFailures,
             terminalFailures = terminalFailures,
             remainingDispatchable = dao.countDispatchable(),
+            sentEntities = sentEntities,
         )
     }
 

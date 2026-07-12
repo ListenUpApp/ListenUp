@@ -606,6 +606,7 @@ internal fun withClientSyncEngineAgainstServer(block: suspend ClientEngineScope.
                             chapterDao = clientDb.chapterDao(),
                             collectionBookDao = clientDb.collectionBookDao(),
                         ),
+                    bookDao = clientDb.bookDao(),
                 )
 
             // Offline-first series edits write to client Room and enqueue a "series" op;

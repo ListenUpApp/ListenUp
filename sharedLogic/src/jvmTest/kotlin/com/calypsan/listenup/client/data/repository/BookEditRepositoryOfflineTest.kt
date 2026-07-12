@@ -7,6 +7,7 @@ import com.calypsan.listenup.api.dto.BookMutation
 import com.calypsan.listenup.api.dto.BookSeriesInput
 import com.calypsan.listenup.api.dto.BookUpdate
 import com.calypsan.listenup.api.dto.ChapterInput
+import com.calypsan.listenup.api.error.BookError
 import com.calypsan.listenup.api.result.AppResult
 import com.calypsan.listenup.api.sync.BookSyncPayload
 import com.calypsan.listenup.api.sync.SyncEvent
@@ -178,6 +179,59 @@ class BookEditRepositoryOfflineTest :
             }
         }
 
+        test("setBookChapters rejects a non-increasing set up front: no optimistic write, no queued op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("book1")
+                    db.seedBook(bookId, title = "Book") // totalDuration = 3_600_000
+                    val repo = db.bookEditRepository()
+
+                    // starts 1000, 1000 — not strictly increasing (duplicate).
+                    val chapters =
+                        listOf(
+                            ChapterInput(id = "ch1", title = "One", startTime = 1000, duration = 500),
+                            ChapterInput(id = "ch2", title = "Two", startTime = 1000, duration = 500),
+                        )
+                    val result = repo.setBookChapters(bookId, chapters)
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<BookError.InvalidInput>()
+                    // Neither the optimistic Room merge nor the outbox enqueue happened.
+                    db.chapterDao().getChaptersForBook(bookId).shouldBeEmpty()
+                    db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).shouldBeEmpty()
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
+        test("setBookChapters rejects a start beyond the book duration up front: no write, no op") {
+            runTest {
+                val db = createInMemoryTestDatabase()
+                try {
+                    val bookId = BookId("book1")
+                    db.seedBook(bookId, title = "Book") // totalDuration = 3_600_000
+                    val repo = db.bookEditRepository()
+
+                    val chapters =
+                        listOf(
+                            ChapterInput(id = "ch1", title = "One", startTime = 0, duration = 1000),
+                            // startTime == totalDuration is out of range (server rejects `>=`).
+                            ChapterInput(id = "ch2", title = "Two", startTime = 3_600_000, duration = 1000),
+                        )
+                    val result = repo.setBookChapters(bookId, chapters)
+
+                    result.shouldBeInstanceOf<AppResult.Failure>()
+                    result.error.shouldBeInstanceOf<BookError.InvalidInput>()
+                    db.chapterDao().getChaptersForBook(bookId).shouldBeEmpty()
+                    db.pendingOperationV2Dao().nextDispatchable(maxAttempts = 5).shouldBeEmpty()
+                } finally {
+                    db.close()
+                }
+            }
+        }
+
         test("deleteBookCover clears the cover pointer optimistically and enqueues DeleteCover") {
             runTest {
                 val db = createInMemoryTestDatabase()
@@ -321,6 +375,7 @@ private fun ListenUpDatabase.bookEditRepository(
                 chapterDao = chapterDao(),
                 collectionBookDao = collectionBookDao(),
             ),
+        bookDao = bookDao(),
     )
 
 private suspend fun ListenUpDatabase.singleQueuedBooksOp(): PendingOperationV2Entity {
