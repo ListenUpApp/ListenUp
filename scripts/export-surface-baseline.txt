@@ -266,8 +266,6 @@ LeaderboardSnapshot
 LeaderboardUiState
 LeaderboardViewModel
 Library
-LibraryAdminRpcFactory
-LibraryAdminService
 LibraryCounts
 LibraryFolder
 LibraryFolderRef
@@ -338,10 +336,9 @@ PlaybackPosition
 PlaybackPositionRepository
 PlaybackPreferences
 PlaybackPreparer
+PlaybackPrepareRepository
 PlaybackProgress
 PlaybackProgressReporter
-PlaybackRpcFactory
-PlaybackService
 PlaybackState
 PlaybackStateProvider
 PlaybackStateWriter
@@ -359,8 +356,6 @@ ReaderLine
 ReaderLineKind
 RecentlyAddedUiBook
 RecentlyAddedUiState
-RecordListeningEventRequest
-RecordPositionRequest
 RefreshToken
 RegisterRequest
 RegisterUiState
