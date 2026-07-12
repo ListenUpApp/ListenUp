@@ -362,7 +362,9 @@ private fun BookDetailReadyContent(
                 hostDisplayName = hostDisplayName,
                 liveCampfires = liveCampfires,
                 onJoin = { sessionId ->
-                    platformActions.playBook(BookId(bookId))
+                    // Playback is the campfire controller's job — it loads and plays the book when the
+                    // room is (or becomes) LIVE. Starting it here would play in the lobby, before the
+                    // fire is lit.
                     campfireViewModel.join(sessionId)
                     campfireFlowStep = CampfireFlowStep.None
                 },
@@ -379,7 +381,8 @@ private fun BookDetailReadyContent(
                 onLoadInvitableUsers = { campfireViewModel.listInvitableUsers(bookId) },
                 onBack = { campfireFlowStep = CampfireFlowStep.Create },
                 onContinue = { invitedUserIds ->
-                    platformActions.playBook(BookId(bookId))
+                    // No playback here — the room is born in the lobby. The campfire controller starts
+                    // playback for everyone in sync when the host lights the fire (CampfireStarted).
                     campfireViewModel.createCampfire(
                         bookId,
                         CampfireSettings(

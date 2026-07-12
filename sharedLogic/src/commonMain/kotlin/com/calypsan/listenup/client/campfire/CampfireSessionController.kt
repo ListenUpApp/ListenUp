@@ -14,6 +14,7 @@ import com.calypsan.listenup.api.streaming.RpcEvent
 import com.calypsan.listenup.client.domain.repository.UserRepository
 import com.calypsan.listenup.client.playback.PlaybackController
 import com.calypsan.listenup.client.playback.PlaybackManager
+import com.calypsan.listenup.core.BookId
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -137,7 +138,8 @@ internal class CampfireSessionController(
             is AppResult.Success -> {
                 selfUserId = userRepository.getCurrentUser()?.idString
                 val snapshot = result.data
-                if (snapshot.phase == CampfirePhase.LIVE) applyAnchorToPlayback(snapshot.anchor, nowMs())
+                // Publish Active first so the UI lands in the room/lobby immediately; then (LIVE only)
+                // load the book and apply the anchor — never gate the state transition on the player.
                 state.value =
                     CampfireUiState.Active(
                         sessionId = sessionId,
@@ -159,6 +161,10 @@ internal class CampfireSessionController(
                     )
                 startObserving(sessionId)
                 startDriftLoop()
+                if (snapshot.phase == CampfirePhase.LIVE) {
+                    loadCampfireBook(snapshot.bookId)
+                    applyAnchorToPlayback(snapshot.anchor, nowMs())
+                }
             }
 
             is AppResult.Failure -> {
@@ -192,20 +198,19 @@ internal class CampfireSessionController(
                 selfUserId = userRepository.getCurrentUser()?.idString
                 val snapshot = result.data
                 var pendingRejoinSync: CampfireAnchor? = null
+                var applyLiveAnchor = false
                 if (snapshot.phase == CampfirePhase.LIVE) {
-                    val nowMs = nowMs()
-                    val roomPositionMs = snapshot.anchor.posAt(nowMs)
+                    val roomPositionMs = snapshot.anchor.posAt(nowMs())
                     val localPositionMs = playbackManager.currentPositionMs.value
                     val isLargeDrift = abs(roomPositionMs - localPositionMs) > LARGE_DRIFT_THRESHOLD_MS
                     if (isLargeDrift) {
                         pendingRejoinSync = snapshot.anchor
                     } else {
-                        applyAnchorToPlayback(
-                            snapshot.anchor,
-                            nowMs,
-                        )
+                        applyLiveAnchor = true
                     }
                 }
+                // Publish Active first, then (if syncing) load the book and apply the anchor — never
+                // gate the state transition on the player.
                 state.value =
                     CampfireUiState.Active(
                         sessionId = sessionId,
@@ -228,6 +233,10 @@ internal class CampfireSessionController(
                     )
                 startObserving(sessionId)
                 startDriftLoop()
+                if (applyLiveAnchor) {
+                    loadCampfireBook(snapshot.bookId)
+                    applyAnchorToPlayback(snapshot.anchor, nowMs())
+                }
             }
 
             is AppResult.Failure -> {
@@ -413,13 +422,20 @@ internal class CampfireSessionController(
         val current = state.value as? CampfireUiState.Active ?: return
         when (frame) {
             is CampfireFrame.CampfireStarted -> {
-                applyAnchorToPlayback(frame.anchor, nowMs())
+                // Flip to LIVE immediately so the UI lands in the room the moment the fire is lit —
+                // never gated behind the player. Loading the book (and applying the anchor) is a
+                // suspend, potentially slow prepare; run it off the frame-collect coroutine so it can't
+                // block this transition or the processing of later frames.
                 state.value =
                     current.copy(
                         anchor = frame.anchor,
                         phase = CampfirePhase.LIVE,
                         startedAtEpochMs = frame.anchor.capturedAtEpochMs,
                     )
+                scope.launch {
+                    loadCampfireBook(current.bookId)
+                    applyAnchorToPlayback(frame.anchor, nowMs())
+                }
             }
 
             is CampfireFrame.AnchorChanged -> {
@@ -486,6 +502,26 @@ internal class CampfireSessionController(
         if (state.value is CampfireUiState.Active) {
             state.value = CampfireUiState.Disconnected(sessionId = sessionId, keepPlayingSolo = true)
         }
+    }
+
+    /**
+     * Loads the campfire's book into the local player so a subsequent [applyAnchorToPlayback] acts
+     * on the right book. The controller owns campfire playback end to end — the book-detail flow
+     * must NOT pre-load or play the book when entering the flow, which would start playback in the
+     * lobby before the fire is lit. Called only at the moments the room actually begins playing for
+     * this member (a [CampfireFrame.CampfireStarted] frame, or joining a room already [LIVE]) — never
+     * in the lobby, and never on routine [CampfireFrame.AnchorChanged] frames (the book is already
+     * loaded by then). Idempotent: a no-op when [bookId] is already active (the Never Stranded case
+     * where the host was already listening to it). A null [PlaybackManager.prepareForPlayback]
+     * (offline, not downloaded) is left to the existing playback-error surface — [applyAnchorToPlayback]
+     * then acts on whatever is loaded and the rejoin/drift paths recover once reachable.
+     */
+    private suspend fun loadCampfireBook(bookId: String) {
+        val target = BookId(bookId)
+        if (playbackManager.currentBookId.value == target) return
+        val prepared = playbackManager.prepareForPlayback(target) ?: return
+        playbackManager.activateBook(target)
+        playbackController.startPlayback(prepared)
     }
 
     private fun applyAnchorToPlayback(
